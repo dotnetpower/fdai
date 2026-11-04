@@ -293,6 +293,8 @@ case "$service" in
       FDAI_ANALYZER_RUN_ID="$local_analyzer_run_id"
       FDAI_INVENTORY_DSN="${FDAI_INVENTORY_DSN:-$FDAI_STATE_STORE_DSN}"
       FDAI_STATE_STORE_DSN="$FDAI_STATE_STORE_DSN"
+      # Every tick audits each observation; a 60 second cadence wrote about 840 audit rows per hour.
+      FDAI_ANALYZER_INTERVAL_SECONDS="${FDAI_ANALYZER_INTERVAL_SECONDS:-300}"
       PYTHONPATH="$service_pythonpath"
       "$repo_root/.venv/bin/python" -m fdai.delivery.analyzer_tick_cli --loop
     )

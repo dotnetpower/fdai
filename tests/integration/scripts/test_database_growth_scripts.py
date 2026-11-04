@@ -5,8 +5,9 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -455,7 +456,13 @@ def _chain(count: int, *, anchor: str | None = None) -> list[dict[str, object]]:
         entry = {"action_kind": "example", "n": seq}
         digest = next_hash(previous, entry)
         records.append(
-            {"seq": seq, "entry": entry, "previous_hash": previous, "entry_hash": digest}
+            {
+                "seq": seq,
+                "entry": entry,
+                "previous_hash": previous,
+                "entry_hash": digest,
+                "created_at": "2026-11-03T00:00:00+00:00",
+            }
         )
         previous = digest
     return records
@@ -516,3 +523,234 @@ def test_compaction_windows_include_resolved_hil_park_only() -> None:
 
     assert module._LOCAL_WINDOWS["hil_park:"] == (500, ("status", "resolved"))
     assert not any(prefix.startswith("analyzer-publication") for prefix in module._LOCAL_WINDOWS)
+
+
+def _written_archive(tmp_path: Path) -> tuple[ModuleType, dict[str, object]]:
+    module = _archive_module()
+    records = _chain(10)
+    entry = module.write_segment(tmp_path, records, anchor="0" * 64)
+    (tmp_path / "manifest.jsonl").write_text(json.dumps(entry) + "\n", encoding="utf-8")
+    return module, entry
+
+
+def test_verify_accepts_an_intact_archive(tmp_path: Path) -> None:
+    module, entry = _written_archive(tmp_path)
+
+    report = module.verify_archive(tmp_path)
+
+    assert report == {
+        "generations": 1,
+        "segments": 1,
+        "rows": 10,
+        "chains": [entry["last_entry_hash"]],
+    }
+
+
+def test_verify_of_an_empty_archive_is_vacuously_valid(tmp_path: Path) -> None:
+    assert _archive_module().verify_archive(tmp_path)["segments"] == 0
+
+
+@pytest.mark.parametrize("defect", ["missing", "bytes", "manifest_rows", "manifest_head"])
+def test_verify_rejects_every_kind_of_archive_damage(tmp_path: Path, defect: str) -> None:
+    module, entry = _written_archive(tmp_path)
+    segment = tmp_path / str(entry["segment"])
+    manifest = tmp_path / "manifest.jsonl"
+    if defect == "missing":
+        segment.unlink()
+    elif defect == "bytes":
+        data = bytearray(segment.read_bytes())
+        data[len(data) // 2] ^= 0xFF
+        segment.write_bytes(bytes(data))
+    else:
+        field = "rows" if defect == "manifest_rows" else "last_entry_hash"
+        changed = {**entry, field: 11 if field == "rows" else "e" * 64}
+        manifest.write_text(json.dumps(changed) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        module.verify_archive(tmp_path)
+
+
+def test_verify_command_exits_nonzero_on_damage_without_a_database(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    module, entry = _written_archive(tmp_path)
+    (tmp_path / str(entry["segment"])).unlink()
+    monkeypatch.setattr(sys, "argv", ["archive", "--verify", "--out", str(tmp_path)])
+
+    assert module.main() == 1
+    assert "verification failed" in capsys.readouterr().err
+
+
+def test_final_archive_fails_unless_it_reaches_the_table_head(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _archive_module()
+    records = _chain(5)
+    rows = [
+        (
+            record["seq"],
+            "00000000-0000-0000-0000-000000000001",
+            None,
+            "actor",
+            "example",
+            "shadow",
+            record["entry"],
+            record["previous_hash"],
+            record["entry_hash"],
+            datetime(2026, 11, 4, tzinfo=UTC),
+        )
+        for record in records
+    ]
+
+    class Database:
+        def __init__(self, head: int) -> None:
+            self.head = head
+
+        def __enter__(self) -> Database:
+            return self
+
+        def __exit__(self, *_arguments: object) -> bool:
+            return False
+
+        def execute(self, query: str, parameters: tuple = ()) -> object:
+            handlers = {
+                "to_regclass": lambda: ("audit_log",),
+                "max(seq)": lambda: (self.head,),
+                "ORDER BY seq LIMIT 1": lambda: (
+                    records[0]["entry_hash"],
+                    datetime(2026, 11, 4, tzinfo=UTC),
+                ),
+            }
+            key = next((name for name in handlers if name in query), None)
+            if key is not None:
+                return SimpleNamespace(fetchone=handlers[key])
+            if not parameters:
+                return SimpleNamespace()
+            wanted = [row for row in rows if parameters[0] < row[0] <= parameters[1]]
+            return SimpleNamespace(fetchall=lambda: wanted, fetchone=lambda: None)
+
+    monkeypatch.setattr(module.psycopg, "connect", lambda *_a, **_k: Database(5))
+    complete = module.archive(
+        "dsn", tmp_path, older_than=timedelta(0), segment_rows=100, max_segments=5, final=True
+    )
+    assert complete["archived_through_seq"] == 5 and complete["rows"] == 5
+
+    monkeypatch.setattr(module.psycopg, "connect", lambda *_a, **_k: Database(9))
+    with pytest.raises(SystemExit, match="stops at seq 5 but the table reaches 9"):
+        module.archive(
+            "dsn", tmp_path, older_than=timedelta(0), segment_rows=100, max_segments=5, final=True
+        )
+
+
+def test_missing_audit_table_is_reported_not_treated_as_an_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _archive_module()
+
+    class Database:
+        def __enter__(self) -> Database:
+            return self
+
+        def __exit__(self, *_arguments: object) -> bool:
+            return False
+
+        def execute(self, query: str, parameters: tuple = ()) -> object:
+            return SimpleNamespace(fetchone=lambda: (None,))
+
+    monkeypatch.setattr(module.psycopg, "connect", lambda *_a, **_k: Database())
+
+    report = module.archive(
+        "dsn", tmp_path, older_than=timedelta(0), segment_rows=10, max_segments=1, final=True
+    )
+
+    assert report["audit_log"] == "absent" and report["rows"] == 0
+
+
+def test_a_recreated_database_gets_its_own_generation_and_old_ones_stay_verifiable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _archive_module()
+    old_entry = module.write_segment(tmp_path, _chain(4), anchor="0" * 64)
+    (tmp_path / "manifest.jsonl").write_text(json.dumps(old_entry) + "\n", encoding="utf-8")
+
+    new_records = _chain(3, anchor="0" * 64)
+    new_records = [
+        {**record, "entry": {"action_kind": "recreated", "n": record["seq"]}}
+        for record in new_records[:1]
+    ]
+    from fdai.shared.providers.audit_hash import next_hash
+
+    new_records[0]["previous_hash"] = "0" * 64
+    new_records[0]["entry_hash"] = next_hash("0" * 64, new_records[0]["entry"])
+    row = (
+        1,
+        "00000000-0000-0000-0000-000000000001",
+        None,
+        "actor",
+        "example",
+        "shadow",
+        new_records[0]["entry"],
+        "0" * 64,
+        new_records[0]["entry_hash"],
+        datetime(2026, 11, 4, tzinfo=UTC),
+    )
+
+    class Database:
+        def __enter__(self) -> Database:
+            return self
+
+        def __exit__(self, *_arguments: object) -> bool:
+            return False
+
+        def execute(self, query: str, parameters: tuple = ()) -> object:
+            if "to_regclass" in query:
+                return SimpleNamespace(fetchone=lambda: ("audit_log",))
+            if "ORDER BY seq LIMIT 1" in query:
+                return SimpleNamespace(fetchone=lambda: (row[8], row[9]))
+            if "max(seq)" in query:
+                return SimpleNamespace(fetchone=lambda: (1,))
+            if not parameters:
+                return SimpleNamespace()
+            return SimpleNamespace(fetchall=lambda: [row] if parameters[0] < 1 else [])
+
+    monkeypatch.setattr(module.psycopg, "connect", lambda *_a, **_k: Database())
+
+    report = module.archive(
+        "dsn", tmp_path, older_than=timedelta(0), segment_rows=10, max_segments=5, final=True
+    )
+
+    assert report["generation"] == module.generation_id(
+        new_records[0]["entry_hash"], datetime(2026, 11, 4, tzinfo=UTC).isoformat()
+    )
+    assert report["archived_through_seq"] == 1
+    assert not (tmp_path / "manifest.jsonl").exists()
+    verified = module.verify_archive(tmp_path)
+    assert verified["generations"] == 2 and verified["rows"] == 5
+
+
+_MIB = 1024 * 1024
+
+
+def test_growth_warns_on_a_high_daily_rate_and_a_near_bound() -> None:
+    previous = {"at": 0.0, "size_bytes": 0}
+    hour = 3600.0
+
+    quiet = _REPORT.growth_warnings(previous, 5 * _MIB, 2 * _GIB, hour)
+    fast = _REPORT.growth_warnings(previous, 20 * _MIB, 2 * _GIB, hour)
+    near = _REPORT.growth_warnings(
+        {"at": 0.0, "size_bytes": 1_800 * _MIB}, 1_900 * _MIB, 2 * _GIB, hour * 24
+    )
+
+    assert quiet == []
+    assert any("MiB/day" in item for item in fast)
+    assert any("days away" in item for item in fast)
+    assert len(near) == 1 and "days away" in near[0]
+
+
+def test_growth_warning_ignores_short_windows_and_shrinking_databases() -> None:
+    assert _REPORT.growth_warnings({"at": 0.0, "size_bytes": 0}, 900 * _MIB, 2 * _GIB, 300.0) == []
+    assert (
+        _REPORT.growth_warnings({"at": 0.0, "size_bytes": 900 * _MIB}, 10 * _MIB, 2 * _GIB, 7200.0)
+        == []
+    )
+    assert _REPORT.growth_warnings(None, 900 * _MIB, 2 * _GIB, 7200.0) == []

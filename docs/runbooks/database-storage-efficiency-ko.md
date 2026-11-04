@@ -1,6 +1,6 @@
 ---
 translation_of: database-storage-efficiency.md
-translation_source_sha: 5ab07e4f29deb58891ba9735f52f4f9b9db7c1d3
+translation_source_sha: ee906f642fb99f265927ff3c9c7e1f767e122360
 translation_revised: 2026-11-04
 ---
 # 데이터베이스 저장 공간 증가 진단
@@ -196,6 +196,38 @@ uv run python scripts/deployment/local/archive-audit-segments.py --older-than-da
 행은 유지합니다. 아무것도 삭제하지 않습니다. `verify_chain`은 여전히 genesis부터 테이블을
 순회하므로 내보낸 행을 지우려면 manifest 앵커를 받아들이는 검증기가 먼저 필요하며, 그 전까지
 테이블은 줄어들지 않습니다.
+
+데이터베이스마다 감사 체인과 순번이 따로 있으므로 보관본은 `.fdai/audit-archive/` 아래에 체인별
+디렉터리를 하나씩 둡니다. 디렉터리 이름은 체인의 첫 행을 해시한 값입니다. 이 구조 이전의 보관본은
+다음 실행 때 자신의 디렉터리로 옮겨집니다. 데이터베이스 없이 보관본이 온전한지 확인하려면
+`archive-audit-segments.py --verify`를 실행하세요. 모든 segment의 digest, 행 범위, 해시 체인을
+manifest와 다시 대조하고 손상이 있으면 0이 아닌 코드로 종료합니다.
+
+`prepare-console-state.sh --recreate`와 한도를 넘은 `--allow-recreate`는 데이터베이스를 삭제하기 전에
+`archive-audit-segments.py --final`과 `--verify`를 실행합니다. `--final`은 최신 512행을 포함한 모든
+행을 보관하고 테이블 끝까지 닿지 않으면 실패합니다. 둘 중 하나라도 실패하면 재생성을 거부하고
+아무것도 삭제하지 않습니다.
+
+## 감사 행을 삭제하거나 집계할 시점
+
+위 개선 후 루프백 데이터베이스에서 측정한 감사 행은 시간당 약 2,000~4,000건입니다. 인덱스를 포함해
+행당 약 1.8 KB이므로 감사 테이블만 하루 약 90~160 MiB, 데이터베이스 전체는 하루 약 100~250 MiB
+늘어납니다. 이전 하루 1.4 GiB보다 약 10배 낮지만 2 GiB 한도까지는 여전히 10~20일 걸립니다.
+inventory generation이 단계적으로 행을 추가하므로 짧은 구간은 증가량을 낮게 보여 줍니다. 하루 단위로
+판단하세요. 로컬 analyzer는 60초 대신 300초마다 실행하며(`FDAI_ANALYZER_INTERVAL_SECONDS`) 이로써
+시간당 감사 약 840행이 줄어듭니다. 보관 후 재생성으로 잃는 것이 없으므로 아래 두 가지는 아직
+정당화되지 않습니다.
+
+- **내보낸 감사 행 삭제.** `verify_chain`과 이를 호출하는 준비 상태, 카오스, 카탈로그 검토,
+  의미 갱신 검사는 genesis부터 테이블을 순회하고, incident 투영은 초기 `incident.open` 행을
+  읽습니다. 삭제하려면 manifest의 보관 앵커를 받아들이는 검증기와 incident 투영 검토가 먼저 필요합니다.
+- **abstain, risk-gate, RCA, Saga 수신 기록 집계.** 각각이 개별 판단 기록이므로 개수로 바꾸면
+  재생 가능성이 약해집니다. 보관 방식을 우선하세요.
+
+`audit_families`에서 하루 약 300 MB를 넘는 증가가 이어지면 다시 검토하세요. 증가 보고서는 15분
+이상의 구간에서 그 속도를 넘거나 14일 안에 한도에 닿을 속도이면 경고합니다.
+`audit_log_entry_correlation_idx`와 `idx_audit_log_correlation_id`는 스캔이 없었지만 첫 번째는
+서명된 서비스 마이그레이션이 소유하고 복구 쿼리가 둘 중 하나를 쓸 수 있으므로 유지합니다.
 
 ## 삭제 가능한 개발 데이터베이스의 명시적 재생성
 

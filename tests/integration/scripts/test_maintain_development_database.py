@@ -172,6 +172,7 @@ def test_explicit_recreation_keeps_active_connection_guard(
             return SimpleNamespace(fetchone=lambda: (result,))
 
     monkeypatch.setattr(_MODULE.psycopg, "connect", lambda *_args, **_kwargs: Connection())
+    monkeypatch.setattr(_MODULE, "_archive_audit_before_recreation", lambda _target: None)
     monkeypatch.setenv("FDAI_DATABASE_URL", "postgresql://fdai@127.0.0.1:5432/fdai")
     monkeypatch.delenv("FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES", raising=False)
     monkeypatch.setattr(sys, "argv", [str(_PATH), mode])
@@ -348,3 +349,49 @@ def test_local_broker_defaults_are_bounded() -> None:
     assert "rpk cluster config set retention_bytes 268435456" in source
     assert "rpk cluster config set group_offset_retention_sec 86400" in source
     assert "rpk cluster config set group_offset_retention_check_ms 60000" in source
+
+
+def test_recreation_is_refused_and_nothing_dropped_when_the_audit_archive_fails(monkeypatch):
+    statements = []
+
+    class Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_arguments):
+            return False
+
+        def execute(self, query, parameters=()):
+            rendered = query if isinstance(query, str) else query.as_string()
+            statements.append(rendered)
+            result = 3 * 1024**3 if "pg_database_size" in rendered else 0
+            return SimpleNamespace(fetchone=lambda: (result,))
+
+    def failing_archive(_target):
+        raise RuntimeError("audit archive --final failed; recreation refused")
+
+    monkeypatch.setattr(_MODULE.psycopg, "connect", lambda *_args, **_kwargs: Connection())
+    monkeypatch.setattr(_MODULE, "_archive_audit_before_recreation", failing_archive)
+    monkeypatch.setenv("FDAI_DATABASE_URL", "postgresql://fdai@127.0.0.1:5432/fdai")
+    monkeypatch.delenv("FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES", raising=False)
+    monkeypatch.setattr(sys, "argv", [str(_PATH), "--recreate"])
+
+    with pytest.raises(RuntimeError, match="recreation refused"):
+        _MODULE.main()
+    assert not any(statement.startswith("DROP") for statement in statements)
+
+
+def test_archive_step_runs_final_then_verify_and_reports_failures(monkeypatch):
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append(command[-1])
+        code = 1 if command[-1] == "--verify" else 0
+        return SimpleNamespace(returncode=code, stdout="{}", stderr="segment changed")
+
+    monkeypatch.setattr(_MODULE.subprocess, "run", run)
+    target = _MODULE._target("postgresql://fdai@127.0.0.1:5432/fdai")
+
+    with pytest.raises(RuntimeError, match="verify failed; recreation refused: segment changed"):
+        _MODULE._archive_audit_before_recreation(target)
+    assert calls == ["--final", "--verify"]

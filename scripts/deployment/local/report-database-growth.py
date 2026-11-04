@@ -26,6 +26,10 @@ _BOUND_ENV = "FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES"
 _DEFAULT_BOUND = 2 * 1024 * 1024 * 1024
 WARN_FRACTION = 0.75
 _SAMPLE_PATH = Path(".fdai/local-db-growth.json")
+# A short interval extrapolates noise, such as a vacuum, into a daily rate.
+MIN_RATE_WINDOW_SECONDS = 900
+DAILY_GROWTH_WARN_BYTES = 300 * 1024 * 1024
+MIN_DAYS_TO_BOUND = 14
 _MIB = 1024 * 1024
 _CONNECTION_OPTIONS = "-c statement_timeout=10000 -c lock_timeout=1000"
 _STATE_FAMILY_SQL = """
@@ -114,6 +118,27 @@ def growth_per_hour(previous: dict[str, Any] | None, size_bytes: int, now: float
     if elapsed < 60:
         return None
     return (size_bytes - int(previous.get("size_bytes", size_bytes))) / elapsed * 3600
+
+
+def growth_warnings(
+    previous: dict[str, Any] | None, size_bytes: int, bound_bytes: int, now: float
+) -> list[str]:
+    """Warn when the observed rate would cost more than a day's budget or fill the bound soon."""
+    if not previous or now - float(previous.get("at", now)) < MIN_RATE_WINDOW_SECONDS:
+        return []
+    rate = growth_per_hour(previous, size_bytes, now)
+    if rate is None or rate <= 0:
+        return []
+    daily = rate * 24
+    warnings = []
+    if daily >= DAILY_GROWTH_WARN_BYTES:
+        warnings.append(
+            f"growth is {daily / _MIB:,.0f} MiB/day (warn at {DAILY_GROWTH_WARN_BYTES // _MIB})"
+        )
+    days_left = max(bound_bytes - size_bytes, 0) / daily
+    if days_left < MIN_DAYS_TO_BOUND:
+        warnings.append(f"the recreation guard is {days_left:.1f} days away at this rate")
+    return warnings
 
 
 def table_storage(row: tuple[Any, ...]) -> dict[str, Any]:
@@ -341,6 +366,7 @@ def main() -> int:
     previous = _previous_sample(database_oid)
     rate = growth_per_hour(previous, size, now)
     status = assess(size, bound)
+    warnings = growth_warnings(previous, size, bound, now)
     for table in tables:
         table["growth_bytes_per_hour"] = relation_growth(previous, table, now)
     report = {
@@ -348,6 +374,7 @@ def main() -> int:
         "bound_bytes": bound,
         "status": status,
         "growth_bytes_per_hour": rate,
+        "growth_warnings": warnings,
         "tables": tables[:top],
         "indexes": [
             {
@@ -383,6 +410,9 @@ def main() -> int:
             )
         if details is not None:
             print(json.dumps(details, sort_keys=True))
+    if warnings and not args.json:
+        for warning in warnings:
+            print(f"WARNING: {warning}; run archive-audit-segments.py and review audit_families")
     if status != "ok" and not args.json:
         print(
             f"WARNING: database is {status} the recreation guard; run "

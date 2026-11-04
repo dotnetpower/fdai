@@ -7,6 +7,7 @@ import argparse
 import asyncio
 import json
 import os
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -113,6 +114,45 @@ def _parser() -> argparse.ArgumentParser:
         help="write private durable local state before recreating the database",
     )
     return parser
+
+
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_ARCHIVE_TIMEOUT_SECONDS = 600
+
+
+def _archive_audit_before_recreation(target: LocalDatabaseTarget) -> None:
+    """Export every audit row to verified zstd segments; refuse recreation if that fails.
+
+    The audit table is the one table whose rows cannot be rebuilt. The archive is complete only
+    when it reaches the table head, so a failure here keeps the database untouched.
+    """
+    script = _REPO_ROOT / "scripts/deployment/local/archive-audit-segments.py"
+    out = _REPO_ROOT / ".fdai/audit-archive"
+    environment = {
+        **os.environ,
+        "FDAI_STATE_STORE_DSN": make_conninfo(**target.connection_info),
+        "PYTHONPATH": os.pathsep.join(
+            (
+                str(_REPO_ROOT / "services/core-control-plane/src"),
+                str(_REPO_ROOT / "packages/service-contracts/src"),
+            )
+        ),
+    }
+    for arguments in (("--final",), ("--verify",)):
+        completed = subprocess.run(  # noqa: S603 - fixed repository script and arguments
+            [sys.executable, str(script), "--out", str(out), *arguments],
+            env=environment,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=_ARCHIVE_TIMEOUT_SECONDS,
+        )
+        if completed.returncode != 0:
+            raise RuntimeError(
+                f"audit archive {arguments[0]} failed; recreation refused: "
+                f"{completed.stderr.strip()[-300:] or completed.stdout.strip()[-300:]}"
+            )
+        print(f"audit archive {arguments[0][2:]}: {completed.stdout.strip()}")
 
 
 def _write_recreated_marker(path: Path) -> None:
@@ -399,6 +439,7 @@ def main() -> int:
             raise RuntimeError(
                 "local database recreation requires stopped services; stop local services"
             )
+        _archive_audit_before_recreation(target)
         if args.preserved_state is not None:
             _write_preserved_state(
                 args.preserved_state,

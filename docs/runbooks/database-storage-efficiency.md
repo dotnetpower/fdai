@@ -186,6 +186,40 @@ newest 512 rows and everything younger than the cutoff. It deletes nothing. `ver
 walks the table from genesis, so removing exported rows needs a verifier that accepts a manifest
 anchor; until then the table does not shrink.
 
+Each database has its own audit chain and sequence numbers, so the archive keeps one directory per
+chain under `.fdai/audit-archive/`, named by a hash of the chain's first row. An archive written
+before this layout is moved into its own directory on the next run. To prove an archive is still
+intact without a database, run `archive-audit-segments.py --verify`: it rechecks every segment's
+digests, row range, and hash chain against the manifest and exits nonzero on any damage.
+
+`prepare-console-state.sh --recreate` and an over-limit `--allow-recreate` run
+`archive-audit-segments.py --final` and then `--verify` before dropping the database. `--final`
+archives every row, including the newest 512, and fails unless the archive reaches the table head.
+If either step fails, recreation is refused and nothing is dropped.
+
+## When to purge or aggregate audit rows
+
+Measured on the loopback database after the fixes above, audit rows arrive at roughly 2,000 to 4,000
+per hour. Each costs about 1.8 KB with its indexes, so the audit table alone grows by about 90 to
+160 MiB per day and the whole database by about 100 to 250 MiB per day. That is roughly ten times
+below the earlier 1.4 GiB per day but still reaches the 2 GiB bound in about 10 to 20 days. Short
+windows understate this because inventory generations add rows in steps, so judge growth over a day.
+The local analyzer ticks every 300 seconds (`FDAI_ANALYZER_INTERVAL_SECONDS`) rather than 60,
+which removes about 840 audit rows per hour. Neither of the following is justified yet, because
+archiving and recreating loses nothing:
+
+- **Purging exported audit rows.** `verify_chain` and the readiness, chaos, catalog-review, and
+  semantic-refresh checks that call it walk the table from genesis, and incident projections read
+  early `incident.open` rows. Purging needs a verifier that accepts an archive anchor from the
+  manifest and an incident-projection review first.
+- **Aggregating abstain, risk-gate, RCA, or Saga ingress records.** Each is an individual decision
+  record, so replacing it with a count weakens replay. Prefer the archive.
+
+Reconsider when `audit_families` shows sustained growth above about 300 MB per day. The growth
+report warns when the rate over at least 15 minutes exceeds that, or would reach the bound within 14
+days. The `audit_log_entry_correlation_idx` and `idx_audit_log_correlation_id` indexes showed no
+scans, but a signed service migration owns the first and recovery queries may use either, so they stay.
+
 ## Explicitly recreate a disposable development database
 
 Ordinary preparation and `--allow-recreate` preserve an under-limit database. After reviewing backup
