@@ -53,7 +53,7 @@ def test_console_config_renders_stencil_feature_flags_when_present() -> None:
     script = render_console_config(json.dumps(payload).encode()).decode("utf-8")
     assert "globalThis.__FDAI_CONSOLE_CONFIG__ = " in script
     assert "globalThis.__FDAI_STENCIL_FEATURE_FLAGS__ = " in script
-    with pytest.raises(ValueError, match="locked panel"):
+    with pytest.raises(ValueError, match="locked safety-core panel"):
         render_console_config(
             json.dumps(
                 {

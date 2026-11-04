@@ -37,10 +37,15 @@ def _validate_console_stencil_flags(raw: object) -> dict[str, object]:
     allowed_keys = {
         "schema_version",
         "stencil_id",
+        "stencil_digest",
+        "feature_flags_digest",
         "enforcement_mode",
         "enabled_panel_ids",
         "disabled_panel_ids",
+        "enabled_loops",
+        "disabled_loops",
         "panel_flags",
+        "loop_flags",
     }
     if not set(raw).issubset(allowed_keys):
         raise ValueError("Console stencil_feature_flags contains unsupported fields")
@@ -56,7 +61,12 @@ def _validate_console_stencil_flags(raw: object) -> dict[str, object]:
         not isinstance(stencil_id, str) or _PANEL_ID_RE.fullmatch(stencil_id) is None
     ):
         raise ValueError("Console stencil_feature_flags.stencil_id is invalid")
-    for list_key in ("enabled_panel_ids", "disabled_panel_ids"):
+    for list_key in (
+        "enabled_panel_ids",
+        "disabled_panel_ids",
+        "enabled_loops",
+        "disabled_loops",
+    ):
         items = raw.get(list_key)
         if items is not None:
             if not isinstance(items, list) or not all(
@@ -65,18 +75,21 @@ def _validate_console_stencil_flags(raw: object) -> dict[str, object]:
                 raise ValueError(f"Console stencil_feature_flags.{list_key} is invalid")
     disabled = set(raw.get("disabled_panel_ids") or ())
     if any(lp in disabled for lp in _LOCKED_PANELS):
-        raise ValueError("Console stencil_feature_flags cannot disable locked safety-core panels")
-    panel_flags = raw.get("panel_flags")
-    if panel_flags is not None:
-        if not isinstance(panel_flags, dict) or not all(
-            isinstance(k, str) and _PANEL_ID_RE.fullmatch(k) is not None and type(v) is bool
-            for k, v in panel_flags.items()
-        ):
-            raise ValueError("Console stencil_feature_flags.panel_flags is invalid")
-        if any(panel_flags.get(lp) is False for lp in _LOCKED_PANELS):
-            raise ValueError(
-                "Console stencil_feature_flags.panel_flags cannot disable locked safety-core panels"
-            )
+        raise ValueError("Console stencil_feature_flags cannot disable locked safety-core panel(s)")
+    for map_key in ("panel_flags", "loop_flags"):
+        flags_map = raw.get(map_key)
+        if flags_map is not None:
+            if not isinstance(flags_map, dict) or not all(
+                isinstance(k, str) and _PANEL_ID_RE.fullmatch(k) is not None and type(v) is bool
+                for k, v in flags_map.items()
+            ):
+                raise ValueError(f"Console stencil_feature_flags.{map_key} is invalid")
+            if map_key == "panel_flags" and any(
+                flags_map.get(lp) is False for lp in _LOCKED_PANELS
+            ):
+                raise ValueError(
+                    "Console stencil_feature_flags.panel_flags cannot disable locked safety-core panel(s)"
+                )
     return dict(raw)
 
 
