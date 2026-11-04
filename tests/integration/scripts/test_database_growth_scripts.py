@@ -109,8 +109,8 @@ async def test_compaction_vacuum_has_connection_and_lock_deadlines(
     assert connect.call_args.args == ("FDAI_DATABASE_URL",)
     assert connect.call_args.kwargs["autocommit"] is True
     assert connect.call_args.kwargs["connect_timeout"] == 5
-    assert "statement_timeout=30000" in connect.call_args.kwargs["options"]
-    assert "lock_timeout=1000" in connect.call_args.kwargs["options"]
+    assert "statement_timeout=120000" in connect.call_args.kwargs["options"]
+    assert "lock_timeout=15000" in connect.call_args.kwargs["options"]
     connection = connect.return_value.__enter__.return_value
     assert connection.execute.call_args_list[0].args[0] == "VACUUM (ANALYZE) state_kv"
     assert report["vacuum_mode"] == "ordinary"

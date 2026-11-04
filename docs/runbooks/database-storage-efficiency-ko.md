@@ -1,6 +1,6 @@
 ---
 translation_of: database-storage-efficiency.md
-translation_source_sha: c7f26c96f2a4f507d20120bf7eec43adfc511b86
+translation_source_sha: 5ab07e4f29deb58891ba9735f52f4f9b9db7c1d3
 translation_revised: 2026-11-04
 ---
 # 데이터베이스 저장 공간 증가 진단
@@ -168,6 +168,11 @@ Huginn 수신 dedup shard는 완료된 키를 모두 보관해서 수신 이벤�
 차단 표식이 되며 완료 수백 건마다 정리합니다. 이전 레이아웃으로 쓰인 shard는 처음 접근할 때
 한 번 정리합니다. 완료된 항목이 shard를 떠나기 전에 terminal receipt를 먼저 받으므로 중복
 차단 범위는 좁아지지 않습니다. receipt 구간은 dedup 구간의 4배라 대체되는 shard 구간보다 넓습니다.
+
+완료 처리는 먼저 요청 식별자, 처리 소유권, 필수 게시 경로를 검증한 뒤 리비전이 일치할 때만
+compare-and-swap으로 shard의 완료 항목을 저장합니다. 이 저장이 확인된 후에만 완료 증적을
+생성합니다. 증적 쓰기가 중단되면 완료 항목에서 복구하며, 검증 실패나 경합으로 완료하지
+못한 요청에는 성공 차단 표식을 만들지 않습니다.
 
 로컬 실행기는 reconciliation 서비스에 `FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS`를
 `1800`으로 설정합니다. 전체 스캔마다 generation을 쓰고 변경된 Resource를 다시 평가하기

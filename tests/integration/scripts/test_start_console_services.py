@@ -1339,9 +1339,11 @@ def test_code_security_cache_reuse_requires_resolved_snapshot() -> None:
 
 
 @pytest.mark.parametrize("auth_mode", ["browser-entra", "azure-cli"])
+@pytest.mark.parametrize("code_security_worker", ["0", "1"])
 def test_preparation_reuses_an_unchanged_healthy_stack(
     tmp_path: Path,
     auth_mode: str,
+    code_security_worker: str,
 ) -> None:
     repo = tmp_path / "repo"
     prepare_script = repo / "scripts/deployment/local/prepare-console-full-stack.sh"
@@ -1382,6 +1384,7 @@ def test_preparation_reuses_an_unchanged_healthy_stack(
     )
     (repo / "console/package.json").write_text("{}\n", encoding="utf-8")
     (repo / "console/package-lock.json").write_text("{}\n", encoding="utf-8")
+    _write_executable(repo / "console/node_modules/.bin/npm", "#!/usr/bin/env bash\nexit 0\n")
     _write_executable(repo / "console/node_modules/.bin/vite", "#!/usr/bin/env bash\nexit 0\n")
     _write_ready_dependency_script(repo)
     (repo / "resolved-models.json").write_text("prepared\n", encoding="utf-8")
@@ -1414,14 +1417,18 @@ esac
     result = subprocess.run(  # noqa: S603 - fixed test script and executable.
         [_BASH, str(prepare_script), "--auth-mode", auth_mode],
         cwd=repo,
-        env={**os.environ, "PATH": f"{repo / 'console/node_modules/.bin'}:{os.environ['PATH']}"},
+        env={
+            **os.environ,
+            "PATH": f"{repo / 'console/node_modules/.bin'}:{os.environ['PATH']}",
+            "FDAI_LOCAL_CODE_SECURITY_WORKER": code_security_worker,
+        },
         capture_output=True,
         text=True,
         check=False,
         timeout=3,
     )
 
-    assert result.returncode == 0
+    assert result.returncode == 0, result.stderr
     assert "service=console-preparation event=reused" in result.stdout
     assert re.fullmatch(
         (

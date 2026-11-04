@@ -289,49 +289,23 @@ class HuginnDedupJournal:
         state_key = self._shard_key(shard_index)
         capacity = self._shard_capacity(shard_index)
         await self._compact_published(shard_index)
-        _, _, _, shard_entries = _decode(await self._store.read_state(state_key))
-        if idempotency_key not in shard_entries:
-            if await self._store.read_state(_terminal_key(idempotency_key)) is not None:
-                await self._validate_terminal_request(
-                    idempotency_key=idempotency_key,
-                    request_digest=request_digest,
-                    legacy_request_digest=None,
-                )
-                return
-            raise RuntimeError("Huginn ingress claim disappeared before completion")
-        await self._store.write_state(
-            _terminal_key(idempotency_key),
-            {
-                "schema_version": "1.0.0",
-                "revision": 1,
-                "idempotency_key": idempotency_key,
-                "request_digest": request_digest,
-                "status": "published",
-            },
-        )
-        await self._prune_terminals()
         for _ in range(_MAX_CAS_ATTEMPTS):
             current = await self._store.read_state(state_key)
             revision, stored_capacity, next_sequence, entries = _decode(current)
             self._validate_capacity(stored_capacity, expected=capacity)
             existing = entries.get(idempotency_key)
             if existing is None:
-                # Another completer removed it after the terminal receipt became durable.
-                return
+                if await self._store.read_state(_terminal_key(idempotency_key)) is not None:
+                    await self._validate_terminal_request(
+                        idempotency_key=idempotency_key,
+                        request_digest=request_digest,
+                        legacy_request_digest=None,
+                    )
+                    return
+                raise RuntimeError("Huginn ingress claim disappeared before completion")
             _validate_request(existing, request_digest=request_digest)
             if existing["status"] == "published":
-                # A legacy completed entry; compaction normally removes these first.
-                entries = {key: entry for key, entry in entries.items() if key != idempotency_key}
-                if await self._advance(
-                    state_key=state_key,
-                    current=current,
-                    revision=revision,
-                    capacity=capacity,
-                    next_sequence=next_sequence,
-                    entries=entries,
-                ):
-                    return
-                continue
+                break
             if existing["owner_token"] != self._owner_token:
                 raise HuginnClaimInProgressError("Huginn ingress claim belongs to another replica")
             published_topics = set(_published_topics(existing))
@@ -340,16 +314,33 @@ class HuginnDedupJournal:
                 required_topics.add("object.change")
             if require_published_topics and not required_topics.issubset(published_topics):
                 raise RuntimeError("Huginn ingress publication legs are incomplete")
+            completed = {
+                "request_digest": request_digest,
+                "status": "published",
+                "owner_token": "",
+                "lease_expires_at": "",
+                "sequence": existing["sequence"],
+                "payload": None,
+                "change_projection": None,
+                "published_topics": sorted(required_topics),
+            }
             if await self._advance(
                 state_key=state_key,
                 current=current,
                 revision=revision,
                 capacity=capacity,
                 next_sequence=next_sequence,
-                entries={key: entry for key, entry in entries.items() if key != idempotency_key},
+                entries={**entries, idempotency_key: completed},
             ):
-                return
-        raise RuntimeError("Huginn dedup completion contention exceeded the bounded retry limit")
+                break
+        else:
+            raise RuntimeError(
+                "Huginn dedup completion contention exceeded the bounded retry limit"
+            )
+        # Fence completion before publishing its receipt; compaction remains restart-safe.
+        self._compacted_shards.discard(shard_index)
+        await self._compact_published(shard_index)
+        await self._prune_terminals()
 
     async def mark_published(
         self,

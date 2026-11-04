@@ -158,6 +158,11 @@ written by the older layout is compacted once on first touch: its completed entr
 receipts before they leave the shard, so the duplicate fence never narrows. The receipt window is
 four dedup windows, which is wider than the shard window it replaces.
 
+Completion first validates request identity, claim ownership, and required publication legs,
+then commits the completed shard entry through revision-fenced compare-and-swap. Only that
+acknowledged checkpoint can produce a terminal receipt. Interrupted receipt writes recover
+from the completed entry; rejected or contended completion never creates a success fence.
+
 The local launcher sets `FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS` to `1800` for the
 reconciliation service, because every full scan writes a generation and re-evaluates every changed
 Resource. Override it in the environment; the deployed default stays `120`. The local Postgres

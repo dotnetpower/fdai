@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 from fdai.agents._framework.huginn_dedup import (
+    HuginnClaimInProgressError,
     HuginnDedupJournal,
     _terminal_key,
     request_digest,
@@ -84,6 +86,108 @@ async def test_completing_an_unknown_claim_still_fails_closed() -> None:
             request_digest=request_digest(_raw("event:never")),
             topic="object.event",
         )
+
+
+@pytest.mark.parametrize("rejection", ["digest", "owner", "event", "change"])
+async def test_rejected_completion_never_records_a_terminal_receipt(rejection: str) -> None:
+    store = InMemoryStateStore()
+    owner = HuginnDedupJournal(store, capacity=64, clock=lambda: NOW)
+    key = "event:rejected"
+    raw = _raw(key)
+    digest = request_digest(raw)
+    await owner.claim(
+        idempotency_key=key,
+        request_digest=digest,
+        payload=raw,
+        change_projection={"id": "change:1"} if rejection == "change" else None,
+    )
+    if rejection != "event":
+        await owner.mark_published(idempotency_key=key, request_digest=digest, topic="object.event")
+    caller = (
+        HuginnDedupJournal(store, capacity=64, clock=lambda: NOW) if rejection == "owner" else owner
+    )
+    error = {
+        "digest": ValueError,
+        "owner": HuginnClaimInProgressError,
+        "event": RuntimeError,
+        "change": RuntimeError,
+    }[rejection]
+    with pytest.raises(error):
+        await caller.complete(
+            idempotency_key=key,
+            request_digest=(
+                request_digest({**raw, "n": "other"}) if rejection == "digest" else digest
+            ),
+            require_published_topics=True,
+        )
+
+    assert await store.read_state(_terminal_key(key)) is None
+    if rejection == "event":
+        await owner.mark_published(idempotency_key=key, request_digest=digest, topic="object.event")
+    if rejection == "change":
+        await owner.mark_published(
+            idempotency_key=key, request_digest=digest, topic="object.change"
+        )
+    await owner.complete(idempotency_key=key, request_digest=digest, require_published_topics=True)
+    duplicate = await owner.claim(
+        idempotency_key=key, request_digest=digest, payload=raw, change_projection=None
+    )
+    assert duplicate.duplicate
+
+
+async def test_exhausted_completion_fence_never_records_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = InMemoryStateStore()
+    journal = HuginnDedupJournal(store, capacity=64, clock=lambda: NOW)
+    key = "event:contended"
+    raw = _raw(key)
+    digest = request_digest(raw)
+    await journal.claim(
+        idempotency_key=key, request_digest=digest, payload=raw, change_projection=None
+    )
+    await journal.mark_published(idempotency_key=key, request_digest=digest, topic="object.event")
+    with monkeypatch.context() as context:
+        advance = AsyncMock(return_value=False)
+        context.setattr(journal, "_advance", advance)
+        with pytest.raises(RuntimeError, match="contention"):
+            await journal.complete(
+                idempotency_key=key, request_digest=digest, require_published_topics=True
+            )
+        assert advance.await_count == 8
+    assert await store.read_state(_terminal_key(key)) is None
+    await journal.complete(
+        idempotency_key=key, request_digest=digest, require_published_topics=True
+    )
+
+
+async def test_completed_checkpoint_recovers_after_receipt_write_interruption(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = InMemoryStateStore()
+    journal = HuginnDedupJournal(store, capacity=64, clock=lambda: NOW)
+    key = "event:interrupted"
+    raw = _raw(key)
+    digest = request_digest(raw)
+    await journal.claim(
+        idempotency_key=key, request_digest=digest, payload=raw, change_projection=None
+    )
+    await journal.mark_published(idempotency_key=key, request_digest=digest, topic="object.event")
+    with monkeypatch.context() as context:
+        context.setattr(
+            store, "write_state_if_absent", AsyncMock(side_effect=OSError("interrupted"))
+        )
+        with pytest.raises(OSError, match="interrupted"):
+            await journal.complete(
+                idempotency_key=key, request_digest=digest, require_published_topics=True
+            )
+    assert await store.read_state(_terminal_key(key)) is None
+    restarted = HuginnDedupJournal(store, capacity=64, clock=lambda: NOW)
+    duplicate = await restarted.claim(
+        idempotency_key=key, request_digest=digest, payload=raw, change_projection=None
+    )
+    assert duplicate.duplicate
+    assert await store.read_state(_terminal_key(key)) is not None
 
 
 async def test_completed_entries_of_the_older_layout_gain_receipts_before_removal() -> None:
