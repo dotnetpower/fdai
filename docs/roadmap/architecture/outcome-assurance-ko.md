@@ -1,8 +1,8 @@
 ---
 title: Outcome Assurance
 translation_of: outcome-assurance.md
-translation_source_sha: 50a983f9ecc839d88de862e85d195916bd310f08
-translation_revised: 2026-11-01
+translation_source_sha: 15ac54533939a3e514d64fa866df7aade75fdca7
+translation_revised: 2026-11-04
 ---
 # 결과 Assurance
 
@@ -208,6 +208,12 @@ fixture 값을 입증하지 않는다는 이름 있는 안내를 제공하며, �
 작업 보류, 감사 전용 T1 비교는 처리 증적입니다. 인시던트 복구, 재발, 부작용, 정책 효과의
 분모를 종결하지 않습니다. 짝지은 운영 평가, 권위 있는 변환 결과 생산, 적격 Pattern의
 T1 편입은 미완료입니다.
+
+워크플로우 가치 주장은 `core/measurement/value_claim.py`의 순수 reducer 하나로 정산합니다.
+시나리오 집합 버전과 통화가 같고 완전하며 독립적으로 관측된 기준선과 처리군 cohort만 받습니다.
+기간이 끝난 뒤의 관측과 표본 하한을 요구하고 95% 구간의 보수적 경계를 보고합니다.
+executor 보고는 인정하지 않고 정책 이탈은 주장한 모든 가치를 차단하며, 원장은 매출이 아니라
+단위를 기록합니다. `StateStoreValueClaimLedger`는 각 정산을 digest 기준으로 한 번만 기록하고, `outcome_measurement_from_settlement`는 정산되지 않은 주장을 측정된 것으로 바꾸지 않은 채 이 projection용으로 재구성합니다. [온톨로지 가치 실현](ontology-value-realization-ko.md)을 참고하세요.
 
 Odin은 중재를 위해 목표 점수 입력을 비교할 수 있지만 읽기 변환 결과는
 business 값을 순위하거나 결정을 변경하지 않습니다. 목표 priority와 대상 값은

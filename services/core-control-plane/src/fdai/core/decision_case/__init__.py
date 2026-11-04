@@ -1,5 +1,12 @@
 """Objective-aware decision cases shared by reliability, ARB, and cost loops."""
 
+from .decision_queue import (
+    DecisionQueueApprovalControl,
+    DecisionQueueItem,
+    DecisionQueueProjection,
+    build_decision_queue_item,
+    build_decision_queue_projection,
+)
 from .domain import (
     MAX_DOMAIN_EVIDENCE_EFFECTS,
     DomainDecisionCoordinator,
@@ -25,12 +32,17 @@ __all__ = [
     "ActionOption",
     "DecisionCase",
     "DecisionClosure",
+    "DecisionQueueApprovalControl",
+    "DecisionQueueItem",
+    "DecisionQueueProjection",
     "DecisionSelection",
     "DomainDecisionCoordinator",
     "DomainDecisionProjection",
     "DomainOptionEvidence",
     "ObjectiveEffect",
     "build_decision_case",
+    "build_decision_queue_item",
+    "build_decision_queue_projection",
     "close_decision",
     "conflicting_objective_effects",
     "select_action_option",

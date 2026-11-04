@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 14d08ce75d4390030687d7749eda6e36be0b797b
-translation_revised: 2026-10-29
+translation_source_sha: 0542fa270e90f95d4ba46b5de3c1cf0e3840c9d8
+translation_revised: 2026-11-04
 ---
 
 # 보안과 아이덴티티
@@ -127,7 +127,7 @@ shadow와 enforce 모드 모두에서 이 작업을 보류하고, 다른 direct-
 프로바이더 중립적인 기능 온톨로지와 scoped 정책 배정으로 확인합니다. 액션 승인은 실행기
 접근 권한을 부여하지 않습니다. 권한이 없으면 원래 액션을 보류하고 별도의 exact-plan
 `AccessGrantRequest`를 생성할 수 있습니다. 독립된 protected deployer가 승인된 권한 부여를 적용하며,
-fresh effective-access 근거가 있어야 액션을 처음부터 다시 평가합니다.
+fresh effective-access 근거가 있어야 액션을 처음부터 다시 평가합니다. 워크플로우 `ontology-function:` 게이트도 같은 규칙을 따릅니다. 근거 reader는 읽기 전용이며 자격 증명을 쓰지 않고, 잘렸거나 오래되었거나 합성이거나 충돌하거나 관측되지 않은 원본은 게이트를 닫으며, `config/workflow-ontology-gates.yaml`은 임계값을 선택하고 근거는 선택하지 않습니다. 충족된 게이트도 승인과 안전 파이프라인이 여전히 필요합니다([프로세스 자동화](../decisioning/process-automation-ko.md)).
 
 - 모든 액션을 필요한 최소 롤/권한에 매핑; **기본 거부**.
 - 최소권한을 관례가 아니라 기계적으로 강제: 액션 화이트리스트는 리스크 게이트에서 평가되는

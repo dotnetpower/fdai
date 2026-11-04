@@ -640,6 +640,10 @@ Semantic slot and type grounding (`semantic_slot_grounding.py`, `semantic_type_g
 forward `object_labels` into `concept_catalogs`, `rule-catalog/vocabulary/inventory-query-language.yaml`
 includes Korean and English security-issue and state-inspection terms, and `bootstrap_semantics.py`
 binds `behavior_knowledge_index` without changing ontology identity or authority.
+## Causal mechanism catalog
+
+The reviewed catalog at `rule-catalog/vocabulary/causal-mechanisms.yaml` declares eight mechanisms: deployment, identity change, network rule change, quota exhaustion, scale-in, setting drift, TLS certificate expiry, and upstream dependency saturation. Each requires repeated samples, a reverse-direction check, and a confounder check, and names at least two refutation reads. A mechanism grades above association only when every named read is run or reported missing and none refutes it. Declaring a mechanism adds no ObjectType, no LinkType, and no authority.
+
 ## Related docs
 
 | To learn about | Read |

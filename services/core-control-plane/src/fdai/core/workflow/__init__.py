@@ -23,6 +23,12 @@ from .gate_resolver import (
     AdmittedWorkflowGuardEvaluator,
     ChangeWindowWorkflowGuardEvaluator,
 )
+from .ontology_gate import (
+    ONTOLOGY_FUNCTION_GATE_PREFIX,
+    OntologyFunctionGateEvaluator,
+    OntologyGateReader,
+    OntologyGateReading,
+)
 from .orchestrator import (
     ProcessRun,
     ProcessStatus,
@@ -57,6 +63,10 @@ __all__ = [
     "ApprovalPlanError",
     "CompiledWorkflow",
     "CHANGE_WINDOW_GATE_REF",
+    "ONTOLOGY_FUNCTION_GATE_PREFIX",
+    "OntologyFunctionGateEvaluator",
+    "OntologyGateReader",
+    "OntologyGateReading",
     "AdmittedWorkflowGuardEvaluator",
     "ChangeWindowWorkflowGuardEvaluator",
     "ProcessRun",
