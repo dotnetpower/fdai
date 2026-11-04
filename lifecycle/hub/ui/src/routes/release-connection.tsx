@@ -73,7 +73,7 @@ export function ReleaseConnectionPanel(
       setConnection(state);
       setEndpoint(state.endpoint);
       onConnection(state);
-      await loadPreview();
+      if (!hasCatalogTrustSource(state)) await loadPreview();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Connection settings read failed.");
     } finally { setLoading(false); }
@@ -98,7 +98,7 @@ export function ReleaseConnectionPanel(
       onConnection(state);
       setReason("");
       setSaved(true);
-      await loadPreview();
+      if (!hasCatalogTrustSource(state)) await loadPreview();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Connection settings update failed.");
     } finally { setBusy(false); }
@@ -122,8 +122,8 @@ export function ReleaseConnectionPanel(
           "연결 설정을 저장하려면 Lifecycle Hub의 migrate 명령을 먼저 실행하세요.")}
       </p>}
       {!connection.editable && !connection.requires_migration && <p class="note">
-        {tr(locale, "The remote catalog endpoint is managed by deployment configuration.",
-          "원격 카탈로그 엔드포인트는 배포 구성에서 관리합니다.")}
+        {tr(locale, "The remote catalog endpoint is managed by deployment configuration. Use the authenticated trust and Updates views below or in the navigation; an anonymous preview is not requested.",
+          "원격 카탈로그 엔드포인트는 배포 구성에서 관리합니다. 아래 신뢰 설정과 탐색 메뉴의 Updates 화면을 이용하세요. 익명 조회는 요청하지 않습니다.")}
       </p>}
       <form onSubmit={(event) => { event.preventDefault(); void save(endpoint); }}>
         <label>{tr(locale, "Release Hub endpoint", "Release Hub 엔드포인트")}

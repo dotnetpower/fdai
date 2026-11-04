@@ -87,6 +87,13 @@ The UI lists only manifests registered in the selected database. An empty databa
 releases; registration and development signatures do not verify a build, image availability,
 or deployment. Keep intentional demo catalogs in separate, explicitly selected directories.
 
+An untouched revision-zero empty catalog is labelled **Initial catalog**, not a failed build or
+an available update. The trust view still displays the real export expiry and explains that expired
+empty metadata cannot be imported. Once a catalog has a revision, release, event, or channel member,
+the ordinary expiry warning remains authoritative. No read renews freshness. The absence of
+capability recall records means only that no recalls are recorded, not that capabilities are healthy;
+recall actions require an operator-authored reason rather than a prefilled test reason.
+
 Build the UI with `npm --prefix lifecycle/release-hub/ui run build`; the API serves the built
 application from the same loopback origin when the build exists. The `serve` command never
 creates a missing key implicitly. Keep the state directory outside source control.

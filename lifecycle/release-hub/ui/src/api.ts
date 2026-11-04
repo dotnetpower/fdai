@@ -15,6 +15,12 @@ export type Catalog = {
   key_id: string; mode: string; releases: Release[];
   channels: Record<string, string[]>; events: Event[]; export_sha256?: string;
 };
+
+export function isInitialCatalog(catalog: Catalog): boolean {
+  return catalog.revision === 0 && catalog.releases.length === 0 &&
+    catalog.events.length === 0 && Object.values(catalog.channels).every(ids => ids.length === 0);
+}
+
 export type Action = "register" | "publish" | "contribute" | "promote" | "recall" | "renew";
 export type CanaryObservationInput = {
   installation_id: string; release_id: string; healthy: boolean; soak_seconds: number;

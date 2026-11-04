@@ -2,7 +2,7 @@ import { PublicClientApplication } from "@azure/msal-browser";
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
   activeCapabilityRecalls, catalogChangeObserved, catalogRecovery, computeApolloReleaseDiff,
-  extractReleaseStencil, isCustomChannel, nextPromotionTransition,
+  extractReleaseStencil, isCustomChannel, isInitialCatalog, nextPromotionTransition,
   releaseStateIndex, releaseTitle, requestCatalog, requestEntraLogin, requestEntraLogout,
   requestEntraSession, requestStencilCatalog, requestStencilCompose, syncManifestReleaseVersion,
   type Action, type Catalog, type Change, type EntraSessionStatus, type Release,
@@ -501,7 +501,7 @@ function CapabilityRecallControl({
   const [liftingReleaseId, setLiftingReleaseId] = useState(
     catalog.releases.find((r) => r.state === "published")?.id ?? "",
   );
-  const [reason, setReason] = useState("Surgical Apollo capability recall / lift verification");
+  const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -551,7 +551,7 @@ function CapabilityRecallControl({
       <div class="preset-metrics" style="margin-bottom: 12px;">
         <strong>{t("Active capability recalls:", "현재 차단(리콜)된 기능:")}</strong>
         {recalled.length === 0 ? (
-          <span class="stencil-chip">{t("None (All capabilities healthy)", "없음 (모든 기능 정상)")}</span>
+          <span class="stencil-chip">{t("No active recalls recorded. Health not verified.", "기록된 활성 리콜이 없습니다. 상태 정상 여부는 검증하지 않았습니다.")}</span>
         ) : (
           recalled.map((c) => <span key={c} class="stencil-pill locked">RECALLED: {c}</span>)
         )}
@@ -1008,7 +1008,10 @@ export function App() {
       {route === "/deployment-requests" && <DeploymentRequests catalog={catalog} locale={locale} />}
       {!catalog && !error && <p role="status" class="empty">{t("Loading release catalog...", "릴리스 카탈로그 불러오는 중...")}</p>}
       {catalog && <>
-        {catalog.expired && <p class="warning">{t(`Catalog export expired at ${time(catalog.expires_at)}. Consumers will reject it. Review the releases, channels and recalls, then use `, `카탈로그 Export 유효기간(${time(catalog.expires_at)})이 만료되었습니다. 하위 설치본이 이를 거부하므로 검토 후 `)}<a href="#/trust">{t("Catalog trust", "서명 신뢰 및 기능 리콜")}</a>{t(" to explicitly renew freshness. Refresh catalog is read-only.", " 메뉴에서 유효기간을 24시간 연장하세요.")}</p>}
+        {isInitialCatalog(catalog) && <p class="note" role="status">{t(
+          "Initial catalog: no releases have been registered or published. Export metadata is not evidence of a build or an available update.",
+          "초기 카탈로그입니다. 등록하거나 발행한 릴리스가 없습니다. 내보내기 메타데이터는 빌드나 사용 가능한 업데이트를 입증하지 않습니다.")}</p>}
+        {catalog.expired && !isInitialCatalog(catalog) && <p class="warning">{t(`Catalog export expired at ${time(catalog.expires_at)}. Consumers will reject it. Review the releases, channels and recalls, then use `, `카탈로그 Export 유효기간(${time(catalog.expires_at)})이 만료되었습니다. 하위 설치본이 이를 거부하므로 검토 후 `)}<a href="#/trust">{t("Catalog trust", "서명 신뢰 및 기능 리콜")}</a>{t(" to explicitly renew freshness. Refresh catalog is read-only.", " 메뉴에서 유효기간을 24시간 연장하세요.")}</p>}
         {release ? <ReleaseWorkspace release={release} catalog={catalog} locale={locale} onLocaleChange={setLocale} disabled={disabled} act={(action, r) => setPending({ action, release: r })} activity={<Activity catalog={catalog} releaseId={release.id} locale={locale} />} />
           : releaseId ? <><h1>{t("Release unavailable", "릴리스를 찾을 수 없음")}</h1><p>{t(`No release matches ${releaseId}.`, `${releaseId} 버전의 릴리스가 존재하지 않습니다.`)}</p><a href="#/releases">{t("Back to releases", "릴리스 목록으로 돌아가기")}</a></>
           : route === "/releases" ? <>
@@ -1107,9 +1110,12 @@ export function App() {
           : route === "/activity" ? <><h1>{t("Activity", "변경 및 감사 이력 (Activity)")}</h1><p>{t("Transactional publication changes, newest first. Development attribution is not a production audit guarantee.", "릴리스 등록, 서명 발행, 단계 승격, 기능 리콜 등 모든 카탈로그 트랜잭션 이력을 최신순으로 표시합니다.")}</p><Activity catalog={catalog} locale={locale} /></>
           : route === "/trust" ? <>
             <h1>{t("Catalog trust", "서명 신뢰 및 긴급 기능 리콜 (Catalog Trust)")}</h1><p>{t("Verify exact export bytes and every published manifest before Lifecycle planning.", "카탈로그 Export 서명 핀 검증, 유효기간 갱신, 그리고 특정 결함 기능만 정밀 차단하는 Apollo Surgical Recall을 관리합니다.")}</p>
-            <section><h2>{t("Development verification boundary", "카탈로그 전자서명 및 Export 핀 정보")}</h2><p>{t("Release signatures are verified against the active development key on every read. Channels and recalls are development metadata, not signed production catalog roles.", "모든 릴리스 매니페스트와 내장된 Stencil 블루프린트는 읽을 때마다 공개키로 서명을 검증합니다.")}</p>
+            <section><h2>{t("Development verification boundary", "카탈로그 전자서명 및 Export 핀 정보")}</h2><p>{t("Published Release signatures are verified against the active development key on every read. Drafts are unsigned. Channels and recalls are development metadata, not signed production catalog roles.", "발행된 릴리스는 읽을 때마다 현재 개발용 키로 서명을 검증합니다. 초안에는 서명이 없습니다. 채널과 리콜은 개발용 메타데이터이며 프로덕션용 서명 카탈로그 역할이 아닙니다.")}</p>
               <dl><dt>{t("Key id", "서명 키 ID")}</dt><dd><code>{catalog.key_id}</code></dd><dt>{t("Revision", "카탈로그 리비전")}</dt><dd>{catalog.revision}</dd><dt>{t("Export expiry", "Export 만료 시각")}</dt><dd>{time(catalog.expires_at)}</dd><dt>{t("Export SHA-256 pin", "Export SHA-256 고정 핀")}</dt><dd><code class="digest">{catalog.export_sha256 || "Refresh to obtain the current pin."}</code></dd></dl>
               <a href="/v1/catalog/export" target="_blank" rel="noreferrer">{t("Open local JSON export (new tab)", "서명된 카탈로그 JSON 원본 열기 (새 탭)")}</a>
+              {catalog.expired && isInitialCatalog(catalog) && <p class="note">{t(
+                "The empty export metadata is expired and cannot be imported. A reviewed catalog change or explicit freshness renewal is required before import; viewing this page changes nothing.",
+                "빈 카탈로그의 내보내기 메타데이터가 만료되어 가져올 수 없습니다. 가져오기 전에 검토한 카탈로그 변경이나 명시적인 유효기간 갱신이 필요합니다. 이 화면을 조회해도 변경되지는 않습니다.")}</p>}
             </section>
             {catalog.releases.some((r) => extractReleaseStencil(r) !== null) && (
               <section>

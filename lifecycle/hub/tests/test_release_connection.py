@@ -319,3 +319,42 @@ def test_missing_schema_requires_explicit_migration(store: HubStore, now: dateti
     assert state["requires_migration"] is True
     assert state["editable"] is False
     assert client.post("/v1/release-hub/connection", json=update(None)).status_code == 503
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/v1/catalog/trust",
+        "/v1/catalog/updates",
+        "/v1/catalog/releases",
+    ],
+)
+def test_missing_catalog_trust_is_explicit_not_a_missing_route(
+    client: TestClient, path: str
+) -> None:
+    response = client.get(path)
+    assert response.status_code == 503
+    assert response.json() == {"error": "catalog_not_configured"}
+    assert (
+        client.post("/v1/release-hub/connection", json=update("http://localhost:8091")).status_code
+        == 200
+    )
+    assert client.get(path).status_code == 503
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/v1/catalog/updates/check",
+        "/v1/catalog/updates/apply",
+        "/v1/catalog/trust/approve",
+        "/v1/catalog/import",
+        "/v1/installations/example/recompute",
+    ],
+)
+def test_unconfigured_catalog_never_accepts_authority_bearing_writes(
+    client: TestClient, path: str
+) -> None:
+    response = client.post(path, json={})
+    assert response.status_code == 503
+    assert response.json() == {"error": "catalog_not_configured"}

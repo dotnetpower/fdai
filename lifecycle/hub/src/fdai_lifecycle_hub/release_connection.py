@@ -292,3 +292,25 @@ def release_connection_routes(
         exception_handlers={EndpointError: endpoint_error, SQLAlchemyError: endpoint_error},
     )
     return [Mount("/v1/release-hub", app=app)]
+
+
+def unconfigured_catalog_routes() -> list[Route]:
+    """Report a missing trust profile explicitly, without fabricating update results."""
+
+    async def unavailable(request: Request) -> Response:
+        logger.warning("hub_catalog_unavailable reason=catalog_not_configured")
+        return JSONResponse({"error": "catalog_not_configured"}, status_code=503)
+
+    return [
+        Route("/v1/catalog/" + path, unavailable, methods=methods)
+        for path, methods in [
+            ("trust", ["GET"]),
+            ("trust/approve", ["POST"]),
+            ("import", ["POST"]),
+            ("updates", ["GET"]),
+            ("updates/check", ["POST"]),
+            ("updates/apply", ["POST"]),
+            ("releases", ["GET"]),
+            ("local-channels", ["GET", "POST"]),
+        ]
+    ] + [Route("/v1/installations/{installation_id}/recompute", unavailable, methods=["POST"])]

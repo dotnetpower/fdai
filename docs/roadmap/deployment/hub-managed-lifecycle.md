@@ -50,9 +50,9 @@ deployment-owned; otherwise saved origins override `FDAI_RELEASE_HUB_ENDPOINT`, 
 to `http://127.0.0.1:8091`. Settings tables are prepared during migration, never during serving.
 
 One credential-free preview has a five-second deadline and 16 MiB limit, with no redirects.
-HTTP is limited to explicit loopback hosts; other origins require HTTPS. Failed reads never substitute data.
-Registrations verify neither builds, image availability nor deployments. Reachability never approves
-keys, export pins, catalog import, Plans or promotion; saved origins cannot redirect Managed Identity.
+Only explicit loopback hosts permit HTTP; other origins require HTTPS. Failed reads never substitute data.
+Registrations verify no builds, image availability or deployments; reachability grants no key, pin, import, Plan or promotion.
+Saved origins cannot redirect Managed Identity. Without catalog trust, Updates and Available releases show previews and setup guidance, not trusted updater results.
 The [local connection reference](../../../lifecycle/hub/README.md#release-hub-connection) describes setup and recovery.
 
 ## Application-neutral package boundary

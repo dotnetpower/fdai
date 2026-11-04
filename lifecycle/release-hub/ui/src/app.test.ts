@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { requestCatalog, type Action, type Catalog } from "./api";
+import { isInitialCatalog, requestCatalog, type Action, type Catalog } from "./api";
 import { isConfirmationDisabled } from "./app";
 
 const validConfirmation = {
@@ -28,6 +28,31 @@ const catalog = (): Catalog => ({
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+});
+
+describe("initial catalog evidence", () => {
+  const initial = (): Catalog => ({ ...catalog(), revision: 0, expired: true });
+
+  it("distinguishes an untouched empty store without changing its expiry", () => {
+    const data = initial();
+    expect(isInitialCatalog(data)).toBe(true);
+    expect(data.expired).toBe(true);
+    expect(data.expires_at).toBe("2026-10-25T10:00:00Z");
+  });
+
+  it("never hides expiry after renewal, registration, publication, or recall", () => {
+    expect(isInitialCatalog({ ...initial(), revision: 1 })).toBe(false);
+    expect(isInitialCatalog({ ...initial(), events: [{
+      revision: 1, release_id: "catalog", action: "renew", reason: "Reviewed",
+      channel: null, occurred_at: "2026-10-24T11:00:00Z",
+    }] })).toBe(false);
+    expect(isInitialCatalog({ ...initial(), releases: [{
+      id: "1.0.0", label: "Registered", manifest: "{}", digest: "a".repeat(64),
+      signed_payload_sha256: "b".repeat(64), signature: null, signature_status: "unsigned",
+      state: "draft", channels: [], published_at: null, recalled_at: null,
+    }] })).toBe(false);
+    expect(isInitialCatalog({ ...initial(), channels: { DEV: ["1.0.0"] } })).toBe(false);
+  });
 });
 
 describe("confirmation retry state", () => {

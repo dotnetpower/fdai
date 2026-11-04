@@ -691,20 +691,6 @@ def _run() -> None:
             app.router.lifespan_context = background_lifespan(
                 app.router.lifespan_context, [lambda: run_periodic(updater)]
             )
-        else:
-
-            async def catalog_unavailable(request: Request) -> Response:
-                logger.warning("hub_catalog_unavailable reason=catalog_not_configured")
-                return JSONResponse({"error": "catalog_not_configured"}, status_code=503)
-
-            app.routes[0:0] = [
-                Route("/v1/catalog/{path:path}", catalog_unavailable, methods=["GET", "POST"]),
-                Route(
-                    "/v1/installations/{installation_id}/recompute",
-                    catalog_unavailable,
-                    methods=["POST"],
-                ),
-            ]
 
     async def invalid_input(request: Request, error: Exception) -> Response:
         logger.warning("hub_operation_rejected category=%s", type(error).__name__)

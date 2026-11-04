@@ -47,7 +47,10 @@ from fdai_lifecycle_hub.errors import (
 from fdai_lifecycle_hub.execution_settings_api import execution_settings_routes
 from fdai_lifecycle_hub.native_ownership_api import native_ownership_routes
 from fdai_lifecycle_hub.operator_surfaces_api import operator_surface_routes
-from fdai_lifecycle_hub.release_connection import release_connection_routes
+from fdai_lifecycle_hub.release_connection import (
+    release_connection_routes,
+    unconfigured_catalog_routes,
+)
 from fdai_lifecycle_hub.remote_auth import RemoteAuth, secure_app
 from fdai_lifecycle_hub.schemas import (
     ApprovalRequest,
@@ -510,6 +513,8 @@ def create_app(
     routes[0:0] = release_connection_routes(
         store.engine, clock, deployment_endpoint=release_hub_endpoint
     )
+    if release_hub_endpoint is None:
+        routes[0:0] = unconfigured_catalog_routes()
     app = Starlette(
         routes=routes,
         exception_handlers={

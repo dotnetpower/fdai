@@ -1,5 +1,6 @@
 import { hubApi } from "../api";
 import { AsyncBoundary } from "../components/async-boundary";
+import { CatalogSourceBoundary } from "../components/catalog-source-boundary";
 import { Link } from "../components/link";
 import { formatTimestamp } from "../format";
 import { useAsync } from "../hooks/use-async";
@@ -15,6 +16,10 @@ function InventoryHeader({ title, reload, loading }: {
 }
 
 export function ReleasesPage() {
+  return <CatalogSourceBoundary title="Available releases"><TrustedReleasesPage /></CatalogSourceBoundary>;
+}
+
+function TrustedReleasesPage() {
   const inventory = useAsync(() => hubApi.listReleases(), []);
   return <div class="inventory-page">
     <InventoryHeader title="Available releases" reload={inventory.reload}

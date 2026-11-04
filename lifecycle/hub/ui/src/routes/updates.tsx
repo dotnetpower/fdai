@@ -4,6 +4,7 @@ import {
 } from "../api";
 import { AsyncBoundary } from "../components/async-boundary";
 import { Badge } from "../components/badge";
+import { CatalogSourceBoundary } from "../components/catalog-source-boundary";
 import { Link } from "../components/link";
 import { formatRelative, formatTimestamp } from "../format";
 import { useAsync } from "../hooks/use-async";
@@ -200,6 +201,10 @@ function Events({ status }: { status: UpdateStatus }) {
 }
 
 export function UpdatesPage() {
+  return <CatalogSourceBoundary title="Updates"><TrustedUpdatesPage /></CatalogSourceBoundary>;
+}
+
+function TrustedUpdatesPage() {
   const status = useAsync(() => hubApi.getUpdateStatus(), []);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);

@@ -26,6 +26,10 @@ function contrast(first: string, second: string): number {
 async function assets(page: Page, directory: string) {
   await page.route("https://hub.test/**", async route => {
     const path = new URL(route.request().url()).pathname;
+    if (path === "/v1/release-hub/connection") return route.fulfill({ json: {
+      endpoint: "https://release.example.com", configured_endpoint: null, revision: 0,
+      source: "deployment", editable: false, requires_migration: false,
+    } });
     if (path.startsWith("/v1/") || path === "/auth/config") {
       throw new Error(`Unexpected API request: ${path}`);
     }
