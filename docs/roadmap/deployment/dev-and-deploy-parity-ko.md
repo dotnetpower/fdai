@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: de4acde8b5ee075ff1c0622a7527bb599a08f5ac
-translation_revised: 2026-10-30
+translation_source_sha: 4d8e56e765e2661e82c29c72e75002ab2b7ae65b
+translation_revised: 2026-11-04
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 
@@ -49,6 +49,8 @@ Console 관리형 담당 체계 후보는 로컬과 배포 환경에서 같은 �
 ## 전수조사 - 로컬 동작 vs Azure 필요
 테스트 맥락 명령은 로컬과 배포 프로필에서 같은 영속 발신함 facade와 준비 상태 의존성을 사용합니다. import를 모아도 테스트 고정본을 활성화하거나 실행 권한을 부여하지 않습니다.
 로컬 준비는 의존성이나 프로바이더 작업 전에 OPA를 확인하며, VS Code 작업 터미널은 사용자 설치 도구를 찾도록 `~/.local/bin`을 포함합니다. 모델 파일을 선택하면 해당 파일의 정확한 `LLM_RESOLVED_MODELS_SHA256`을 Operator 환경에 전달하고, 시작 시 확인값이 없거나 파일이 변경되었으면 차단합니다. 로컬 Console 준비 과정은 Terraform 상태를 초기화하거나 읽지 않습니다. 활성 Azure CLI 구독에서 명시적인 `FDAI_LOCAL_RESOURCE_GROUP`을 검증하고, 프로세스 환경에 값이 없으면 Git에서 무시되는 `console/.env.local`에서 서버 소유 설정 하나만 읽을 수 있습니다. 키가 중복되면 안전하게 차단하며 범위를 환경 캐시 다이제스트에 포함합니다. 한 번 성공적으로 실행한 뒤에는 이전 소유자 전용 생성 범위를 재사용할 수 있습니다. PostgreSQL과 Redpanda는 로컬로 유지합니다. 범위 안에서 Function App이 정확히 하나일 때만 개발 운영 게이트웨이를 연결하고, audience는 로컬 Operator Service와 공유하는 검증된 비공개 `VITE_MSAL_API_SCOPE`에서 추출합니다. 로컬 Console에는 실행기 신원을 제공하지 않으며, Azure 변경에는 영속 승격 근거, 필요한 사람 승인, 안전조건 및 독립 효과 검증이 계속 필요합니다. HTTP 생존 확인과 `pantheon_ready`만으로 소비자 준비 상태나 대화 추론 성공을 입증할 수는 없습니다.
+
+로컬 PostgreSQL 튜닝은 개발 전용 설정이며 배포 환경에 대응하는 설정이 없습니다. 런타임 컨테이너는 WAL을 zstd로 압축하고 WAL을 512 MB로 제한하며 256 MB `/dev/shm`을 사용합니다. Azure Database for PostgreSQL은 관리형 매개변수를 유지합니다. 자세한 내용은 저장소 runbook이 소유합니다.
 2026-07-21 기준. "자동화 테스트"는 테스트 실행기가 실행하는 pytest 또는 committed mock을 뜻합니다. "Full-stack 로컬"은 운영자에 브라우저 Entra를 사용하고 서버 측 Azure 어댑터에 현재 Azure CLI 맥락을 사용하는 VS 코드 compound launch입니다. 테스트 고정본은 이 launch 프로파일에서 활성화되지 않습니다. [배포된 AKS 자격 증명](runtime-deployment-profiles-ko.md#신원-및-secret)은 명시적 연합 인증을 사용하고 Container Apps는 기존 MI를 유지합니다. Thor의 격리된 실행기는 [런타임 배포 프로파일](runtime-deployment-profiles-ko.md#연결된-신원으로-kubernetes-인증)이 소유하는 기본 비활성 상태의 정확한 Kubernetes API 및 공개 CA 계약으로만 연결할 수 있습니다. 이 연결은 역할을 부여하거나 로컬 권한을 바꿀 수 없습니다. 로컬 실행 위치 정책과 이벤트/역할/승인 경계는 바뀌지 않으며 모의 토큰 테스트는 실제 연합 인증이나 권한의 근거가 아닙니다.
 ### 자동화 테스트에서 완전 동작 (Azure 불필요)
 | 서브시스템 | 로컬 백엔드 | 비고 |
