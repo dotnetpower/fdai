@@ -22,7 +22,21 @@ export type OutcomeAssuranceLocale = "en" | "ko";
 export type OutcomeAssuranceSummaryCardId =
   | "operational_readiness"
   | "objective_alignment"
-  | "control_assurance";
+  | "control_assurance"
+  | "business_service_posture";
+
+export interface BusinessServicePostureSummary {
+  readonly serviceId: string;
+  readonly serviceName: string;
+  readonly criticality: string;
+  readonly sloDisplay: string;
+  readonly budgetBurnDisplay: string;
+  readonly budgetStatusLabel: string;
+  readonly allocatedSpendDisplay: string;
+  readonly externalSlaTier: string;
+  readonly readOnly: true;
+  readonly authority: "none";
+}
 
 export interface OutcomeAssuranceSummaryCard {
   readonly card_id: OutcomeAssuranceSummaryCardId;
@@ -120,13 +134,28 @@ export interface OutcomeAssuranceViewModel {
   };
 }
 
-const CARD_IDS = new Set<OutcomeAssuranceSummaryCardId>(["operational_readiness", "objective_alignment", "control_assurance"]);
+const CARD_IDS = new Set<OutcomeAssuranceSummaryCardId>([
+  "operational_readiness",
+  "objective_alignment",
+  "control_assurance",
+  "business_service_posture",
+]);
 const REASONS = new Set<OutcomeAssuranceUnavailableReason>(["source_not_connected", "source_missing", "source_stale", "projection_missing", "projection_malformed", "principal_scope_empty", "insufficient_sample"]);
 const ATTRIBUTION_STATES = new Set<ObjectiveAttributionDrilldown["state"]>(["unattributed", "partial", "attributed", "unavailable"]);
 
 const CARD_TITLES: Record<OutcomeAssuranceLocale, Record<OutcomeAssuranceSummaryCardId, string>> = {
-  en: { operational_readiness: "Operational readiness", objective_alignment: "Objective alignment", control_assurance: "Control assurance" },
-  ko: { operational_readiness: "운영 준비도", objective_alignment: "목표 정합성", control_assurance: "제어 보증" },
+  en: {
+    operational_readiness: "Operational readiness",
+    objective_alignment: "Objective alignment",
+    control_assurance: "Control assurance",
+    business_service_posture: "Business service posture",
+  },
+  ko: {
+    operational_readiness: "운영 준비도",
+    objective_alignment: "목표 정합성",
+    control_assurance: "제어 보증",
+    business_service_posture: "비즈니스 서비스 자세",
+  },
 };
 
 const STATE_LABELS: Record<OutcomeAssuranceLocale, Readonly<Record<string, string>>> = {
@@ -309,6 +338,37 @@ function formatUnavailableBanner(
     : state === "stale"
       ? `Outcome Assurance evidence is stale and rendered unavailable: ${detail}`
       : `Outcome Assurance is unavailable: ${detail}`;
+}
+
+export function formatBusinessServicePostureSummary(
+  input: {
+    readonly service_id: string;
+    readonly service_name: string;
+    readonly criticality: string;
+    readonly slo_target: number;
+    readonly budget_burn_ratio: number;
+    readonly budget_status: "within_budget" | "warning" | "breached";
+    readonly allocated_shared_spend: number;
+    readonly external_sla_tier: string;
+  },
+  locale: OutcomeAssuranceLocale = "en",
+): BusinessServicePostureSummary {
+  const statusLabels: Record<OutcomeAssuranceLocale, Record<string, string>> = {
+    en: { within_budget: "Within budget", warning: "Warning", breached: "Breached" },
+    ko: { within_budget: "예산 내", warning: "주의", breached: "한도 초과" },
+  };
+  return {
+    serviceId: input.service_id,
+    serviceName: input.service_name,
+    criticality: input.criticality,
+    sloDisplay: `${(input.slo_target * 100).toFixed(2)}%`,
+    budgetBurnDisplay: `${Math.round(input.budget_burn_ratio * 100)}%`,
+    budgetStatusLabel: statusLabels[locale][input.budget_status] ?? input.budget_status,
+    allocatedSpendDisplay: `$${input.allocated_shared_spend.toFixed(2)}`,
+    externalSlaTier: input.external_sla_tier,
+    readOnly: true,
+    authority: "none",
+  };
 }
 
 function decodeSummaryCard(value: unknown, index: number): OutcomeAssuranceSummaryCard {

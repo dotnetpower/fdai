@@ -457,3 +457,30 @@ async def test_read_decision_queue_operator_projection_round_trip() -> None:
     assert isinstance(cards, list) and len(cards) == 1
     assert cards[0]["cost_badge"] == "240 USD"
     assert cards[0]["quorum_label"] == "owner (quorum 2)"
+
+
+def test_business_service_posture_card_and_scenario_what_if_summary() -> None:
+    from fdai_operator_service.outcome_assurance_projection import (
+        ScenarioWhatIfSummary,
+        build_business_service_posture_card,
+    )
+
+    card = build_business_service_posture_card(
+        service_id="svc-checkout-api",
+        service_name="Checkout API",
+        criticality="tier_0_mission_critical",
+        slo_target=0.9995,
+        budget_burn_ratio=0.82,
+        allocated_shared_spend=2500.0,
+    )
+    assert card.read_only is True
+    assert card.authority == "none"
+    assert card.budget_status == "within_budget"
+
+    what_if = ScenarioWhatIfSummary(
+        branch_id="what-if-rightsize-01",
+        target_resource_id="res-aks-checkout-01",
+        violated_invariants=(),
+    )
+    assert what_if.base_store_mutated is False
+    assert what_if.authority == "none"

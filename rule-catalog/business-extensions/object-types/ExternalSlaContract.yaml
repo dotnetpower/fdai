@@ -1,0 +1,81 @@
+schema_version: 1.0.0
+name: ExternalSlaContract
+version: 1.0.0
+key: id
+properties:
+  id:
+    type: string
+    required: true
+    access_scope: reader
+    purpose_binding: []
+    query_terms: []
+    value_query_terms: {}
+  service_ref:
+    type: string
+    required: true
+    access_scope: reader
+    purpose_binding: []
+    query_terms: []
+    value_query_terms: {}
+  service_objective_ref:
+    type: string
+    required: true
+    access_scope: reader
+    purpose_binding: []
+    query_terms: []
+    value_query_terms: {}
+  contract_tier:
+    type: string
+    required: true
+    access_scope: reader
+    purpose_binding: []
+    query_terms: []
+    value_query_terms: {}
+  guaranteed_availability:
+    type: number
+    required: true
+    access_scope: reader
+    purpose_binding: []
+    query_terms: []
+    value_query_terms: {}
+  error_budget_burn_alert_threshold:
+    type: number
+    required: true
+    access_scope: reader
+    purpose_binding: []
+    query_terms: []
+    value_query_terms: {}
+  effective_from:
+    type: datetime
+    required: true
+    access_scope: reader
+    purpose_binding: []
+    query_terms: []
+    value_query_terms: {}
+  effective_to:
+    type: datetime
+    required: false
+    access_scope: reader
+    purpose_binding: []
+    query_terms: []
+    value_query_terms: {}
+  source_ref:
+    type: string
+    required: true
+    access_scope: reader
+    purpose_binding: []
+    query_terms: []
+    value_query_terms: {}
+description: Explicit external SLA commitment and error-budget burn ceiling.
+query_terms:
+- external sla
+- sla contract
+- 외부 SLA
+- SLA 계약
+- 에러 버짓 계약
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:ExternalSlaContract@1.0.0
+  content_hash: sha256:d2cf147be17ae8f9e473c2b9f07118b80ac4c760ff89850e07f5e936618f7929
+  license: MIT
+  retrieved_at: '2026-10-01T00:00:00Z'

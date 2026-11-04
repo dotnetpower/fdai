@@ -46,6 +46,7 @@ class GraphClosureReport:
     observation_count: int
     update_count: int
     updates: tuple[GraphRegistryUpdate, ...]
+    first_mismatched_slice: tuple[str, str, str, float, float] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -201,25 +202,27 @@ class GraphDynamicClosureCoordinator:
             [await self._registry.update_from_observation(item) for item in observations]
         )
         accepted = sum(item.accepted for item in updates)
+        first_mismatch = _first_mismatched_slice(closure)
         if not closure.duplicate:
-            await self._audit_store.append_audit_entry(
-                {
-                    "actor": "Norns",
-                    "producer_principal": "Norns",
-                    "action_kind": "dynamic.graph_closure.processed",
-                    "mode": "shadow",
-                    "prediction_digest": prediction_digest,
-                    "observation_digest": observed.digest,
-                    "outcome_status": closure.outcome.status.value,
-                    "reason": closure.outcome.reason,
-                    "observation_count": len(observations),
-                    "update_count": accepted,
-                    "update_reasons": [item.reason for item in updates],
-                    "active_model_mutated": False,
-                    "promotion_applied": False,
-                    "recorded_at": recorded_at.isoformat(),
-                }
-            )
+            audit_payload: dict[str, object] = {
+                "actor": "Norns",
+                "producer_principal": "Norns",
+                "action_kind": "dynamic.graph_closure.processed",
+                "mode": "shadow",
+                "prediction_digest": prediction_digest,
+                "observation_digest": observed.digest,
+                "outcome_status": closure.outcome.status.value,
+                "reason": closure.outcome.reason,
+                "observation_count": len(observations),
+                "update_count": accepted,
+                "update_reasons": [item.reason for item in updates],
+                "active_model_mutated": False,
+                "promotion_applied": False,
+                "recorded_at": recorded_at.isoformat(),
+            }
+            if first_mismatch is not None:
+                audit_payload["first_mismatched_slice"] = list(first_mismatch)
+            await self._audit_store.append_audit_entry(audit_payload)
         return GraphClosureReport(
             prediction_digest=prediction_digest,
             outcome_status=closure.outcome.status,
@@ -229,6 +232,7 @@ class GraphDynamicClosureCoordinator:
             observation_count=len(observations),
             update_count=accepted,
             updates=updates,
+            first_mismatched_slice=first_mismatch,
         )
 
 
@@ -333,6 +337,27 @@ def _learning_observations(
             )
         )
     return tuple(observations)
+
+
+def _first_mismatched_slice(
+    closure: TrajectoryClosure,
+) -> tuple[str, str, str, float, float] | None:
+    if not closure.outcome.mismatched_keys:
+        return None
+    predicted_by_key = {item.key: item for item in closure.predicted.slices}
+    observed_by_key = {item.key: item for item in closure.observed.slices}
+    earliest = min(closure.outcome.mismatched_keys, key=lambda key: (key[2], key[0], key[1]))
+    pred_slice = predicted_by_key.get(earliest)
+    obs_slice = observed_by_key.get(earliest)
+    if pred_slice is None or obs_slice is None:
+        return None
+    return (
+        earliest[0],
+        earliest[1],
+        earliest[2].isoformat(),
+        pred_slice.value,
+        obs_slice.value,
+    )
 
 
 def _select_observation(

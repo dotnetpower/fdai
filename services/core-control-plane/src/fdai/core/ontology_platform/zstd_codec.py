@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Any
 
@@ -17,6 +18,11 @@ from fdai.core.ontology_platform.archive_manifest import (
     verify_archive_manifest,
 )
 from fdai.rule_catalog.schema._zstd_compat import zstd_runtime as zstd
+from fdai.rule_catalog.schema.zstd_codec import (
+    decode_zstd_text_armor,
+    encode_zstd_text_armor,
+)
+from fdai.shared.providers.state_store import StateStore
 
 ZSTD_PROFILE_FRAME = "zstd-v1"
 ZSTD_PROFILE_DICT = "zstd-dict-v1"
@@ -239,6 +245,62 @@ def build_zstd_archive_bundle(
     )
 
 
+async def persist_zstd_archive_bundle(
+    store: StateStore,
+    *,
+    key: str,
+    bundle: ZstdArchiveBundle,
+) -> str:
+    """Persist a verified `ZstdArchiveBundle` into `StateStore` and return its manifest digest."""
+
+    if not bundle.verification_receipt.verified:
+        raise ValueError("refusing to persist unverified ZstdArchiveBundle")
+    record = {
+        "manifest": asdict(bundle.manifest),
+        "verification_receipt": asdict(bundle.verification_receipt),
+        "artifact": {
+            "profile": bundle.artifact.profile,
+            "compressed_b64": base64.b64encode(bundle.artifact.compressed_bytes).decode("ascii"),
+            "raw_byte_length": bundle.artifact.raw_byte_length,
+            "compressed_byte_length": bundle.artifact.compressed_byte_length,
+            "uncompressed_digest": bundle.artifact.uncompressed_digest,
+            "compressed_digest": bundle.artifact.compressed_digest,
+            "dictionary_digest": bundle.artifact.dictionary_digest,
+        },
+    }
+    await store.write_state(key, record)
+    return bundle.manifest.digest
+
+
+async def load_zstd_archive_bundle(
+    store: StateStore,
+    *,
+    key: str,
+    dictionary: ZstdDictionaryArtifact | None = None,
+) -> tuple[ZstdCompressedArtifact, Any]:
+    """Load a persisted `ZstdArchiveBundle` from `StateStore` and decompress its payload."""
+
+    raw = await store.read_state(key)
+    if not isinstance(raw, Mapping) or "artifact" not in raw:
+        raise ValueError(f"missing or malformed zstd archive bundle at {key!r}")
+    art_raw = raw["artifact"]
+    artifact = ZstdCompressedArtifact(
+        profile=str(art_raw["profile"]),
+        compressed_bytes=base64.b64decode(str(art_raw["compressed_b64"]).encode("ascii")),
+        raw_byte_length=int(art_raw["raw_byte_length"]),
+        compressed_byte_length=int(art_raw["compressed_byte_length"]),
+        uncompressed_digest=str(art_raw["uncompressed_digest"]),
+        compressed_digest=str(art_raw["compressed_digest"]),
+        dictionary_digest=(
+            str(art_raw["dictionary_digest"])
+            if art_raw.get("dictionary_digest") is not None
+            else None
+        ),
+    )
+    decoded = decompress_canonical_json(artifact, dictionary=dictionary)
+    return artifact, decoded
+
+
 __all__ = [
     "ZSTD_PROFILE_DICT",
     "ZSTD_PROFILE_FRAME",
@@ -248,6 +310,10 @@ __all__ = [
     "build_zstd_archive_bundle",
     "canonical_json_bytes",
     "compress_canonical_json",
+    "decode_zstd_text_armor",
     "decompress_canonical_json",
+    "encode_zstd_text_armor",
+    "load_zstd_archive_bundle",
+    "persist_zstd_archive_bundle",
     "train_zstd_dictionary",
 ]

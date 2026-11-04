@@ -1,0 +1,31 @@
+schema_version: 1.0.0
+name: query.decision_expected_vs_observed_outcome
+version: 1.0.0
+kind: query
+capabilities: []
+artifact_digest: sha256:ab3c8797861a0fabb0299eb929f09ca2ca222b60405cf4490be025e6ea5971ab
+publisher: fdai
+input_schema:
+  type: object
+output_schema:
+  type: object
+read_sets:
+- ontology.object-set
+execution_class: deterministic
+required_role: reader
+purpose_bindings:
+- operations-review
+allowed_agents: []
+timeout_seconds: 30
+cpu_millis: 1000
+memory_bytes: 134217728
+max_output_bytes: 262144
+network_allowed: false
+credentials_allowed: false
+execution_authority: false
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: function-type:query.decision_expected_vs_observed_outcome@1.0.0
+  content_hash: sha256:757b099b7480ebf5f1ef85243a2aaa1e8ddc489870745b5082399c29f50a5442
+  license: MIT
+  retrieved_at: '2026-10-01T00:00:00Z'

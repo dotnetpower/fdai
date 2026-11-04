@@ -7,12 +7,29 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
+from typing import Any
 
+import yaml
+
+from fdai.core.ontology_platform.catalog_projection import CatalogOntologyProjection
+from fdai.core.ontology_platform.functions import (
+    FunctionInvocationContext,
+    OntologyFunctionRegistry,
+)
 from fdai.core.ontology_platform.interfaces import (
     CompiledInterfaceCatalog,
     compile_interfaces,
 )
-from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog
+from fdai.rule_catalog.schema.function_type import (
+    load_function_type_catalog,
+    ontology_function_artifact_digest,
+)
+from fdai.rule_catalog.schema.link_type import load_link_type_catalog
+from fdai.rule_catalog.schema.object_type import load_object_type_catalog
+from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog, load_ontology_catalog
+from fdai.rule_catalog.schema.ontology_provenance import ontology_content_hash
+from fdai.rule_catalog.schema.rule_objective_binding import RuleObjectiveBindingMigrationReport
 from fdai.shared.contracts.models import (
     CeilingRole,
     LinkCardinality,
@@ -28,8 +45,13 @@ from fdai.shared.contracts.models import (
 from fdai.shared.contracts.models import (
     OntologyInterfaceImplementation as InterfaceImplementation,
 )
+from fdai.shared.contracts.registry import PackageResourceSchemaRegistry, SchemaRegistry
 from fdai.shared.ontology.release import build_ontology_release
-from fdai.shared.providers.ontology_instance import OntologyInstanceStore
+from fdai.shared.providers.ontology_instance import (
+    OntologyInstanceStore,
+    OntologyLinkRecord,
+    OntologyObjectRecord,
+)
 
 
 def _sha256(seed: str) -> str:
@@ -335,8 +357,9 @@ def extended_business_function_types() -> tuple[OntologyFunctionType, ...]:
         "query.decision_expected_vs_observed_outcome",
         "query.scenario_branch_what_if",
     )
-    return tuple(
-        OntologyFunctionType(
+    items: list[OntologyFunctionType] = []
+    for name in names:
+        fn = OntologyFunctionType(
             name=name,
             version="1.0.0",
             kind=OntologyFunctionKind.QUERY,
@@ -344,10 +367,210 @@ def extended_business_function_types() -> tuple[OntologyFunctionType, ...]:
             publisher="fdai",
             input_schema={"type": "object"},
             output_schema={"type": "object"},
+            read_sets=["ontology.object-set"],
             required_role=CeilingRole.READER,
+            purpose_bindings=["operations-review"],
         )
-        for name in names
+        fn = fn.model_copy(update={"artifact_digest": ontology_function_artifact_digest(fn)})
+        prov = _prov(f"function-type:{name}@1.0.0", f"{name}@1.0.0")
+        with_prov = fn.model_copy(update={"provenance": prov})
+        items.append(
+            with_prov.model_copy(
+                update={
+                    "provenance": prov.model_copy(
+                        update={"content_hash": ontology_content_hash(with_prov)}
+                    )
+                }
+            )
+        )
+    return tuple(items)
+
+
+def load_business_extended_ontology_catalog(
+    catalog_root: Path,
+    *,
+    schema_registry: SchemaRegistry | None = None,
+) -> OntologyCatalog:
+    """Load the base ontology catalog merged with `rule-catalog/business-extensions/` YAML files."""
+
+    registry = schema_registry or PackageResourceSchemaRegistry()
+    base = load_ontology_catalog(
+        catalog_root,
+        schema_registry=registry,
+        probes_root=catalog_root / "probes",
     )
+    ext_root = catalog_root / "business-extensions"
+    ext_objects = load_object_type_catalog(
+        ext_root / "object-types",
+        schema_registry=registry,
+    )
+    merged_objects = (*base.object_types, *ext_objects)
+    bilingual_path = ext_root / "bilingual-query-terms.yaml"
+    if bilingual_path.is_file():
+        raw_terms = yaml.safe_load(bilingual_path.read_text(encoding="utf-8")) or {}
+        term_map = raw_terms.get("object_query_terms", {})
+        enriched: list[OntologyObjectType] = []
+        for obj in merged_objects:
+            extra = tuple(str(t) for t in term_map.get(obj.name, ()))
+            merged_q = tuple(dict.fromkeys((*obj.query_terms, *extra)))
+            updated_obj = (
+                obj
+                if merged_q == obj.query_terms
+                else obj.model_copy(update={"query_terms": merged_q})
+            )
+            enriched.append(updated_obj)
+        merged_objects = tuple(enriched)
+    else:
+        merged_objects = enrich_object_types_with_bilingual_query_terms(merged_objects)
+
+    ext_links = load_link_type_catalog(
+        ext_root / "link-types",
+        schema_registry=registry,
+        object_types=merged_objects,
+    )
+    ext_functions = load_function_type_catalog(
+        ext_root / "function-types",
+        schema_registry=registry,
+    )
+    return OntologyCatalog(
+        object_types=merged_objects,
+        interface_types=base.interface_types,
+        interface_implementations=base.interface_implementations,
+        link_types=(*base.link_types, *ext_links),
+        action_types=base.action_types,
+        property_semantics=base.property_semantics,
+        lifecycle_classifications=base.lifecycle_classifications,
+        function_types=(*base.function_types, *ext_functions),
+        resource_classes=base.resource_classes,
+        resource_types=base.resource_types,
+    )
+
+
+def load_authored_rule_objective_bindings_manifest(
+    catalog_root: Path,
+) -> tuple[CatalogOntologyProjection, RuleObjectiveBindingMigrationReport]:
+    """Load the 52-rule ControlObjective bindings manifest from `business-extensions`."""
+
+    manifest_path = catalog_root / "business-extensions" / "rule-objective-bindings.yaml"
+    raw = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+    report = RuleObjectiveBindingMigrationReport.model_validate(raw["migration_report"])
+    objects = tuple(
+        OntologyObjectRecord(
+            id=str(item["id"]),
+            object_type=str(item["object_type"]),
+            properties=dict(item["properties"]),
+        )
+        for item in raw.get("objects", ())
+    )
+    links = tuple(
+        OntologyLinkRecord(
+            link_type=str(item["link_type"]),
+            from_id=str(item["from_id"]),
+            to_id=str(item["to_id"]),
+        )
+        for item in raw.get("links", ())
+    )
+    return CatalogOntologyProjection(objects=objects, links=links), report
+
+
+def register_business_ontology_functions(
+    registry: OntologyFunctionRegistry,
+    *,
+    store: OntologyInstanceStore,
+    declarations: Sequence[OntologyFunctionType] | None = None,
+) -> None:
+    """Register executable contextual handlers for all 4 declarative business FunctionTypes."""
+
+    fn_decls = {item.name: item for item in (declarations or extended_business_function_types())}
+
+    async def _handle_posture(
+        arguments: Mapping[str, Any],
+        context: FunctionInvocationContext,
+    ) -> dict[str, Any]:
+        service_id = str(arguments.get("service_id", "svc-checkout"))
+        graph = await store.query_objects(
+            object_types=(
+                "BusinessService",
+                "ServiceObjective",
+                "RecoveryObjective",
+                "CostObjective",
+                "Budget",
+            ),
+            limit=200,
+            include_relationships=True,
+        )
+        svc = next((o for o in graph.objects if o.id == service_id), None)
+        linked_ids = {link.to_id for link in graph.links if link.from_id == service_id}
+        return {
+            "service_id": service_id,
+            "service_name": str(svc.properties.get("name", service_id)) if svc else service_id,
+            "criticality": str(svc.properties.get("criticality", "unknown")) if svc else "unknown",
+            "linked_objective_ids": sorted(linked_ids),
+            "caller_role": context.caller_role.value,
+            "authority": "none",
+        }
+
+    async def _handle_budget_burn(
+        arguments: Mapping[str, Any],
+        _context: FunctionInvocationContext,
+    ) -> dict[str, Any]:
+        report = evaluate_service_budget_burn(
+            service_id=str(arguments.get("service_id", "svc-checkout")),
+            budget_id=str(arguments.get("budget_id", "budget-checkout-monthly")),
+            budget_limit=Decimal(str(arguments.get("budget_limit", "15000.00"))),
+            direct_spend=Decimal(str(arguments.get("direct_spend", "9200.00"))),
+            allocated_shared_spend=Decimal(str(arguments.get("allocated_shared_spend", "3100.00"))),
+            currency=str(arguments.get("currency", "USD")),
+        )
+        return {
+            "service_id": report.service_id,
+            "budget_id": report.budget_id,
+            "currency": report.currency,
+            "total_spend": str(report.total_spend),
+            "burn_ratio": report.burn_ratio,
+            "status": report.status,
+            "authority": "none",
+        }
+
+    async def _handle_expected_vs_observed(
+        arguments: Mapping[str, Any],
+        _context: FunctionInvocationContext,
+    ) -> dict[str, Any]:
+        decision_id = str(arguments.get("decision_case_id", "dc-checkout-latency-01"))
+        expected_delta = float(arguments.get("expected_delta", -120.0))
+        observed_delta = float(arguments.get("observed_delta", -118.5))
+        return {
+            "decision_case_id": decision_id,
+            "expected_delta": expected_delta,
+            "observed_delta": observed_delta,
+            "residual_error": round(observed_delta - expected_delta, 4),
+            "aligned": abs(observed_delta - expected_delta) <= 15.0,
+            "authority": "none",
+        }
+
+    async def _handle_what_if(
+        arguments: Mapping[str, Any],
+        _context: FunctionInvocationContext,
+    ) -> dict[str, Any]:
+        branch_id = str(arguments.get("branch_id", "branch-checkout-scale-what-if"))
+        target_id = str(arguments.get("target_resource_id", "aks-checkout-prod"))
+        return {
+            "branch_id": branch_id,
+            "target_resource_id": target_id,
+            "base_store_mutated": False,
+            "mutation_authority": False,
+            "execution_authority": False,
+        }
+
+    handlers = {
+        "query.business_service_posture": _handle_posture,
+        "query.business_budget_burn": _handle_budget_burn,
+        "query.decision_expected_vs_observed_outcome": _handle_expected_vs_observed,
+        "query.scenario_branch_what_if": _handle_what_if,
+    }
+    for name, handler in handlers.items():
+        if name in fn_decls:
+            registry.register_contextual(fn_decls[name], handler)
 
 
 @dataclass(frozen=True, slots=True)

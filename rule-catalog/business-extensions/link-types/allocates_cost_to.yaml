@@ -1,0 +1,17 @@
+schema_version: 1.0.0
+name: allocates_cost_to
+version: 1.0.0
+from_type: CostAllocation
+to_type: BusinessService
+cardinality: many_to_one
+is_transitive: false
+is_causal: false
+temporal_order: false
+semantic_traits: []
+description: Bind a shared-resource cost allocation share to one BusinessService.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:allocates_cost_to@1.0.0
+  content_hash: sha256:4144c9375e6bb518f0cb0e846df930bd875873eb1c4990e07b29242220bfdb22
+  license: MIT
+  retrieved_at: '2026-10-01T00:00:00Z'

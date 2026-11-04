@@ -290,3 +290,212 @@ def test_k6_k8_interaction_attribution_conflict_readback_and_scenario_what_if() 
     )
     assert unsafe_branch.safe_to_propose is False
     assert unsafe_branch.violated_invariant_ids == ("inv-checkout-latency-slo",)
+
+
+async def test_yaml_catalog_extensions_runtime_functions_and_planner_wiring() -> None:
+    from datetime import UTC, datetime
+
+    from fdai.core.conversation.semantic_logical_service_frame import (
+        build_business_service_posture_or_burn_frame,
+        build_service_current_health_clarification,
+    )
+    from fdai.core.conversation.semantic_logical_service_planning import (
+        compile_business_service_posture_or_burn_plan,
+    )
+    from fdai.core.conversation.semantic_manifest import CatalogQueryManifestProvider
+    from fdai.core.conversation.semantic_planning_models import SemanticOutputShape
+    from fdai.core.conversation.session import Principal, Role
+    from fdai.core.ontology_platform import (
+        FunctionInvocationContext,
+        OntologyFunctionRegistry,
+        OntologyQueryPlanVerifier,
+    )
+    from fdai.core.ontology_platform.business_ontology_extensions import (
+        load_authored_rule_objective_bindings_manifest,
+        load_business_extended_ontology_catalog,
+        register_business_ontology_functions,
+    )
+    from fdai.core.operational_context.projector import OperatingModelProjector
+    from fdai.shared.contracts.models import CeilingRole
+    from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
+    from fdai_service_contracts.semantic_judgment import (
+        SemanticJudgmentProposal,
+        SemanticTarget,
+    )
+
+    ext_catalog = load_business_extended_ontology_catalog(REPO_ROOT / "rule-catalog")
+    assert len(ext_catalog.object_types) == 91
+    assert len(ext_catalog.link_types) == 130
+    assert len(ext_catalog.function_types) == 5
+    assert all(len(obj.query_terms) >= 2 for obj in ext_catalog.object_types)
+
+    manifest_proj, manifest_report = load_authored_rule_objective_bindings_manifest(
+        REPO_ROOT / "rule-catalog"
+    )
+    assert len(manifest_report.bound_rule_refs) == 52
+    assert len(manifest_proj.objects) == 104
+    assert len(manifest_proj.links) == 156
+
+    release = ext_catalog.build_release()
+    store = InMemoryOntologyInstanceStore(
+        object_types=ext_catalog.object_types,
+        link_types=ext_catalog.link_types,
+    )
+    projector = OperatingModelProjector(
+        store=store,
+        object_types=ext_catalog.object_types,
+        link_types=ext_catalog.link_types,
+    )
+    await projector.project(build_simulated_business_operating_model())
+
+    fn_registry = OntologyFunctionRegistry(release=release)
+    ext_fns = tuple(
+        fn for fn in ext_catalog.function_types if fn.name != "inventory.select_resources"
+    )
+    register_business_ontology_functions(fn_registry, store=store, declarations=ext_fns)
+    ctx = FunctionInvocationContext(
+        caller_agent="Bragi",
+        caller_role=CeilingRole.READER,
+        purposes=("operations-review",),
+    )
+    posture_out, posture_receipt = await fn_registry.invoke_with_receipt(
+        "query.business_service_posture",
+        {"service_id": "svc-checkout-api"},
+        context=ctx,
+    )
+    assert isinstance(posture_out, dict)
+    assert posture_out["authority"] == "none"
+    assert posture_receipt.function_ref.name == "query.business_service_posture"
+
+    burn_out, _ = await fn_registry.invoke_with_receipt(
+        "query.business_budget_burn",
+        {"service_id": "svc-checkout-api"},
+        context=ctx,
+    )
+    assert isinstance(burn_out, dict)
+    assert burn_out["status"] == "within_budget"
+
+    # Candidate-suggesting clarification in semantic_logical_service_frame
+    ambiguous_judgment = SemanticJudgmentProposal(
+        primary_intent="query.ontology_relationships",
+        action_posture="advise_only",
+        action_subject="none",
+        requested_facets=(
+            "business_service",
+            "workload",
+            "resource",
+            "current_state",
+            "unknown_state",
+        ),
+        targets=(),
+        ambiguous=True,
+        unresolved_terms=("BusinessService",),
+        clarification="Which BusinessService?",
+        confidence=0.9,
+    )
+    clar = build_service_current_health_clarification(
+        ambiguous_judgment,
+        utterance="현재 서비스 상태 알려줘",
+        context=(),
+        candidate_services=("svc-checkout-api", "svc-order-settlement"),
+    )
+    assert clar is not None
+    assert "svc-checkout-api, svc-order-settlement" in (clar[0].clarification or "")
+
+    # Plan compilation for the 3 new SemanticOutputShapes
+    provider = CatalogQueryManifestProvider(
+        release=release,
+        object_types=ext_catalog.object_types,
+        link_types=ext_catalog.link_types,
+        action_types=ext_catalog.action_types,
+        interfaces=ext_catalog.interface_types,
+        functions=ext_catalog.function_types,
+    )
+    q_manifest = provider.manifest_for(
+        principal=Principal(id="op-1", role=Role.READER),
+        purpose="operations-review",
+    )
+    from fdai_service_contracts.ontology_query import QueryNodeKind
+
+    verifier = OntologyQueryPlanVerifier(
+        available_kinds=(
+            QueryNodeKind.OBJECT_SET,
+            QueryNodeKind.TYPED_PATH,
+            QueryNodeKind.FUNCTION,
+            QueryNodeKind.UNION,
+        )
+    )
+    eval_now = datetime(2026, 10, 15, 12, 0, tzinfo=UTC)
+
+    utterance_svc = "Check svc-checkout-api posture and budget"
+    svc_start = utterance_svc.index("svc-checkout-api")
+    svc_end = svc_start + len("svc-checkout-api")
+    for facet_name, expected_shape in (
+        ("service_objective_posture", SemanticOutputShape.BUSINESS_SERVICE_OBJECTIVE_POSTURE),
+        ("service_budget_burn", SemanticOutputShape.BUSINESS_SERVICE_BUDGET_BURN),
+    ):
+        j_prop = SemanticJudgmentProposal(
+            primary_intent="query.ontology_relationships",
+            action_posture="advise_only",
+            action_subject="none",
+            requested_facets=(facet_name,),
+            targets=(
+                SemanticTarget(
+                    kind="entity_name",
+                    value="svc-checkout-api",
+                    canonical_value="BusinessService",
+                    source_start=svc_start,
+                    source_end=svc_end,
+                ),
+            ),
+            ambiguous=False,
+            confidence=0.95,
+        )
+        built = build_business_service_posture_or_burn_frame(
+            j_prop,
+            utterance=utterance_svc,
+            context=(),
+        )
+        assert built is not None
+        assert built[1].output_shape == expected_shape
+        compiled = compile_business_service_posture_or_burn_plan(
+            frame=built[1],
+            utterance=utterance_svc,
+            manifest=q_manifest,
+            verifier=verifier,
+            evaluation_time=eval_now,
+            purpose="operations-review",
+        )
+        assert compiled is not None
+        assert compiled.execution_authority is False
+
+    j_dc = SemanticJudgmentProposal(
+        primary_intent="query.ontology_relationships",
+        action_posture="advise_only",
+        action_subject="none",
+        requested_facets=("decision_expected_vs_observed_outcome",),
+        targets=(),
+        ambiguous=False,
+        confidence=0.95,
+    )
+    dc_built = build_business_service_posture_or_burn_frame(
+        j_dc,
+        utterance="Compare expected vs observed decision outcomes",
+        context=(),
+    )
+    assert dc_built is not None
+    assert dc_built[1].output_shape == SemanticOutputShape.DECISION_EXPECTED_VS_OBSERVED_OUTCOME
+    dc_plan = compile_business_service_posture_or_burn_plan(
+        frame=dc_built[1],
+        utterance="Compare expected vs observed decision outcomes",
+        manifest=q_manifest,
+        verifier=verifier,
+        evaluation_time=eval_now,
+        purpose="operations-review",
+    )
+    assert dc_plan is not None
+    assert dc_plan.output_node_ids == (
+        "decision-cases",
+        "decision-expected-effects",
+        "decision-observed-outcomes",
+    )
