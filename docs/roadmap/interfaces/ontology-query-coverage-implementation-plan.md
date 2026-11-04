@@ -774,6 +774,10 @@ also indexes bilingual titles (`title_ko`), Korean descriptions (`description_ko
 citation prefixes alongside canonical English rule identifiers without changing query verification
 or execution authority.
 
+## Decision functions and causal mechanisms
+
+Three read-only decision FunctionTypes (`decision.blast_radius`, `decision.change_risk`, `decision.cost_of_delay`) join the operational release, and the reviewed causal mechanism catalog now declares eight mechanisms. Both bind no source reader by default and grant no authority. See [Decision functions](../architecture/operating-ontology-platform.md#decision-functions) and [Causal mechanism catalog](../architecture/ontology-structural-model.md#causal-mechanism-catalog).
+
 ## Related docs
 
 | To learn about | Read |

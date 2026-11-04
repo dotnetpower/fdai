@@ -1,0 +1,36 @@
+schema_version: "1.0.0"
+name: cost-of-delay-gated-vm-deallocate
+version: "1.0.0"
+description: >-
+  Deallocate one idle VM only when the observed cost of delay reaches the reviewed minimum, with approval and start compensation.
+trigger:
+  kind: signal
+  signal_type: change.request.submitted
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 21
+  min_samples: 40
+  min_accuracy: 0.98
+  max_policy_escapes: 0
+steps:
+  - id: cost_of_delay
+    kind: gate
+    gate_ref: ontology-function:decision.cost_of_delay
+  - id: deallocate_approval
+    kind: approval
+    approval_role: owner
+    quorum: 2
+    no_self_approval: true
+    timeout_seconds: 3600
+  - id: deallocate_vm
+    kind: action
+    action_type_ref: ops.deallocate-vm
+    compensated_by: ops.start-vm
+    params:
+      resource_group: "${change.resource_group}"
+      vm_name: "${change.vm_name}"
+      reason: "${change.reason}"
+anti_scope: >-
+  This workflow never acts without an observed hourly cost and currency, never infers cost from
+  a missing basis, and never treats a satisfied gate as authority. Realized savings are settled
+  separately from independent post-action observations.

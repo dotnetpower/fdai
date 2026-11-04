@@ -1,7 +1,7 @@
 ---
 title: Ontology Value Realization
 translation_of: ontology-value-realization.md
-translation_source_sha: 4d37f17e02f7ebd6f1c99f93256c04de468338aa
+translation_source_sha: 9da50d54f945d8e2c064b9438a153ad496fa9bfb
 translation_revised: 2026-11-04
 ---
 # 온톨로지 가치 실현
@@ -18,7 +18,7 @@ FDAI는 이미 개체, 관계, 시간, 근거를 타입이 있는 온톨로지�
 
 ## 평가
 
-평가는 저장소를 객체와 링크, 함수, writeback이 있는 통제된 액션, 의사결정 애플리케이션, what-if 시나리오, 측정된 피드백 루프를 갖춘 온톨로지 중심 운영 플랫폼의 공개된 패턴과 비교합니다. 소스, 카탈로그, 원장을 정적으로 검토한 결과이며 라이브 검증은 하지 않았습니다.
+평가는 저장소를 객체와 링크, 함수, writeback이 있는 통제된 액션, 의사결정 애플리케이션, what-if 시나리오, 측정된 피드백 루프를 갖춘 온톨로지 중심 운영 플랫폼의 공개된 패턴과 비교합니다. 소스, 카탈로그, 원장을 정적으로 검토한 결과이며 라이브 검증은 하지 않았습니다. 표는 VR1 이전의 상태를 기록하며 이후 변경은 [구현 원장](../../roadmap-implementation/architecture/ontology-value-realization.md)에 기록합니다.
 
 | 영역 | 관찰된 상태 | 평가 |
 |------|-------------|------|

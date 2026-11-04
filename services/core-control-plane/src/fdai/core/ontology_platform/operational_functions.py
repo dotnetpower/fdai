@@ -8,6 +8,7 @@ from fdai.shared.contracts.models import OntologyFunctionType
 
 from .catalog_queries import catalog_search_rules_function_type
 from .contextual_resource_queries import contextual_resource_function_type
+from .decision_functions import decision_function_types
 from .declaration_queries import ontology_declaration_function_type
 from .evidence_health_queries import ontology_evidence_health_function_type
 from .gateway_diagnostics import gateway_diagnostic_function_type
@@ -60,46 +61,50 @@ def operational_function_types(
 
     if any(not item.name.strip() for item in catalog_functions):
         raise ValueError("operational ontology FunctionType names MUST be non-empty")
-    combined = tuple(catalog_functions) + (
-        catalog_search_rules_function_type(),
-        contextual_resource_function_type(),
-        gateway_diagnostic_function_type(),
-        governed_document_function_type(),
-        incident_evidence_function_type(),
-        inventory_impact_function_type(),
-        kubernetes_pod_diagnosis_function_type(),
-        kubernetes_pod_recovery_function_type(),
-        kubernetes_rollout_function_type(),
-        latency_recovery_function_type(),
-        ontology_declaration_function_type(),
-        ontology_evidence_health_function_type(),
-        ontology_manifest_function_type(),
-        network_path_function_type(),
-        operating_pattern_function_type(),
-        mysql_demand_bundle_function_type(),
-        mysql_pressure_function_type(),
-        mysql_saturation_bundle_function_type(),
-        ontology_relationships_function_type(),
-        ontology_release_diff_function_type(),
-        resource_class_closure_function_type(),
-        pod_telemetry_function_type(),
-        resource_activity_function_type(),
-        recent_resource_changes_function_type(),
-        resource_current_state_function_type(),
-        resource_configuration_function_type(),
-        resource_configuration_snapshot_function_type(),
-        resource_event_function_type(),
-        resource_health_function_type(),
-        resource_ingress_function_type(),
-        resource_metric_function_type(),
-        resource_metric_series_function_type(),
-        resource_state_function_type(),
-        resource_state_transitions_function_type(),
-        service_health_function_type(),
-        subscription_scope_function_type(),
-        error_activity_correlation_function_type(),
-        target_health_assessment_function_type(),
-        vm_process_cpu_function_type(),
+    combined = (
+        tuple(catalog_functions)
+        + decision_function_types()
+        + (
+            catalog_search_rules_function_type(),
+            contextual_resource_function_type(),
+            gateway_diagnostic_function_type(),
+            governed_document_function_type(),
+            incident_evidence_function_type(),
+            inventory_impact_function_type(),
+            kubernetes_pod_diagnosis_function_type(),
+            kubernetes_pod_recovery_function_type(),
+            kubernetes_rollout_function_type(),
+            latency_recovery_function_type(),
+            ontology_declaration_function_type(),
+            ontology_evidence_health_function_type(),
+            ontology_manifest_function_type(),
+            network_path_function_type(),
+            operating_pattern_function_type(),
+            mysql_demand_bundle_function_type(),
+            mysql_pressure_function_type(),
+            mysql_saturation_bundle_function_type(),
+            ontology_relationships_function_type(),
+            ontology_release_diff_function_type(),
+            resource_class_closure_function_type(),
+            pod_telemetry_function_type(),
+            resource_activity_function_type(),
+            recent_resource_changes_function_type(),
+            resource_current_state_function_type(),
+            resource_configuration_function_type(),
+            resource_configuration_snapshot_function_type(),
+            resource_event_function_type(),
+            resource_health_function_type(),
+            resource_ingress_function_type(),
+            resource_metric_function_type(),
+            resource_metric_series_function_type(),
+            resource_state_function_type(),
+            resource_state_transitions_function_type(),
+            service_health_function_type(),
+            subscription_scope_function_type(),
+            error_activity_correlation_function_type(),
+            target_health_assessment_function_type(),
+            vm_process_cpu_function_type(),
+        )
     )
     names = [item.name for item in combined]
     if len(names) != len(set(names)):

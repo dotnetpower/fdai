@@ -15,7 +15,10 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Protocol
 
-from fdai.core.workflow.workflow_runtime import WorkflowGuardEvaluator
+from fdai.core.workflow.workflow_runtime import (
+    WorkflowContextualGuardEvaluator,
+    WorkflowGuardEvaluator,
+)
 
 ONTOLOGY_FUNCTION_GATE_PREFIX = "ontology-function:"
 _DIGEST_PREFIX = "sha256:"
@@ -50,7 +53,7 @@ class OntologyFunctionGateEvaluator:
 
     reader: OntologyGateReader
     max_reading_age: timedelta
-    fallback: WorkflowGuardEvaluator | None = None
+    fallback: WorkflowContextualGuardEvaluator | WorkflowGuardEvaluator | None = None
 
     def __post_init__(self) -> None:
         if self.max_reading_age <= timedelta(0):
@@ -66,15 +69,12 @@ class OntologyFunctionGateEvaluator:
         at: datetime,
     ) -> bool:
         if not rule_id.startswith(ONTOLOGY_FUNCTION_GATE_PREFIX):
-            if self.fallback is None:
-                return False
-            return (
-                await self.fallback.evaluate(
-                    rule_id=rule_id,
-                    step_id=step_id,
-                    process_id=process_id,
-                )
-                is True
+            return await self._delegate(
+                rule_id=rule_id,
+                step_id=step_id,
+                process_id=process_id,
+                target_resource_id=target_resource_id,
+                at=at,
             )
         function_ref = rule_id.removeprefix(ONTOLOGY_FUNCTION_GATE_PREFIX)
         if not function_ref:
@@ -85,6 +85,32 @@ class OntologyFunctionGateEvaluator:
             at=at,
         )
         return self._opens(reading, function_ref=function_ref, at=at)
+
+    async def _delegate(
+        self,
+        *,
+        rule_id: str,
+        step_id: str,
+        process_id: str,
+        target_resource_id: str,
+        at: datetime,
+    ) -> bool:
+        fallback = self.fallback
+        if fallback is None:
+            return False
+        if isinstance(fallback, WorkflowContextualGuardEvaluator):
+            result = await fallback.evaluate_context(
+                rule_id=rule_id,
+                step_id=step_id,
+                process_id=process_id,
+                target_resource_id=target_resource_id,
+                at=at,
+            )
+        else:
+            result = await fallback.evaluate(
+                rule_id=rule_id, step_id=step_id, process_id=process_id
+            )
+        return result is True
 
     def _opens(
         self,

@@ -19,29 +19,25 @@
       "workflow_count": 13,
       "cataloged": 2,
       "metadata_only": 11,
-      "executable_count": 16,
-      "independent": 14
+      "executable_count": 19,
+      "independent": 17
     },
     "entries": [
       {
         "workflow_id": "cost-aware-remediation",
         "disposition": "cataloged",
-        "catalog_definitions": [
-          {
-            "catalog_ref": "extensions/cost-governance/src/fdai_cost_governance/resources/workflows/cost-aware-remediation.yaml",
-            "definition_digest": "a2de024d7e95a9b17a36a605758a7dc5b78b65663a823e65e89c2326e27e09e3"
-          }
-        ]
+        "catalog_definitions": [{
+          "catalog_ref": "extensions/cost-governance/src/fdai_cost_governance/resources/workflows/cost-aware-remediation.yaml",
+          "definition_digest": "a2de024d7e95a9b17a36a605758a7dc5b78b65663a823e65e89c2326e27e09e3"
+        }]
       },
       {
         "workflow_id": "predictive-scale",
         "disposition": "cataloged",
-        "catalog_definitions": [
-          {
-            "catalog_ref": "rule-catalog/workflows/predictive-scale.yaml",
-            "definition_digest": "7c4fe293c729e0e20eff4e51e185a3eafb6de9b11488e34e7e0a137ebecb9b58"
-          }
-        ]
+        "catalog_definitions": [{
+          "catalog_ref": "rule-catalog/workflows/predictive-scale.yaml",
+          "definition_digest": "7c4fe293c729e0e20eff4e51e185a3eafb6de9b11488e34e7e0a137ebecb9b58"
+        }]
       },
       {
         "workflow_id": "dr-drill-orchestration",
@@ -141,11 +137,35 @@
         }]
       },
       {
+        "workflow_id": "blast-radius-gated-service-restart",
+        "disposition": "process_catalog_only",
+        "catalog_definitions": [{
+          "catalog_ref": "rule-catalog/workflows/blast-radius-gated-service-restart.yaml",
+          "definition_digest": "0111e5f74da75c54c95e80e2b0f0867eb705db8c01ca8fd57ae0cd8f80e3575e"
+        }]
+      },
+      {
+        "workflow_id": "change-risk-gated-scale-in",
+        "disposition": "process_catalog_only",
+        "catalog_definitions": [{
+          "catalog_ref": "rule-catalog/workflows/change-risk-gated-scale-in.yaml",
+          "definition_digest": "e12b469e32566c93435543c498c6d4c361370f2676c37d22911894cfd1fbb02c"
+        }]
+      },
+      {
         "workflow_id": "chaos-detection-validation",
         "disposition": "process_catalog_only",
         "catalog_definitions": [{
           "catalog_ref": "rule-catalog/workflows/chaos-detection-validation.yaml",
           "definition_digest": "ffcd3f1dc350a3572e716e99dce49500af427ec3117444e69ec05ff2725f9860"
+        }]
+      },
+      {
+        "workflow_id": "cost-of-delay-gated-vm-deallocate",
+        "disposition": "process_catalog_only",
+        "catalog_definitions": [{
+          "catalog_ref": "rule-catalog/workflows/cost-of-delay-gated-vm-deallocate.yaml",
+          "definition_digest": "651550750c3d42f8630f43b420ea34f7740aaf71cb0828dce0151deeca8abc44"
         }]
       },
       {

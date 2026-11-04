@@ -11,3 +11,77 @@ mechanisms:
     refutation_reads:
       - unchanged_peer_activity_window
       - same_effect_without_candidate_operation
+  - id: identity_change_precedes_authorization_failure
+    required_evidence:
+      - complete_activity_window
+      - complete_state_transition_window
+      - confounder_check
+      - mechanism_operation_evidence
+      - repeated_samples
+      - reverse_direction_check
+    refutation_reads:
+      - authorization_failures_before_identity_change
+      - unchanged_peer_identity_activity_window
+  - id: network_rule_change_precedes_connectivity_loss
+    required_evidence:
+      - complete_activity_window
+      - complete_state_transition_window
+      - confounder_check
+      - mechanism_operation_evidence
+      - repeated_samples
+      - reverse_direction_check
+    refutation_reads:
+      - connectivity_loss_before_rule_change
+      - unchanged_peer_path_activity_window
+  - id: quota_exhaustion_precedes_provisioning_failure
+    required_evidence:
+      - complete_activity_window
+      - confounder_check
+      - mechanism_operation_evidence
+      - repeated_samples
+      - reverse_direction_check
+    refutation_reads:
+      - provisioning_failure_with_quota_headroom
+      - unaffected_peer_region_activity_window
+  - id: scale_in_precedes_latency_increase
+    required_evidence:
+      - complete_activity_window
+      - complete_state_transition_window
+      - confounder_check
+      - mechanism_operation_evidence
+      - repeated_samples
+      - reverse_direction_check
+    refutation_reads:
+      - latency_increase_before_scale_in
+      - same_latency_without_capacity_change
+  - id: setting_drift_precedes_error_rate_increase
+    required_evidence:
+      - complete_activity_window
+      - complete_state_transition_window
+      - confounder_check
+      - mechanism_operation_evidence
+      - repeated_samples
+      - reverse_direction_check
+    refutation_reads:
+      - error_rate_increase_before_setting_drift
+      - unchanged_peer_setting_activity_window
+  - id: tls_certificate_expiry_precedes_handshake_failure
+    required_evidence:
+      - complete_activity_window
+      - confounder_check
+      - mechanism_operation_evidence
+      - repeated_samples
+      - reverse_direction_check
+    refutation_reads:
+      - handshake_failure_before_expiry
+      - valid_certificate_peer_activity_window
+  - id: upstream_dependency_saturation_precedes_latency
+    required_evidence:
+      - complete_activity_window
+      - confounder_check
+      - mechanism_operation_evidence
+      - repeated_samples
+      - reverse_direction_check
+    refutation_reads:
+      - latency_before_dependency_saturation
+      - unsaturated_dependency_peer_window

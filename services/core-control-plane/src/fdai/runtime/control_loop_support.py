@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import Mapping
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,8 @@ from fdai.core.stewardship import (
 from fdai.core.workflow import (
     AdmittedWorkflowGuardEvaluator,
     ChangeWindowWorkflowGuardEvaluator,
+    OntologyFunctionGateEvaluator,
+    OntologyGateReader,
     ProcessOntologyProjector,
     ProjectingProcessRuntimeStore,
     RecoveryCoordinatorConfig,
@@ -110,6 +113,8 @@ def build_workflow_coordinator(
     decision_evidence_provider: DecisionEvidenceAdmissionProvider | None = None,
     action_dispatcher: WorkflowActionDispatcher | None = None,
     automation_holds: StateStoreAutomationHoldLedger | None = None,
+    ontology_gate_reader: OntologyGateReader | None = None,
+    ontology_gate_max_reading_age: timedelta = timedelta(minutes=5),
 ) -> WorkflowTriggerCoordinator | None:
     """Assemble the default-on shadow workflow coordinator without widening authority."""
     if not workflows:
@@ -175,6 +180,12 @@ def build_workflow_coordinator(
         if ontology_store is not None
         else architecture_guard
     )
+    if ontology_gate_reader is not None:
+        inner_guard = OntologyFunctionGateEvaluator(
+            reader=ontology_gate_reader,
+            max_reading_age=ontology_gate_max_reading_age,
+            fallback=inner_guard,
+        )
     guard_evaluator = AdmittedWorkflowGuardEvaluator(
         inner=inner_guard,
         decision_evidence_provider=decision_evidence_provider,

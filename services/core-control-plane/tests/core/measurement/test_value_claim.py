@@ -30,6 +30,7 @@ def _declaration(**overrides: object) -> ValueClaimDeclaration:
         "metric_name": "mttr",
         "unit": ValueUnit.DURATION_SECONDS,
         "direction": ValueDirection.DECREASE_IS_BETTER,
+        "target_value": Decimal("400"),
         "scenario_set_version": "set-1",
         "window_start": _START,
         "window_end": _END,

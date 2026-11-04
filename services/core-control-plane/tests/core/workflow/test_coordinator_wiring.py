@@ -15,7 +15,7 @@ from uuid import uuid4
 import pytest
 from fdai.__main__ import _build_workflow_coordinator, _resolve_catalog_root
 from fdai.core.architecture_review import ProductionEvidenceProvider
-from fdai.core.workflow import AdmittedWorkflowGuardEvaluator
+from fdai.core.workflow import AdmittedWorkflowGuardEvaluator, OntologyGateReader
 from fdai.delivery.persistence.workflow_approval import StateStoreWorkflowApprovalProvider
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
@@ -132,3 +132,51 @@ async def test_enabled_coordinator_fires_on_shipped_signal(
     assert runs, "the object.drift signal should fire at least one shipped workflow"
     kinds = {row["entry"]["action_kind"] for row in audit.audit_entries}
     assert "workflow.process-plan" in kinds
+
+
+def test_ontology_gate_reader_wraps_the_guard_without_replacing_other_gates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datetime import timedelta
+
+    from fdai.core.workflow import OntologyFunctionGateEvaluator
+
+    monkeypatch.delenv("FDAI_WORKFLOW_SHADOW", raising=False)
+    root, atbn, workflows = _load()
+    reader = cast(OntologyGateReader, object())
+
+    coord = _build_workflow_coordinator(
+        catalog_root=root,
+        workflows=workflows,
+        action_types_by_name=atbn,
+        audit_store=InMemoryStateStore(),
+        ontology_gate_reader=reader,
+        ontology_gate_max_reading_age=timedelta(minutes=2),
+    )
+
+    assert coord is not None
+    guard = coord._orchestrator._guard_evaluator
+    assert isinstance(guard, AdmittedWorkflowGuardEvaluator)
+    assert isinstance(guard.inner, OntologyFunctionGateEvaluator)
+    assert guard.inner.reader is reader
+    assert guard.inner.max_reading_age == timedelta(minutes=2)
+    assert guard.inner.fallback is not None
+
+
+def test_guard_is_unchanged_without_an_ontology_gate_reader(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai.core.workflow import OntologyFunctionGateEvaluator
+
+    monkeypatch.delenv("FDAI_WORKFLOW_SHADOW", raising=False)
+    root, atbn, workflows = _load()
+
+    coord = _build_workflow_coordinator(
+        catalog_root=root,
+        workflows=workflows,
+        action_types_by_name=atbn,
+        audit_store=InMemoryStateStore(),
+    )
+
+    assert coord is not None
+    assert not isinstance(coord._orchestrator._guard_evaluator.inner, OntologyFunctionGateEvaluator)

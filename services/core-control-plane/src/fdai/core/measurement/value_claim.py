@@ -71,6 +71,7 @@ class ValueClaimDeclaration(ContractBase):
     unit: ValueUnit
     currency: NonEmpty | None = None
     direction: ValueDirection
+    target_value: Decimal
     scenario_set_version: NonEmpty
     window_start: datetime
     window_end: datetime
@@ -129,6 +130,11 @@ class ValueClaimSettlement(ContractBase):
     currency: NonEmpty | None = None
     baseline_sample_count: int
     treatment_sample_count: int
+    baseline_mean: Decimal | None = None
+    treatment_mean: Decimal | None = None
+    treatment_interval_low: Decimal | None = None
+    treatment_interval_high: Decimal | None = None
+    source_time: datetime | None = None
     mean_improvement_per_event: Decimal | None = None
     conservative_improvement_per_event: Decimal | None = None
     conservative_total_improvement: Decimal | None = None
@@ -215,11 +221,16 @@ def settle_value_claim(
     else:
         status = ValueClaimStatus.NO_SIGNIFICANT_CHANGE
     realized = status is ValueClaimStatus.IMPROVED
+    treatment_mean = _mean(treatment.samples)
+    treatment_margin = _Z_95 * (_variance(treatment.samples) / len(treatment.samples)).sqrt()
     return _settlement(
         declaration,
         status,
         baseline,
         treatment,
+        baseline_mean=_mean(baseline.samples),
+        treatment_mean=treatment_mean,
+        interval=(treatment_mean - treatment_margin, treatment_mean + treatment_margin),
         mean_improvement=improvement,
         conservative=conservative if realized else Decimal(0),
         total=conservative * len(treatment.samples) if realized else Decimal(0),
@@ -274,6 +285,9 @@ def _unsettled(
         status,
         baseline,
         treatment,
+        baseline_mean=None,
+        treatment_mean=None,
+        interval=None,
         mean_improvement=None,
         conservative=None,
         total=None,
@@ -287,6 +301,9 @@ def _settlement(
     baseline: ValueCohortObservation | None,
     treatment: ValueCohortObservation | None,
     *,
+    baseline_mean: Decimal | None,
+    treatment_mean: Decimal | None,
+    interval: tuple[Decimal, Decimal] | None,
     mean_improvement: Decimal | None,
     conservative: Decimal | None,
     total: Decimal | None,
@@ -303,6 +320,8 @@ def _settlement(
         "workflow_version": declaration.workflow_version,
         "status": status.value,
         "mean": None if mean_improvement is None else str(mean_improvement),
+        "baseline_mean": None if baseline_mean is None else str(baseline_mean),
+        "treatment_mean": None if treatment_mean is None else str(treatment_mean),
         "conservative": None if conservative is None else str(conservative),
         "total": None if total is None else str(total),
         "reasons": list(reasons),
@@ -315,6 +334,11 @@ def _settlement(
         currency=declaration.currency,
         baseline_sample_count=len(baseline.samples) if baseline else 0,
         treatment_sample_count=len(treatment.samples) if treatment else 0,
+        baseline_mean=baseline_mean,
+        treatment_mean=treatment_mean,
+        treatment_interval_low=None if interval is None else interval[0],
+        treatment_interval_high=None if interval is None else interval[1],
+        source_time=treatment.observed_at if treatment and interval else None,
         mean_improvement_per_event=mean_improvement,
         conservative_improvement_per_event=conservative,
         conservative_total_improvement=total,

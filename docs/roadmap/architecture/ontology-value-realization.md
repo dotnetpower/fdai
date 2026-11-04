@@ -15,7 +15,7 @@ FDAI already grounds entities, relationships, time, and evidence in a typed onto
 
 ## Assessment
 
-The assessment compares the repository with the public pattern of ontology-centered operating platforms: objects and links, functions, governed actions with writeback, decision applications, what-if scenarios, and a measured feedback loop. It is a static review of source, catalogs, and ledgers. It ran no live validation.
+The assessment compares the repository with the public pattern of ontology-centered operating platforms: objects and links, functions, governed actions with writeback, decision applications, what-if scenarios, and a measured feedback loop. It is a static review of source, catalogs, and ledgers. It ran no live validation. The table records the state before VR1, and the [implementation ledger](../../roadmap-implementation/architecture/ontology-value-realization.md) records what changed since.
 
 | Area | Observed state | Assessment |
 |------|----------------|------------|

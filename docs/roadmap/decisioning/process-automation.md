@@ -262,6 +262,7 @@ The upstream headless runtime and production Operator API bind `StateStoreWorkfl
 target. The gate opens only for a complete, receipted reading of that exact function whose age is within a configured positive maximum.
 A missing, incomplete, stale, future-dated, mismatched, or unreceipted reading keeps it shut. Wrap it with
 `AdmittedWorkflowGuardEvaluator` so an open gate still needs the shared evidence admission. A reading never grants execution authority.
+`RegistryOntologyGateReader` backs the reader with the ontology function registry ([decision functions](../architecture/operating-ontology-platform.md#decision-functions)), and the coordinator composes the evaluator only when an installation supplies a reader. The catalog ships three shadow workflows that use it: `blast-radius-gated-service-restart`, `change-risk-gated-scale-in`, and `cost-of-delay-gated-vm-deallocate`. Without a reader they stay closed.
 
 `ChangeWindowWorkflowGuardEvaluator` resolves `gate_ref: change-window.active` with the exact Process target and evaluation time. It
 delegates other refs to the existing guard evaluator, so the architecture-review production gate remains unchanged. Guard resolution is

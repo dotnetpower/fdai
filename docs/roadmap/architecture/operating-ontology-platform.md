@@ -603,6 +603,14 @@ decoding is removed only after retained audit and instance fixtures replay under
 | Historical topology | PostgreSQL replay retains the exact ontology release and source receipt bindings for each selected revision batch; dangling active links lower completeness. |
 | Projection reload | The inventory status marker and manifest share a content digest, so a restart never exposes a mixed generation. |
 
+## Decision functions
+
+The platform declares three deterministic, read-only `derive` FunctionTypes in `ontology_platform/decision_functions.py`: `decision.blast_radius`, `decision.change_risk`, and `decision.cost_of_delay`. Each takes its evidence from an injected, server-anchored reader and never from model arguments. The result carries `tier`, `complete`, `observed_at`, `gate_satisfied`, and `reason_codes`, and both authority flags are `false`.
+
+An unreviewed criticality, an incomplete traversal, an unobserved change-risk factor, or an absent cost basis yields `unknown` and a closed predicate. It never yields an optimistic default. A reading is advice that can only preserve or lower autonomy.
+
+`RegistryOntologyGateReader` invokes a function through `OntologyFunctionRegistry` with fixed reviewed arguments and a server-built context that carries the Process target. A workflow `ontology-function:` gate consumes the result as a receipt-bound reading ([process automation](../decisioning/process-automation.md)). The default composition binds no evidence reader, so an installation must supply readers before a gate can open.
+
 ## Related docs
 
 | To learn about | Read |
