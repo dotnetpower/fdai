@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:b827af95d0c77c538b4c009e2835fd1e8b6aca615c88cad2c6afb2821b86882a",
+  "catalog_digest": "sha256:0670dce8f0fff58070a1607097ab02815e13386c6763d03f9a01c4ececad08c2",
   "execution_authority": false,
-  "generated_at": "2026-11-04T01:06:37.253831Z",
+  "generated_at": "2026-11-04T04:27:42.168936Z",
   "records": [
     {
       "designed_behavior": [
@@ -64,7 +64,7 @@
         "How does FDAI prevent audit log tampering and verify DSSE remediation packs?",
         "감사 로그 위변조 방지와 Saga 해시 체인 및 DSSE 서명 검증은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:d3c29cee70b38d00805c48806fb766235b396ed9d1dfded82d71c70f32db4c6c",
+      "record_digest": "sha256:dbcd2d7f3d2cf498d30d84bffedad6cec3453107b3b5526cf4d86e45dbbc0243",
       "sources": [
         {
           "authority_role": "implementation",
@@ -77,9 +77,9 @@
         },
         {
           "authority_role": "implementation",
-          "blob_sha": "d311d704f27b0fd886290e6a0bff175dcdb83685",
-          "line_end": 62,
-          "line_start": 62,
+          "blob_sha": "e31a6f5edb9b6c44cb2e5a6eaffd730756bccaed",
+          "line_end": 165,
+          "line_start": 165,
           "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_audit_history.py",
           "source_kind": "code",
           "symbol": "read_audit_chain_window"
@@ -854,5 +854,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "d2ce63addb52fd750c5ab0bcfc7acdbcb2009767"
+  "source_revision": "9d9be8bed2d16039b241fddfd569003100fbea36"
 }

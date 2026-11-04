@@ -169,33 +169,73 @@ Resource. Override it in the environment; the deployed default stays `120`. The 
 container uses `wal_compression=zstd`, `max_wal_size=512MB`, and a 256 MB `/dev/shm`, which
 also lets parallel `VACUUM` run.
 
-`compact-local-database.py` also keeps the newest 500 resolved `hil_park:` rows. It never lists
-publication fences such as `analyzer-publication:` rows, because deleting one could republish a
-record the broker already holds.
+`compact-local-database.py` also keeps the newest 500 resolved `hil_park:` rows and the newest
+1,000 `measurement:control-loop:` rows. It never lists publication fences such as
+`analyzer-publication:` rows, because deleting one could republish a record the broker already
+holds.
 
-To copy old audit rows out of the table, run the following from the repository root:
+To export old audit rows as verified zstd segments and optionally prune the anchored prefix from
+`audit_log`, run the following from the repository root:
 
 ```bash
 uv run python scripts/deployment/local/archive-audit-segments.py --older-than-days 2
+uv run python scripts/deployment/local/archive-audit-segments.py --older-than-days 2 --prune
 ```
 
 Each segment is a contiguous run of `audit_log` rows as Zstandard-compressed JSON lines, about 7
 times smaller than the stored JSON. The script recomputes the hash chain before and after writing,
-anchors each segment to the previous one in `.fdai/audit-archive/manifest.jsonl`, and keeps the
-newest 512 rows and everything younger than the cutoff. It deletes nothing. `verify_chain` still
-walks the table from genesis, so removing exported rows needs a verifier that accepts a manifest
-anchor; until then the table does not shrink.
+anchors each segment to the previous one in `.fdai/audit-archive/<generation>/manifest.jsonl`, and
+keeps the newest 512 rows and everything younger than the cutoff. With `--prune`, verified segments
+that precede the 512-row hot tail, the 256-row Saga compact checkpoint window, and any canonical
+incident rows are atomically anchored in `state_kv` (`audit-archive:anchor`) and deleted from
+`audit_log` under the audit append lock. `PostgresStateStore.verify_chain` validates that anchor
+and verifies the remaining suffix without requiring a database recreation.
+
+Each database has its own audit chain and sequence numbers, so the archive keeps one directory per
+chain under `.fdai/audit-archive/`, named by a hash of the chain's first row. An archive written
+before this layout is moved into its own directory on the next run. To prove an archive is still
+intact without a database, run `archive-audit-segments.py --verify`: it rechecks every segment's
+digests, row range, and hash chain against the manifest and exits nonzero on any damage.
+
+`prepare-console-state.sh --recreate` runs `archive-audit-segments.py --final` and then `--verify`
+before dropping the database. `--final` archives every row, including the newest 512, and fails
+unless the archive reaches the table head. If either step fails, recreation is refused and nothing
+is dropped.
+
+## Lifecycle-governed audit retention vs. record aggregation
+
+Database retention is governed by generation counts, reachability, completion status, and verified
+archive anchors rather than an arbitrary byte-size ceiling. On the loopback database, audit rows
+arrive at roughly 2,000 to 4,000 per hour (about 1.8 KB per row with indexes). The local analyzer
+ticks every 300 seconds (`FDAI_ANALYZER_INTERVAL_SECONDS`) rather than 60, which removes about 840
+audit rows per hour, and `archive-audit-segments.py --prune` rotates verified cold segments out of
+`audit_log` while preserving the hot tail, Saga recovery window, and incident rows:
+
+- **Anchor-verified prefix pruning (`--prune`).** `verify_chain` and the readiness, chaos,
+  catalog-review, and semantic-refresh checks that call it accept the verified `audit-archive:anchor`
+  receipt in `state_kv` and walk the remaining suffix from that anchor hash.
+- **No aggregation of `abstain`, `risk_gate`, RCA, or Saga ingress records.** Each is an individual
+  decision record, so replacing it with a count weakens replay. Keep full records in the zstd
+  archive and prune only verified cold segments.
+
+`report-database-growth.py` warns on lifecycle leaks (dead-tuple backlogs exceeding live rows,
+unpruned cold `audit_log` rows above 50,000, expired `t2_cache` rows, or unreachable
+`heimdall_versions` backlogs) rather than byte size. The `audit_log_entry_correlation_idx` and
+`idx_audit_log_correlation_id` indexes remain in place because a signed service migration owns the
+first and recovery queries may use either.
 
 ## Explicitly recreate a disposable development database
 
-Ordinary preparation and `--allow-recreate` preserve an under-limit database. After reviewing backup
-and history requirements, stopping all local writers, and explicitly accepting data loss, use:
+Ordinary preparation and `--check` preserve the existing database regardless of its byte size.
+After reviewing backup and history requirements, stopping all local writers, and explicitly
+accepting data loss, use:
 
 ```bash
 bash scripts/deployment/local/prepare-console-state.sh --recreate
 ```
 
-This mode recreates the selected loopback `fdai` runtime database even below the normal size bound.
+This mode archives and verifies every audit row and then recreates the selected loopback `fdai`
+runtime database.
 It preserves the active-connection guard, paired broker-reset marker, bounded private registration
 preservation, and all five service migration branches. Missing size/connection accounting refuses
 recreation. It does not terminate connections, select another database, change identity, or delete
