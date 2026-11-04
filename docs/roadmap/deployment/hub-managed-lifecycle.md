@@ -8,10 +8,8 @@ its subscribed release channel and on the configuration that its customer approv
 hub-and-spoke model of Palantir Apollo. It owns the lifecycle architecture, the plan and state
 loop, and the customer isolation boundary.
 
-> **Status:** Partially implemented for development. The local Hub, planner, and explicit
-> independent product deployment roots and remote startup without login/catalog bindings exist;
-> the full managed installation path is not
-> delivered. No Azure deployment or production trust-root ceremony is claimed. The
+> **Status:** Validated for connected development installations (#2180, #2458, #2463, #2466, #2468, #2181);
+> offline Target Hub qualification and the production trust-root ceremony remain open. The
 > [implementation ledger](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)
 > tracks the exact delivered boundaries. [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance.md)
 > records the decisions.
@@ -251,19 +249,7 @@ human operational confirmation and the remaining evidence-backed workload prepar
 
 ## Read-only input inventory
 
-The read-only **Available releases** screen projects the already accepted catalog through
-`GET /v1/catalog/releases`, rechecking its pin, signatures and expiry without an outbound import.
-Unavailable catalog trust returns `503`; a verified empty catalog remains a distinct result.
-The **Updates** screen shows the pull-only check, the policy decision and a one-click
-**Review and apply**; see [Automatic catalog adoption](lifecycle-releases-and-channels.md#automatic-catalog-adoption).
-Before any pin is approved and imported, the `503` error is `catalog_not_imported_approve_pin_and_import`,
-not a verification or expiry failure.
-**Configuration packages** uses `GET /v1/configurations` for stored digests, counts, timestamps
-and current installation references, omitting values and sealed identifiers. It explicitly
-states that independent package signature provenance is not recorded. Neither listing proves
-artifact availability, eligibility or signed-input readiness, and Agent identities cannot read
-these operator inventories. See the [operator guide](../../runbooks/hub-lifecycle-operator-guide.md)
-for onboarding/release diagrams, public input provenance and the current manual/production gap.
+The read-only **Available releases** screen projects the already accepted catalog through `GET /v1/catalog/releases`, rechecking its pin, signatures and expiry without an outbound import (`503` when unavailable, `catalog_not_imported_approve_pin_and_import` before any pin is approved and imported). The **Updates** screen shows the pull-only check, policy decision and **Review and apply**; see [Automatic catalog adoption](lifecycle-releases-and-channels.md#automatic-catalog-adoption). **Configuration packages** uses `GET /v1/configurations` for stored digests, counts, timestamps and current installation references without values or sealed identifiers, and states that independent package signature provenance is not recorded. **Confirmations** (`/confirmations`, `GET /v1/confirmations`, `POST /v1/installations/{installation_id}/plans/{plan_id}/confirmations/decision`) presents sanitized Azure resource replacement, deletion, and uninstall summaries bound to the exact Plan digest (`sha256:<hex>`); a changed or superseded Plan invalidates the confirmation (`409 plan_digest_mismatch`). **Bundle import** (`/bundle-import`, `GET/POST /v1/bundle-imports`) verifies offline Target Hub upgrade bundles (`verify_and_import_upgrade_bundle`) across vendor checksum signatures, artifact SHA-256 checksums, predecessor lineage, continuous recall sequences, and customer configuration signatures, while disclosing that expired catalog metadata allows only recall roll-off Plans and returns operator-override promotions to `shadow` mode. **Commands** (`/commands`, `GET /v1/commands`, `POST /v1/installations/{installation_id}/commands`) issues expiring `suppression-window`, `authority-lowering`, and `break-glass` commands (`validate_lifecycle_command`), rejecting authority-raising requests (`command_raises_authority`) and reconciling expired break-glass overrides back to the approved Git configuration revision. Agent identities cannot read these operator surfaces; see the [operator guide](../../runbooks/hub-lifecycle-operator-guide.md) for onboarding/release diagrams and provenance.
 
 ## Opt-in installation Agent transport
 
@@ -483,7 +469,8 @@ returned `waiting` with no Plan, preserving the failure hold. Cross-installation
 403, and Agent and Hub replica replacement retained state without duplicate workload effects. The
 temporary AKS, registry, identities, and node resource group were removed after validation, and
 the Lifecycle Hub trust and network inputs returned to a zero-change plan. This receipt validates
-the nginx gate in #2180; it does not qualify the complete FDAI topology tracked by #2181.
+the nginx gate in #2180; the connected-development full-FDAI 16-object topology, distinct update,
+controlled rollback, and edge/runtime health receipts (#2181, #2466, #2468) are recorded in the ledger.
 
 ## Independent product deployment
 
@@ -1408,7 +1395,7 @@ authoritative catalog materialization, and emits a digest-only receipt. Lease co
 destructive declared revision, Job failure or interruption blocks workload switching. A later
 workload rollback retains the expanded schema and completed Job receipt. The dedicated migration
 ServiceAccount is included in the generated prerequisite inventory; its live managed-identity and
-database-role binding remain part of the authorized installation handoff under #2468.
+database-role binding were verified in the authorized installation handoff under #2468.
 
 The Hub-managed lifecycle owner decided these points on 2026-10-07.
 

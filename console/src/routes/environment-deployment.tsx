@@ -8,15 +8,17 @@ import { OnboardingRoute } from "./onboarding";
 import { ProvisionRoute } from "./provision";
 import type { ProvisionViewId } from "./provision-view";
 import { EnvironmentDeploymentObservers } from "./environment-deployment-observers";
+import { EnvironmentDeploymentVersion } from "./environment-deployment-version";
 import { environmentUxText } from "./environment-deployment.i18n";
 import "./environment-deployment.css";
 
-export type EnvironmentDeploymentTab = "readiness" | "deployment" | "observers";
+export type EnvironmentDeploymentTab = "readiness" | "deployment" | "observers" | "version";
 
 const ENVIRONMENT_DEPLOYMENT_TABS: readonly EnvironmentDeploymentTab[] = [
   "readiness",
   "deployment",
   "observers",
+  "version",
 ];
 
 export function environmentDeploymentTabFromSegment(
@@ -125,7 +127,7 @@ export function EnvironmentDeploymentRoute({
             onFocus={() => setFocusedTab(tab)}
             onClick={() => selectTab(tab)}
           >
-            {t(`environmentDeployment.${tab}Tab`)}
+            {tab === "version" ? environmentUxText("versionTab") : t(`environmentDeployment.${tab}Tab`)}
           </button>
         ))}
       </div>
@@ -153,7 +155,9 @@ export function EnvironmentDeploymentRoute({
                 <ProvisionRoute key={deploymentGeneration} client={client} dataMode={dataMode} embedded
                   evidenceView={deploymentView} onEvidenceViewChange={selectDeploymentView} />
               </>
-              : <EnvironmentDeploymentObservers client={client} dataMode={dataMode} />}
+              : activeTab === "observers"
+                ? <EnvironmentDeploymentObservers client={client} dataMode={dataMode} />
+                : <EnvironmentDeploymentVersion client={client} dataMode={dataMode} />}
         </section>
       )}
     </div>

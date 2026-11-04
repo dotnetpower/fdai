@@ -1,8 +1,8 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: b1f1d53c2d5592b163797f1045ded1dc36f98467
-translation_revised: 2026-11-02
+translation_source_sha: 2f1e29cfb9100700f67f74af96b2ad5fb767f072
+translation_revised: 2026-11-04
 ---
 # Hub 관리형 수명 주기
 
@@ -10,9 +10,8 @@ translation_revised: 2026-11-02
 hub-and-spoke 모델을 따라 각 설치를 구독한 release channel과 고객이 승인한 구성에 맞춰
 유지합니다. 이 문서는 수명 주기 아키텍처, 계획과 상태 루프, 고객 격리 경계를 소유합니다.
 
-> **상태:** 개발 검증용으로 일부 구현되었습니다. 로컬 Hub와 플래너, 제품별 독립 배포 루트와
-> 로그인/카탈로그 연결 없는 원격 기동 경로가 있으며, 전체 관리형 설치 경로는 아직 제공하지 않습니다. Azure 배포나 프로덕션
-> 신뢰 루트 설정을 완료했다는 뜻은 아닙니다.
+> **상태:** 연결된 개발 설치본 경로(#2180, #2458, #2463, #2466, #2468, #2181)는 검증되었으며,
+> 오프라인 Target Hub 검증과 프로덕션 신뢰 루트 절차는 열려 있습니다.
 > [구현 현황 원장](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)이
 > 정확한 제공 범위를 추적하며, [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance-ko.md)이
 > 결정을 기록합니다.
@@ -251,19 +250,7 @@ UI는 이미 준비한 합성 설치본의 Plan을 계산합니다. 기존 검�
 
 ## 읽기 전용 입력 조회
 
-**Available releases**는 `GET /v1/catalog/releases`로 이미 수락한 카탈로그를 조회합니다.
-외부 가져오기 없이 고정값, 서명, 만료를 다시 검증합니다. 신뢰를 확인할 수 없으면
-`503`을 반환하며, 검증한 빈 카탈로그와 구분합니다. 고정값을 승인해 가져오기 전에는 검증 또는 만료 실패가 아니라
-`catalog_not_imported_approve_pin_and_import` 오류를 반환합니다.
-**Updates** 화면은 Lifecycle Hub가 직접 수행하는 조회, 정책 결정, 한 번의 **Review and apply**를
-보여 줍니다. [자동 카탈로그 채택](lifecycle-releases-and-channels-ko.md#자동-카탈로그-채택)을
-참고하세요. **Configuration packages**는
-`GET /v1/configurations`로 저장된 다이제스트, 개수, 시각, 현재 설치본 참조만 표시합니다.
-값과 봉인된 식별자는 제외하고, 독립된 패키지 서명 출처를 기록하지 않았음을 명시합니다.
-두 목록은 이미지 가용성, 배포 자격, 서명된 입력 준비 완료를 입증하지 않습니다.
-Agent 신원은 이 운영자 목록을 읽을 수 없습니다.
-초기 등록과 반복 배포 그림, 공개 입력의 출처, 현재 수동 절차와 운영 목표의 차이는
-[운영자 가이드](../../runbooks/hub-lifecycle-operator-guide-ko.md)를 확인하세요.
+**Available releases**는 `GET /v1/catalog/releases`로 이미 수락한 카탈로그의 고정값, 서명, 만료를 외부 가져오기 없이 다시 검증합니다(`503` 사용 불가, 고정값 승인 및 가져오기 전에는 `catalog_not_imported_approve_pin_and_import` 반환). **Updates** 화면은 직접 조회, 정책 결정, **Review and apply**를 보여 줍니다([자동 카탈로그 채택](lifecycle-releases-and-channels-ko.md#자동-카탈로그-채택)). **Configuration packages**는 `GET /v1/configurations`로 값과 봉인된 식별자를 제외한 다이제스트, 개수, 시각, 설치본 참조만 표시하고 독립된 패키지 서명 출처 미기록을 명시합니다. **Confirmations**(`/confirmations`, `GET /v1/confirmations`, `POST /v1/installations/{installation_id}/plans/{plan_id}/confirmations/decision`)는 정확한 Plan 다이제스트(`sha256:<hex>`)에 바인딩된 Azure 리소스 교체, 삭제, 제거 요약을 표시하며 Plan이 변경되거나 대체되면 무효화합니다(`409 plan_digest_mismatch`). **Bundle import**(`/bundle-import`, `GET/POST /v1/bundle-imports`)는 오프라인 Target Hub 업그레이드 번들(`verify_and_import_upgrade_bundle`)의 벤더 체크섬 서명, 파일 SHA-256 체크섬, 이전 번들 계보, 연속 리콜 시퀀스, 고객 구성 서명을 검증하고 메타데이터 만료 시 리콜 롤오프 Plan만 허용하며 운영자 재정의 승격을 `shadow` 모드로 되돌린다는 경계를 안내합니다. **Commands**(`/commands`, `GET /v1/commands`, `POST /v1/installations/{installation_id}/commands`)는 만료 기한이 필수인 `suppression-window`, `authority-lowering`, `break-glass` 명령(`validate_lifecycle_command`)을 발행하며, 권한 상향 요청(`command_raises_authority`)을 거부하고 만료된 긴급(Break-glass) 재정의는 승인된 Git 구성 개정본으로 복원합니다. Agent 신원은 이 운영자 화면을 읽을 수 없으며, 세부 절차는 [운영자 가이드](../../runbooks/hub-lifecycle-operator-guide-ko.md)를 확인하세요.
 
 ## 명시적으로 선택하는 설치 Agent 통신
 
@@ -481,8 +468,8 @@ Service UID를 확인했습니다. 새 recompute는 Plan 없이 `waiting`을 반
 유지했습니다. 다른 설치본에 대한 접근은 403을 반환했으며 Agent와 Hub replica를 교체해도
 상태가 유지되고 워크로드 효과가 중복되지 않았습니다. 검증 후 임시 AKS, 레지스트리, 신원,
 노드 리소스 그룹을 제거했고 Lifecycle Hub trust와 네트워크 입력은 zero-change plan으로
-복원했습니다. 이 증적은 #2180의 nginx gate를 검증하지만 #2181에서 추적하는 전체 FDAI
-topology를 검증하지는 않습니다.
+복원했습니다. 이 증적은 #2180의 nginx gate를 검증하며, 연결된 개발 환경의 전체 FDAI 16개 객체
+topology, 별도 업데이트, 통제된 롤백, 에지/런타임 상태 증적(#2181, #2466, #2468)은 원장에 기록합니다.
 
 ## 제품별 독립 배포
 
@@ -1396,7 +1383,7 @@ import하지 않고 다시 검사하며, PostgreSQL advisory lease 하나를 유
 증적을 출력합니다. 리스 경합, 파괴적인 선언 개정, Job 실패나 중단은 워크로드 전환을 차단합니다.
 이후 워크로드를 롤백해도 확장된 스키마와 완료한 Job 증적은 유지합니다. 생성한 선행 조건 목록에는
 전용 마이그레이션 ServiceAccount가 포함됩니다. 실제 관리 ID와 데이터베이스 역할 연결은 #2468의
-승인된 설치 인계 범위에 남아 있습니다.
+승인된 설치 인계에서 검증했습니다.
 
 Hub 관리형 수명 주기 담당자가 2026-10-07에 다음과 같이 결정했습니다.
 

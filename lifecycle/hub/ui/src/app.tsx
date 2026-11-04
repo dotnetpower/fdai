@@ -2,8 +2,10 @@ import { useEffect, useState } from "preact/hooks";
 import { Nav } from "./components/nav";
 import { currentRoute, subscribe, type Route } from "./router";
 import { AuditPage } from "./routes/audit";
+import { BundleImportPage } from "./routes/bundle-import";
 import { CatalogPage } from "./routes/catalog";
 import { CommandsPage } from "./routes/commands";
+import { ConfirmationsPage } from "./routes/confirmations";
 import { EnrollmentsPage } from "./routes/enrollments";
 import { InstallationPage } from "./routes/installation";
 import { InstallationsPage } from "./routes/installations";
@@ -27,6 +29,10 @@ function Screen({ route }: { route: Route }) {
       return <ReleasesPage />;
     case "configurations":
       return <ConfigurationsPage />;
+    case "confirmations":
+      return <ConfirmationsPage />;
+    case "bundle-import":
+      return <BundleImportPage />;
     case "commands":
       return <CommandsPage />;
     case "audit":

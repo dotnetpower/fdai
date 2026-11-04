@@ -1,6 +1,6 @@
 import {
-  auditPath, availableReleasesPath, commandsPath, configurationPackagesPath,
-  enrollmentsPath, installationsPath, updatesPath, type Route,
+  auditPath, availableReleasesPath, bundleImportPath, commandsPath, configurationPackagesPath,
+  confirmationsPath, enrollmentsPath, installationsPath, updatesPath, type Route,
 } from "../router";
 import { tr, useHubLocale } from "../locale";
 import { Link } from "./link";
@@ -19,12 +19,12 @@ function isOnEnrollments(route: Route): boolean {
  * distinguishing CLI/external boundaries from active Hub screens. */
 const UNBUILT_SURFACES = [
   {
-    label: "Confirmations",
-    reason: "Destructive Azure plan confirmations appear only when an infrastructure agent submits a replacement summary.",
+    label: "Customer Git PRs",
+    reason: "Configuration changes stay in customer Git as reviewed merges (ADR-0003 L9).",
   },
   {
-    label: "Bundle import",
-    reason: "Offline Target Hub upgrade bundles are verified and imported via the fdaictl upgrade-bundle CLI.",
+    label: "Terraform executor",
+    reason: "Exact Terraform plans render and execute inside the installation boundary, never in the Hub.",
   },
   {
     label: "Custom channels",
@@ -32,7 +32,7 @@ const UNBUILT_SURFACES = [
   },
   {
     label: "Break-glass CLI",
-    reason: "Emergency break-glass overrides require the installation-local CLI and break-glass role.",
+    reason: "Emergency break-glass overrides also support the installation-local CLI and break-glass role.",
   },
 ] as const;
 
@@ -67,10 +67,14 @@ export function Nav({ route }: { route: Route }) {
         aria-current={route.kind === "updates" ? "page" : undefined}>Updates</Link>
       <Link href="/catalog" class={`it ${route.kind === "catalog" ? "on" : ""}`}
         aria-current={route.kind === "catalog" ? "page" : undefined}>Catalog import</Link>
+      <Link href={bundleImportPath()} class={`it ${route.kind === "bundle-import" ? "on" : ""}`}
+        aria-current={route.kind === "bundle-import" ? "page" : undefined}>Bundle import</Link>
       <Link href={availableReleasesPath()} class={`it ${route.kind === "releases" ? "on" : ""}`}
         aria-current={route.kind === "releases" ? "page" : undefined}>Available releases</Link>
       <Link href={configurationPackagesPath()} class={`it ${route.kind === "configurations" ? "on" : ""}`}
         aria-current={route.kind === "configurations" ? "page" : undefined}>Configuration packages</Link>
+      <Link href={confirmationsPath()} class={`it ${route.kind === "confirmations" ? "on" : ""}`}
+        aria-current={route.kind === "confirmations" ? "page" : undefined}>Confirmations</Link>
       <Link href={commandsPath()} class={`it ${route.kind === "commands" ? "on" : ""}`}
         aria-current={route.kind === "commands" ? "page" : undefined}>Commands</Link>
       <Link href={auditPath()} class={`it ${route.kind === "audit" ? "on" : ""}`}

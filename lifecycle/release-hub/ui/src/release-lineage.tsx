@@ -1,4 +1,4 @@
-import { useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { nextPromotionTransition, type Action, type Catalog, type Release } from "./api";
 import {
   BADGE_HEIGHT,
@@ -7,6 +7,7 @@ import {
   buildReleaseStagePipeline,
   CARD_HEIGHT,
   CARD_WIDTH,
+  computeLineageSummary,
   type LineageGraph,
   type LineageNode,
 } from "./release-lineage.model";
@@ -20,6 +21,7 @@ export {
   CARD_WIDTH,
   COL_GAP,
   compareSemVer,
+  computeLineageSummary,
   nextSuggestedSemVer,
   PAD_X,
   PAD_Y,
@@ -30,6 +32,7 @@ export {
   type LineageGraph,
   type LineageNode,
   type LineageNodeStatus,
+  type LineageSummary,
 } from "./release-lineage.model";
 
 function NodeIcon({ kind }: { kind: LineageNode["icon"] }) {
@@ -89,18 +92,39 @@ function LineageCanvas({
   graph,
   locale,
   selectedId,
+  filterTrack,
   onSelectNode,
   idPrefix,
 }: {
   graph: LineageGraph;
   locale: "en" | "ko";
   selectedId?: string | null | undefined;
+  filterTrack?: string | null | undefined;
   onSelectNode?: ((node: LineageNode) => void) | undefined;
   idPrefix: string;
 }) {
   void idPrefix;
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  function focusNodeAtIndex(nextIdx: number) {
+    const cards = containerRef.current?.querySelectorAll<HTMLElement>(".rh-lineage-card[tabindex]");
+    if (!cards || cards.length === 0) return;
+    const clamped = Math.max(0, Math.min(cards.length - 1, nextIdx));
+    const target = cards[clamped];
+    if (target) {
+      target.focus();
+      const node = graph.nodes[clamped];
+      if (node) onSelectNode?.(node);
+    }
+  }
+
   return (
-    <div class="rh-lineage-scroll" role="region" aria-label="Release lineage graph">
+    <div
+      ref={containerRef}
+      class="rh-lineage-scroll"
+      role="region"
+      aria-label={locale === "ko" ? "릴리스 버전 계통 그래프 (좌우 화살표 키로 이동)" : "Release lineage graph (Use Left/Right arrow keys to navigate)"}
+    >
       <svg
         class="rh-lineage-canvas-svg"
         width={graph.width}
@@ -122,9 +146,16 @@ function LineageCanvas({
           );
         })}
 
-        {graph.nodes.map((node) => {
+        {graph.nodes.map((node, index) => {
           const isSelected = selectedId === node.id;
+          const isDimmed = Boolean(filterTrack && filterTrack !== "all" && node.stencilId !== filterTrack);
           const badgeLabel = locale === "ko" ? node.badgeTextKo : node.badgeText;
+          const hintLabel = node.actionableHint
+            ? locale === "ko"
+              ? node.actionableHint.ko
+              : node.actionableHint.en
+            : null;
+          const ariaLabel = `${node.title}, ${badgeLabel}, ${node.subtitle}${hintLabel ? ` (${hintLabel})` : ""}`;
           return (
             <foreignObject
               key={node.id}
@@ -134,7 +165,7 @@ function LineageCanvas({
               height={CARD_HEIGHT + BADGE_HEIGHT}
               class="rh-lineage-fo"
             >
-              <div class="rh-lineage-node-wrap">
+              <div class={`rh-lineage-node-wrap ${isDimmed ? "is-dimmed" : ""}`}>
                 <div class="rh-lineage-badge-row">
                   {node.status !== "pending" && (
                     <span class={`rh-lineage-badge status-${node.status}`}>
@@ -159,12 +190,29 @@ function LineageCanvas({
                 <div
                   role={onSelectNode ? "button" : undefined}
                   tabIndex={onSelectNode ? 0 : undefined}
-                  class={`rh-lineage-card status-${node.status} ${node.status === "running" ? "is-running" : ""} ${isSelected ? "is-selected" : ""}`}
+                  aria-label={ariaLabel}
+                  aria-pressed={onSelectNode ? isSelected : undefined}
+                  aria-current={isSelected ? "step" : undefined}
+                  title={hintLabel ?? `${node.title} (${node.subtitle})`}
+                  class={`rh-lineage-card status-${node.status} ${node.status === "running" ? "is-running" : ""} ${isSelected ? "is-selected" : ""} ${hintLabel ? "is-actionable" : ""}`}
                   onClick={() => onSelectNode?.(node)}
                   onKeyDown={(e) => {
-                    if (onSelectNode && (e.key === "Enter" || e.key === " ")) {
+                    if (!onSelectNode) return;
+                    if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
                       onSelectNode(node);
+                    } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+                      e.preventDefault();
+                      focusNodeAtIndex(index + 1);
+                    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+                      e.preventDefault();
+                      focusNodeAtIndex(index - 1);
+                    } else if (e.key === "Home") {
+                      e.preventDefault();
+                      focusNodeAtIndex(0);
+                    } else if (e.key === "End") {
+                      e.preventDefault();
+                      focusNodeAtIndex(graph.nodes.length - 1);
                     }
                   }}
                 >
@@ -173,7 +221,7 @@ function LineageCanvas({
                     <strong class="rh-node-title">{node.title}</strong>
                   </div>
                   <div class="rh-lineage-card-bottom">
-                    <span class="rh-node-sub">{node.subtitle}</span>
+                    <span class="rh-node-sub">{hintLabel && node.status === "running" ? `${node.subtitle} · ${hintLabel}` : node.subtitle}</span>
                   </div>
                 </div>
               </div>
@@ -192,6 +240,7 @@ export function ReleaseLineageSection({
   buildingDraft,
   disabled,
   onAct,
+  onComparePair,
 }: {
   catalog: Catalog;
   locale: "en" | "ko";
@@ -199,6 +248,7 @@ export function ReleaseLineageSection({
   buildingDraft?: { id: string; stencilId: string; label?: string | undefined } | null | undefined;
   disabled?: boolean | undefined;
   onAct?: ((action: Action, release: Release) => void) | undefined;
+  onComparePair?: ((baseId: string, targetId: string) => void) | undefined;
 }) {
   const t = (en: string, ko: string) => (locale === "ko" ? ko : en);
   const defaultSelected = useMemo(() => {
@@ -210,6 +260,13 @@ export function ReleaseLineageSection({
     return runningRel?.id ?? catalog.releases[0]?.id ?? null;
   }, [catalog.releases]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(defaultSelected);
+  const [filterTrack, setFilterTrack] = useState<string>("all");
+
+  useEffect(() => {
+    if (!selectedNodeId || !catalog.releases.some((r) => r.id === selectedNodeId)) {
+      setSelectedNodeId(defaultSelected);
+    }
+  }, [catalog.releases, selectedNodeId, defaultSelected]);
 
   const graph = useMemo(
     () =>
@@ -220,10 +277,18 @@ export function ReleaseLineageSection({
     [catalog, activeReleaseId, buildingDraft],
   );
 
+  const summary = useMemo(() => computeLineageSummary(graph), [graph]);
+
   const selectedRelease = useMemo(
     () => catalog.releases.find((r) => r.id === selectedNodeId) ?? catalog.releases[0] ?? null,
     [catalog.releases, selectedNodeId],
   );
+
+  const selectedParentId = useMemo(() => {
+    if (!selectedRelease) return null;
+    const node = graph.nodes.find((n) => n.id === selectedRelease.id);
+    return node?.parentIds?.[0] ?? null;
+  }, [graph.nodes, selectedRelease]);
 
   return (
     <section class="rh-lineage-section" aria-labelledby="rh-lineage-heading">
@@ -242,12 +307,48 @@ export function ReleaseLineageSection({
             )}
           </p>
         </div>
+        <div class="rh-lineage-summary-strip" aria-label={t("Lineage status summary", "버전 계통 상태 요약")}>
+          <span class="rh-lineage-badge status-complete">
+            <span class="rh-badge-check" aria-hidden="true">✓</span>
+            {t(`Complete: ${summary.complete}`, `운영 완료: ${summary.complete}`)}
+          </span>
+          <span class="rh-lineage-badge status-running">
+            <span class="rh-badge-spinner" aria-hidden="true" />
+            {t(`Running / Active: ${summary.running}`, `진행 중: ${summary.running}`)}
+          </span>
+          <span class="rh-lineage-badge status-recalled">
+            <span class="rh-badge-recall" aria-hidden="true">✕</span>
+            {t(`Recalled / Blocked: ${summary.recalled}`, `회수/차단: ${summary.recalled}`)}
+          </span>
+          {summary.editionTracks.length > 1 && (
+            <div class="quick-chips" role="group" aria-label={t("Filter by Stencil track", "에디션 트랙 필터")}>
+              <button
+                type="button"
+                class={`chip-btn ${filterTrack === "all" ? "is-active-chip" : ""}`}
+                onClick={() => setFilterTrack("all")}
+              >
+                {t("All tracks", "전체 트랙")}
+              </button>
+              {summary.editionTracks.map((tr) => (
+                <button
+                  key={tr}
+                  type="button"
+                  class={`chip-btn ${filterTrack === tr ? "is-active-chip" : ""}`}
+                  onClick={() => setFilterTrack((prev) => (prev === tr ? "all" : tr))}
+                >
+                  {tr}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <LineageCanvas
         graph={graph}
         locale={locale}
         selectedId={selectedRelease?.id}
+        filterTrack={filterTrack}
         idPrefix="catalog-lineage"
         onSelectNode={(node) => {
           setSelectedNodeId(node.id);
@@ -267,6 +368,18 @@ export function ReleaseLineageSection({
               <a href={`#/releases/${selectedRelease.id}`} class="chip-btn">
                 {t(`Open v${selectedRelease.id} workspace ->`, `v${selectedRelease.id} 상세 작업 영역 열기 ->`)}
               </a>
+              {onComparePair && selectedParentId && (
+                <button
+                  type="button"
+                  class="chip-btn"
+                  onClick={() => onComparePair(selectedParentId, selectedRelease.id)}
+                >
+                  {t(
+                    `Compare v${selectedParentId} -> v${selectedRelease.id}`,
+                    `이전 계통(v${selectedParentId} -> v${selectedRelease.id}) Diff 비교`,
+                  )}
+                </button>
+              )}
               {onAct && selectedRelease.state === "draft" && (
                 <button
                   type="button"

@@ -58,6 +58,9 @@ class EntraLoginRequest(BaseModel):
 
     @model_validator(mode="after")
     def _validate_fields(self) -> EntraLoginRequest:
+        for val in (self.principal, self.display_name, self.tenant_id, self.client_id):
+            if any(ord(ch) < 32 or ord(ch) == 127 for ch in val):
+                raise ValueError("Entra login fields cannot contain control characters.")
         cleaned_principal = self.principal.strip()
         if cleaned_principal and _PRINCIPAL_RE.fullmatch(cleaned_principal) is None:
             raise ValueError("Entra principal must be a valid UPN, email, or object identifier.")

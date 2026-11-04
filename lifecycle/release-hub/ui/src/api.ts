@@ -42,6 +42,7 @@ export function catalogRecovery(failure: unknown): string {
     if (failure.status === 401) return "Session expired. Sign in again, then refresh the catalog before another action.";
     if (failure.status === 403) return "Operator access denied. Ask the Hub owner to review your existing access; do not expand permissions.";
     if (failure.status === 409) return "Catalog state changed or a server guard blocked the request. Refresh and review the release activity.";
+    if (failure.status === 429) return "Too many requests in flight. Wait briefly and refresh the catalog before retrying.";
     if (failure.status === 503) return "Hub configuration or service readiness is unavailable. Ask the Hub owner to inspect readiness.";
     return `The Hub rejected the request (${failure.status}). Review the input and current catalog before another action.`;
   }
@@ -508,7 +509,16 @@ export async function requestStencilCatalog(): Promise<StencilCatalogResponse> {
   if (!response.ok) {
     throw new Error(`Stencil catalog unavailable (${response.status}).`);
   }
-  return (await response.json()) as StencilCatalogResponse;
+  const raw: unknown = await response.json();
+  if (
+    typeof raw !== "object" ||
+    raw === null ||
+    !Array.isArray((raw as StencilCatalogResponse).presets) ||
+    !Array.isArray((raw as StencilCatalogResponse).panels)
+  ) {
+    throw new Error("Invalid Stencil catalog payload.");
+  }
+  return raw as StencilCatalogResponse;
 }
 
 export async function requestStencilCompose(
@@ -560,7 +570,16 @@ export async function requestEntraSession(): Promise<EntraSessionStatus | null> 
       signal: AbortSignal.timeout(5_000),
     });
     if (!response.ok) return null;
-    return (await response.json()) as EntraSessionStatus;
+    const raw: unknown = await response.json();
+    if (
+      typeof raw !== "object" ||
+      raw === null ||
+      typeof (raw as EntraSessionStatus).authenticated !== "boolean" ||
+      !Array.isArray((raw as EntraSessionStatus).detected_accounts)
+    ) {
+      return null;
+    }
+    return raw as EntraSessionStatus;
   } catch {
     return null;
   }
@@ -601,16 +620,58 @@ export async function requestEntraLogout(): Promise<EntraSessionStatus> {
 
 export function parseReleaseManifest(manifest: string): ReleaseManifest {
   const parsed: unknown = JSON.parse(manifest);
-  if (typeof parsed !== "object" || parsed === null) throw new Error("Invalid manifest.");
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error("Invalid manifest.");
+  }
   return parsed as ReleaseManifest;
 }
 
-export function releaseTitle(release: Release, manifest = parseReleaseManifest(release.manifest)): string {
+export function safeParseReleaseManifest(manifest: string): ReleaseManifest {
+  try {
+    return parseReleaseManifest(manifest);
+  } catch {
+    return {};
+  }
+}
+
+export function syncManifestReleaseVersion(manifestJson: string, nextVersion: string): string {
+  const trimmedVer = nextVersion.trim();
+  if (!trimmedVer || !manifestJson.trim()) return manifestJson;
+  try {
+    const parsed = JSON.parse(manifestJson) as Record<string, unknown>;
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return manifestJson;
+    }
+    let changed = false;
+    if (typeof parsed.release_version === "string" && parsed.release_version !== trimmedVer) {
+      parsed.release_version = trimmedVer;
+      changed = true;
+    }
+    if (
+      typeof parsed.configuration_schema === "object" &&
+      parsed.configuration_schema !== null &&
+      !Array.isArray(parsed.configuration_schema)
+    ) {
+      const schemaObj = parsed.configuration_schema as Record<string, unknown>;
+      if (typeof schemaObj.release_version === "string" && schemaObj.release_version !== trimmedVer) {
+        schemaObj.release_version = trimmedVer;
+        changed = true;
+      }
+    }
+    return changed ? JSON.stringify(parsed, null, 2) : manifestJson;
+  } catch {
+    return manifestJson;
+  }
+}
+
+export function releaseTitle(release: Release, manifest = safeParseReleaseManifest(release.manifest)): string {
   return `${manifest.product ?? "Release"} ${release.id}`;
 }
 
-export function schemaCompatibility(manifest: ReleaseManifest): string {
-  if (!manifest.schema) return "Not declared (stateless package)";
+export function schemaCompatibility(manifest: ReleaseManifest, locale: "en" | "ko" = "en"): string {
+  if (!manifest.schema) {
+    return locale === "ko" ? "선언되지 않음 (무상태 패키지)" : "Not declared (stateless package)";
+  }
   return `${manifest.schema.tolerates.minimum} - ${manifest.schema.tolerates.maximum} (target ${manifest.schema.target})`;
 }
 

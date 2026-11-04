@@ -15,6 +15,7 @@ from typing import Any, Protocol
 from fdai_service_contracts.handover import StewardshipMergeRecord
 from pydantic import ValidationError
 
+from fdai.agents import PANTHEON_SPECS
 from fdai.core.human_assignment import (
     AssignmentOwnershipCoordinator,
     VerifiedOwnershipMerge,
@@ -25,6 +26,7 @@ from fdai.core.stewardship import (
     StewardshipMap,
     affected_agents_from_stewardship_change,
     build_change_notification,
+    build_coverage_report,
 )
 from fdai.core.stewardship.governance import (
     StewardshipGovernanceError,
@@ -37,6 +39,7 @@ _MERGE_PREFIX = "stewardship_merge:"
 _RECEIPT_PREFIX = "stewardship_merge_effect:"
 _FAILURE_PREFIX = "stewardship_merge_effect_failure:"
 _PROPOSAL_PREFIX = "human_assignment:ownership-proposal:"
+COVERAGE_PROJECTION_KEY = "operator-projection:operations:stewardship.coverage"
 _LOGGER = logging.getLogger("fdai.stewardship.merge_effects")
 
 
@@ -147,7 +150,7 @@ class StewardshipMergeEffectsWorker:
             "assignment_case_id": assignment_case_id,
             "recorded_at": recorded_at,
         }
-        return await self.store.write_state_with_audit_if_absent(
+        inserted = await self.store.write_state_with_audit_if_absent(
             receipt_key,
             state,
             {
@@ -156,6 +159,12 @@ class StewardshipMergeEffectsWorker:
                 **state,
             },
         )
+        if inserted:
+            await self.store.write_state(
+                COVERAGE_PROJECTION_KEY,
+                build_stewardship_coverage_projection(after),
+            )
+        return inserted
 
     async def _advance_matching_assignment(
         self,
@@ -231,4 +240,69 @@ def _failure_key(raw: Mapping[str, Any]) -> str:
     return f"{_FAILURE_PREFIX}{hashlib.sha256(serialized.encode()).hexdigest()}"
 
 
-__all__ = ["NotificationDispatcher", "StewardshipMergeEffectsWorker"]
+def _project_stewardship_agent(stewardship: StewardshipMap, name: str) -> dict[str, object]:
+    agent = stewardship.agent(name)
+    return {
+        "name": name,
+        "autonomous": agent.is_autonomous,
+        "accept_autonomous_reason": agent.accept_autonomous_reason,
+        "bus_factor": len({(subject.kind, subject.id.casefold()) for subject in agent.accountable}),
+        "stewards": [
+            {
+                "kind": str(subject.kind),
+                "id": subject.id,
+                "responsibility": str(subject.responsibility),
+                "duty": None if subject.duty is None else str(subject.duty),
+            }
+            for subject in agent.stewards
+        ],
+    }
+
+
+def build_stewardship_coverage_projection(stewardship: StewardshipMap) -> dict[str, object]:
+    """Build the revisioned stewardship coverage projection for Operator and Console reads."""
+    report = build_coverage_report(stewardship)
+    payload: dict[str, object] = {
+        "map": {
+            "version": stewardship.version,
+            "maintainers": list(stewardship.maintainer_oids),
+            "maintainer_count": len(stewardship.maintainer_oids),
+            "hop_timeout_seconds": stewardship.hop_timeout_seconds,
+            "over_assigned_max": stewardship.over_assigned_max,
+            "agents": [
+                _project_stewardship_agent(stewardship, spec.name) for spec in PANTHEON_SPECS
+            ],
+        },
+        "coverage": {
+            "is_clean": report.is_clean,
+            "total_agents": report.total_agents,
+            "autonomous_agents": report.autonomous_agents,
+            "maintainer_count": report.maintainer_count,
+            "findings": [
+                {
+                    "code": finding.code,
+                    "severity": str(finding.severity),
+                    "message": finding.message,
+                    "agent": finding.agent,
+                }
+                for finding in report.findings
+            ],
+        },
+        "identity_health": {"status": "not_configured", "checked_at": None},
+    }
+    encoded = json.dumps(
+        payload,
+        allow_nan=False,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return {"_revision": f"sha256:{hashlib.sha256(encoded).hexdigest()}", **payload}
+
+
+__all__ = [
+    "COVERAGE_PROJECTION_KEY",
+    "NotificationDispatcher",
+    "StewardshipMergeEffectsWorker",
+    "build_stewardship_coverage_projection",
+]

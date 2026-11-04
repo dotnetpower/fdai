@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: 7bcb39b20f57e029cf1d7e01309817b3f0a8341a
-translation_revised: 2026-11-01
+translation_source_sha: 680781c9d1c3af3e72084ef0fab1aee5f5fb73bc
+translation_revised: 2026-11-04
 title: 에이전트 스튜어드십과 인수인계
 ---
 # 에이전트 스튜어드십과 인수인계
@@ -68,6 +68,7 @@ ID는 별도 디렉터리만 해석합니다. 이 검사는 초안 전용 동작
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-11-04 | validated | 업스트림 `config/agent-stewardship.yaml`을 고객 독립적으로 유지하면서, 서로 다른 유지관리자 2명과 자율 운영이 아닌 에이전트 14개의 책임 `primary` 및 구별되는 `backup`/`escalation` 담당자, Loki의 `accept_autonomous` 유지, 담당 범위 경고 0건(`is_clean=true`), `OwnershipProjectionReader`의 `deployment_readiness=ready`를 포함한 스키마 v2 판테온 15대 에이전트 담당 범위를 검증했습니다(#2128). | `current change`; #2128; `scripts/deployment/local/rehearse_operational_acceptance.py`; `tests/integration/scripts/test_operational_acceptance_rehearsal.py`; `services/core-control-plane/src/fdai/runtime/stewardship_merge_effects.py`; `services/core-control-plane/tests/runtime/test_stewardship_merge_effects.py` (`8 passed`); receipt `5058fa218ca4f69fc137317933cc9afb5887a6232b92b4edbc615fcd4b3e393a`. | 적응형 산문 추출을 요청할 때 구체적인 적응형 해석기 바인딩은 선택 사항으로 남습니다. |
 | 2026-11-01 | implemented | RBAC이나 실행 권한을 바꾸지 않고 Core 담당 체계(`H001`~`H016`), 인수인계 부트스트랩(`H017`~`H025`), 인수인계 서비스 계약(`H026`~`H035`), 사람-에이전트 배정 및 지식 인수인계(`H036`~`H084`), Operator 인수인계·소유권 투영(`H085`~`H095`), Document Worker/Ingestion API/자동화 스크립트(`H096`~`H105`) 전반에 걸쳐 100라운드(105개 항목) 강화를 완료했습니다. | `current change`; 집중 담당 체계 및 인수인계 테스트 710개, `check-stewardship.sh`, Ruff, strict mypy 통과. | 실제 적응형 해석기, schema v2 사람·백업 바인딩 및 실제 알림·인가 수락은 남아 있습니다. |
 | 2026-11-01 | implemented | RBAC이나 실행 권한을 바꾸지 않고 `G081`~`G088`에 걸쳐 판테온 15대 에이전트 담당 체계(`coverage.py`, `directory.py`, `escalation.py`, `governance.py`, `model.py`, `migration.py`, `notify.py`, `resolver.py`)를 강화했습니다. | `current change`; 집중 `tests/core/stewardship` 모음, Ruff, strict mypy 통과. | 실제 적응형 해석기, schema v2 사람·백업 바인딩 및 실제 알림·인가 수락은 남아 있습니다. |
 | 2026-10-15 | implemented | 1.1 모델 출처, 정확한 원문/제안 검증, 영속 두-call 예약과 측정 가격을 갖춘 독립 검토 적응형 해석을 실제 Worker consumer에 연결했습니다. | `current change`; Worker/Ingestion API 검사 16개; scripted 검토/원문/정체성/버전 거절, mock HTTP/DB와 저장 초안 재생; 일곱 파일 mypy·Ruff 통과. | 검토된 비공개 target·프롬프트·가격을 구성하고 실제 모델 품질·정체성·백업·DB/재시작·알림 수락 증거를 보존해야 합니다. |
@@ -80,7 +81,7 @@ ID는 별도 디렉터리만 해석합니다. 이 검사는 초안 전용 동작
 
 ### 남은 작업
 
-- [ ] 업스트림 지도를 고객 독립적 상태로 유지하면서, 자율 운영이 아닌 모든 에이전트에 대해 스키마 v2, 실제 `primary` 1명, 구별되는 실제 `backup` 또는 `escalation` 대상 1명을 보여 주는 관리형 배포 증적을 보존합니다.
+- [x] 업스트림 지도를 고객 독립적 상태로 유지하면서, 자율 운영이 아닌 모든 에이전트에 대해 스키마 v2, 실제 `primary` 1명, 구별되는 실제 `backup` 또는 `escalation` 대상 1명을 보여 주는 관리형 배포 증적을 보존합니다. 위 2026-11-04 이력 행에서 검증했습니다(#2128, receipt `5058fa218ca4f69fc137317933cc9afb5887a6232b92b4edbc615fcd4b3e393a`).
 - [x] `HandoverInterpreter` 배포 바인딩의 집중 근거가 `services/core-control-plane/tests/core/stewardship/handover_bootstrap/test_interpreter_binding.py`에 있으며, 기본 abstain 동작, 문서별 호출, 근거, 확신도, 신원, 미적용 동작을 다룹니다.
 - [ ] 적응형 해석을 운영에서 사용할 수 있다고 설명하기 전에 구체적인 적응형 해석기를 배포에 바인딩하고 통제된 런타임 증적을 보존합니다.
 

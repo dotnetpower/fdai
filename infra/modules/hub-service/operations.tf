@@ -127,6 +127,9 @@ resource "azurerm_container_app_job" "operation" {
     azurerm_role_assignment.operation_request_reader,
     azurerm_private_endpoint.vault,
     azurerm_private_dns_zone_virtual_network_link.vault,
+    azurerm_private_endpoint.state,
+    azurerm_private_dns_zone_virtual_network_link.state,
+    azurerm_container_app_environment_storage.state,
   ]
   lifecycle {
     prevent_destroy = true

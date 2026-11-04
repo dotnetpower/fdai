@@ -67,3 +67,13 @@ def test_serverless_sqlite_remote_engine_accepts_mounted_path_outside_checkout(
     monkeypatch.setenv("FDAI_RELEASE_HUB_DATABASE_URL", "sqlite:///relative.sqlite")
     with pytest.raises(ValueError, match="Serverless SQLite Hub requires an absolute"):
         remote.remote_engine("release")
+
+    monkeypatch.setenv("FDAI_RELEASE_HUB_DATABASE_URL", f"sqlite:///{tmp_path}/../escape.sqlite")
+    with pytest.raises(ValueError, match="Serverless SQLite Hub requires an absolute"):
+        remote.remote_engine("release")
+
+    monkeypatch.setenv(
+        "FDAI_RELEASE_HUB_DATABASE_URL", f"sqlite:///{tmp_path}/missing_dir/hub.sqlite"
+    )
+    with pytest.raises(ValueError, match="Serverless SQLite Hub requires an absolute"):
+        remote.remote_engine("release")

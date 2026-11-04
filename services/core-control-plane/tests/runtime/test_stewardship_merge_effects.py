@@ -67,6 +67,12 @@ async def test_merge_effects_notify_and_audit_once() -> None:
     assert receipt["recipient_count"] == 1
     assert len(receipt["affected_agents"]) == 15
     assert len(store.audit_entries) == 1
+    coverage_projection = await store.read_state(
+        "operator-projection:operations:stewardship.coverage"
+    )
+    assert coverage_projection is not None
+    assert str(coverage_projection["_revision"]).startswith("sha256:")
+    assert coverage_projection["coverage"]["total_agents"] == 15
 
 
 async def test_invalid_merge_is_quarantined_without_blocking_later_record() -> None:

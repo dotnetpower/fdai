@@ -4,7 +4,7 @@ import {
   activeCapabilityRecalls, catalogChangeObserved, catalogRecovery, computeApolloReleaseDiff,
   extractReleaseStencil, isCustomChannel, nextPromotionTransition,
   releaseStateIndex, releaseTitle, requestCatalog, requestEntraLogin, requestEntraLogout,
-  requestEntraSession, requestStencilCatalog, requestStencilCompose,
+  requestEntraSession, requestStencilCatalog, requestStencilCompose, syncManifestReleaseVersion,
   type Action, type Catalog, type Change, type EntraSessionStatus, type Release,
 } from "./api";
 import { DeploymentRequests } from "./deployment-requests";
@@ -216,16 +216,65 @@ function Confirm({ pending, catalog, locale, registration, setRegistration, clos
         </div>
         <label>
           {t("Release id (SemVer - defaults to next patch 0.5.x)", "릴리스 버전 ID (SemVer - 기본값: 다음 하위 패치 버전)")}
-          <input required aria-label="Release id (SemVer)" value={id} onInput={(e) => setRegistration({ ...registration, id: e.currentTarget.value })} placeholder={nextSuggestedSemVer(catalog.releases, "patch")} />
+          <input
+            required
+            aria-label="Release id (SemVer)"
+            value={id}
+            onInput={(e) => {
+              const nextId = e.currentTarget.value;
+              setRegistration({
+                ...registration,
+                id: nextId,
+                manifest: syncManifestReleaseVersion(registration.manifest, nextId),
+              });
+            }}
+            placeholder={nextSuggestedSemVer(catalog.releases, "patch")}
+          />
         </label>
         <div class="quick-chips">
-          <button type="button" class="chip-btn" onClick={() => { const v = nextSuggestedSemVer(catalog.releases, "patch"); setRegistration({ ...registration, id: v }); setConfirmation(v); }}>
+          <button
+            type="button"
+            class="chip-btn"
+            onClick={() => {
+              const v = nextSuggestedSemVer(catalog.releases, "patch");
+              setRegistration({
+                ...registration,
+                id: v,
+                manifest: syncManifestReleaseVersion(registration.manifest, v),
+              });
+              setConfirmation(v);
+            }}
+          >
             {t(`Patch update (${nextSuggestedSemVer(catalog.releases, "patch")})`, `하위 패치 업데이트 (${nextSuggestedSemVer(catalog.releases, "patch")})`)}
           </button>
-          <button type="button" class="chip-btn" onClick={() => { const v = nextSuggestedSemVer(catalog.releases, "minor"); setRegistration({ ...registration, id: v }); setConfirmation(v); }}>
+          <button
+            type="button"
+            class="chip-btn"
+            onClick={() => {
+              const v = nextSuggestedSemVer(catalog.releases, "minor");
+              setRegistration({
+                ...registration,
+                id: v,
+                manifest: syncManifestReleaseVersion(registration.manifest, v),
+              });
+              setConfirmation(v);
+            }}
+          >
             {t(`Minor upgrade (${nextSuggestedSemVer(catalog.releases, "minor")})`, `마이너 버전 업그레이드 (${nextSuggestedSemVer(catalog.releases, "minor")})`)}
           </button>
-          <button type="button" class="chip-btn" onClick={() => { const v = nextSuggestedSemVer(catalog.releases, "major"); setRegistration({ ...registration, id: v }); setConfirmation(v); }}>
+          <button
+            type="button"
+            class="chip-btn"
+            onClick={() => {
+              const v = nextSuggestedSemVer(catalog.releases, "major");
+              setRegistration({
+                ...registration,
+                id: v,
+                manifest: syncManifestReleaseVersion(registration.manifest, v),
+              });
+              setConfirmation(v);
+            }}
+          >
             {t(`Major upgrade (${nextSuggestedSemVer(catalog.releases, "major")})`, `메이저 버전 업그레이드 (${nextSuggestedSemVer(catalog.releases, "major")})`)}
           </button>
         </div>
@@ -305,7 +354,7 @@ function Activity({ catalog, releaseId, locale = "en" }: { catalog: Catalog; rel
         : <a href={`#/releases/${event.release_id}`}>Release {event.release_id}</a>}
         {st && <span class="stencil-chip">stencil:{st.stencil_id} ({st.azure_rbac_posture})</span>}
       </div>
-      <p>{event.reason}</p><small>Revision {event.revision} / {time(event.occurred_at)} / {event.actor === "local-operator" ? (locale === "ko" ? "로컬 운영자" : "local operator (unauthenticated)") : event.actor ? `operator: ${event.actor}` : "Operator attribution unavailable"}</small>
+      <p>{event.reason}</p><small>{locale === "ko" ? `리비전 ${event.revision}` : `Revision ${event.revision}`} / {time(event.occurred_at)} / {event.actor === "local-operator" ? (locale === "ko" ? "로컬 운영자" : "local operator (unauthenticated)") : event.actor ? `operator: ${event.actor}` : (locale === "ko" ? "운영자 신원 미기재" : "Operator attribution unavailable")}</small>
     </li>;
   })}</ol> : <p class="empty">{locale === "ko" ? "기록된 활동 이력이 없습니다." : "No recorded activity."}</p>;
 }
@@ -365,17 +414,31 @@ function Channels({ catalog, locale = "en" }: { catalog: Catalog; locale?: "en" 
   </>;
 }
 
-function ReleaseDiffInspector({ releases, locale = "en" }: { releases: readonly Release[]; locale?: "en" | "ko" }) {
+function ReleaseDiffInspector({
+  releases,
+  locale = "en",
+  externalPair,
+}: {
+  releases: readonly Release[];
+  locale?: "en" | "ko";
+  externalPair?: { baseId: string; targetId: string } | null;
+}) {
   const t = (en: string, ko: string) => (locale === "ko" ? ko : en);
   const [baseId, setBaseId] = useState(releases[releases.length - 1]?.id ?? "");
   const [targetId, setTargetId] = useState(releases[0]?.id ?? "");
+  useEffect(() => {
+    if (externalPair) {
+      setBaseId(externalPair.baseId);
+      setTargetId(externalPair.targetId);
+    }
+  }, [externalPair]);
   if (releases.length < 2) return null;
   const base = releases.find((r) => r.id === baseId) ?? releases[releases.length - 1];
   const target = releases.find((r) => r.id === targetId) ?? releases[0];
   if (!base || !target) return null;
   const diff = computeApolloReleaseDiff(base, target);
   return (
-    <section aria-labelledby="release-diff-title">
+    <section id="release-diff-section" aria-labelledby="release-diff-title">
       <h2 id="release-diff-title">{t("Apollo Release-to-Release Diff Inspector", "릴리스 간 구성을 한눈에 비교 (Apollo Release Diff)")}</h2>
       <p>{t("Compare topology, workload containers, Console menu count, and RBAC posture between two registered Releases.", "등록된 두 릴리스 사이의 에디션 변화, 추가·제외된 컨테이너, 메뉴 증감, Azure 권한 차이를 즉시 비교합니다.")}</p>
       <div class="stencil-grid">
@@ -813,6 +876,7 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<Pending | null>(null);
   const [registration, setRegistration] = useState<RegistrationDraft>({ id: "", label: "", manifest: "" });
+  const [diffPair, setDiffPair] = useState<{ baseId: string; targetId: string } | null>(null);
   const [notice, setNotice] = useState("");
   const [uncertain, setUncertain] = useState(false);
   const heading = useRef<HTMLElement>(null);
@@ -958,7 +1022,20 @@ export function App() {
                 <a class="next-link" href="#/stencils" style="padding: 8px 14px; border: 1px solid var(--rh-border); border-radius: var(--cs-radius-sm); text-decoration: none;">
                   {t("Build custom Stencil first", "맞춤 Stencil 먼저 구성하기")}
                 </a>
-                <button class="primary" disabled={disabled} aria-label="Register release" onClick={() => setPending({ action: "register", release: null })}>
+                <button
+                  class="primary"
+                  disabled={disabled}
+                  aria-label="Register release"
+                  onClick={() => {
+                    if (!registration.id.trim()) {
+                      setRegistration((prev) => ({
+                        ...prev,
+                        id: nextSuggestedSemVer(catalog.releases, "patch"),
+                      }));
+                    }
+                    setPending({ action: "register", release: null });
+                  }}
+                >
                   {t("Register release", "새 릴리스 바로 등록")}
                 </button>
               </div>
@@ -981,6 +1058,10 @@ export function App() {
                   }
                   disabled={disabled}
                   onAct={(action, r) => setPending({ action, release: r })}
+                  onComparePair={(bId, tId) => {
+                    setDiffPair({ baseId: bId, targetId: tId });
+                    document.getElementById("release-diff-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
                 />
                 <div class="release-list">{catalog.releases.map((r) => {
                   const st = extractReleaseStencil(r);
@@ -1010,7 +1091,7 @@ export function App() {
                     <span class="row-next" aria-hidden="true">{t("View details & promote ->", "상세 보기 및 승격 ->")}</span>
                   </a>;
                 })}</div>
-                <ReleaseDiffInspector releases={catalog.releases} locale={locale} />
+                <ReleaseDiffInspector releases={catalog.releases} locale={locale} externalPair={diffPair} />
               </>}
           </>           : route === "/deployment-requests" ? null
           : route === "/stencils" ? <StencilBuilder
