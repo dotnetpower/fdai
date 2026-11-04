@@ -14,6 +14,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT_PATH = ROOT / "scripts/governance/rehearse_f062_governance_rollout.py"
+BUILD_SCRIPT_PATH = ROOT / "scripts/governance/build-governance-qualification.py"
 LEDGER_PATH = ROOT / "docs/roadmap-implementation/rules-and-detection/rule-governance.md"
 _DIGEST_RE = re.compile(r"sha256:[0-9a-f]{64}")
 
@@ -144,6 +145,71 @@ async def test_f062_governance_rollout_reconciles_with_rule_governance_ledger_di
     assert EXPECTED_RECORD_DIGEST in cited_digests
     assert EXPECTED_SOURCES_DIGEST in cited_digests
     assert EXPECTED_MEASUREMENT_DIGEST in cited_digests
+
+
+def test_build_governance_qualification_matches_rehearsal_record_digest() -> None:
+    rehearsal = _load_rehearsal_module()
+    spec = importlib.util.spec_from_file_location(
+        "build_governance_qualification",
+        BUILD_SCRIPT_PATH,
+    )
+    assert spec is not None and spec.loader is not None
+    builder = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = builder
+    spec.loader.exec_module(builder)
+
+    document = {
+        "binding": {
+            "installation_id": rehearsal.INSTALLATION_ID,
+            "management_scope_id": rehearsal.MANAGEMENT_SCOPE_ID,
+            "environment_class": rehearsal.ENVIRONMENT_CLASS,
+            "rule_generation_digest": rehearsal.RULE_GENERATION_DIGEST,
+            "ontology_release_digest": rehearsal.ONTOLOGY_RELEASE_DIGEST,
+            "provider_revisions": dict(rehearsal.PROVIDER_REVISIONS),
+            "evidence_cutoff": rehearsal.CUTOFF.isoformat(),
+        },
+        "required_source_ids": sorted(rehearsal.PROVIDER_REVISIONS),
+        "max_age_seconds": 3600,
+        "observations": [
+            {
+                "source_id": source_id,
+                "scope_id": rehearsal.MANAGEMENT_SCOPE_ID,
+                "identity_ref": f"uami-observer-{source_id}",
+                "state": "available",
+                "observed_at": "2026-11-03T23:55:00+00:00",
+                "evidence_digest": rehearsal._digest_for(f"provider-obs:{source_id}:{revision}"),
+            }
+            for source_id, revision in sorted(rehearsal.PROVIDER_REVISIONS.items())
+        ],
+        "cohort": {
+            "digest": EXPECTED_COHORT_DIGEST,
+            "cases": [
+                *(
+                    {
+                        "case_id": f"violation-{idx:02d}",
+                        "group_id": f"rg-violation-{idx:02d}",
+                        "truth": "violation",
+                        "verdict": "flagged",
+                    }
+                    for idx in range(1, 13)
+                ),
+                *(
+                    {
+                        "case_id": f"compliant-{idx:02d}",
+                        "group_id": f"rg-compliant-{idx:02d}",
+                        "truth": "compliant",
+                        "verdict": "not_flagged",
+                    }
+                    for idx in range(1, 13)
+                ),
+            ],
+        },
+    }
+    output, readiness = builder.build(document)
+    assert readiness.value == "ready_for_review"
+    assert output["record_digest"] == EXPECTED_RECORD_DIGEST
+    assert output["sources_digest"] == EXPECTED_SOURCES_DIGEST
+    assert output["measurement"]["digest"] == EXPECTED_MEASUREMENT_DIGEST
 
 
 async def test_f062_governance_rollout_rehearsal_postgres() -> None:
