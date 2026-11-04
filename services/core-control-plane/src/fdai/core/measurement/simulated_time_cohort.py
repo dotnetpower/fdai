@@ -360,7 +360,7 @@ def run_simulated_multi_day_cohort(
         arm=CohortArm.BASELINE,
         clock=clock,
         days=days,
-        samples_per_day=1,
+        samples_per_day=samples_per_day,
         fdai_revision=fdai_revision,
         policy=policy,
     )
@@ -368,7 +368,7 @@ def run_simulated_multi_day_cohort(
         arm=CohortArm.TREATMENT,
         clock=clock,
         days=days,
-        samples_per_day=1,
+        samples_per_day=samples_per_day,
         fdai_revision=fdai_revision,
         policy=policy,
     )

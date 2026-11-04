@@ -135,8 +135,10 @@ _OBJECT_PERSPECTIVES: dict[str, tuple[QuestionPerspective, ...]] = {
     "Ownership": (QuestionPerspective.BUSINESS, QuestionPerspective.SERVICE),
     "ChangeWindow": (QuestionPerspective.BUSINESS, QuestionPerspective.OPERATION),
     # Cost, forecasting & sizing
+    "CostAllocation": (QuestionPerspective.BUSINESS, QuestionPerspective.POLICY),
     "CostObservation": (QuestionPerspective.BUSINESS, QuestionPerspective.OPERATION),
     "CostAnomaly": (QuestionPerspective.BUSINESS, QuestionPerspective.OPERATION),
+    "ExternalSlaContract": (QuestionPerspective.BUSINESS, QuestionPerspective.POLICY),
     "Forecast": (QuestionPerspective.BUSINESS, QuestionPerspective.OPERATION),
     "CapacityForecast": (QuestionPerspective.BUSINESS, QuestionPerspective.OPERATION),
     "SizingRecommendation": (QuestionPerspective.BUSINESS, QuestionPerspective.OPERATION),

@@ -183,6 +183,14 @@ from .simulated_business_ontology import (
     answer_business_concept_query,
     run_simulated_business_ontology_suite,
 )
+from .simulated_graph_reasoning import (
+    ConflictReadbackResolutionReceipt,
+    ScenarioBranchWhatIfReport,
+    TrajectoryFailureAttribution,
+    resolve_cross_source_conflict_with_readback,
+    run_scenario_branch_what_if,
+    simulate_interaction_and_attribute_failure,
+)
 from .topology_history import (
     TopologyDiff,
     TopologyGraphAt,
@@ -192,6 +200,17 @@ from .topology_history import (
     TopologyRevisionBatch,
     graph_at,
     topology_diff,
+)
+from .zstd_codec import (
+    ZSTD_PROFILE_DICT,
+    ZSTD_PROFILE_FRAME,
+    ZstdArchiveBundle,
+    ZstdCompressedArtifact,
+    ZstdDictionaryArtifact,
+    build_zstd_archive_bundle,
+    compress_canonical_json,
+    decompress_canonical_json,
+    train_zstd_dictionary,
 )
 
 __all__ = [
@@ -347,9 +366,24 @@ __all__ = [
     "topology_diff",
     "verify_semantic_candidate",
     "BusinessConceptAnswer",
+    "ConflictReadbackResolutionReceipt",
+    "ScenarioBranchWhatIfReport",
     "SimulatedBusinessOntologyResult",
+    "TrajectoryFailureAttribution",
+    "ZSTD_PROFILE_DICT",
+    "ZSTD_PROFILE_FRAME",
+    "ZstdArchiveBundle",
+    "ZstdCompressedArtifact",
+    "ZstdDictionaryArtifact",
     "answer_business_concept_query",
     "build_simulated_business_operating_model",
+    "build_zstd_archive_bundle",
+    "compress_canonical_json",
+    "decompress_canonical_json",
     "project_all_authored_rule_objectives",
+    "resolve_cross_source_conflict_with_readback",
+    "run_scenario_branch_what_if",
     "run_simulated_business_ontology_suite",
+    "simulate_interaction_and_attribute_failure",
+    "train_zstd_dictionary",
 ]

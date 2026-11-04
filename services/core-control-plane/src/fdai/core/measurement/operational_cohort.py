@@ -275,19 +275,41 @@ def _bootstrap_index(material: str, resample: int, draw: int, sample_size: int) 
     return int.from_bytes(digest[:8], "big") % sample_size
 
 
+def _chunked_merkle_digests(digests: list[str], *, chunk_size: int = 64) -> list[str]:
+    return [
+        content_digest(digests[idx : idx + chunk_size])
+        for idx in range(0, len(digests), chunk_size)
+    ]
+
+
 def _provenance_digest(
     metrics: Mapping[str, tuple[OperationalMetricObservation, ...]],
     guards: Mapping[str, tuple[OperationalGuardObservation, ...]],
 ) -> str:
+    metric_lists = {
+        key: [row.observation_digest for row in rows] for key, rows in sorted(metrics.items())
+    }
+    guard_lists = {
+        key: [row.observation_digest for row in rows] for key, rows in sorted(guards.items())
+    }
+    total_digests = sum(len(v) for v in metric_lists.values()) + sum(
+        len(v) for v in guard_lists.values()
+    )
+    if total_digests <= 512:
+        return content_digest(
+            {
+                "metric_observation_digests": metric_lists,
+                "guard_observation_digests": guard_lists,
+            }
+        )
     return content_digest(
         {
-            "metric_observation_digests": {
-                key: [row.observation_digest for row in rows]
-                for key, rows in sorted(metrics.items())
+            "merkle_schema_version": "2.0.0",
+            "metric_chunk_digests": {
+                key: _chunked_merkle_digests(rows) for key, rows in metric_lists.items()
             },
-            "guard_observation_digests": {
-                key: [row.observation_digest for row in rows]
-                for key, rows in sorted(guards.items())
+            "guard_chunk_digests": {
+                key: _chunked_merkle_digests(rows) for key, rows in guard_lists.items()
             },
         }
     )

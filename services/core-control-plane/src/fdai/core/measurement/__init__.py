@@ -111,6 +111,17 @@ from fdai.core.measurement.simulated_time_cohort import (
     simulate_action_promotions,
     simulate_arm_batch,
 )
+from fdai.core.measurement.simulated_time_extensions import (
+    GuardBreachDemotionSimulation,
+    RollupAndZstdArchiveResult,
+    T1PatternHoldoutSimulation,
+    build_multi_vertical_outcome_projections,
+    seed_simulated_enterprise_state_store,
+    simulate_guard_breach_auto_demotion,
+    simulate_invoice_allocated_settlements,
+    simulate_rollup_and_zstd_archive_lifecycle,
+    simulate_t1_pattern_growth_holdout,
+)
 from fdai.core.measurement.simulated_time_settlement import (
     build_simulated_outcome_projection,
     simulate_finops_multi_day_settlements,
@@ -169,9 +180,18 @@ __all__ = [
     "load_cohort_claim_policy",
     "provider_cohort_admissions",
     "run_simulated_multi_day_cohort",
+    "seed_simulated_enterprise_state_store",
     "simulate_action_promotions",
     "simulate_arm_batch",
     "simulate_finops_multi_day_settlements",
+    "simulate_guard_breach_auto_demotion",
+    "simulate_invoice_allocated_settlements",
+    "simulate_rollup_and_zstd_archive_lifecycle",
+    "simulate_t1_pattern_growth_holdout",
     "summarize_objective_attribution",
     "verified_cohort_admissions",
+    "GuardBreachDemotionSimulation",
+    "RollupAndZstdArchiveResult",
+    "T1PatternHoldoutSimulation",
+    "build_multi_vertical_outcome_projections",
 ]

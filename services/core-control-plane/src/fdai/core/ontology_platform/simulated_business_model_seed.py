@@ -280,6 +280,8 @@ def build_simulated_business_operating_model(
                 )
             )
             links.append(OntologyLinkRecord("workload_runs_on", wl_id, res_id))
+    links.append(OntologyLinkRecord("workload_depends_on", "wl-checkout-aks", "wl-order-worker"))
+    links.append(OntologyLinkRecord("workload_depends_on", "wl-checkout-aks", "wl-rec-gpu-pool"))
     return OperatingModelSnapshot(
         source_revision="simulated-enterprise-operating-model@1.0.0",
         objects=tuple(objects),
