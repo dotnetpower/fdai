@@ -134,91 +134,92 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
               : t("Upgrade: Zero-downtime rolling", "업그레이드: 무중단 롤링(Zero-downtime)")}
           </span>
         </div>
-        <dl>
-          <dt>{t("Stencil digest", "Stencil 다이제스트")}</dt>
-          <dd>
-            <code class="digest">{stencil.stencil_digest}</code>
-            <button
-              type="button"
-              class="chip-btn"
-              onClick={() => {
-                void navigator.clipboard?.writeText(stencil.stencil_digest);
-                setCopiedDigest(true);
-                setTimeout(() => setCopiedDigest(false), 2000);
-              }}
-            >
-              {copiedDigest ? t("Copied!", "복사됨!") : t("Copy digest", "다이제스트 복사")}
-            </button>
-          </dd>
-          <dt>{t("Included workloads (+)", "포함된 컨테이너 (+)")}</dt>
-          <dd>{stencil.enabled_workloads.join(", ")}</dd>
-          {stencil.omitted_workloads && stencil.omitted_workloads.length > 0 && (
-            <>
-              <dt>{t("Omitted workloads (-)", "제외된 컨테이너 (-)")}</dt>
-              <dd>{stencil.omitted_workloads.join(", ")}</dd>
-            </>
-          )}
-          {stencil.required_azure_roles && stencil.required_azure_roles.length > 0 && (
-            <>
-              <dt>{t("Required Azure roles", "필요한 Azure 역할")}</dt>
-              <dd>{stencil.required_azure_roles.join(" · ")}</dd>
-            </>
-          )}
-          {stencil.release_labels && stencil.release_labels.length > 0 && (
-            <>
-              <dt>{t("Apollo Release labels", "Apollo 릴리스 레이블")}</dt>
-              <dd>
-                <div class="preset-metrics">
-                  {stencil.release_labels.map((lbl) => (
-                    <code key={lbl} class="stencil-chip">{lbl}</code>
-                  ))}
-                </div>
-              </dd>
-            </>
-          )}
-          <dt>{t("Inactive menu feature-flag gate", "비활성 메뉴 Feature Flag 게이트")}</dt>
-          <dd>
-            <code class="digest">
-              {stencil.feature_flags
-                ? `${stencil.feature_flags.enforcement_mode}${stencil.feature_flags.feature_flags_digest ? ` · ${stencil.feature_flags.feature_flags_digest}` : ""}`
-                : "fail-closed"}
-            </code>
-          </dd>
-          {stencil.disabled_loops && stencil.disabled_loops.length > 0 && (
-            <>
-              <dt>{t("Disabled backend loops (-)", "비활성화된 백엔드 루프 (-)")}</dt>
-              <dd>{stencil.disabled_loops.join(", ")}</dd>
-            </>
-          )}
-        </dl>
         <details class="release-disclosure">
           <summary>
             {t(
-              `Enabled Console menus (${stencil.enabled_panel_ids.length})`,
-              `이 릴리스에 포함된 Console 메뉴 목록 (${stencil.enabled_panel_ids.length}개)`,
+              `Inspect Stencil digest, roles & Console menus (${stencil.enabled_panel_ids.length} enabled)`,
+              `Stencil 다이제스트·역할·Console 메뉴 상세 보기 (${stencil.enabled_panel_ids.length}개 활성)`,
             )}
           </summary>
+          <dl>
+            <dt>{t("Stencil digest", "Stencil 다이제스트")}</dt>
+            <dd>
+              <code class="digest">{stencil.stencil_digest}</code>
+              <button
+                type="button"
+                class="chip-btn"
+                onClick={() => {
+                  void navigator.clipboard?.writeText(stencil.stencil_digest);
+                  setCopiedDigest(true);
+                  setTimeout(() => setCopiedDigest(false), 2000);
+                }}
+              >
+                {copiedDigest ? t("Copied!", "복사됨!") : t("Copy digest", "다이제스트 복사")}
+              </button>
+            </dd>
+            <dt>{t("Included workloads (+)", "포함된 컨테이너 (+)")}</dt>
+            <dd>{stencil.enabled_workloads.join(", ")}</dd>
+            {stencil.omitted_workloads && stencil.omitted_workloads.length > 0 && (
+              <>
+                <dt>{t("Omitted workloads (-)", "제외된 컨테이너 (-)")}</dt>
+                <dd>{stencil.omitted_workloads.join(", ")}</dd>
+              </>
+            )}
+            {stencil.required_azure_roles && stencil.required_azure_roles.length > 0 && (
+              <>
+                <dt>{t("Required Azure roles", "필요한 Azure 역할")}</dt>
+                <dd>{stencil.required_azure_roles.join(" · ")}</dd>
+              </>
+            )}
+            {stencil.release_labels && stencil.release_labels.length > 0 && (
+              <>
+                <dt>{t("Apollo Release labels", "Apollo 릴리스 레이블")}</dt>
+                <dd>
+                  <div class="preset-metrics">
+                    {stencil.release_labels.map((lbl) => (
+                      <code key={lbl} class="stencil-chip">{lbl}</code>
+                    ))}
+                  </div>
+                </dd>
+              </>
+            )}
+            <dt>{t("Inactive menu feature-flag gate", "비활성 메뉴 Feature Flag 게이트")}</dt>
+            <dd>
+              <code class="digest">
+                {stencil.feature_flags
+                  ? `${stencil.feature_flags.enforcement_mode}${stencil.feature_flags.feature_flags_digest ? ` · ${stencil.feature_flags.feature_flags_digest}` : ""}`
+                  : "fail-closed"}
+              </code>
+            </dd>
+            {stencil.disabled_loops && stencil.disabled_loops.length > 0 && (
+              <>
+                <dt>{t("Disabled backend loops (-)", "비활성화된 백엔드 루프 (-)")}</dt>
+                <dd>{stencil.disabled_loops.join(", ")}</dd>
+              </>
+            )}
+          </dl>
+          <p><strong>{t(`Enabled Console menus (${stencil.enabled_panel_ids.length})`, `이 릴리스에 포함된 Console 메뉴 목록 (${stencil.enabled_panel_ids.length}개)`)}</strong></p>
           <div class="preset-metrics">
             {stencil.enabled_panel_ids.map((panelId) => (
               <code key={panelId} class="stencil-chip">{panelId}</code>
             ))}
           </div>
+          {stencil.disabled_panel_ids && stencil.disabled_panel_ids.length > 0 && (
+            <details class="release-disclosure">
+              <summary>
+                {t(
+                  `Blocked inactive Console menus (${stencil.disabled_panel_ids.length})`,
+                  `Feature Flag로 차단된 비활성 메뉴 목록 (${stencil.disabled_panel_ids.length}개)`,
+                )}
+              </summary>
+              <div class="preset-metrics">
+                {stencil.disabled_panel_ids.map((panelId) => (
+                  <code key={panelId} class="stencil-chip">{panelId}</code>
+                ))}
+              </div>
+            </details>
+          )}
         </details>
-        {stencil.disabled_panel_ids && stencil.disabled_panel_ids.length > 0 && (
-          <details class="release-disclosure">
-            <summary>
-              {t(
-                `Blocked inactive Console menus (${stencil.disabled_panel_ids.length})`,
-                `Feature Flag로 차단된 비활성 메뉴 목록 (${stencil.disabled_panel_ids.length}개)`,
-              )}
-            </summary>
-            <div class="preset-metrics">
-              {stencil.disabled_panel_ids.map((panelId) => (
-                <code key={panelId} class="stencil-chip">{panelId}</code>
-              ))}
-            </div>
-          </details>
-        )}
       </section>
     )}
     <section aria-labelledby="release-stage-title"><h2 id="release-stage-title">{t("Channel membership & LR Build/Promotion Pipeline", "채널 소속 및 좌→우(LR) 빌드·승격 파이프라인")}</h2>

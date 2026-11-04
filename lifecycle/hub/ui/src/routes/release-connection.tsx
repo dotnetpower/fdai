@@ -116,7 +116,9 @@ export function ReleaseConnectionPanel(
     {connection && <>
       <p class="note">{tr(locale, "Current endpoint", "현재 엔드포인트")}:{" "}
         <code style={{ overflowWrap: "anywhere" }}>{connection.endpoint}</code>{" "}
-        ({tr(locale, "source", "설정 출처")}: {connection.source})</p>
+        ({tr(locale, "source", "설정 출처")}: {connection.source}){" "}
+        <button class="btn" type="button" disabled={busy || loading}
+          onClick={() => void load()}>{tr(locale, "Refresh connection", "연결 새로고침")}</button></p>
       {connection.requires_migration && <p class="banner fail" role="alert">
         {tr(locale, "Run the Lifecycle Hub migrate command before saving connection settings.",
           "연결 설정을 저장하려면 Lifecycle Hub의 migrate 명령을 먼저 실행하세요.")}
@@ -125,25 +127,26 @@ export function ReleaseConnectionPanel(
         {tr(locale, "The remote catalog endpoint is managed by deployment configuration. Use the authenticated trust and Updates views below or in the navigation; an anonymous preview is not requested.",
           "원격 카탈로그 엔드포인트는 배포 구성에서 관리합니다. 아래 신뢰 설정과 탐색 메뉴의 Updates 화면을 이용하세요. 익명 조회는 요청하지 않습니다.")}
       </p>}
-      <form onSubmit={(event) => { event.preventDefault(); void save(endpoint); }}>
-        <label>{tr(locale, "Release Hub endpoint", "Release Hub 엔드포인트")}
-          <input class="input" type="url" required value={endpoint}
-            disabled={busy || loading || !connection.editable}
-            onInput={(event) => setEndpoint(event.currentTarget.value)} />
-        </label>
-        <label>{tr(locale, "Connection change reason", "연결 변경 사유")}
-          <input class="input" required minLength={3} maxLength={500} value={reason}
-            disabled={busy || loading || !connection.editable}
-            onInput={(event) => setReason(event.currentTarget.value)} />
-        </label>
-        <button class="btn primary" type="submit" disabled={busy || loading || !connection.editable}>
-          {tr(locale, "Save endpoint", "엔드포인트 저장")}
-        </button>{" "}
-        <button class="btn" type="button" disabled={busy || loading || !connection.editable || reason.trim().length < 3}
-          onClick={() => void save(null)}>{tr(locale, "Reset endpoint", "엔드포인트 초기화")}</button>{" "}
-        <button class="btn" type="button" disabled={busy || loading}
-          onClick={() => void load()}>{tr(locale, "Refresh connection", "연결 새로고침")}</button>
-      </form>
+      {connection.editable && <details open={Boolean(error || connection.source === "saved")}>
+        <summary>{tr(locale, "Configure Release Hub endpoint", "Release Hub 엔드포인트 설정 변경")}</summary>
+        <form onSubmit={(event) => { event.preventDefault(); void save(endpoint); }}>
+          <label>{tr(locale, "Release Hub endpoint", "Release Hub 엔드포인트")}
+            <input class="input" type="url" required value={endpoint}
+              disabled={busy || loading || !connection.editable}
+              onInput={(event) => setEndpoint(event.currentTarget.value)} />
+          </label>
+          <label>{tr(locale, "Connection change reason", "연결 변경 사유")}
+            <input class="input" required minLength={3} maxLength={500} value={reason}
+              disabled={busy || loading || !connection.editable}
+              onInput={(event) => setReason(event.currentTarget.value)} />
+          </label>
+          <button class="btn primary" type="submit" disabled={busy || loading || !connection.editable}>
+            {tr(locale, "Save endpoint", "엔드포인트 저장")}
+          </button>{" "}
+          <button class="btn" type="button" disabled={busy || loading || !connection.editable || reason.trim().length < 3}
+            onClick={() => void save(null)}>{tr(locale, "Reset endpoint", "엔드포인트 초기화")}</button>
+        </form>
+      </details>}
     </>}
     {!connection && error && <button class="btn" disabled={loading} onClick={() => void load()}>
       {tr(locale, "Try again", "다시 시도")}

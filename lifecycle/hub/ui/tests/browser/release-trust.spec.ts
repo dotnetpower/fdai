@@ -37,6 +37,7 @@ test("initial trust distinguishes empty metadata and unverified health without a
   await expect(page.getByText("The empty export metadata is expired", { exact: false })).toBeVisible();
   await expect(page.getByText("No active recalls recorded. Health not verified.", { exact: true })).toBeVisible();
   await expect(page.getByText("None (All capabilities healthy)", { exact: true })).toHaveCount(0);
+  await page.getByText("Configure surgical capability recall or lift", { exact: true }).click();
   await expect(page.getByLabel("Audit reason", { exact: true })).toHaveValue("");
   await page.getByRole("button", { name: "Renew catalog freshness", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();

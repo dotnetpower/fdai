@@ -444,9 +444,14 @@ function ReleaseDiffInspector({
   if (!base || !target) return null;
   const diff = computeApolloReleaseDiff(base, target);
   return (
-    <section id="release-diff-section" aria-labelledby="release-diff-title">
-      <h2 id="release-diff-title">{t("Apollo Release-to-Release Diff Inspector", "릴리스 간 구성을 한눈에 비교 (Apollo Release Diff)")}</h2>
-      <p>{t("Compare topology, workload containers, Console menu count, and RBAC posture between two registered Releases.", "등록된 두 릴리스 사이의 에디션 변화, 추가·제외된 컨테이너, 메뉴 증감, Azure 권한 차이를 즉시 비교합니다.")}</p>
+    <details class="stencil-collapsible" id="release-diff-section" open={Boolean(externalPair)}>
+      <summary aria-labelledby="release-diff-title">
+        <span id="release-diff-title">{t("Apollo Release-to-Release Diff Inspector", "릴리스 간 구성 비교 (Apollo Release Diff)")}</span>
+        <span class="summary-meta">
+          <span class="stencil-chip">{base.id} {"->"} {target.id}</span>
+        </span>
+      </summary>
+      <p>{t("Compare topology, workload containers, Console menu count, and RBAC posture between two registered Releases.", "등록된 두 릴리스 사이의 에디션 변화, 추가·제외된 컨테이너, 메뉴 증감, Azure 권한 차이를 비교합니다.")}</p>
       <div class="stencil-grid">
         <label>
           {t("Base Release (Before)", "기준 릴리스 (이전 버전)")}
@@ -477,7 +482,7 @@ function ReleaseDiffInspector({
           ))}
         </ul>
       )}
-    </section>
+    </details>
   );
 }
 
@@ -562,75 +567,80 @@ function CapabilityRecallControl({
           recalled.map((c) => <span key={c} class="stencil-pill locked">RECALLED: {c}</span>)
         )}
       </div>
-      <div class="quick-chips" style="margin-bottom: 16px;">
-        {CAPABILITY_PRESET_CHIPS.map((chip) => (
-          <button
-            key={chip.id}
-            type="button"
-            class="chip-btn"
-            onClick={() => {
-              setCapTarget(chip.id);
-              setCapAction(recalled.includes(chip.id) ? "lift" : "recall");
-            }}
-          >
-            {locale === "ko" ? chip.ko : chip.en}
-          </button>
-        ))}
-      </div>
-      {err && <p class="error" role="alert">{err}</p>}
-      <form onSubmit={submitCap} class="stencil-grid">
-        <label>
-          {t("Target capability / workload / loop ID", "대상 기능 / 워크로드 / 에이전트 루프 ID")}
-          <input
-            required
-            list="apollo-capabilities-list"
-            value={capTarget}
-            onInput={(e) => setCapTarget(e.currentTarget.value)}
-          />
-          <datalist id="apollo-capabilities-list">
-            {CAPABILITY_PRESET_CHIPS.map((c) => <option key={c.id} value={c.id} />)}
-          </datalist>
-        </label>
-        <label>
-          {t("Operation", "실행할 작업")}
-          <select
-            value={capAction}
-            onChange={(e) => setCapAction(e.currentTarget.value as "recall" | "lift")}
-          >
-            <option value="recall">{t("Recall capability (Block promotion of dependent Releases)", "기능 리콜 발령 (이 기능을 포함한 릴리스의 승격 차단)")}</option>
-            <option value="lift">{t("Lift capability recall (Requires published lifting Release)", "기능 리콜 해제 (수정된 발행 릴리스 지정)")}</option>
-          </select>
-        </label>
-        {capAction === "lift" && (
+      <details class="stencil-collapsible" open={recalled.length > 0}>
+        <summary>
+          <span>{t("Configure surgical capability recall or lift", "기능 단위 정밀 리콜 발령·해제 폼 열기")}</span>
+        </summary>
+        <div class="quick-chips" style="margin: 8px 0 16px;">
+          {CAPABILITY_PRESET_CHIPS.map((chip) => (
+            <button
+              key={chip.id}
+              type="button"
+              class="chip-btn"
+              onClick={() => {
+                setCapTarget(chip.id);
+                setCapAction(recalled.includes(chip.id) ? "lift" : "recall");
+              }}
+            >
+              {locale === "ko" ? chip.ko : chip.en}
+            </button>
+          ))}
+        </div>
+        {err && <p class="error" role="alert">{err}</p>}
+        <form onSubmit={submitCap} class="stencil-grid">
           <label>
-            {t("Lifting Release ID (Published SemVer)", "결함이 수정된 릴리스 버전 ID (SemVer)")}
+            {t("Target capability / workload / loop ID", "대상 기능 / 워크로드 / 에이전트 루프 ID")}
             <input
               required
-              value={liftingReleaseId}
-              onInput={(e) => setLiftingReleaseId(e.currentTarget.value)}
-              placeholder="0.5.0"
+              list="apollo-capabilities-list"
+              value={capTarget}
+              onInput={(e) => setCapTarget(e.currentTarget.value)}
+            />
+            <datalist id="apollo-capabilities-list">
+              {CAPABILITY_PRESET_CHIPS.map((c) => <option key={c.id} value={c.id} />)}
+            </datalist>
+          </label>
+          <label>
+            {t("Operation", "실행할 작업")}
+            <select
+              value={capAction}
+              onChange={(e) => setCapAction(e.currentTarget.value as "recall" | "lift")}
+            >
+              <option value="recall">{t("Recall capability (Block promotion of dependent Releases)", "기능 리콜 발령 (이 기능을 포함한 릴리스의 승격 차단)")}</option>
+              <option value="lift">{t("Lift capability recall (Requires published lifting Release)", "기능 리콜 해제 (수정된 발행 릴리스 지정)")}</option>
+            </select>
+          </label>
+          {capAction === "lift" && (
+            <label>
+              {t("Lifting Release ID (Published SemVer)", "결함이 수정된 릴리스 버전 ID (SemVer)")}
+              <input
+                required
+                value={liftingReleaseId}
+                onInput={(e) => setLiftingReleaseId(e.currentTarget.value)}
+                placeholder="0.5.0"
+              />
+            </label>
+          )}
+          <label>
+            {t("Audit reason", "감사 기록 사유")}
+            <input
+              required
+              minLength={3}
+              value={reason}
+              onInput={(e) => setReason(e.currentTarget.value)}
             />
           </label>
-        )}
-        <label>
-          {t("Audit reason", "감사 기록 사유")}
-          <input
-            required
-            minLength={3}
-            value={reason}
-            onInput={(e) => setReason(e.currentTarget.value)}
-          />
-        </label>
-        <div class="stencil-provenance-span">
-          <button type="submit" class={capAction === "recall" ? "danger" : "primary"} disabled={busy || disabled}>
-            {busy
-              ? t("Applying...", "처리 중...")
-              : capAction === "recall"
-                ? t(`Recall capability '${capTarget}'`, `'${capTarget}' 기능 리콜 발령`)
-                : t(`Lift capability '${capTarget}'`, `'${capTarget}' 기능 리콜 해제`)}
-          </button>
-        </div>
-      </form>
+          <div class="stencil-provenance-span">
+            <button type="submit" class={capAction === "recall" ? "danger" : "primary"} disabled={busy || disabled}>
+              {busy
+                ? t("Applying...", "처리 중...")
+                : capAction === "recall"
+                  ? t(`Recall capability '${capTarget}'`, `'${capTarget}' 기능 리콜 발령`)
+                  : t(`Lift capability '${capTarget}'`, `'${capTarget}' 기능 리콜 해제`)}
+            </button>
+          </div>
+        </form>
+      </details>
     </section>
   );
 }
@@ -1061,7 +1071,6 @@ export function App() {
           ) : (
             <button
               type="button"
-              class="primary"
               onClick={() => setEntraDialogOpen(true)}
             >
               {t("Sign in with Microsoft Entra ID", "Microsoft Entra ID 로그인")}
@@ -1148,14 +1157,14 @@ export function App() {
                 </button>
               </div>
             </div>
-            <div class="stencil-provenance-preview" style="margin-bottom: 16px;">
+            <div class="quick-release-strip">
               <strong>
                 {t(
-                  `1-Click Edition Release Generator (Next version: ${nextSuggestedSemVer(catalog.releases, "patch")} · Auto-registers & signs into DEV):`,
-                  `원클릭 에디션 릴리스 즉시 생성 (다음 버전: ${nextSuggestedSemVer(catalog.releases, "patch")} · 매니페스트 생성 + 등록 + DEV 서명 한 번에 완료):`,
+                  `Quick presets (${nextSuggestedSemVer(catalog.releases, "patch")} · Auto-registers & signs into DEV):`,
+                  `원클릭 에디션 프리셋 (${nextSuggestedSemVer(catalog.releases, "patch")} · 등록 + DEV 서명 자동 완료):`,
                 )}
               </strong>
-              <div class="quick-chips" style="margin-top: 8px;">
+              <div class="quick-chips" style="margin-top: 0;">
                 <button
                   type="button"
                   class="chip-btn"
@@ -1164,7 +1173,7 @@ export function App() {
                 >
                   {t(
                     `1-Click Create Lite (${nextSuggestedSemVer(catalog.releases, "patch")})`,
-                    `원클릭 Lite 에디션 생성 (${nextSuggestedSemVer(catalog.releases, "patch")})`,
+                    `원클릭 Lite 생성 (${nextSuggestedSemVer(catalog.releases, "patch")})`,
                   )}
                 </button>
                 <button
@@ -1267,8 +1276,13 @@ export function App() {
                 "빈 카탈로그의 내보내기 메타데이터가 만료되어 가져올 수 없습니다. 가져오기 전에 검토한 카탈로그 변경이나 명시적인 유효기간 갱신이 필요합니다. 이 화면을 조회해도 변경되지는 않습니다.")}</p>}
             </section>
             {catalog.releases.some((r) => extractReleaseStencil(r) !== null) && (
-              <section>
-                <h2>{t("Signed Stencil blueprints in catalog", "카탈로그 내 전자서명된 Stencil 블루프린트 목록")}</h2>
+              <details class="stencil-collapsible">
+                <summary>
+                  <span>{t("Signed Stencil blueprints in catalog", "카탈로그 내 전자서명된 Stencil 블루프린트 목록")}</span>
+                  <span class="summary-meta">
+                    <span class="stencil-chip">{catalog.releases.filter((r) => extractReleaseStencil(r) !== null).length}</span>
+                  </span>
+                </summary>
                 <p>{t("Each Stencil blueprint below is embedded inside its canonical Release manifest and covered by the Release signature.", "아래 Stencil 블루프린트는 각 릴리스 매니페스트 내부에 내장되어 전자서명으로 위변조가 방지됩니다.")}</p>
                 <dl>
                   {catalog.releases.map((r) => {
@@ -1280,7 +1294,7 @@ export function App() {
                     </>;
                   })}
                 </dl>
-              </section>
+              </details>
             )}
             <CapabilityRecallControl
               catalog={catalog}

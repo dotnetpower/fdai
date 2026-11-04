@@ -877,7 +877,16 @@ export function StencilBuilder({
                       </button>
                     </div>
                   </label>
-                  <label>
+                </div>
+                <details class="stencil-collapsible" open={sourceMode === "custom"}>
+                  <summary>
+                    <span>{t("Source commit provenance & dependency options", "소스 커밋 출처 및 의존성 자동 해결 옵션")}</span>
+                    <span class="summary-meta">
+                      <span class="stencil-chip">{sourceMode === "auto" ? "Git HEAD" : sourceMode}</span>
+                    </span>
+                  </summary>
+                  <div class="stencil-grid" style="margin-top: 8px;">
+                  <label class="stencil-provenance-span">
                     {t("Source commit provenance", "소스 커밋 출처 (자동 바인딩)")}
                     <select
                       value={sourceMode}
@@ -1023,12 +1032,23 @@ export function StencilBuilder({
                     )}
                   </span>
                 </label>
+                </details>
               </section>
 
-              <section aria-labelledby="stencil-loops-title">
-                <h2 id="stencil-loops-title">
-                  {t("3. Agent-driven loops & service workloads", "3. 에이전트 주도 루프 및 서비스 워크로드")}
-                </h2>
+              <details class="stencil-collapsible" aria-labelledby="stencil-loops-title">
+                <summary>
+                  <span id="stencil-loops-title">
+                    {t("3. Agent-driven loops & service workloads", "3. 에이전트 주도 루프 및 서비스 워크로드")}
+                  </span>
+                  <span class="summary-meta">
+                    <span class="stencil-chip">
+                      {t(
+                        `${liveBlueprint.effectiveWorkloads.length}/${catalog.workloads.length} containers · ${liveBlueprint.effectiveLoops.length}/${catalog.loops.length} loops`,
+                        `컨테이너 ${liveBlueprint.effectiveWorkloads.length}/${catalog.workloads.length} · 루프 ${liveBlueprint.effectiveLoops.length}/${catalog.loops.length}`,
+                      )}
+                    </span>
+                  </span>
+                </summary>
                 <p>
                   {t(
                     "The 15-agent pantheon runs in-process inside core-control-plane. Resource change detection, anomaly detection, notifications, and Saga audit remain locked on.",
@@ -1100,15 +1120,22 @@ export function StencilBuilder({
                     </div>
                   </div>
                 </div>
-              </section>
+              </details>
 
-              <section aria-labelledby="stencil-menus-title">
-                <h2 id="stencil-menus-title">
-                  {t(
-                    `4. Custom Console menus (${liveBlueprint.effectivePanels.length} / ${catalog.panels.length} enabled)`,
-                    `4. 커스텀 Console 메뉴 선택 (${liveBlueprint.effectivePanels.length} / ${catalog.panels.length}개 활성화됨)`,
-                  )}
-                </h2>
+              <details class="stencil-collapsible" aria-labelledby="stencil-menus-title">
+                <summary>
+                  <span id="stencil-menus-title">
+                    {t(
+                      `4. Custom Console menus (${liveBlueprint.effectivePanels.length} / ${catalog.panels.length} enabled)`,
+                      `4. 커스텀 Console 메뉴 선택 (${liveBlueprint.effectivePanels.length} / ${catalog.panels.length}개 활성화됨)`,
+                    )}
+                  </span>
+                  <span class="summary-meta">
+                    <span class="stencil-chip">
+                      {t(`${liveBlueprint.disabledPanels.length} omitted`, `${liveBlueprint.disabledPanels.length}개 제외됨`)}
+                    </span>
+                  </span>
+                </summary>
                 <p>
                   {t(
                     "Unchecked menus are physically excluded from the built Console bundle chunks when built with FDAI_STENCIL_ENABLED_PANELS.",
@@ -1152,7 +1179,7 @@ export function StencilBuilder({
                     ).length;
 
                     return (
-                      <details key={group} class="stencil-domain-group" open>
+                      <details key={group} class="stencil-domain-group" open={Boolean(needle)}>
                         <summary class="stencil-domain-summary">
                           <span>
                             <strong>
@@ -1228,9 +1255,9 @@ export function StencilBuilder({
                     );
                   })}
                 </div>
-              </section>
+              </details>
 
-              <div class="actions">
+              <div class="actions" style="margin-top: 20px;">
                 <button type="submit" class="primary" disabled={composing || !validInputs}>
                   {composing
                     ? t("Validating & composing Stencil...", "Stencil 검증 및 구성 중...")
@@ -1274,57 +1301,6 @@ export function StencilBuilder({
                   </div>
                 </div>
 
-                <h4>{t("Apollo Topology Diff (vs Full)", "Full 에디션 대비 토폴로지 비교 (Diff)")}</h4>
-                <ul class="apollo-diff-list">
-                  {liveBlueprint.effectiveWorkloads.map((w) => (
-                    <li key={w} class="diff-keep">
-                      <span class="diff-sign">+</span>
-                      <code>{w}</code>
-                      <small>{t("active", "포함")}</small>
-                    </li>
-                  ))}
-                  {liveBlueprint.omittedWorkloads.map((w) => (
-                    <li key={w} class="diff-drop">
-                      <span class="diff-sign">-</span>
-                      <code>{w}</code>
-                      <small>{t("omitted", "제외됨")}</small>
-                    </li>
-                  ))}
-                  {!liveBlueprint.includesClamav && (
-                    <li class="diff-drop">
-                      <span class="diff-sign">-</span>
-                      <code>clamav (sidecar)</code>
-                      <small>{t("omitted", "제외됨")}</small>
-                    </li>
-                  )}
-                </ul>
-
-                <h4>{t("Apollo Release Labels", "Apollo 릴리스 레이블 (자동 부여)")}</h4>
-                <div class="preset-metrics">
-                  {liveBlueprint.releaseLabels.map((lbl) => (
-                    <code key={lbl} class="stencil-chip">{lbl}</code>
-                  ))}
-                </div>
-
-                <h4>{t("Required Azure Roles", "필요한 Azure RBAC 역할")}</h4>
-                <p class="inspector-roles">{liveBlueprint.requiredAzureRoles.join(" · ")}</p>
-
-                <h4>{t("Inactive Menu Feature Flag Gate", "비활성 메뉴 Feature Flag 차단 정책")}</h4>
-                <div class="preset-metrics">
-                  <code class="stencil-chip">
-                    {t(
-                      `fail-closed · ${liveBlueprint.disabledPanels.length} menus blocked`,
-                      `fail-closed · 비활성 메뉴 ${liveBlueprint.disabledPanels.length}개 차단`,
-                    )}
-                  </code>
-                  <code class="stencil-chip">
-                    {t(
-                      `${liveBlueprint.omittedLoops.length} backend loops disabled`,
-                      `백엔드 루프 ${liveBlueprint.omittedLoops.length}개 비활성화`,
-                    )}
-                  </code>
-                </div>
-
                 <div class="actions">
                   <button
                     type="button"
@@ -1347,6 +1323,62 @@ export function StencilBuilder({
                     {t("Preview manifest only", "매니페스트만 미리보기")}
                   </button>
                 </div>
+
+                <details class="release-disclosure" style="margin-top: 8px;">
+                  <summary>
+                    {t("Inspect topology diff, labels & RBAC", "토폴로지 비교·레이블·권한 상세 보기")}
+                  </summary>
+                  <h4>{t("Apollo Topology Diff (vs Full)", "Full 에디션 대비 토폴로지 비교 (Diff)")}</h4>
+                  <ul class="apollo-diff-list">
+                    {liveBlueprint.effectiveWorkloads.map((w) => (
+                      <li key={w} class="diff-keep">
+                        <span class="diff-sign">+</span>
+                        <code>{w}</code>
+                        <small>{t("active", "포함")}</small>
+                      </li>
+                    ))}
+                    {liveBlueprint.omittedWorkloads.map((w) => (
+                      <li key={w} class="diff-drop">
+                        <span class="diff-sign">-</span>
+                        <code>{w}</code>
+                        <small>{t("omitted", "제외됨")}</small>
+                      </li>
+                    ))}
+                    {!liveBlueprint.includesClamav && (
+                      <li class="diff-drop">
+                        <span class="diff-sign">-</span>
+                        <code>clamav (sidecar)</code>
+                        <small>{t("omitted", "제외됨")}</small>
+                      </li>
+                    )}
+                  </ul>
+
+                  <h4>{t("Apollo Release Labels", "Apollo 릴리스 레이블 (자동 부여)")}</h4>
+                  <div class="preset-metrics">
+                    {liveBlueprint.releaseLabels.map((lbl) => (
+                      <code key={lbl} class="stencil-chip">{lbl}</code>
+                    ))}
+                  </div>
+
+                  <h4>{t("Required Azure Roles", "필요한 Azure RBAC 역할")}</h4>
+                  <p class="inspector-roles">{liveBlueprint.requiredAzureRoles.join(" · ")}</p>
+
+                  <h4>{t("Inactive Menu Feature Flag Gate", "비활성 메뉴 Feature Flag 차단 정책")}</h4>
+                  <div class="preset-metrics">
+                    <code class="stencil-chip">
+                      {t(
+                        `fail-closed · ${liveBlueprint.disabledPanels.length} menus blocked`,
+                        `fail-closed · 비활성 메뉴 ${liveBlueprint.disabledPanels.length}개 차단`,
+                      )}
+                    </code>
+                    <code class="stencil-chip">
+                      {t(
+                        `${liveBlueprint.omittedLoops.length} backend loops disabled`,
+                        `백엔드 루프 ${liveBlueprint.omittedLoops.length}개 비활성화`,
+                      )}
+                    </code>
+                  </div>
+                </details>
               </div>
             </aside>
           </div>
@@ -1382,27 +1414,7 @@ export function StencilBuilder({
                   <strong>{composed.footprint.azure_rbac_posture}</strong>
                 </div>
               </div>
-              <dl>
-                <dt>{t("Stencil digest", "Stencil 다이제스트")}</dt>
-                <dd><code class="digest">{composed.footprint.stencil_digest}</code></dd>
-                <dt>{t("Apollo Release labels", "Apollo 릴리스 레이블")}</dt>
-                <dd>{(composed.footprint.release_labels ?? []).join(", ")}</dd>
-                <dt>{t("Omitted workloads", "제외된 워크로드")}</dt>
-                <dd>{composed.footprint.omitted_workloads.join(", ") || t("None", "없음")}</dd>
-                <dt>{t("Required Azure roles", "필요한 Azure 역할")}</dt>
-                <dd>{composed.footprint.required_azure_roles.join(", ")}</dd>
-                <dt>{t("Console custom build command", "Console 커스텀 빌드 명령")}</dt>
-                <dd><code class="digest">{composed.footprint.console_build_command}</code></dd>
-                <dt>{t("Inactive menu feature flag gate", "비활성 메뉴 Feature Flag 게이트")}</dt>
-                <dd>
-                  <code class="digest">
-                    {composed.footprint.feature_flags
-                      ? `${composed.footprint.feature_flags.enforcement_mode} (FDAI_STENCIL_ENFORCE_INACTIVE_MENUS=1 · ${composed.footprint.feature_flags.disabled_panel_ids.length} menus & ${composed.footprint.feature_flags.disabled_loops.length} loops blocked)`
-                      : "fail-closed"}
-                  </code>
-                </dd>
-              </dl>
-              <div class="actions">
+              <div class="actions" style="margin-top: 16px;">
                 {onQuickCreateRelease && (
                   <button
                     type="button"
@@ -1440,7 +1452,27 @@ export function StencilBuilder({
                 </button>
               </div>
               <details class="release-disclosure">
-                <summary>{t("Inspect generated Stencil definition & Release v2 manifest", "생성된 Stencil 정의서 및 Release v2 매니페스트 보기")}</summary>
+                <summary>{t("Inspect generated Stencil definition & Release v2 manifest", "생성된 Stencil 상세 메타데이터 및 Release v2 매니페스트 보기")}</summary>
+                <dl>
+                  <dt>{t("Stencil digest", "Stencil 다이제스트")}</dt>
+                  <dd><code class="digest">{composed.footprint.stencil_digest}</code></dd>
+                  <dt>{t("Apollo Release labels", "Apollo 릴리스 레이블")}</dt>
+                  <dd>{(composed.footprint.release_labels ?? []).join(", ")}</dd>
+                  <dt>{t("Omitted workloads", "제외된 워크로드")}</dt>
+                  <dd>{composed.footprint.omitted_workloads.join(", ") || t("None", "없음")}</dd>
+                  <dt>{t("Required Azure roles", "필요한 Azure 역할")}</dt>
+                  <dd>{composed.footprint.required_azure_roles.join(", ")}</dd>
+                  <dt>{t("Console custom build command", "Console 커스텀 빌드 명령")}</dt>
+                  <dd><code class="digest">{composed.footprint.console_build_command}</code></dd>
+                  <dt>{t("Inactive menu feature flag gate", "비활성 메뉴 Feature Flag 게이트")}</dt>
+                  <dd>
+                    <code class="digest">
+                      {composed.footprint.feature_flags
+                        ? `${composed.footprint.feature_flags.enforcement_mode} (FDAI_STENCIL_ENFORCE_INACTIVE_MENUS=1 · ${composed.footprint.feature_flags.disabled_panel_ids.length} menus & ${composed.footprint.feature_flags.disabled_loops.length} loops blocked)`
+                        : "fail-closed"}
+                    </code>
+                  </dd>
+                </dl>
                 <pre>{JSON.stringify(composed, null, 2)}</pre>
               </details>
             </section>

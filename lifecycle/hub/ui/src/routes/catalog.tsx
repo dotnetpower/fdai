@@ -48,10 +48,10 @@ export function CatalogPage() {
         Signed vendor catalogs are kept current on the Updates page.</p>
     </div><span class="badge warn">Development only</span></div>
     <ReleaseConnectionPanel onConnection={(state) => setTrustAvailable(hasCatalogTrustSource(state))} />
-    <div class="callout"><strong>Independent approval is required</strong>
+    {trustAvailable !== false && <div class="callout"><strong>Independent approval is required</strong>
     <p>Obtain the exact export digest and revision through your separately approved trust channel.
       Do not copy a digest supplied by the download response as proof of trust.</p>
-    <p>No registry artifact or installation execution is verified here.</p></div>
+    <p>No registry artifact or installation execution is verified here.</p></div>}
     {trustAvailable === false && <p class="note">{tr(locale,
       "Trusted catalog import requires an independently configured remote catalog profile. The connection preview does not grant import authority.",
       "신뢰 검증 후 카탈로그를 가져오려면 원격 카탈로그 프로필을 별도로 구성해야 합니다. 연결 조회 결과는 가져오기 권한을 부여하지 않습니다.")}</p>}

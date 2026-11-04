@@ -405,13 +405,21 @@ export function ReleaseLineageSection({
               )}
             </div>
           </div>
-          <ReleaseStageLineage
-            release={selectedRelease}
-            catalog={catalog}
-            locale={locale}
-            disabled={disabled}
-            onAct={onAct}
-          />
+          <details class="release-disclosure" style="margin-top: 12px;">
+            <summary>
+              {t(
+                `Inspect 5-stage build & promotion pipeline for v${selectedRelease.id}`,
+                `v${selectedRelease.id} 5단계 빌드·승격 상세 파이프라인 보기`,
+              )}
+            </summary>
+            <ReleaseStageLineage
+              release={selectedRelease}
+              catalog={catalog}
+              locale={locale}
+              disabled={disabled}
+              onAct={onAct}
+            />
+          </details>
         </div>
       )}
     </section>
