@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: cbab4f8c2f50f71026ccf5644830d803377f502d
+translation_source_sha: eed21fcfb170cd84c53fd77451d43be0cfbf0d16
 translation_revised: 2026-11-04
 ---
 # 프로세스 자동화(프로세스 자동화)
@@ -255,7 +255,7 @@ Core는 전달과 동일한 논리 대상 잠금으로 자동화 보류 발행�
 판독이며 나이가 설정된 양수 최대값 이내일 때만 열립니다. 판독이 없거나 불완전하거나 오래되었거나
 미래 시각이거나 함수가 다르거나 영수증이 없으면 닫힌 채로 유지합니다. 열린 게이트가 공유 근거 승인을
 여전히 요구하도록 `AdmittedWorkflowGuardEvaluator`로 감쌉니다. 판독은 실행 권한을 주지 않습니다.
-`RegistryOntologyGateReader`는 온톨로지 함수 registry로 reader를 구현하며([판단 함수](../architecture/operating-ontology-platform-ko.md#판단-함수)), coordinator는 설치 환경이 reader를 제공할 때만 이 평가기를 구성합니다. 카탈로그는 이를 사용하는 shadow 워크플로우 2개(`blast-radius-gated-service-restart`, `change-risk-gated-scale-in`)를 제공하며 reader가 없으면 닫힌 채로 유지됩니다. 기본 런타임은 `OntologyBlastRadiusEvidenceReader`, `OntologyChangeRiskEvidenceReader`를 온톨로지 인스턴스 그래프와 provider가 관측한 변경 피드에 바인딩하지만, `config/workflow-ontology-gates.yaml`에 구성된 게이트에 대해서만 바인딩합니다. 배포본 파일은 blast-radius와 change-risk 게이트를 구성합니다. 비용 지연은 게이트가 없는 순위 신호입니다. 비용 임계값은 배포 통화로 정하는 비즈니스 결정이며 FinOps가 담당할 예정입니다. 각 reader는 잘렸거나 오래되었거나 합성이거나 충돌하거나 관측되지 않은 근거를 불완전으로 표시하고, 판단 함수는 그 경우 게이트를 닫습니다.
+`RegistryOntologyGateReader`는 온톨로지 함수 registry로 reader를 구현하며([판단 함수](../architecture/operating-ontology-platform-ko.md#판단-함수)), coordinator는 설치 환경이 reader를 제공할 때만 이 평가기를 구성합니다. 카탈로그는 이를 사용하는 shadow 워크플로우 2개(`blast-radius-gated-service-restart`, `change-risk-gated-scale-in`)를 제공하며 reader가 없으면 닫힌 채로 유지됩니다. 기본 런타임은 `OntologyBlastRadiusEvidenceReader`, `OntologyChangeRiskEvidenceReader`를 온톨로지 인스턴스 그래프와 provider가 관측한 변경 피드에 바인딩하지만, `config/workflow-ontology-gates.yaml`에 구성된 게이트에 대해서만 바인딩합니다. 배포본 파일은 blast-radius와 change-risk 게이트를 구성합니다. 비용 지연은 게이트가 없는 순위 신호입니다. 비용 임계값은 배포 통화로 정하는 비즈니스 결정이며 FinOps가 담당할 예정입니다. 각 reader는 잘렸거나 오래되었거나 합성이거나 충돌하거나 관측되지 않은 근거를 불완전으로 표시하고, 판단 함수는 그 경우 게이트를 닫습니다. `core/workflow/ontology_native.py`는 실행 권한을 넓히지 않으면서 `ObjectSetWorkflowInput`, `ForEachObjectSetRunner`, 영수증 바인딩 `${step.<id>.output.<field>}` 치환, `evaluate_ontology_decision_branch`, `OntologyConditionTriggerEvaluator`, `OntologyOwnershipApprovalResolver`를 추가합니다.
 
 `ChangeWindowWorkflowGuardEvaluator`는 정확한 프로세스 대상과 evaluation 시간으로
 `gate_ref: change-window.active`를 해석합니다. 다른 참조는 기존 가드 평가기에 delegate하므로

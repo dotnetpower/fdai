@@ -7,7 +7,7 @@ This document owns ongoing validation of FDAI's complete semantic question corpu
 measured denominator from the exact source revision instead of using a fixed question count, and it
 keeps release, scheduled, and change-focused evidence separate from roadmap package completion.
 
-Regenerating the source-only corpus for [governed typed-selection read](governed-typed-selection-read.md) or read-only decision FunctionTypes updates declaration identity, not executed model evidence or read qualification.
+Regenerating the source-only corpus for [governed typed-selection read](governed-typed-selection-read.md) or the eight read-only decision FunctionTypes updates declaration identity, not executed model evidence or read qualification.
 
 > **Authority boundary:** A passing campaign proves typed interpretation, evidence handling, and
 > no-authority behavior for one exact source revision. It never grants approval, mutation,

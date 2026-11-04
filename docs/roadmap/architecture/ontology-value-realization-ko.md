@@ -1,7 +1,7 @@
 ---
 title: Ontology Value Realization
 translation_of: ontology-value-realization.md
-translation_source_sha: 197092c5c0f0768e2ed002dfc84dffd9f2213f75
+translation_source_sha: e0133b267cf2ba417ac3a271fc7cea9e0f8f219a
 translation_revised: 2026-11-04
 ---
 # 온톨로지 가치 실현
@@ -60,6 +60,8 @@ FDAI는 이미 개체, 관계, 시간, 근거를 타입이 있는 온톨로지�
 - 반증 읽기가 있는 인과 메커니즘 카탈로그를 늘리고 기존 엔진을 같은 근거 규칙 뒤에 연결합니다.
 - 카탈로그 워크플로우 2개 이상을 shadow에서 온톨로지 함수 게이트에 바인딩합니다.
 - 읽기 전용 근거 reader로 판단 함수를 런타임 온톨로지 그래프, provider가 관측한 변경 피드, 관측된 비용에 바인딩합니다. 잘렸거나 오래되었거나 합성이거나 충돌하거나 관측되지 않은 원본은 게이트를 닫고, 검토된 구성은 임계값을 선택하며 근거는 선택하지 않습니다.
+- 온톨로지 네이티브 워크플로우 기본 요소(`core/workflow/ontology_native.py`: `ObjectSetWorkflowInput`, `ForEachObjectSetRunner`, 영수증 바인딩 `${step.<id>.output.<field>}` 치환, `evaluate_ontology_decision_branch`, `OntologyConditionTriggerEvaluator`, `OntologyOwnershipApprovalResolver`), 고도화 판단 함수와 머클 DAG 합성 실행기(`core/ontology_platform/advanced_decision_functions.py`: `decision.slo_exhaustion_eta`, `decision.change_collision`, `decision.recovery_feasibility`, `decision.spof_exposure`, `OntologyFunctionDagRunner`), FinOps 가치 모델링(`core/ontology_platform/finops_value_modeling.py`: `CostObservationOntologyProjector`, `decision.budget_burn_risk`, `score_business_service_criticality`, `filter_safe_sizing_recommendations`, `evaluate_unit_economics`), 시나리오 브랜치 디지털 트윈 시뮬레이션(`core/ontology_platform/digital_twin_simulation.py`: `simulate_workflow_on_scenario_branch`, `compare_counterfactual_options`, `build_workflow_topology_preview`, `validate_chaos_spof_recovery_readiness`)을 제공합니다.
+- T2 추론을 화이트리스트 판단 도구, shadow 워크플로우 컴파일러, 실시간 RCA 가설 필터, 기권 시 근거 수집 계획, 승인권자 브리핑 패키지(`core/ontology_platform/aip_agent_integration.py`)와 연결합니다.
 
 ### VR2 - 실데이터 근거
 
@@ -70,14 +72,14 @@ FDAI는 이미 개체, 관계, 시간, 근거를 타입이 있는 온톨로지�
 
 ### VR3 - 루프 닫기
 
-- 가치 루프마다 워크플로우 하나를 일반 게이트로 승격합니다. 실제 executor 바인딩, 스테이징 동등성, 독립 효과 검증이 필요합니다.
-- 루프마다 독립 관측으로 가치 주장 하나를 정산합니다.
-- 기대 효과와 관측 효과의 차이를 운영 학습으로 환류합니다.
+- 가치 루프마다 워크플로우 하나를 일반 게이트로 승격합니다. 실제 executor 바인딩, 스테이징 동등성(`verify_action_staging_parity`), Wave 5 확장 안전 제어(`WorkflowScaleSafetyController`), 독립 효과 검증이 필요합니다.
+- 루프마다 독립 관측으로 가치 주장 하나를 자동 정산(`PostWindowValueClaimAutoSettler`)하고 동등성을 벤치마크(`evaluate_sre_agent_parity_cohort`)합니다.
+- 기대 효과와 관측 효과의 차이를 운영 학습으로 환류(`recalibrate_option_utility_from_settlement`)합니다.
 
 ### VR4 - 소비와 도달 범위
 
-- 추천 액션, 근거, 불확실성, 기대 효과, 승인 제어를 보여 주고 게이트 없는 `decision.cost_of_delay` 순위 신호로 정렬하는 운영자 의사결정 큐(`core/decision_case/decision_queue.py`)를 추가합니다.
-- 비 Azure 어댑터마다 명시적 승인을 받은 뒤 provider 계약 뒤에 배포, 서비스 카탈로그, ITSM, 청구 어댑터를 추가합니다.
+- 추천 액션, 근거, 불확실성, 기대 효과, 승인 제어를 보여 주고 게이트 없는 `decision.cost_of_delay` 순위 신호로 정렬하는 운영자 의사결정 큐(`core/decision_case/decision_queue.py`, `core/ontology_platform/enterprise_governance_bridges.py`)와 Console Decision Inbox(`build_decision_inbox_view_model`), 워크플로우별 `ValueClaim` 드릴다운 뷰(`build_workflow_value_claim_drilldowns`)를 추가합니다.
+- 벤더 중립 배포 및 서비스 카탈로그 브리지(`DeploymentAndServiceCatalogBridge`), ITSM 변경 창·온콜 교대조 및 티켓 감사 매핑 브리지(`EnterpriseGovernanceOntologyBridge`)를 추가합니다. 특정 비 Azure 외부 벤더 어댑터는 개별 명시적 승인 후 추가합니다.
 - 데이터 연결, 가치 주장 선언, 기준선, shadow, 승격 순서의 도입 플레이북을 게시합니다.
 
 ## 유스케이스 온보딩 플레이북
