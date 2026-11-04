@@ -100,251 +100,106 @@ class StencilRouteRule:
     required_loops: tuple[str, ...] = ()
 
 
+def _rule(
+    prefix: str,
+    *any_panels: str,
+    exact: bool = False,
+    loops: tuple[str, ...] = (),
+) -> StencilRouteRule:
+    return StencilRouteRule(prefix, exact=exact, any_panels=any_panels, required_loops=loops)
+
+
 STENCIL_ROUTE_RULES: Final[tuple[StencilRouteRule, ...]] = (
-    StencilRouteRule("/aks-commerce", exact=False, any_panels=("aks-commerce",)),
-    StencilRouteRule(
-        "/cost-governance",
-        exact=False,
-        any_panels=("cost-governance",),
-        required_loops=("cost-governance",),
-    ),
-    StencilRouteRule(
-        "/code-security",
-        exact=False,
-        any_panels=("code-security",),
-        required_loops=("code-security",),
-    ),
-    StencilRouteRule(
-        "/assurance-twin",
-        exact=False,
-        any_panels=("assurance-twin",),
-        required_loops=("assurance-twin",),
-    ),
-    StencilRouteRule(
-        "/hil-queue",
-        exact=False,
-        any_panels=("hil-queue",),
-        required_loops=("remediation-execution",),
-    ),
-    StencilRouteRule(
-        "/hil",
-        exact=False,
-        any_panels=("hil-queue",),
-        required_loops=("remediation-execution",),
-    ),
-    StencilRouteRule(
-        "/access-grants",
-        exact=False,
-        any_panels=("settings-iam", "hil-queue"),
-    ),
-    StencilRouteRule("/rca", exact=False, any_panels=("rca",)),
-    StencilRouteRule("/reports", exact=False, any_panels=("reports",)),
-    StencilRouteRule("/browser-evidence", exact=False, any_panels=("browser-evidence",)),
-    StencilRouteRule("/kpi/llm-cost", exact=True, any_panels=("llm-cost",)),
-    StencilRouteRule(
+    _rule("/aks-commerce", "aks-commerce"),
+    _rule("/cost-governance", "cost-governance", loops=("cost-governance",)),
+    _rule("/code-security", "code-security", loops=("code-security",)),
+    _rule("/assurance-twin", "assurance-twin", loops=("assurance-twin",)),
+    _rule("/hil-queue", "hil-queue", loops=("remediation-execution",)),
+    _rule("/hil", "hil-queue", loops=("remediation-execution",)),
+    _rule("/access-grants", "settings-iam", "hil-queue"),
+    _rule("/rca", "rca"),
+    _rule("/reports", "reports"),
+    _rule("/browser-evidence", "browser-evidence"),
+    _rule("/kpi/llm-cost", "llm-cost", exact=True),
+    _rule(
         "/kpi/autonomy",
+        "operating-outcomes",
+        "trust-routing",
+        "control-assurance",
+        "verticals",
         exact=True,
-        any_panels=("operating-outcomes", "trust-routing", "control-assurance", "verticals"),
     ),
-    StencilRouteRule(
-        "/kpi/outcome-assurance",
-        exact=True,
-        any_panels=("control-assurance", "operating-outcomes"),
-    ),
-    StencilRouteRule(
-        "/kpi/promotion-gates",
-        exact=True,
-        any_panels=("promotion-gates", "control-assurance"),
-    ),
-    StencilRouteRule("/capabilities", exact=True, any_panels=("capabilities",)),
-    StencilRouteRule(
-        "/configuration-baselines",
-        exact=False,
-        any_panels=("configuration-baselines",),
-    ),
-    StencilRouteRule(
-        "/conversation-delivery",
-        exact=True,
-        any_panels=("conversation-delivery",),
-    ),
-    StencilRouteRule(
-        "/conversation-assurance",
-        exact=False,
-        any_panels=("conversation-assurance",),
-    ),
-    StencilRouteRule(
-        "/me/conversations/search",
-        exact=False,
-        any_panels=("conversation-search",),
-    ),
-    StencilRouteRule("/forecast-learning", exact=True, any_panels=("forecast-learning",)),
-    StencilRouteRule(
-        "/onboarding",
-        exact=True,
-        any_panels=("onboarding", "settings-environment"),
-    ),
-    StencilRouteRule("/operator-memory", exact=True, any_panels=("settings-memory",)),
-    StencilRouteRule("/me/memories", exact=False, any_panels=("settings-memory",)),
-    StencilRouteRule("/models", exact=False, any_panels=("settings-models",)),
-    StencilRouteRule("/me/model-preferences", exact=True, any_panels=("settings-models",)),
-    StencilRouteRule("/scheduler-runs", exact=True, any_panels=("scheduler-runs",)),
-    StencilRouteRule("/background-tasks", exact=False, any_panels=("background-tasks",)),
-    StencilRouteRule("/task-workers", exact=False, any_panels=("background-tasks",)),
-    StencilRouteRule(
+    _rule("/kpi/outcome-assurance", "control-assurance", "operating-outcomes", exact=True),
+    _rule("/kpi/promotion-gates", "promotion-gates", "control-assurance", exact=True),
+    _rule("/capabilities", "capabilities", exact=True),
+    _rule("/configuration-baselines", "configuration-baselines"),
+    _rule("/conversation-delivery", "conversation-delivery", exact=True),
+    _rule("/conversation-assurance", "conversation-assurance"),
+    _rule("/me/conversations/search", "conversation-search"),
+    _rule("/forecast-learning", "forecast-learning", exact=True),
+    _rule("/onboarding", "onboarding", "settings-environment", exact=True),
+    _rule("/operator-memory", "settings-memory", exact=True),
+    _rule("/me/memories", "settings-memory"),
+    _rule("/models", "settings-models"),
+    _rule("/me/model-preferences", "settings-models", exact=True),
+    _rule("/scheduler-runs", "scheduler-runs", exact=True),
+    _rule("/background-tasks", "background-tasks"),
+    _rule("/task-workers", "background-tasks"),
+    _rule(
         "/chat/continuations/recent-resource-changes",
+        "scheduled-continuations",
+        "live",
         exact=True,
-        any_panels=("scheduled-continuations", "live"),
     ),
-    StencilRouteRule(
-        "/read-investigations",
-        exact=False,
-        any_panels=("rca", "incidents", "live"),
-    ),
-    StencilRouteRule("/skills", exact=True, any_panels=("skills",)),
-    StencilRouteRule("/scope", exact=True, any_panels=("scope",)),
-    StencilRouteRule("/simulate/blast-radius", exact=True, any_panels=("blast-radius",)),
-    StencilRouteRule("/stewardship", exact=False, any_panels=("handover",)),
-    StencilRouteRule("/handover", exact=False, any_panels=("handover",)),
-    StencilRouteRule("/assignments", exact=False, any_panels=("handover",)),
-    StencilRouteRule("/scoped-duties", exact=False, any_panels=("handover",)),
-    StencilRouteRule("/reporting-lines", exact=False, any_panels=("handover",)),
-    StencilRouteRule("/iam", exact=False, any_panels=("settings-iam", "handover")),
-    StencilRouteRule(
-        "/automation-blueprints",
-        exact=False,
-        any_panels=("automation-blueprints",),
-    ),
-    StencilRouteRule("/views/workflow-apps", exact=True, any_panels=("workflow-apps",)),
-    StencilRouteRule("/views/process", exact=False, any_panels=("processes",)),
-    StencilRouteRule(
-        "/workflows",
-        exact=False,
-        any_panels=("workflow-builder", "processes"),
-    ),
-    StencilRouteRule(
+    _rule("/read-investigations", "rca", "incidents", "live"),
+    _rule("/skills", "skills", exact=True),
+    _rule("/scope", "scope", exact=True),
+    _rule("/simulate/blast-radius", "blast-radius", exact=True),
+    _rule("/stewardship", "handover"),
+    _rule("/handover", "handover"),
+    _rule("/assignments", "handover"),
+    _rule("/scoped-duties", "handover"),
+    _rule("/reporting-lines", "handover"),
+    _rule("/iam", "settings-iam", "handover"),
+    _rule("/automation-blueprints", "automation-blueprints"),
+    _rule("/views/workflow-apps", "workflow-apps", exact=True),
+    _rule("/views/process", "processes"),
+    _rule("/workflows", "workflow-builder", "processes"),
+    _rule(
         "/python-tasks",
-        exact=False,
-        any_panels=("workflow-builder", "processes"),
-        required_loops=("remediation-execution",),
+        "workflow-builder",
+        "processes",
+        loops=("remediation-execution",),
     ),
-    StencilRouteRule(
-        "/context-selection-comparisons",
-        exact=True,
-        any_panels=("context-selection-comparisons",),
-    ),
-    StencilRouteRule(
-        "/knowledge/github/sources",
-        exact=True,
-        any_panels=("github", "knowledge"),
-    ),
-    StencilRouteRule(
-        "/ontology",
-        exact=False,
-        any_panels=("ontology", "architecture", "dashboard-v2"),
-    ),
-    StencilRouteRule(
-        "/inventory/graph",
-        exact=True,
-        any_panels=("architecture", "ontology", "live"),
-    ),
-    StencilRouteRule(
-        "/pantheon",
-        exact=False,
-        any_panels=("pantheon", "agents"),
-    ),
-    StencilRouteRule(
-        "/agents",
-        exact=False,
-        any_panels=("agent-activity", "agents", "pantheon"),
-    ),
-    StencilRouteRule(
-        "/rules",
-        exact=False,
-        any_panels=("rules",),
-        required_loops=("anomaly-analyzer",),
-    ),
-    StencilRouteRule(
-        "/best-practices",
-        exact=False,
-        any_panels=("rules",),
-        required_loops=("anomaly-analyzer",),
-    ),
-    StencilRouteRule(
-        "/caf-controls",
-        exact=False,
-        any_panels=("rules",),
-        required_loops=("anomaly-analyzer",),
-    ),
-    StencilRouteRule(
-        "/wara-controls",
-        exact=False,
-        any_panels=("rules",),
-        required_loops=("anomaly-analyzer",),
-    ),
-    StencilRouteRule(
-        "/mcsb-controls",
-        exact=False,
-        any_panels=("rules",),
-        required_loops=("anomaly-analyzer",),
-    ),
-    StencilRouteRule(
-        "/msrc-csaf-controls",
-        exact=False,
-        any_panels=("rules",),
-        required_loops=("anomaly-analyzer",),
-    ),
-    StencilRouteRule("/alert-quality", exact=False, any_panels=("alert-quality",)),
-    StencilRouteRule(
-        "/detection-coverage",
-        exact=True,
-        any_panels=("detection-readiness",),
-    ),
-    StencilRouteRule(
-        "/detection-readiness",
-        exact=True,
-        any_panels=("detection-readiness",),
-    ),
-    StencilRouteRule(
-        "/incidents",
-        exact=False,
-        any_panels=("incidents", "live"),
-    ),
-    StencilRouteRule(
-        "/live/stream",
-        exact=True,
-        any_panels=("live", "gpu"),
-    ),
-    StencilRouteRule(
-        "/provision/stream",
-        exact=True,
-        any_panels=("provision", "settings-environment"),
-    ),
-    StencilRouteRule(
-        "/observer-deployment-proposals",
-        exact=True,
-        any_panels=("provision", "settings-environment"),
-    ),
-    StencilRouteRule(
-        "/runtime/integrations",
-        exact=False,
-        any_panels=("settings-integrations",),
-        required_loops=("notification-dispatch",),
-    ),
-    StencilRouteRule(
+    _rule("/context-selection-comparisons", "context-selection-comparisons", exact=True),
+    _rule("/knowledge/github/sources", "github", "knowledge", exact=True),
+    _rule("/ontology", "ontology", "architecture", "dashboard-v2"),
+    _rule("/inventory/graph", "architecture", "ontology", "live", exact=True),
+    _rule("/pantheon", "pantheon", "agents"),
+    _rule("/agents", "agent-activity", "agents", "pantheon"),
+    _rule("/rules", "rules", loops=("anomaly-analyzer",)),
+    _rule("/best-practices", "rules", loops=("anomaly-analyzer",)),
+    _rule("/caf-controls", "rules", loops=("anomaly-analyzer",)),
+    _rule("/wara-controls", "rules", loops=("anomaly-analyzer",)),
+    _rule("/mcsb-controls", "rules", loops=("anomaly-analyzer",)),
+    _rule("/msrc-csaf-controls", "rules", loops=("anomaly-analyzer",)),
+    _rule("/alert-quality", "alert-quality"),
+    _rule("/detection-coverage", "detection-readiness", exact=True),
+    _rule("/detection-readiness", "detection-readiness", exact=True),
+    _rule("/incidents", "incidents", "live"),
+    _rule("/live/stream", "live", "gpu", exact=True),
+    _rule("/provision/stream", "provision", "settings-environment", exact=True),
+    _rule("/observer-deployment-proposals", "provision", "settings-environment", exact=True),
+    _rule("/runtime/integrations", "settings-integrations", loops=("notification-dispatch",)),
+    _rule(
         "/runtime/settings",
+        "settings-runtime",
+        "settings-integrations",
+        "settings-diagnostics",
         exact=True,
-        any_panels=("settings-runtime", "settings-integrations", "settings-diagnostics"),
     ),
-    StencilRouteRule(
-        "/policy",
-        exact=False,
-        any_panels=("settings-runtime",),
-    ),
-    StencilRouteRule(
-        "/policy-administration",
-        exact=False,
-        any_panels=("settings-runtime",),
-    ),
+    _rule("/policy", "settings-runtime"),
+    _rule("/policy-administration", "settings-runtime"),
 )
 
 
@@ -570,114 +425,94 @@ class StencilFeatureFlagConfig:
                 raise ValueError(f"Invalid FDAI_STENCIL_ID: {raw_stencil_id!r}")
             stencil_id = raw_stencil_id
 
-        if raw_enabled_panels:
-            parsed_ep = _parse_id_csv(raw_enabled_panels, label="FDAI_STENCIL_ENABLED_PANELS")
-            enabled_panels = (
-                set(parsed_ep) if enabled_panels is None else (enabled_panels & set(parsed_ep))
-            )
-        if raw_disabled_panels:
-            disabled_panels.update(
-                _parse_id_csv(raw_disabled_panels, label="FDAI_STENCIL_DISABLED_PANELS")
-            )
+        def _finalize_axis(
+            raw_en: str,
+            en_var: str,
+            raw_dis: str,
+            dis_var: str,
+            en_set: set[str] | None,
+            dis_set: set[str],
+            locked: frozenset[str],
+            locked_label: str,
+        ) -> tuple[frozenset[str] | None, frozenset[str]]:
+            if raw_en:
+                parsed_en = set(_parse_id_csv(raw_en, label=en_var))
+                en_set = parsed_en if en_set is None else (en_set & parsed_en)
+            if raw_dis:
+                dis_set.update(_parse_id_csv(raw_dis, label=dis_var))
+            if dis_set & locked:
+                hit = ", ".join(sorted(dis_set & locked))
+                raise ValueError(f"Cannot disable locked safety-core Stencil {locked_label}: {hit}")
+            if en_set is not None:
+                en_set.update(locked)
+                en_set -= dis_set
+            return (frozenset(en_set) if en_set is not None else None), frozenset(dis_set)
 
-        if raw_enabled_loops:
-            parsed_el = _parse_id_csv(raw_enabled_loops, label="FDAI_STENCIL_ENABLED_LOOPS")
-            enabled_loops = (
-                set(parsed_el) if enabled_loops is None else (enabled_loops & set(parsed_el))
-            )
-        if raw_disabled_loops:
-            disabled_loops.update(
-                _parse_id_csv(raw_disabled_loops, label="FDAI_STENCIL_DISABLED_LOOPS")
-            )
-
-        if raw_enabled_workloads:
-            parsed_ew = _parse_id_csv(raw_enabled_workloads, label="FDAI_STENCIL_ENABLED_WORKLOADS")
-            enabled_workloads = (
-                set(parsed_ew)
-                if enabled_workloads is None
-                else (enabled_workloads & set(parsed_ew))
-            )
-        if raw_disabled_workloads:
-            disabled_workloads.update(
-                _parse_id_csv(raw_disabled_workloads, label="FDAI_STENCIL_DISABLED_WORKLOADS")
-            )
-
-        if raw_enabled_jobs:
-            parsed_ej = _parse_id_csv(raw_enabled_jobs, label="FDAI_STENCIL_ENABLED_JOBS")
-            enabled_jobs = (
-                set(parsed_ej) if enabled_jobs is None else (enabled_jobs & set(parsed_ej))
-            )
-        if raw_disabled_jobs:
-            disabled_jobs.update(
-                _parse_id_csv(raw_disabled_jobs, label="FDAI_STENCIL_DISABLED_JOBS")
-            )
-
-        if raw_enabled_addons:
-            parsed_ea = _parse_id_csv(raw_enabled_addons, label="FDAI_STENCIL_ENABLED_ADDONS")
-            enabled_addons = (
-                set(parsed_ea) if enabled_addons is None else (enabled_addons & set(parsed_ea))
-            )
-        if raw_disabled_addons:
-            disabled_addons.update(
-                _parse_id_csv(raw_disabled_addons, label="FDAI_STENCIL_DISABLED_ADDONS")
-            )
-
-        if disabled_panels & LOCKED_STENCIL_PANELS:
-            locked_hit = ", ".join(sorted(disabled_panels & LOCKED_STENCIL_PANELS))
-            raise ValueError(f"Cannot disable locked safety-core Stencil panel(s): {locked_hit}")
-        if disabled_loops & LOCKED_STENCIL_LOOPS:
-            locked_loop_hit = ", ".join(sorted(disabled_loops & LOCKED_STENCIL_LOOPS))
-            raise ValueError(
-                f"Cannot disable locked safety-core Stencil loop(s): {locked_loop_hit}"
-            )
-        if disabled_workloads & LOCKED_STENCIL_WORKLOADS:
-            locked_wl_hit = ", ".join(sorted(disabled_workloads & LOCKED_STENCIL_WORKLOADS))
-            raise ValueError(
-                f"Cannot disable locked safety-core Stencil workload(s): {locked_wl_hit}"
-            )
-        if disabled_jobs & LOCKED_STENCIL_SCHEDULED_JOBS:
-            locked_job_hit = ", ".join(sorted(disabled_jobs & LOCKED_STENCIL_SCHEDULED_JOBS))
-            raise ValueError(
-                f"Cannot disable locked safety-core Stencil scheduled job(s): {locked_job_hit}"
-            )
-        if disabled_addons & LOCKED_STENCIL_ADDONS:
-            locked_addon_hit = ", ".join(sorted(disabled_addons & LOCKED_STENCIL_ADDONS))
-            raise ValueError(
-                f"Cannot disable locked safety-core Stencil add-on(s): {locked_addon_hit}"
-            )
-
-        if enabled_panels is not None:
-            enabled_panels.update(LOCKED_STENCIL_PANELS)
-            enabled_panels -= disabled_panels
-        if enabled_loops is not None:
-            enabled_loops.update(LOCKED_STENCIL_LOOPS)
-            enabled_loops -= disabled_loops
-        if enabled_workloads is not None:
-            enabled_workloads.update(LOCKED_STENCIL_WORKLOADS)
-            enabled_workloads -= disabled_workloads
-        if enabled_jobs is not None:
-            enabled_jobs.update(LOCKED_STENCIL_SCHEDULED_JOBS)
-            enabled_jobs -= disabled_jobs
-        if enabled_addons is not None:
-            enabled_addons.update(LOCKED_STENCIL_ADDONS)
-            enabled_addons -= disabled_addons
+        final_en_panels, final_dis_panels = _finalize_axis(
+            raw_enabled_panels,
+            "FDAI_STENCIL_ENABLED_PANELS",
+            raw_disabled_panels,
+            "FDAI_STENCIL_DISABLED_PANELS",
+            enabled_panels,
+            disabled_panels,
+            LOCKED_STENCIL_PANELS,
+            "panel(s)",
+        )
+        final_en_loops, final_dis_loops = _finalize_axis(
+            raw_enabled_loops,
+            "FDAI_STENCIL_ENABLED_LOOPS",
+            raw_disabled_loops,
+            "FDAI_STENCIL_DISABLED_LOOPS",
+            enabled_loops,
+            disabled_loops,
+            LOCKED_STENCIL_LOOPS,
+            "loop(s)",
+        )
+        final_en_workloads, final_dis_workloads = _finalize_axis(
+            raw_enabled_workloads,
+            "FDAI_STENCIL_ENABLED_WORKLOADS",
+            raw_disabled_workloads,
+            "FDAI_STENCIL_DISABLED_WORKLOADS",
+            enabled_workloads,
+            disabled_workloads,
+            LOCKED_STENCIL_WORKLOADS,
+            "workload(s)",
+        )
+        final_en_jobs, final_dis_jobs = _finalize_axis(
+            raw_enabled_jobs,
+            "FDAI_STENCIL_ENABLED_JOBS",
+            raw_disabled_jobs,
+            "FDAI_STENCIL_DISABLED_JOBS",
+            enabled_jobs,
+            disabled_jobs,
+            LOCKED_STENCIL_SCHEDULED_JOBS,
+            "scheduled job(s)",
+        )
+        final_en_addons, final_dis_addons = _finalize_axis(
+            raw_enabled_addons,
+            "FDAI_STENCIL_ENABLED_ADDONS",
+            raw_disabled_addons,
+            "FDAI_STENCIL_DISABLED_ADDONS",
+            enabled_addons,
+            disabled_addons,
+            LOCKED_STENCIL_ADDONS,
+            "add-on(s)",
+        )
 
         return cls(
             active=True,
             stencil_id=stencil_id,
             enforcement_mode="fail-closed",
-            enabled_panel_ids=(frozenset(enabled_panels) if enabled_panels is not None else None),
-            disabled_panel_ids=frozenset(disabled_panels),
-            enabled_loops=(frozenset(enabled_loops) if enabled_loops is not None else None),
-            disabled_loops=frozenset(disabled_loops),
-            enabled_workloads=(
-                frozenset(enabled_workloads) if enabled_workloads is not None else None
-            ),
-            disabled_workloads=frozenset(disabled_workloads),
-            enabled_scheduled_jobs=(frozenset(enabled_jobs) if enabled_jobs is not None else None),
-            disabled_scheduled_jobs=frozenset(disabled_jobs),
-            enabled_addons=(frozenset(enabled_addons) if enabled_addons is not None else None),
-            disabled_addons=frozenset(disabled_addons),
+            enabled_panel_ids=final_en_panels,
+            disabled_panel_ids=final_dis_panels,
+            enabled_loops=final_en_loops,
+            disabled_loops=final_dis_loops,
+            enabled_workloads=final_en_workloads,
+            disabled_workloads=final_dis_workloads,
+            enabled_scheduled_jobs=final_en_jobs,
+            disabled_scheduled_jobs=final_dis_jobs,
+            enabled_addons=final_en_addons,
+            disabled_addons=final_dis_addons,
         )
 
     def is_panel_enabled(self, panel_id: str) -> bool:

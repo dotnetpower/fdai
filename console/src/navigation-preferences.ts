@@ -1,5 +1,5 @@
 import type { PanelGroup } from "./panels";
-import { LOCKED_STENCIL_PANEL_IDS } from "./stencil-panels";
+import { isStencilPanelEnabled } from "./stencil-panels";
 
 export interface NavigationPreferences {
   readonly explorerPinned: boolean;
@@ -48,12 +48,14 @@ export function readNavigationPreferences(
     .filter((id): id is PanelGroup => validGroupIds.has(id as PanelGroup))
     .filter((id) => id !== "overview" && id !== "settings");
   const hiddenPanelIds = stringArray(parsed.hiddenPanelIds).filter(
-    (id) => validIds.has(id) && !LOCKED_STENCIL_PANEL_IDS.includes(id),
+    (id) => validIds.has(id) && isStencilPanelEnabled(id),
   );
   const groupOrder: Partial<Record<PanelGroup, readonly string[]>> = {};
   if (isRecord(parsed.groupOrder)) {
     for (const group of ["overview", "operations", "agents", "governance", "knowledge", "evidence", "labs", "settings"] as const) {
-      const order = stringArray(parsed.groupOrder[group]).filter((id) => validIds.has(id));
+      const order = stringArray(parsed.groupOrder[group]).filter(
+        (id) => validIds.has(id) && isStencilPanelEnabled(id),
+      );
       if (order.length > 0) groupOrder[group] = unique(order);
     }
   }
@@ -77,9 +79,7 @@ export function writeNavigationPreferences(
   try {
     const sanitized: NavigationPreferences = {
       ...preferences,
-      hiddenPanelIds: preferences.hiddenPanelIds.filter(
-        (id) => !LOCKED_STENCIL_PANEL_IDS.includes(id),
-      ),
+      hiddenPanelIds: preferences.hiddenPanelIds.filter((id) => isStencilPanelEnabled(id)),
     };
     storage.setItem(navigationPreferenceKey(principalId), JSON.stringify(sanitized));
     return true;
