@@ -603,6 +603,14 @@ decoding is removed only after retained audit and instance fixtures replay under
 | Historical topology | PostgreSQL replay retains the exact ontology release and source receipt bindings for each selected revision batch; dangling active links lower completeness. |
 | Projection reload | The inventory status marker and manifest share a content digest, so a restart never exposes a mixed generation. |
 
+## Decision functions
+
+The platform declares three deterministic, read-only `derive` FunctionTypes in `ontology_platform/decision_functions.py`: `decision.blast_radius`, `decision.change_risk`, and `decision.cost_of_delay`. Each takes its evidence from an injected, server-anchored reader and never from model arguments. The result carries `tier`, `complete`, `observed_at`, and `reason_codes`, and both authority flags are `false`. The blast-radius and change-risk results also carry `gate_satisfied`. The cost-of-delay result is a priced ranking signal with no predicate, so a gate cannot open on it.
+
+An unreviewed criticality, an incomplete traversal, an unobserved change-risk factor, or an absent cost basis yields `unknown` and a closed predicate. It never yields an optimistic default. A reading is advice that can only preserve or lower autonomy.
+
+`RegistryOntologyGateReader` invokes a function through `OntologyFunctionRegistry` with fixed reviewed arguments and a server-built context that carries the Process target. A workflow `ontology-function:` gate consumes the result as a receipt-bound reading ([process automation](../decisioning/process-automation.md)). `decision_evidence_readers.py` binds the three functions to the runtime ontology graph and the 20-row bounded provider change feed, and the control loop composes only the gates that `config/workflow-ontology-gates.yaml` configures. Cost of delay is not a configurable gate and is consumed as a ranking signal by `DecisionQueueProjection`; FinOps will define the live cost source.
+
 ## Related docs
 
 | To learn about | Read |

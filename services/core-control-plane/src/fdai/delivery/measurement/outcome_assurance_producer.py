@@ -18,8 +18,20 @@ from typing import Literal
 import fdai_service_contracts as sc
 from fdai.core.measurement.outcome_assurance import (
     FinalizedOutcomeEvent,
+    OutcomeEvidenceState,
     OutcomeMeasurementObservation,
     summarize_objective_attribution,
+)
+from fdai.core.measurement.value_claim import (
+    ValueClaimDeclaration,
+    ValueClaimSettlement,
+    ValueClaimStatus,
+    ValueCohortObservation,
+    settle_value_claim,
+)
+from fdai.core.measurement.value_claim_ledger import (
+    StateStoreValueClaimLedger,
+    outcome_measurement_from_settlement,
 )
 from fdai.shared.providers.state_store import StateStore
 
@@ -342,10 +354,117 @@ class OutcomeAssuranceProjectionProducer:
             published_at=resolved_generated_at,
         )
 
+    async def settle_and_publish_value_claims(
+        self,
+        *,
+        principal_id: str,
+        scope: sc.OutcomeAssuranceScope,
+        window: sc.OutcomeAssuranceWindow,
+        sources: tuple[sc.OutcomeAssuranceSource, ...],
+        readiness: tuple[sc.OutcomeAssuranceReadiness, ...],
+        finalized_events: tuple[FinalizedOutcomeEvent, ...],
+        observations: tuple[OutcomeMeasurementObservation, ...],
+        claim_cohorts: tuple[tuple[ValueClaimDeclaration, tuple[ValueCohortObservation, ...]], ...],
+        guards: sc.OutcomeAssuranceControlSummary,
+        as_of: datetime,
+        generated_at: datetime | None = None,
+        additional_outcomes: tuple[sc.OutcomeAssuranceMetric, ...] = (),
+    ) -> tuple[OutcomeAssurancePublishReceipt, tuple[ValueClaimSettlement, ...]]:
+        """Settle retained independent cohorts, record to the ledger, and publish for Operator."""
+
+        ledger = StateStoreValueClaimLedger(self._store)
+        settlements: list[ValueClaimSettlement] = []
+        settled_metrics: list[sc.OutcomeAssuranceMetric] = []
+        escape_claims = 0
+        for declaration, cohorts in claim_cohorts:
+            settlement = settle_value_claim(declaration, cohorts)
+            await ledger.record(declaration, settlement)
+            settlements.append(settlement)
+            settled_metrics.append(service_contract_metric_from_settlement(declaration, settlement))
+            if settlement.status is ValueClaimStatus.BLOCKED_POLICY_ESCAPE:
+                escape_claims += 1
+        effective_guards = (
+            guards.model_copy(
+                update={
+                    "state": sc.OutcomeAssuranceGuardState.BLOCKED,
+                    "policy_escape_count": max(guards.policy_escape_count, escape_claims),
+                }
+            )
+            if escape_claims > 0
+            and guards.state
+            not in {
+                sc.OutcomeAssuranceGuardState.UNAVAILABLE,
+                sc.OutcomeAssuranceGuardState.STALE,
+            }
+            else guards
+        )
+        receipt = await self.publish_from_authoritative_sources(
+            principal_id=principal_id,
+            scope=scope,
+            window=window,
+            sources=sources,
+            readiness=readiness,
+            finalized_events=finalized_events,
+            observations=observations,
+            outcomes=(*additional_outcomes, *settled_metrics),
+            guards=effective_guards,
+            as_of=as_of,
+            generated_at=generated_at,
+        )
+        return receipt, tuple(settlements)
+
+
+def service_contract_metric_from_settlement(
+    declaration: ValueClaimDeclaration,
+    settlement: ValueClaimSettlement,
+) -> sc.OutcomeAssuranceMetric:
+    """Convert one ValueClaimSettlement into the read-only Operator service contract metric."""
+
+    core_metric = outcome_measurement_from_settlement(declaration, settlement)
+    if core_metric.state in {OutcomeEvidenceState.MEASURED, OutcomeEvidenceState.REGRESSED}:
+        if core_metric.confidence_interval is None:
+            raise ValueError("settled outcome measurement MUST carry confidence_interval")
+        return sc.OutcomeAssuranceMetric(
+            objective_ref=core_metric.objective_ref,
+            metric=core_metric.metric,
+            state=(
+                sc.OutcomeAssuranceMetricState.REGRESSED
+                if core_metric.state is OutcomeEvidenceState.REGRESSED
+                else sc.OutcomeAssuranceMetricState.MEASURED
+            ),
+            current_value=core_metric.current_value,
+            baseline_value=core_metric.baseline_value,
+            target_value=core_metric.target_value,
+            unit=core_metric.unit,
+            sample_size=core_metric.sample_size,
+            confidence_interval=sc.OutcomeAssuranceConfidenceInterval(
+                low=core_metric.confidence_interval.low,
+                high=core_metric.confidence_interval.high,
+            ),
+            source_time=core_metric.source_time,
+            evidence_refs=core_metric.evidence_refs,
+        )
+    if core_metric.state is OutcomeEvidenceState.INSUFFICIENT_SAMPLE:
+        return sc.OutcomeAssuranceMetric(
+            objective_ref=core_metric.objective_ref,
+            metric=core_metric.metric,
+            state=sc.OutcomeAssuranceMetricState.INSUFFICIENT_SAMPLE,
+            reason=sc.OutcomeAssuranceUnavailableReason.INSUFFICIENT_SAMPLE,
+            evidence_refs=core_metric.evidence_refs,
+        )
+    return sc.OutcomeAssuranceMetric(
+        objective_ref=core_metric.objective_ref,
+        metric=core_metric.metric,
+        state=sc.OutcomeAssuranceMetricState.UNAVAILABLE,
+        reason=sc.OutcomeAssuranceUnavailableReason.SOURCE_NOT_CONNECTED,
+        evidence_refs=core_metric.evidence_refs,
+    )
+
 
 __all__ = [
     "OutcomeAssuranceProjectionProducer",
     "OutcomeAssurancePublishReceipt",
     "outcome_assurance_projection_key",
     "persist_outcome_assurance_projection",
+    "service_contract_metric_from_settlement",
 ]

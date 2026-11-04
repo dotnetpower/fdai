@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 201e61316def9ae62826b20cd727d06c8446eb7a
-translation_revised: 2026-11-01
+translation_source_sha: 395f4474d09eaf0da164cbd0f146a1c9b84b6910
+translation_revised: 2026-11-04
 ---
 # 온톨로지 구조 모델
 
@@ -650,6 +650,10 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 `object_labels`를 `concept_catalogs`로 전달하며, `rule-catalog/vocabulary/inventory-query-language.yaml`은
 온톨로지 신원이나 권한을 바꾸지 않고 한국어·영어 보안 문제 및 상태 점검 어휘를 포함하고
 `bootstrap_semantics.py`는 `behavior_knowledge_index`를 연결합니다.
+## 인과 메커니즘 카탈로그
+
+`rule-catalog/vocabulary/causal-mechanisms.yaml`의 검토된 카탈로그는 배포, 신원 변경, 네트워크 규칙 변경, 할당량 소진, 스케일 인, 설정 드리프트, TLS 인증서 만료, 상위 의존성 포화의 메커니즘 8개를 선언합니다. 각 메커니즘은 반복 표본, 역방향 검사, 교란 요인 검사를 요구하고 반증 읽기를 2개 이상 명시합니다. 명시된 모든 읽기가 실행되었거나 누락으로 보고되고 어떤 읽기도 반증하지 않을 때만 연관을 넘는 등급을 받습니다. 메커니즘을 선언해도 ObjectType, LinkType, 권한은 추가되지 않습니다.
+
 ## 관련 문서
 
 | 알아볼 내용 | 읽을 문서 |

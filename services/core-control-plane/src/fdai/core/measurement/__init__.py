@@ -38,6 +38,8 @@ The current modules here are:
 - :mod:`.operational_promotion_runner` - audited measurement runner that never promotes.
 - :mod:`.outcome_assurance` - typed Outcome Assurance projection contracts,
   bounded evidence states, and deterministic correction helpers.
+- :mod:`.value_claim` - baseline-relative settlement of one workflow value
+  claim from independent cohorts, reporting the conservative 95% bound.
 """
 
 from __future__ import annotations

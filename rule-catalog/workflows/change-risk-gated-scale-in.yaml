@@ -1,0 +1,35 @@
+schema_version: "1.0.0"
+name: change-risk-gated-scale-in
+version: "1.0.0"
+description: >-
+  Scale in one workload only when the ontology change-risk reading stays within the reviewed ceiling, with approval and scale-out compensation.
+trigger:
+  kind: signal
+  signal_type: change.request.submitted
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 21
+  min_samples: 40
+  min_accuracy: 0.98
+  max_policy_escapes: 0
+steps:
+  - id: change_risk
+    kind: gate
+    gate_ref: ontology-function:decision.change_risk
+  - id: scale_in_approval
+    kind: approval
+    approval_role: owner
+    quorum: 2
+    no_self_approval: true
+    timeout_seconds: 3600
+  - id: scale_in
+    kind: action
+    action_type_ref: ops.scale-in
+    compensated_by: ops.scale-out
+    params:
+      target_resource_ref: "${event.resource_ref}"
+      reason: "${change.reason}"
+anti_scope: >-
+  This workflow never acts when any change-risk factor is unobserved, never bypasses the
+  approval, and never treats a satisfied gate as authority. The gate can only keep a change
+  closed; approval and the safety pipeline still decide.

@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: f4a311e15eeec698d88cdc10c9fc50d1ca92386b
-translation_revised: 2026-11-01
+translation_source_sha: 7dd75065bd0b863de26d3e36953c2589d54515ed
+translation_revised: 2026-11-04
 ---
 # 온톨로지 조회 커버리지 구현 계획
 
@@ -782,6 +782,10 @@ fail-close합니다.
 규칙 카탈로그 의미 및 어휘 검색(`catalog_search.py` 및 `authoritative_rule_projection.py`)은
 질의 검증이나 실행 권한을 바꾸지 않고 정규 영어 규칙 ID와 함께 한국어 제목(`title_ko`), 한국어
 설명(`description_ko`), 프레임워크 인용 접두사를 함께 인덱싱합니다.
+
+## 판단 함수와 인과 메커니즘
+
+읽기 전용 판단 FunctionType 3개(`decision.blast_radius`, `decision.change_risk`, `decision.cost_of_delay`)가 운영 release에 포함되고, 검토된 인과 메커니즘 카탈로그는 이제 메커니즘 8개를 선언합니다. 판단 함수는 `config/workflow-ontology-gates.yaml`에 구성된 게이트에 대해 `decision_evidence_readers.py`로 런타임 온톨로지 그래프에 바인딩되고, 카탈로그는 인과 메커니즘의 원본 reader를 선언하지 않으며, 어느 쪽도 권한을 주지 않습니다. [판단 함수](../architecture/operating-ontology-platform-ko.md#판단-함수)와 [인과 메커니즘 카탈로그](../architecture/ontology-structural-model-ko.md#인과-메커니즘-카탈로그)를 참고하세요.
 
 ## 관련 문서
 

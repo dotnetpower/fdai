@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: d22ab6e89b0b8abdddb46a3e71f191e1596c7e35
-translation_revised: 2026-10-30
+translation_source_sha: fdbd1dddac31f0d71d658b433f3904cb34f2af29
+translation_revised: 2026-11-04
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -609,6 +609,14 @@ payload, 변경/executor 자격 증명 또는 browser 계산 권한/호환성이
 | Pod 진단 | 정확하게 보호된 Pod UID 하나는 범위가 제한된 수명 주기 및 로그 본문을 보존하지 않는 근거와 결합할 수 있습니다. 인벤토리 승격은 내용 주소 기반 Forseti 증적도 영속화하며 Operator는 UID, resourceVersion, 세대, release, 기준 시점 및 fleet 출처가 일치할 때만 이를 노출합니다. 행 0개, 불완전한 출처, 보존된 범위 공백 및 범위 충돌은 명시적으로 유지하며 원인 또는 실행 권한을 부여할 수 없습니다. |
 | Historical topology | PostgreSQL replay는 선택된 각 revision batch에 exact ontology release와 source receipt binding을 보존하며, dangling active link는 completeness를 낮춥니다. |
 | Projection reload | Inventory status marker와 manifest는 content digest를 공유하므로 재시작 후 혼합 generation이 노출되지 않습니다. |
+
+## 판단 함수
+
+플랫폼은 `ontology_platform/decision_functions.py`에 결정론적 읽기 전용 `derive` FunctionType 3개를 선언합니다. `decision.blast_radius`, `decision.change_risk`, `decision.cost_of_delay`입니다. 각 함수는 모델 인자가 아니라 주입된 서버 고정 reader에서 근거를 받습니다. 결과는 `tier`, `complete`, `observed_at`, `reason_codes`를 담고 두 권한 플래그는 모두 `false`입니다. blast-radius와 change-risk 결과는 `gate_satisfied`도 담습니다. 비용 지연 결과는 판정이 없는 가격 순위 신호이므로 게이트가 이 결과로 열릴 수 없습니다.
+
+검토되지 않은 중요도, 불완전한 순회, 관측되지 않은 변경 위험 요인, 비용 기준 부재는 `unknown`과 닫힌 조건을 만듭니다. 낙관적 기본값은 만들지 않습니다. 판독은 자율성을 유지하거나 낮추기만 하는 조언입니다.
+
+`RegistryOntologyGateReader`는 검토된 고정 인자와 프로세스 대상을 담은 서버 생성 context로 `OntologyFunctionRegistry`를 통해 함수를 호출합니다. 워크플로우 `ontology-function:` 게이트는 이 결과를 영수증에 묶인 판독으로 사용합니다([프로세스 자동화](../decisioning/process-automation-ko.md)). `decision_evidence_readers.py`는 세 함수를 런타임 온톨로지 그래프와 20행 한도의 provider 변경 피드에 바인딩하며, 제어 루프는 `config/workflow-ontology-gates.yaml`이 구성한 게이트만 구성합니다. 비용 지연은 구성 가능한 게이트가 아니며 `DecisionQueueProjection`에서 순위 신호로 사용되고, 라이브 비용 수집원은 FinOps가 정의할 예정입니다.
 
 ## 관련 문서
 

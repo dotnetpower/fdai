@@ -107,3 +107,55 @@ def test_required_evidence_the_receipt_cannot_check_must_be_named_present() -> N
         _predictive(**base, present_evidence=("deployment_record",))
         is CausalEvidenceGrade.PREDICTIVE_PRECEDENCE
     )
+
+
+def test_reviewed_catalog_covers_at_least_eight_fully_accounted_mechanisms() -> None:
+    catalog_path = (
+        Path(__file__).resolve().parents[4]
+        / "rule-catalog"
+        / "vocabulary"
+        / "causal-mechanisms.yaml"
+    )
+    mechanisms = load_causal_mechanism_catalog(
+        yaml.safe_load(catalog_path.read_text(encoding="utf-8"))
+    )
+
+    assert len(mechanisms) >= 8
+    for mechanism in mechanisms:
+        # Every mechanism needs the sample, reverse-direction, and confounder evidence the
+        # receipt proves itself, and at least one read that could refute it.
+        assert {"repeated_samples", "reverse_direction_check", "confounder_check"} <= set(
+            mechanism.required_evidence
+        )
+        assert len(mechanism.refutation_reads) >= 2
+        for read in mechanism.refutation_reads:
+            assert read.islower() and " " not in read
+
+
+def test_every_reviewed_mechanism_grades_only_with_complete_refutation_accounting() -> None:
+    catalog_path = (
+        Path(__file__).resolve().parents[4]
+        / "rule-catalog"
+        / "vocabulary"
+        / "causal-mechanisms.yaml"
+    )
+    mechanisms = load_causal_mechanism_catalog(
+        yaml.safe_load(catalog_path.read_text(encoding="utf-8"))
+    )
+    for mechanism in mechanisms:
+        common = {
+            "mechanism": mechanism,
+            "repeated_sample_count": 3,
+            "reverse_direction_checked": True,
+            "confounder_checked": True,
+            "complete_windows": True,
+            "mechanism_evidence_refs": ("evidence:mechanism",),
+            "refutation_refs": ("evidence:refutation",),
+        }
+        accounted = causal_grade_receipt(**common, refutation_reads_run=mechanism.refutation_reads)
+        unaccounted = causal_grade_receipt(
+            **common, refutation_reads_run=mechanism.refutation_reads[:-1]
+        )
+
+        assert accounted.grade is CausalEvidenceGrade.PREDICTIVE_PRECEDENCE
+        assert unaccounted.grade is CausalEvidenceGrade.ASSOCIATION
