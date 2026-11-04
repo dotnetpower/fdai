@@ -206,6 +206,13 @@ processing evidence. They do not close incident recovery, recurrence, side effec
 denominators. Paired operational evaluation, authoritative projection production and qualified
 Pattern-to-T1 enrollment remain open.
 
+A workflow value claim settles through one pure reducer in `core/measurement/value_claim.py`. It
+accepts only complete, independently observed baseline and treatment cohorts that share one
+scenario-set version and currency, requires observation after the window ends and a sample floor,
+and reports the conservative bound of the 95% interval. An executor report never counts, a policy
+escape blocks any claimed value, and the ledger records units, never revenue. See
+[Ontology Value Realization](ontology-value-realization.md).
+
 Odin may compare objective score inputs for arbitration, but the read projection never ranks
 business value or changes a decision. Configuration sets objective priority and target values.
 

@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 8206f5b00d315f7348495efcb41a26a1caa7cfa5
-translation_revised: 2026-10-28
+translation_source_sha: 0664eed3535ed1bf86ba539b05a0c3d37366e043
+translation_revised: 2026-11-04
 ---
 # 프로세스 자동화(프로세스 자동화)
 
@@ -249,6 +249,12 @@ Core는 전달과 동일한 논리 대상 잠금으로 자동화 보류 발행�
 업스트림 headless 런타임과 운영 Operator API는 shared 영속 상태 저장소에 `StateStoreWorkflowOutcomeLedger`를 연결합니다. 강제 적용 Action 신원이 `ResponseOutcome`과 일치할 때만 증적을 기록하고 성공에는 독립 효과 근거도 필요하며, 해석기는 정확한 제안, Process, 단계 계보를 사용합니다. Shadow, unknown, 누락, 불일치, 채점 불가 결과는 Process를 진행시키지 못합니다.
 
 `StateStoreAutomationHoldLedger`는 recovery-incomplete Process가 종료되기 전에 대상 digest 보류를 기록합니다. 일반 mutation은 활성, 실패, malformed 보류 읽기에서 거부되며 정확히 승인된 복구 계보만 사람 승인 상한으로 안전성 파이프라인에 재진입합니다. 모든 보상에는 독립 효과 근거가 필요합니다. 승인된 release만 보류를 지우고 복구 소유 `compensated` 전이를 허용하며, 남거나 새로 발행된 보류는 `recovery_incomplete`로 닫히고 이전 Process가 해제할 수 없습니다.
+
+`OntologyFunctionGateEvaluator`는 정확한 프로세스 대상에 대해 `OntologyGateReader`로
+`gate_ref: ontology-function:<function>`을 해석합니다. 이 게이트는 해당 함수의 완전하고 영수증이 있는
+판독이며 나이가 설정된 양수 최대값 이내일 때만 열립니다. 판독이 없거나 불완전하거나 오래되었거나
+미래 시각이거나 함수가 다르거나 영수증이 없으면 닫힌 채로 유지합니다. 열린 게이트가 공유 근거 승인을
+여전히 요구하도록 `AdmittedWorkflowGuardEvaluator`로 감쌉니다. 판독은 실행 권한을 주지 않습니다.
 
 `ChangeWindowWorkflowGuardEvaluator`는 정확한 프로세스 대상과 evaluation 시간으로
 `gate_ref: change-window.active`를 해석합니다. 다른 참조는 기존 가드 평가기에 delegate하므로

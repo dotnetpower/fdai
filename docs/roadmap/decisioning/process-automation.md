@@ -258,6 +258,11 @@ The upstream headless runtime and production Operator API bind `StateStoreWorkfl
 
 `StateStoreAutomationHoldLedger` writes a target-digested hold before a recovery-incomplete Process closes. Ordinary mutations deny on an active, failed, or malformed hold read; only exact authorized recovery lineage re-enters the safety pipeline at human approval, and every compensation still requires independent effect evidence. Only an admitted release clears the hold and permits the recovery-owned terminal `compensated` transition; remaining or newer holds close as `recovery_incomplete` and cannot be released by an older Process.
 
+`OntologyFunctionGateEvaluator` resolves `gate_ref: ontology-function:<function>` through an `OntologyGateReader` for the exact Process
+target. The gate opens only for a complete, receipted reading of that exact function whose age is within a configured positive maximum.
+A missing, incomplete, stale, future-dated, mismatched, or unreceipted reading keeps it shut. Wrap it with
+`AdmittedWorkflowGuardEvaluator` so an open gate still needs the shared evidence admission. A reading never grants execution authority.
+
 `ChangeWindowWorkflowGuardEvaluator` resolves `gate_ref: change-window.active` with the exact Process target and evaluation time. It
 delegates other refs to the existing guard evaluator, so the architecture-review production gate remains unchanged. Guard resolution is
 fail-closed: a stale evaluation clock, a raising or unavailable evaluator, and a non-boolean result each block the step and record a bounded
