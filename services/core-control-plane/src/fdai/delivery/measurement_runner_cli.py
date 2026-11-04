@@ -118,6 +118,7 @@ class MeasurementMode(StrEnum):
     GRAPH_DYNAMIC = "graph-dynamic"
     OPERATIONAL_PROMOTION = "operational-promotion"
     OUTCOME_ASSURANCE = "outcome-assurance"
+    SIMULATED_PREVIEW = "simulated-preview"
 
 
 def _required_env(name: str) -> str:
@@ -610,7 +611,72 @@ async def _run_mode(mode: MeasurementMode) -> int:
         return await _run_graph_dynamic()
     if mode is MeasurementMode.OUTCOME_ASSURANCE:
         return await _run_outcome_assurance()
+    if mode is MeasurementMode.SIMULATED_PREVIEW:
+        return await _run_simulated_preview()
     return await _run_operational_promotion()
+
+
+async def _run_simulated_preview(store: StateStore | None = None) -> int:
+    """Seed local/dev StateStore with 30-day simulated cohort and 3-vertical preview records."""
+
+    from fdai.core.measurement.simulated_time_cohort import (
+        SimulatedTimeClock,
+        run_simulated_multi_day_cohort,
+    )
+    from fdai.core.measurement.simulated_time_extensions import (
+        build_multi_vertical_outcome_projections,
+        seed_simulated_enterprise_state_store,
+        simulate_rollup_and_zstd_archive_lifecycle,
+    )
+
+    if store is None and resolve_execution_venue() is ExecutionVenue.DEPLOYED:
+        raise PermissionError("simulated-preview mode is forbidden in deployed venue")
+    target_store = store or PostgresStateStore(
+        config=PostgresStateStoreConfig(dsn=_required_env("FDAI_STATE_STORE_DSN"))
+    )
+    catalog = load_ontology_catalog(
+        _catalog_root(),
+        schema_registry=PackageResourceSchemaRegistry(),
+        probes_root=_catalog_root() / "probes",
+    )
+    clock = SimulatedTimeClock(datetime(2026, 10, 1, 0, 0, tzinfo=UTC))
+    policy = load_cohort_claim_policy(_repo_root() / COHORT_CLAIM_POLICY_PATH)
+    cohort = run_simulated_multi_day_cohort(
+        action_types=catalog.action_types,
+        policy=policy,
+        days=30,
+        samples_per_day=2,
+        start_time=clock.start_time,
+    )
+    projections = build_multi_vertical_outcome_projections(
+        clock=clock,
+        days=30,
+        samples_per_day=2,
+        action_types=catalog.action_types,
+        baseline_facts=cohort.baseline_facts,
+        treatment_facts=cohort.treatment_facts,
+    )
+    archive_result = simulate_rollup_and_zstd_archive_lifecycle(
+        clock=clock,
+        days=30,
+        ontology_release_digest=catalog.build_release().digest,
+    )
+    keys_written = await seed_simulated_enterprise_state_store(
+        target_store,
+        projections=projections,
+        archive_result=archive_result,
+    )
+    _LOGGER.info(
+        "simulated_preview_seeded",
+        extra={
+            "keys_written": len(keys_written),
+            "promoted_action_count": sum(1 for item in cohort.promotion_receipts if item.ready),
+            "vertical_count": len(projections),
+            "synthetic": True,
+            "authority": "none",
+        },
+    )
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:

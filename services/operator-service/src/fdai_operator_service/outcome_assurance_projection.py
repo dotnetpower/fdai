@@ -15,12 +15,43 @@ from pydantic import Field, model_validator
 from fdai_operator_service.families.operations import ProjectionQuery, ProjectionUnavailableError
 
 FetchAll = Callable[[str, tuple[object, ...]], Awaitable[list[dict[str, Any]]]]
-SummaryCardId = Literal["operational_readiness", "objective_alignment", "control_assurance"]
+SummaryCardId = Literal[
+    "operational_readiness",
+    "objective_alignment",
+    "control_assurance",
+    "business_service_posture",
+]
 _CARD_IDS: tuple[SummaryCardId, ...] = (
     "operational_readiness",
     "objective_alignment",
     "control_assurance",
 )
+
+
+class BusinessServicePostureCard(sc.ContractBase):
+    """Read-only business service posture summary combining SLO, budget burn, and SLA contract."""
+
+    service_id: str = Field(min_length=1, max_length=256)
+    service_name: str = Field(min_length=1, max_length=256)
+    criticality: str = Field(min_length=1, max_length=64)
+    slo_target: float = Field(ge=0.0, le=1.0)
+    budget_burn_ratio: float = Field(ge=0.0)
+    budget_status: Literal["within_budget", "warning", "breached"]
+    allocated_shared_spend: float = Field(ge=0.0)
+    external_sla_tier: str = Field(min_length=1, max_length=64)
+    read_only: Literal[True] = True
+    authority: Literal["none"] = "none"
+
+
+class ScenarioWhatIfSummary(sc.ContractBase):
+    """Read-only copy-on-write ontology scenario branch What-If summary."""
+
+    branch_id: str = Field(min_length=1, max_length=256)
+    target_resource_id: str = Field(min_length=1, max_length=256)
+    violated_invariants: tuple[str, ...] = ()
+    base_store_mutated: Literal[False] = False
+    read_only: Literal[True] = True
+    authority: Literal["none"] = "none"
 
 
 class OutcomeAssuranceSummaryCard(sc.ContractBase):
@@ -499,10 +530,42 @@ def _last(values: tuple[str, ...] | None) -> str | None:
     return values[-1] if values else None
 
 
+def build_business_service_posture_card(
+    *,
+    service_id: str,
+    service_name: str,
+    criticality: str,
+    slo_target: float,
+    budget_burn_ratio: float,
+    allocated_shared_spend: float,
+    external_sla_tier: str = "tier-1-enterprise",
+) -> BusinessServicePostureCard:
+    """Build a read-only business service posture summary card with authority='none'."""
+
+    status: Literal["within_budget", "warning", "breached"] = (
+        "breached"
+        if budget_burn_ratio > 1.0
+        else ("warning" if budget_burn_ratio >= 0.85 else "within_budget")
+    )
+    return BusinessServicePostureCard(
+        service_id=service_id,
+        service_name=service_name,
+        criticality=criticality,
+        slo_target=slo_target,
+        budget_burn_ratio=budget_burn_ratio,
+        budget_status=status,
+        allocated_shared_spend=allocated_shared_spend,
+        external_sla_tier=external_sla_tier,
+    )
+
+
 __all__ = [
+    "BusinessServicePostureCard",
     "ObjectiveAttributionDrilldown",
     "OutcomeAssuranceOperatorProjection",
     "OutcomeAssuranceSummaryCard",
+    "ScenarioWhatIfSummary",
+    "build_business_service_posture_card",
     "build_outcome_assurance_operator_projection",
     "read_outcome_assurance_operator_projection",
     "read_outcome_assurance_projection",

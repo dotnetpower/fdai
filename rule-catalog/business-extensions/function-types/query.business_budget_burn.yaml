@@ -1,0 +1,31 @@
+schema_version: 1.0.0
+name: query.business_budget_burn
+version: 1.0.0
+kind: query
+capabilities: []
+artifact_digest: sha256:cb4f53ecbd10875a8217b3a7d6e6700bdf2337c7c2db14cc55ecd745e52051c5
+publisher: fdai
+input_schema:
+  type: object
+output_schema:
+  type: object
+read_sets:
+- ontology.object-set
+execution_class: deterministic
+required_role: reader
+purpose_bindings:
+- operations-review
+allowed_agents: []
+timeout_seconds: 30
+cpu_millis: 1000
+memory_bytes: 134217728
+max_output_bytes: 262144
+network_allowed: false
+credentials_allowed: false
+execution_authority: false
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: function-type:query.business_budget_burn@1.0.0
+  content_hash: sha256:98c600eee91bf15cb06ad0f75a1427507fe4a3cb2edefef54f7e99f8dfe57766
+  license: MIT
+  retrieved_at: '2026-10-01T00:00:00Z'

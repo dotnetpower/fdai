@@ -1,0 +1,9 @@
+schema_version: 1.0.0
+interface: CostBearing
+object_types:
+- Budget
+- BusinessService
+- CostAllocation
+- CostObjective
+- Resource
+- Workload

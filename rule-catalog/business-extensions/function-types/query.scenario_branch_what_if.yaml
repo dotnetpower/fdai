@@ -1,0 +1,31 @@
+schema_version: 1.0.0
+name: query.scenario_branch_what_if
+version: 1.0.0
+kind: query
+capabilities: []
+artifact_digest: sha256:55b620886b1aa715d4a5234411901ea7d8ce488cdd2fe575afd82a577c17abe5
+publisher: fdai
+input_schema:
+  type: object
+output_schema:
+  type: object
+read_sets:
+- ontology.object-set
+execution_class: deterministic
+required_role: reader
+purpose_bindings:
+- operations-review
+allowed_agents: []
+timeout_seconds: 30
+cpu_millis: 1000
+memory_bytes: 134217728
+max_output_bytes: 262144
+network_allowed: false
+credentials_allowed: false
+execution_authority: false
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: function-type:query.scenario_branch_what_if@1.0.0
+  content_hash: sha256:5e98b35e98cbfd58ab7b9bd2952e34c8da0b45e553de4254e6a46b21fa3feb6e
+  license: MIT
+  retrieved_at: '2026-10-01T00:00:00Z'

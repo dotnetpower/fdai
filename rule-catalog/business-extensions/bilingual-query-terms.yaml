@@ -1,0 +1,371 @@
+schema_version: 1.0.0
+object_query_terms:
+  AccessGrant:
+  - access grant
+  - 권한 부여
+  - 액세스 승인
+  AccessGrantRequest:
+  - access grant request
+  - 권한 요청
+  - 액세스 요청
+  ActionOption:
+  - action option
+  - candidate option
+  - 조치 옵션
+  - 대안 옵션
+  ActionRun:
+  - action run
+  - execution run
+  - 조치 실행
+  - 실행 이력
+  ActionType:
+  - action type
+  - remediation action
+  - 조치 유형
+  - 액션 타입
+  Agent:
+  - agent
+  - pantheon agent
+  - 에이전트
+  - 판테온 에이전트
+  Approval:
+  - approval
+  - human approval
+  - 승인
+  - 인간 승인
+  ArchitectureConstraint:
+  - architecture constraint
+  - arb constraint
+  - 아키텍처 제약
+  AuthorizationCapability:
+  - authorization capability
+  - 인가 역량
+  - 권한 기능
+  AuthorizationDecision:
+  - authorization decision
+  - 인가 결정
+  - 권한 판정
+  AuthorizationObservation:
+  - authorization observation
+  - 권한 관측
+  AuthorizationPolicyAssignment:
+  - policy assignment
+  - 정책 할당
+  AuthorizationRequirement:
+  - authorization requirement
+  - 권한 요구사항
+  BenchmarkValidation:
+  - benchmark validation
+  - 벤치마크 검증
+  BriefingRun:
+  - briefing run
+  - 브리핑 실행
+  - 보고서 생성
+  BriefingSubscription:
+  - briefing subscription
+  - 브리핑 구독
+  Budget:
+  - budget
+  - service budget
+  - 예산
+  - 서비스 예산
+  - 비용 한도
+  BusinessCapability:
+  - business capability
+  - 비즈니스 역량
+  - 사업 역량
+  BusinessService:
+  - business service
+  - business services
+  - 비즈니스 서비스
+  - 서비스
+  CapacityForecast:
+  - capacity forecast
+  - 용량 예측
+  CapacityGraduationRecommendation:
+  - capacity graduation
+  - 용량 졸업 권고
+  CausalHypothesis:
+  - causal hypothesis
+  - root cause hypothesis
+  - 인과 가설
+  - 원인 가설
+  Change:
+  - change
+  - deployment change
+  - 변경
+  - 배포 변경
+  ChangeSummary:
+  - change summary
+  - 변경 요약
+  ChangeWindow:
+  - change window
+  - maintenance window
+  - 변경 윈도우
+  - 점검 시간
+  ConfigurationBaseline:
+  - configuration baseline
+  - 구성 베이스라인
+  ConfigurationDriftCheck:
+  - configuration drift check
+  - 드리프트 점검
+  ConfigurationDriftEvidence:
+  - configuration drift evidence
+  - 드리프트 증거
+  ConfigurationDriftFinding:
+  - configuration drift finding
+  - 구성 드리프트 발견
+  ControlObjective:
+  - control objective
+  - 통제 목표
+  - 제어 목표
+  Conversation:
+  - conversation
+  - 대화
+  - 세션 대화
+  ConversationPolicy:
+  - conversation policy
+  - 대화 정책
+  CostAllocation:
+  - cost allocation
+  - shared cost split
+  - 비용 배부
+  - 공유 비용 배분
+  CostAnomaly:
+  - cost anomaly
+  - spend spike
+  - 비용 이상
+  - 비용 급증
+  CostObjective:
+  - cost objective
+  - unit cost target
+  - 비용 목표
+  - 단위 비용 목표
+  CostObservation:
+  - cost observation
+  - spend observation
+  - 비용 관측
+  - 지출 측정
+  Decision:
+  - decision
+  - verdict
+  - 의사결정
+  - 판결
+  DecisionCase:
+  - decision case
+  - 의사결정 케이스
+  - 결정 사례
+  DiagnosticEvidence:
+  - diagnostic evidence
+  - 진단 증거
+  DiagnosticFinding:
+  - diagnostic finding
+  - 진단 결과
+  DiagnosticMechanism:
+  - diagnostic mechanism
+  - 진단 메커니즘
+  Environment:
+  - environment
+  - operating environment
+  - 운영 환경
+  - 배포 환경
+  EquivalenceValidationReceipt:
+  - equivalence receipt
+  - 동치 검증 영수증
+  EvidenceArtifact:
+  - evidence artifact
+  - 증거 아티팩트
+  EvidenceConflict:
+  - evidence conflict
+  - 증거 충돌
+  ExecutionProfile:
+  - execution profile
+  - 실행 프로파일
+  ExpectedEffect:
+  - expected effect
+  - predicted effect
+  - 기대 효과
+  - 예상 효과
+  Experiment:
+  - chaos experiment
+  - experiment
+  - 카오스 실험
+  - 실험
+  ExternalSlaContract:
+  - external sla
+  - sla contract
+  - 외부 SLA
+  - SLA 계약
+  - 에러 버짓 계약
+  Finding:
+  - finding
+  - policy finding
+  - 발견 사항
+  - 정책 위반
+  Forecast:
+  - forecast
+  - prediction
+  - 예측
+  - 전망
+  Framework:
+  - compliance framework
+  - 프레임워크
+  - 규정 프레임워크
+  FrameworkControl:
+  - framework control
+  - 프레임워크 통제항목
+  HandoffEscalation:
+  - handoff escalation
+  - 에스컬레이션
+  - 인수인계
+  ImpactEnvelope:
+  - impact envelope
+  - blast radius
+  - 영향 범위
+  - 폭발 반경
+  Incident:
+  - incident
+  - incidents
+  - 인시던트
+  - 장애
+  Issue:
+  - issue
+  - operational issue
+  - 운영 이슈
+  Observation:
+  - observation
+  - metric sample
+  - 관측치
+  - 측정값
+  ObservedOutcome:
+  - observed outcome
+  - actual outcome
+  - 관찰된 결과
+  - 실제 효과
+  Ownership:
+  - ownership
+  - service owner
+  - 소유권
+  - 담당 조직
+  Pattern:
+  - operating pattern
+  - learned pattern
+  - 운영 패턴
+  - 학습 패턴
+  PolicyArtifact:
+  - policy artifact
+  - rego policy
+  - 정책 아티팩트
+  - 레고 정책
+  PostTurnReview:
+  - post turn review
+  - 턴 사후 리뷰
+  Principal:
+  - principal
+  - actor identity
+  - 주체
+  - 인증 주체
+  Process:
+  - process
+  - workflow process
+  - 프로세스
+  - 워크플로 실행
+  Property:
+  - property
+  - resource property
+  - 속성
+  - 리소스 속성
+  ProspectiveLineage:
+  - prospective lineage
+  - 사전 계보
+  ProviderPermissionSet:
+  - provider permission set
+  - 프로바이더 권한 세트
+  PythonTask:
+  - python task
+  - 파이썬 태스크
+  RecoveryObjective:
+  - recovery objective
+  - rto rpo
+  - 복구 목표
+  - RTO RPO 목표
+  RecoveryPlan:
+  - recovery plan
+  - rollback plan
+  - 복구 계획
+  - 롤백 계획
+  Resource:
+  - resource
+  - resources
+  - 리소스
+  - 클라우드 리소스
+  ResourceClass:
+  - resource class
+  - 리소스 클래스
+  - 리소스 분류
+  ResourceType:
+  - resource type
+  - 리소스 유형
+  - 리소스 타입
+  ReviewCase:
+  - review case
+  - arb review
+  - 아키텍처 리뷰 케이스
+  ReviewCheck:
+  - review check
+  - 리뷰 체크
+  Rule:
+  - rule
+  - governance rule
+  - 규칙
+  - 거버넌스 규칙
+  RuleCandidate:
+  - rule candidate
+  - 규칙 후보
+  RuleObjectiveBinding:
+  - rule objective binding
+  - 규칙 목표 바인딩
+  SecurityEvent:
+  - security event
+  - 보안 이벤트
+  - 보안 신호
+  ServiceObjective:
+  - service objective
+  - slo
+  - 서비스 목표
+  - SLO 목표
+  Signal:
+  - signal
+  - alert signal
+  - 신호
+  - 알림 신호
+  SignalType:
+  - signal type
+  - 신호 유형
+  SizingRecommendation:
+  - sizing recommendation
+  - rightsizing
+  - 적정 사이징 권고
+  Turn:
+  - conversation turn
+  - 대화 턴
+  UserMemoryFact:
+  - user memory fact
+  - 사용자 기억 사실
+  UserPreference:
+  - user preference
+  - 사용자 선호도
+  VmTaskRun:
+  - vm task run
+  - 가상머신 작업 실행
+  WorkflowBinding:
+  - workflow binding
+  - 워크플로 바인딩
+  WorkflowDefinition:
+  - workflow definition
+  - 워크플로 정의
+  Workload:
+  - workload
+  - workloads
+  - 워크로드
+  - 작업

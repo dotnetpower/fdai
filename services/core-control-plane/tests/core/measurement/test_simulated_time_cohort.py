@@ -289,3 +289,167 @@ def test_zstd_codec_python313_compat_and_fail_closed_guards() -> None:
         decompress_canonical_json(art, dictionary=None)
     with pytest.raises(ValueError, match="max_decompressed_bytes"):
         decompress_canonical_json(art, dictionary=zdict, max_decompressed_bytes=5)
+
+
+async def test_zstd_archive_state_store_persistence_closure_attribution_and_cli_preview() -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from fdai.core.assurance_twin.effect_model import EffectModelStatus
+    from fdai.core.assurance_twin.graph_closure import GraphDynamicClosureCoordinator
+    from fdai.core.assurance_twin.graph_effect import GraphEffectModel
+    from fdai.core.assurance_twin.graph_model_registry import StateStoreGraphEffectModelRegistry
+    from fdai.core.assurance_twin.state_trajectory import (
+        OperationalStateTrajectory,
+        StateSlice,
+        TrajectoryKind,
+    )
+    from fdai.core.assurance_twin.trajectory_ledger import StateStoreTrajectoryEpisodeLedger
+    from fdai.core.measurement.simulated_time_extensions import (
+        simulate_rollup_and_zstd_archive_lifecycle,
+    )
+    from fdai.core.ontology_platform.zstd_codec import (
+        decode_zstd_text_armor,
+        encode_zstd_text_armor,
+        load_zstd_archive_bundle,
+        persist_zstd_archive_bundle,
+    )
+    from fdai.delivery.measurement_runner_cli import _run_simulated_preview
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    clock = SimulatedTimeClock(datetime(2026, 10, 1, 0, 0, tzinfo=UTC))
+    zstd_res = simulate_rollup_and_zstd_archive_lifecycle(
+        clock=clock,
+        days=30,
+        ontology_release_digest="sha256:" + "b" * 64,
+    )
+    store = InMemoryStateStore()
+    archive_id = await persist_zstd_archive_bundle(
+        store,
+        key="archive:test-bundle",
+        bundle=zstd_res.dict_archive_bundle,
+    )
+    assert archive_id == zstd_res.dict_archive_bundle.manifest.digest
+    loaded_art, loaded_payload = await load_zstd_archive_bundle(
+        store,
+        key="archive:test-bundle",
+        dictionary=zstd_res.dictionary,
+    )
+    assert loaded_art.compressed_digest == zstd_res.dict_archive_bundle.artifact.compressed_digest
+    assert loaded_payload["rollup_digest"] == zstd_res.rollup.digest
+
+    armored = encode_zstd_text_armor('{"hello":"world"}')
+    assert decode_zstd_text_armor(armored, max_output_size=1024) == '{"hello":"world"}'
+
+    # GraphDynamicClosureCoordinator first_mismatched_slice attribution
+    from fdai.core.assurance_twin import CausalEvidenceGrade
+
+    ledger = StateStoreTrajectoryEpisodeLedger(store)
+    registry = StateStoreGraphEffectModelRegistry(store)
+    now = datetime(2026, 10, 15, 12, 0, tzinfo=UTC)
+    active = GraphEffectModel(
+        model_id="model-test",
+        version="1.0.0",
+        revision=1,
+        status=EffectModelStatus.ACTIVE,
+        trigger_ref="ops.scale-out",
+        source_type="Workload",
+        link_path=("implements",),
+        target_type="BusinessService",
+        target_metric="latency_p95_ms",
+        propagation_lag_seconds=30,
+        gain=5.0,
+        offset=0.0,
+        interval_radius=1.0,
+        evidence_grade=CausalEvidenceGrade.QUASI_EXPERIMENTAL,
+        causal_evidence_receipt_digest="a" * 64,
+        learned_through=now,
+    )
+    challenger = GraphEffectModel(
+        model_id="model-test",
+        version="1.0.0",
+        revision=2,
+        status=EffectModelStatus.CHALLENGER,
+        trigger_ref="ops.scale-out",
+        source_type="Workload",
+        link_path=("implements",),
+        target_type="BusinessService",
+        target_metric="latency_p95_ms",
+        propagation_lag_seconds=30,
+        gain=4.0,
+        offset=0.0,
+        interval_radius=1.0,
+        evidence_grade=CausalEvidenceGrade.QUASI_EXPERIMENTAL,
+        causal_evidence_receipt_digest="a" * 64,
+        learned_through=now,
+    )
+    await registry.register(active, registered_by="Mimir")
+    await registry.register(challenger, registered_by="Mimir")
+    pred = OperationalStateTrajectory(
+        kind=TrajectoryKind.PREDICTED,
+        ontology_release="sha256:" + "c" * 64,
+        graph_revision="rev-1",
+        inventory_generation="gen-1",
+        base_snapshot_id="snap-1",
+        evidence_cutoff=now,
+        horizon_end=now + timedelta(minutes=5),
+        slices=(
+            StateSlice(
+                object_ref="svc-checkout-api",
+                object_type="BusinessService",
+                metric="latency_p95_ms",
+                value=100.0,
+                effective_at=now + timedelta(minutes=5),
+                evidence_refs=(),
+                model_ref=challenger.ref,
+            ),
+        ),
+        intervention_refs=("ops.scale-out",),
+        source_watermarks=("wm:1",),
+    )
+    await ledger.record_prediction(
+        pred,
+        challenger_model_refs=(challenger.ref,),
+        recorded_by="Forseti",
+        recorded_at=now,
+    )
+    obs = OperationalStateTrajectory(
+        kind=TrajectoryKind.OBSERVED,
+        ontology_release="sha256:" + "c" * 64,
+        graph_revision="rev-1",
+        inventory_generation="gen-1",
+        base_snapshot_id="snap-1",
+        evidence_cutoff=now,
+        horizon_end=now + timedelta(minutes=5),
+        slices=(
+            StateSlice(
+                object_ref="svc-checkout-api",
+                object_type="BusinessService",
+                metric="latency_p95_ms",
+                value=145.0,
+                effective_at=now + timedelta(minutes=5),
+                evidence_refs=("ev:obs",),
+                independent_observer=True,
+            ),
+        ),
+        intervention_refs=("ops.scale-out",),
+        source_watermarks=("wm:1",),
+    )
+    coordinator = GraphDynamicClosureCoordinator(
+        ledger=ledger,
+        registry=registry,
+        audit_store=store,
+    )
+    closure_report = await coordinator.close_and_update(
+        prediction_digest=pred.digest,
+        observed=obs,
+        recorded_at=now + timedelta(minutes=6),
+    )
+    assert closure_report.first_mismatched_slice is not None
+    assert closure_report.first_mismatched_slice[0] == "svc-checkout-api"
+    assert closure_report.first_mismatched_slice[3] == 100.0
+    assert closure_report.first_mismatched_slice[4] == 145.0
+
+    # CLI simulated-preview mode against in-memory StateStore
+    preview_store = InMemoryStateStore()
+    rc = await _run_simulated_preview(store=preview_store)
+    assert rc == 0

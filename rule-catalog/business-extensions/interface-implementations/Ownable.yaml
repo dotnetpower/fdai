@@ -1,0 +1,6 @@
+schema_version: 1.0.0
+interface: Ownable
+object_types:
+- BusinessService
+- ServiceObjective
+- Workload
