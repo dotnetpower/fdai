@@ -1,3 +1,4 @@
+import { useEffect, useState } from "preact/hooks";
 import {
   auditPath, availableReleasesPath, bundleImportPath, commandsPath, configurationPackagesPath,
   confirmationsPath, enrollmentsPath, installationsPath, updatesPath, type Route,
@@ -12,6 +13,16 @@ function isOnInstallations(route: Route): boolean {
 
 function isOnEnrollments(route: Route): boolean {
   return route.kind === "enrollments" || route.kind === "enrollment";
+}
+
+function isAdvancedCatalogRoute(route: Route): boolean {
+  return (
+    route.kind === "updates" ||
+    route.kind === "releases" ||
+    route.kind === "configurations" ||
+    route.kind === "bundle-import" ||
+    route.kind === "confirmations"
+  );
 }
 
 /** Explicit unavailability reasons and supported procedures (UXH-15).
@@ -46,6 +57,15 @@ const UNBUILT_SURFACES = [
 
 export function Nav({ route }: { route: Route }) {
   const [locale, setLocale] = useHubLocale();
+  const [showAdvanced, setShowAdvanced] = useState(() => isAdvancedCatalogRoute(route));
+  const [showBoundaries, setShowBoundaries] = useState(false);
+
+  useEffect(() => {
+    if (isAdvancedCatalogRoute(route)) {
+      setShowAdvanced(true);
+    }
+  }, [route.kind]);
+
   return (
     <nav class="side" aria-label="Lifecycle Hub">
       <div class="brand">
@@ -54,6 +74,9 @@ export function Nav({ route }: { route: Route }) {
         <span class="brand-separator" aria-hidden="true" />
         <span class="brand-product">Lifecycle Hub</span>
       </div>
+      <div class="side-section-label">
+        {tr(locale, "Console Provisioning", "콘솔 프로비저닝")}
+      </div>
       <Link
         href={installationsPath()}
         class={`it ${isOnInstallations(route) ? "on" : ""}`}
@@ -61,6 +84,10 @@ export function Nav({ route }: { route: Route }) {
       >
         <InstallationsIcon />
         {tr(locale, "Installations", "설치 환경")}
+      </Link>
+      <Link href="/catalog" class={`it ${route.kind === "catalog" ? "on" : ""}`}
+        aria-current={route.kind === "catalog" ? "page" : undefined}>
+        {tr(locale, "Catalog import", "카탈로그 가져오기")}
       </Link>
       <Link
         href={enrollmentsPath()}
@@ -71,30 +98,9 @@ export function Nav({ route }: { route: Route }) {
         {tr(locale, "Enrollment requests", "등록 요청")}
       </Link>
       <div class="side-divider" role="separator" />
-      <Link href={updatesPath()} class={`it ${route.kind === "updates" ? "on" : ""}`}
-        aria-current={route.kind === "updates" ? "page" : undefined}>
-        {tr(locale, "Updates", "업데이트")}
-      </Link>
-      <Link href="/catalog" class={`it ${route.kind === "catalog" ? "on" : ""}`}
-        aria-current={route.kind === "catalog" ? "page" : undefined}>
-        {tr(locale, "Catalog import", "카탈로그 가져오기")}
-      </Link>
-      <Link href={bundleImportPath()} class={`it ${route.kind === "bundle-import" ? "on" : ""}`}
-        aria-current={route.kind === "bundle-import" ? "page" : undefined}>
-        {tr(locale, "Bundle import", "번들 가져오기")}
-      </Link>
-      <Link href={availableReleasesPath()} class={`it ${route.kind === "releases" ? "on" : ""}`}
-        aria-current={route.kind === "releases" ? "page" : undefined}>
-        {tr(locale, "Available releases", "사용 가능한 릴리스")}
-      </Link>
-      <Link href={configurationPackagesPath()} class={`it ${route.kind === "configurations" ? "on" : ""}`}
-        aria-current={route.kind === "configurations" ? "page" : undefined}>
-        {tr(locale, "Configuration packages", "구성 패키지")}
-      </Link>
-      <Link href={confirmationsPath()} class={`it ${route.kind === "confirmations" ? "on" : ""}`}
-        aria-current={route.kind === "confirmations" ? "page" : undefined}>
-        {tr(locale, "Confirmations", "파괴적 변경 확인")}
-      </Link>
+      <div class="side-section-label">
+        {tr(locale, "Operations & Audit", "운영 제어 및 감사")}
+      </div>
       <Link href={commandsPath()} class={`it ${route.kind === "commands" ? "on" : ""}`}
         aria-current={route.kind === "commands" ? "page" : undefined}>
         {tr(locale, "Commands", "수명 주기 명령")}
@@ -103,16 +109,59 @@ export function Nav({ route }: { route: Route }) {
         aria-current={route.kind === "audit" ? "page" : undefined}>
         {tr(locale, "Audit", "감사 기록")}
       </Link>
-      {UNBUILT_SURFACES.map((surface) => (
-        <span
-          key={surface.label}
-          class="it disabled"
-          aria-disabled="true"
-          title={tr(locale, surface.reason, surface.reasonKo)}
-        >
-          {tr(locale, surface.label, surface.labelKo)}
-        </span>
-      ))}
+      <div class="side-divider" role="separator" />
+      <button
+        type="button"
+        class="side-group-toggle"
+        aria-expanded={showAdvanced}
+        onClick={() => setShowAdvanced((current) => !current)}
+      >
+        <span>{tr(locale, "Advanced Catalog & Packages (5)", "고급 카탈로그 및 패키지 (5)")}</span>
+        <span class="side-chevron" aria-hidden="true">{showAdvanced ? "▾" : "▸"}</span>
+      </button>
+      <div class="side-collapsible" hidden={!showAdvanced}>
+        <Link href={updatesPath()} class={`it ${route.kind === "updates" ? "on" : ""}`}
+          aria-current={route.kind === "updates" ? "page" : undefined}>
+          {tr(locale, "Updates", "업데이트")}
+        </Link>
+        <Link href={availableReleasesPath()} class={`it ${route.kind === "releases" ? "on" : ""}`}
+          aria-current={route.kind === "releases" ? "page" : undefined}>
+          {tr(locale, "Available releases", "사용 가능한 릴리스")}
+        </Link>
+        <Link href={configurationPackagesPath()} class={`it ${route.kind === "configurations" ? "on" : ""}`}
+          aria-current={route.kind === "configurations" ? "page" : undefined}>
+          {tr(locale, "Configuration packages", "구성 패키지")}
+        </Link>
+        <Link href={bundleImportPath()} class={`it ${route.kind === "bundle-import" ? "on" : ""}`}
+          aria-current={route.kind === "bundle-import" ? "page" : undefined}>
+          {tr(locale, "Bundle import", "번들 가져오기")}
+        </Link>
+        <Link href={confirmationsPath()} class={`it ${route.kind === "confirmations" ? "on" : ""}`}
+          aria-current={route.kind === "confirmations" ? "page" : undefined}>
+          {tr(locale, "Confirmations", "파괴적 변경 확인")}
+        </Link>
+      </div>
+      <button
+        type="button"
+        class="side-group-toggle"
+        aria-expanded={showBoundaries}
+        onClick={() => setShowBoundaries((current) => !current)}
+      >
+        <span>{tr(locale, "Architecture Boundaries (4)", "외부 아키텍처 경계 (4)")}</span>
+        <span class="side-chevron" aria-hidden="true">{showBoundaries ? "▾" : "▸"}</span>
+      </button>
+      <div class="side-collapsible" hidden={!showBoundaries}>
+        {UNBUILT_SURFACES.map((surface) => (
+          <span
+            key={surface.label}
+            class="it disabled"
+            aria-disabled="true"
+            title={tr(locale, surface.reason, surface.reasonKo)}
+          >
+            {tr(locale, surface.label, surface.labelKo)}
+          </span>
+        ))}
+      </div>
       <div class="side-divider" role="separator" />
       <div class="side-locale">
         <span>{tr(locale, "Language", "언어")}</span>

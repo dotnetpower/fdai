@@ -511,7 +511,10 @@ def create_app(
         return _error(503, "schema_migration_pending")
 
     routes[0:0] = release_connection_routes(
-        store.engine, clock, deployment_endpoint=release_hub_endpoint
+        store.engine,
+        clock,
+        deployment_endpoint=release_hub_endpoint,
+        hub_store=store,
     )
     if release_hub_endpoint is None:
         routes[0:0] = unconfigured_catalog_routes()
