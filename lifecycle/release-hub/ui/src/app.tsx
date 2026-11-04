@@ -1121,7 +1121,6 @@ export function App() {
               <div>
                 <p class="eyebrow">{t("Release catalog", "릴리스 카탈로그 및 단계 승격")}</p>
                 <h1>{t("Releases", "릴리스 목록 (Releases)")}</h1>
-                <p>{t("Publish once. Curate eligibility. Keep the evidence in view.", "한 번 서명·발행한 불변 아티팩트를 DEV → RELEASE_CANDIDATE → RELEASE 단계별로 안전하게 승격합니다.")}</p>
               </div>
               <div class="actions" style="margin-top: 0;">
                 <button
@@ -1137,9 +1136,6 @@ export function App() {
                         `원클릭 릴리스 즉시 생성 (${nextSuggestedSemVer(catalog.releases, "patch")})`,
                       )}
                 </button>
-                <a class="next-link" href="#/stencils" style="padding: 8px 14px; border: 1px solid var(--rh-border); border-radius: var(--cs-radius-sm); text-decoration: none;">
-                  {t("Build custom Stencil first", "맞춤 Stencil 먼저 구성하기")}
-                </a>
                 <button
                   disabled={disabled || quickCreating}
                   aria-label="Register release"
@@ -1158,12 +1154,11 @@ export function App() {
               </div>
             </div>
             <div class="quick-release-strip">
-              <strong>
-                {t(
-                  `Quick presets (${nextSuggestedSemVer(catalog.releases, "patch")} · Auto-registers & signs into DEV):`,
-                  `원클릭 에디션 프리셋 (${nextSuggestedSemVer(catalog.releases, "patch")} · 등록 + DEV 서명 자동 완료):`,
-                )}
-              </strong>
+              <div class="summary" style="padding-bottom: 0;">
+                <strong>{t(`${catalog.releases.length} releases`, `총 ${catalog.releases.length}개 릴리스`)}</strong>
+                <span>{t(`Revision ${catalog.revision}`, `리비전 ${catalog.revision}`)}</span>
+                <span>{t(`Updated ${time(catalog.updated_at)}`, `최근 갱신 ${time(catalog.updated_at)}`)}</span>
+              </div>
               <div class="quick-chips" style="margin-top: 0;">
                 <button
                   type="button"
@@ -1172,8 +1167,8 @@ export function App() {
                   onClick={() => void quickCreateRelease("lite-observe-alert", true)}
                 >
                   {t(
-                    `1-Click Create Lite (${nextSuggestedSemVer(catalog.releases, "patch")})`,
-                    `원클릭 Lite 생성 (${nextSuggestedSemVer(catalog.releases, "patch")})`,
+                    `1-Click Lite (${nextSuggestedSemVer(catalog.releases, "patch")})`,
+                    `원클릭 Lite (${nextSuggestedSemVer(catalog.releases, "patch")})`,
                   )}
                 </button>
                 <button
@@ -1183,8 +1178,8 @@ export function App() {
                   onClick={() => void quickCreateRelease("standard-sre", true)}
                 >
                   {t(
-                    `1-Click Create Standard SRE (${nextSuggestedSemVer(catalog.releases, "patch")})`,
-                    `원클릭 Standard SRE 생성 (${nextSuggestedSemVer(catalog.releases, "patch")})`,
+                    `1-Click Standard SRE (${nextSuggestedSemVer(catalog.releases, "patch")})`,
+                    `원클릭 Standard SRE (${nextSuggestedSemVer(catalog.releases, "patch")})`,
                   )}
                 </button>
                 <button
@@ -1194,13 +1189,15 @@ export function App() {
                   onClick={() => void quickCreateRelease("full-enterprise", true)}
                 >
                   {t(
-                    `1-Click Create Full Enterprise (${nextSuggestedSemVer(catalog.releases, "patch")})`,
-                    `원클릭 Full Enterprise 생성 (${nextSuggestedSemVer(catalog.releases, "patch")})`,
+                    `1-Click Full Enterprise (${nextSuggestedSemVer(catalog.releases, "patch")})`,
+                    `원클릭 Full Enterprise (${nextSuggestedSemVer(catalog.releases, "patch")})`,
                   )}
                 </button>
+                <a class="chip-btn" href="#/stencils">
+                  {t("Custom Stencil ->", "맞춤 Stencil 구성 ->")}
+                </a>
               </div>
             </div>
-            <div class="summary"><strong>{t(`${catalog.releases.length} releases`, `총 ${catalog.releases.length}개 릴리스`)}</strong><span>{t(`Revision ${catalog.revision}`, `카탈로그 리비전 ${catalog.revision}`)}</span><span>{t(`Updated ${time(catalog.updated_at)}`, `최근 갱신 ${time(catalog.updated_at)}`)}</span></div>
             {catalog.releases.length === 0 ? <section class="empty"><h2>{t("No releases yet", "아직 등록된 릴리스가 없습니다")}</h2><p>{t("Click any 1-Click Create button above to compose, register, and sign a release into DEV immediately, or use 1. Stencil Builder for a custom menu selection.", "위의 '원클릭 릴리스 즉시 생성' 버튼을 누르면 클릭 한 번으로 매니페스트 생성·등록·DEV 서명이 즉시 완료됩니다. 원하는 메뉴만 골라 만들려면 '1. 스텐실·메뉴 빌더'를 사용하세요.")}</p></section>
               : <>
                 <ReleaseLineageSection

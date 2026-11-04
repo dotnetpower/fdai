@@ -645,28 +645,18 @@ export function StencilBuilder({
 
   return (
     <div class="stencil-builder" lang={locale}>
-      <div class="workspace-bar">
-        <span>{t("Custom Stencil & Menu Builder", "맞춤형 Stencil 및 메뉴 빌더")}</span>
-        <label>
+      <div class="page-head">
+        <div>
+          <p class="eyebrow">{t("Build-time feature & menu composition", "빌드 타임 기능 및 메뉴 구성")}</p>
+          <h1>{t("Stencils & Custom Build", "Stencil 및 커스텀 메뉴 빌드")}</h1>
+        </div>
+        <label style="display: inline-flex; align-items: center; gap: 8px; font-size: var(--cs-type-compact-size); color: var(--cs-text-soft);">
           {t("Builder language", "빌더 언어")}{" "}
           <select value={locale} onChange={(e) => setLocale(e.currentTarget.value as "en" | "ko")}>
             <option value="en">English</option>
             <option value="ko">한국어</option>
           </select>
         </label>
-      </div>
-
-      <div class="page-head">
-        <div>
-          <p class="eyebrow">{t("Build-time feature & menu composition", "빌드 타임 기능 및 메뉴 구성")}</p>
-          <h1>{t("Stencils & Custom Build", "Stencil 및 커스텀 메뉴 빌드")}</h1>
-          <p>
-            {t(
-              "Select a lightweight resource preset or choose the exact Console menus, agent loops, and service workloads to include in your build.",
-              "최소 리소스 경량 프리셋을 선택하거나, 빌드에 포함할 Console 메뉴·에이전트 루프·워크로드를 직접 지정하세요.",
-            )}
-          </p>
-        </div>
       </div>
 
       {loading && <p role="status" class="empty">{t("Loading Stencil catalog...", "Stencil 카탈로그 불러오는 중...")}</p>}
@@ -707,24 +697,23 @@ export function StencilBuilder({
                     <div class="actions" style="margin-top: 8px;">
                       <button
                         type="button"
-                        class={isSelected ? "primary" : ""}
+                        class="primary"
+                        disabled={composing}
+                        onClick={() => void runQuickPresetRelease(preset)}
+                      >
+                        {t(
+                          `1-Click Create (${releaseVersion.trim()})`,
+                          `원클릭 즉시 생성 (${releaseVersion.trim()})`,
+                        )}
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => {
                           applyPreset(preset);
                           setComposed(null);
                         }}
                       >
                         {t(`Load ${preset.stencil_id}`, `${preset.stencil_id} 불러오기`)}
-                      </button>
-                      <button
-                        type="button"
-                        class="primary"
-                        disabled={composing}
-                        onClick={() => void runQuickPresetRelease(preset)}
-                      >
-                        {t(
-                          `1-Click Create ${preset.stencil_id} (${releaseVersion.trim()})`,
-                          `원클릭 ${preset.stencil_id} 즉시 생성 (${releaseVersion.trim()})`,
-                        )}
                       </button>
                     </div>
                   </article>

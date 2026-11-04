@@ -300,12 +300,6 @@ export function ReleaseLineageSection({
           <h2 id="rh-lineage-heading">
             {t("Release Version Lineage Graph (LR)", "릴리스 버전 전체 계통도 (LR Lineage)")}
           </h2>
-          <p>
-            {t(
-              "All registered Release versions connected from left to right across SemVer evolution, Stencil edition tracks, and recall-lifting succession. Active builds and in-progress stage promotions display an animated border beam.",
-              "모든 릴리스 버전의 파생·에디션 분기·리콜 계승 계통을 좌→우(LR)로 연결합니다. 현재 빌드·서명·카나리 승격이 진행 중인 노드는 테두리 광선 애니메이션(Running)으로 표시됩니다.",
-            )}
-          </p>
         </div>
         <div class="rh-lineage-summary-strip" aria-label={t("Lineage status summary", "버전 계통 상태 요약")}>
           <span class="rh-lineage-badge status-complete">
