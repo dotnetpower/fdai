@@ -7,9 +7,8 @@ This design extends the shared Lifecycle Agent beyond the bounded HTTP demonstra
 an independently reviewed installation-local runtime bundle and signed application images, rather
 than adding a renderer branch for each application.
 
-> **Status:** Local implementation and focused validation; see the linked delivery ledger.
-> This document does not qualify a
-> complete FDAI installation or authorize a live deployment.
+> **Status:** Implemented and validated on the connected development installation (#2181, #2466, #2468);
+> see the linked delivery ledger. Production and offline Target Hub qualification remain separate.
 >
 > **Scope:** Existing namespace, identity, storage, configuration references and initialized
 > databases are prerequisites. Infrastructure creation, permission grants and schema-changing
@@ -158,17 +157,18 @@ remains input/evidence work; the engine does not manufacture an operational-succ
 
 ## Acceptance criteria
 
-- [ ] Existing HTTP v1 and legacy runtime paths retain their behavior and signatures.
-- [ ] Both Hubs publish/import v2 component releases through the existing catalog path.
-- [ ] One Agent entry point accepts nginx-shaped and full FDAI-shaped data without product branches.
-- [ ] Local bundle/product/namespace/component/digest mismatches fail before mutation.
-- [ ] Private references and configuration values stay outside reports and public metadata.
-- [ ] Native ownership, collisions, UID replacement, rollback, restart and duplicate Plan tests
+- [x] Existing HTTP v1 and legacy runtime paths retain their behavior and signatures.
+- [x] Both Hubs publish/import v2 component releases through the existing catalog path.
+- [x] One Agent entry point accepts nginx-shaped and full FDAI-shaped data without product branches.
+- [x] Local bundle/product/namespace/component/digest mismatches fail before mutation.
+- [x] Private references and configuration values stay outside reports and public metadata.
+- [x] Native ownership, collisions, UID replacement, rollback, restart and duplicate Plan tests
   include the new supported object kinds.
-- [ ] Real FDAI service, sidecar, initialization and scheduled-work topology can be expressed as
+- [x] Real FDAI service, sidecar, initialization and scheduled-work topology can be expressed as
   private input, with pre-existing infrastructure/schema requirements explicit.
-- [ ] An unsupported schema transition, topology deletion or unproved recovery blocks execution.
-- [ ] Focused type, lint and behavior checks pass; actual cloud qualification remains separate.
+- [x] An unsupported schema transition, topology deletion or unproved recovery blocks execution.
+- [x] Focused type, lint and behavior checks pass; connected-development cloud qualification is
+  recorded in the ledger (#2181, #2466, #2468) while production and offline Target Hub qualification remain separate.
 
 ## Related docs
 

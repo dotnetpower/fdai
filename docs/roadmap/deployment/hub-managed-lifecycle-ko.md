@@ -1,8 +1,8 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: b1f1d53c2d5592b163797f1045ded1dc36f98467
-translation_revised: 2026-11-02
+translation_source_sha: f10d18110da7a323ce2ee97bb2ed59a4cf68b438
+translation_revised: 2026-11-04
 ---
 # Hub 관리형 수명 주기
 
@@ -10,9 +10,8 @@ translation_revised: 2026-11-02
 hub-and-spoke 모델을 따라 각 설치를 구독한 release channel과 고객이 승인한 구성에 맞춰
 유지합니다. 이 문서는 수명 주기 아키텍처, 계획과 상태 루프, 고객 격리 경계를 소유합니다.
 
-> **상태:** 개발 검증용으로 일부 구현되었습니다. 로컬 Hub와 플래너, 제품별 독립 배포 루트와
-> 로그인/카탈로그 연결 없는 원격 기동 경로가 있으며, 전체 관리형 설치 경로는 아직 제공하지 않습니다. Azure 배포나 프로덕션
-> 신뢰 루트 설정을 완료했다는 뜻은 아닙니다.
+> **상태:** 연결된 개발 설치본 경로(#2180, #2458, #2463, #2466, #2468, #2181)는 검증되었으며,
+> 오프라인 Target Hub 검증과 프로덕션 신뢰 루트 절차는 열려 있습니다.
 > [구현 현황 원장](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)이
 > 정확한 제공 범위를 추적하며, [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance-ko.md)이
 > 결정을 기록합니다.
@@ -481,8 +480,8 @@ Service UID를 확인했습니다. 새 recompute는 Plan 없이 `waiting`을 반
 유지했습니다. 다른 설치본에 대한 접근은 403을 반환했으며 Agent와 Hub replica를 교체해도
 상태가 유지되고 워크로드 효과가 중복되지 않았습니다. 검증 후 임시 AKS, 레지스트리, 신원,
 노드 리소스 그룹을 제거했고 Lifecycle Hub trust와 네트워크 입력은 zero-change plan으로
-복원했습니다. 이 증적은 #2180의 nginx gate를 검증하지만 #2181에서 추적하는 전체 FDAI
-topology를 검증하지는 않습니다.
+복원했습니다. 이 증적은 #2180의 nginx gate를 검증하며, 연결된 개발 환경의 전체 FDAI 16개 객체
+topology, 별도 업데이트, 통제된 롤백, 에지/런타임 상태 증적(#2181, #2466, #2468)은 원장에 기록합니다.
 
 ## 제품별 독립 배포
 
@@ -1396,7 +1395,7 @@ import하지 않고 다시 검사하며, PostgreSQL advisory lease 하나를 유
 증적을 출력합니다. 리스 경합, 파괴적인 선언 개정, Job 실패나 중단은 워크로드 전환을 차단합니다.
 이후 워크로드를 롤백해도 확장된 스키마와 완료한 Job 증적은 유지합니다. 생성한 선행 조건 목록에는
 전용 마이그레이션 ServiceAccount가 포함됩니다. 실제 관리 ID와 데이터베이스 역할 연결은 #2468의
-승인된 설치 인계 범위에 남아 있습니다.
+승인된 설치 인계에서 검증했습니다.
 
 Hub 관리형 수명 주기 담당자가 2026-10-07에 다음과 같이 결정했습니다.
 
