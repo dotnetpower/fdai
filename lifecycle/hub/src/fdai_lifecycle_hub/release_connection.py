@@ -248,19 +248,22 @@ def _extract_release_detail(release: RegisteredRelease) -> dict[str, object] | N
         return None
     if not isinstance(parsed, dict):
         return None
-    stencil = parsed.get("stencil") if isinstance(parsed.get("stencil"), dict) else {}
-    components = parsed.get("components") if isinstance(parsed.get("components"), dict) else {}
+    raw_stencil = parsed.get("stencil")
+    stencil: dict[str, object] = raw_stencil if isinstance(raw_stencil, dict) else {}
+    raw_components = parsed.get("components")
+    components: dict[str, object] = raw_components if isinstance(raw_components, dict) else {}
     component_digests = {
         str(name): str(comp["image_digest"])
         for name, comp in components.items()
         if isinstance(comp, dict) and isinstance(comp.get("image_digest"), str)
     }
-    labels = (
-        stencil.get("release_labels") if isinstance(stencil.get("release_labels"), list) else []
-    )
+    raw_labels = stencil.get("release_labels")
+    labels: list[object] = raw_labels if isinstance(raw_labels, list) else []
     panels = stencil.get("enabled_panel_ids")
     workloads = stencil.get("enabled_workloads")
     stencil_id = stencil.get("stencil_id")
+    title = stencil.get("title")
+    title_ko = stencil.get("title_ko")
     real_digests = bool(component_digests) and all(
         _DIGEST_RE.fullmatch(digest) and len(set(digest.removeprefix("sha256:"))) > 1
         for digest in component_digests.values()
@@ -268,8 +271,8 @@ def _extract_release_detail(release: RegisteredRelease) -> dict[str, object] | N
     return {
         "channels": list(release.channels),
         "stencil_id": stencil_id if isinstance(stencil_id, str) else None,
-        "title": stencil.get("title") if isinstance(stencil.get("title"), str) else None,
-        "title_ko": stencil.get("title_ko") if isinstance(stencil.get("title_ko"), str) else None,
+        "title": title if isinstance(title, str) else None,
+        "title_ko": title_ko if isinstance(title_ko, str) else None,
         "enabled_workloads": (
             [str(item) for item in workloads] if isinstance(workloads, list) else []
         ),
@@ -381,9 +384,8 @@ def provision_installation_from_catalog(
         raise EndpointError(404, "installation_not_enrolled") from error
 
     detail = _extract_release_detail(selected) or {}
-    component_digests = (
-        detail.get("component_digests") if isinstance(detail.get("component_digests"), dict) else {}
-    )
+    raw_digests = detail.get("component_digests")
+    component_digests: dict[str, object] = raw_digests if isinstance(raw_digests, dict) else {}
     valid_digests = frozenset(
         str(digest) for digest in component_digests.values() if _DIGEST_RE.fullmatch(str(digest))
     )
