@@ -360,7 +360,10 @@ async def run_once() -> AnalyzerJobReport:
 
     inventory = build_inventory_sources()
     availability_resources = await read_availability_target_policy()
-    decision_evidence = build_decision_evidence_admission_provider()
+    decision_evidence = build_decision_evidence_admission_provider(
+        inventory=inventory,
+        availability_resources=availability_resources,
+    )
     try:
         resolution = await resolve_analyzer_targets(
             configured=configured,

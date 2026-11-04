@@ -390,8 +390,19 @@ async def run(
             evidence_counts=evidence_counts,
             stack=stack,
         )
+        admission_kwargs: dict[str, object] = {}
         try:
             collection_started_at = datetime.now(tz=UTC)
+            baseline_active_snapshot_id = await durable_store.active_snapshot_id()
+            admission_kwargs = (
+                await inventory_sync_cli_support.prepare_durable_admission_sources_kwargs(
+                    dsn=config.dsn,
+                    scopes=config.scopes,
+                    identity=identity,
+                    stack=stack,
+                    current_active_snapshot_id=baseline_active_snapshot_id,
+                )
+            )
             result = await InventorySyncCoordinator(
                 store=observed_store,
                 promotion_enricher=effective_enricher,
@@ -420,6 +431,7 @@ async def run(
                     http_client=client,
                     started_at=collection_started_at,
                     progress_recorder=progress_recorder,
+                    **admission_kwargs,  # type: ignore[arg-type]
                 )
             )
             await progress_recorder.advance(
@@ -432,6 +444,10 @@ async def run(
             active = active_snapshot_id == result.attempt_id
             if not active:
                 raise RuntimeError("inventory active generation readback did not match promotion")
+            await inventory_sync_cli_support.complete_durable_admission_generation(
+                scopes=config.scopes,
+                admission_kwargs=admission_kwargs,
+            )
             await observed_store.publish_terminal(
                 attempt_id=result.attempt_id,
                 source=result.source,
@@ -461,6 +477,14 @@ async def run(
                 await retain_initial_inventory_closure(config)
             await progress_recorder.complete()
         except Exception:
+            try:
+                await inventory_sync_cli_support.complete_durable_admission_generation(
+                    scopes=config.scopes,
+                    admission_kwargs=admission_kwargs,
+                    terminal_status="failed",
+                )
+            except Exception:  # noqa: BLE001 - preserve primary collection failure
+                _LOGGER.warning("inventory_admission_generation_fail_mark_unavailable")
             try:
                 await progress_recorder.fail("inventory_reconciliation_failed")
             except (ValueError, InventoryProgressUnavailableError) as progress_error:

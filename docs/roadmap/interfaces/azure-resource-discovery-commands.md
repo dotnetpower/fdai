@@ -239,6 +239,25 @@ collection under its existing rules, but cannot promote or continue the mismatch
 No independent issuer, permission, admission ledger, generation rule, or operational receipt is
 created. The broader #2329 boundary and finding 04/13/14/17/31 runtime qualifications remain open.
 
+#### Durable shared admission and cooldown gate (#2329)
+
+`DurableProviderReadAdmissionGate` (`delivery/persistence/postgres_inventory_provider_read_admission.py`)
+provides the `StateStore`-backed shared admission and cooldown primitive bound to an immutable
+`ProviderReadScopeBinding` (`source_name`, `authentication_selector_digest`,
+`scope_universe_digest`, `policy_digest`, `generation_id`, and monotonic `generation_seq`).
+Concurrent readers and restarted processes share one compare-and-set partition row:
+
+- `Retry-After` and quota cooldowns (`cooldown_not_before`) persist across adapter replacements,
+  process restarts, and generation transitions.
+- Within-generation idempotent replays reuse completed response digests without consuming another
+  physical request slot.
+- Superseded generations fail closed with `StaleProviderReadGenerationError`, cancelled or
+  ambiguous attempts remain accounted as consumed, and unavailable state storage fails closed with
+  `ProviderReadAdmissionUnavailableError` rather than falling back to an in-memory budget when
+  `require_durable_admission=True`.
+- Live installation consumption/readback qualification remains gated on an installation-owned
+  source/identity binding (#2329).
+
 ## Discovery universe
 
 Completeness is measured per universe, not one successful query. The table defines target coverage.

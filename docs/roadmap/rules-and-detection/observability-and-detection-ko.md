@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: f26a11b3c486bdb980c11d2a81db7dad1b723d43
-translation_revised: 2026-11-03
+translation_source_sha: d48773ef0a6b83589ed5c1ce5f21eda078a3f68b
+translation_revised: 2026-11-05
 ---
 # 관측성 및 탐지(Observability and Detection)
 
@@ -578,7 +578,18 @@ telemetry / metrics
 형식에서 canonical generic `state` 사실만 허용하며 다른 속성별 사실로 대체하지 않습니다. Generic
 `state` 사실이 없는 metadata collection은 신원 및 유형 전용 열거 경로를 따릅니다. 이 읽기 전용
 선택은 상태를 주장하거나 권한을 부여하지 않습니다. 존재하는 generic `state`에는 admission이 계속
-필요하며 형식이 잘못되면 사용할 수 없습니다. 상태 사실 없이 투영된 리소스도 같은 열거 경로를
+필요하며 형식이 잘못되면 사용할 수 없습니다. 리소스가 generic `state` `StateFactMetadata`를 포함하는 경우,
+독립적인 읽기 전용 상태 사실 검증기(`inventory-state-fact-verifier` 신원의
+`AnalyzerTargetStateFactAdmissionIssuer`, 인벤토리 출처 및 `inventory-state-fact-projector`와 분리됨)가
+해당 사실이 `observed` 레인과 `provider` 권한을 가지며 완전하고(`completeness >= 1.0`), 충돌이 없고,
+합성이 아니며, `freshness_ceiling_seconds` 구간 내에 있고, 활성 인벤토리 스냅샷의 공급자 참조와
+일치하는지 검증합니다. 이어서 생성된 `DecisionCriticalEvidenceReceipt`와 5개 증명으로 구성된
+`DecisionEvidenceVerificationBundle`을 `analyzer-target-selection` 목적에 대해
+`DecisionEvidenceReadinessGate`로 평가하고, 적격한 각 admission을 상태 사실의 최신성 만료 시각인
+`valid_until` 및 원자적 관찰 모드(`shadow-mode`) `decision-evidence.admission-retained` 감사 항목과
+함께 `StateStoreDecisionEvidenceAdmissionRecorder`에 한 번만 보존합니다. 만료되었거나 누락, 노후,
+충돌, 합성 또는 범위가 일치하지 않는 admission은 `assess_decision_evidence_admission`에서
+안전하게 차단됩니다(fail closed). 상태 사실 없이 투영된 리소스도 같은 열거 경로를
 따릅니다. 발견된 대상 수는 상한이 있고 순서는 결정론적입니다. 공급자 I/O 전에 현재 연결된
 텔레메트리 카탈로그가 참조 분석기에 필요한 모든 메트릭을 제공하지 못하면 해석기는 발견된 대상을
 `telemetry_source_unavailable`로 보류합니다. 후보는 보류 coverage에 남고 공급자 쿼리는 전송되지

@@ -7,7 +7,7 @@ import logging
 import math
 import re
 import ssl
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from contextlib import AsyncExitStack
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
@@ -74,6 +74,12 @@ from fdai.delivery.kubernetes_lifecycle_collection import KubernetesLifecycleCol
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
 from fdai.delivery.persistence.postgres_inventory_configuration_delta import (
     PostgresInventoryConfigurationComparison,
+)
+from fdai.delivery.persistence.postgres_inventory_provider_read_admission import (
+    DurableProviderReadAdmissionGate,
+    ProviderReadScopeBinding,
+    complete_collection_generation,
+    resolve_or_allocate_collection_generation,
 )
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStore,
@@ -233,6 +239,10 @@ def build_sources(
     http_client: httpx.AsyncClient,
     started_at: datetime,
     progress_recorder: InventoryProgressRecorder | None = None,
+    admission_state_store: StateStore | None = None,
+    generation_id: str | None = None,
+    generation_seq: int = 1,
+    require_durable_admission: bool = False,
 ) -> tuple[InventorySource, ...]:
     """Build ordered provider sources without granting promotion authority."""
 
@@ -241,18 +251,19 @@ def build_sources(
     for source_priority, source_name in enumerate(config.source_order):
         source_policy = config.snapshot_policy(source_name)
         arg_endpoint = config.arg_endpoint or config.management_endpoint
+        auth_selector_digest = (
+            identity.authentication_selector_digest
+            if source_name in {"arg", "arm"}
+            and isinstance(
+                identity, (ManagedIdentityWorkloadIdentity, AsyncAzureCliWorkloadIdentity)
+            )
+            else None
+        )
         collection_configuration = {
             "schema_version": "1.0.0",
             "source": source_name,
             "producer_digest": producer_digest,
-            "authentication_selector_digest": (
-                identity.authentication_selector_digest
-                if source_name in {"arg", "arm"}
-                and isinstance(
-                    identity, (ManagedIdentityWorkloadIdentity, AsyncAzureCliWorkloadIdentity)
-                )
-                else None
-            ),
+            "authentication_selector_digest": auth_selector_digest,
             "policy": asdict(source_policy),
             "management_endpoint": (
                 arg_endpoint if source_name == "arg" else config.management_endpoint
@@ -280,6 +291,44 @@ def build_sources(
             "peered_with",
             "routes_to",
         )
+        scope_universe_digest = collection_configuration_digest(
+            {
+                "audience": config.management_audience,
+                "endpoint": arg_endpoint if source_name == "arg" else config.management_endpoint,
+                "scopes": list(sorted(config.scopes)),
+            }
+        )
+        durable_gate: DurableProviderReadAdmissionGate | None = None
+        if source_name in {"arg", "arm"} and (
+            admission_state_store is not None or require_durable_admission
+        ):
+            if (
+                admission_state_store is None
+                or auth_selector_digest is None
+                or generation_id is None
+                or not generation_id.strip()
+                or type(generation_seq) is not int
+                or generation_seq < 1
+            ):
+                raise ValueError(
+                    f"qualified {source_name!r} source requires admission_state_store, "
+                    "configured authentication_selector_digest, and persisted generation_id/seq"
+                )
+            durable_gate = DurableProviderReadAdmissionGate(
+                state_store=admission_state_store,
+                binding=ProviderReadScopeBinding(
+                    source_name=source_name,
+                    authentication_selector_digest=auth_selector_digest,
+                    scope_universe_digest=scope_universe_digest,
+                    policy_digest=configuration_digest,
+                    generation_id=generation_id.strip(),
+                    generation_seq=generation_seq,
+                ),
+                max_requests_per_generation=max(
+                    1,
+                    source_policy.max_cursor_pages * max(1, len(resource_types) + 4),
+                ),
+            )
         inventory: Inventory
         if source_name == "arg":
             full_provider_scope = not config.resource_types
@@ -299,6 +348,8 @@ def build_sources(
                     if progress_recorder is None
                     else lambda _rows, has_more: progress_recorder.page_collected(has_more=has_more)
                 ),
+                durable_gate=durable_gate,
+                require_durable_admission=require_durable_admission,
             )
             arg_query_contract_digest = query_factory.collection_contract_digest
             query = AzureArmInventoryFactory(
@@ -313,6 +364,8 @@ def build_sources(
                     max_records=source_policy.max_objects,
                     max_total_response_bytes=source_policy.max_bytes_per_window,
                 ),
+                durable_gate=durable_gate,
+                require_durable_admission=require_durable_admission,
             ).build_child_overlay_query_fn(query_factory.build_query_fn())
             inventory = AzureResourceGraphInventory(
                 config=AzureInventoryConfig(
@@ -362,6 +415,8 @@ def build_sources(
                     max_records=source_policy.max_objects,
                     max_total_response_bytes=source_policy.max_bytes_per_window,
                 ),
+                durable_gate=durable_gate,
+                require_durable_admission=require_durable_admission,
             ).build_query_fn()
             inventory = AzureResourceGraphInventory(
                 config=AzureInventoryConfig(
@@ -686,3 +741,52 @@ def build_configuration_delta_policy(
         ),
         full_redelivery_seconds=full_redelivery_seconds(),
     )
+
+
+async def prepare_durable_admission_sources_kwargs(
+    *,
+    dsn: str,
+    scopes: tuple[str, ...],
+    identity: WorkloadIdentity,
+    stack: AsyncExitStack,
+    unfinished_generation_id: str | None = None,
+    current_active_snapshot_id: str | None = None,
+) -> dict[str, object]:
+    """Bind the durable StateStore and persisted generation sequence when identity supports it."""
+    if not isinstance(identity, (ManagedIdentityWorkloadIdentity, AsyncAzureCliWorkloadIdentity)):
+        return {}
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
+    stack.push_async_callback(store.aclose)
+    scope_key = ",".join(sorted(scopes))
+    gen_id, gen_seq = await resolve_or_allocate_collection_generation(
+        store,
+        scope_ref=scope_key,
+        unfinished_generation_id=unfinished_generation_id,
+        current_active_snapshot_id=current_active_snapshot_id,
+    )
+    return {
+        "admission_state_store": store,
+        "generation_id": gen_id,
+        "generation_seq": gen_seq,
+        "require_durable_admission": True,
+    }
+
+
+async def complete_durable_admission_generation(
+    *,
+    scopes: tuple[str, ...],
+    admission_kwargs: Mapping[str, object],
+    terminal_status: str = "completed",
+) -> None:
+    """Mark the persisted durable admission generation terminal (`completed` or `failed`)."""
+    store = admission_kwargs.get("admission_state_store")
+    gen_id = admission_kwargs.get("generation_id")
+    gen_seq = admission_kwargs.get("generation_seq")
+    if isinstance(store, StateStore) and isinstance(gen_id, str) and isinstance(gen_seq, int):
+        await complete_collection_generation(
+            store,
+            scope_ref=",".join(sorted(scopes)),
+            generation_id=gen_id,
+            generation_seq=gen_seq,
+            terminal_status=terminal_status,
+        )

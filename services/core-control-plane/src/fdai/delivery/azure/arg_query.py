@@ -203,6 +203,8 @@ class AzureArgQueryFactory:
         http_client: httpx.AsyncClient,
         config: AzureArgQueryFactoryConfig,
         page_observer: ArgPageObserver | None = None,
+        durable_gate: Any | None = None,
+        require_durable_admission: bool = False,
     ) -> None:
         if not config.subscription_scopes or any(
             not isinstance(scope, str) or not scope.strip() for scope in config.subscription_scopes
@@ -227,7 +229,11 @@ class AzureArgQueryFactory:
         self._http: Final[httpx.AsyncClient] = http_client
         self._config: Final[AzureArgQueryFactoryConfig] = config
         self._page_observer = page_observer
-        self._throttle_gate = ArgThrottleGate(max_defer_seconds=config.throttle_max_defer_seconds)
+        self._throttle_gate = ArgThrottleGate(
+            max_defer_seconds=config.throttle_max_defer_seconds,
+            durable_gate=durable_gate,
+            require_durable_admission=require_durable_admission,
+        )
         self._rate_limiter = ArgRateLimiter(
             requests_per_second=config.requests_per_second,
             burst=config.requests_burst,

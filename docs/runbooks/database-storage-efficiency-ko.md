@@ -1,7 +1,7 @@
 ---
 translation_of: database-storage-efficiency.md
-translation_source_sha: cd76d836ac8e760f8dfdfce91a158a57cc9d1a43
-translation_revised: 2026-11-04
+translation_source_sha: 6afbe6fafd049d2ddd497672c9cfca933bc11da6
+translation_revised: 2026-11-05
 ---
 # 데이터베이스 저장 공간 증가 진단
 
@@ -160,6 +160,32 @@ Resource를 보냅니다. 이벤트 식별자, 형태, 관찰 모드(`shadow-mod
 또한 Huginn이 자신의 generation 범위 키로만 상관시킨 전체 정합성 관측은 Heimdall이 더 이상
 추적하지 않습니다. 이런 episode는 두 번째 이벤트를 모을 수 없기 때문입니다. 명시적으로
 공유하는 상관 식별자가 있는 관측은 계속 추적합니다.
+
+## 인벤토리 공유 저장소의 런타임 전환 조율
+
+기존 런타임 스키마에 서비스 마이그레이션 코디네이터(`service-migrations/migrate.py`)로 세 가지 저장 효율
+마이그레이션(`service-migrations/branches/core-control-plane/versions/20261030_core_cache_storage_efficiency.py`,
+`20261030_core_inventory_storage_efficiency.py`, `20261030_core_state_storage_efficiency.py`)을
+적용하기 전에 모든 `fdai-core-service` 및 `fdai-inventory-job` 판독기·기록기를 중지해 전환 중 활성
+스냅샷이나 관측 기록기가 테이블 잠금을 보유하지 않게 합니다. 대상 스키마에 현재 세션 외의 잠금이
+없는지 확인한 뒤 코디네이터를 통해 마이그레이션을 적용하고, 정확한 서비스 헤드와 가역적인
+`downgrade`/`upgrade` 호환성을 검증한 뒤 기록기를 재개합니다.
+
+기존 행 변환(`inventory_snapshot_resource_row` 대비 중복 제거된
+`inventory_snapshot_properties` 본문과 보존된 추가 전용
+`inventory_observation_snapshot_member_legacy` 행)은 전환 이후 변경 없는 세대 간 중복 제거
+(`inventory_observation_snapshot_set`, `inventory_observation_snapshot_page`,
+`inventory_observation_snapshot_binding`)와 분리해 측정합니다. `SET LOCAL ROLE fdai_core`
+아래에서 최소 권한 고아 본문 정리(`has_table_privilege(..., 'inventory_snapshot_properties',
+'UPDATE') = false`)를 검증하고, 바이너리 본문 및 레거시 캐시 테이블(`conversation_image`,
+`trusted_artifact`, `t2_cache`, `t2_cache_legacy_default`)을 측정하며, 보관된 행을 정리하기 전에
+해시 체인 `audit_log` 보관, 활성 인시던트 보존 홀드 제외, 복원 검증을 확인합니다. 포트 5433의 분리된
+검증 클러스터에서 이 불변식을 리허설하려면 다음을 실행하세요(검증 전용이며 런타임 배포를 승인하지 않음).
+
+```bash
+.venv/bin/python scripts/automation/with-local-test-database.py \
+  .venv/bin/python scripts/deployment/local/rehearse_inventory_shared_storage_cutover.py
+```
 
 ## 수신 dedup을 작게 유지하고 오래된 감사 행을 보관
 

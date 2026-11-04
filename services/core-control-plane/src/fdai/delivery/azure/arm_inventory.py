@@ -160,11 +160,19 @@ class AzureArmInventoryFactory:
         resource_types: ResourceTypeRegistry,
         http_client: httpx.AsyncClient,
         config: AzureArmInventoryFactoryConfig,
+        durable_gate: Any | None = None,
+        require_durable_admission: bool = False,
     ) -> None:
+        if require_durable_admission and durable_gate is None:
+            raise ValueError(
+                "qualified ARM operation requires a bound DurableProviderReadAdmissionGate"
+            )
         self._identity = identity
         self._resource_types = resource_types
         self._http = http_client
         self._config = config
+        self._durable_gate = durable_gate
+        self._require_durable_admission = require_durable_admission
         self._endpoint_host = urlparse(config.arm_endpoint).netloc.lower()
         self._arm_to_neutral = build_arm_to_neutral_map(resource_types)
         self._relationship_mappings = load_provider_relationship_mapping_catalog(
@@ -285,7 +293,13 @@ class AzureArmInventoryFactory:
         """Overlay ARM-only child collections onto a primary inventory query."""
 
         arm_query = self.build_query_fn()
-        hydrator = ArmRulePropertyHydrator.for_config(self._identity, self._http, self._config)
+        hydrator = ArmRulePropertyHydrator.for_config(
+            self._identity,
+            self._http,
+            self._config,
+            durable_gate=self._durable_gate,
+            require_durable_admission=self._require_durable_admission,
+        )
 
         async def _fetch(
             resource_type: str,
@@ -705,6 +719,8 @@ class AzureArmInventoryFactory:
             timeout_seconds=self._config.timeout_seconds,
             max_response_bytes=self._config.max_response_bytes,
             max_attempts=self._config.max_attempts,
+            durable_gate=self._durable_gate,
+            require_durable_admission=self._require_durable_admission,
         )
 
     def _validate_next_link(self, url: str) -> None:
