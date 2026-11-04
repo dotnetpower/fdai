@@ -168,7 +168,7 @@ keys are:
 | `VITE_MSAL_API_SCOPE` | Delegated Operator API scope in `api://<audience>/<scope>` form. |
 | `VITE_OPERATOR_API_BASE_URL` | Operator API origin (local default `http://127.0.0.1:8010`). |
 | `VITE_LOCAL_AZURE_CLI_AUTH` / `VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM` | Launcher-owned CLI-debug pair. Don't persist either value in `console/.env.local`; use the explicit CLI-debug task or `--auth-mode azure-cli`. |
-| `FDAI_DATABASE_URL` | Postgres DSN. Standard full-stack preparation sets it to the loopback Docker PostgreSQL database automatically; export it manually only for direct persistence-test commands. |
+| `FDAI_DATABASE_URL` | Postgres DSN. Standard full-stack preparation writes the runtime database (loopback port `5432`) into `.fdai/local-runtime.env` for the services and maintenance scripts. Tests never read that value: run database suites as `python scripts/automation/with-local-test-database.py <command>`, which binds the isolated validation database on port `5433`. |
 | `AZURE_CONFIG_DIR` | Named Azure CLI profile (see section 2). Export the same value for the API. |
 
 The full-stack task reads root `resolved-models.json` when present. Without it, local LLM calls and
@@ -251,9 +251,13 @@ verification. See [Select the Azure read scope](docs/user-guide/local-developmen
 
   ```bash
   make dev-up
-  export FDAI_DATABASE_URL=postgresql://fdai:fdai@localhost:5432/fdai
+  python scripts/automation/with-local-test-database.py .venv/bin/pytest <database-test-selectors>
   make dev-down            # stop (volumes preserved)
   ```
+
+  Do not export `FDAI_DATABASE_URL` by hand: the runtime database on port `5432` holds service
+  state, and database tests create schemas and roles. A `KeyError: 'FDAI_DATABASE_URL'` or a skip
+  saying it is unset means the command was not wrapped.
 
   `make dev-nuke` stops those containers and permanently deletes all four named Docker volumes.
   It does not delete `.fdai/document-store` or service logs. The full

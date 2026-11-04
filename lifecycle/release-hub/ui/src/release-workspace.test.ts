@@ -41,6 +41,7 @@ describe("release workspace decisions", () => {
     expect(catalogRecovery(new CatalogRequestError(unsafe, 401))).toContain("Session expired");
     expect(catalogRecovery(new CatalogRequestError(unsafe, 403))).toContain("access denied");
     expect(catalogRecovery(new CatalogRequestError(unsafe, 409))).toContain("server guard");
+    expect(catalogRecovery(new CatalogRequestError(unsafe, 429))).toContain("Too many requests");
     expect(catalogRecovery(new CatalogRequestError(unsafe, 503))).toContain("readiness");
     expect(catalogRecovery(new CatalogRequestError(unsafe, 422))).toContain("(422)");
     expect(catalogRecovery(new DOMException(unsafe, "TimeoutError"))).toContain("timed out");

@@ -156,8 +156,15 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
   authorization, and application state independently before diagnosing private connectivity.
 - Local tests that need `FDAI_DATABASE_URL` use loopback Docker PostgreSQL: the isolated validation
   cluster recorded as `FDAI_VALIDATION_DATABASE_URL` (port `5433`), never the runtime database on
-  `5432` or a remote DSN. Run them through `scripts/automation/with-local-test-database.py`, which
-  binds it; sourcing `.fdai/local-runtime.env` alone selects the runtime database.
+  `5432` or a remote DSN. Run them as `python scripts/automation/with-local-test-database.py
+  <command> [args]` (the command follows directly, without `--`), which binds it; sourcing
+  `.fdai/local-runtime.env` alone selects the runtime database. A `KeyError: 'FDAI_DATABASE_URL'` or a
+  skip saying it is unset means the run was not wrapped: rerun it through the wrapper, never export
+  a DSN by hand, and never report a skipped database suite as verification. TCTX runs in the
+  daemon's environment, so run database suites through the wrapper.
+- `FDAI_DATABASE_URL` and `FDAI_STATE_STORE_DSN` in `.fdai/local-runtime.env` name the runtime
+  database on port `5432`. Only runtime maintenance such as `report-database-growth.py` and
+  `compact-local-database.py` uses them, never tests.
 
 ## Issue Lifecycle (MUST)
 

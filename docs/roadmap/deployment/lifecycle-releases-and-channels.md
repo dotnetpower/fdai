@@ -31,12 +31,13 @@ promotion, and recall. **Release Catalog** means the release list, data, or feed
 provides, not the application name. **FDAI Lifecycle Hub** remains the separate application that
 manages deployments for individual installations.
 
-The local Release Hub exposes API workflows and a web UI. Existing signed bundles and
+The local Release Hub exposes API workflows and a web UI with left-to-right (`LR`) version lineage,
+`0.5.0` baseline and `0.5.x` patch-default progression, and Stencil edition tracks. Existing signed bundles and
 local shadow-only validators alone don't constitute an implemented production Release Hub service. Catalog
 directories, APIs, schemas, and identifiers keep their technical names.
 
 The opt-in [two-Hub development path](../../../infra/hubs-development/README.md) adds direct
-Entra operator/service separation, PostgreSQL publication storage with explicit migrations,
+Entra operator/service separation, PostgreSQL or single-replica serverless Azure Files SQLite storage with explicit migrations,
 independent development signing-key provisioning, bundled UI images, and durable customer
 pin/revision state. A customer operator must approve the exact export pin through a separate
 authenticated trust operation before bounded import; a digest beside the download grants no

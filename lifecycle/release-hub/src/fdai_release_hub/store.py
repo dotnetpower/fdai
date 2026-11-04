@@ -7,6 +7,7 @@ import json
 import re
 import threading
 from base64 import b64decode, b64encode
+from collections import OrderedDict
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -136,6 +137,15 @@ class SignedExport:
     key_id: str
 
 
+def configure_sqlite_connection(dbapi_connection: Any, _connection_record: Any = None) -> None:
+    """Apply foreign-key enforcement and in-memory page cache pragmas on SQLite connections."""
+    dbapi_connection.execute("PRAGMA foreign_keys = ON")
+    dbapi_connection.execute("PRAGMA busy_timeout = 5000")
+    dbapi_connection.execute("PRAGMA synchronous = NORMAL")
+    dbapi_connection.execute("PRAGMA temp_store = MEMORY")
+    dbapi_connection.execute("PRAGMA cache_size = -16000")
+
+
 class ReleaseStore:
     def __init__(
         self,
@@ -151,10 +161,14 @@ class ReleaseStore:
         self._export_lock = threading.Lock()
         self._signed_export: SignedExport | None = None
         self._verified_lock = threading.Lock()
-        self._verified_manifests: dict[tuple[str, str, str], str] = {}
+        self._verified_manifests: OrderedDict[tuple[str, str, str], str] = OrderedDict()
         self.clock = clock or (lambda: datetime.now(UTC))
         self.engine = (
-            create_engine(f"sqlite:///{path}", poolclass=NullPool)
+            create_engine(
+                f"sqlite:///{path}",
+                poolclass=NullPool,
+                connect_args={"timeout": 5.0},
+            )
             if isinstance(path, Path)
             else path
         )
@@ -169,19 +183,19 @@ class ReleaseStore:
             else None
         )
         if self.engine.dialect.name == "sqlite":
-
-            @event.listens_for(self.engine, "connect")
-            def foreign_keys(dbapi_connection: Any, connection_record: Any) -> None:
-                dbapi_connection.execute("PRAGMA foreign_keys = ON")
-                dbapi_connection.execute("PRAGMA busy_timeout = 5000")
-                dbapi_connection.execute("PRAGMA synchronous = NORMAL")
-                dbapi_connection.execute("PRAGMA temp_store = MEMORY")
-                dbapi_connection.execute("PRAGMA cache_size = -16000")
+            event.listen(self.engine, "connect", configure_sqlite_connection)
 
         if initialize:
             self.migrate()
         else:
             require_schema(self.engine, "release_hub")
+
+    def verify_ready(self) -> None:
+        """Verify schema revision and catalog metadata row exist for readiness probes."""
+        require_schema(self.engine, "release_hub")
+        with self.engine.connect() as db:
+            if db.scalar(select(catalog_metadata.c.created_at)) is None:
+                raise ValueError("Release Hub catalog metadata is not initialized.")
 
     def migrate(self) -> None:
         def initialize(connection: Connection) -> None:
@@ -238,8 +252,9 @@ class ReleaseStore:
         cache_key = (self.key.key_id, manifest, signature)
         with self._verified_lock:
             cached = self._verified_manifests.get(cache_key)
-        if cached is not None:
-            return cached
+            if cached is not None:
+                self._verified_manifests.move_to_end(cache_key)
+                return cached
         try:
             raw_manifest = manifest.encode()
             self.key.public_key.verify(b64decode(signature, validate=True), raw_manifest)
@@ -247,8 +262,10 @@ class ReleaseStore:
             raise CatalogError("Stored Release signature failed verification.", 503) from error
         digest = hashlib.sha256(raw_manifest).hexdigest()
         with self._verified_lock:
-            if len(self._verified_manifests) >= MAX_VERIFIED_MANIFEST_CACHE:
-                self._verified_manifests.pop(next(iter(self._verified_manifests)))
+            if cache_key in self._verified_manifests:
+                self._verified_manifests.move_to_end(cache_key)
+            elif len(self._verified_manifests) >= MAX_VERIFIED_MANIFEST_CACHE:
+                self._verified_manifests.popitem(last=False)
             self._verified_manifests[cache_key] = digest
         return digest
 

@@ -73,6 +73,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     if not private_key.is_file():
         parser.error("Development key is missing. Run dev-init first.")
+    sqlite_file = state / "release-hub.sqlite"
+    if sqlite_file.is_symlink():
+        parser.error("Database path must not be a symbolic link.")
     key = load_signing_key(private_key, epoch=1)
     role_keys = None
     if snapshot_key.is_file() and timestamp_key.is_file():
@@ -80,7 +83,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             snapshot=OnlineRoleKey(load_private_key(snapshot_key)),
             timestamp=OnlineRoleKey(load_private_key(timestamp_key)),
         )
-    store = ReleaseStore(state / "release-hub.sqlite", key, role_keys=role_keys)
+    store = ReleaseStore(sqlite_file, key, role_keys=role_keys)
+    if sqlite_file.is_file():
+        sqlite_file.chmod(0o600)
     if args.command == "install-root":
         if args.root is None or role_keys is None:
             parser.error("install-root needs --root and the keys created by tuf-init.")
