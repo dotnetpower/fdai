@@ -37,7 +37,7 @@ export function DeploymentRequests({ catalog, locale = "en" }: { catalog?: Catal
     void requestDeploymentRequests(filter, offset, LIMIT).then((result) => {
       if (generation.current === current) setPage(result);
     }).catch(() => {
-      if (generation.current === current) setError("Deployment requests unavailable. Check operator access, then refresh requests.");
+      if (generation.current === current) setError(locale === "ko" ? "배포 요청 내역을 불러올 수 없습니다. 운영자 권한을 확인한 뒤 새로고침하세요." : "Deployment requests unavailable. Check operator access, then refresh requests.");
     }).finally(() => {
       if (generation.current === current) setLoading(false);
     });
@@ -50,11 +50,11 @@ export function DeploymentRequests({ catalog, locale = "en" }: { catalog?: Catal
     </div>
     <p class="warning">{t("Self-reported / ownership unverified. A request is not verified subscription ownership, approval, or a successful deployment.", "자체 보고된 요청 기록입니다. 요청 기록만으로 구독 소유권이나 실제 클러스터 배포 완료를 보장하지 않습니다.")}</p>
     <form class="request-filter" onSubmit={(event) => {
-      event.preventDefault(); setFilter(draft); setOffset(0); setRefresh((value) => value + 1);
+      event.preventDefault(); setFilter(draft.trim().toLowerCase()); setOffset(0); setRefresh((value) => value + 1);
     }}>
       <label>{t("Subscription ID", "Azure 구독 ID 필터")}<input value={draft} maxLength={36} pattern={SUBSCRIPTION}
         placeholder={t("Canonical lowercase UUID", "구독 UUID 입력 (예: 00000000-0000-0000-0000-000000000000)")} autoComplete="off"
-        onInput={(event) => setDraft(event.currentTarget.value)} /></label>
+        onInput={(event) => setDraft(event.currentTarget.value.trim().toLowerCase())} /></label>
       <button disabled={loading}>{t("Filter requests", "필터 적용")}</button>
       <button type="button" disabled={loading || (!draft && !filter)}
         onClick={() => { setDraft(""); setFilter(""); setOffset(0); }}>{t("Clear filter", "필터 초기화")}</button>
@@ -77,22 +77,22 @@ export function DeploymentRequests({ catalog, locale = "en" }: { catalog?: Catal
               );
               const chanHead = chanMembers[0] ?? null;
               const fleetStatus = rel?.state === "recalled"
-                ? "Recalled release"
+                ? t("Recalled release", "회수된 릴리스")
                 : chanHead === record.release_id
-                  ? "Latest channel head"
+                  ? t("Latest channel head", "채널 최신 버전")
                   : chanHead
-                    ? `Behind head (${chanHead})`
+                    ? t(`Behind head (${chanHead})`, `이전 버전 (최신: ${chanHead})`)
                     : null;
               return <tr key={record.request_id}>
               <td><time dateTime={record.recorded_at}>{new Date(record.recorded_at).toISOString().replace("T", " ").replace("Z", "")}</time>
-                <small>Requested / self-reported</small></td>
-              <td><code>{record.subscription_id}</code><small>Ownership unverified</small></td>
+                <small>{t("Requested / self-reported", "요청됨 / 자체 보고")}</small></td>
+              <td><code>{record.subscription_id}</code><small>{t("Ownership unverified", "소유권 미검증")}</small></td>
               <td><a href={`#/releases/${encodeURIComponent(record.release_id)}`}>{record.release_id}</a><small>{record.channel}</small>{st && <span class="stencil-chip">stencil:{st.stencil_id} · {st.azure_rbac_posture}</span>}{fleetStatus && <span class="stencil-chip">{fleetStatus}</span>}</td>
               <td>{record.region}</td>
-              <td><details><summary>Metadata</summary><dl>
-                <dt>Request id</dt><dd><code class="digest">{record.request_id}</code></dd>
-                <dt>Source commit</dt><dd><code class="digest">{record.source_commit}</code></dd>
-                <dt>Catalog digest</dt><dd><code class="digest">{record.catalog_digest}</code></dd>
+              <td><details><summary>{t("Metadata", "상세 메타데이터")}</summary><dl>
+                <dt>{t("Request id", "요청 ID")}</dt><dd><code class="digest">{record.request_id}</code></dd>
+                <dt>{t("Source commit", "소스 커밋")}</dt><dd><code class="digest">{record.source_commit}</code></dd>
+                <dt>{t("Catalog digest", "카탈로그 다이제스트")}</dt><dd><code class="digest">{record.catalog_digest}</code></dd>
                 {st && <><dt>Stencil</dt><dd><code>{st.stencil_id}</code> (<code class="digest">{st.stencil_digest}</code>)</dd></>}
               </dl></details></td>
             </tr>;
@@ -100,12 +100,12 @@ export function DeploymentRequests({ catalog, locale = "en" }: { catalog?: Catal
           </table>
         </div>}
       <div class="request-pagination" aria-label="Deployment request pagination">
-        <button disabled={loading || offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMIT))}>Previous</button>
-        <span role="status">{page.requests.length ? `${offset + 1} - ${offset + page.requests.length}` : "0"} requests in this view</span>
+        <button disabled={loading || offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMIT))}>{t("Previous", "이전")}</button>
+        <span role="status">{page.requests.length ? `${offset + 1} - ${offset + page.requests.length}` : "0"} {t("requests in this view", "건 표시 중")}</span>
         <button disabled={loading || nextRequestOffset(page) === null} onClick={() => {
           const next = nextRequestOffset(page);
           if (next !== null) setOffset(next);
-        }}>Next</button>
+        }}>{t("Next", "다음")}</button>
       </div>
     </>}
   </>;

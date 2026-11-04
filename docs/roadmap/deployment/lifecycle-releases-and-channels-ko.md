@@ -1,7 +1,7 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: c96529832e4d79b5b5451fbcd1079d31a4777cc2
+translation_source_sha: 2bbddac63f8ed54f53d6d963d6b2415bd1a25f08
 translation_revised: 2026-11-04
 ---
 # Lifecycle Release와 채널
@@ -33,12 +33,12 @@ translation_revised: 2026-11-04
 목록, 데이터 또는 피드를 뜻합니다. **FDAI Lifecycle Hub**는 설치본별 배포를 관리하는 별도
 애플리케이션이며 이름을 유지합니다.
 
-로컬 Release Hub는 API 작업 흐름과 웹 UI를 제공합니다. 기존 서명된 번들과
-로컬 `shadow` 전용 검증기만 있다고 해서 프로덕션 Release Hub 서비스가 구현된 것은 아닙니다.
+로컬 Release Hub는 API 작업 흐름과 좌우(`LR`) 버전 계통도, `0.5.0` 기준 및 `0.5.x` 하위 패치 기본 증가,
+Stencil 에디션 트랙을 포함한 웹 UI를 제공합니다. 기존 서명된 번들과 로컬 `shadow` 전용 검증기만 있다고 해서 프로덕션 Release Hub 서비스가 구현된 것은 아닙니다.
 카탈로그 디렉터리, API, 스키마, 식별자는 기존 기술 명칭을 유지합니다.
 
 명시적으로 선택하는 [두 Hub 개발 경로](../../../infra/hubs-development/README.md)는 Entra
-운영자 인증과 서비스 ID의 분리, 명시적 migration을 사용하는 PostgreSQL 발행 저장소,
+운영자 인증과 서비스 ID의 분리, 명시적 migration을 사용하는 PostgreSQL 또는 단일 레플리카 서버리스 Azure Files SQLite 발행 저장소,
 독립적인 개발용 서명 키 제공, UI 포함 이미지, 고객 측 pin/revision 영속 상태를 추가합니다.
 고객 운영자는 제한된 import 전에 별도의 인증된 신뢰 승인 작업으로 정확한 export pin을
 승인해야 합니다. 다운로드와 함께 받은 digest는 신뢰 근거가 아닙니다.

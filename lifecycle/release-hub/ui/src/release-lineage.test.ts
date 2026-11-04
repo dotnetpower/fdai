@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
-import type { Catalog, Release } from "./api";
+import {
+  safeParseReleaseManifest,
+  schemaCompatibility,
+  syncManifestReleaseVersion,
+  type Catalog,
+  type Release,
+} from "./api";
 import {
   buildConnectorGeometry,
   buildReleaseLineageGraph,
   buildReleaseStagePipeline,
   compareSemVer,
+  computeLineageSummary,
   nextSuggestedSemVer,
   parseSemVerTuple,
   resolveReleaseNodeStatus,
@@ -199,5 +206,52 @@ describe("release lineage LR graph", () => {
     expect(nextSuggestedSemVer([{ id: "0.5.0" }, { id: "0.5.1" }])).toBe("0.5.2");
     expect(nextSuggestedSemVer([{ id: "0.5.0" }, { id: "0.5.2" }], "minor")).toBe("0.6.0");
     expect(nextSuggestedSemVer([{ id: "0.5.0" }, { id: "0.5.2" }], "major")).toBe("1.0.0");
+    expect(nextSuggestedSemVer([{ id: "0.5.1-rc.1" }])).toBe("0.5.1");
+    expect(nextSuggestedSemVer([{ id: "0.5.1" }, { id: "0.5.1-rc.1" }])).toBe("0.5.2");
+  });
+
+  it("strips build metadata and compares numeric pre-release identifiers per SemVer 2.0.0", () => {
+    expect(parseSemVerTuple("v0.5.1-rc.2+20261104")).toEqual([0, 5, 1, "rc.2"]);
+    expect(compareSemVer("0.5.1-rc.2", "0.5.1-rc.10")).toBeLessThan(0);
+    expect(compareSemVer("0.5.1-1", "0.5.1-alpha")).toBeLessThan(0);
+  });
+
+  it("computes lineage summary, handles empty catalogs, and synchronizes manifest versions safely", () => {
+    const emptyCatalog: Catalog = {
+      revision: 0,
+      updated_at: "2026-11-04T00:00:00Z",
+      expires_at: "2026-11-05T00:00:00Z",
+      expired: false,
+      key_id: "dev",
+      mode: "local-development",
+      releases: [],
+      channels: {},
+      events: [],
+    };
+    const emptyGraph = buildReleaseLineageGraph(emptyCatalog);
+    expect(emptyGraph.width).toBeGreaterThanOrEqual(220);
+    expect(emptyGraph.height).toBeGreaterThanOrEqual(134);
+    expect(computeLineageSummary(emptyGraph)).toEqual({
+      total: 0,
+      complete: 0,
+      running: 0,
+      recalled: 0,
+      editionTracks: [],
+      recallLifts: 0,
+    });
+
+    const synced = syncManifestReleaseVersion(
+      JSON.stringify({
+        release_version: "0.5.0",
+        configuration_schema: { release_version: "0.5.0" },
+      }),
+      "0.5.1",
+    );
+    expect(JSON.parse(synced)).toEqual({
+      release_version: "0.5.1",
+      configuration_schema: { release_version: "0.5.1" },
+    });
+    expect(safeParseReleaseManifest("invalid-json")).toEqual({});
+    expect(schemaCompatibility({}, "ko")).toContain("선언되지 않음");
   });
 });

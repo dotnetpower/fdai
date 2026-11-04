@@ -34,7 +34,10 @@ async def forecast_database() -> AsyncIterator[str]:
     from psycopg import sql
     from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
-    dsn = os.environ["FDAI_DATABASE_URL"].replace("postgresql+psycopg://", "postgresql://", 1)
+    configured = os.environ.get("FDAI_DATABASE_URL")
+    if not configured:
+        pytest.skip("FDAI_DATABASE_URL is unset; use with-local-test-database.py")
+    dsn = configured.replace("postgresql+psycopg://", "postgresql://", 1)
     if conninfo_to_dict(dsn).get("host") not in {"127.0.0.1", "localhost", "::1"}:
         pytest.fail("forecast migration regression requires a loopback database")
     root = Path(__file__).resolve().parents[4]

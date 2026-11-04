@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 35060b596e23113bbb0d0ea6f2f5c2487e37469d
-translation_revised: 2026-11-03
+translation_source_sha: dc072347e85edb39df2c595ee54943fe8faa8eb2
+translation_revised: 2026-11-04
 ---
 # 배포와 온보딩(Deploy and Onboard)
 이 가이드를 사용해 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측을 시작할
@@ -23,7 +23,7 @@ translation_revised: 2026-11-03
 
 제품을 독립적으로 기동하려면 공급업체의 [Release Hub 루트](../../../infra/release-hub/README.md)
 또는 고객의 [Lifecycle Hub 루트](../../../infra/lifecycle-hub/README.md)를 사용하세요. 각 루트는
-자신의 UI/API, 비공개 PostgreSQL과 지원 자원만 소유하며 별도 state를 사용합니다. 상대 Hub의
+자신의 UI/API, 비공개 PostgreSQL 또는 단일 레플리카 서버리스 Azure Files SQLite 볼륨(`database = null`)과 지원 자원만 소유하며 별도 state를 사용합니다. 상대 Hub의
 입력은 필요하지 않습니다. 기본 로컬 백엔드는 명시한 영속 비공개 경로에서 기존 로컬 state를
 보존하며, 별도로 검토한 원격 백엔드는 선택 사항입니다.
 Lifecycle Hub 이미지는 채택 정책이 `opa`를 실행하므로 digest로 고정한 `OPA_IMAGE` 빌드 인자가 필요하며,

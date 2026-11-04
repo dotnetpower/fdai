@@ -538,3 +538,46 @@ def test_hardening_h21_to_h34_catalog_parity_manifest_validation_and_console_con
     rendered_js = render_console_config(cfg_bytes).decode("ascii")
     assert "globalThis.__FDAI_CONSOLE_CONFIG__ =" in rendered_js
     assert "globalThis.__FDAI_STENCIL_FEATURE_FLAGS__ =" in rendered_js
+
+
+def test_release_hub_readyz_head_security_headers_and_0_5_x_patch_defaults(
+    client: TestClient,
+) -> None:
+    # H34, H35, H38: /readyz and /healthz support GET and HEAD with hardened security headers.
+    ready_get = client.get("/readyz")
+    assert ready_get.status_code == 200
+    assert ready_get.json() == {"status": "ready"}
+    assert ready_get.headers["X-Frame-Options"] == "DENY"
+    assert ready_get.headers["Referrer-Policy"] == "no-referrer"
+    assert client.head("/readyz").status_code == 200
+    assert client.head("/healthz").status_code == 200
+    assert client.head("/v1/catalog").status_code == 200
+
+    # H24, H25: Default release_version is 0.5.0 and whitespace/leading-v is normalized.
+    default_compose = client.post(
+        "/v1/stencils/compose",
+        json={"stencil_id": "  lite-observe-alert  "},
+    )
+    assert default_compose.status_code == 200
+    assert default_compose.json()["release_manifest"]["release_version"] == "0.5.0"
+
+    patch_compose = client.post(
+        "/v1/stencils/compose",
+        json={"stencil_id": "lite-observe-alert", "release_version": " v0.5.1 "},
+    )
+    assert patch_compose.status_code == 200
+    assert patch_compose.json()["release_manifest"]["release_version"] == "0.5.1"
+
+    # H37, H39: Duplicate JSON keys in change and control characters in Entra login are rejected.
+    dup_change = client.post(
+        "/v1/catalog/renew",
+        content='{"revision":0,"revision":1,"confirmation":"renew 0","reason":"dup"}',
+        headers={"Content-Type": "application/json"},
+    )
+    assert dup_change.status_code == 422
+
+    bad_entra = client.post(
+        "/v1/auth/entra/login",
+        json={"mode": "workstation", "principal": "op@contoso.com", "display_name": "bad\nname"},
+    )
+    assert bad_entra.status_code == 422

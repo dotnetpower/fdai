@@ -134,17 +134,31 @@ def create_app(
             if content_length > MAX_BODY:
                 return JSONResponse({"error": "Request body is too large."}, status_code=413)
         body = bytearray()
-        async for chunk in request.stream():
-            if len(chunk) > MAX_BODY - len(body):
-                return JSONResponse({"error": "Request body is too large."}, status_code=413)
-            body.extend(chunk)
+        try:
+            async with asyncio.timeout(INTAKE_BODY_TIMEOUT_SECONDS):
+                async for chunk in request.stream():
+                    if len(chunk) > MAX_BODY - len(body):
+                        return JSONResponse(
+                            {"error": "Request body is too large."}, status_code=413
+                        )
+                    body.extend(chunk)
+        except TimeoutError:
+            return JSONResponse({"error": "Request body deadline exceeded."}, status_code=408)
+        try:
+            raw_change = bytes(body)
+            load_json_object(raw_change, label="catalog change", max_bytes=MAX_BODY, strict=True)
+        except ValueError:
+            return JSONResponse(
+                {"error": "Invalid fields. Check revision, confirmation, reason and manifest."},
+                status_code=422,
+            )
         try:
             actor = request.state.operator if remote_auth else entra_sessions.current_actor
             if action == "renew":
-                renewal = CatalogConfirmation.model_validate_json(bytes(body))
+                renewal = CatalogConfirmation.model_validate_json(raw_change)
                 result = await run_in_threadpool(store.renew, renewal, actor=actor)
             elif "capability_id" in request.path_params:
-                cap_payload = CapabilityChange.model_validate_json(bytes(body))
+                cap_payload = CapabilityChange.model_validate_json(raw_change)
                 result = await run_in_threadpool(
                     store.change_capability,
                     action,
@@ -153,7 +167,7 @@ def create_app(
                     actor=actor,
                 )
             elif action == "promote":
-                promotion = StagePromotion.model_validate_json(bytes(body))
+                promotion = StagePromotion.model_validate_json(raw_change)
                 criteria = PromotionStageCriteria(
                     source_channel=promotion.source_channel,
                     target_channel=promotion.target_channel,
@@ -190,7 +204,7 @@ def create_app(
                     )
                 )
             else:
-                payload = Change.model_validate_json(bytes(body))
+                payload = Change.model_validate_json(raw_change)
                 result = await run_in_threadpool(
                     store.change,
                     action,
@@ -348,11 +362,27 @@ def create_app(
         media_type = request.headers.get("content-type", "").partition(";")[0].strip().lower()
         if media_type != "application/json":
             return JSONResponse({"error": "Use application/json."}, status_code=415)
-        body = bytearray()
-        async for chunk in request.stream():
-            if len(chunk) > 8192 - len(body):
+        declared_length = request.headers.get("content-length")
+        if declared_length is not None:
+            try:
+                content_length = int(declared_length)
+                if content_length < 0:
+                    raise ValueError("Negative length.")
+            except ValueError:
+                return JSONResponse({"error": "Invalid Content-Length."}, status_code=400)
+            if content_length > 8192:
                 return JSONResponse({"error": "Request body is too large."}, status_code=413)
-            body.extend(chunk)
+        body = bytearray()
+        try:
+            async with asyncio.timeout(INTAKE_BODY_TIMEOUT_SECONDS):
+                async for chunk in request.stream():
+                    if len(chunk) > 8192 - len(body):
+                        return JSONResponse(
+                            {"error": "Request body is too large."}, status_code=413
+                        )
+                    body.extend(chunk)
+        except TimeoutError:
+            return JSONResponse({"error": "Request body deadline exceeded."}, status_code=408)
         try:
             raw_bytes = bytes(body)
             load_json_object(raw_bytes, label="entra login", max_bytes=8192, strict=True)
@@ -364,6 +394,13 @@ def create_app(
 
     async def entra_logout(request: Request) -> Response:
         return JSONResponse(await run_in_threadpool(entra_sessions.sign_out))
+
+    async def readyz(request: Request) -> Response:
+        try:
+            await run_in_threadpool(store.verify_ready)
+        except ValueError:
+            return JSONResponse({"status": "not-ready"}, status_code=503)
+        return JSONResponse({"status": "ready"})
 
     routes = [
         Route("/auth/config", lambda request: JSONResponse({"profile": "local-development"})),
@@ -380,10 +417,12 @@ def create_app(
                     else ("remote-development" if remote_auth else "local-development"),
                 }
             ),
+            methods=["GET", "HEAD"],
         ),
-        Route("/v1/catalog", catalog),
-        Route("/v1/catalog/export", export),
-        Route("/v1/catalog/metadata", metadata),
+        Route("/readyz", readyz, methods=["GET", "HEAD"]),
+        Route("/v1/catalog", catalog, methods=["GET", "HEAD"]),
+        Route("/v1/catalog/export", export, methods=["GET", "HEAD"]),
+        Route("/v1/catalog/metadata", metadata, methods=["GET", "HEAD"]),
         Route("/v1/catalog/renew", partial(change, action="renew"), methods=["POST"]),
         Route("/v1/deployment-requests", deployment_requests, methods=["GET", "POST"]),
         Route("/v1/stencils", stencils_catalog),
@@ -436,6 +475,8 @@ def create_app(
             return JSONResponse({"error": "Local storage is unavailable."}, status_code=503)
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
             "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'"
