@@ -1014,7 +1014,7 @@ path provides reviewable evidence:
   the cluster, losing the last verified management path or allowing the browser to mutate Azure.
 
 Source and provider tests prove implementation. Live receipts are required before the AKS path is
-classified as validated or advertised as ready for production. Two opt-in Operator settings control the dialogue state, both off by default: `FDAI_SEMANTIC_DIALOGUE_STATE_ENABLED` emits the schema 1.12.0 `dialogue_state` field only after every Core consumer accepts 1.12.0, and `FDAI_NARRATOR_DIALOGUE_STATE_T1_ENABLED` lets the dev local narrator run the T1 proposer. Neither adds a deployment profile, role, grant beyond `SELECT` and `INSERT` on `conversation_dialogue_snapshot`, or authority.
+classified as validated or advertised as ready for production. Two opt-in Operator settings control the dialogue state, both off by default: `FDAI_SEMANTIC_DIALOGUE_STATE_ENABLED` emits the schema 1.12.0 `dialogue_state` field only after every Core consumer accepts 1.12.0, and `FDAI_NARRATOR_DIALOGUE_STATE_T1_ENABLED` lets the dev local narrator run the T1 proposer. Neither adds a deployment profile, role, grant beyond `SELECT` and `INSERT` on `conversation_dialogue_snapshot`, or authority. When a Release v2 manifest or standalone AKS deployment supplies a verified `stencil` blueprint (`hub_image_trust.py`, `standalone_host_values.py`, `console_config.py`, `runtime_bundle_generator.py`), the rendered runtime ConfigMaps and `fdai-config.js` carry the fail-closed `FDAI_STENCIL_*` and `__FDAI_STENCIL_FEATURE_FLAGS__` settings without changing workload identities or execution authority.
 
 ## Related docs
 

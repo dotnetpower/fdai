@@ -2,10 +2,12 @@ import { useEffect, useState } from "preact/hooks";
 
 import {
   isOptionalOperatorApiUnavailable,
+  OperatorApiError,
   type OperatorApiClient,
 } from "../api";
 import type { ConsoleDataMode } from "../console-data-mode";
 import type { AsyncState } from "../components/ui";
+import { isStencilPanelEnabled } from "../stencil-panels";
 import type { RenderedReportView } from "./reporting.model";
 
 export const CHAOS_RESULTS_REPORT_ID = "chaos-enforce-results";
@@ -30,15 +32,15 @@ export function useChaosResultSummary(
   windowDays = 30,
 ): AsyncState<ChaosResultSummary> {
   const [state, setState] = useState<AsyncState<ChaosResultSummary>>(
-    dataMode === "sample"
+    dataMode === "sample" || !isStencilPanelEnabled("reports")
       ? { status: "unavailable", message: unavailableMessage }
       : { status: "loading" },
   );
 
   useEffect(() => {
     let active = true;
-    // Sample mode must not mix synthetic presentation with measured report evidence.
-    if (dataMode === "sample") {
+    // Sample mode or Stencil-disabled reports must not issue measured report requests.
+    if (dataMode === "sample" || !isStencilPanelEnabled("reports")) {
       setState({ status: "unavailable", message: unavailableMessage });
       return () => { active = false; };
     }
@@ -57,6 +59,9 @@ export async function loadChaosResultSummary(
   windowDays = 30,
   unavailableMessage = "Measured chaos result evidence is unavailable.",
 ): Promise<AsyncState<ChaosResultSummary>> {
+  if (!isStencilPanelEnabled("reports")) {
+    return { status: "unavailable", message: unavailableMessage };
+  }
   try {
     const report = await client.renderReport(
       CHAOS_RESULTS_REPORT_ID,
@@ -64,7 +69,8 @@ export async function loadChaosResultSummary(
     );
     return { status: "ready", data: decodeChaosResultSummary(report) };
   } catch (error) {
-    return isOptionalOperatorApiUnavailable(error)
+    return isOptionalOperatorApiUnavailable(error) ||
+      (error instanceof OperatorApiError && error.status === 403)
       ? { status: "unavailable", message: unavailableMessage }
       : { status: "error", message: error instanceof Error ? error.message : String(error) };
   }

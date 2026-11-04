@@ -3,12 +3,15 @@ import { resolve } from "node:path";
 import { describe, expect, test } from "vitest";
 import { PANEL_GROUPS, resolvePanels } from "./panels";
 import {
+  activeStencilEnforcementMode,
+  activeStencilId,
   activeStencilPanelIds,
   evaluateStencilPanelFeatureFlags,
   filterNavigationGroupsByStencil,
   filterPanelsByStencil,
   isStencilPanelEnabled,
   LOCKED_STENCIL_PANEL_IDS,
+  parseStencilDisabledPanelIds,
   parseStencilEnabledPanelIds,
   parseStencilRuntimeFeatureFlags,
   transformPanelsSourceForStencil,
@@ -114,6 +117,8 @@ describe("stencil-panels", () => {
 
       const active = activeStencilPanelIds();
       expect(active).not.toBeNull();
+      expect(activeStencilId()).toBe("lite-observe-alert");
+      expect(activeStencilEnforcementMode()).toBe("fail-closed");
       expect(isStencilPanelEnabled("dashboard", active)).toBe(true);
       expect(isStencilPanelEnabled("audit", active)).toBe(true);
       expect(isStencilPanelEnabled("settings-general", active)).toBe(true);
@@ -138,6 +143,16 @@ describe("stencil-panels", () => {
           disabled_panel_ids: ["audit"],
         }),
       ).toThrow(/Cannot disable locked safety-core Stencil panel: audit/);
+
+      // H37 & H38: parseStencilDisabledPanelIds and prototype-pollution rejection.
+      const disabledSet = parseStencilDisabledPanelIds("aks-commerce, cost-governance");
+      expect(disabledSet?.has("aks-commerce")).toBe(true);
+      expect(() => parseStencilDisabledPanelIds("dashboard")).toThrow(
+        /Cannot disable locked safety-core Stencil panel: dashboard/,
+      );
+      expect(() =>
+        parseStencilRuntimeFeatureFlags(Object.create({ enabled_panel_ids: ["live"] })),
+      ).toThrow(/must be a plain object/);
     } finally {
       globalThis.__FDAI_STENCIL_FEATURE_FLAGS__ = previous;
     }

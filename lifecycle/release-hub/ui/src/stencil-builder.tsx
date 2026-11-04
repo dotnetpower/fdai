@@ -91,12 +91,15 @@ export function groupPanelsByDomain(
 }
 
 export interface LiveApolloBlueprint {
+  readonly effectiveTopologyProfile: string;
   readonly effectiveWorkloads: string[];
   readonly omittedWorkloads: string[];
   readonly effectiveLoops: string[];
   readonly omittedLoops: string[];
   readonly effectiveJobs: string[];
   readonly omittedJobs: string[];
+  readonly effectiveAddons: string[];
+  readonly omittedAddons: string[];
   readonly effectivePanels: string[];
   readonly disabledPanels: string[];
   readonly omittedPanelCount: number;
@@ -109,6 +112,9 @@ export interface LiveApolloBlueprint {
   readonly loopReasons: Readonly<Record<string, string[]>>;
   readonly panelFeatureFlags: Readonly<Record<string, boolean>>;
   readonly loopFeatureFlags: Readonly<Record<string, boolean>>;
+  readonly workloadFeatureFlags: Readonly<Record<string, boolean>>;
+  readonly jobFeatureFlags: Readonly<Record<string, boolean>>;
+  readonly addonFeatureFlags: Readonly<Record<string, boolean>>;
   readonly runtimeEnvFlags: Readonly<Record<string, string>>;
   readonly consoleBuildCommand: string;
 }
@@ -122,6 +128,7 @@ export function computeLiveApolloBlueprint(
     selectedWorkloads: readonly string[];
     selectedLoops: readonly string[];
     selectedJobs: readonly string[];
+    selectedAddons?: readonly string[];
     autoResolve: boolean;
   },
 ): LiveApolloBlueprint {
@@ -129,6 +136,7 @@ export function computeLiveApolloBlueprint(
   const workloadSet = new Set([...options.selectedWorkloads, ...catalog.locked_workloads]);
   const loopSet = new Set([...options.selectedLoops, ...catalog.locked_loops]);
   const jobSet = new Set([...options.selectedJobs, ...catalog.locked_scheduled_jobs]);
+  const addonSet = new Set([...(options.selectedAddons ?? []), ...catalog.locked_addons]);
 
   const workloadReasons: Record<string, string[]> = {};
   const loopReasons: Record<string, string[]> = {};
@@ -136,6 +144,16 @@ export function computeLiveApolloBlueprint(
   for (const l of catalog.locked_loops) loopReasons[l] = ["locked-core"];
 
   const panelById = new Map(catalog.panels.map((p) => [p.id, p]));
+  if (
+    options.autoResolve &&
+    (panelSet.has("settings-environment") ||
+      panelSet.has("provision") ||
+      panelSet.has("onboarding"))
+  ) {
+    for (const envPanel of ["settings-environment", "provision", "onboarding"]) {
+      if (panelById.has(envPanel)) panelSet.add(envPanel);
+    }
+  }
   for (const panelId of [...panelSet].sort()) {
     const desc = panelById.get(panelId);
     if (!desc) continue;
@@ -147,8 +165,12 @@ export function computeLiveApolloBlueprint(
       if (options.autoResolve) loopSet.add(reqL);
       loopReasons[reqL] = [...new Set([...(loopReasons[reqL] ?? []), `menu:${panelId}`])];
     }
+    for (const reqA of desc.required_addons) {
+      if (options.autoResolve) addonSet.add(reqA);
+    }
   }
 
+  let effectiveTopologyProfile = options.topologyProfile;
   if (options.autoResolve) {
     if (
       loopSet.has("document-ingestion") ||
@@ -162,10 +184,25 @@ export function computeLiveApolloBlueprint(
     if (loopSet.has("remediation-execution") || workloadSet.has("isolated-executor")) {
       workloadSet.add("isolated-executor");
       loopSet.add("remediation-execution");
+      addonSet.add("enterprise-identity-governance");
+      addonSet.add("governed-execution");
     }
     if (jobSet.has("cost-collector") || loopSet.has("cost-governance")) {
       loopSet.add("cost-governance");
       jobSet.add("cost-collector");
+    }
+    if (addonSet.has("governed-execution") || addonSet.has("policy-administration")) {
+      addonSet.add("enterprise-identity-governance");
+    }
+    if (loopSet.has("document-ingestion")) {
+      effectiveTopologyProfile = "full-enterprise";
+    } else if (
+      effectiveTopologyProfile === "lite-observe-alert" &&
+      (workloadSet.size > catalog.locked_workloads.length ||
+        addonSet.has("governed-execution") ||
+        loopSet.has("remediation-execution"))
+    ) {
+      effectiveTopologyProfile = "standard-sre";
     }
   }
 
@@ -175,6 +212,8 @@ export function computeLiveApolloBlueprint(
   const omittedLoops = catalog.loops.filter((l) => !loopSet.has(l)).sort();
   const effectiveJobs = [...jobSet].sort();
   const omittedJobs = catalog.scheduled_jobs.filter((j) => !jobSet.has(j)).sort();
+  const effectiveAddons = [...addonSet].sort();
+  const omittedAddons = catalog.addons.filter((a) => !addonSet.has(a)).sort();
   const effectivePanels = [...panelSet].sort();
   const disabledPanels = catalog.panels
     .map((p) => p.id)
@@ -190,6 +229,18 @@ export function computeLiveApolloBlueprint(
   for (const l of [...catalog.loops].sort()) {
     loopFeatureFlags[l] = loopSet.has(l);
   }
+  const workloadFeatureFlags: Record<string, boolean> = {};
+  for (const w of [...catalog.workloads].sort()) {
+    workloadFeatureFlags[w] = workloadSet.has(w);
+  }
+  const jobFeatureFlags: Record<string, boolean> = {};
+  for (const j of [...catalog.scheduled_jobs].sort()) {
+    jobFeatureFlags[j] = jobSet.has(j);
+  }
+  const addonFeatureFlags: Record<string, boolean> = {};
+  for (const a of [...catalog.addons].sort()) {
+    addonFeatureFlags[a] = addonSet.has(a);
+  }
 
   const includesClamav = workloadSet.has("document-ingestion-api");
   const includesExecutor = workloadSet.has("isolated-executor");
@@ -201,7 +252,7 @@ export function computeLiveApolloBlueprint(
   const cleanId = options.stencilId.trim() || "custom-stencil";
   const releaseLabels = [
     `stencil:${cleanId}`,
-    `profile:${options.topologyProfile}`,
+    `profile:${effectiveTopologyProfile}`,
     `rbac:${rbacPosture}`,
     `clamav:${includesClamav ? "included" : "omitted"}`,
     `executor:${includesExecutor ? "included" : "omitted"}`,
@@ -215,16 +266,25 @@ export function computeLiveApolloBlueprint(
     FDAI_STENCIL_DISABLED_PANELS: disabledPanels.join(","),
     FDAI_STENCIL_ENABLED_LOOPS: effectiveLoops.join(","),
     FDAI_STENCIL_DISABLED_LOOPS: omittedLoops.join(","),
+    FDAI_STENCIL_ENABLED_WORKLOADS: effectiveWorkloads.join(","),
+    FDAI_STENCIL_DISABLED_WORKLOADS: omittedWorkloads.join(","),
+    FDAI_STENCIL_ENABLED_JOBS: effectiveJobs.join(","),
+    FDAI_STENCIL_DISABLED_JOBS: omittedJobs.join(","),
+    FDAI_STENCIL_ENABLED_ADDONS: effectiveAddons.join(","),
+    FDAI_STENCIL_DISABLED_ADDONS: omittedAddons.join(","),
     FDAI_STENCIL_ENFORCE_INACTIVE_MENUS: "1",
   };
 
   return {
+    effectiveTopologyProfile,
     effectiveWorkloads,
     omittedWorkloads,
     effectiveLoops,
     omittedLoops,
     effectiveJobs,
     omittedJobs,
+    effectiveAddons,
+    omittedAddons,
     effectivePanels,
     disabledPanels,
     omittedPanelCount,
@@ -237,6 +297,9 @@ export function computeLiveApolloBlueprint(
     loopReasons,
     panelFeatureFlags,
     loopFeatureFlags,
+    workloadFeatureFlags,
+    jobFeatureFlags,
+    addonFeatureFlags,
     runtimeEnvFlags,
     consoleBuildCommand: `FDAI_STENCIL_ENABLED_PANELS='${effectivePanels.join(",")}' npm --prefix console run build`,
   };
@@ -381,6 +444,7 @@ export function StencilBuilder({
             selectedWorkloads,
             selectedLoops,
             selectedJobs,
+            selectedAddons,
             autoResolve,
           })
         : null,
@@ -392,6 +456,7 @@ export function StencilBuilder({
       selectedWorkloads,
       selectedLoops,
       selectedJobs,
+      selectedAddons,
       autoResolve,
     ],
   );

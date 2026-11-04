@@ -354,7 +354,25 @@ describe("clean console routes", () => {
       });
       expect(legacyHashHref("#/hil-queue")).toBeNull();
       expect(legacyHashHref("#/dashboard")).toBe("/overview");
+
+      // H40 & H41: openTransientSettingsRoute falls back to settings-general for disabled settings tabs,
+      // and navigate normalizes disabled panel paths to /overview.
+      const pushState = vi.fn();
+      vi.stubGlobal("window", {
+        location: { origin: "https://example.com", pathname: "/overview", search: "" },
+        history: { pushState, replaceState: vi.fn(), state: null },
+        dispatchEvent: vi.fn(),
+        scrollTo: vi.fn(),
+      });
+      openTransientSettingsRoute("/settings/models");
+      expect(currentRoute().panelId).toBe("settings-general");
+      closeTransientRoute();
+
+      navigate("/aks-commerce?data=sample");
+      expect(pushState).toHaveBeenCalledWith(null, "", "/overview?data=sample");
     } finally {
+      closeTransientRoute();
+      vi.unstubAllGlobals();
       vi.unstubAllEnvs();
     }
   });

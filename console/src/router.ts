@@ -236,8 +236,12 @@ export function hasTransientRoute(): boolean {
 export function openTransientSettingsRoute(href = panelPath("settings-general")): void {
   if (typeof window === "undefined") return;
   const url = new URL(href, window.location.origin);
-  const route = parseConsoleRoute(url.pathname, url.search);
-  const panel = resolvePanels().find((candidate) => candidate.id === route.panelId);
+  let route = parseConsoleRoute(url.pathname, url.search);
+  let panel = resolvePanels().find((candidate) => candidate.id === route.panelId);
+  if (panel?.group !== "settings" && url.pathname.startsWith("/settings/")) {
+    route = parseConsoleRoute(panelPath("settings-general"), url.search);
+    panel = resolvePanels().find((candidate) => candidate.id === route.panelId);
+  }
   if (panel?.group !== "settings") {
     throw new Error(`Transient Settings route MUST target a Settings panel: ${url.pathname}`);
   }
@@ -278,9 +282,19 @@ export function navigate(href: string, replace = false, state: unknown = null): 
     return;
   }
   transientRoute = null;
-  const resetScroll = shouldResetScroll(window.location.pathname, url.pathname);
+  let targetHref = `${url.pathname}${url.search}${url.hash}`;
+  if (!nextRoute.matched && url.hash === "") {
+    const dataParam = url.searchParams.get("data");
+    targetHref = dataParam
+      ? `${nextRoute.canonicalPathname}?data=${encodeURIComponent(dataParam)}`
+      : nextRoute.canonicalPathname;
+  }
+  const resetScroll = shouldResetScroll(
+    window.location.pathname,
+    !nextRoute.matched && url.hash === "" ? nextRoute.canonicalPathname : url.pathname,
+  );
   const method = replace ? "replaceState" : "pushState";
-  window.history[method](state, "", `${url.pathname}${url.search}${url.hash}`);
+  window.history[method](state, "", targetHref);
   window.dispatchEvent(new Event(ROUTE_EVENT));
   if (resetScroll) {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });

@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 1ae907b4c69379252ba04738e49ea34cf597b9c1
+translation_source_sha: 513824165cba1a23436f992fb32d539cfa479858
 translation_revised: 2026-11-04
 ---
 # 런타임 배포 프로파일
@@ -1074,7 +1074,7 @@ Core가 소유한 `licensing_entitlement_state` 행에 게시합니다. Core 마
 source와 공급자 테스트는 구현을 증명합니다. AKS 경로를 검증 완료로 분류하거나 프로덕션 준비 상태로
 안내하려면 실제 운영 증적이 필요합니다.
 
-대화 상태는 기본값이 꺼진 선택형 Operator 설정 두 가지로 제어합니다. `FDAI_SEMANTIC_DIALOGUE_STATE_ENABLED`는 모든 Core 소비자가 1.12.0을 받아들인 뒤에만 스키마 1.12.0 `dialogue_state` 필드를 내보내고, `FDAI_NARRATOR_DIALOGUE_STATE_T1_ENABLED`는 개발용 로컬 내레이터가 T1 proposer를 실행하게 합니다. 어느 쪽도 배포 프로필, 역할, `conversation_dialogue_snapshot`에 대한 `SELECT`와 `INSERT`를 넘는 권한, 실행 권한을 추가하지 않습니다.
+대화 상태는 기본값이 꺼진 선택형 Operator 설정 두 가지로 제어합니다. `FDAI_SEMANTIC_DIALOGUE_STATE_ENABLED`는 모든 Core 소비자가 1.12.0을 받아들인 뒤에만 스키마 1.12.0 `dialogue_state` 필드를 내보내고, `FDAI_NARRATOR_DIALOGUE_STATE_T1_ENABLED`는 개발용 로컬 내레이터가 T1 proposer를 실행하게 합니다. 어느 쪽도 배포 프로필, 역할, `conversation_dialogue_snapshot`에 대한 `SELECT`와 `INSERT`를 넘는 권한, 실행 권한을 추가하지 않습니다. Release v2 매니페스트 또는 독립 AKS 배포가 검증된 `stencil` 청사진(`hub_image_trust.py`, `standalone_host_values.py`, `console_config.py`, `runtime_bundle_generator.py`)을 제공하면 렌더링된 런타임 ConfigMap과 `fdai-config.js`는 워크로드 신원이나 실행 권한을 바꾸지 않고 fail-closed `FDAI_STENCIL_*` 및 `__FDAI_STENCIL_FEATURE_FLAGS__` 설정을 전달합니다.
 
 ## 관련 문서
 

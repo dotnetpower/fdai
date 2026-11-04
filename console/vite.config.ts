@@ -61,6 +61,8 @@ export default defineConfig(({ mode }) => {
   const env = offline ? {} : loadEnv(mode, process.cwd(), "");
   const stencilPanels =
     process.env.FDAI_STENCIL_ENABLED_PANELS ?? env.VITE_STENCIL_ENABLED_PANELS ?? "";
+  const stencilDisabledPanels =
+    process.env.FDAI_STENCIL_DISABLED_PANELS ?? env.VITE_STENCIL_DISABLED_PANELS ?? "";
   const baseOptions = offlineBuildOptions(mode);
   return {
     ...baseOptions,
@@ -68,6 +70,11 @@ export default defineConfig(({ mode }) => {
       ...(baseOptions.define ?? {}),
       ...(stencilPanels
         ? { "import.meta.env.VITE_STENCIL_ENABLED_PANELS": JSON.stringify(stencilPanels) }
+        : {}),
+      ...(stencilDisabledPanels
+        ? {
+            "import.meta.env.VITE_STENCIL_DISABLED_PANELS": JSON.stringify(stencilDisabledPanels),
+          }
         : {}),
     },
     base: env.VITE_CONSOLE_BASE_PATH ?? "/",
