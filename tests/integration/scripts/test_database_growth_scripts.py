@@ -791,13 +791,16 @@ def test_prune_archived_segments_writes_anchor_and_deletes_cold_prefix(
             return None
 
         def execute(self, query: str, parameters: tuple = ()) -> object:
-            if "pg_advisory_xact_lock" in query:
+            if "pg_advisory_xact_lock" in query or "VACUUM (ANALYZE) audit_log" in query:
                 return SimpleNamespace()
+            if "key = 'audit-archive:anchor'" in query:
+                return SimpleNamespace(fetchone=lambda: (anchored[-1],) if anchored else None)
             if "ORDER BY seq DESC OFFSET" in query and "actor = 'Saga'" not in query:
                 return SimpleNamespace(fetchone=lambda: (88,))
             if "SELECT value FROM state_kv" in query:
                 return SimpleNamespace(fetchone=lambda: ({"schema_version": "3.0.0"},))
             if "actor = 'Saga'" in query:
+                assert parameters == (511,)
                 return SimpleNamespace(fetchone=lambda: (75,))
             if "incident." in query:
                 return SimpleNamespace(fetchone=lambda: (None,))
@@ -819,3 +822,8 @@ def test_prune_archived_segments_writes_anchor_and_deletes_cold_prefix(
     assert deleted_upto == [50]
     assert len(anchored) == 1
     assert parse_audit_archive_anchor(anchored[0]) == (50, str(records[49]["entry_hash"]))
+
+    # A second prune with no newer eligible segment is a clean no-op.
+    second_deleted, second_through = module.prune_archived_segments("dsn", gen_dir)
+    assert second_deleted == 0 and second_through == 50
+    assert len(anchored) == 1 and deleted_upto == [50]
