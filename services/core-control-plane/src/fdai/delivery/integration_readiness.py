@@ -63,6 +63,25 @@ _A3_KEYS: Final[tuple[str, ...]] = (
     "FDAI_TEAMS_PRINCIPAL_MAP_JSON",
     "FDAI_TEAMS_ALLOWED_SERVICE_URLS_JSON",
 )
+_SLACK_A1_SEND_KEYS: Final[tuple[str, ...]] = (
+    "FDAI_SLACK_APPROVAL_API_URL",
+    "FDAI_SLACK_APPROVAL_CHANNEL_ID",
+    "FDAI_SLACK_APPROVAL_BOT_TOKEN",
+)
+_SLACK_A1_CALLBACK_KEYS: Final[tuple[str, ...]] = (
+    "FDAI_SLACK_SIGNING_SECRET",
+    "FDAI_SLACK_TEAM_ID",
+    "FDAI_SLACK_PRINCIPAL_MAP_JSON",
+    "FDAI_HIL_DECISION_TOPIC",
+    "FDAI_STATE_STORE_DSN",
+)
+_SLACK_A3_KEYS: Final[tuple[str, ...]] = (
+    "FDAI_CHANNEL_EDGE_ENABLED_CHANNELS",
+    "FDAI_SLACK_SIGNING_SECRET",
+    "FDAI_SLACK_BOT_TOKEN",
+    "FDAI_SLACK_TEAM_ID",
+    "FDAI_SLACK_PRINCIPAL_MAP_JSON",
+)
 
 _NOT_OBSERVED: Final[str] = "prerequisites are owned by another runtime and were not observed"
 _INCOMPLETE: Final[str] = "configuration is incomplete"
@@ -189,6 +208,73 @@ def teams_a3_conversation_projection(env: Mapping[str, str]) -> dict[str, object
             reason="the channel edge does not enable Teams conversations",
         )
     return required_configuration("teams-a3-conversation", _A3_KEYS, env, source=SOURCE_OPERATOR)
+
+
+def slack_a1_send_projection(env: Mapping[str, str]) -> dict[str, object]:
+    """Project Core-side Slack approval-card delivery prerequisites."""
+    from fdai.delivery.chatops.slack_adapter import SLACK_POST_URL
+    from fdai.delivery.chatops.slack_binding import resolve_local_slack_approval_environment
+
+    resolved = resolve_local_slack_approval_environment(env)
+    row = required_configuration(
+        "slack-a1-approval-send",
+        _SLACK_A1_SEND_KEYS,
+        resolved,
+        source=SOURCE_CORE,
+    )
+    if not row["ready"]:
+        return row
+    if resolved.get("FDAI_SLACK_APPROVAL_API_URL", "").strip() != SLACK_POST_URL:
+        return invalid_configuration("slack-a1-approval-send", source=SOURCE_CORE)
+    if any(
+        resolved.get(name, "").strip()
+        for name in ("FDAI_TEAMS_APPROVAL_ACTIVITY_URL", "FDAI_CHATOPS_WEBHOOK_URL")
+    ):
+        return invalid_configuration("slack-a1-approval-send", source=SOURCE_CORE)
+    return row
+
+
+def slack_a1_callback_projection(env: Mapping[str, str]) -> dict[str, object]:
+    """Project Operator-side Slack approval-handoff prerequisites when observable."""
+    if not any(env.get(name, "").strip() for name in _SLACK_A1_CALLBACK_KEYS):
+        return unobserved_configuration("slack-a1-approval-callback", source=SOURCE_OPERATOR)
+    row = required_configuration(
+        "slack-a1-approval-callback",
+        _SLACK_A1_CALLBACK_KEYS,
+        env,
+        source=SOURCE_OPERATOR,
+    )
+    if row["ready"] and not _valid_json_string_map(env.get("FDAI_SLACK_PRINCIPAL_MAP_JSON", "")):
+        return invalid_configuration("slack-a1-approval-callback", source=SOURCE_OPERATOR)
+    return row
+
+
+def slack_a3_conversation_projection(env: Mapping[str, str]) -> dict[str, object]:
+    """Project Operator-owned Slack A3 conversation edge prerequisites when observable."""
+    if not any(env.get(name, "").strip() for name in _SLACK_A3_KEYS):
+        return unobserved_configuration("slack-a3-conversation", source=SOURCE_OPERATOR)
+    enabled_channels = {
+        item.strip().casefold()
+        for item in env.get("FDAI_CHANNEL_EDGE_ENABLED_CHANNELS", "").split(",")
+        if item.strip()
+    }
+    if enabled_channels and "slack" not in enabled_channels:
+        return integration_row(
+            "slack-a3-conversation",
+            source=SOURCE_OPERATOR,
+            configured=True,
+            ready=False,
+            reason="the channel edge does not enable Slack conversations",
+        )
+    row = required_configuration(
+        "slack-a3-conversation",
+        _SLACK_A3_KEYS,
+        env,
+        source=SOURCE_OPERATOR,
+    )
+    if row["ready"] and not _valid_json_string_map(env.get("FDAI_SLACK_PRINCIPAL_MAP_JSON", "")):
+        return invalid_configuration("slack-a3-conversation", source=SOURCE_OPERATOR)
+    return row
 
 
 def teams_notification_projections(
@@ -508,9 +594,12 @@ def integration_projection(
     return [
         teams_a1_send_projection(env),
         teams_a1_callback_projection(env),
+        slack_a1_send_projection(env),
+        slack_a1_callback_projection(env),
         a2_row,
         a4_row,
         teams_a3_conversation_projection(env),
+        slack_a3_conversation_projection(env),
         notification_bindings_projection(env),
         *channel_rows,
         email,
@@ -573,6 +662,9 @@ __all__ = [
     "notification_bindings_projection",
     "notification_channel_capability_projections",
     "required_configuration",
+    "slack_a1_callback_projection",
+    "slack_a1_send_projection",
+    "slack_a3_conversation_projection",
     "teams_a1_callback_projection",
     "teams_a1_send_projection",
     "teams_a3_conversation_projection",

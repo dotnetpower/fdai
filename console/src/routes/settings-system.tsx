@@ -91,6 +91,8 @@ export function formatLicensingStatusBadge(
 const APPROVAL_INTEGRATION_KEYS: ReadonlySet<string> = new Set([
   "teams-a1-approval-send",
   "teams-a1-approval-callback",
+  "slack-a1-approval-send",
+  "slack-a1-approval-callback",
 ]);
 const NOTIFICATION_INTEGRATION_KEYS: ReadonlySet<string> = new Set([
   "teams-a2-operational-alert",
@@ -98,7 +100,10 @@ const NOTIFICATION_INTEGRATION_KEYS: ReadonlySet<string> = new Set([
   "notification-bindings",
   "email",
 ]);
-const CONVERSATION_INTEGRATION_KEYS: ReadonlySet<string> = new Set(["teams-a3-conversation"]);
+const CONVERSATION_INTEGRATION_KEYS: ReadonlySet<string> = new Set([
+  "teams-a3-conversation",
+  "slack-a3-conversation",
+]);
 interface Props {
   readonly client: OperatorApiClient;
   readonly auth: AuthContext;
@@ -2500,9 +2505,12 @@ function integrationLabel(key: string): string {
   switch (key) {
     case "teams-a1-approval-send": return settingsIntegrationsText("teamsA1SendLabel");
     case "teams-a1-approval-callback": return settingsIntegrationsText("teamsA1CallbackLabel");
+    case "slack-a1-approval-send": return settingsIntegrationsText("slackA1SendLabel");
+    case "slack-a1-approval-callback": return settingsIntegrationsText("slackA1CallbackLabel");
     case "teams-a2-operational-alert": return settingsIntegrationsText("teamsA2Label");
     case "teams-a4-digest": return settingsIntegrationsText("teamsA4Label");
     case "teams-a3-conversation": return settingsIntegrationsText("teamsA3Label");
+    case "slack-a3-conversation": return settingsIntegrationsText("slackA3Label");
     case "operational-evidence.agent-discussion-read":
       return settingsIntegrationsText("opEvidence.agent-discussion-read.label");
     case "operational-evidence.case-history-read":
@@ -2535,9 +2543,12 @@ function integrationHint(key: string): string {
   switch (key) {
     case "teams-a1-approval-send": return settingsIntegrationsText("teamsA1SendHint");
     case "teams-a1-approval-callback": return settingsIntegrationsText("teamsA1CallbackHint");
+    case "slack-a1-approval-send": return settingsIntegrationsText("slackA1SendHint");
+    case "slack-a1-approval-callback": return settingsIntegrationsText("slackA1CallbackHint");
     case "teams-a2-operational-alert": return settingsIntegrationsText("teamsA2Hint");
     case "teams-a4-digest": return settingsIntegrationsText("teamsA4Hint");
     case "teams-a3-conversation": return settingsIntegrationsText("teamsA3Hint");
+    case "slack-a3-conversation": return settingsIntegrationsText("slackA3Hint");
     case "operational-evidence.agent-discussion-read":
       return settingsIntegrationsText("opEvidence.agent-discussion-read.hint");
     case "operational-evidence.case-history-read":

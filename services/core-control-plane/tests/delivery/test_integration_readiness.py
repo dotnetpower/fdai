@@ -156,3 +156,83 @@ def test_placeholder_detection_refuses_non_https_and_sentinels() -> None:
     assert endpoint_is_placeholder("  ") is True
     assert endpoint_is_placeholder("http://example.invalid") is True
     assert endpoint_is_placeholder("https://example.invalid/trigger") is False
+
+
+def test_slack_a1_and_a3_categories_are_distinct_and_validated() -> None:
+    rows = _rows({})
+    assert [
+        "slack-a1-approval-send",
+        "slack-a1-approval-callback",
+        "slack-a3-conversation",
+    ] == [key for key in rows if key.startswith("slack-")]
+    assert rows["slack-a1-approval-send"]["configured"] is False
+    assert rows["slack-a1-approval-callback"]["observed"] is False
+    assert rows["slack-a3-conversation"]["observed"] is False
+
+    partial_send = _rows({"FDAI_SLACK_APPROVAL_API_URL": "https://slack.com/api/chat.postMessage"})
+    assert partial_send["slack-a1-approval-send"]["configured"] is True
+    assert partial_send["slack-a1-approval-send"]["ready"] is False
+    assert partial_send["slack-a1-approval-send"]["reason"] == "configuration is incomplete"
+
+    invalid_url = _rows(
+        {
+            "FDAI_SLACK_APPROVAL_API_URL": "https://example.invalid/slack",
+            "FDAI_SLACK_APPROVAL_CHANNEL_ID": "CEXAMPLE1",
+            "FDAI_SLACK_APPROVAL_BOT_TOKEN": "synthetic-token",
+        }
+    )
+    assert invalid_url["slack-a1-approval-send"]["ready"] is False
+    assert invalid_url["slack-a1-approval-send"]["reason"] == "configuration is invalid"
+
+    competing = _rows(
+        {
+            "FDAI_SLACK_APPROVAL_API_URL": "https://slack.com/api/chat.postMessage",
+            "FDAI_SLACK_APPROVAL_CHANNEL_ID": "CEXAMPLE1",
+            "FDAI_SLACK_APPROVAL_BOT_TOKEN": "synthetic-token",
+            "FDAI_TEAMS_APPROVAL_ACTIVITY_URL": "https://smba.example.com/activities",
+        }
+    )
+    assert competing["slack-a1-approval-send"]["ready"] is False
+    assert competing["slack-a1-approval-send"]["reason"] == "configuration is invalid"
+
+    ready_send = _rows(
+        {
+            "FDAI_SLACK_APPROVAL_API_URL": "https://slack.com/api/chat.postMessage",
+            "FDAI_SLACK_APPROVAL_CHANNEL_ID": "CEXAMPLE1",
+            "FDAI_SLACK_APPROVAL_BOT_TOKEN": "synthetic-token",
+        }
+    )["slack-a1-approval-send"]
+    assert ready_send["ready"] is True
+    assert ready_send["source"] == "core-control-plane"
+
+    callback_env = {
+        "FDAI_SLACK_SIGNING_SECRET": "synthetic-signing",
+        "FDAI_SLACK_TEAM_ID": "TEXAMPLE1",
+        "FDAI_SLACK_PRINCIPAL_MAP_JSON": '{"U1": "00000000-0000-0000-0000-000000000002"}',
+        "FDAI_HIL_DECISION_TOPIC": "fdai.hil.decisions",
+        "FDAI_STATE_STORE_DSN": "postgresql://localhost/fdai",
+    }
+    assert _rows(callback_env)["slack-a1-approval-callback"]["ready"] is True
+    assert (
+        _rows({**callback_env, "FDAI_SLACK_PRINCIPAL_MAP_JSON": "{}"})[
+            "slack-a1-approval-callback"
+        ]["ready"]
+        is False
+    )
+
+    disabled_a3 = _rows({"FDAI_CHANNEL_EDGE_ENABLED_CHANNELS": "teams"})["slack-a3-conversation"]
+    assert disabled_a3["observed"] is True
+    assert disabled_a3["ready"] is False
+    assert disabled_a3["reason"] == "the channel edge does not enable Slack conversations"
+
+    ready_a3 = _rows(
+        {
+            "FDAI_CHANNEL_EDGE_ENABLED_CHANNELS": "slack",
+            "FDAI_SLACK_SIGNING_SECRET": "synthetic-signing",
+            "FDAI_SLACK_BOT_TOKEN": "synthetic-token",
+            "FDAI_SLACK_TEAM_ID": "TEXAMPLE1",
+            "FDAI_SLACK_PRINCIPAL_MAP_JSON": '{"U1": "00000000-0000-0000-0000-000000000002"}',
+        }
+    )["slack-a3-conversation"]
+    assert ready_a3["ready"] is True
+    assert ready_a3["source"] == "operator-service"
