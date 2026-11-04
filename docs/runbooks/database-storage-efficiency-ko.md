@@ -1,6 +1,6 @@
 ---
 translation_of: database-storage-efficiency.md
-translation_source_sha: ee906f642fb99f265927ff3c9c7e1f767e122360
+translation_source_sha: 11adef517878ee4aadb9fdcd73e204a0147c7d17
 translation_revised: 2026-11-04
 ---
 # 데이터베이스 저장 공간 증가 진단
@@ -221,7 +221,7 @@ inventory generation이 단계적으로 행을 추가하므로 짧은 구간은 
 - **내보낸 감사 행 삭제.** `verify_chain`과 이를 호출하는 준비 상태, 카오스, 카탈로그 검토,
   의미 갱신 검사는 genesis부터 테이블을 순회하고, incident 투영은 초기 `incident.open` 행을
   읽습니다. 삭제하려면 manifest의 보관 앵커를 받아들이는 검증기와 incident 투영 검토가 먼저 필요합니다.
-- **abstain, risk-gate, RCA, Saga 수신 기록 집계.** 각각이 개별 판단 기록이므로 개수로 바꾸면
+- **`abstain`, `risk_gate`, RCA, Saga 수신 기록 집계.** 각각이 개별 판단 기록이므로 개수로 바꾸면
   재생 가능성이 약해집니다. 보관 방식을 우선하세요.
 
 `audit_families`에서 하루 약 300 MB를 넘는 증가가 이어지면 다시 검토하세요. 증가 보고서는 15분

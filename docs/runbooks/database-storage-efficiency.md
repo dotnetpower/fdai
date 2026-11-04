@@ -212,7 +212,7 @@ archiving and recreating loses nothing:
   semantic-refresh checks that call it walk the table from genesis, and incident projections read
   early `incident.open` rows. Purging needs a verifier that accepts an archive anchor from the
   manifest and an incident-projection review first.
-- **Aggregating abstain, risk-gate, RCA, or Saga ingress records.** Each is an individual decision
+- **Aggregating `abstain`, `risk_gate`, RCA, or Saga ingress records.** Each is an individual decision
   record, so replacing it with a count weakens replay. Prefer the archive.
 
 Reconsider when `audit_families` shows sustained growth above about 300 MB per day. The growth
