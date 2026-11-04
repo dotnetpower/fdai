@@ -1,8 +1,8 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: f32b8f284b937f832f3a99407e7558ddc11e4fdf
-translation_revised: 2026-10-29
+translation_source_sha: 6782273e87d2d3bf52df142f396ecf3e99ca097a
+translation_revised: 2026-11-04
 ---
 # AKS 진단 근거 플레인
 
@@ -78,6 +78,8 @@ Console은 설치나 승인 명령을 제공하지 않습니다.
 정책 소유권 분석, shadow 세분화 probe를 진단 권한 밖에 둡니다. 이러한 검사는 제안이나 근거
 출처를 사용할 수 없게 만들 수 있지만, 인벤토리 승격, 설치 승인, 실행기 전달 또는 실환경
 네트워크 적용 입증은 할 수 없습니다.
+제안 알림 상태는 진단에 영향을 주지 않습니다. 한 번도 알리지 않은 제안은 dispatch plan이 없으며,
+발견 단계는 이를 inventory 실패가 아니라 전달된 것이 없는 상태로 취급합니다.
 
 런타임은 개수가 제한된 클러스터 연결 모음을 허용합니다. 각 연결은 다음을 포함합니다.
 

@@ -249,6 +249,10 @@ boundary. Replaying the same proposal cannot send duplicate Teams or Slack messa
 principal/channel, while a changed proposal digest sends one new informational message. The card
 contains only a Console link and text stating that it does not approve, install, execute, or grant
 deployment authority.
+A proposal that no notification was ever attempted for has no durable dispatch plan. Discovery treats that
+as nothing delivered and lets the first publication create the plan, instead of failing the inventory
+service; a plan that exists but is incomplete still fails closed. This changes no proposal content,
+authority, or delivery guarantee.
 
 The implementation uses `core.observer-deployment.projections` and honors the existing
 `FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC` multiplexing setting. A successful discovery publishes the
