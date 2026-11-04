@@ -16,7 +16,11 @@ import {
   measuredFailedGuardCount,
   meterPercent,
 } from "./control-assurance";
-import { buildOperatingOutcomeViewSnapshot } from "./analytics-hubs.view";
+import {
+  buildOperatingOutcomeViewSnapshot,
+  formatDecisionQueueHeadline,
+  formatWorkflowValueClaimDrilldown,
+} from "./analytics-hubs.view";
 import {
   OUTCOME_KEYS,
   autoResolutionCounts,
@@ -314,5 +318,48 @@ describe("trust-routing measurements", () => {
       indicator: "verifier",
     });
     expect(routingParamsForTier("t0", search)).toEqual({ window: "30d" });
+  });
+
+  it("formats read-only Decision Queue headlines and Workflow ValueClaim drill-downs", () => {
+    expect(
+      formatDecisionQueueHeadline({
+        read_only: true,
+        authority: "none",
+        state: "complete",
+        scope_ref: "scope.payments",
+        ranking_currency: "USD",
+        total_pending_count: 1,
+        cards: [
+          {
+            rank: 1,
+            case_id: "case-101",
+            target_resource_ref: "res-aks-payments",
+            recommended_action_type: "ops.scale-in",
+            cost_badge: "240 USD",
+            blast_radius_tier: "low",
+            change_risk_tier: "medium",
+            uncertainty: 0.08,
+            quorum_label: "owner (quorum 2)",
+            approval_status: "pending",
+          },
+        ],
+      }),
+    ).toBe(
+      "Decision Queue (scope.payments): 1 pending; top candidate case-101 (240 USD, ops.scale-in).",
+    );
+
+    expect(
+      formatWorkflowValueClaimDrilldown({
+        workflow_ref: "blast-radius-gated-service-restart",
+        objective_ref: "objective.resilience.mttr",
+        unit: "duration_seconds",
+        currency: null,
+        settled_claim_count: 2,
+        total_conservative_improvement: "1800",
+        average_reduction_pct: 50,
+      }),
+    ).toBe(
+      "blast-radius-gated-service-restart: 1800 duration_seconds across 2 settled claim(s) (-50.0% vs baseline)",
+    );
   });
 });

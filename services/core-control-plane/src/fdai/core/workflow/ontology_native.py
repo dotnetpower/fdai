@@ -27,10 +27,21 @@ from typing import Any, Final
 
 from fdai_service_contracts.ontology_query import content_digest
 
+from fdai.core.measurement.closed_loop_governance import WorkflowScaleSafetyController
+from fdai.core.ontology_platform.aip_agent_integration import (
+    AbstentionRecoveryPlan,
+    ApproverDecisionBriefing,
+    build_approver_decision_briefing,
+    plan_evidence_recovery_on_abstention,
+)
+from fdai.core.workflow.orchestrator import ProcessRun, WorkflowOrchestrator, derive_process_id
+from fdai.shared.contracts.models import Mode, Workflow
 from fdai.shared.providers.ontology_instance import (
     OntologyGraphSnapshot,
     OntologyInstanceStore,
 )
+from fdai.shared.providers.process_runtime import ProcessStatus
+from fdai.shared.providers.state_store import StateStore
 
 _STEP_OUTPUT_TOKEN: Final = re.compile(
     r"^\$\{step\.([a-zA-Z0-9_-]{1,64})\.output\.([a-zA-Z0-9_]{1,64})\}$"
@@ -397,12 +408,171 @@ def _parse_dt(val: object) -> datetime | None:
     return None
 
 
+@dataclass(frozen=True, slots=True)
+class OntologyAwareProcessOutcome:
+    """End-to-end outcome of running a workflow through ``OntologyAwareWorkflowRuntime``."""
+
+    run: ProcessRun | None
+    blocked_by_scale_safety_reason: str | None
+    resolved_ownership: ResolvedOwnershipApprovers | None
+    approver_briefing: ApproverDecisionBriefing | None
+    abstention_recovery_plan: AbstentionRecoveryPlan | None
+
+
+class OntologyAwareWorkflowRuntime:
+    """Compose Wave 5 safety, dynamic Ownership, step outputs, briefings, and recovery."""
+
+    def __init__(
+        self,
+        *,
+        orchestrator: WorkflowOrchestrator,
+        state_store: StateStore,
+        ownership_resolver: OntologyOwnershipApprovalResolver | None = None,
+        scale_safety: WorkflowScaleSafetyController | None = None,
+    ) -> None:
+        self._orchestrator = orchestrator
+        self._state_store = state_store
+        self._ownership_resolver = ownership_resolver
+        self._scale_safety = scale_safety
+
+    async def execute(
+        self,
+        workflow: Workflow,
+        *,
+        scope_ref: str,
+        target_resource_id: str,
+        trigger_ts: datetime,
+        context: Mapping[str, str] | None = None,
+        step_outputs: Mapping[str, StepFunctionOutput] | None = None,
+        blast_radius_reading: Mapping[str, Any] | None = None,
+        change_risk_reading: Mapping[str, Any] | None = None,
+        cost_of_delay_reading: Mapping[str, Any] | None = None,
+        abstention_reason_codes: tuple[str, ...] = (),
+        mode: Mode = Mode.SHADOW,
+    ) -> OntologyAwareProcessOutcome:
+        process_id = derive_process_id(
+            workflow_name=workflow.name,
+            target_resource_id=target_resource_id,
+            trigger_ts=trigger_ts,
+        )
+        if self._scale_safety is not None:
+            acquired, block_reason = await self._scale_safety.acquire_target_and_scope(
+                scope_ref=scope_ref,
+                target_resource_ref=target_resource_id,
+                process_id=process_id,
+            )
+            if not acquired:
+                return OntologyAwareProcessOutcome(
+                    run=None,
+                    blocked_by_scale_safety_reason=block_reason,
+                    resolved_ownership=None,
+                    approver_briefing=None,
+                    abstention_recovery_plan=None,
+                )
+        try:
+            ownership = (
+                await self._ownership_resolver.resolve(
+                    target_resource_ref=target_resource_id, at=trigger_ts
+                )
+                if self._ownership_resolver is not None
+                else None
+            )
+            merged_context = dict(context or {})
+            if ownership is not None:
+                merged_context["ontology.owner_refs"] = ",".join(ownership.owner_refs)
+                merged_context["ontology.escalation_refs"] = ",".join(ownership.escalation_refs)
+            adapted_wf = (
+                _substitute_workflow_step_outputs(workflow, step_outputs)
+                if step_outputs
+                else workflow
+            )
+            run = await self._orchestrator.run(
+                adapted_wf,
+                target_resource_id=target_resource_id,
+                trigger_ts=trigger_ts,
+                context=merged_context,
+                mode=mode,
+            )
+            briefing: ApproverDecisionBriefing | None = None
+            recovery: AbstentionRecoveryPlan | None = None
+            action_step = next((s for s in adapted_wf.steps if s.action_type_ref is not None), None)
+            if run.status is ProcessStatus.WAITING and action_step is not None:
+                briefing = build_approver_decision_briefing(
+                    process_id=run.process_id,
+                    workflow_name=adapted_wf.name,
+                    target_resource_ref=target_resource_id,
+                    recommended_action_type=action_step.action_type_ref or "no-op",
+                    compensated_by=action_step.compensated_by,
+                    blast_radius_reading=blast_radius_reading or {"tier": "low", "complete": True},
+                    change_risk_reading=change_risk_reading or {"tier": "low", "complete": True},
+                    impacted_service_refs=ownership.service_refs if ownership else (),
+                    rca_selection=None,
+                    cost_of_delay_reading=cost_of_delay_reading,
+                    evidence_refs=(f"process:{run.process_id}",),
+                    generated_at=trigger_ts,
+                )
+                await self._state_store.write_state(
+                    f"workflow:approver-briefing:{run.process_id}",
+                    {
+                        "process_id": briefing.process_id,
+                        "briefing_digest": briefing.briefing_digest,
+                        "recommended_action_type": briefing.recommended_action_type,
+                        "impacted_service_refs": list(briefing.impacted_service_refs),
+                    },
+                )
+            elif run.status is ProcessStatus.FAILED and any(
+                sr.reason == "gate_blocked" for sr in run.step_results
+            ):
+                codes = abstention_reason_codes or ("gate_blocked_unobserved_or_exceeded",)
+                recovery = plan_evidence_recovery_on_abstention(
+                    target_ref=target_resource_id,
+                    decision_reason_codes=codes,
+                )
+                if recovery is not None:
+                    await self._state_store.write_state(
+                        f"workflow:abstention-recovery:{run.process_id}",
+                        {
+                            "process_id": run.process_id,
+                            "plan_digest": recovery.plan_digest,
+                            "required_probes": list(recovery.required_probes),
+                        },
+                    )
+            return OntologyAwareProcessOutcome(
+                run=run,
+                blocked_by_scale_safety_reason=None,
+                resolved_ownership=ownership,
+                approver_briefing=briefing,
+                abstention_recovery_plan=recovery,
+            )
+        finally:
+            if self._scale_safety is not None:
+                await self._scale_safety.release_target_and_scope(
+                    scope_ref=scope_ref,
+                    target_resource_ref=target_resource_id,
+                    process_id=process_id,
+                )
+
+
+def _substitute_workflow_step_outputs(
+    workflow: Workflow, step_outputs: Mapping[str, StepFunctionOutput]
+) -> Workflow:
+    updated_steps = [
+        step.model_copy(update={"params": resolve_step_output_params(step.params, step_outputs)})
+        if step.params
+        else step
+        for step in workflow.steps
+    ]
+    return workflow.model_copy(update={"steps": updated_steps})
+
+
 __all__ = [
     "ConditionTriggerFiring",
     "FanOutBatchReceipt",
     "ForEachObjectSetRunner",
     "MemberFanOutOutcome",
     "ObjectSetWorkflowInput",
+    "OntologyAwareProcessOutcome",
+    "OntologyAwareWorkflowRuntime",
     "OntologyConditionTriggerEvaluator",
     "OntologyOwnershipApprovalResolver",
     "ResolvedOwnershipApprovers",
