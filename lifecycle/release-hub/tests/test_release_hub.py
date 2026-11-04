@@ -114,6 +114,36 @@ def test_cli_requires_private_state_and_refuses_key_reinitialization(tmp_path: P
     assert raised.value.code == 2
 
 
+def test_cli_default_uses_persistent_state_without_demo_releases(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    state = tmp_path / ".local/state/fdai/lifecycle-preview/release-hub"
+    with pytest.raises(SystemExit) as raised:
+        main(["serve"])
+    assert raised.value.code == 2
+    assert not state.exists()
+    assert main(["dev-init"]) == 0
+    catalogs = []
+
+    def observe_server(app, **options):
+        assert options["host"] == "127.0.0.1"
+        with TestClient(
+            app,
+            base_url="http://127.0.0.1:8091",
+            client=("127.0.0.1", 50001),
+        ) as client:
+            catalogs.append(client.get("/v1/catalog").json())
+
+    monkeypatch.setattr("uvicorn.run", observe_server)
+    assert main(["serve"]) == 0
+    assert (state / "release-hub.sqlite").is_file()
+    assert len(catalogs) == 1
+    assert catalogs[0]["releases"] == []
+    assert catalogs[0]["revision"] == 0
+
+
 def test_registration_publication_contribution_recall_and_restart(store: ReleaseStore) -> None:
     publish(store)
     change(store, "contribute", channel="RELEASE_CANDIDATE")

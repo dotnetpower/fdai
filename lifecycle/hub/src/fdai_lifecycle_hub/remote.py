@@ -649,6 +649,9 @@ def _run() -> None:
         if args.command in {"prepare", "migrate"}:
             prepare = args.command == "prepare"
             migrate(engine, "lifecycle_hub", initialize_target, prepare=prepare)
+            from fdai_lifecycle_hub.release_connection import prepare_connection_schema
+
+            prepare_connection_schema(engine)
             require_schema(engine, "lifecycle_hub", allow_pre_native=prepare)
             if source is not None and not prepare:
                 from fdai_lifecycle_hub.remote_catalog import bind_catalog_if_missing
@@ -668,6 +671,9 @@ def _run() -> None:
             remote_auth=config.auth,
             remote_origin=config.origin,
             transition_key=key,
+            release_hub_endpoint=(
+                source.url.removesuffix("/v1/catalog/export") if source is not None else None
+            ),
         )
         if source is not None:
             catalog = RemoteCatalog(engine, source)
