@@ -83,6 +83,18 @@ async function installFixtures(page: Page): Promise<void> {
       return;
     }
     const path = new URL(route.request().url()).pathname.replace(/^\/api(?=\/)/, "");
+    if (path === "/policy/revisions" && route.request().method() === "POST") {
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify({
+          request_id: "policy-req-13",
+          request_digest: `sha256:${"b".repeat(64)}`,
+          published: true,
+        }),
+      });
+      return;
+    }
     if (path in fixtures) {
       await route.fulfill({
         status: 200,
@@ -196,3 +208,44 @@ for (const locale of ["en", "ko"] as const) {
     expect(documentSize.scrollWidth).toBeLessThanOrEqual(documentSize.clientWidth);
   });
 }
+
+test("Console version tab and policy administration composer work across EN/KO and 1440/993/390 viewports", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+
+  await page.goto("/settings/environment-and-deployment/version?data=sample&locale=en");
+  const versionRoot = page.locator(".settings-overlay .environment-deployment-route");
+  await expect(
+    versionRoot.getByRole("heading", { name: "Installation version and lifecycle posture" }),
+  ).toBeVisible();
+  await expect(versionRoot.getByText("1.4.3 -> 1.5.1")).toBeVisible();
+  await expect(
+    versionRoot.getByText(/This Console version tab is read-only/),
+  ).toBeVisible();
+
+  for (const width of [1440, 993, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(
+      await versionRoot.evaluate((el) => el.scrollWidth <= el.clientWidth),
+    ).toBe(true);
+  }
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/settings/runtime-policies?policy-admin=1&locale=en");
+  const policyRoot = page.locator(".settings-overlay #settings-policy-administration");
+  await expect(
+    policyRoot.getByRole("heading", {
+      name: "Policy administration (Approval & Admission OPA revisions)",
+    }),
+  ).toBeVisible();
+  await policyRoot.getByRole("button", { name: "Submit policy revision request" }).click();
+  await expect(policyRoot.getByRole("status")).toContainText("policy-req-13");
+
+  for (const width of [1440, 993, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(
+      await policyRoot.evaluate((el) => el.scrollWidth <= el.clientWidth),
+    ).toBe(true);
+  }
+});

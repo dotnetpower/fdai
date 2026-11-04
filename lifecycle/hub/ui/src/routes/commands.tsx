@@ -1,29 +1,52 @@
-import { useState } from "preact/hooks";
-import { hubApi, HubApiError } from "../api";
+import { useEffect, useState } from "preact/hooks";
+import { hubApi, HubApiError, type LifecycleCommandItem } from "../api";
 import { AsyncBoundary } from "../components/async-boundary";
 import { Link } from "../components/link";
+import { formatTimestamp } from "../format";
 import { useAsync } from "../hooks/use-async";
 import { tr, useHubLocale } from "../locale";
 import { installationPath } from "../router";
 
+type CommandActionMode = "suppress" | "authority-lowering" | "break-glass" | "lift";
+
 export function CommandsPage() {
   const [locale] = useHubLocale();
   const installations = useAsync(() => hubApi.listInstallations(), []);
+  const [activeCommands, setActiveCommands] = useState<readonly LifecycleCommandItem[]>([]);
   const [installationId, setInstallationId] = useState("");
-  const [mode, setMode] = useState<"suppress" | "lift">("suppress");
+  const [mode, setMode] = useState<CommandActionMode>("suppress");
   const [scope, setScope] = useState("installation");
   const [durationHours, setDurationHours] = useState("2");
   const [reason, setReason] = useState("maintenance_freeze");
+  const [targetAutonomy, setTargetAutonomy] = useState<"shadow" | "hil">("shadow");
+  const [engageKillSwitch, setEngageKillSwitch] = useState(false);
+  const [bypassMaintenance, setBypassMaintenance] = useState(true);
+  const [bypassSuppression, setBypassSuppression] = useState(true);
+  const [bypassVersionRange, setBypassVersionRange] = useState(false);
   const [confirmation, setConfirmation] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
+  function loadCommands() {
+    void hubApi
+      .listCommands()
+      .then((res) => setActiveCommands(res.commands))
+      .catch(() => setActiveCommands([]));
+  }
+
+  useEffect(() => {
+    loadCommands();
+  }, []);
+
   const targetId = installationId.trim();
+  const cleanScope = scope.trim();
   const expectedConfirmation =
     mode === "suppress"
-      ? `suppress ${targetId} ${scope.trim()}`
-      : `lift suppression ${targetId} ${scope.trim()}`;
+      ? `suppress ${targetId} ${cleanScope}`
+      : mode === "lift"
+      ? `lift suppression ${targetId} ${cleanScope}`
+      : `command ${mode} ${targetId} ${cleanScope}`;
 
   async function submit(event: SubmitEvent) {
     event.preventDefault();
@@ -32,12 +55,12 @@ export function CommandsPage() {
     setError("");
     setNotice("");
     try {
+      const now = new Date();
+      const hours = Math.max(1, Math.min(720, Number.parseInt(durationHours, 10) || 2));
+      const ends = new Date(now.getTime() + hours * 3600_000);
       if (mode === "suppress") {
-        const now = new Date();
-        const hours = Math.max(1, Math.min(720, Number.parseInt(durationHours, 10) || 2));
-        const ends = new Date(now.getTime() + hours * 3600_000);
         await hubApi.addSuppression(targetId, {
-          scope: scope.trim(),
+          scope: cleanScope,
           starts_at: now.toISOString(),
           ends_at: ends.toISOString(),
           reason: reason.trim(),
@@ -46,23 +69,51 @@ export function CommandsPage() {
         setNotice(
           tr(
             locale,
-            `Suppression window added for ${targetId} (${scope.trim()}) until ${ends.toISOString()}.`,
-            `${targetId} (${scope.trim()})에 대한 억제 구간이 ${ends.toISOString()}까지 추가되었습니다.`,
+            `Suppression window added for ${targetId} (${cleanScope}) until ${ends.toISOString()}.`,
+            `${targetId} (${cleanScope})에 대한 억제 구간이 ${ends.toISOString()}까지 추가되었습니다.`,
           ),
         );
-      } else {
+      } else if (mode === "lift") {
         await hubApi.liftSuppression(targetId, {
-          scope: scope.trim(),
+          scope: cleanScope,
           reason: reason.trim(),
           confirmation,
         });
         setNotice(
           tr(
             locale,
-            `Active suppression lifted for ${targetId} (${scope.trim()}).`,
-            `${targetId} (${scope.trim()})의 활성 억제가 해제되었습니다.`,
+            `Active suppression lifted for ${targetId} (${cleanScope}).`,
+            `${targetId} (${cleanScope})의 활성 억제가 해제되었습니다.`,
           ),
         );
+      } else {
+        const bypassScopes = [
+          ...(bypassMaintenance ? ["maintenance-window"] : []),
+          ...(bypassSuppression ? ["suppression-window"] : []),
+          ...(bypassVersionRange ? ["version-range"] : []),
+        ];
+        const commandId = `cmd-${mode}-${now.getTime()}`;
+        await hubApi.issueCommand(targetId, {
+          command_id: commandId,
+          kind: mode,
+          scope: cleanScope,
+          starts_at: now.toISOString(),
+          expires_at: ends.toISOString(),
+          reason: reason.trim(),
+          target_mode: mode === "authority-lowering" ? "shadow" : null,
+          target_autonomy: mode === "authority-lowering" ? targetAutonomy : null,
+          engage_kill_switch: mode === "authority-lowering" ? engageKillSwitch : false,
+          bypass_scopes: mode === "break-glass" ? bypassScopes : [],
+          confirmation,
+        });
+        setNotice(
+          tr(
+            locale,
+            `Issued expiring ${mode} command (${commandId}) for ${targetId} until ${ends.toISOString()}.`,
+            `${targetId}에 대해 ${ends.toISOString()}까지 유효한 ${mode} 명령(${commandId})을 발행했습니다.`,
+          ),
+        );
+        loadCommands();
       }
       setConfirmation("");
       installations.reload();
@@ -104,7 +155,7 @@ export function CommandsPage() {
       </div>
 
       {notice && (
-        <p class="banner" role="status">
+        <p class="banner" role="status" style={{ overflowWrap: "anywhere" }}>
           {notice}{" "}
           {targetId && (
             <Link href={installationPath(targetId)}>
@@ -114,7 +165,7 @@ export function CommandsPage() {
         </p>
       )}
       {error && (
-        <p class="banner fail" role="alert">
+        <p class="banner fail" role="alert" style={{ overflowWrap: "anywhere" }}>
           {error}
         </p>
       )}
@@ -132,12 +183,26 @@ export function CommandsPage() {
                 aria-label="Command action"
                 value={mode}
                 onChange={(event) => {
-                  setMode(event.currentTarget.value as "suppress" | "lift");
+                  setMode(event.currentTarget.value as CommandActionMode);
                   setConfirmation("");
                 }}
               >
                 <option value="suppress">
                   {tr(locale, "Create expiring suppression window", "만료형 억제 구간 생성")}
+                </option>
+                <option value="authority-lowering">
+                  {tr(
+                    locale,
+                    "Issue authority-lowering command (shadow / HIL / kill switch)",
+                    "권한 하향 명령 발행 (shadow / HIL / 킬 스위치)",
+                  )}
+                </option>
+                <option value="break-glass">
+                  {tr(
+                    locale,
+                    "Issue break-glass command (reconciles to Git on expiry)",
+                    "긴급(Break-glass) 명령 발행 (만료 시 Git 구성으로 복원)",
+                  )}
                 </option>
                 <option value="lift">
                   {tr(locale, "Lift active suppression scope", "활성 억제 범위 해제")}
@@ -194,7 +259,7 @@ export function CommandsPage() {
                 }}
               />
             </label>
-            {mode === "suppress" && (
+            {mode !== "lift" && (
               <label>
                 {tr(locale, "Duration (hours, mandatory expiry)", "유지 시간(시간, 만료 필수)")}
                 <input
@@ -209,6 +274,71 @@ export function CommandsPage() {
                   onInput={(event) => setDurationHours(event.currentTarget.value)}
                 />
               </label>
+            )}
+            {mode === "authority-lowering" && (
+              <>
+                <label>
+                  {tr(locale, "Target autonomy ceiling", "목표 자율성 상한")}
+                  <select
+                    class="input"
+                    aria-label="Target autonomy ceiling"
+                    value={targetAutonomy}
+                    onChange={(event) =>
+                      setTargetAutonomy(event.currentTarget.value as "shadow" | "hil")
+                    }
+                  >
+                    <option value="shadow">shadow (observe only)</option>
+                    <option value="hil">hil (require human approval)</option>
+                  </select>
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={engageKillSwitch}
+                    onChange={(event) => setEngageKillSwitch(event.currentTarget.checked)}
+                  />{" "}
+                  {tr(
+                    locale,
+                    "Engage installation kill switch (never raises authority)",
+                    "설치 킬 스위치 활성화 (권한을 상향하지 않음)",
+                  )}
+                </label>
+              </>
+            )}
+            {mode === "break-glass" && (
+              <fieldset class="catalog-panel">
+                <legend>
+                  {tr(
+                    locale,
+                    "Permitted break-glass constraint bypasses",
+                    "허용된 긴급(Break-glass) 제약 우회 범위",
+                  )}
+                </legend>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={bypassMaintenance}
+                    onChange={(event) => setBypassMaintenance(event.currentTarget.checked)}
+                  />{" "}
+                  maintenance-window
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={bypassSuppression}
+                    onChange={(event) => setBypassSuppression(event.currentTarget.checked)}
+                  />{" "}
+                  suppression-window
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={bypassVersionRange}
+                    onChange={(event) => setBypassVersionRange(event.currentTarget.checked)}
+                  />{" "}
+                  version-range
+                </label>
+              </fieldset>
             )}
             <label>
               {tr(locale, "Reason code", "사유 코드")}
@@ -259,12 +389,105 @@ export function CommandsPage() {
                   ? tr(locale, "Applying command...", "명령 적용 중...")
                   : mode === "suppress"
                   ? tr(locale, "Create suppression", "억제 구간 생성")
+                  : mode === "authority-lowering"
+                  ? tr(locale, "Issue authority-lowering command", "권한 하향 명령 발행")
+                  : mode === "break-glass"
+                  ? tr(locale, "Issue break-glass command", "긴급 명령 발행")
                   : tr(locale, "Lift suppression", "억제 해제")}
               </button>
             </div>
           </form>
         )}
       </AsyncBoundary>
+
+      <div class="cols">
+        <section aria-label="Active commands">
+          <h2 class="panel-title">{tr(locale, "Active commands", "활성 및 최근 명령")}</h2>
+          {activeCommands.length === 0 ? (
+            <p class="note">
+              {tr(
+                locale,
+                "No authority-lowering or break-glass commands recorded yet.",
+                "아직 기록된 권한 하향 또는 긴급 명령이 없습니다.",
+              )}
+            </p>
+          ) : (
+            <table class="t">
+              <thead>
+                <tr>
+                  <th>{tr(locale, "Kind", "종류")}</th>
+                  <th>{tr(locale, "Scope", "범위")}</th>
+                  <th>{tr(locale, "Expires", "만료 시각")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activeCommands.map((cmd) => (
+                  <tr key={cmd.command_id}>
+                    <td>
+                      <span class={`badge ${cmd.kind === "break-glass" ? "warn" : "info"}`}>
+                        {cmd.kind}
+                      </span>
+                      <div class="soft">{cmd.reason}</div>
+                    </td>
+                    <td>
+                      {cmd.installation_id} · <span class="mono">{cmd.scope}</span>
+                    </td>
+                    <td>
+                      {formatTimestamp(cmd.expires_at)}
+                      {cmd.reconciles_to_git_on_expiry && (
+                        <div class="soft">
+                          {tr(
+                            locale,
+                            "Reconciles to approved Git configuration on expiry",
+                            "만료 시 승인된 Git 구성으로 자동 복원",
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+
+        <section aria-label="Break-glass invariants">
+          <h2 class="panel-title">
+            {tr(locale, "Break-glass can bypass", "긴급(Break-glass) 우회 및 불변 경계")}
+          </h2>
+          <ul class="list">
+            <li>
+              <span class="ic ok">✓</span>
+              <span>
+                {tr(
+                  locale,
+                  "Maintenance windows, suppression windows, and version ranges",
+                  "유지보수 구간, 억제 구간 및 버전 범위",
+                )}
+              </span>
+              <span class="soft">{tr(locale, "Bypassed", "우회 가능")}</span>
+            </li>
+            <li>
+              <span class="ic fail">✕</span>
+              <span>
+                {tr(
+                  locale,
+                  "Signatures, envelope, recall, destructive-change confirmation, and audit",
+                  "서명, 효과 범위(envelope), 리콜, 파괴적 변경 확인 및 감사",
+                )}
+              </span>
+              <span class="soft">{tr(locale, "Always enforced", "항상 강제")}</span>
+            </li>
+          </ul>
+          <p class="note">
+            {tr(
+              locale,
+              "No command can raise authority to enforce or auto, or disengage the kill switch.",
+              "어떤 명령도 권한을 enforce나 auto로 상향하거나 킬 스위치를 해제할 수 없습니다.",
+            )}
+          </p>
+        </section>
+      </div>
     </div>
   );
 }

@@ -89,7 +89,7 @@ describe("environment wrapper events without DOM rendering", () => {
     expect(deployment.props.evidenceView).toBe("stages");
     deployment.props.onEvidenceViewChange?.("resources");
     expect(replaceRouteState).toHaveBeenCalledWith("/settings/environment-and-deployment/deployment?locale=ko&deployment-view=resources");
-    for (const segment of ["readiness", "observers"]) {
+    for (const segment of ["readiness", "observers", "version"]) {
       render().find((node) => node.props.id === `environment-deployment-tab-${segment}`)!.props.onClick?.();
       expect(state.slots).toEqual([]);
       expect(render().some((node) => node.type === ProvisionRoute)).toBe(false);

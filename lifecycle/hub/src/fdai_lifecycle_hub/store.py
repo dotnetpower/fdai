@@ -70,6 +70,13 @@ from fdai_lifecycle_hub.execution_settings import (
 )
 from fdai_lifecycle_hub.migrations import _versions, require_writable_schema
 from fdai_lifecycle_hub.models import PlanEventKind
+from fdai_lifecycle_hub.operator_surfaces import (
+    BundleImportRequest,
+    DecideDestructiveConfirmationRequest,
+    HubOperatorSurfacesStore,
+    IssueLifecycleCommandRequest,
+    ProposeDestructiveConfirmationRequest,
+)
 from fdai_lifecycle_hub.planning import plan_next
 from fdai_lifecycle_hub.reports import (
     ROLLED_BACK,
@@ -87,6 +94,7 @@ class HubStore:
         self.engine = engine
         self._sessions = sessionmaker(engine, expire_on_commit=False)
         self.entitlement_handoffs = HubEntitlementHandoffStore()
+        self.operator_surfaces = HubOperatorSurfacesStore()
 
     def with_connection(self, connection: Connection) -> HubStore:
         """Join an owning catalog transaction without committing it from a nested store method."""
@@ -95,6 +103,7 @@ class HubStore:
             connection, expire_on_commit=False, join_transaction_mode="create_savepoint"
         )
         bound.entitlement_handoffs = self.entitlement_handoffs
+        bound.operator_surfaces = self.operator_surfaces
         return bound
 
     def stage_entitlement_handoff(
@@ -483,9 +492,78 @@ class HubStore:
             rows.store_suppressions(row, mapping.to_domain(session, row).lifted(scope, now), now)
             audit.append(session, now, "suppression.lifted", installation_id, scope)
 
+    def issue_lifecycle_command(
+        self,
+        installation_id: str,
+        request: IssueLifecycleCommandRequest,
+        *,
+        operator: str,
+        now: datetime,
+    ) -> dict[str, object]:
+        with self._write() as session:
+            return self.operator_surfaces.issue_command(
+                session, installation_id, request, operator=operator, now=now
+            )
+
+    def list_lifecycle_commands(
+        self, *, installation_id: str | None = None, now: datetime
+    ) -> list[dict[str, object]]:
+        with self._sessions() as session:
+            return self.operator_surfaces.list_commands(
+                session, installation_id=installation_id, now=now
+            )
+
+    def propose_destructive_confirmation(
+        self,
+        installation_id: str,
+        plan_id: str,
+        request: ProposeDestructiveConfirmationRequest,
+        *,
+        now: datetime,
+    ) -> dict[str, object]:
+        with self._write() as session:
+            return self.operator_surfaces.propose_confirmation(
+                session, installation_id, plan_id, request, now=now
+            )
+
+    def decide_destructive_confirmation(
+        self,
+        installation_id: str,
+        plan_id: str,
+        request: DecideDestructiveConfirmationRequest,
+        *,
+        operator: str,
+        now: datetime,
+    ) -> dict[str, object]:
+        with self._write() as session:
+            return self.operator_surfaces.decide_confirmation(
+                session, installation_id, plan_id, request, operator=operator, now=now
+            )
+
+    def list_destructive_confirmations(self) -> list[dict[str, object]]:
+        with self._sessions() as session:
+            return self.operator_surfaces.list_confirmations(session)
+
+    def import_upgrade_bundle(
+        self,
+        request: BundleImportRequest,
+        *,
+        operator: str,
+        now: datetime,
+    ) -> dict[str, object]:
+        with self._write() as session:
+            return self.operator_surfaces.import_bundle(
+                session, request, operator=operator, now=now
+            )
+
+    def list_bundle_imports(self) -> dict[str, object]:
+        return self.operator_surfaces.list_bundle_imports()
+
     def load(self, installation_id: str) -> domain.Installation:
         with self._sessions() as session:
-            return mapping.to_domain(session, rows.get_installation(session, installation_id))
+            loaded = mapping.to_domain(session, rows.get_installation(session, installation_id))
+            commands = self.operator_surfaces.commands_for(installation_id)
+            return replace(loaded, commands=commands) if commands else loaded
 
     def list_installations(self) -> tuple[domain.InstallationOverview, ...]:
         """Every enrolled installation and its latest recompute outcome, for the list screen."""
@@ -738,6 +816,9 @@ class HubStore:
         with self._write() as session:
             row = rows.lock_enrolled(session, installation_id)
             installation = mapping.to_domain(session, row)
+            commands = self.operator_surfaces.commands_for(installation_id)
+            if commands:
+                installation = replace(installation, commands=commands)
             outcome: domain.PlanOutcome
             if _native_transition_holds_planning(session, installation, now):
                 outcome = domain.NoEligibleRelease(())
