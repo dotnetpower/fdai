@@ -321,6 +321,9 @@ def _migrate(args: argparse.Namespace) -> int:
 
     prepare = args.command == "prepare"
     migrate(store.engine, "lifecycle_hub", initialize, prepare=prepare)
+    from fdai_lifecycle_hub.release_connection import prepare_connection_schema
+
+    prepare_connection_schema(store.engine)
     _print({"schema": "prepared" if prepare else "created"})
     return 0
 
