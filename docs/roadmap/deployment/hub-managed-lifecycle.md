@@ -44,21 +44,16 @@ Release Hub service already exists.
 
 ## Local Release Hub connection
 
-The **Catalog import** screen separates Release Hub transport settings from catalog trust.
-An explicitly bound remote catalog owns its endpoint and remains read-only on this screen.
-Otherwise, a saved origin takes precedence over `FDAI_RELEASE_HUB_ENDPOINT`; when neither is
-configured, the local default is `http://127.0.0.1:8091`. Endpoint changes require the current
-revision, exact target confirmation, a reason, and an attributed audit record. The settings
-tables are prepared explicitly during Hub migration, not during serving.
+**Catalog import** separates transport settings from trust; changes require the current revision,
+exact target confirmation, a reason and an attributed audit record. Explicit remote endpoints stay
+deployment-owned; otherwise saved origins override `FDAI_RELEASE_HUB_ENDPOINT`, then default
+to `http://127.0.0.1:8091`. Settings tables are prepared during migration, never during serving.
 
-The connection preview makes one credential-free catalog read, without redirects, under a
-five-second deadline and a 16 MiB response limit. HTTP is limited to explicit loopback hosts;
-other origins require HTTPS. Failed reads remain errors rather than substituted sample or
-empty data. Registered manifests are not evidence of completed builds, image availability,
-or deployment. Reachability never approves a key, export pin, catalog import, Plan, or promotion,
-and a saved origin cannot redirect the existing Managed Identity catalog updater.
-The [local connection reference](../../../lifecycle/hub/README.md#release-hub-connection)
-describes setup and recovery.
+One credential-free preview has a five-second deadline and 16 MiB limit, with no redirects.
+HTTP is limited to explicit loopback hosts; other origins require HTTPS. Failed reads never substitute data.
+Registrations verify neither builds, image availability nor deployments. Reachability never approves
+keys, export pins, catalog import, Plans or promotion; saved origins cannot redirect Managed Identity.
+The [local connection reference](../../../lifecycle/hub/README.md#release-hub-connection) describes setup and recovery.
 
 ## Application-neutral package boundary
 
