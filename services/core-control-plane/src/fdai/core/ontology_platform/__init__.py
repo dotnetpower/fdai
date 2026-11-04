@@ -173,6 +173,16 @@ from .semantic_plans import (
     build_semantic_candidate,
     verify_semantic_candidate,
 )
+from .simulated_business_model_seed import (
+    build_simulated_business_operating_model,
+    project_all_authored_rule_objectives,
+)
+from .simulated_business_ontology import (
+    BusinessConceptAnswer,
+    SimulatedBusinessOntologyResult,
+    answer_business_concept_query,
+    run_simulated_business_ontology_suite,
+)
 from .topology_history import (
     TopologyDiff,
     TopologyGraphAt,
@@ -336,4 +346,10 @@ __all__ = [
     "validate_action_plan_semantics",
     "topology_diff",
     "verify_semantic_candidate",
+    "BusinessConceptAnswer",
+    "SimulatedBusinessOntologyResult",
+    "answer_business_concept_query",
+    "build_simulated_business_operating_model",
+    "project_all_authored_rule_objectives",
+    "run_simulated_business_ontology_suite",
 ]

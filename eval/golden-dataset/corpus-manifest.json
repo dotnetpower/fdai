@@ -42,18 +42,18 @@
     },
     {
       "kind": "declarations",
-      "case_count": 15760,
-      "case_ids_digest": "sha256:302c290d018c6cea53c74dc7fef923ff330370a9d389f1348d3d737a6c8111f4",
+      "case_count": 18480,
+      "case_ids_digest": "sha256:e615a740ee96bee670ef277d1fa1e308bf477283ced80dd45a36be871bcea28b",
       "locales": {
-        "en": 7880,
-        "ko": 7880
+        "en": 9240,
+        "ko": 9240
       },
       "evidence_postures": {
-        "conflicting": 3152,
-        "fresh": 3152,
-        "incomplete": 3152,
-        "stale": 3152,
-        "unavailable": 3152
+        "conflicting": 3696,
+        "fresh": 3696,
+        "incomplete": 3696,
+        "stale": 3696,
+        "unavailable": 3696
       },
       "exclusion_count": 0,
       "excluded_case_ids_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
@@ -87,7 +87,7 @@
       }
     }
   ],
-  "total_case_count": 16364,
+  "total_case_count": 19084,
   "total_exclusion_count": 0,
-  "manifest_digest": "sha256:a6fc7fb3cf7b95123da71aec3b2068dea8b9b7e3a0f7c2ba1c9f44bcdc11eee5"
+  "manifest_digest": "sha256:4ffef581ae6c266a09b488be0677556bd1dac87fb06e316a238a2847793c5b0b"
 }

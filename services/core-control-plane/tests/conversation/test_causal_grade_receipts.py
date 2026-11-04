@@ -120,7 +120,14 @@ def test_reviewed_catalog_covers_at_least_eight_fully_accounted_mechanisms() -> 
         yaml.safe_load(catalog_path.read_text(encoding="utf-8"))
     )
 
-    assert len(mechanisms) >= 8
+    assert len(mechanisms) >= 12
+    assert {
+        "deployment_precedes_state_change",
+        "drift_precedes_policy_violation",
+        "finops_sku_change_precedes_cost_delta",
+        "overload_precedes_service_latency_degradation",
+        "upstream_outage_propagates_to_business_service",
+    } <= {m.mechanism_id for m in mechanisms}
     for mechanism in mechanisms:
         # Every mechanism needs the sample, reverse-direction, and confounder evidence the
         # receipt proves itself, and at least one read that could refute it.
@@ -159,3 +166,4 @@ def test_every_reviewed_mechanism_grades_only_with_complete_refutation_accountin
 
         assert accounted.grade is CausalEvidenceGrade.PREDICTIVE_PRECEDENCE
         assert unaccounted.grade is CausalEvidenceGrade.ASSOCIATION
+        assert supports_causal_hypothesis(accounted) is True

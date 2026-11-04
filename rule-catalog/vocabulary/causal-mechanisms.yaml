@@ -11,6 +11,28 @@ mechanisms:
     refutation_reads:
       - unchanged_peer_activity_window
       - same_effect_without_candidate_operation
+  - id: drift_precedes_policy_violation
+    required_evidence:
+      - complete_activity_window
+      - complete_state_transition_window
+      - confounder_check
+      - mechanism_operation_evidence
+      - repeated_samples
+      - reverse_direction_check
+    refutation_reads:
+      - baseline_compliant_peer_window
+      - violation_present_before_drift_window
+  - id: finops_sku_change_precedes_cost_delta
+    required_evidence:
+      - complete_activity_window
+      - complete_state_transition_window
+      - confounder_check
+      - mechanism_operation_evidence
+      - repeated_samples
+      - reverse_direction_check
+    refutation_reads:
+      - demand_spike_without_sku_change_window
+      - unchanged_sku_peer_cost_window
   - id: identity_change_precedes_authorization_failure
     required_evidence:
       - complete_activity_window
@@ -33,6 +55,17 @@ mechanisms:
     refutation_reads:
       - connectivity_loss_before_rule_change
       - unchanged_peer_path_activity_window
+  - id: overload_precedes_service_latency_degradation
+    required_evidence:
+      - complete_activity_window
+      - complete_state_transition_window
+      - confounder_check
+      - mechanism_operation_evidence
+      - repeated_samples
+      - reverse_direction_check
+    refutation_reads:
+      - downstream_dependency_error_window
+      - low_utilization_peer_latency_window
   - id: quota_exhaustion_precedes_provisioning_failure
     required_evidence:
       - complete_activity_window
@@ -85,3 +118,14 @@ mechanisms:
     refutation_reads:
       - latency_before_dependency_saturation
       - unsaturated_dependency_peer_window
+  - id: upstream_outage_propagates_to_business_service
+    required_evidence:
+      - complete_activity_window
+      - complete_state_transition_window
+      - confounder_check
+      - mechanism_operation_evidence
+      - repeated_samples
+      - reverse_direction_check
+    refutation_reads:
+      - healthy_upstream_service_degradation_window
+      - isolated_workload_local_fault_window
