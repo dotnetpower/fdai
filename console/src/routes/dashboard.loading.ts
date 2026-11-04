@@ -13,6 +13,7 @@ import {
   isCostGovernanceProjection,
   loadCostGovernance,
 } from "./cost-governance.model";
+import { isStencilPanelEnabled } from "../stencil-panels";
 
 export interface DashboardOverviewData {
   readonly kpi: DashboardKpi;
@@ -35,15 +36,24 @@ export async function loadDashboardOverview(
   publishBackbone({ kpi, cost: null, gates: null, autonomy: null, optionalPending: true });
 
   const [cost, gates, autonomy] = await Promise.all([
-    optionalOverview(async () => {
-      const result = await loadCostGovernance(client, "overview");
-      return isCostGovernanceProjection(result) ? result : null;
-    }, [403, 404, 503]),
-    optionalOverview(
-      () => client.panel<GatesSummary>("/kpi/promotion-gates"),
-      [404, 501, 503],
-    ),
-    optionalOverview(() => client.autonomy(), [404, 501, 503]),
+    isStencilPanelEnabled("cost-governance")
+      ? optionalOverview(async () => {
+          const result = await loadCostGovernance(client, "overview");
+          return isCostGovernanceProjection(result) ? result : null;
+        }, [403, 404, 503])
+      : Promise.resolve(null),
+    isStencilPanelEnabled("promotion-gates") || isStencilPanelEnabled("control-assurance")
+      ? optionalOverview(
+          () => client.panel<GatesSummary>("/kpi/promotion-gates"),
+          [403, 404, 501, 503],
+        )
+      : Promise.resolve(null),
+    isStencilPanelEnabled("operating-outcomes") ||
+    isStencilPanelEnabled("trust-routing") ||
+    isStencilPanelEnabled("control-assurance") ||
+    isStencilPanelEnabled("verticals")
+      ? optionalOverview(() => client.autonomy(), [403, 404, 501, 503])
+      : Promise.resolve(null),
   ]);
   return { kpi, cost, gates, autonomy };
 }

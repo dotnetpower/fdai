@@ -1,5 +1,10 @@
 /** Validate installer-supplied public Console bindings without granting authority. */
 
+import {
+  parseStencilRuntimeFeatureFlags,
+  type StencilRuntimeFeatureFlags,
+} from "./stencil-panels";
+
 declare global {
   var __FDAI_CONSOLE_CONFIG__: unknown;
 }
@@ -12,15 +17,20 @@ export interface ConsoleRuntimeConfig {
   readonly tenant_id: string;
   readonly spa_client_id: string;
   readonly api_scope: string;
+  readonly stencil_feature_flags?: StencilRuntimeFeatureFlags;
 }
 
-const CONFIG_FIELDS = new Set([
+const REQUIRED_CONFIG_FIELDS = new Set([
   "schema_version",
   "operator_api_base_url",
   "ingestion_api_base_url",
   "tenant_id",
   "spa_client_id",
   "api_scope",
+]);
+const ALLOWED_CONFIG_FIELDS = new Set([
+  ...REQUIRED_CONFIG_FIELDS,
+  "stencil_feature_flags",
 ]);
 const UUID_SOURCE = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 const UUID_PATTERN = new RegExp(`^${UUID_SOURCE}$`);
@@ -71,15 +81,22 @@ export function parseConsoleRuntimeConfig(value: unknown): ConsoleRuntimeConfig 
     throw new Error("Console runtime configuration must be an object.");
   }
   const keys = Reflect.ownKeys(value);
+  const keySet = new Set(keys);
   if (
-    keys.length !== CONFIG_FIELDS.size ||
-    keys.some((key) => typeof key !== "string" || !CONFIG_FIELDS.has(key))
+    keys.some((key) => typeof key !== "string" || !ALLOWED_CONFIG_FIELDS.has(key)) ||
+    [...REQUIRED_CONFIG_FIELDS].some((reqKey) => !keySet.has(reqKey))
   ) {
     throw new Error("Console runtime configuration must contain exactly the supported fields.");
   }
   const record = value as Record<string, unknown>;
   if (record.schema_version !== "fdai.console-runtime.v1") {
     throw new Error("Console runtime configuration schema_version is unsupported.");
+  }
+  let stencilFlags: StencilRuntimeFeatureFlags | undefined;
+  if ("stencil_feature_flags" in record && record.stencil_feature_flags !== undefined) {
+    parseStencilRuntimeFeatureFlags(record.stencil_feature_flags);
+    stencilFlags = record.stencil_feature_flags as StencilRuntimeFeatureFlags;
+    globalThis.__FDAI_STENCIL_FEATURE_FLAGS__ = stencilFlags;
   }
   return {
     schema_version: "fdai.console-runtime.v1",
@@ -88,5 +105,6 @@ export function parseConsoleRuntimeConfig(value: unknown): ConsoleRuntimeConfig 
     tenant_id: uuid(record.tenant_id, "tenant_id"),
     spa_client_id: uuid(record.spa_client_id, "spa_client_id"),
     api_scope: apiScope(record.api_scope),
+    ...(stencilFlags !== undefined ? { stencil_feature_flags: stencilFlags } : {}),
   };
 }

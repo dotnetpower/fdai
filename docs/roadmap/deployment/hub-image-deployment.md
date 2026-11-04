@@ -158,7 +158,7 @@ to source installations.
 
 ## Validation and delivery limits
 
-Focused local tests can establish catalog verification, import/readback, request persistence,
+Focused local tests can establish catalog verification (including verified `stencil` and `fdai.stencil-feature-flags.v1` blueprint metadata returned by `verify_export`), import/readback, request persistence,
 authentication separation and UI behavior. They cannot establish the availability of the live
 Hub, publication of a compatible Release, registry access in another subscription, or an
 accepted Azure installation. Publication and rollout of the new Hub/CLI builds remain separate

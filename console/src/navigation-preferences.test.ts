@@ -66,4 +66,34 @@ describe("navigation preferences", () => {
     expect(readNavigationPreferences(["audit", "rca"], "account-a", store))
       .toEqual(DEFAULT_NAVIGATION_PREFERENCES);
   });
+
+  test("filters Stencil-disabled panels from stored navigation preferences", () => {
+    const g = globalThis as Record<string, unknown>;
+    const prev = g.__FDAI_STENCIL_FEATURE_FLAGS__;
+    g.__FDAI_STENCIL_FEATURE_FLAGS__ = {
+      stencil_id: "lite-observe-alert",
+      enabled_panel_ids: ["audit", "dashboard", "settings-general"],
+      disabled_panel_ids: ["labs"],
+    };
+    try {
+      const key = navigationPreferenceKey("account-a");
+      const store = storage({
+        [key]: JSON.stringify({
+          explorerPinned: false,
+          hiddenGroupIds: [],
+          hiddenPanelIds: ["audit", "labs"],
+          groupOrder: { labs: ["labs"] },
+        }),
+      });
+      expect(readNavigationPreferences(["audit", "labs"], "account-a", store)).toEqual({
+        explorerPinned: false,
+        hiddenGroupIds: [],
+        hiddenPanelIds: ["audit"],
+        groupOrder: {},
+      });
+    } finally {
+      if (prev === undefined) delete g.__FDAI_STENCIL_FEATURE_FLAGS__;
+      else g.__FDAI_STENCIL_FEATURE_FLAGS__ = prev;
+    }
+  });
 });

@@ -543,9 +543,10 @@ it also contains the Target Hub.
   Release Hub also provides transactional stage promotion (`POST /v1/releases/{release_id}/promote`),
   active capability-recall blocker inspection, one-click reviewed confirmation, and the Stencil &
   Custom Menu Builder (`GET /v1/stencils`, `POST /v1/stencils/compose`, `#/stencils`) for composing
-  lightweight (`lite-observe-alert`) or custom Console-menu/loop/workload Release v2 manifests with
-  compiled fail-closed `fdai.stencil-feature-flags.v1` inactive-menu feature flags; production
-  catalog trust and distribution remain open.
+  lightweight (`lite-observe-alert`) or custom 63-panel Console-menu/loop/workload Release v2 manifests
+  with compiled fail-closed `fdai.stencil-feature-flags.v1` inactive-menu feature flags, `feature_flags_digest`
+  provenance, and `panel:*`/`job:*`/`addon:*` surgical recall tokens; production catalog trust and
+  distribution remain open.
 - The production trust-root ceremony hasn't run. A vendor release key must exist before any Hub
   path can verify Releases.
 - Reproducible double-build verification of the signed bundle remains open.

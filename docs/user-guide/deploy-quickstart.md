@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI with signed Release Hub images, an explicit source build, or a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: dc072347e85edb39df2c595ee54943fe8faa8eb2 }, { source: docs/roadmap/deployment/source-deployment.md, sha: fedbd6eff0d58aa7989eebd0c5df0ab5da45d220 }, { source: docs/roadmap/deployment/hub-image-deployment.md, sha: 073c3c7c2aa71caf864a9e7a8e5d42969f6504c3 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: dc072347e85edb39df2c595ee54943fe8faa8eb2 }, { source: docs/roadmap/deployment/source-deployment.md, sha: fedbd6eff0d58aa7989eebd0c5df0ab5da45d220 }, { source: docs/roadmap/deployment/hub-image-deployment.md, sha: 57128c59f3cf3a9ec779c03e68c1d5f681865a9a }]
 ---
 
 # Deploy Quickstart

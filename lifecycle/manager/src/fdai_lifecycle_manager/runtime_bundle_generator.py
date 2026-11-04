@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Mapping
 from pathlib import Path
@@ -790,6 +791,19 @@ def generate_fdai_runtime_bundle(
         if not all(_KEBAB_ID.fullmatch(loop_id) for loop_id in enabled_loops):
             raise ValueError("Stencil runtime bundle enabled_loops must be kebab-case IDs.")
 
+    all_input_workloads = frozenset(workloads) | {
+        "core-control-plane",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "isolated-executor",
+        "operator-service",
+    }
+    all_input_jobs = frozenset(scheduled_jobs) | {
+        "analyzer",
+        "canary",
+        "cost-collector",
+        "inventory",
+    }
     if enabled_workloads is not None:
         if not {"core-control-plane", "operator-service"}.issubset(enabled_workloads):
             raise ValueError(
@@ -810,6 +824,24 @@ def generate_fdai_runtime_bundle(
             missing_jobs = ", ".join(unknown_jobs)
             raise ValueError(f"Enabled Stencil scheduled job(s) not in topology: {missing_jobs}")
         scheduled_jobs = {k: v for k, v in scheduled_jobs.items() if k in enabled_scheduled_jobs}
+
+    if enabled_loops is not None:
+        if "remediation-execution" in enabled_loops and "isolated-executor" not in workloads:
+            raise ValueError(
+                "Stencil loop 'remediation-execution' requires workload 'isolated-executor'."
+            )
+        if "document-ingestion" in enabled_loops and not {
+            "document-ingestion-api",
+            "document-processing-worker",
+        }.issubset(workloads):
+            raise ValueError(
+                "Stencil loop 'document-ingestion' requires 'document-ingestion-api' and "
+                "'document-processing-worker' workloads."
+            )
+        if "cost-governance" in enabled_loops and "cost-collector" not in scheduled_jobs:
+            raise ValueError(
+                "Stencil loop 'cost-governance' requires scheduled job 'cost-collector'."
+            )
 
     if not workloads:
         raise ValueError("At least one AKS workload is required.")
@@ -845,7 +877,13 @@ def generate_fdai_runtime_bundle(
         )
         objects.extend((deployment_obj, service_obj, autoscaler_obj))
 
-    if stencil_id is not None or enabled_panel_ids is not None or enabled_loops is not None:
+    if (
+        stencil_id is not None
+        or enabled_panel_ids is not None
+        or enabled_loops is not None
+        or enabled_workloads is not None
+        or enabled_scheduled_jobs is not None
+    ):
         stencil_env_overrides: dict[str, str] = {"FDAI_STENCIL_ENFORCE_INACTIVE_MENUS": "1"}
         if stencil_id is not None:
             stencil_env_overrides["FDAI_STENCIL_ID"] = stencil_id
@@ -855,6 +893,42 @@ def generate_fdai_runtime_bundle(
             )
         if enabled_loops is not None:
             stencil_env_overrides["FDAI_STENCIL_ENABLED_LOOPS"] = ",".join(sorted(enabled_loops))
+        if enabled_workloads is not None:
+            stencil_env_overrides["FDAI_STENCIL_ENABLED_WORKLOADS"] = ",".join(
+                sorted(enabled_workloads)
+            )
+            disabled_wls = sorted(all_input_workloads - enabled_workloads)
+            stencil_env_overrides["FDAI_STENCIL_DISABLED_WORKLOADS"] = ",".join(disabled_wls)
+        if enabled_scheduled_jobs is not None:
+            stencil_env_overrides["FDAI_STENCIL_ENABLED_JOBS"] = ",".join(
+                sorted(enabled_scheduled_jobs)
+            )
+            disabled_jbs = sorted(all_input_jobs - enabled_scheduled_jobs)
+            stencil_env_overrides["FDAI_STENCIL_DISABLED_JOBS"] = ",".join(disabled_jbs)
+        ff_json: dict[str, Any] = {
+            "schema_version": "fdai.stencil-feature-flags.v1",
+            "enforcement_mode": "fail-closed",
+            **({"stencil_id": stencil_id} if stencil_id is not None else {}),
+            **(
+                {"enabled_panel_ids": sorted(enabled_panel_ids)}
+                if enabled_panel_ids is not None
+                else {}
+            ),
+            **({"enabled_loops": sorted(enabled_loops)} if enabled_loops is not None else {}),
+            **(
+                {"enabled_workloads": sorted(enabled_workloads)}
+                if enabled_workloads is not None
+                else {}
+            ),
+            **(
+                {"enabled_scheduled_jobs": sorted(enabled_scheduled_jobs)}
+                if enabled_scheduled_jobs is not None
+                else {}
+            ),
+        }
+        stencil_env_overrides["FDAI_STENCIL_FEATURE_FLAGS_JSON"] = json.dumps(
+            ff_json, sort_keys=True, separators=(",", ":")
+        )
         for cm_target in ("core-control-plane-env", "operator-service-env"):
             if cm_target in config_map_data:
                 merged = {**config_map_data[cm_target], **stencil_env_overrides}
@@ -942,6 +1016,14 @@ def write_generated_runtime_bundle(
     scheduled_jobs = raw.get("scheduled_jobs", {})
     if not isinstance(workloads, Mapping) or not isinstance(scheduled_jobs, Mapping):
         raise ValueError("AKS topology input requires workloads and scheduled_jobs mappings.")
+    stencil_candidate = raw.get("stencil")
+    raw_stencil: Mapping[str, object] = (
+        stencil_candidate if isinstance(stencil_candidate, Mapping) else {}
+    )
+    raw_enabled_workloads = raw_stencil.get("enabled_workloads")
+    raw_enabled_jobs = raw_stencil.get("enabled_scheduled_jobs")
+    raw_enabled_panels = raw_stencil.get("enabled_panel_ids")
+    raw_enabled_loops = raw_stencil.get("enabled_loops")
     generated = generate_fdai_runtime_bundle(
         workloads=workloads,
         scheduled_jobs=scheduled_jobs,
@@ -952,6 +1034,29 @@ def write_generated_runtime_bundle(
         identity_bridge_config_map=(
             str(raw["identity_bridge_config_map"])
             if raw.get("identity_bridge_config_map") is not None
+            else None
+        ),
+        stencil_id=(
+            str(raw_stencil["stencil_id"]) if raw_stencil.get("stencil_id") is not None else None
+        ),
+        enabled_workloads=(
+            frozenset(str(x) for x in raw_enabled_workloads)
+            if isinstance(raw_enabled_workloads, list)
+            else None
+        ),
+        enabled_scheduled_jobs=(
+            frozenset(str(x) for x in raw_enabled_jobs)
+            if isinstance(raw_enabled_jobs, list)
+            else None
+        ),
+        enabled_panel_ids=(
+            frozenset(str(x) for x in raw_enabled_panels)
+            if isinstance(raw_enabled_panels, list)
+            else None
+        ),
+        enabled_loops=(
+            frozenset(str(x) for x in raw_enabled_loops)
+            if isinstance(raw_enabled_loops, list)
             else None
         ),
     )

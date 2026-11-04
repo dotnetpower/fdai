@@ -15,6 +15,7 @@ import {
   type ConsolePreferences,
 } from "../preferences";
 import { panelPath } from "../router";
+import { isStencilPanelEnabled } from "../stencil-panels";
 import { AccessGrantAttention } from "./access-grant-attention";
 import { IncidentAttention } from "./incident-attention";
 import { NavigationShell } from "./navigation-shell";
@@ -106,15 +107,19 @@ export function Shell({
           {supportsSampleData(activePanelId) ? (
             <DataModeControl mode={dataMode} onChange={onDataModeChange} />
           ) : null}
-          <IncidentAttention
-            client={client}
-            principalId={auth.account?.homeAccountId ?? null}
-          />
-          <AccessGrantAttention
-            auth={auth}
-            client={client}
-            principalId={auth.account?.homeAccountId ?? null}
-          />
+          {isStencilPanelEnabled("incidents") || isStencilPanelEnabled("live") ? (
+            <IncidentAttention
+              client={client}
+              principalId={auth.account?.homeAccountId ?? null}
+            />
+          ) : null}
+          {isStencilPanelEnabled("settings-iam") || isStencilPanelEnabled("hil-queue") ? (
+            <AccessGrantAttention
+              auth={auth}
+              client={client}
+              principalId={auth.account?.homeAccountId ?? null}
+            />
+          ) : null}
           <Suspense fallback={(
             <button
               type="button"

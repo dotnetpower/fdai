@@ -45,6 +45,31 @@ export function parseStencilEnabledPanelIds(
 }
 
 /**
+ * Parse a comma-separated list of Stencil-disabled panel IDs.
+ * Rejects disabling locked safety-core panels (`dashboard`, `audit`, `settings-general`).
+ */
+export function parseStencilDisabledPanelIds(
+  raw: string | undefined | null,
+): ReadonlySet<string> | null {
+  if (raw === undefined || raw === null || raw.trim() === "") {
+    return null;
+  }
+  const disabled = new Set<string>();
+  for (const token of raw.split(",")) {
+    const id = token.trim();
+    if (!id) continue;
+    if (!PANEL_ID_PATTERN.test(id)) {
+      throw new Error(`Invalid Stencil disabled panel id: ${id}`);
+    }
+    if (LOCKED_STENCIL_PANEL_IDS.includes(id)) {
+      throw new Error(`Cannot disable locked safety-core Stencil panel: ${id}`);
+    }
+    disabled.add(id);
+  }
+  return disabled.size > 0 ? disabled : null;
+}
+
+/**
  * Parse runtime Stencil feature-flag configuration (`globalThis.__FDAI_STENCIL_FEATURE_FLAGS__`).
  * Enforces fail-closed validation and prevents disabling locked safety-core panels.
  */
@@ -54,6 +79,10 @@ export function parseStencilRuntimeFeatureFlags(
   if (raw === undefined || raw === null) return null;
   if (typeof raw !== "object" || Array.isArray(raw)) {
     throw new Error("Stencil runtime feature flags must be an object.");
+  }
+  const proto = Object.getPrototypeOf(raw);
+  if (proto !== Object.prototype && proto !== null) {
+    throw new Error("Stencil runtime feature flags must be a plain object.");
   }
   const record = raw as Record<string, unknown>;
   if (
@@ -126,17 +155,48 @@ export function parseStencilRuntimeFeatureFlags(
 }
 
 export function activeStencilPanelIds(): ReadonlySet<string> | null {
-  const envRaw = (import.meta.env as Record<string, string | undefined>).VITE_STENCIL_ENABLED_PANELS;
-  const envSet = parseStencilEnabledPanelIds(envRaw);
+  const env = import.meta.env as Record<string, string | undefined>;
+  const envSet = parseStencilEnabledPanelIds(env.VITE_STENCIL_ENABLED_PANELS);
+  const disabledEnvSet = parseStencilDisabledPanelIds(env.VITE_STENCIL_DISABLED_PANELS);
   const runtimeSet = parseStencilRuntimeFeatureFlags(globalThis.__FDAI_STENCIL_FEATURE_FLAGS__);
-  if (envSet === null && runtimeSet === null) return null;
-  if (envSet !== null && runtimeSet === null) return envSet;
-  if (envSet === null && runtimeSet !== null) return runtimeSet;
-  const intersected = new Set<string>(LOCKED_STENCIL_PANEL_IDS);
-  for (const id of envSet!) {
-    if (runtimeSet!.has(id)) intersected.add(id);
+  if (envSet === null && runtimeSet === null && disabledEnvSet === null) return null;
+  let effective: Set<string>;
+  if (envSet !== null && runtimeSet !== null) {
+    effective = new Set<string>(LOCKED_STENCIL_PANEL_IDS);
+    for (const id of envSet) {
+      if (runtimeSet.has(id)) effective.add(id);
+    }
+  } else if (envSet !== null) {
+    effective = new Set<string>(envSet);
+  } else if (runtimeSet !== null) {
+    effective = new Set<string>(runtimeSet);
+  } else {
+    return null;
   }
-  return intersected;
+  if (disabledEnvSet !== null) {
+    for (const id of disabledEnvSet) {
+      effective.delete(id);
+    }
+  }
+  return effective;
+}
+
+export function activeStencilId(): string | null {
+  const raw = globalThis.__FDAI_STENCIL_FEATURE_FLAGS__;
+  if (typeof raw === "object" && raw !== null && !Array.isArray(raw)) {
+    const sid = (raw as Record<string, unknown>).stencil_id;
+    if (typeof sid === "string" && sid.trim().length > 0) return sid.trim();
+  }
+  return null;
+}
+
+export function activeStencilEnforcementMode(): "fail-closed" | "unscoped" {
+  return activeStencilPanelIds() !== null ||
+    parseStencilDisabledPanelIds(
+      (import.meta.env as Record<string, string | undefined>).VITE_STENCIL_DISABLED_PANELS,
+    ) !== null
+    ? "fail-closed"
+    : "unscoped";
 }
 
 export function isStencilPanelEnabled(
@@ -144,6 +204,10 @@ export function isStencilPanelEnabled(
   enabledIds: ReadonlySet<string> | null = activeStencilPanelIds(),
 ): boolean {
   if (LOCKED_STENCIL_PANEL_IDS.includes(panelId)) return true;
+  const disabledEnv = parseStencilDisabledPanelIds(
+    (import.meta.env as Record<string, string | undefined>).VITE_STENCIL_DISABLED_PANELS,
+  );
+  if (disabledEnv !== null && disabledEnv.has(panelId)) return false;
   if (enabledIds === null) return true;
   return enabledIds.has(panelId);
 }
@@ -163,10 +227,15 @@ export function filterPanelsByStencil<T extends Pick<ConsolePanel, "id">>(
   panels: readonly T[],
   enabledIds: ReadonlySet<string> | null = activeStencilPanelIds(),
 ): readonly T[] {
-  if (enabledIds === null) return panels;
-  return panels.filter(
-    (panel) => enabledIds.has(panel.id) || LOCKED_STENCIL_PANEL_IDS.includes(panel.id),
+  const disabledEnv = parseStencilDisabledPanelIds(
+    (import.meta.env as Record<string, string | undefined>).VITE_STENCIL_DISABLED_PANELS,
   );
+  if (enabledIds === null && disabledEnv === null) return panels;
+  return panels.filter((panel) => {
+    if (LOCKED_STENCIL_PANEL_IDS.includes(panel.id)) return true;
+    if (disabledEnv !== null && disabledEnv.has(panel.id)) return false;
+    return enabledIds === null ? true : enabledIds.has(panel.id);
+  });
 }
 
 export function filterNavigationGroupsByStencil(
