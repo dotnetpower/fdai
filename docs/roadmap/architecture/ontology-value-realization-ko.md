@@ -1,7 +1,7 @@
 ---
 title: Ontology Value Realization
 translation_of: ontology-value-realization.md
-translation_source_sha: 64bb4fce4ee5e803415812b96475d1b67f70d240
+translation_source_sha: 197092c5c0f0768e2ed002dfc84dffd9f2213f75
 translation_revised: 2026-11-04
 ---
 # 온톨로지 가치 실현
@@ -76,9 +76,17 @@ FDAI는 이미 개체, 관계, 시간, 근거를 타입이 있는 온톨로지�
 
 ### VR4 - 소비와 도달 범위
 
-- 추천 액션, 근거, 불확실성, 기대 효과, 승인 제어를 보여 주는 운영자 의사결정 큐를 추가합니다.
+- 추천 액션, 근거, 불확실성, 기대 효과, 승인 제어를 보여 주고 게이트 없는 `decision.cost_of_delay` 순위 신호로 정렬하는 운영자 의사결정 큐(`core/decision_case/decision_queue.py`)를 추가합니다.
 - 비 Azure 어댑터마다 명시적 승인을 받은 뒤 provider 계약 뒤에 배포, 서비스 카탈로그, ITSM, 청구 어댑터를 추가합니다.
 - 데이터 연결, 가치 주장 선언, 기준선, shadow, 승격 순서의 도입 플레이북을 게시합니다.
+
+## 유스케이스 온보딩 플레이북
+
+1. **데이터 연결.** 활성 인벤토리 스냅샷(`Resource`), 서비스 카탈로그(`BusinessService`, `Workload`, `implemented_by`), provider 변경 피드, `RecoveryPlan` 레코드를 런타임 온톨로지 인스턴스 그래프에 바인딩합니다.
+2. **가치 주장 선언.** 워크플로우 참조, 목표 참조, 지표 이름, 단위(`duration_seconds`, 통화가 있는 `cost_amount`, `count`), 개선 방향, 시나리오 집합 버전, 기간 경계, 최소 표본 하한을 담은 `ValueClaimDeclaration`을 선언합니다.
+3. **기준선 확보.** 처리군을 활성화하기 전에 동결된 시나리오 집합 버전에 대해 `ObservationLane.INDEPENDENT_OBSERVATION`의 완전한 `CohortRole.BASELINE` cohort를 수집합니다.
+4. **shadow 검증.** `config/workflow-ontology-gates.yaml` 게이트(`decision.blast_radius`, `decision.change_risk`) 뒤에서 워크플로우를 `shadow` 모드로 실행하고, `CatalogCausalGradeBridge`와 `evaluate_disjoint_causal_holdout`으로 인과 가설을 검증하며, `decision.cost_of_delay` 순위 신호를 사용해 `DecisionQueueProjection`에서 우선순위를 검토합니다.
+5. **승격과 정산.** 정책 이탈 0건으로 승격 게이트를 통과한 뒤 루프당 워크플로우 하나를 승격하고, 기간 종료 후 독립 관측에서 `CohortRole.TREATMENT` cohort를 수집해 `settle_and_publish_value_claims`로 95% 보수적 경계를 `StateStoreValueClaimLedger`와 Outcome Assurance에 기록합니다.
 
 ## 성공 지표
 

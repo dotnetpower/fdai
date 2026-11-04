@@ -17,6 +17,10 @@ from fdai.core.rca import (
     CausalRuntimeCoordinator,
     TemporalCausalityAnalyzer,
 )
+from fdai.delivery.azure.catalog_causal_grade_bridge import (
+    CatalogCausalGradeBridge,
+    build_catalog_causal_grade_bridge,
+)
 from fdai.delivery.persistence.state_store_causal_receipts import (
     StateStoreCausalInterventionReceiptVerifier,
 )
@@ -76,4 +80,8 @@ def build_causal_runtime_coordinator(
     )
 
 
-__all__ = ["build_causal_runtime_coordinator"]
+__all__ = [
+    "CatalogCausalGradeBridge",
+    "build_catalog_causal_grade_bridge",
+    "build_causal_runtime_coordinator",
+]

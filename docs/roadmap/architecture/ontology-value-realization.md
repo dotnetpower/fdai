@@ -73,9 +73,17 @@ These decisions fix the scope so the phases can proceed without further agreemen
 
 ### VR4 - Consumption and reach
 
-- Add an operator decision queue that shows recommended action, evidence, uncertainty, expected effect, and the approval control.
+- Add an operator decision queue (`core/decision_case/decision_queue.py`) that shows recommended action, evidence, uncertainty, expected effect, and the approval control, ordered by the ungated `decision.cost_of_delay` ranking signal.
 - Add deployment, service-catalog, ITSM, and billing adapters behind provider contracts after explicit approval of each non-Azure adapter.
 - Publish an onboarding playbook: connect data, state a value claim, baseline, shadow, promote.
+
+## Use-case onboarding playbook
+
+1. **Connect data.** Bind the active inventory snapshot (`Resource`), service catalog (`BusinessService`, `Workload`, `implemented_by`), provider change feed, and `RecoveryPlan` records into the runtime ontology instance graph.
+2. **State a value claim.** Declare a `ValueClaimDeclaration` with the workflow reference, objective reference, metric name, unit (`duration_seconds`, `cost_amount` with currency, or `count`), direction, scenario-set version, window bounds, and minimum sample floor.
+3. **Establish the baseline.** Collect a complete `CohortRole.BASELINE` cohort on `ObservationLane.INDEPENDENT_OBSERVATION` for the frozen scenario-set version before enabling treatment.
+4. **Exercise in shadow.** Run the workflow in `shadow` mode behind the `config/workflow-ontology-gates.yaml` gates (`decision.blast_radius`, `decision.change_risk`), verify causal hypotheses through `CatalogCausalGradeBridge` and `evaluate_disjoint_causal_holdout`, and review prioritized candidates in `DecisionQueueProjection` using the `decision.cost_of_delay` ranking signal.
+5. **Promote and settle.** Promote one workflow per loop after the promotion gates pass with zero policy escapes, collect the post-window `CohortRole.TREATMENT` cohort from independent observation, and run `settle_and_publish_value_claims` to record the conservative 95% bound in `StateStoreValueClaimLedger` and Outcome Assurance.
 
 ## Success measures
 

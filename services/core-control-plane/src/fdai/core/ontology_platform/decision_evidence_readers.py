@@ -49,7 +49,7 @@ _FAILED_CHANGE_STATUSES: Final = frozenset({"failed", "canceled", "cancelled"})
 _CRITICALITY_RANK: Final = {"low": 0, "medium": 1, "high": 2, "critical": 3}
 _SHADOW_MODE: Final = "shadow"
 _READY_RECOVERY_STATUS: Final = "ready"
-_MAX_CHANGE_READ: Final = 1_000
+_MAX_CHANGE_READ: Final = 20
 
 Clock = Callable[[], datetime]
 

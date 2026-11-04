@@ -408,3 +408,134 @@ async def test_interleaved_concurrent_update_prevents_stale_overwrite() -> None:
     stored = await base_store.read_state(key)
     assert stored is not None
     assert stored["revision"] == 2
+
+
+async def test_settle_and_publish_value_claims_records_ledger_and_exposes_to_operator() -> None:
+    from decimal import Decimal
+
+    from fdai.core.measurement.value_claim import (
+        CohortRole,
+        ObservationLane,
+        ValueClaimDeclaration,
+        ValueClaimStatus,
+        ValueCohortObservation,
+        ValueDirection,
+        ValueUnit,
+    )
+    from fdai.core.measurement.value_claim_ledger import StateStoreValueClaimLedger
+    from fdai_operator_service.outcome_assurance_projection import (
+        read_outcome_assurance_operator_projection,
+    )
+
+    store = InMemoryStateStore()
+    producer = OutcomeAssuranceProjectionProducer(store=store)
+    projection = _projection(expires_at=datetime(2099, 1, 1, tzinfo=UTC), observed_at=NOW)
+    events = (
+        FinalizedOutcomeEvent(
+            event_id="ev-1",
+            finalized_at=NOW,
+            decision_case_id="case-1",
+            protected_objective_ref="objective.change-failure-rate@1.0.0",
+            workflow_ref="change-risk-gated-scale-in",
+            action_type_id="ops.scale-in@1.0.0",
+            action_run_id="run-1",
+            observed_outcome_ref="obs-outcome-1",
+            evidence_refs=("audit:event-1",),
+        ),
+    )
+    observations = (
+        OutcomeMeasurementObservation(
+            observation_id="obs-1",
+            event_id="ev-1",
+            objective_ref="objective.change-failure-rate@1.0.0",
+            metric="lead_time_seconds",
+            value=295.0,
+            observed_at=NOW,
+            recorded_at=NOW,
+            evidence_ref="measurement:lead-time",
+        ),
+    )
+    declaration = ValueClaimDeclaration(
+        claim_id="claim-lead-time-1",
+        workflow_ref="change-risk-gated-scale-in",
+        workflow_version="1.0.0",
+        objective_ref="objective.change-failure-rate@1.0.0",
+        metric_name="lead_time_seconds",
+        unit=ValueUnit.DURATION_SECONDS,
+        direction=ValueDirection.DECREASE_IS_BETTER,
+        target_value=Decimal("400"),
+        scenario_set_version="set-1",
+        window_start=NOW - timedelta(days=30),
+        window_end=NOW - timedelta(days=1),
+        min_samples_per_cohort=5,
+    )
+    baseline = ValueCohortObservation(
+        role=CohortRole.BASELINE,
+        lane=ObservationLane.INDEPENDENT_OBSERVATION,
+        scenario_set_version="set-1",
+        complete=True,
+        samples=tuple(Decimal(v) for v in ("600", "620", "580", "610", "590", "605")),
+        evidence_refs=("evidence:baseline",),
+        observed_at=NOW,
+    )
+    treatment = ValueCohortObservation(
+        role=CohortRole.TREATMENT,
+        lane=ObservationLane.INDEPENDENT_OBSERVATION,
+        scenario_set_version="set-1",
+        complete=True,
+        samples=tuple(Decimal(v) for v in ("300", "310", "290", "305", "295", "300")),
+        evidence_refs=("evidence:treatment",),
+        observed_at=NOW,
+    )
+
+    receipt, settlements = await producer.settle_and_publish_value_claims(
+        principal_id=PRINCIPAL_ID,
+        scope=projection.scope,
+        window=projection.window,
+        sources=projection.sources,
+        readiness=projection.readiness,
+        finalized_events=events,
+        observations=observations,
+        claim_cohorts=((declaration, (baseline, treatment)),),
+        guards=projection.guards,
+        as_of=NOW,
+    )
+    assert receipt.state is sc.OutcomeAssuranceReadState.COMPLETE
+    assert len(settlements) == 1
+    assert settlements[0].status is ValueClaimStatus.IMPROVED
+
+    # Durable ledger holds the settlement record
+    ledger = StateStoreValueClaimLedger(store)
+    recorded = await ledger.read("claim-lead-time-1", settlements[0].settlement_digest)
+    assert recorded is not None
+    assert recorded["status"] == "improved"
+
+    # Operator API reads the settled ValueClaim metric in read-only mode
+    query = ProjectionQuery(
+        operation="outcome_assurance",
+        path="/kpi/outcome-assurance",
+        principal_id=PRINCIPAL_ID,
+        limit=50,
+        cursor=None,
+        params={
+            "scope_ref": (SCOPE_REF,),
+            "vertical": ("change_safety",),
+            "window": ("30d",),
+        },
+    )
+    operator_payload = await read_outcome_assurance_operator_projection(
+        fetch_all=_fetch_all_adapter(store),
+        query=query,
+    )
+    assert operator_payload["read_only"] is True
+    assert operator_payload["authority"] == "none"
+    assert operator_payload["state"] == "complete"
+    drilldowns = operator_payload["objective_drilldowns"]
+    assert len(drilldowns) == 1
+    metrics = drilldowns[0]["metrics"]
+    assert len(metrics) == 1
+    assert metrics[0]["metric"] == "lead_time_seconds"
+    assert metrics[0]["state"] == "measured"
+    assert metrics[0]["unit"] == "duration_seconds"
+    assert metrics[0]["sample_size"] == 6
+    assert metrics[0]["current_value"] < metrics[0]["baseline_value"]
