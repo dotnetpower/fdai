@@ -53,7 +53,9 @@ from fdai.delivery.persistence.postgres_audit_fields import (
     json_object as _json_object,
 )
 from fdai.delivery.persistence.postgres_audit_history import (
+    AUDIT_ARCHIVE_ANCHOR_KEY,
     PostgresAuditChainWindowMixin,
+    parse_audit_archive_anchor,
 )
 from fdai.delivery.persistence.postgres_audit_history import (
     list_incident_evidence as _list_incident_evidence,
@@ -63,6 +65,9 @@ from fdai.delivery.persistence.postgres_audit_history import (
 )
 from fdai.delivery.persistence.postgres_audit_history import (
     read_audit_entries as _read_audit_entries,
+)
+from fdai.delivery.persistence.postgres_audit_history import (
+    verify_audit_chain as _verify_audit_chain,
 )
 from fdai.delivery.persistence.postgres_canary import (
     read_consumed_canary_sequence as _read_consumed_canary_sequence,
@@ -670,34 +675,11 @@ class PostgresStateStore(
     async def verify_chain(self) -> bool:
         """Walk the persisted audit chain and recompute every hash.
 
-        Uses a server-side cursor (streaming) so a multi-gigabyte audit
-        log does not buffer entirely in memory. Each row is hashed and
-        chained as it arrives; the statement_timeout still bounds total
-        runtime so a runaway verify does not lock a connection forever.
+        Starts from genesis or the verified archive anchor in ``state_kv`` and
+        streams ``audit_log`` through a server-side cursor under the statement
+        timeout.
         """
-        previous = _GENESIS_HASH
-        async with self._connection() as conn:
-            await self._set_statement_timeout(conn)
-            async with conn.cursor(name="fdai_verify_chain") as cur:
-                cur.itersize = 5_000
-                await cur.execute(
-                    """
-                    SELECT entry, previous_hash, entry_hash
-                      FROM audit_log
-                     ORDER BY seq ASC
-                    """
-                )
-                async for row in cur:
-                    if row["previous_hash"] != previous:
-                        return False
-                    entry = row["entry"]
-                    if isinstance(entry, str):
-                        entry = json.loads(entry)
-                    expected = _next_hash(previous, entry)
-                    if row["entry_hash"] != expected:
-                        return False
-                    previous = row["entry_hash"]
-        return True
+        return await _verify_audit_chain(self)
 
     # ------------------------------------------------------------------
     # Internals
@@ -758,7 +740,22 @@ class PostgresStateStore(
         await conn.execute("SELECT pg_advisory_xact_lock(%s)", (_AUDIT_APPEND_LOCK_KEY,))
         cursor = await conn.execute("SELECT entry_hash FROM audit_log ORDER BY seq DESC LIMIT 1")
         row = await cursor.fetchone()
-        previous = row["entry_hash"] if row is not None else _GENESIS_HASH
+        if row is not None:
+            previous = row["entry_hash"]
+        else:
+            anchor = await (
+                await conn.execute(
+                    "SELECT value FROM state_kv WHERE key = %s",
+                    (AUDIT_ARCHIVE_ANCHOR_KEY,),
+                )
+            ).fetchone()
+            if anchor is None:
+                previous = _GENESIS_HASH
+            else:
+                parsed = parse_audit_archive_anchor(anchor["value"])
+                if parsed is None:
+                    raise RuntimeError("audit archive anchor is malformed")
+                previous = parsed[1]
         entry_hash = _next_hash(previous, payload)
         event_id = _audit_event_id(payload)
         actor = _audit_actor(payload)

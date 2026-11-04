@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Report local database size, the largest tables, and growth since the previous report.
+"""Report local database size, the largest tables, and lifecycle retention status.
 
 Read-only. Only loopback port 5432 database ``fdai`` is accepted, and no connection value is
-printed. A warning appears before the 2 GiB recreation guard so growth is visible while it is
-still cheap to fix.
+printed. Warnings are based on unpruned cold audit rows, dead-tuple backlog, expired cache rows,
+and unreachable state rather than a byte-size limit.
 """
 
 from __future__ import annotations
@@ -22,14 +22,10 @@ from psycopg.conninfo import conninfo_to_dict
 
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 _DSN_ENV = "FDAI_STATE_STORE_DSN"
-_BOUND_ENV = "FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES"
-_DEFAULT_BOUND = 2 * 1024 * 1024 * 1024
-WARN_FRACTION = 0.75
 _SAMPLE_PATH = Path(".fdai/local-db-growth.json")
-# A short interval extrapolates noise, such as a vacuum, into a daily rate.
-MIN_RATE_WINDOW_SECONDS = 900
-DAILY_GROWTH_WARN_BYTES = 300 * 1024 * 1024
-MIN_DAYS_TO_BOUND = 14
+DEAD_ROW_WARN_THRESHOLD = 10_000
+COLD_AUDIT_ROW_WARN_THRESHOLD = 50_000
+HEIMDALL_VERSION_WARN_THRESHOLD = 5_000
 _MIB = 1024 * 1024
 _CONNECTION_OPTIONS = "-c statement_timeout=10000 -c lock_timeout=1000"
 _STATE_FAMILY_SQL = """
@@ -103,13 +99,6 @@ SELECT n.nspname, t.relname, c.relname, pg_relation_size(c.oid),
 """
 
 
-def assess(size_bytes: int, bound_bytes: int) -> str:
-    """Return ``ok``, ``warn`` before the guard, or ``over`` at or past it."""
-    if size_bytes >= bound_bytes:
-        return "over"
-    return "warn" if size_bytes >= bound_bytes * WARN_FRACTION else "ok"
-
-
 def growth_per_hour(previous: dict[str, Any] | None, size_bytes: int, now: float) -> float | None:
     """Return bytes per hour since the previous sample, or ``None`` without a usable one."""
     if not previous:
@@ -120,25 +109,53 @@ def growth_per_hour(previous: dict[str, Any] | None, size_bytes: int, now: float
     return (size_bytes - int(previous.get("size_bytes", size_bytes))) / elapsed * 3600
 
 
-def growth_warnings(
-    previous: dict[str, Any] | None, size_bytes: int, bound_bytes: int, now: float
+def lifecycle_warnings(
+    tables: list[dict[str, Any]], details: dict[str, Any] | None = None
 ) -> list[str]:
-    """Warn when the observed rate would cost more than a day's budget or fill the bound soon."""
-    if not previous or now - float(previous.get("at", now)) < MIN_RATE_WINDOW_SECONDS:
-        return []
-    rate = growth_per_hour(previous, size_bytes, now)
-    if rate is None or rate <= 0:
-        return []
-    daily = rate * 24
-    warnings = []
-    if daily >= DAILY_GROWTH_WARN_BYTES:
-        warnings.append(
-            f"growth is {daily / _MIB:,.0f} MiB/day (warn at {DAILY_GROWTH_WARN_BYTES // _MIB})"
-        )
-    days_left = max(bound_bytes - size_bytes, 0) / daily
-    if days_left < MIN_DAYS_TO_BOUND:
-        warnings.append(f"the recreation guard is {days_left:.1f} days away at this rate")
+    """Warn on unpruned cold audit rows, dead-tuple backlog, or expired state, never byte size."""
+    warnings: list[str] = []
+    for table in tables:
+        relation = str(table.get("relation") or "")
+        live = int(table.get("estimated_live_rows") or 0)
+        dead = int(table.get("estimated_dead_rows") or 0)
+        if dead >= DEAD_ROW_WARN_THRESHOLD and dead > live:
+            warnings.append(
+                f"{relation} has {dead:,} dead rows exceeding {live:,} live rows; "
+                "run compact-local-database.py --apply --vacuum"
+            )
+        if relation == "public.audit_log" and live >= COLD_AUDIT_ROW_WARN_THRESHOLD:
+            warnings.append(
+                f"public.audit_log has {live:,} live rows; "
+                "run archive-audit-segments.py --prune to archive and anchor cold segments"
+            )
+    if isinstance(details, dict):
+        for cache_table in ("t2_cache", "t2_cache_legacy_default"):
+            entry = details.get(cache_table)
+            expired = int(entry.get("expired_rows") or 0) if isinstance(entry, dict) else 0
+            if expired > 0:
+                warnings.append(
+                    f"{cache_table} has {expired:,} expired rows; "
+                    "run compact-local-database.py --apply"
+                )
+        families = details.get("state_families")
+        if isinstance(families, list):
+            for family in families:
+                if (
+                    isinstance(family, dict)
+                    and family.get("family") == "heimdall_versions"
+                    and int(family.get("rows") or 0) >= HEIMDALL_VERSION_WARN_THRESHOLD
+                ):
+                    count = int(family["rows"])
+                    warnings.append(
+                        f"heimdall_versions has {count:,} rows; "
+                        "run compact-local-database.py --apply"
+                    )
     return warnings
+
+
+def assess_lifecycle(warnings: list[str]) -> str:
+    """Return ``warn`` when lifecycle cleanup is needed and ``ok`` otherwise."""
+    return "warn" if warnings else "ok"
 
 
 def table_storage(row: tuple[Any, ...]) -> dict[str, Any]:
@@ -290,15 +307,6 @@ def _dsn() -> str:
     return dsn
 
 
-def _bound() -> int:
-    raw = os.environ.get(_BOUND_ENV, "").strip()
-    if not raw:
-        return _DEFAULT_BOUND
-    if not raw.isdigit() or int(raw) < 1:
-        raise SystemExit(f"{_BOUND_ENV} MUST be a positive integer")
-    return int(raw)
-
-
 def _previous_sample(database_oid: int) -> dict[str, Any] | None:
     if not _SAMPLE_PATH.is_file():
         return None
@@ -361,20 +369,18 @@ def main() -> int:
             raise RuntimeError("database growth report returned no statistics accounting")
         stats_reset = stats_row[0]
         details = storage_details(connection) if args.details else None
-    bound = _bound()
     now = time.time()
     previous = _previous_sample(database_oid)
     rate = growth_per_hour(previous, size, now)
-    status = assess(size, bound)
-    warnings = growth_warnings(previous, size, bound, now)
+    warnings = lifecycle_warnings(tables, details)
+    status = assess_lifecycle(warnings)
     for table in tables:
         table["growth_bytes_per_hour"] = relation_growth(previous, table, now)
     report = {
         "size_bytes": size,
-        "bound_bytes": bound,
         "status": status,
         "growth_bytes_per_hour": rate,
-        "growth_warnings": warnings,
+        "lifecycle_warnings": warnings,
         "tables": tables[:top],
         "indexes": [
             {
@@ -398,7 +404,7 @@ def main() -> int:
     if args.json:
         print(json.dumps(report))
     else:
-        print(f"size:   {size / _MIB:,.0f} MiB of {bound / _MIB:,.0f} MiB ({size / bound:.0%})")
+        print(f"size:   {size / _MIB:,.0f} MiB (lifecycle status: {status})")
         if rate is not None:
             print(f"growth: {rate / _MIB:+,.1f} MiB/hour since the previous report")
         for table in tables[:top]:
@@ -412,12 +418,7 @@ def main() -> int:
             print(json.dumps(details, sort_keys=True))
     if warnings and not args.json:
         for warning in warnings:
-            print(f"WARNING: {warning}; run archive-audit-segments.py and review audit_families")
-    if status != "ok" and not args.json:
-        print(
-            f"WARNING: database is {status} the recreation guard; run "
-            "scripts/deployment/local/compact-local-database.py to apply retention"
-        )
+            print(f"WARNING: {warning}")
     if not args.no_sample:
         _SAMPLE_PATH.parent.mkdir(parents=True, exist_ok=True)
         _SAMPLE_PATH.write_text(

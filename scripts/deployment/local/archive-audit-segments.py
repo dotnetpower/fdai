@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """Export old audit rows of the loopback development database as verified zstd segments.
 
-Non-destructive: rows are copied to ``.fdai/audit-archive`` and never deleted. Each segment is a
-contiguous run of ``audit_log`` rows (JSON lines, Zstandard compressed) whose hash chain is
-recomputed before and after writing, anchored to the previous segment, and recorded in
+By default rows are copied to ``.fdai/audit-archive`` without deleting from ``audit_log``. Each
+segment is a contiguous run of ``audit_log`` rows (JSON lines, Zstandard compressed) whose hash
+chain is recomputed before and after writing, anchored to the previous segment, and recorded in
 ``manifest.jsonl`` with the digests needed to verify it later. The newest 512 rows and every row
 younger than ``--older-than-days`` are never exported, so the Saga recovery window stays hot.
 
+With ``--prune``, verified cold segments that precede the hot tail, the Saga compact recovery
+window, and any canonical incident rows are atomically anchored in ``state_kv``
+(``audit-archive:anchor``) and deleted from ``audit_log`` under the audit append lock.
+``PostgresStateStore.verify_chain`` validates that anchor and verifies the remaining suffix.
+
 Only loopback port 5432 database ``fdai`` is accepted and no connection value is printed.
-Removing exported rows from the table needs a chain verifier that accepts a manifest anchor and is
-intentionally not part of this script.
 
 Every database generation has its own hash chain and its own sequence numbers, so each is archived
 under ``<out>/<generation id>/``. The id hashes the first row's entry hash with its creation time:
@@ -34,6 +37,10 @@ from pathlib import Path
 from typing import Any
 
 import psycopg
+from fdai.delivery.persistence.postgres_audit_history import (
+    AUDIT_ARCHIVE_ANCHOR_KEY,
+    parse_audit_archive_anchor,
+)
 from fdai.rule_catalog.schema.zstd_codec import compress_bytes, decompress_bytes
 from fdai.shared.providers.audit_hash import GENESIS_HASH, next_hash
 from psycopg.conninfo import conninfo_to_dict
@@ -41,6 +48,9 @@ from psycopg.conninfo import conninfo_to_dict
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 _DSN_ENV = "FDAI_STATE_STORE_DSN"
 _HOT_TAIL_ROWS = 512
+_SAGA_WINDOW_ROWS = 256
+_AUDIT_APPEND_LOCK_KEY = 0x0FDA10AAAAAA01
+_SAGA_CHECKPOINT_KEY = "pantheon/saga/audit-chain/verified-head"
 _DEFAULT_OUT = Path(".fdai/audit-archive")
 _MANIFEST = "manifest.jsonl"
 _COLUMNS = (
@@ -238,6 +248,113 @@ def _verify_generation(out: Path) -> dict[str, Any]:
     return {"segments": len(entries), "rows": rows, "last_seq": previous_last, "chain_head": anchor}
 
 
+def _first_record_metadata(out: Path, first_entry: dict[str, Any]) -> tuple[str, str]:
+    first = _decode(
+        decompress_bytes(
+            (out / first_entry["segment"]).read_bytes(),
+            max_output_size=_MAX_SEGMENT_BYTES,
+            expected_uncompressed_sha256=first_entry["uncompressed_sha256"],
+        )
+    )[0]
+    return str(first["entry_hash"]), str(first["created_at"])
+
+
+def _stored_anchor(db: Any) -> dict[str, Any] | None:
+    cursor = db.execute("SELECT value FROM state_kv WHERE key = 'audit-archive:anchor'")
+    fetchone = getattr(cursor, "fetchone", None)
+    if not callable(fetchone):
+        return None
+    row = fetchone()
+    if row is None or row[0] is None:
+        return None
+    if parse_audit_archive_anchor(row[0]) is None:
+        raise SystemExit("stored audit archive anchor in state_kv is invalid")
+    return dict(row[0])
+
+
+def prune_archived_segments(dsn: str, out: Path) -> tuple[int, int | None]:
+    """Anchor and delete verified archived segments that precede all hot and active windows."""
+    _verify_generation(out)
+    manifest = read_manifest(out)
+    if not manifest:
+        return 0, None
+    first_hash, first_created = _first_record_metadata(out, manifest[0])
+    manifest_sha256 = "sha256:" + hashlib.sha256((out / _MANIFEST).read_bytes()).hexdigest()
+    with psycopg.connect(
+        dsn, connect_timeout=5, options="-c statement_timeout=120000 -c lock_timeout=15000"
+    ) as db:
+        db.execute("SELECT pg_advisory_xact_lock(%s)", (_AUDIT_APPEND_LOCK_KEY,))
+        tail_row = db.execute(
+            "SELECT seq FROM audit_log ORDER BY seq DESC OFFSET %s LIMIT 1",
+            (_HOT_TAIL_ROWS,),
+        ).fetchone()
+        if tail_row is None or tail_row[0] is None:
+            return 0, None
+        max_safe_seq = int(tail_row[0])
+        checkpoint_row = db.execute(
+            "SELECT value FROM state_kv WHERE key = %s",
+            (_SAGA_CHECKPOINT_KEY,),
+        ).fetchone()
+        if (
+            checkpoint_row is not None
+            and isinstance(checkpoint_row[0], dict)
+            and checkpoint_row[0].get("schema_version") == "1.0.0"
+        ):
+            return 0, None
+        saga_window = db.execute(
+            "SELECT seq FROM audit_log "
+            "WHERE actor = 'Saga' AND action_kind = 'audit.record' "
+            "ORDER BY seq DESC OFFSET %s LIMIT 1",
+            (_SAGA_WINDOW_ROWS - 1,),
+        ).fetchone()
+        if saga_window is not None and saga_window[0] is not None:
+            max_safe_seq = min(max_safe_seq, int(saga_window[0]) - 1)
+        else:
+            saga_first = db.execute(
+                "SELECT MIN(seq) FROM audit_log "
+                "WHERE actor = 'Saga' AND action_kind = 'audit.record'"
+            ).fetchone()
+            if saga_first is not None and saga_first[0] is not None:
+                max_safe_seq = min(max_safe_seq, int(saga_first[0]) - 1)
+        incident_first = db.execute(
+            "SELECT MIN(seq) FROM audit_log "
+            "WHERE action_kind LIKE 'incident.%%' OR entry->>'kind' LIKE 'incident.%%'"
+        ).fetchone()
+        if incident_first is not None and incident_first[0] is not None:
+            max_safe_seq = min(max_safe_seq, int(incident_first[0]) - 1)
+        eligible = [entry for entry in manifest if int(entry["last_seq"]) <= max_safe_seq]
+        if not eligible:
+            return 0, None
+        target = eligible[-1]
+        through_seq = int(target["last_seq"])
+        successor = db.execute(
+            "SELECT seq, previous_hash FROM audit_log WHERE seq > %s ORDER BY seq ASC LIMIT 1",
+            (through_seq,),
+        ).fetchone()
+        if successor is None or str(successor[1]) != str(target["last_entry_hash"]):
+            raise RuntimeError("audit archive boundary does not link to the first retained row")
+        anchor_record = {
+            "schema_version": "1.0.0",
+            "generation_id": out.name,
+            "first_seq": int(manifest[0]["first_seq"]),
+            "first_entry_hash": first_hash,
+            "first_created_at": first_created,
+            "through_seq": through_seq,
+            "last_entry_hash": str(target["last_entry_hash"]),
+            "archived_rows": sum(int(item["rows"]) for item in eligible),
+            "segment_count": len(eligible),
+            "manifest_sha256": manifest_sha256,
+        }
+        db.execute(
+            "INSERT INTO state_kv (key, value, updated_at) VALUES (%s, %s::jsonb, NOW()) "
+            "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()",
+            (AUDIT_ARCHIVE_ANCHOR_KEY, json.dumps(anchor_record, sort_keys=True)),
+        )
+        deleted = db.execute("DELETE FROM audit_log WHERE seq <= %s", (through_seq,)).rowcount
+        db.commit()
+    return max(0, int(deleted)), through_seq
+
+
 def archive(
     dsn: str,
     out: Path,
@@ -246,7 +363,10 @@ def archive(
     segment_rows: int,
     max_segments: int,
     final: bool = False,
+    prune: bool = False,
 ) -> dict[str, Any]:
+    if final and prune:
+        raise ValueError("--final and --prune cannot be combined")
     out.mkdir(parents=True, exist_ok=True, mode=0o700)
     migrate_flat_archive(out)
     root = out
@@ -259,14 +379,24 @@ def archive(
         present = db.execute("SELECT to_regclass('public.audit_log')").fetchone()
         if present is None or present[0] is None:
             return {"segments_written": 0, "rows": 0, "deleted_rows": 0, "audit_log": "absent"}
+        stored_anchor = _stored_anchor(db)
         first = db.execute(
             "SELECT entry_hash, created_at FROM audit_log ORDER BY seq LIMIT 1"
         ).fetchone()
-        if first is None:
+        if first is None and stored_anchor is None:
             return {"segments_written": 0, "rows": 0, "deleted_rows": 0, "audit_log": "empty"}
-        out = root / generation_id(str(first[0]), first[1].isoformat())
+        if stored_anchor is not None:
+            out = root / str(stored_anchor["generation_id"])
+        elif first is not None:
+            out = root / generation_id(str(first[0]), first[1].isoformat())
+        else:
+            return {"segments_written": 0, "rows": 0, "deleted_rows": 0, "audit_log": "empty"}
         out.mkdir(exist_ok=True, mode=0o700)
         manifest = read_manifest(out)
+        if stored_anchor is not None and (
+            not manifest or int(manifest[-1]["last_seq"]) < int(stored_anchor["through_seq"])
+        ):
+            raise SystemExit("audit archive manifest is behind the stored database anchor")
         anchor = manifest[-1]["last_entry_hash"] if manifest else GENESIS_HASH
         after = manifest[-1]["last_seq"] if manifest else 0
         head = db.execute("SELECT COALESCE(max(seq), 0) FROM audit_log").fetchone()
@@ -287,9 +417,12 @@ def archive(
             anchor, after = entry["last_entry_hash"], entry["last_seq"]
     if final and after != head_seq:
         raise SystemExit(f"audit archive stops at seq {after} but the table reaches {head_seq}")
+    deleted_rows, anchor_through_seq = (
+        prune_archived_segments(dsn, out) if prune and out != root else (0, None)
+    )
     raw = sum(item["uncompressed_size"] for item in written)
     packed = sum(item["compressed_size"] for item in written)
-    return {
+    report: dict[str, Any] = {
         "segments_written": len(written),
         "rows": sum(item["rows"] for item in written),
         "uncompressed_bytes": raw,
@@ -297,8 +430,11 @@ def archive(
         "ratio": round(raw / packed, 2) if packed else None,
         "generation": out.name if out != root else None,
         "archived_through_seq": after,
-        "deleted_rows": 0,
+        "deleted_rows": deleted_rows,
     }
+    if anchor_through_seq is not None:
+        report["anchor_through_seq"] = anchor_through_seq
+    return report
 
 
 def main() -> int:
@@ -310,10 +446,16 @@ def main() -> int:
     parser.add_argument(
         "--verify", action="store_true", help="verify the existing archive without a database"
     )
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
         "--final",
         action="store_true",
         help="archive every row up to the table head and fail unless the archive reaches it",
+    )
+    mode.add_argument(
+        "--prune",
+        action="store_true",
+        help="record a verified archive anchor in state_kv and delete archived cold audit_log rows",
     )
     args = parser.parse_args()
     if args.verify:
@@ -332,6 +474,7 @@ def main() -> int:
         segment_rows=args.segment_rows,
         max_segments=10_000 if args.final else args.max_segments,
         final=args.final,
+        prune=args.prune,
     )
     print(json.dumps(report, sort_keys=True))
     return 0

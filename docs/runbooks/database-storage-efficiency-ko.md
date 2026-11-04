@@ -1,6 +1,6 @@
 ---
 translation_of: database-storage-efficiency.md
-translation_source_sha: 11adef517878ee4aadb9fdcd73e204a0147c7d17
+translation_source_sha: a029648b7834b5f57c0f995123e766f4b5e2d7fa
 translation_revised: 2026-11-04
 ---
 # 데이터베이스 저장 공간 증가 진단
@@ -180,22 +180,26 @@ compare-and-swap으로 shard의 완료 항목을 저장합니다. 이 저장이 
 컨테이너는 `wal_compression=zstd`, `max_wal_size=512MB`, 256 MB `/dev/shm`을 사용하므로 병렬
 `VACUUM`도 실행할 수 있습니다.
 
-`compact-local-database.py`는 해결된 `hil_park:` 행 중 최신 500개도 유지합니다. 브로커가 이미
-가진 기록을 다시 게시할 수 있으므로 `analyzer-publication:` 같은 게시 차단 행은 절대 목록에
-넣지 않습니다.
+`compact-local-database.py`는 해결된 `hil_park:` 행 중 최신 500개와 `measurement:control-loop:` 행
+중 최신 1,000개도 유지합니다. 브로커가 이미 가진 기록을 다시 게시할 수 있으므로
+`analyzer-publication:` 같은 게시 차단 행은 절대 목록에 넣지 않습니다.
 
-오래된 감사 행을 테이블 밖으로 복사하려면 저장소 루트에서 다음을 실행하세요.
+오래된 감사 행을 검증된 zstd segment로 내보내고 선택적으로 고정된 앞부분을 `audit_log`에서 정리하려면
+저장소 루트에서 다음을 실행하세요.
 
 ```bash
 uv run python scripts/deployment/local/archive-audit-segments.py --older-than-days 2
+uv run python scripts/deployment/local/archive-audit-segments.py --older-than-days 2 --prune
 ```
 
 각 segment는 `audit_log` 행의 연속 구간을 Zstandard로 압축한 JSON 줄이며 저장된 JSON보다 약 7배
 작습니다. 스크립트는 쓰기 전후에 해시 체인을 다시 계산하고, 각 segment를
-`.fdai/audit-archive/manifest.jsonl`의 이전 segment에 연결하며, 최신 512행과 기준 시각보다 최근
-행은 유지합니다. 아무것도 삭제하지 않습니다. `verify_chain`은 여전히 genesis부터 테이블을
-순회하므로 내보낸 행을 지우려면 manifest 앵커를 받아들이는 검증기가 먼저 필요하며, 그 전까지
-테이블은 줄어들지 않습니다.
+`.fdai/audit-archive/<generation>/manifest.jsonl`의 이전 segment에 연결하며, 최신 512행과 기준
+시각보다 최근 행은 유지합니다. `--prune`을 주면 최신 512행 핫 구간, 256행 Saga compact 체크포인트
+구간, 정식 incident 행보다 앞에 있는 검증된 segment를 감사 추가 잠금 아래에서 `state_kv`
+(`audit-archive:anchor`)에 원자적으로 기록하고 `audit_log`에서 삭제합니다.
+`PostgresStateStore.verify_chain`은 이 앵커를 검증하고 남은 뒷부분을 이어서 확인하므로 데이터베이스를
+재생성하지 않아도 됩니다.
 
 데이터베이스마다 감사 체인과 순번이 따로 있으므로 보관본은 `.fdai/audit-archive/` 아래에 체인별
 디렉터리를 하나씩 둡니다. 디렉터리 이름은 체인의 첫 행을 해시한 값입니다. 이 구조 이전의 보관본은
@@ -203,35 +207,34 @@ uv run python scripts/deployment/local/archive-audit-segments.py --older-than-da
 `archive-audit-segments.py --verify`를 실행하세요. 모든 segment의 digest, 행 범위, 해시 체인을
 manifest와 다시 대조하고 손상이 있으면 0이 아닌 코드로 종료합니다.
 
-`prepare-console-state.sh --recreate`와 한도를 넘은 `--allow-recreate`는 데이터베이스를 삭제하기 전에
+`prepare-console-state.sh --recreate`는 데이터베이스를 삭제하기 전에
 `archive-audit-segments.py --final`과 `--verify`를 실행합니다. `--final`은 최신 512행을 포함한 모든
 행을 보관하고 테이블 끝까지 닿지 않으면 실패합니다. 둘 중 하나라도 실패하면 재생성을 거부하고
 아무것도 삭제하지 않습니다.
 
-## 감사 행을 삭제하거나 집계할 시점
+## 수명주기 기반 감사 보존과 기록 집계 기준
 
-위 개선 후 루프백 데이터베이스에서 측정한 감사 행은 시간당 약 2,000~4,000건입니다. 인덱스를 포함해
-행당 약 1.8 KB이므로 감사 테이블만 하루 약 90~160 MiB, 데이터베이스 전체는 하루 약 100~250 MiB
-늘어납니다. 이전 하루 1.4 GiB보다 약 10배 낮지만 2 GiB 한도까지는 여전히 10~20일 걸립니다.
-inventory generation이 단계적으로 행을 추가하므로 짧은 구간은 증가량을 낮게 보여 줍니다. 하루 단위로
-판단하세요. 로컬 analyzer는 60초 대신 300초마다 실행하며(`FDAI_ANALYZER_INTERVAL_SECONDS`) 이로써
-시간당 감사 약 840행이 줄어듭니다. 보관 후 재생성으로 잃는 것이 없으므로 아래 두 가지는 아직
-정당화되지 않습니다.
+데이터베이스 보존은 임의의 바이트 크기 상한이 아니라 세대 수, 도달성, 완료 상태, 검증된 보관 앵커로
+관리합니다. 루프백 데이터베이스에서 감사 행은 시간당 약 2,000~4,000건(인덱스 포함 행당 약 1.8 KB)
+들어옵니다. 로컬 analyzer는 60초 대신 300초마다 실행해(`FDAI_ANALYZER_INTERVAL_SECONDS`) 시간당
+감사 약 840행을 줄이고, `archive-audit-segments.py --prune`이 핫 구간, Saga 복구 구간, incident
+행을 보존하면서 검증된 오래된 segment를 `audit_log` 밖으로 순환시킵니다.
 
-- **내보낸 감사 행 삭제.** `verify_chain`과 이를 호출하는 준비 상태, 카오스, 카탈로그 검토,
-  의미 갱신 검사는 genesis부터 테이블을 순회하고, incident 투영은 초기 `incident.open` 행을
-  읽습니다. 삭제하려면 manifest의 보관 앵커를 받아들이는 검증기와 incident 투영 검토가 먼저 필요합니다.
-- **`abstain`, `risk_gate`, RCA, Saga 수신 기록 집계.** 각각이 개별 판단 기록이므로 개수로 바꾸면
-  재생 가능성이 약해집니다. 보관 방식을 우선하세요.
+- **앵커 검증 기반 앞부분 정리(`--prune`).** `verify_chain`과 이를 호출하는 준비 상태, 카오스,
+  카탈로그 검토, 의미 갱신 검사는 `state_kv`의 검증된 `audit-archive:anchor` 영수증을 받아들이고
+  그 앵커 해시에서 남은 뒷부분을 순회합니다.
+- **`abstain`, `risk_gate`, RCA, Saga 수신 기록은 집계하지 않음.** 각각이 개별 판단 기록이므로
+  개수로 바꾸면 재생 가능성이 약해집니다. 전체 기록은 zstd 보관본에 유지하고 검증된 오래된
+  segment만 정리합니다.
 
-`audit_families`에서 하루 약 300 MB를 넘는 증가가 이어지면 다시 검토하세요. 증가 보고서는 15분
-이상의 구간에서 그 속도를 넘거나 14일 안에 한도에 닿을 속도이면 경고합니다.
-`audit_log_entry_correlation_idx`와 `idx_audit_log_correlation_id`는 스캔이 없었지만 첫 번째는
+`report-database-growth.py`는 바이트 크기가 아니라 수명주기 누수(활성 행을 넘는 dead tuple 적체,
+50,000행을 넘는 미정리 `audit_log` 행, 만료된 `t2_cache` 행, 도달 불가 `heimdall_versions` 적체)를
+기준으로 경고합니다. `audit_log_entry_correlation_idx`와 `idx_audit_log_correlation_id`는 첫 번째를
 서명된 서비스 마이그레이션이 소유하고 복구 쿼리가 둘 중 하나를 쓸 수 있으므로 유지합니다.
 
 ## 삭제 가능한 개발 데이터베이스의 명시적 재생성
 
-일반 준비 작업과 `--allow-recreate`는 크기 상한 이내의 DB를 보존합니다.
+일반 준비 작업과 `--check`는 바이트 크기와 관계없이 기존 데이터베이스를 보존합니다.
 백업과 이력 보존 요건을 검토하고 로컬 쓰기 프로세스를 모두 중지한 뒤 데이터 손실을
 명시적으로 승인했다면 다음 명령을 사용합니다.
 
@@ -239,7 +242,7 @@ inventory generation이 단계적으로 행을 추가하므로 짧은 구간은 
 bash scripts/deployment/local/prepare-console-state.sh --recreate
 ```
 
-이 모드는 일반적인 크기 상한보다 작아도 선택된 루프백 `fdai` 런타임 DB를 재생성합니다.
+이 모드는 모든 감사 행을 보관·검증한 뒤 선택된 루프백 `fdai` 런타임 DB를 재생성합니다.
 활성 연결 차단, 짝을 이루는 브로커 초기화 표시, 범위가 제한된 비공개 등록 정보 보존,
 다섯 서비스 마이그레이션 경로를 유지합니다. 크기나 연결 수를 확인할 수 없으면
 재생성을 차단합니다. 연결을 강제로 종료하거나 다른 DB를 선택하거나 ID를 변경하거나

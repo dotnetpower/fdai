@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: bb883a77f2b9c0526bc5773b6e19518203509bcd
+translation_source_sha: 2065213f8a3ddaafcdb25075c10490bea3b7ccbd
 translation_revised: 2026-11-04
 ---
 
@@ -441,13 +441,13 @@ checkout만 미리 보거나 제거하며, `developer_workflow_worktrees.py sync
 
 ## 로컬 데이터베이스 증가 통제
 
-루프백 5432 포트의 런타임 데이터베이스는 삭제 가능하지만 크기를 제한합니다. 준비 단계는
-`FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES`(2 GiB)를 넘으면 압축하거나 명시적으로 재생성하기
-전까지 진행하지 않습니다. 로컬 통제는 배포 동작을 바꾸지 않고 이 한계 아래로 유지합니다.
-실행기는 변경 기반 인벤토리 스캔 하한을 30분, analyzer tick을 5분으로 설정하고, Postgres 컨테이너는
-WAL을 zstd로 압축하며, `compact-local-database.py`와 `archive-audit-segments.py`는 삭제 가능한
-상태를 제한하고 오래된 감사 행을 검증된 zstd segment로 복사합니다. 재생성은 먼저 모든 감사 행을
-보관하고 검증하며 실패하면 거부됩니다. 명령과 한계는
+루프백 5432 포트의 런타임 데이터베이스는 바이트 크기 상한이 아니라 수명주기 보존(세대 수, 도달성,
+완료 상태, 검증된 보관 앵커)으로 관리하며, 준비 단계는 데이터베이스 바이트 크기 때문에 시작을
+거부하거나 재생성을 강제하지 않습니다. 실행기는 변경 기반 인벤토리 스캔 하한을 30분, analyzer tick을
+5분으로 설정하고, Postgres 컨테이너는 WAL을 zstd로 압축하며, `compact-local-database.py`와
+`archive-audit-segments.py --prune`이 삭제 가능한 상태를 제한하고 오래된 감사 행을 앵커로 고정된
+검증된 zstd segment로 순환시킵니다. 명시적 `--recreate`는 먼저 모든 감사 행을 보관하고 검증하며
+실패하면 거부됩니다. 명령과 한계는
 [저장소 runbook](../../runbooks/database-storage-efficiency-ko.md)이 소유합니다.
 
 ## 안전 경계

@@ -29,12 +29,9 @@ _REPORT = _load("report_database_growth", "report-database-growth.py")
 _GIB = 1024**3
 
 
-@pytest.mark.parametrize(
-    ("size", "expected"),
-    [(0, "ok"), (int(1.4 * _GIB), "ok"), (int(1.6 * _GIB), "warn"), (2 * _GIB, "over")],
-)
-def test_assess_warns_before_the_recreation_guard(size: int, expected: str) -> None:
-    assert _REPORT.assess(size, 2 * _GIB) == expected
+def test_assess_lifecycle_depends_on_lifecycle_warnings_not_byte_size() -> None:
+    assert _REPORT.assess_lifecycle([]) == "ok"
+    assert _REPORT.assess_lifecycle(["public.audit_log has 60,000 live rows"]) == "warn"
 
 
 def test_growth_needs_a_usable_previous_sample() -> None:
@@ -157,13 +154,6 @@ def test_corrupt_sample_is_reported_instead_of_silently_trusted(
     monkeypatch.setattr(_REPORT, "_SAMPLE_PATH", sample)
     assert _REPORT._previous_sample(42) is None
     assert "WARNING" in capsys.readouterr().err
-
-
-@pytest.mark.parametrize("value", ["invalid", "0", "-1"])
-def test_invalid_database_bound_is_explicit(value: str, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES", value)
-    with pytest.raises(SystemExit, match="positive integer"):
-        _REPORT._bound()
 
 
 async def test_compaction_byte_budget_never_discards_the_required_newest_window(
@@ -731,26 +721,101 @@ def test_a_recreated_database_gets_its_own_generation_and_old_ones_stay_verifiab
 _MIB = 1024 * 1024
 
 
-def test_growth_warns_on_a_high_daily_rate_and_a_near_bound() -> None:
-    previous = {"at": 0.0, "size_bytes": 0}
-    hour = 3600.0
+def test_lifecycle_warnings_report_dead_rows_cold_audit_and_expired_state_not_byte_size() -> None:
+    healthy_large_tables = [
+        {
+            "relation": "public.state_kv",
+            "total_bytes": 10 * _GIB,
+            "estimated_live_rows": 5_000,
+            "estimated_dead_rows": 100,
+        },
+        {
+            "relation": "public.audit_log",
+            "total_bytes": 4 * _GIB,
+            "estimated_live_rows": 1_000,
+            "estimated_dead_rows": 0,
+        },
+    ]
+    assert _REPORT.lifecycle_warnings(healthy_large_tables, None) == []
 
-    quiet = _REPORT.growth_warnings(previous, 5 * _MIB, 2 * _GIB, hour)
-    fast = _REPORT.growth_warnings(previous, 20 * _MIB, 2 * _GIB, hour)
-    near = _REPORT.growth_warnings(
-        {"at": 0.0, "size_bytes": 1_800 * _MIB}, 1_900 * _MIB, 2 * _GIB, hour * 24
+    bloated_tables = [
+        {
+            "relation": "public.state_kv",
+            "total_bytes": 50 * _MIB,
+            "estimated_live_rows": 1_000,
+            "estimated_dead_rows": 15_000,
+        },
+        {
+            "relation": "public.audit_log",
+            "total_bytes": 50 * _MIB,
+            "estimated_live_rows": 60_000,
+            "estimated_dead_rows": 0,
+        },
+    ]
+    details = {
+        "t2_cache": {"rows": 10, "expired_rows": 3},
+        "state_families": [{"family": "heimdall_versions", "rows": 6_000}],
+    }
+    warnings = _REPORT.lifecycle_warnings(bloated_tables, details)
+    assert any("dead rows" in item for item in warnings)
+    assert any("archive-audit-segments.py --prune" in item for item in warnings)
+    assert any("t2_cache has 3 expired rows" in item for item in warnings)
+    assert any("heimdall_versions has 6,000 rows" in item for item in warnings)
+
+
+def test_prune_archived_segments_writes_anchor_and_deletes_cold_prefix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from fdai.delivery.persistence.postgres_audit_history import parse_audit_archive_anchor
+
+    module = _archive_module()
+    records = _chain(600)
+    gen_dir = tmp_path / module.generation_id(
+        str(records[0]["entry_hash"]), str(records[0]["created_at"])
     )
+    gen_dir.mkdir(parents=True)
+    first_seg = module.write_segment(gen_dir, records[:50], anchor="0" * 64)
+    (gen_dir / "manifest.jsonl").write_text(json.dumps(first_seg) + "\n", encoding="utf-8")
 
-    assert quiet == []
-    assert any("MiB/day" in item for item in fast)
-    assert any("days away" in item for item in fast)
-    assert len(near) == 1 and "days away" in near[0]
+    anchored: list[dict[str, object]] = []
+    deleted_upto: list[int] = []
 
+    class Database:
+        def __enter__(self) -> Database:
+            return self
 
-def test_growth_warning_ignores_short_windows_and_shrinking_databases() -> None:
-    assert _REPORT.growth_warnings({"at": 0.0, "size_bytes": 0}, 900 * _MIB, 2 * _GIB, 300.0) == []
-    assert (
-        _REPORT.growth_warnings({"at": 0.0, "size_bytes": 900 * _MIB}, 10 * _MIB, 2 * _GIB, 7200.0)
-        == []
-    )
-    assert _REPORT.growth_warnings(None, 900 * _MIB, 2 * _GIB, 7200.0) == []
+        def __exit__(self, *_arguments: object) -> bool:
+            return False
+
+        def commit(self) -> None:
+            return None
+
+        def execute(self, query: str, parameters: tuple = ()) -> object:
+            if "pg_advisory_xact_lock" in query:
+                return SimpleNamespace()
+            if "ORDER BY seq DESC OFFSET" in query and "actor = 'Saga'" not in query:
+                return SimpleNamespace(fetchone=lambda: (88,))
+            if "SELECT value FROM state_kv" in query:
+                return SimpleNamespace(fetchone=lambda: ({"schema_version": "3.0.0"},))
+            if "actor = 'Saga'" in query:
+                return SimpleNamespace(fetchone=lambda: (75,))
+            if "incident." in query:
+                return SimpleNamespace(fetchone=lambda: (None,))
+            if "WHERE seq > %s ORDER BY seq ASC LIMIT 1" in query:
+                assert parameters == (50,)
+                return SimpleNamespace(fetchone=lambda: (51, records[50]["previous_hash"]))
+            if "INSERT INTO state_kv" in query:
+                anchored.append(json.loads(parameters[1]))
+                return SimpleNamespace()
+            if "DELETE FROM audit_log" in query:
+                deleted_upto.append(int(parameters[0]))
+                return SimpleNamespace(rowcount=50)
+            raise AssertionError(f"unexpected query: {query}")
+
+    monkeypatch.setattr(module.psycopg, "connect", lambda *_a, **_k: Database())
+    deleted, through_seq = module.prune_archived_segments("dsn", gen_dir)
+
+    assert deleted == 50 and through_seq == 50
+    assert deleted_upto == [50]
+    assert len(anchored) == 1
+    assert parse_audit_archive_anchor(anchored[0]) == (50, str(records[49]["entry_hash"]))

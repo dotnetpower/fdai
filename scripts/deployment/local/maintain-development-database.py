@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Check loopback database bounds and require explicit permission for recreation."""
+"""Verify loopback database availability and require explicit permission for recreation.
+
+Database retention is governed by generation counts, reachability, completion status, and verified
+audit archive anchors rather than a byte-size ceiling. Ordinary checks and startup preserve the
+existing database regardless of byte size; only ``--recreate`` drops and recreates it after
+archiving and verifying every audit row.
+"""
 
 from __future__ import annotations
 
@@ -17,8 +23,6 @@ import psycopg
 from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
-_DEFAULT_MAX_BYTES = 2 * 1024 * 1024 * 1024
-_MIN_MAX_BYTES = 64 * 1024 * 1024
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 _PRESERVED_STATE_VERSION = "1.0.0"
 _PRESERVED_REPOSITORY_PREFIX = "runtime:code-security-repository:"
@@ -66,27 +70,13 @@ def _target(database_url: str) -> LocalDatabaseTarget:
     return LocalDatabaseTarget(connection_info, database, owner)
 
 
-def _max_bytes(raw: str | None) -> int:
-    if raw is None or not raw.strip():
-        return _DEFAULT_MAX_BYTES
-    try:
-        value = int(raw)
-    except ValueError as exc:
-        raise ValueError("FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES MUST be an integer") from exc
-    if value < _MIN_MAX_BYTES:
-        raise ValueError(
-            f"FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES MUST be at least {_MIN_MAX_BYTES}"
-        )
-    return value
-
-
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
         "--check",
         action="store_true",
-        help="return nonzero when the database exceeds its recreation threshold",
+        help="verify the loopback database is reachable without modifying it",
     )
     mode.add_argument(
         "--restore-preserved-state",
@@ -96,12 +86,12 @@ def _parser() -> argparse.ArgumentParser:
     mode.add_argument(
         "--allow-recreate",
         action="store_true",
-        help="explicitly discard the disposable local database generation when over its bound",
+        help="compatibility flag; preserves the existing database unless --recreate is used",
     )
     mode.add_argument(
         "--recreate",
         action="store_true",
-        help="explicitly discard the stopped local database generation regardless of its size",
+        help="explicitly archive audit history and recreate the stopped local database generation",
     )
     parser.add_argument(
         "--recreated-marker",
@@ -401,7 +391,6 @@ def main() -> int:
         return 0
     if (args.recreated_marker is None) != (args.preserved_state is None):
         raise ValueError("--recreated-marker and --preserved-state MUST be supplied together")
-    maximum = _max_bytes(os.environ.get("FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES"))
     maintenance_info = {**target.connection_info, "dbname": "postgres"}
     with psycopg.connect(
         make_conninfo(**maintenance_info),
@@ -413,21 +402,9 @@ def main() -> int:
         if size is None or size[0] is None:
             raise RuntimeError("local database size is unavailable; recreation refused")
         current = int(size[0])
-        if current <= maximum and not args.recreate:
-            print(f"local database size is within bound: {current} <= {maximum}")
+        if not args.recreate:
+            print(f"local database preserved: {current} bytes")
             return 0
-        if args.check:
-            print(f"local database recreation required: {current} > {maximum}")
-            return 3
-        if not (args.allow_recreate or args.recreate):
-            print(
-                f"local database exceeds its size bound: {current} > {maximum}; "
-                "automatic recreation refused and existing data preserved. "
-                "Review backup and history requirements before explicitly running "
-                "prepare-console-state.sh --allow-recreate.",
-                file=sys.stderr,
-            )
-            return 3
         active = connection.execute(
             "SELECT COUNT(*) FROM pg_stat_activity WHERE datname=%s",
             (target.database,),
@@ -455,10 +432,7 @@ def main() -> int:
                 sql.Identifier(target.owner),
             )
         )
-    if args.recreate:
-        print("recreated local development database after explicit --recreate request")
-    else:
-        print(f"recreated local development database after size exceeded {maximum} bytes")
+    print("recreated local development database after explicit --recreate request")
     return 0
 
 
