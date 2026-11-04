@@ -1,6 +1,6 @@
 ---
 translation_of: aks-outbound-connector-deployment-proposals.md
-translation_source_sha: 1a893fb390b240d2fd3c865c89ad84b95ecd42fd
+translation_source_sha: 75ac63d83496b03a6f893d6d77f7853b290dccf9
 translation_revised: 2026-11-04
 ---
 
@@ -251,9 +251,10 @@ Core의 영속 checkpoint를 읽고 설치나 알림 부수 효과를 만들지 
 채널 경계를 제공합니다. 같은 제안을 재생해도 같은 principal과 채널로 Teams 또는 Slack
 메시지를 중복 전송하지 않으며, 제안 해시가 바뀌면 새 정보성 메시지 하나를 보냅니다. 카드에는
 Console 링크와 승인, 설치, 실행, 배포 권한 부여를 하지 않는다는 문구만 포함합니다.
-알림을 한 번도 시도하지 않은 제안은 영속 dispatch plan이 없습니다. 발견 단계는 이를 전달된 것이 없는
-상태로 보고 첫 게시가 plan을 만들게 하며 inventory 서비스를 실패시키지 않습니다. plan이 있지만
-불완전하면 여전히 안전하게 실패합니다. 제안 내용, 권한, 전달 보장은 바뀌지 않습니다.
+아직 알림을 보내지 않은 제안에 전송 계획이 없으면 첫 정보성 게시가 이루어지지 않았다는
+뜻입니다. 이 유형화된 계획 부재에만 최초 게시를 허용하며, 손상된 계획이나 저장소 오류는
+여전히 탐색을 중단합니다. 기존의 정상적인 계획에는 재시도 정책을 그대로 적용하며, 이미
+전달한 메시지는 다시 보내지 않습니다. 제안 내용, 권한, 전달 보장은 바뀌지 않습니다.
 
 구현은 `core.observer-deployment.projections`를 사용하고 기존
 `FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC` 다중화 설정을 따릅니다. 발견이 성공하면 현재 저장된
