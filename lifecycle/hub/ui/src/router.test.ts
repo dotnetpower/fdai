@@ -1,5 +1,15 @@
 import { describe, expect, test } from "vitest";
-import { auditPath, commandsPath, enrollmentPath, installationPath, parseRoute, planPath, updatesPath } from "./router";
+import {
+  auditPath,
+  bundleImportPath,
+  commandsPath,
+  confirmationsPath,
+  enrollmentPath,
+  installationPath,
+  parseRoute,
+  planPath,
+  updatesPath,
+} from "./router";
 
 describe("parseRoute", () => {
   test("root and /installations list the installations screen", () => {
@@ -11,6 +21,8 @@ describe("parseRoute", () => {
     expect(parseRoute("/available-releases")).toEqual({ kind: "releases" });
     expect(parseRoute("/configuration-packages")).toEqual({ kind: "configurations" });
     expect(parseRoute("/catalog")).toEqual({ kind: "catalog" });
+    expect(parseRoute(confirmationsPath())).toEqual({ kind: "confirmations" });
+    expect(parseRoute(bundleImportPath())).toEqual({ kind: "bundle-import" });
     expect(parseRoute(commandsPath())).toEqual({ kind: "commands" });
     expect(parseRoute(auditPath())).toEqual({ kind: "audit" });
   });

@@ -484,3 +484,278 @@ def test_get_installation_and_enrollment_statuses_minimize_queries(
         assert len(installation_queries) == 1
     finally:
         sqlalchemy_event.remove(enrolled_store.engine, "before_cursor_execute", count_queries)
+
+
+def test_lifecycle_commands_require_expiry_and_reject_authority_raising(
+    client: TestClient, installation: Installation, now: datetime
+) -> None:
+    installation_id = installation.installation_id
+    ends_at = (now + timedelta(hours=3)).isoformat()
+
+    missing_expiry = client.post(
+        f"/v1/installations/{installation_id}/commands",
+        json={
+            "command_id": "cmd-no-expiry",
+            "kind": "authority-lowering",
+            "scope": "installation",
+            "starts_at": now.isoformat(),
+            "expires_at": None,
+            "reason": "incident_containment",
+            "target_mode": "shadow",
+            "confirmation": f"command authority-lowering {installation_id} installation",
+        },
+    )
+    assert (missing_expiry.status_code, missing_expiry.json()) == (
+        422,
+        {"error": "command_expiry_required"},
+    )
+
+    raises_authority = client.post(
+        f"/v1/installations/{installation_id}/commands",
+        json={
+            "command_id": "cmd-raise",
+            "kind": "authority-lowering",
+            "scope": "installation",
+            "starts_at": now.isoformat(),
+            "expires_at": ends_at,
+            "reason": "incident_containment",
+            "target_mode": "enforce",
+            "confirmation": f"command authority-lowering {installation_id} installation",
+        },
+    )
+    assert (raises_authority.status_code, raises_authority.json()) == (
+        422,
+        {"error": "command_raises_authority"},
+    )
+
+    lowered = client.post(
+        f"/v1/installations/{installation_id}/commands",
+        json={
+            "command_id": "cmd-lower-1",
+            "kind": "authority-lowering",
+            "scope": "installation",
+            "starts_at": now.isoformat(),
+            "expires_at": ends_at,
+            "reason": "incident_containment",
+            "target_mode": "shadow",
+            "engage_kill_switch": True,
+            "confirmation": f"command authority-lowering {installation_id} installation",
+        },
+    )
+    assert lowered.status_code == 201
+    assert lowered.json()["kind"] == "authority-lowering"
+    assert lowered.json()["active"] is True
+
+    break_glass = client.post(
+        f"/v1/installations/{installation_id}/commands",
+        json={
+            "command_id": "cmd-bg-1",
+            "kind": "break-glass",
+            "scope": "installation",
+            "starts_at": now.isoformat(),
+            "expires_at": ends_at,
+            "reason": "emergency_scale_out",
+            "bypass_scopes": ["maintenance-window", "suppression-window"],
+            "confirmation": f"command break-glass {installation_id} installation",
+        },
+    )
+    assert break_glass.status_code == 201
+    assert break_glass.json()["reconciles_to_git_on_expiry"] is True
+
+    listed = client.get("/v1/commands").json()["commands"]
+    assert [item["command_id"] for item in listed] == ["cmd-lower-1", "cmd-bg-1"]
+    assert client.get("/v1/audit").json()["chain_intact"] is True
+
+
+def test_destructive_confirmations_bind_to_exact_plan_digest_and_invalidate_on_drift(
+    client: TestClient, issued: Issued, installation: Installation
+) -> None:
+    import hashlib
+
+    installation_id = installation.installation_id
+    plan_id = issued.plan.plan_id
+    exact_digest = "sha256:" + hashlib.sha256(issued.plan.signed_payload).hexdigest()
+    wrong_digest = "sha256:" + "0" * 64
+
+    wrong_proposal = client.post(
+        f"/v1/installations/{installation_id}/plans/{plan_id}/confirmations",
+        json={
+            "exact_plan_digest": wrong_digest,
+            "change_kind": "resource-replacement",
+            "title": "prod · replace user node pool runtime",
+            "summary": "Node size change deletes and recreates the runtime node pool.",
+            "impact": "Three nodes are replaced one at a time inside the downtime window.",
+            "replace_count": 1,
+            "delete_count": 0,
+            "affected_addresses": ["module.aks.azurerm_kubernetes_cluster_node_pool.runtime"],
+        },
+    )
+    assert (wrong_proposal.status_code, wrong_proposal.json()) == (
+        409,
+        {"error": "plan_digest_mismatch"},
+    )
+
+    proposed = client.post(
+        f"/v1/installations/{installation_id}/plans/{plan_id}/confirmations",
+        json={
+            "exact_plan_digest": exact_digest,
+            "change_kind": "resource-replacement",
+            "title": "prod · replace user node pool runtime",
+            "summary": "Node size change deletes and recreates the runtime node pool.",
+            "impact": "Three nodes are replaced one at a time inside the downtime window.",
+            "replace_count": 1,
+            "delete_count": 0,
+            "affected_addresses": ["module.aks.azurerm_kubernetes_cluster_node_pool.runtime"],
+        },
+    )
+    assert proposed.status_code == 201
+    assert proposed.json()["status"] == "pending"
+
+    mismatched_decision = client.post(
+        f"/v1/installations/{installation_id}/plans/{plan_id}/confirmations/decision",
+        json={
+            "decision": "confirm",
+            "expected_plan_digest": wrong_digest,
+            "confirmed_addresses": ["module.aks.azurerm_kubernetes_cluster_node_pool.runtime"],
+            "reason": "approved_downtime_replacement",
+            "confirmation": f"confirm {installation_id} {plan_id} {wrong_digest}",
+        },
+    )
+    assert (mismatched_decision.status_code, mismatched_decision.json()) == (
+        409,
+        {"error": "plan_digest_mismatch"},
+    )
+
+    # Re-propose with exact digest and confirm it.
+    client.post(
+        f"/v1/installations/{installation_id}/plans/{plan_id}/confirmations",
+        json={
+            "exact_plan_digest": exact_digest,
+            "change_kind": "resource-replacement",
+            "title": "prod · replace user node pool runtime",
+            "summary": "Node size change deletes and recreates the runtime node pool.",
+            "impact": "Three nodes are replaced one at a time inside the downtime window.",
+            "replace_count": 1,
+            "delete_count": 0,
+            "affected_addresses": ["module.aks.azurerm_kubernetes_cluster_node_pool.runtime"],
+        },
+    )
+    confirmed = client.post(
+        f"/v1/installations/{installation_id}/plans/{plan_id}/confirmations/decision",
+        json={
+            "decision": "confirm",
+            "expected_plan_digest": exact_digest,
+            "confirmed_addresses": ["module.aks.azurerm_kubernetes_cluster_node_pool.runtime"],
+            "reason": "approved_downtime_replacement",
+            "confirmation": f"confirm {installation_id} {plan_id} {exact_digest}",
+        },
+    )
+    assert confirmed.status_code == 200
+    assert confirmed.json()["status"] == "confirmed"
+    assert client.get("/v1/audit").json()["chain_intact"] is True
+
+
+def test_target_hub_bundle_import_verifies_signature_checksums_and_predecessor(
+    client: TestClient,
+) -> None:
+    digest_18 = "sha256:" + "a" * 64
+    digest_19 = "sha256:" + "b" * 64
+
+    bad_sig = client.post(
+        "/v1/bundle-imports",
+        json={
+            "bundle_id": "bundle-0018",
+            "extends_bundle_id": None,
+            "catalog_export_sha256": digest_18,
+            "checksum_count": 412,
+            "signature_verified": False,
+            "checksums_verified": True,
+            "recall_sequence_start": 30,
+            "recall_sequence_end": 30,
+            "releases": ["1.4.4"],
+            "channels": {"RELEASE": "1.4.4"},
+            "recall_notices": [],
+            "image_layer_count": 20,
+            "configuration_package_count": 1,
+            "metadata_expiry_days": 30,
+            "confirmation": f"import bundle bundle-0018 {digest_18}",
+        },
+    )
+    assert (bad_sig.status_code, bad_sig.json()) == (
+        422,
+        {"error": "upgrade_bundle_signature_invalid"},
+    )
+
+    first = client.post(
+        "/v1/bundle-imports",
+        json={
+            "bundle_id": "bundle-0018",
+            "extends_bundle_id": None,
+            "catalog_export_sha256": digest_18,
+            "checksum_count": 412,
+            "signature_verified": True,
+            "checksums_verified": True,
+            "recall_sequence_start": 30,
+            "recall_sequence_end": 30,
+            "releases": ["1.4.4"],
+            "channels": {"RELEASE": "1.4.4"},
+            "recall_notices": [],
+            "image_layer_count": 20,
+            "configuration_package_count": 1,
+            "metadata_expiry_days": 30,
+            "confirmation": f"import bundle bundle-0018 {digest_18}",
+        },
+    )
+    assert first.status_code == 201
+    assert first.json()["bundle_id"] == "bundle-0018"
+
+    wrong_predecessor = client.post(
+        "/v1/bundle-imports",
+        json={
+            "bundle_id": "bundle-0019",
+            "extends_bundle_id": "bundle-0017",
+            "catalog_export_sha256": digest_19,
+            "checksum_count": 412,
+            "signature_verified": True,
+            "checksums_verified": True,
+            "recall_sequence_start": 31,
+            "recall_sequence_end": 31,
+            "releases": ["1.4.4", "1.5.1"],
+            "channels": {"RELEASE": "1.5.1"},
+            "recall_notices": ["#0031 · 1.5.0"],
+            "image_layer_count": 38,
+            "configuration_package_count": 1,
+            "metadata_expiry_days": 30,
+            "confirmation": f"import bundle bundle-0019 {digest_19}",
+        },
+    )
+    assert (wrong_predecessor.status_code, wrong_predecessor.json()) == (
+        422,
+        {"error": "upgrade_bundle_lineage_mismatch"},
+    )
+
+    second = client.post(
+        "/v1/bundle-imports",
+        json={
+            "bundle_id": "bundle-0019",
+            "extends_bundle_id": "bundle-0018",
+            "catalog_export_sha256": digest_19,
+            "checksum_count": 412,
+            "signature_verified": True,
+            "checksums_verified": True,
+            "recall_sequence_start": 31,
+            "recall_sequence_end": 31,
+            "releases": ["1.4.4", "1.5.1"],
+            "channels": {"RELEASE": "1.5.1"},
+            "recall_notices": ["#0031 · 1.5.0"],
+            "image_layer_count": 38,
+            "configuration_package_count": 1,
+            "metadata_expiry_days": 30,
+            "confirmation": f"import bundle bundle-0019 {digest_19}",
+        },
+    )
+    assert second.status_code == 201
+    listed = client.get("/v1/bundle-imports").json()
+    assert listed["last_bundle_id"] == "bundle-0019"
+    assert len(listed["imports"]) == 2
+    assert client.get("/v1/audit").json()["chain_intact"] is True

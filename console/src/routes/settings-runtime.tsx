@@ -24,6 +24,7 @@ import {
   type RuntimeSettingView,
 } from "./settings-runtime.model";
 import { CostGovernanceSettingsSection } from "./cost-governance-settings";
+import { PolicyAdministrationSection } from "./settings-policy-administration";
 import { settingsIntegrationsText } from "./settings-integrations.i18n";
 import { runtimeUxText } from "./settings-runtime.i18n";
 
@@ -261,6 +262,7 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
             <div class="state-block" role="note">{t("settings.runtimePolicies.readOnly")}</div>
           ) : null}
           <CostGovernanceSettingsSection client={client} auth={auth} />
+          <PolicyAdministrationSection client={client} auth={auth} />
           {conflictView ? <section class="state-block" aria-label={t("settings.runtimePolicies.conflict")}>
             <p>{runtimeUxText("conflictReview", { revision: conflictView.revision })}</p>
             <dl>{Object.keys(changes).map((key) => <div key={key}>

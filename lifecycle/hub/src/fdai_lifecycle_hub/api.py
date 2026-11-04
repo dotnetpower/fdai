@@ -46,6 +46,7 @@ from fdai_lifecycle_hub.errors import (
 )
 from fdai_lifecycle_hub.execution_settings_api import execution_settings_routes
 from fdai_lifecycle_hub.native_ownership_api import native_ownership_routes
+from fdai_lifecycle_hub.operator_surfaces_api import operator_surface_routes
 from fdai_lifecycle_hub.remote_auth import RemoteAuth, secure_app
 from fdai_lifecycle_hub.schemas import (
     ApprovalRequest,
@@ -409,6 +410,7 @@ def create_app(
 
     routes: list[BaseRoute] = [
         *execution_settings_routes(store, clock, authenticated=remote_auth is not None),
+        *operator_surface_routes(store, clock),
         *native_ownership_routes(
             store,
             clock,
