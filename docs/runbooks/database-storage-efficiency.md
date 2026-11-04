@@ -186,7 +186,7 @@ Each segment is a contiguous run of `audit_log` rows as Zstandard-compressed JSO
 times smaller than the stored JSON. The script recomputes the hash chain before and after writing,
 anchors each segment to the previous one in `.fdai/audit-archive/<generation>/manifest.jsonl`, and
 keeps the newest 512 rows and everything younger than the cutoff. With `--prune`, verified segments
-that precede the 512-row hot tail, the 256-row Saga compact checkpoint window, and any canonical
+that precede the 512-row hot tail, the 512-row Saga compact checkpoint window, and any canonical
 incident rows are atomically anchored in `state_kv` (`audit-archive:anchor`) and deleted from
 `audit_log` under the audit append lock. `PostgresStateStore.verify_chain` validates that anchor
 and verifies the remaining suffix without requiring a database recreation.

@@ -7,8 +7,8 @@ chain is recomputed before and after writing, anchored to the previous segment, 
 ``manifest.jsonl`` with the digests needed to verify it later. The newest 512 rows and every row
 younger than ``--older-than-days`` are never exported, so the Saga recovery window stays hot.
 
-With ``--prune``, verified cold segments that precede the hot tail, the Saga compact recovery
-window, and any canonical incident rows are atomically anchored in ``state_kv``
+With ``--prune``, verified cold segments that precede the hot tail, the 512-row Saga compact
+recovery window, and any canonical incident rows are atomically anchored in ``state_kv``
 (``audit-archive:anchor``) and deleted from ``audit_log`` under the audit append lock.
 ``PostgresStateStore.verify_chain`` validates that anchor and verifies the remaining suffix.
 
@@ -37,6 +37,12 @@ from pathlib import Path
 from typing import Any
 
 import psycopg
+from fdai.agents._framework.audit_chain_journal import (
+    AUDIT_CHECKPOINT_KEY as _SAGA_CHECKPOINT_KEY,
+)
+from fdai.agents._framework.audit_chain_journal import (
+    AUDIT_JOURNAL_LIMIT as _SAGA_WINDOW_ROWS,
+)
 from fdai.delivery.persistence.postgres_audit_history import (
     AUDIT_ARCHIVE_ANCHOR_KEY,
     parse_audit_archive_anchor,
@@ -47,10 +53,9 @@ from psycopg.conninfo import conninfo_to_dict
 
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 _DSN_ENV = "FDAI_STATE_STORE_DSN"
+_OWNER_DSN_ENV = "FDAI_DATABASE_URL"
 _HOT_TAIL_ROWS = 512
-_SAGA_WINDOW_ROWS = 256
 _AUDIT_APPEND_LOCK_KEY = 0x0FDA10AAAAAA01
-_SAGA_CHECKPOINT_KEY = "pantheon/saga/audit-chain/verified-head"
 _DEFAULT_OUT = Path(".fdai/audit-archive")
 _MANIFEST = "manifest.jsonl"
 _COLUMNS = (
@@ -284,29 +289,36 @@ def prune_archived_segments(dsn: str, out: Path) -> tuple[int, int | None]:
         dsn, connect_timeout=5, options="-c statement_timeout=120000 -c lock_timeout=15000"
     ) as db:
         db.execute("SELECT pg_advisory_xact_lock(%s)", (_AUDIT_APPEND_LOCK_KEY,))
+        existing_anchor = _stored_anchor(db)
+        already_pruned_seq = (
+            int(existing_anchor["through_seq"]) if existing_anchor is not None else 0
+        )
         tail_row = db.execute(
             "SELECT seq FROM audit_log ORDER BY seq DESC OFFSET %s LIMIT 1",
             (_HOT_TAIL_ROWS,),
         ).fetchone()
         if tail_row is None or tail_row[0] is None:
-            return 0, None
+            return 0, (already_pruned_seq or None)
         max_safe_seq = int(tail_row[0])
         checkpoint_row = db.execute(
             "SELECT value FROM state_kv WHERE key = %s",
             (_SAGA_CHECKPOINT_KEY,),
         ).fetchone()
-        if (
+        checkpoint_ready = (
             checkpoint_row is not None
             and isinstance(checkpoint_row[0], dict)
-            and checkpoint_row[0].get("schema_version") == "1.0.0"
-        ):
-            return 0, None
-        saga_window = db.execute(
-            "SELECT seq FROM audit_log "
-            "WHERE actor = 'Saga' AND action_kind = 'audit.record' "
-            "ORDER BY seq DESC OFFSET %s LIMIT 1",
-            (_SAGA_WINDOW_ROWS - 1,),
-        ).fetchone()
+            and checkpoint_row[0].get("schema_version") in ("2.0.0", "3.0.0")
+        )
+        saga_window = (
+            db.execute(
+                "SELECT seq FROM audit_log "
+                "WHERE actor = 'Saga' AND action_kind = 'audit.record' "
+                "ORDER BY seq DESC OFFSET %s LIMIT 1",
+                (_SAGA_WINDOW_ROWS - 1,),
+            ).fetchone()
+            if checkpoint_ready
+            else None
+        )
         if saga_window is not None and saga_window[0] is not None:
             max_safe_seq = min(max_safe_seq, int(saga_window[0]) - 1)
         else:
@@ -322,11 +334,16 @@ def prune_archived_segments(dsn: str, out: Path) -> tuple[int, int | None]:
         ).fetchone()
         if incident_first is not None and incident_first[0] is not None:
             max_safe_seq = min(max_safe_seq, int(incident_first[0]) - 1)
-        eligible = [entry for entry in manifest if int(entry["last_seq"]) <= max_safe_seq]
+        eligible = [
+            entry
+            for entry in manifest
+            if already_pruned_seq < int(entry["last_seq"]) <= max_safe_seq
+        ]
         if not eligible:
-            return 0, None
+            return 0, (already_pruned_seq or None)
         target = eligible[-1]
         through_seq = int(target["last_seq"])
+        covered = [entry for entry in manifest if int(entry["last_seq"]) <= through_seq]
         successor = db.execute(
             "SELECT seq, previous_hash FROM audit_log WHERE seq > %s ORDER BY seq ASC LIMIT 1",
             (through_seq,),
@@ -341,8 +358,8 @@ def prune_archived_segments(dsn: str, out: Path) -> tuple[int, int | None]:
             "first_created_at": first_created,
             "through_seq": through_seq,
             "last_entry_hash": str(target["last_entry_hash"]),
-            "archived_rows": sum(int(item["rows"]) for item in eligible),
-            "segment_count": len(eligible),
+            "archived_rows": sum(int(item["rows"]) for item in covered),
+            "segment_count": len(covered),
             "manifest_sha256": manifest_sha256,
         }
         db.execute(
@@ -352,6 +369,23 @@ def prune_archived_segments(dsn: str, out: Path) -> tuple[int, int | None]:
         )
         deleted = db.execute("DELETE FROM audit_log WHERE seq <= %s", (through_seq,)).rowcount
         db.commit()
+    if deleted and int(deleted) > 0:
+        owner_dsn = (
+            os.environ.get(_OWNER_DSN_ENV, "")
+            .strip()
+            .replace("postgresql+psycopg://", "postgresql://", 1)
+            or dsn
+        )
+        try:
+            with psycopg.connect(
+                owner_dsn,
+                autocommit=True,
+                connect_timeout=5,
+                options="-c statement_timeout=120000 -c lock_timeout=15000",
+            ) as vacuum_conn:
+                vacuum_conn.execute("VACUUM (ANALYZE) audit_log")
+        except psycopg.Error:
+            pass
     return max(0, int(deleted)), through_seq
 
 

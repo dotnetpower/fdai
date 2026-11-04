@@ -1,6 +1,6 @@
 ---
 translation_of: database-storage-efficiency.md
-translation_source_sha: a029648b7834b5f57c0f995123e766f4b5e2d7fa
+translation_source_sha: cd76d836ac8e760f8dfdfce91a158a57cc9d1a43
 translation_revised: 2026-11-04
 ---
 # 데이터베이스 저장 공간 증가 진단
@@ -195,7 +195,7 @@ uv run python scripts/deployment/local/archive-audit-segments.py --older-than-da
 각 segment는 `audit_log` 행의 연속 구간을 Zstandard로 압축한 JSON 줄이며 저장된 JSON보다 약 7배
 작습니다. 스크립트는 쓰기 전후에 해시 체인을 다시 계산하고, 각 segment를
 `.fdai/audit-archive/<generation>/manifest.jsonl`의 이전 segment에 연결하며, 최신 512행과 기준
-시각보다 최근 행은 유지합니다. `--prune`을 주면 최신 512행 핫 구간, 256행 Saga compact 체크포인트
+시각보다 최근 행은 유지합니다. `--prune`을 주면 최신 512행 핫 구간, 512행 Saga compact 체크포인트
 구간, 정식 incident 행보다 앞에 있는 검증된 segment를 감사 추가 잠금 아래에서 `state_kv`
 (`audit-archive:anchor`)에 원자적으로 기록하고 `audit_log`에서 삭제합니다.
 `PostgresStateStore.verify_chain`은 이 앵커를 검증하고 남은 뒷부분을 이어서 확인하므로 데이터베이스를

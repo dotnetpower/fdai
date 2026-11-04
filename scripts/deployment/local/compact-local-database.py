@@ -254,6 +254,9 @@ async def _run(
             connection.execute(
                 "VACUUM (FULL, ANALYZE) state_kv" if vacuum_full else "VACUUM (ANALYZE) state_kv"
             )
+            connection.execute(
+                "VACUUM (FULL, ANALYZE) audit_log" if vacuum_full else "VACUUM (ANALYZE) audit_log"
+            )
         report["vacuumed"] = "state_kv"
         report["vacuum_mode"] = "full" if vacuum_full else "ordinary"
     return report
