@@ -2,7 +2,7 @@ import { PublicClientApplication } from "@azure/msal-browser";
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
   activeCapabilityRecalls, catalogChangeObserved, catalogRecovery, computeApolloReleaseDiff,
-  extractReleaseStencil, isCustomChannel, nextPromotionTransition,
+  extractReleaseStencil, isCustomChannel, isInitialCatalog, nextPromotionTransition,
   releaseStateIndex, releaseTitle, requestCatalog, requestEntraLogin, requestEntraLogout,
   requestEntraSession, requestStencilCatalog, requestStencilCompose, syncManifestReleaseVersion,
   type Action, type Catalog, type Change, type EntraSessionStatus, type Release,
@@ -98,9 +98,6 @@ function Confirm({ pending, catalog, locale, registration, setRegistration, clos
   const [busy, setBusy] = useState(false);
   const [templateBusy, setTemplateBusy] = useState(false);
   const id = pending.action === "register" ? registration.id : pending.release?.id ?? "";
-  const [confirmation, setConfirmation] = useState("");
-  const [reason, setReason] = useState("");
-  const { manifest, label } = registration;
   const transition = pending.release ? nextPromotionTransition(pending.release) : null;
   const pendingStencil = pending.release ? extractReleaseStencil(pending.release) : null;
   const [channel, setChannel] = useState(
@@ -118,9 +115,17 @@ function Confirm({ pending, catalog, locale, registration, setRegistration, clos
   const customChannel = isCustomChannel(channel);
   const action = pending.action;
   const target = action === "renew" ? `renew ${catalog.revision}` : id;
+  const [confirmation, setConfirmation] = useState(target);
+  const [reason, setReason] = useState(
+    () => (locale === "ko" ? DEFAULT_REASONS[action].ko : DEFAULT_REASONS[action].en),
+  );
+  const { manifest, label } = registration;
   useEffect(() => {
     const previous = document.activeElement;
     dialog.current?.showModal();
+    if (action === "register" && !registration.manifest.trim()) {
+      void fillPresetTemplate("lite-observe-alert");
+    }
     return () => {
       dialog.current?.close();
       if (previous instanceof HTMLElement) previous.focus();
@@ -227,6 +232,7 @@ function Confirm({ pending, catalog, locale, registration, setRegistration, clos
                 id: nextId,
                 manifest: syncManifestReleaseVersion(registration.manifest, nextId),
               });
+              setConfirmation(nextId);
             }}
             placeholder={nextSuggestedSemVer(catalog.releases, "patch")}
           />
@@ -308,7 +314,7 @@ function Confirm({ pending, catalog, locale, registration, setRegistration, clos
       <label>{t("Reason", "작업 사유 (Reason)")}<textarea required aria-label="Reason" minLength={3} maxLength={500} rows={2} value={reason} onInput={(e) => setReason(e.currentTarget.value)} /></label>
       <label>{t(`Type ${target || "the Release id"} to confirm`, `확인 코드 입력 (${target || "릴리스 ID"})`)}<input required autoComplete="off" value={confirmation} onInput={(e) => setConfirmation(e.currentTarget.value)} /></label>
       {target && (
-        <button type="button" disabled={busy || confirmation === target} onClick={() => {
+        <button type="button" disabled={busy} onClick={() => {
           setConfirmation(target);
           if (!reason.trim()) {
             setReason(locale === "ko" ? DEFAULT_REASONS[action].ko : DEFAULT_REASONS[action].en);
@@ -438,9 +444,14 @@ function ReleaseDiffInspector({
   if (!base || !target) return null;
   const diff = computeApolloReleaseDiff(base, target);
   return (
-    <section id="release-diff-section" aria-labelledby="release-diff-title">
-      <h2 id="release-diff-title">{t("Apollo Release-to-Release Diff Inspector", "릴리스 간 구성을 한눈에 비교 (Apollo Release Diff)")}</h2>
-      <p>{t("Compare topology, workload containers, Console menu count, and RBAC posture between two registered Releases.", "등록된 두 릴리스 사이의 에디션 변화, 추가·제외된 컨테이너, 메뉴 증감, Azure 권한 차이를 즉시 비교합니다.")}</p>
+    <details class="stencil-collapsible" id="release-diff-section" open={Boolean(externalPair)}>
+      <summary aria-labelledby="release-diff-title">
+        <span id="release-diff-title">{t("Apollo Release-to-Release Diff Inspector", "릴리스 간 구성 비교 (Apollo Release Diff)")}</span>
+        <span class="summary-meta">
+          <span class="stencil-chip">{base.id} {"->"} {target.id}</span>
+        </span>
+      </summary>
+      <p>{t("Compare topology, workload containers, Console menu count, and RBAC posture between two registered Releases.", "등록된 두 릴리스 사이의 에디션 변화, 추가·제외된 컨테이너, 메뉴 증감, Azure 권한 차이를 비교합니다.")}</p>
       <div class="stencil-grid">
         <label>
           {t("Base Release (Before)", "기준 릴리스 (이전 버전)")}
@@ -471,7 +482,7 @@ function ReleaseDiffInspector({
           ))}
         </ul>
       )}
-    </section>
+    </details>
   );
 }
 
@@ -501,7 +512,7 @@ function CapabilityRecallControl({
   const [liftingReleaseId, setLiftingReleaseId] = useState(
     catalog.releases.find((r) => r.state === "published")?.id ?? "",
   );
-  const [reason, setReason] = useState("Surgical Apollo capability recall / lift verification");
+  const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -551,80 +562,85 @@ function CapabilityRecallControl({
       <div class="preset-metrics" style="margin-bottom: 12px;">
         <strong>{t("Active capability recalls:", "현재 차단(리콜)된 기능:")}</strong>
         {recalled.length === 0 ? (
-          <span class="stencil-chip">{t("None (All capabilities healthy)", "없음 (모든 기능 정상)")}</span>
+          <span class="stencil-chip">{t("No active recalls recorded. Health not verified.", "기록된 활성 리콜이 없습니다. 상태 정상 여부는 검증하지 않았습니다.")}</span>
         ) : (
           recalled.map((c) => <span key={c} class="stencil-pill locked">RECALLED: {c}</span>)
         )}
       </div>
-      <div class="quick-chips" style="margin-bottom: 16px;">
-        {CAPABILITY_PRESET_CHIPS.map((chip) => (
-          <button
-            key={chip.id}
-            type="button"
-            class="chip-btn"
-            onClick={() => {
-              setCapTarget(chip.id);
-              setCapAction(recalled.includes(chip.id) ? "lift" : "recall");
-            }}
-          >
-            {locale === "ko" ? chip.ko : chip.en}
-          </button>
-        ))}
-      </div>
-      {err && <p class="error" role="alert">{err}</p>}
-      <form onSubmit={submitCap} class="stencil-grid">
-        <label>
-          {t("Target capability / workload / loop ID", "대상 기능 / 워크로드 / 에이전트 루프 ID")}
-          <input
-            required
-            list="apollo-capabilities-list"
-            value={capTarget}
-            onInput={(e) => setCapTarget(e.currentTarget.value)}
-          />
-          <datalist id="apollo-capabilities-list">
-            {CAPABILITY_PRESET_CHIPS.map((c) => <option key={c.id} value={c.id} />)}
-          </datalist>
-        </label>
-        <label>
-          {t("Operation", "실행할 작업")}
-          <select
-            value={capAction}
-            onChange={(e) => setCapAction(e.currentTarget.value as "recall" | "lift")}
-          >
-            <option value="recall">{t("Recall capability (Block promotion of dependent Releases)", "기능 리콜 발령 (이 기능을 포함한 릴리스의 승격 차단)")}</option>
-            <option value="lift">{t("Lift capability recall (Requires published lifting Release)", "기능 리콜 해제 (수정된 발행 릴리스 지정)")}</option>
-          </select>
-        </label>
-        {capAction === "lift" && (
+      <details class="stencil-collapsible" open={recalled.length > 0}>
+        <summary>
+          <span>{t("Configure surgical capability recall or lift", "기능 단위 정밀 리콜 발령·해제 폼 열기")}</span>
+        </summary>
+        <div class="quick-chips" style="margin: 8px 0 16px;">
+          {CAPABILITY_PRESET_CHIPS.map((chip) => (
+            <button
+              key={chip.id}
+              type="button"
+              class="chip-btn"
+              onClick={() => {
+                setCapTarget(chip.id);
+                setCapAction(recalled.includes(chip.id) ? "lift" : "recall");
+              }}
+            >
+              {locale === "ko" ? chip.ko : chip.en}
+            </button>
+          ))}
+        </div>
+        {err && <p class="error" role="alert">{err}</p>}
+        <form onSubmit={submitCap} class="stencil-grid">
           <label>
-            {t("Lifting Release ID (Published SemVer)", "결함이 수정된 릴리스 버전 ID (SemVer)")}
+            {t("Target capability / workload / loop ID", "대상 기능 / 워크로드 / 에이전트 루프 ID")}
             <input
               required
-              value={liftingReleaseId}
-              onInput={(e) => setLiftingReleaseId(e.currentTarget.value)}
-              placeholder="0.5.0"
+              list="apollo-capabilities-list"
+              value={capTarget}
+              onInput={(e) => setCapTarget(e.currentTarget.value)}
+            />
+            <datalist id="apollo-capabilities-list">
+              {CAPABILITY_PRESET_CHIPS.map((c) => <option key={c.id} value={c.id} />)}
+            </datalist>
+          </label>
+          <label>
+            {t("Operation", "실행할 작업")}
+            <select
+              value={capAction}
+              onChange={(e) => setCapAction(e.currentTarget.value as "recall" | "lift")}
+            >
+              <option value="recall">{t("Recall capability (Block promotion of dependent Releases)", "기능 리콜 발령 (이 기능을 포함한 릴리스의 승격 차단)")}</option>
+              <option value="lift">{t("Lift capability recall (Requires published lifting Release)", "기능 리콜 해제 (수정된 발행 릴리스 지정)")}</option>
+            </select>
+          </label>
+          {capAction === "lift" && (
+            <label>
+              {t("Lifting Release ID (Published SemVer)", "결함이 수정된 릴리스 버전 ID (SemVer)")}
+              <input
+                required
+                value={liftingReleaseId}
+                onInput={(e) => setLiftingReleaseId(e.currentTarget.value)}
+                placeholder="0.5.0"
+              />
+            </label>
+          )}
+          <label>
+            {t("Audit reason", "감사 기록 사유")}
+            <input
+              required
+              minLength={3}
+              value={reason}
+              onInput={(e) => setReason(e.currentTarget.value)}
             />
           </label>
-        )}
-        <label>
-          {t("Audit reason", "감사 기록 사유")}
-          <input
-            required
-            minLength={3}
-            value={reason}
-            onInput={(e) => setReason(e.currentTarget.value)}
-          />
-        </label>
-        <div class="stencil-provenance-span">
-          <button type="submit" class={capAction === "recall" ? "danger" : "primary"} disabled={busy || disabled}>
-            {busy
-              ? t("Applying...", "처리 중...")
-              : capAction === "recall"
-                ? t(`Recall capability '${capTarget}'`, `'${capTarget}' 기능 리콜 발령`)
-                : t(`Lift capability '${capTarget}'`, `'${capTarget}' 기능 리콜 해제`)}
-          </button>
-        </div>
-      </form>
+          <div class="stencil-provenance-span">
+            <button type="submit" class={capAction === "recall" ? "danger" : "primary"} disabled={busy || disabled}>
+              {busy
+                ? t("Applying...", "처리 중...")
+                : capAction === "recall"
+                  ? t(`Recall capability '${capTarget}'`, `'${capTarget}' 기능 리콜 발령`)
+                  : t(`Lift capability '${capTarget}'`, `'${capTarget}' 기능 리콜 해제`)}
+            </button>
+          </div>
+        </form>
+      </details>
     </section>
   );
 }
@@ -874,12 +890,139 @@ export function App() {
   const [route, setRoute] = useState(locationRoute);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [quickCreating, setQuickCreating] = useState(false);
   const [pending, setPending] = useState<Pending | null>(null);
   const [registration, setRegistration] = useState<RegistrationDraft>({ id: "", label: "", manifest: "" });
   const [diffPair, setDiffPair] = useState<{ baseId: string; targetId: string } | null>(null);
   const [notice, setNotice] = useState("");
   const [uncertain, setUncertain] = useState(false);
   const heading = useRef<HTMLElement>(null);
+  async function quickCreateRelease(
+    presetOrDraft:
+      | "lite-observe-alert"
+      | "standard-sre"
+      | "full-enterprise"
+      | { id: string; label: string; manifest: string },
+    publishToDev = true,
+  ) {
+    if (!catalog || quickCreating) return;
+    setQuickCreating(true);
+    setUncertain(false);
+    setError("");
+    try {
+      const current = await requestCatalog().catch(() => catalog);
+      let draft: { id: string; label: string; manifest: string };
+      if (typeof presetOrDraft === "string") {
+        const nextVer = nextSuggestedSemVer(current.releases, "patch");
+        const stCat = await requestStencilCatalog();
+        const found = stCat.presets.find((p) => p.stencil.stencil_id === presetOrDraft)?.stencil;
+        const composed = await requestStencilCompose({
+          stencil_id: presetOrDraft,
+          title: found?.title ?? presetOrDraft,
+          title_ko: found?.title_ko ?? presetOrDraft,
+          description: found?.description ?? presetOrDraft,
+          description_ko: found?.description_ko ?? presetOrDraft,
+          topology_profile: presetOrDraft,
+          requested_panel_ids: found?.enabled_panel_ids ?? ["audit", "dashboard", "live", "settings-general"],
+          requested_workloads: found?.enabled_workloads ?? ["core-control-plane", "operator-service"],
+          requested_scheduled_jobs: found?.enabled_scheduled_jobs ?? ["analyzer", "inventory"],
+          requested_loops: found?.enabled_loops ?? ["anomaly-analyzer", "inventory-reconciliation", "notification-dispatch", "saga-audit"],
+          requested_addons: found?.enabled_addons ?? ["notifications", "read-only-console"],
+          auto_resolve_dependencies: true,
+          release_version: nextVer,
+          source_commit: "auto",
+        });
+        draft = {
+          id: nextVer,
+          label: `${composed.stencil.stencil_id} (${composed.footprint.enabled_panel_count} menus, ${composed.footprint.workload_count} workloads)`,
+          manifest: JSON.stringify(composed.release_manifest, null, 2),
+        };
+      } else {
+        draft = presetOrDraft;
+      }
+      const regReason = locale === "ko" ? DEFAULT_REASONS.register.ko : DEFAULT_REASONS.register.en;
+      const afterReg = await requestCatalog(`/v1/releases/${encodeURIComponent(draft.id)}/register`, {
+        revision: current.revision,
+        confirmation: draft.id,
+        reason: regReason,
+        label: draft.label,
+        manifest: draft.manifest,
+      });
+      let finalCatalog = afterReg;
+      let signedIntoDev = false;
+      if (publishToDev) {
+        try {
+          const pubReason = locale === "ko" ? DEFAULT_REASONS.publish.ko : DEFAULT_REASONS.publish.en;
+          finalCatalog = await requestCatalog(`/v1/releases/${encodeURIComponent(draft.id)}/publish`, {
+            revision: afterReg.revision,
+            confirmation: draft.id,
+            reason: pubReason,
+          });
+          signedIntoDev = true;
+        } catch {
+          signedIntoDev = false;
+        }
+      }
+      setCatalog(finalCatalog);
+      setPending(null);
+      setRegistration({ id: "", label: "", manifest: "" });
+      if (locationRoute() !== "/releases") {
+        location.hash = "/releases";
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+      setRoute("/releases");
+      setNotice(
+        locale === "ko"
+          ? `원클릭 생성 완료: 릴리스 ${draft.id} (${draft.label}) 등록${signedIntoDev ? " 및 DEV 서명·발행" : ""}이 완료되었습니다.`
+          : `1-Click release created: Release ${draft.id} (${draft.label}) registered${signedIntoDev ? " and signed into DEV" : ""}.`,
+      );
+      heading.current?.focus();
+    } catch (failure) {
+      setError(catalogRecovery(failure));
+    } finally {
+      setQuickCreating(false);
+    }
+  }
+  async function quickPromoteRelease(rel: Release) {
+    const transition = nextPromotionTransition(rel);
+    if (!catalog || !transition || quickCreating) return;
+    setQuickCreating(true);
+    setUncertain(false);
+    setError("");
+    try {
+      const current = await requestCatalog().catch(() => catalog);
+      const st = extractReleaseStencil(rel);
+      const parsedLabels = st?.release_labels?.length
+        ? [...st.release_labels, "security-reviewed", "qa-passed"]
+        : ["security-reviewed", "qa-passed"];
+      const reason = locale === "ko" ? DEFAULT_REASONS.promote.ko : DEFAULT_REASONS.promote.en;
+      const updated = await requestCatalog(`/v1/releases/${encodeURIComponent(rel.id)}/promote`, {
+        revision: current.revision,
+        confirmation: rel.id,
+        reason,
+        source_channel: transition.sourceChannel,
+        target_channel: transition.targetChannel,
+        required_labels: parsedLabels,
+        labels: parsedLabels,
+        min_soak_seconds: 0,
+        elapsed_stage_seconds: 0,
+        max_stage_timeout_seconds: 3600,
+        min_healthy_canaries: 0,
+        canary_observations: [],
+      });
+      setCatalog(updated);
+      setNotice(
+        locale === "ko"
+          ? `원클릭 승격 완료: 릴리스 ${rel.id} 버전이 ${transition.sourceChannel} -> ${transition.targetChannel} 단계로 즉시 승격되었습니다.`
+          : `1-Click promotion complete: Release ${rel.id} promoted from ${transition.sourceChannel} to ${transition.targetChannel}.`,
+      );
+      heading.current?.focus();
+    } catch (failure) {
+      setError(catalogRecovery(failure));
+    } finally {
+      setQuickCreating(false);
+    }
+  }
   async function refresh() {
     setLoading(true);
     try {
@@ -934,7 +1077,7 @@ export function App() {
     </nav>
     <main id="main" class="main" ref={heading} tabIndex={-1}>
       <div class="workspace-bar">
-        <span>{t("Vendor / FDAI", "FDAI 릴리스 허브 (권장 순서: 1. 스텐실 구성 -> 2. 릴리스 등록/발행 -> 3. 채널 승격)")}</span>
+        <strong>{t("FDAI Release Hub", "FDAI 릴리스 허브")}</strong>
         <div class="actions" style="margin-top: 0;">
           {entraStatus?.authenticated && entraStatus.session ? (
             <span class="stencil-provenance-preview" style="padding: 4px 10px;">
@@ -968,7 +1111,6 @@ export function App() {
           ) : (
             <button
               type="button"
-              class="primary"
               onClick={() => setEntraDialogOpen(true)}
             >
               {t("Sign in with Microsoft Entra ID", "Microsoft Entra ID 로그인")}
@@ -984,47 +1126,65 @@ export function App() {
           <button disabled={loading} onClick={() => { setNotice(""); void refresh(); }}>{loading ? t("Loading...", "불러오는 중...") : t("Refresh catalog", "카탈로그 새로고침")}</button>
         </div>
       </div>
-      <nav class="workflow-guide" aria-label={t("Release workflow steps", "릴리스 진행 4단계 가이드")}>
-        <a href="#/stencils" class={`workflow-step ${active === "/stencils" ? "active" : ""}`}>
-          <strong>{t("Step 1 · Stencil Builder", "1단계 · 에디션 및 메뉴 맞춤 구성")}</strong>
-          <small>{t("Choose Lite/Standard/Full or custom Console menus", "경량·표준·전체 프리셋 또는 원하는 메뉴만 선택")}</small>
-        </a>
-        <a href="#/releases" class={`workflow-step ${active === "/releases" ? "active" : ""}`}>
-          <strong>{t("Step 2 · Register & Publish", "2단계 · 릴리스 등록 및 DEV 발행")}</strong>
-          <small>{t("Register manifest and sign into DEV ring", "생성된 매니페스트 등록 및 개발용 전자서명 발행")}</small>
-        </a>
-        <a href="#/channels" class={`workflow-step ${active === "/channels" ? "active" : ""}`}>
-          <strong>{t("Step 3 · Stage Promotion", "3단계 · 단계별 채널 승격 (RC · 운영)")}</strong>
-          <small>{t("Promote DEV -> RELEASE_CANDIDATE -> RELEASE", "승격 게이트 검증 후 스테이징·운영 채널로 승격")}</small>
-        </a>
-        <a href="#/trust" class={`workflow-step ${active === "/trust" || active === "/deployment-requests" ? "active" : ""}`}>
-          <strong>{t("Step 4 · Trust & Surgical Recall", "4단계 · 서명 핀 확인 및 기능 리콜")}</strong>
-          <small>{t("Verify export pin or recall specific capabilities", "Export 핀 검증 및 결함 기능 단위 정밀 리콜 제어")}</small>
-        </a>
-      </nav>
-      <p class="boundary">{t("Registered manifests from the selected catalog database only. Builds, image availability, and deployments are not verified here.", "선택한 카탈로그 데이터베이스에 실제 등록된 매니페스트만 표시합니다. 이 화면은 빌드, 이미지 가용성, 배포 완료를 검증하지 않습니다.")}</p>
       {error && <p class="error" role="alert">Catalog unavailable: {error} {catalog ? "Previously loaded data is shown; mutations are disabled." : "Use Refresh catalog to retry."}</p>}
       {notice && <p role={uncertain ? "alert" : "status"} class={error || uncertain ? "warning" : "success"}>{notice}</p>}
       {route === "/deployment-requests" && <DeploymentRequests catalog={catalog} locale={locale} />}
       {!catalog && !error && <p role="status" class="empty">{t("Loading release catalog...", "릴리스 카탈로그 불러오는 중...")}</p>}
       {catalog && <>
-        {catalog.expired && <p class="warning">{t(`Catalog export expired at ${time(catalog.expires_at)}. Consumers will reject it. Review the releases, channels and recalls, then use `, `카탈로그 Export 유효기간(${time(catalog.expires_at)})이 만료되었습니다. 하위 설치본이 이를 거부하므로 검토 후 `)}<a href="#/trust">{t("Catalog trust", "서명 신뢰 및 기능 리콜")}</a>{t(" to explicitly renew freshness. Refresh catalog is read-only.", " 메뉴에서 유효기간을 24시간 연장하세요.")}</p>}
-        {release ? <ReleaseWorkspace release={release} catalog={catalog} locale={locale} onLocaleChange={setLocale} disabled={disabled} act={(action, r) => setPending({ action, release: r })} activity={<Activity catalog={catalog} releaseId={release.id} locale={locale} />} />
+        {isInitialCatalog(catalog) && <p class="note" role="status">{t(
+          "Initial catalog: no releases have been registered or published. Export metadata is not evidence of a build or an available update.",
+          "초기 카탈로그입니다. 등록하거나 발행한 릴리스가 없습니다. 내보내기 메타데이터는 빌드나 사용 가능한 업데이트를 입증하지 않습니다.")}</p>}
+        {catalog.expired && !isInitialCatalog(catalog) && <p class="warning">{t(`Catalog export expired at ${time(catalog.expires_at)}. Consumers will reject it. Review the releases, channels and recalls, then use `, `카탈로그 Export 유효기간(${time(catalog.expires_at)})이 만료되었습니다. 하위 설치본이 이를 거부하므로 검토 후 `)}<a href="#/trust">{t("Catalog trust", "서명 신뢰 및 기능 리콜")}</a>{t(" to explicitly renew freshness. Refresh catalog is read-only.", " 메뉴에서 유효기간을 24시간 연장하세요.")}</p>}
+        {release ? <ReleaseWorkspace release={release} catalog={catalog} locale={locale} onLocaleChange={setLocale} disabled={disabled} act={(action, r) => setPending({ action, release: r })} onQuickPromote={quickPromoteRelease} activity={<Activity catalog={catalog} releaseId={release.id} locale={locale} />} />
           : releaseId ? <><h1>{t("Release unavailable", "릴리스를 찾을 수 없음")}</h1><p>{t(`No release matches ${releaseId}.`, `${releaseId} 버전의 릴리스가 존재하지 않습니다.`)}</p><a href="#/releases">{t("Back to releases", "릴리스 목록으로 돌아가기")}</a></>
           : route === "/releases" ? <>
-            <div class="page-head">
-              <div>
-                <p class="eyebrow">{t("Release catalog", "릴리스 카탈로그 및 단계 승격")}</p>
-                <h1>{t("Releases", "릴리스 목록 (Releases)")}</h1>
-                <p>{t("Publish once. Curate eligibility. Keep the evidence in view.", "한 번 서명·발행한 불변 아티팩트를 DEV → RELEASE_CANDIDATE → RELEASE 단계별로 안전하게 승격합니다.")}</p>
+            <div class="rh-argo-app-header">
+              <div class="rh-argo-app-title">
+                <h1>{t("Releases", "릴리스 토폴로지")}</h1>
+                <span class="stencil-chip">
+                  <strong>{t(`${catalog.releases.length} releases`, `총 ${catalog.releases.length}개 릴리스`)}</strong>
+                </span>
+                <span class="stencil-chip">{t(`Revision ${catalog.revision}`, `리비전 ${catalog.revision}`)}</span>
               </div>
               <div class="actions" style="margin-top: 0;">
-                <a class="next-link" href="#/stencils" style="padding: 8px 14px; border: 1px solid var(--rh-border); border-radius: var(--cs-radius-sm); text-decoration: none;">
-                  {t("Build custom Stencil first", "맞춤 Stencil 먼저 구성하기")}
-                </a>
                 <button
+                  type="button"
                   class="primary"
-                  disabled={disabled}
+                  disabled={disabled || quickCreating}
+                  onClick={() => void quickCreateRelease("lite-observe-alert", true)}
+                >
+                  {quickCreating
+                    ? t("Creating release...", "릴리스 생성 중...")
+                    : t(
+                        `1-Click Create Release (${nextSuggestedSemVer(catalog.releases, "patch")})`,
+                        `원클릭 릴리스 즉시 생성 (${nextSuggestedSemVer(catalog.releases, "patch")})`,
+                      )}
+                </button>
+                <button
+                  type="button"
+                  class="chip-btn"
+                  disabled={disabled || quickCreating}
+                  onClick={() => void quickCreateRelease("standard-sre", true)}
+                >
+                  {t(
+                    `1-Click Standard SRE (${nextSuggestedSemVer(catalog.releases, "patch")})`,
+                    `Standard SRE (${nextSuggestedSemVer(catalog.releases, "patch")})`,
+                  )}
+                </button>
+                <button
+                  type="button"
+                  class="chip-btn"
+                  disabled={disabled || quickCreating}
+                  onClick={() => void quickCreateRelease("full-enterprise", true)}
+                >
+                  {t(
+                    `1-Click Full Enterprise (${nextSuggestedSemVer(catalog.releases, "patch")})`,
+                    `Full Enterprise (${nextSuggestedSemVer(catalog.releases, "patch")})`,
+                  )}
+                </button>
+                <button
+                  disabled={disabled || quickCreating}
+                  class="chip-btn"
                   aria-label="Register release"
                   onClick={() => {
                     if (!registration.id.trim()) {
@@ -1036,12 +1196,11 @@ export function App() {
                     setPending({ action: "register", release: null });
                   }}
                 >
-                  {t("Register release", "새 릴리스 바로 등록")}
+                  {t("Register release", "직접 등록")}
                 </button>
               </div>
             </div>
-            <div class="summary"><strong>{t(`${catalog.releases.length} releases`, `총 ${catalog.releases.length}개 릴리스`)}</strong><span>{t(`Revision ${catalog.revision}`, `카탈로그 리비전 ${catalog.revision}`)}</span><span>{t(`Updated ${time(catalog.updated_at)}`, `최근 갱신 ${time(catalog.updated_at)}`)}</span></div>
-            {catalog.releases.length === 0 ? <section class="empty"><h2>{t("No releases yet", "아직 등록된 릴리스가 없습니다")}</h2><p>{t("Use 1. Stencil Builder to compose a custom edition or click Register release to auto-fill a template.", "상단의 '새 릴리스 바로 등록' 버튼을 눌러 원클릭 템플릿으로 생성하거나, '1. 스텐실·메뉴 빌더'에서 원하는 메뉴만 골라 시작하세요.")}</p></section>
+            {catalog.releases.length === 0 ? <section class="empty"><h2>{t("No releases yet", "아직 등록된 릴리스가 없습니다")}</h2><p>{t("Click any 1-Click Create button above to compose, register, and sign a release into DEV immediately, or use 1. Stencil Builder for a custom menu selection.", "위의 '원클릭 릴리스 즉시 생성' 버튼을 누르면 클릭 한 번으로 매니페스트 생성·등록·DEV 서명이 즉시 완료됩니다. 원하는 메뉴만 골라 만들려면 '1. 스텐실·메뉴 빌더'를 사용하세요.")}</p></section>
               : <>
                 <ReleaseLineageSection
                   catalog={catalog}
@@ -1056,41 +1215,53 @@ export function App() {
                         }
                       : null
                   }
-                  disabled={disabled}
+                  disabled={disabled || quickCreating}
                   onAct={(action, r) => setPending({ action, release: r })}
+                  onQuickPromote={quickPromoteRelease}
                   onComparePair={(bId, tId) => {
                     setDiffPair({ baseId: bId, targetId: tId });
                     document.getElementById("release-diff-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
                   }}
                 />
-                <div class="release-list">{catalog.releases.map((r) => {
-                  const st = extractReleaseStencil(r);
-                  const inDev = r.channels.includes("DEV");
-                  const inRc = r.channels.includes("RELEASE_CANDIDATE");
-                  const inProd = r.channels.includes("RELEASE");
-                  return <a key={r.id} href={`#/releases/${r.id}`} class="release-row">
-                    <div>
-                      <strong>{releaseTitle(r)}</strong>
-                      <p>{r.label || t("No label", "설명 없음")}</p>
-                      {st && (
-                        <div class="preset-metrics" style="margin-top: 6px;">
-                          <span class="stencil-pill locked">{st.stencil_id}</span>
-                          <span class="stencil-chip">{t(`${st.enabled_workloads.length} workloads · ${st.enabled_panel_ids.length} menus`, `컨테이너 ${st.enabled_workloads.length}개 · 메뉴 ${st.enabled_panel_ids.length}개`)}</span>
-                          <span class="stencil-chip">{st.azure_rbac_posture === "read-only-observation" ? t("read-only-observation", "100% 읽기 전용") : t("governed-execution", "승인 기반 실행")}</span>
-                        </div>
-                      )}
-                    </div>
-                    <Status release={r} locale={locale} />
-                    <div class="stage-pills" aria-label={r.channels.join(" / ") || "No channel"}>
-                      <span class={`stage-pill ${inDev ? "done" : ""}`}>DEV</span>
-                      <span>→</span>
-                      <span class={`stage-pill ${inRc ? "done" : ""}`}>RC</span>
-                      <span>→</span>
-                      <span class={`stage-pill ${inProd ? "done" : ""}`}>RELEASE</span>
-                    </div>
-                    <span class="row-next" aria-hidden="true">{t("View details & promote ->", "상세 보기 및 승격 ->")}</span>
-                  </a>;
-                })}</div>
+                <details class="release-disclosure">
+                  <summary>
+                    {t(
+                      `Release Manifest List (${catalog.releases.length})`,
+                      `릴리스 매니페스트 테이블 목록 보기 (${catalog.releases.length}개)`,
+                    )}
+                  </summary>
+                  <div class="release-list">{catalog.releases.map((r) => {
+                    const st = extractReleaseStencil(r);
+                    const inDev = r.channels.includes("DEV");
+                    const inRc = r.channels.includes("RELEASE_CANDIDATE");
+                    const inProd = r.channels.includes("RELEASE");
+                    return <a key={r.id} href={`#/releases/${r.id}`} class="release-row">
+                      <div>
+                        <strong>{releaseTitle(r)}</strong>
+                        <p>{r.label || t("No label", "설명 없음")}</p>
+                        {st && (
+                          <div class="preset-metrics" style="margin-top: 6px;">
+                            <span class="stencil-pill locked">{st.stencil_id}</span>
+                            <span class="stencil-chip">{t(`${st.enabled_workloads.length} workloads · ${st.enabled_panel_ids.length} menus`, `컨테이너 ${st.enabled_workloads.length}개 · 메뉴 ${st.enabled_panel_ids.length}개`)}</span>
+                            <span class="stencil-chip">{st.azure_rbac_posture === "read-only-observation" ? t("read-only-observation", "100% 읽기 전용") : t("governed-execution", "승인 기반 실행")}</span>
+                            {st.release_labels?.includes("digest:docker-verified") && (
+                              <span class="stencil-pill linked">{t("✓ Real OCI Digests", "✓ 실 이미지 다이제스트")}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <Status release={r} locale={locale} />
+                      <div class="stage-pills" aria-label={r.channels.join(" / ") || "No channel"}>
+                        <span class={`stage-pill ${inDev ? "done" : ""}`}>DEV</span>
+                        <span>→</span>
+                        <span class={`stage-pill ${inRc ? "done" : ""}`}>RC</span>
+                        <span>→</span>
+                        <span class={`stage-pill ${inProd ? "done" : ""}`}>RELEASE</span>
+                      </div>
+                      <span class="row-next" aria-hidden="true">{t("View details & promote ->", "상세 보기 및 승격 ->")}</span>
+                    </a>;
+                  })}</div>
+                </details>
                 <ReleaseDiffInspector releases={catalog.releases} locale={locale} externalPair={diffPair} />
               </>}
           </>           : route === "/deployment-requests" ? null
@@ -1102,18 +1273,27 @@ export function App() {
               setRegistration(draft);
               setPending({ action: "register", release: null });
             }}
+            onQuickCreateRelease={(draft) => quickCreateRelease(draft, true)}
           />
           : route === "/channels" ? <Channels catalog={catalog} locale={locale} />
           : route === "/activity" ? <><h1>{t("Activity", "변경 및 감사 이력 (Activity)")}</h1><p>{t("Transactional publication changes, newest first. Development attribution is not a production audit guarantee.", "릴리스 등록, 서명 발행, 단계 승격, 기능 리콜 등 모든 카탈로그 트랜잭션 이력을 최신순으로 표시합니다.")}</p><Activity catalog={catalog} locale={locale} /></>
           : route === "/trust" ? <>
             <h1>{t("Catalog trust", "서명 신뢰 및 긴급 기능 리콜 (Catalog Trust)")}</h1><p>{t("Verify exact export bytes and every published manifest before Lifecycle planning.", "카탈로그 Export 서명 핀 검증, 유효기간 갱신, 그리고 특정 결함 기능만 정밀 차단하는 Apollo Surgical Recall을 관리합니다.")}</p>
-            <section><h2>{t("Development verification boundary", "카탈로그 전자서명 및 Export 핀 정보")}</h2><p>{t("Release signatures are verified against the active development key on every read. Channels and recalls are development metadata, not signed production catalog roles.", "모든 릴리스 매니페스트와 내장된 Stencil 블루프린트는 읽을 때마다 공개키로 서명을 검증합니다.")}</p>
+            <section><h2>{t("Development verification boundary", "카탈로그 전자서명 및 Export 핀 정보")}</h2><p>{t("Published Release signatures are verified against the active development key on every read. Drafts are unsigned. Channels and recalls are development metadata, not signed production catalog roles.", "발행된 릴리스는 읽을 때마다 현재 개발용 키로 서명을 검증합니다. 초안에는 서명이 없습니다. 채널과 리콜은 개발용 메타데이터이며 프로덕션용 서명 카탈로그 역할이 아닙니다.")}</p>
               <dl><dt>{t("Key id", "서명 키 ID")}</dt><dd><code>{catalog.key_id}</code></dd><dt>{t("Revision", "카탈로그 리비전")}</dt><dd>{catalog.revision}</dd><dt>{t("Export expiry", "Export 만료 시각")}</dt><dd>{time(catalog.expires_at)}</dd><dt>{t("Export SHA-256 pin", "Export SHA-256 고정 핀")}</dt><dd><code class="digest">{catalog.export_sha256 || "Refresh to obtain the current pin."}</code></dd></dl>
               <a href="/v1/catalog/export" target="_blank" rel="noreferrer">{t("Open local JSON export (new tab)", "서명된 카탈로그 JSON 원본 열기 (새 탭)")}</a>
+              {catalog.expired && isInitialCatalog(catalog) && <p class="note">{t(
+                "The empty export metadata is expired and cannot be imported. A reviewed catalog change or explicit freshness renewal is required before import; viewing this page changes nothing.",
+                "빈 카탈로그의 내보내기 메타데이터가 만료되어 가져올 수 없습니다. 가져오기 전에 검토한 카탈로그 변경이나 명시적인 유효기간 갱신이 필요합니다. 이 화면을 조회해도 변경되지는 않습니다.")}</p>}
             </section>
             {catalog.releases.some((r) => extractReleaseStencil(r) !== null) && (
-              <section>
-                <h2>{t("Signed Stencil blueprints in catalog", "카탈로그 내 전자서명된 Stencil 블루프린트 목록")}</h2>
+              <details class="stencil-collapsible">
+                <summary>
+                  <span>{t("Signed Stencil blueprints in catalog", "카탈로그 내 전자서명된 Stencil 블루프린트 목록")}</span>
+                  <span class="summary-meta">
+                    <span class="stencil-chip">{catalog.releases.filter((r) => extractReleaseStencil(r) !== null).length}</span>
+                  </span>
+                </summary>
                 <p>{t("Each Stencil blueprint below is embedded inside its canonical Release manifest and covered by the Release signature.", "아래 Stencil 블루프린트는 각 릴리스 매니페스트 내부에 내장되어 전자서명으로 위변조가 방지됩니다.")}</p>
                 <dl>
                   {catalog.releases.map((r) => {
@@ -1125,7 +1305,7 @@ export function App() {
                     </>;
                   })}
                 </dl>
-              </section>
+              </details>
             )}
             <CapabilityRecallControl
               catalog={catalog}

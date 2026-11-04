@@ -117,7 +117,7 @@ export function AuditPage() {
                     {data.records.map((record) => (
                       <tr key={record.sequence}>
                         <td class="mono">#{record.sequence}</td>
-                        <td>{formatTimestamp(record.recorded_at)}</td>
+                        <td>{formatTimestamp(record.recorded_at, undefined, locale)}</td>
                         <td class="mono">{record.action}</td>
                         <td>
                           <Link href={installationPath(record.installation_id)}>

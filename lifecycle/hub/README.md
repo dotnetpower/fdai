@@ -408,6 +408,13 @@ to prepare the connection settings and audit tables in the existing Hub database
 precedence. An explicitly configured remote catalog remains deployment-owned and read-only
 here, so changing this screen cannot redirect its Managed Identity or catalog updater.
 
+Without that independent catalog trust profile, **Updates** and **Available releases** display
+the selected Hub's unverified registration preview and setup instructions. They don't call the
+remote-only updater or describe the preview as accepted releases. Direct trusted catalog requests
+return `503 catalog_not_configured`, rather than a missing-route `404`. Connection or preview
+failures stay explicit. A deployment-owned source uses its authenticated views, not an anonymous
+preview that would drop its access requirements.
+
 The connection preview reads the selected Hub's registered catalog once. It uses no credentials,
 follows no redirects, and has a five-second deadline and a 16 MiB response limit. HTTP is
 supported only for literal loopback addresses and `localhost`; other origins require HTTPS.

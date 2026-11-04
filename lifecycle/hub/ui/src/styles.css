@@ -140,6 +140,95 @@ h3 {
   opacity: 0.65;
   cursor: default;
 }
+.side-section-label {
+  padding: 6px 8px 4px;
+  color: var(--cs-text-soft);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.side-group-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 34px;
+  padding: 5px 8px;
+  margin-bottom: 4px;
+  border: 1px solid transparent;
+  border-radius: var(--cs-radius-sm);
+  background: transparent;
+  color: var(--cs-text-soft);
+  font: var(--cs-type-label-size) / 1.2 var(--cs-font);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.side-group-toggle:hover {
+  background: var(--cs-card);
+  border-color: var(--cs-hairline);
+  color: var(--cs-text);
+}
+.side-chevron {
+  font-size: 11px;
+  color: var(--cs-text-soft);
+}
+.side-collapsible[hidden] {
+  display: none;
+}
+.side-collapsible {
+  padding-left: 4px;
+  margin-bottom: 4px;
+}
+.quick-provision-card,
+.quick-provision-box {
+  border: 1px solid var(--lc-select-border);
+  border-radius: var(--cs-radius-sm);
+  background: var(--lc-row-sel);
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+.quick-provision-box {
+  margin-top: 12px;
+}
+.quick-provision-top,
+.quick-provision-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.quick-provision-header {
+  flex-direction: column;
+  gap: 4px;
+}
+.quick-provision-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.quick-provision-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.quick-provision-controls .input {
+  width: auto;
+  min-width: 180px;
+  flex: 1 1 180px;
+}
+.release-preview-list {
+  margin: 8px 0 12px;
+  padding-left: 20px;
+}
+.release-preview-list li {
+  margin-bottom: 4px;
+}
 .side-locale {
   display: flex;
   align-items: center;
@@ -148,6 +237,97 @@ h3 {
   padding: 6px 8px;
   color: var(--cs-text-soft);
   font-size: var(--cs-type-label-size);
+}
+.side-entra {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  margin: 0 4px 6px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-card);
+  font-size: var(--cs-type-label-size);
+}
+.side-entra-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+}
+.side-entra-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.side-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--cs-terracotta);
+}
+.side-dot.ok {
+  background: var(--cs-sage);
+}
+.side-entra-actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.side-entra-actions .btn {
+  flex: 1 1 auto;
+  height: 28px;
+  padding: 0 8px;
+  font-size: var(--cs-type-label-size);
+}
+.entra-dialog {
+  width: min(520px, calc(100vw - 32px));
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  padding: 20px;
+  background: var(--cs-card);
+  color: var(--cs-text);
+}
+.entra-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.35);
+}
+.entra-detected-list {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+.entra-detected-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: var(--lc-row-sel);
+}
+.entra-dialog details {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--cs-hairline);
+}
+.entra-dialog summary {
+  cursor: pointer;
+  font-size: var(--cs-type-compact-size);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.entra-dialog label {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+  font-size: var(--cs-type-compact-size);
+}
+.entra-dialog .input {
+  width: 100%;
 }
 .side-locale .input {
   height: 32px;
@@ -780,7 +960,7 @@ table.t a:hover {
   .side .it {
     min-height: 44px;
   }
-  .side .it.disabled, .side-divider {
+  .side .it.disabled, .side-divider, .side-section-label {
     display: none;
   }
   .main {

@@ -37,6 +37,10 @@ async function stub(page: Page, options: {
       writes.push({ method: request.method(), path: pathname, body: request.postData() });
     }
     if (pathname === "/auth/config") return route.fulfill({ json: { profile: "local-development" } });
+    if (pathname === "/v1/release-hub/connection") return route.fulfill({ json: {
+      endpoint: "https://release.example.com", configured_endpoint: null, revision: 0,
+      source: "deployment", editable: false, requires_migration: false,
+    } });
     if (pathname === "/v1/catalog/updates") {
       statusReads += 1;
       return route.fulfill({ json: options.status() });

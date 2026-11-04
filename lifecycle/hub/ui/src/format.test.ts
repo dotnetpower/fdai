@@ -41,6 +41,9 @@ describe("formatDurationMinutes", () => {
     expect(formatDurationMinutes(1_440)).toBe("1 day");
     expect(formatDurationMinutes(2_880)).toBe("2 days");
     expect(formatDurationMinutes(120)).toBe("2 hours");
+    expect(formatDurationMinutes(1_440, "ko")).toBe("1일");
+    expect(formatDurationMinutes(120, "ko")).toBe("2시간");
+    expect(formatDurationMinutes(35, "ko")).toBe("35분");
   });
 
   test("falls back to minutes", () => {

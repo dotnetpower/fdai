@@ -4,7 +4,109 @@ import {
 } from "@azure/msal-browser";
 import "./auth.css";
 
+export type EntraDetectedAccount = {
+  principal: string;
+  tenant_id: string;
+  tenant_label: string;
+  is_default: boolean;
+};
+
+export type EntraActiveSession = {
+  principal: string;
+  display_name: string;
+  tenant_id: string;
+  auth_method: "entra-workstation" | "entra-msal-pkce" | "entra-remote-jwt";
+  signed_in_at: string;
+};
+
+export type EntraSessionStatus = {
+  authenticated: boolean;
+  actor: string;
+  session: EntraActiveSession | null;
+  detected_accounts: EntraDetectedAccount[];
+};
+
 let authorization: (() => Promise<string>) | undefined;
+let currentEntraSession: EntraSessionStatus | null = null;
+const entraListeners = new Set<() => void>();
+
+export function getEntraSession(): EntraSessionStatus | null {
+  return currentEntraSession;
+}
+
+export function setEntraSession(next: EntraSessionStatus | null): void {
+  currentEntraSession = next;
+  for (const listener of entraListeners) {
+    listener();
+  }
+}
+
+export function subscribeEntraSession(listener: () => void): () => void {
+  entraListeners.add(listener);
+  return () => {
+    entraListeners.delete(listener);
+  };
+}
+
+export async function refreshEntraSession(): Promise<EntraSessionStatus | null> {
+  try {
+    const response = await authenticatedFetch("/auth/session", {
+      cache: "no-store",
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!response.ok) return currentEntraSession;
+    const raw: unknown = await response.json();
+    if (
+      typeof raw === "object" &&
+      raw !== null &&
+      typeof (raw as EntraSessionStatus).authenticated === "boolean" &&
+      Array.isArray((raw as EntraSessionStatus).detected_accounts)
+    ) {
+      setEntraSession(raw as EntraSessionStatus);
+    }
+    return currentEntraSession;
+  } catch {
+    return currentEntraSession;
+  }
+}
+
+export async function requestEntraLogin(payload: {
+  mode: "workstation" | "msal_account";
+  principal?: string;
+  display_name?: string;
+  tenant_id?: string;
+  client_id?: string;
+}): Promise<EntraSessionStatus> {
+  const response = await authenticatedFetch("/auth/entra/login", {
+    method: "POST",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(10_000),
+  });
+  const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!response.ok) {
+    const message =
+      typeof body.error === "string" && body.error.trim()
+        ? body.error
+        : `Entra ID sign-in failed (${response.status}).`;
+    throw new Error(message);
+  }
+  const next = body as EntraSessionStatus;
+  setEntraSession(next);
+  return next;
+}
+
+export async function requestEntraLogout(): Promise<EntraSessionStatus> {
+  const response = await authenticatedFetch("/auth/entra/logout", {
+    method: "POST",
+    cache: "no-store",
+    signal: AbortSignal.timeout(5_000),
+  });
+  const next = (await response.json()) as EntraSessionStatus;
+  setEntraSession(next);
+  return next;
+}
 
 async function runtimeProbe(path: "/healthz" | "/readyz"): Promise<unknown> {
   try {
@@ -59,7 +161,12 @@ export async function initializeAuth(root: HTMLElement): Promise<boolean> {
   if (typeof config !== "object" || config === null || !("profile" in config)) {
     throw new Error("Invalid authentication configuration.");
   }
-  if (config.profile === "local-development") return true;
+  if (config.profile === "local-development") {
+    if ("entra" in config && typeof config.entra === "object" && config.entra !== null) {
+      setEntraSession(config.entra as EntraSessionStatus);
+    }
+    return true;
+  }
   if (config.profile === "remote-unconfigured") {
     if (!("origin" in config) || config.origin !== window.location.origin ||
         !("product" in config) || !["release", "lifecycle"].includes(String(config.product))) {

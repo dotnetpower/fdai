@@ -1,6 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { request } from "../api";
-import { tr, useHubLocale } from "../locale";
+import { connectionSourceLabel, releaseStateLabel, tr, useHubLocale } from "../locale";
 
 export type ReleaseConnection = {
   endpoint: string;
@@ -10,6 +10,31 @@ export type ReleaseConnection = {
   editable: boolean;
   requires_migration: boolean;
 };
+export type ReleaseDetailSummary = {
+  channels: string[];
+  stencil_id: string | null;
+  title: string | null;
+  title_ko: string | null;
+  enabled_workloads: string[];
+  enabled_panel_count: number;
+  component_digests: Record<string, string>;
+  digest_verified: boolean;
+};
+
+export type ReleaseProvisionReceipt = {
+  installation_id: string;
+  release_id: string;
+  plan_id: string | null;
+  outcome: string;
+  endpoint: string;
+  stencil_id: string | null;
+  enabled_workloads: string[];
+  enabled_panel_count: number;
+  component_digests: Record<string, string>;
+  digest_verified: boolean;
+  provisioned_at: string;
+};
+
 export type ReleaseCatalogPreview = {
   endpoint: string;
   revision: number;
@@ -19,7 +44,24 @@ export type ReleaseCatalogPreview = {
   release_count: number;
   build_verification: "not-performed";
   trusted: false;
+  release_details?: Record<string, ReleaseDetailSummary>;
+  enrolled_installations?: string[];
 };
+
+export async function provisionFromReleaseHub(
+  installationId: string,
+  releaseId: string | null = null,
+  applyState = true,
+): Promise<ReleaseProvisionReceipt> {
+  return request<ReleaseProvisionReceipt>("/v1/release-hub/provision", {
+    method: "POST",
+    body: JSON.stringify({
+      installation_id: installationId,
+      release_id: releaseId,
+      apply_state: applyState,
+    }),
+  });
+}
 
 export function releaseHubConfirmation(endpoint: string | null, revision: number): string {
   return `connect release hub ${endpoint?.replace(/\/$/, "") ?? "local-default"} ${revision}`;
@@ -54,14 +96,38 @@ export function ReleaseConnectionPanel(
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
+  const [selectedReleaseId, setSelectedReleaseId] = useState("");
+  const [selectedInstallationId, setSelectedInstallationId] = useState("");
+  const [provisionBusy, setProvisionBusy] = useState(false);
+  const [provisionReceipt, setProvisionReceipt] = useState<ReleaseProvisionReceipt | null>(null);
 
   async function loadPreview() {
     setPreview(null);
     setPreviewError("");
     try {
-      setPreview(await request<ReleaseCatalogPreview>("/v1/release-hub/catalog"));
+      const data = await request<ReleaseCatalogPreview>("/v1/release-hub/catalog");
+      setPreview(data);
+      const firstPublished = data.releases.find((item) => item.state === "published")?.id ?? "";
+      setSelectedReleaseId((current) => current || firstPublished);
+      const firstInst = data.enrolled_installations?.[0] ?? "";
+      setSelectedInstallationId((current) => current || firstInst);
     } catch (failure) {
       setPreviewError(failure instanceof Error ? failure.message : "Catalog read failed.");
+    }
+  }
+
+  async function handleProvision() {
+    if (!selectedInstallationId || !selectedReleaseId) return;
+    setProvisionBusy(true);
+    setError("");
+    setProvisionReceipt(null);
+    try {
+      const receipt = await provisionFromReleaseHub(selectedInstallationId, selectedReleaseId, true);
+      setProvisionReceipt(receipt);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Provisioning failed.");
+    } finally {
+      setProvisionBusy(false);
     }
   }
 
@@ -73,7 +139,7 @@ export function ReleaseConnectionPanel(
       setConnection(state);
       setEndpoint(state.endpoint);
       onConnection(state);
-      await loadPreview();
+      if (!hasCatalogTrustSource(state)) await loadPreview();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Connection settings read failed.");
     } finally { setLoading(false); }
@@ -98,7 +164,7 @@ export function ReleaseConnectionPanel(
       onConnection(state);
       setReason("");
       setSaved(true);
-      await loadPreview();
+      if (!hasCatalogTrustSource(state)) await loadPreview();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Connection settings update failed.");
     } finally { setBusy(false); }
@@ -116,34 +182,37 @@ export function ReleaseConnectionPanel(
     {connection && <>
       <p class="note">{tr(locale, "Current endpoint", "현재 엔드포인트")}:{" "}
         <code style={{ overflowWrap: "anywhere" }}>{connection.endpoint}</code>{" "}
-        ({tr(locale, "source", "설정 출처")}: {connection.source})</p>
+        ({tr(locale, "source", "설정 출처")}: {connectionSourceLabel(connection.source, locale)}){" "}
+        <button class="btn" type="button" disabled={busy || loading}
+          onClick={() => void load()}>{tr(locale, "Refresh connection", "연결 새로고침")}</button></p>
       {connection.requires_migration && <p class="banner fail" role="alert">
         {tr(locale, "Run the Lifecycle Hub migrate command before saving connection settings.",
           "연결 설정을 저장하려면 Lifecycle Hub의 migrate 명령을 먼저 실행하세요.")}
       </p>}
       {!connection.editable && !connection.requires_migration && <p class="note">
-        {tr(locale, "The remote catalog endpoint is managed by deployment configuration.",
-          "원격 카탈로그 엔드포인트는 배포 구성에서 관리합니다.")}
+        {tr(locale, "The remote catalog endpoint is managed by deployment configuration. Use the authenticated trust and Updates views below or in the navigation; an anonymous preview is not requested.",
+          "원격 카탈로그 엔드포인트는 배포 구성에서 관리합니다. 아래 신뢰 설정과 탐색 메뉴의 업데이트 화면을 이용하세요. 익명 조회는 요청하지 않습니다.")}
       </p>}
-      <form onSubmit={(event) => { event.preventDefault(); void save(endpoint); }}>
-        <label>{tr(locale, "Release Hub endpoint", "Release Hub 엔드포인트")}
-          <input class="input" type="url" required value={endpoint}
-            disabled={busy || loading || !connection.editable}
-            onInput={(event) => setEndpoint(event.currentTarget.value)} />
-        </label>
-        <label>{tr(locale, "Connection change reason", "연결 변경 사유")}
-          <input class="input" required minLength={3} maxLength={500} value={reason}
-            disabled={busy || loading || !connection.editable}
-            onInput={(event) => setReason(event.currentTarget.value)} />
-        </label>
-        <button class="btn primary" type="submit" disabled={busy || loading || !connection.editable}>
-          {tr(locale, "Save endpoint", "엔드포인트 저장")}
-        </button>{" "}
-        <button class="btn" type="button" disabled={busy || loading || !connection.editable || reason.trim().length < 3}
-          onClick={() => void save(null)}>{tr(locale, "Reset endpoint", "엔드포인트 초기화")}</button>{" "}
-        <button class="btn" type="button" disabled={busy || loading}
-          onClick={() => void load()}>{tr(locale, "Refresh connection", "연결 새로고침")}</button>
-      </form>
+      {connection.editable && <details open={Boolean(error || connection.source === "saved")}>
+        <summary>{tr(locale, "Configure Release Hub endpoint", "Release Hub 엔드포인트 설정 변경")}</summary>
+        <form onSubmit={(event) => { event.preventDefault(); void save(endpoint); }}>
+          <label>{tr(locale, "Release Hub endpoint", "Release Hub 엔드포인트")}
+            <input class="input" type="url" required value={endpoint}
+              disabled={busy || loading || !connection.editable}
+              onInput={(event) => setEndpoint(event.currentTarget.value)} />
+          </label>
+          <label>{tr(locale, "Connection change reason", "연결 변경 사유")}
+            <input class="input" required minLength={3} maxLength={500} value={reason}
+              disabled={busy || loading || !connection.editable}
+              onInput={(event) => setReason(event.currentTarget.value)} />
+          </label>
+          <button class="btn primary" type="submit" disabled={busy || loading || !connection.editable}>
+            {tr(locale, "Save endpoint", "엔드포인트 저장")}
+          </button>{" "}
+          <button class="btn" type="button" disabled={busy || loading || !connection.editable || reason.trim().length < 3}
+            onClick={() => void save(null)}>{tr(locale, "Reset endpoint", "엔드포인트 초기화")}</button>
+        </form>
+      </details>}
     </>}
     {!connection && error && <button class="btn" disabled={loading} onClick={() => void load()}>
       {tr(locale, "Try again", "다시 시도")}
@@ -162,9 +231,75 @@ export function ReleaseConnectionPanel(
       {preview.releases.length === 0
         ? <p>{tr(locale, "No registered releases. No sample releases are substituted.",
           "등록된 릴리스가 없습니다. 샘플 릴리스로 대체하지 않습니다.")}</p>
-        : <ul>{preview.releases.map((release) => <li key={release.id}>
-          <code>{release.id}</code> ({release.state})
-        </li>)}</ul>}
+        : <ul class="release-preview-list">{preview.releases.map((release) => {
+          const detail = preview.release_details?.[release.id];
+          return <li key={release.id}>
+            <code>{release.id}</code> ({releaseStateLabel(release.state, locale)})
+            {detail?.stencil_id && <span class="soft">
+              {" · "}{detail.stencil_id} · {detail.enabled_workloads.length} {tr(locale, "workloads", "워크로드")} · {detail.enabled_panel_count} {tr(locale, "menus", "메뉴")}
+              {detail.digest_verified ? ` · ✓ ${tr(locale, "OCI digests verified", "OCI 다이제스트 검증됨")}` : ""}
+            </span>}
+          </li>;
+        })}</ul>}
+      {preview.releases.some((r) => r.state === "published") && (preview.enrolled_installations?.length ?? 0) > 0 && (
+        <div class="quick-provision-box">
+          <div class="quick-provision-header">
+            <strong>{tr(locale, "1-Click Console Web Provisioning", "원클릭 콘솔 웹 프로비저닝")}</strong>
+            <span class="soft">{tr(
+              locale,
+              "Issue a signed upgrade Plan from the Release Hub Stencil manifest and apply verified container digests to the installation.",
+              "Release Hub의 Stencil 매니페스트로 서명된 업그레이드 계획을 즉시 발급하고 검증된 컨테이너 다이제스트를 설치 환경에 바인딩합니다.",
+            )}</span>
+          </div>
+          <div class="quick-provision-controls">
+            <select
+              class="input"
+              aria-label={tr(locale, "Target installation", "대상 설치 환경")}
+              value={selectedInstallationId}
+              onChange={(event) => setSelectedInstallationId(event.currentTarget.value)}
+            >
+              {(preview.enrolled_installations ?? []).map((instId) => (
+                <option key={instId} value={instId}>{instId}</option>
+              ))}
+            </select>
+            <select
+              class="input"
+              aria-label={tr(locale, "Published release", "게시된 릴리스")}
+              value={selectedReleaseId}
+              onChange={(event) => setSelectedReleaseId(event.currentTarget.value)}
+            >
+              {preview.releases.filter((r) => r.state === "published").map((r) => (
+                <option key={r.id} value={r.id}>
+                  v{r.id}{preview.release_details?.[r.id]?.stencil_id ? ` (${preview.release_details[r.id]?.stencil_id})` : ""}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              class="btn primary"
+              disabled={provisionBusy || !selectedInstallationId || !selectedReleaseId}
+              onClick={() => void handleProvision()}
+            >
+              {provisionBusy
+                ? tr(locale, "Provisioning...", "프로비저닝 중...")
+                : tr(
+                    locale,
+                    `1-Click Provision v${selectedReleaseId} -> ${selectedInstallationId}`,
+                    `원클릭 프로비저닝 v${selectedReleaseId} -> ${selectedInstallationId}`,
+                  )}
+            </button>
+          </div>
+          {provisionReceipt && (
+            <p class="banner ok" role="status">
+              ✓ {tr(
+                locale,
+                `Provisioned ${provisionReceipt.installation_id} to v${provisionReceipt.release_id} (Plan ${provisionReceipt.plan_id ?? "issued"} · ${provisionReceipt.stencil_id ?? "stencil"} · ${Object.keys(provisionReceipt.component_digests).length} OCI images bound).`,
+                `${provisionReceipt.installation_id} 환경을 v${provisionReceipt.release_id} 버전으로 프로비저닝 완료했습니다 (계획 ${provisionReceipt.plan_id ?? "issued"} · ${provisionReceipt.stencil_id ?? "stencil"} · OCI 이미지 ${Object.keys(provisionReceipt.component_digests).length}개 바인딩 완료).`,
+              )}
+            </p>
+          )}
+        </div>
+      )}
       <p class="note">{tr(locale, "Read-only preview. Build verification and catalog trust remain separate.",
         "읽기 전용 조회 결과입니다. 빌드 검증과 카탈로그 신뢰 승인은 별도로 수행합니다.")}</p>
     </section>}

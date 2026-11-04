@@ -630,7 +630,11 @@ def _serve(args: argparse.Namespace) -> int:
 
     static_dir = args.ui if args.ui is not None else DEFAULT_UI_DIST
     uvicorn.run(
-        create_app(_store(), static_dir=static_dir if static_dir.is_dir() else None),
+        create_app(
+            _store(),
+            static_dir=static_dir if static_dir.is_dir() else None,
+            auto_workstation_auth=True,
+        ),
         host=LOOPBACK,
         port=args.port,
     )

@@ -12,6 +12,7 @@ export type LineageNodeStatus = "complete" | "running" | "recalled" | "pending";
 export type LineageNode = {
   id: string;
   title: string;
+  titleKo?: string;
   subtitle: string;
   badgeText: string;
   badgeTextKo: string;
@@ -57,13 +58,13 @@ export type LineageGraph = {
   height: number;
 };
 
-export const CARD_WIDTH = 166;
-export const CARD_HEIGHT = 82;
+export const CARD_WIDTH = 176;
+export const CARD_HEIGHT = 108;
 export const BADGE_HEIGHT = 24;
-export const COL_GAP = 46;
+export const COL_GAP = 28;
 export const ROW_GAP = 24;
-export const PAD_X = 12;
-export const PAD_Y = 14;
+export const PAD_X = 10;
+export const PAD_Y = 12;
 
 export function buildConnectorGeometry(edge: {
   startX: number;
@@ -415,14 +416,17 @@ export function buildReleaseLineageGraph(
 
     const workloadsCount = st?.enabled_workloads.length ?? 3;
     const menusCount = st?.enabled_panel_ids.length ?? 32;
+    const isActivelyMutating = Boolean(options?.activeReleaseId && options.activeReleaseId === rel.id);
     const badgeInfo =
       status === "complete"
-        ? { en: `Complete · ${stageLabel}`, ko: `승격 완료 · ${stageLabel}` }
+        ? { en: `Complete · ${stageLabel}`, ko: `운영 승격 완료 · ${stageLabel}` }
         : status === "running"
-          ? {
-              en: rel.state === "draft" ? "Building · Draft" : `Running · ${stageLabel}`,
-              ko: rel.state === "draft" ? "빌드/서명 대기 · 초안" : `검증 진행 중 · ${stageLabel}`,
-            }
+          ? isActivelyMutating
+            ? { en: `Updating · ${stageLabel}`, ko: `처리 중 · ${stageLabel}` }
+            : {
+                en: rel.state === "draft" ? "Draft · Unsigned" : `Staged · ${stageLabel}`,
+                ko: rel.state === "draft" ? "초안 · 미서명" : `${stageLabel} 발행됨 (승격 대기)`,
+              }
           : status === "recalled"
             ? rel.state === "recalled"
               ? { en: "Recalled · Release", ko: "긴급 회수됨" }
@@ -538,6 +542,7 @@ export function buildReleaseStagePipeline(
   const stageSpecs: {
     id: string;
     title: string;
+    titleKo: string;
     subtitle: string;
     icon: LineageNode["icon"];
     done: boolean;
@@ -547,7 +552,8 @@ export function buildReleaseStagePipeline(
   }[] = [
     {
       id: "initialize-stencil",
-      title: "initialize-stencil",
+      title: "1. Stencil Blueprint",
+      titleKo: "1. 스텐실 구성",
       subtitle: `${stencilId} · ${st ? `${st.enabled_workloads.length}w/${st.enabled_panel_ids.length}m` : "full-stack"}`,
       icon: "init",
       done: true,
@@ -556,7 +562,8 @@ export function buildReleaseStagePipeline(
     },
     {
       id: "clone-codebase",
-      title: "clone-codebase",
+      title: "2. Source & Digest",
+      titleKo: "2. 소스·다이제스트",
       subtitle: `git · ${commitShort}`,
       icon: "branch",
       done: true,
@@ -565,8 +572,9 @@ export function buildReleaseStagePipeline(
     },
     {
       id: "build-sign-dev",
-      title: "build-sign-dev",
-      subtitle: `ed25519 · ${inDev ? "DEV ring verified" : "awaiting DEV sign"}`,
+      title: "3. DEV Ring",
+      titleKo: "3. DEV 서명·발행",
+      subtitle: `ed25519 · ${inDev ? "DEV verified" : "awaiting DEV sign"}`,
       icon: "shield",
       done: inDev && !recalled,
       running: !recalled && release.state === "draft",
@@ -578,8 +586,9 @@ export function buildReleaseStagePipeline(
     },
     {
       id: "promote-rc-canary",
-      title: "promote-rc-canary",
-      subtitle: `apollo-gate · ${inRc ? "RELEASE_CANDIDATE" : capBlocked && inDev && !inRc ? `blocked (${blockedCaps[0]})` : "canary soak"}`,
+      title: "4. RC Canary",
+      titleKo: "4. RC 카나리",
+      subtitle: `apollo-gate · ${inRc ? "RC verified" : capBlocked && inDev && !inRc ? `blocked (${blockedCaps[0]})` : "canary soak"}`,
       icon: "branch",
       done: inRc && !recalled,
       running: !recalled && !capBlocked && transition?.targetChannel === "RELEASE_CANDIDATE",
@@ -591,7 +600,8 @@ export function buildReleaseStagePipeline(
     },
     {
       id: "release-production",
-      title: "release-production",
+      title: "5. Production RELEASE",
+      titleKo: "5. 운영 RELEASE",
       subtitle: `hub-catalog · ${inProd ? `RELEASE v${release.id}` : capBlocked && inRc && !inProd ? `blocked (${blockedCaps[0]})` : "production ring"}`,
       icon: "cloud",
       done: inProd && !recalled,
@@ -617,7 +627,7 @@ export function buildReleaseStagePipeline(
       status === "complete"
         ? { en: "Complete", ko: "Complete · 완료" }
         : status === "running"
-          ? { en: "Running", ko: "Running · 진행 중" }
+          ? { en: "Ready · Next Stage", ko: "승격 가능 · 다음 단계" }
           : status === "recalled"
             ? spec.blocked && !recalled
               ? { en: "Blocked · Recall", ko: "기능 리콜 차단" }
@@ -626,6 +636,7 @@ export function buildReleaseStagePipeline(
     return {
       id: spec.id,
       title: spec.title,
+      titleKo: spec.titleKo,
       subtitle: spec.subtitle,
       badgeText: badgeInfo.en,
       badgeTextKo: badgeInfo.ko,
@@ -654,5 +665,107 @@ export function buildReleaseStagePipeline(
   }
 
   void catalog;
+  return layoutGraphNodes(rawNodes, rawEdges);
+}
+
+export function buildReleaseTopologyGraph(
+  release: Release,
+  catalog: Catalog,
+): LineageGraph {
+  const base = buildReleaseStagePipeline(release, catalog);
+  let manifest: Record<string, unknown> = {};
+  try {
+    manifest = parseReleaseManifest(release.manifest);
+  } catch {
+    manifest = {};
+  }
+  const st = extractReleaseStencil(manifest);
+  const components =
+    manifest.components && typeof manifest.components === "object"
+      ? (manifest.components as Record<string, Record<string, unknown>>)
+      : {};
+  const componentEntries = Object.entries(components);
+  const workloads =
+    componentEntries.length > 0
+      ? componentEntries.map(([name, info]) => ({
+          name,
+          digest:
+            typeof info?.image_digest === "string"
+              ? info.image_digest.replace(/^sha256:/, "").slice(0, 12)
+              : release.digest.slice(0, 12),
+          kind: name === "pgvector" || name === "clamav" ? "sidecar" : "workload",
+        }))
+      : (st?.enabled_workloads ?? ["core-control-plane", "operator-service"]).map((name) => ({
+          name,
+          digest: release.digest.slice(0, 12),
+          kind: "workload",
+        }));
+
+  const recalled = release.state === "recalled";
+  const inDev = release.channels.includes("DEV");
+  const inRc = release.channels.includes("RELEASE_CANDIDATE");
+  const inProd = release.channels.includes("RELEASE");
+  const workloadStage = inProd ? "RELEASE" : inRc ? "RC" : inDev ? "DEV" : "DRAFT";
+  const workloadStatus: LineageNodeStatus = recalled
+    ? "recalled"
+    : inDev || inRc || inProd
+      ? "complete"
+      : "pending";
+
+  const rawNodes: Omit<LineageNode, "x" | "y">[] = base.nodes.map((node) => ({
+    id: node.id,
+    title: node.title,
+    ...(node.titleKo ? { titleKo: node.titleKo } : {}),
+    subtitle: node.subtitle,
+    badgeText: node.badgeText,
+    badgeTextKo: node.badgeTextKo,
+    status: node.status,
+    icon: node.icon,
+    stencilId: node.stencilId,
+    stageLabel: node.stageLabel,
+    commitShort: node.commitShort,
+    col: node.col,
+    row: node.row,
+    ...(node.actionableHint !== undefined ? { actionableHint: node.actionableHint } : {}),
+  }));
+
+  const rawEdges: Omit<LineageEdge, "startX" | "startY" | "endX" | "endY">[] = base.edges.map(
+    (edge) => ({
+      id: edge.id,
+      fromId: edge.fromId,
+      toId: edge.toId,
+      kind: edge.kind,
+      active: edge.active,
+    }),
+  );
+
+  workloads.slice(0, 3).forEach((item, index) => {
+    const nodeId = `workload-${item.name}`;
+    const col = Math.min(4, index + 2);
+    rawNodes.push({
+      id: nodeId,
+      title: item.name,
+      titleKo: item.name,
+      subtitle: `${item.kind} · sha256:${item.digest}`,
+      badgeText: `Synced · ${workloadStage}`,
+      badgeTextKo: `정상 · ${workloadStage}`,
+      status: workloadStatus,
+      icon: item.kind === "sidecar" ? "shield" : "cloud",
+      stencilId: base.nodes[0]?.stencilId ?? "standard-sre",
+      stageLabel: item.kind.toUpperCase(),
+      commitShort: item.digest,
+      col,
+      row: 1,
+      actionableHint: null,
+    });
+    rawEdges.push({
+      id: `edge-workload-${item.name}`,
+      fromId: index === 0 ? "clone-codebase" : `workload-${workloads[index - 1]!.name}`,
+      toId: nodeId,
+      kind: "branch",
+      active: workloadStatus === "complete",
+    });
+  });
+
   return layoutGraphNodes(rawNodes, rawEdges);
 }

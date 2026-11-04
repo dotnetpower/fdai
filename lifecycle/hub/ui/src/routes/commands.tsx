@@ -120,8 +120,16 @@ export function CommandsPage() {
     } catch (failure) {
       setError(
         failure instanceof HubApiError
-          ? `The Hub rejected this command (${failure.reasonCode}). Refresh installation state before retrying.`
-          : "The command outcome could not be confirmed. Refresh installation state before retrying.",
+          ? tr(
+              locale,
+              `The Hub rejected this command (${failure.reasonCode}). Refresh installation state before retrying.`,
+              `Hub가 이 명령을 거부했습니다 (${failure.reasonCode}). 설치 상태를 새로 고침한 뒤 다시 시도하세요.`,
+            )
+          : tr(
+              locale,
+              "The command outcome could not be confirmed. Refresh installation state before retrying.",
+              "명령 처리 결과를 확인할 수 없습니다. 설치 상태를 새로 고침한 뒤 다시 시도하세요.",
+            ),
       );
     } finally {
       setBusy(false);
@@ -287,8 +295,12 @@ export function CommandsPage() {
                       setTargetAutonomy(event.currentTarget.value as "shadow" | "hil")
                     }
                   >
-                    <option value="shadow">shadow (observe only)</option>
-                    <option value="hil">hil (require human approval)</option>
+                    <option value="shadow">
+                      {tr(locale, "shadow (observe only)", "shadow (관측 전용)")}
+                    </option>
+                    <option value="hil">
+                      {tr(locale, "hil (require human approval)", "hil (사람 승인 필요)")}
+                    </option>
                   </select>
                 </label>
                 <label>
@@ -433,7 +445,7 @@ export function CommandsPage() {
                       {cmd.installation_id} · <span class="mono">{cmd.scope}</span>
                     </td>
                     <td>
-                      {formatTimestamp(cmd.expires_at)}
+                      {formatTimestamp(cmd.expires_at, undefined, locale)}
                       {cmd.reconciles_to_git_on_expiry && (
                         <div class="soft">
                           {tr(

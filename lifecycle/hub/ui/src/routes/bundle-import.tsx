@@ -71,8 +71,16 @@ export function BundleImportPage() {
     } catch (failure) {
       setError(
         failure instanceof HubApiError
-          ? `Bundle import rejected (${failure.reasonCode}). Verify signature, checksums, predecessor lineage, and recall sequence.`
-          : "Could not complete bundle import. Refresh Target Hub state before retrying.",
+          ? tr(
+              locale,
+              `Bundle import rejected (${failure.reasonCode}). Verify signature, checksums, predecessor lineage, and recall sequence.`,
+              `번들 가져오기가 거부되었습니다 (${failure.reasonCode}). 서명, 체크섬, 이전 번들 계보 및 리콜 시퀀스를 확인하세요.`,
+            )
+          : tr(
+              locale,
+              "Could not complete bundle import. Refresh Target Hub state before retrying.",
+              "번들 가져오기를 완료할 수 없습니다. Target Hub 상태를 새로 고침한 뒤 다시 시도하세요.",
+            ),
       );
     } finally {
       setBusy(false);
@@ -134,9 +142,9 @@ export function BundleImportPage() {
                 <dt>{tr(locale, "Last imported bundle", "마지막 가져온 번들")}</dt>
                 <dd class="mono">{data.last_bundle_id ?? tr(locale, "None imported yet", "아직 없음")}</dd>
                 <dt>{tr(locale, "Last import time", "마지막 가져오기 시각")}</dt>
-                <dd>{data.last_imported_at ? formatTimestamp(data.last_imported_at) : "-"}</dd>
+                <dd>{data.last_imported_at ? formatTimestamp(data.last_imported_at, undefined, locale) : "-"}</dd>
                 <dt>{tr(locale, "Catalog metadata expiry window", "메타데이터 유효 기간")}</dt>
-                <dd>{data.metadata_expiry_days} days</dd>
+                <dd>{data.metadata_expiry_days} {tr(locale, "days", "일")}</dd>
               </dl>
 
               {latest && (
@@ -220,11 +228,20 @@ export function BundleImportPage() {
                         </tr>
                         <tr>
                           <td>{tr(locale, "Image layers", "이미지 레이어")}</td>
-                          <td>{latest.contents.image_layer_count} new layers</td>
+                          <td>
+                            {latest.contents.image_layer_count}{" "}
+                            {tr(locale, "new layers", "개 신규 레이어")}
+                          </td>
                         </tr>
                         <tr>
                           <td>{tr(locale, "Metadata expiry", "메타데이터 만료 갱신")}</td>
-                          <td>Renewed to {latest.contents.metadata_expiry_days} days</td>
+                          <td>
+                            {tr(
+                              locale,
+                              `Renewed to ${latest.contents.metadata_expiry_days} days`,
+                              `${latest.contents.metadata_expiry_days}일로 갱신됨`,
+                            )}
+                          </td>
                         </tr>
                       </tbody>
                     </table>

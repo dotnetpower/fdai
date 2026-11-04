@@ -5,6 +5,7 @@ import {
   buildConnectorGeometry,
   buildReleaseLineageGraph,
   buildReleaseStagePipeline,
+  buildReleaseTopologyGraph,
   CARD_HEIGHT,
   CARD_WIDTH,
   computeLineageSummary,
@@ -17,6 +18,7 @@ export {
   buildConnectorGeometry,
   buildReleaseLineageGraph,
   buildReleaseStagePipeline,
+  buildReleaseTopologyGraph,
   CARD_HEIGHT,
   CARD_WIDTH,
   COL_GAP,
@@ -93,14 +95,20 @@ function LineageCanvas({
   locale,
   selectedId,
   filterTrack,
+  disabled,
   onSelectNode,
+  onNodePrimaryAction,
+  nodeActionLabel,
   idPrefix,
 }: {
   graph: LineageGraph;
   locale: "en" | "ko";
   selectedId?: string | null | undefined;
   filterTrack?: string | null | undefined;
+  disabled?: boolean | undefined;
   onSelectNode?: ((node: LineageNode) => void) | undefined;
+  onNodePrimaryAction?: ((node: LineageNode) => void) | undefined;
+  nodeActionLabel?: ((node: LineageNode) => string | null) | undefined;
   idPrefix: string;
 }) {
   void idPrefix;
@@ -127,9 +135,10 @@ function LineageCanvas({
     >
       <svg
         class="rh-lineage-canvas-svg"
-        width={graph.width}
+        width={graph.nodes.every((n) => n.col <= 4) ? "100%" : graph.width}
         height={graph.height}
         viewBox={`0 0 ${graph.width} ${graph.height}`}
+        preserveAspectRatio="xMinYMid meet"
       >
         {graph.edges.map((edge) => {
           const { portCx, portCy, pathD, arrowD } = buildConnectorGeometry(edge);
@@ -155,7 +164,9 @@ function LineageCanvas({
               ? node.actionableHint.ko
               : node.actionableHint.en
             : null;
-          const ariaLabel = `${node.title}, ${badgeLabel}, ${node.subtitle}${hintLabel ? ` (${hintLabel})` : ""}`;
+          const displayTitle = locale === "ko" && node.titleKo ? node.titleKo : node.title;
+          const inlineBtnLabel = nodeActionLabel ? nodeActionLabel(node) : null;
+          const ariaLabel = `${displayTitle}, ${badgeLabel}, ${node.subtitle}${hintLabel ? ` (${hintLabel})` : ""}`;
           return (
             <foreignObject
               key={node.id}
@@ -174,8 +185,11 @@ function LineageCanvas({
                           ✓
                         </span>
                       )}
-                      {node.status === "running" && (
+                      {node.status === "running" && node.id === "__building_draft__" && (
                         <span class="rh-badge-spinner" aria-hidden="true" />
+                      )}
+                      {node.status === "running" && node.id !== "__building_draft__" && (
+                        <span class="rh-badge-check" aria-hidden="true">●</span>
                       )}
                       {node.status === "recalled" && (
                         <span class="rh-badge-recall" aria-hidden="true">
@@ -194,7 +208,7 @@ function LineageCanvas({
                   aria-pressed={onSelectNode ? isSelected : undefined}
                   aria-current={isSelected ? "step" : undefined}
                   title={hintLabel ?? `${node.title} (${node.subtitle})`}
-                  class={`rh-lineage-card status-${node.status} ${node.status === "running" ? "is-running" : ""} ${isSelected ? "is-selected" : ""} ${hintLabel ? "is-actionable" : ""}`}
+                  class={`rh-lineage-card status-${node.status} ${node.id === "__building_draft__" ? "is-running" : ""} ${isSelected ? "is-selected" : ""} ${hintLabel || inlineBtnLabel ? "is-actionable" : ""}`}
                   onClick={() => onSelectNode?.(node)}
                   onKeyDown={(e) => {
                     if (!onSelectNode) return;
@@ -218,10 +232,43 @@ function LineageCanvas({
                 >
                   <div class="rh-lineage-card-top">
                     <NodeIcon kind={node.icon} />
-                    <strong class="rh-node-title">{node.title}</strong>
+                    <strong class="rh-node-title">{displayTitle}</strong>
                   </div>
                   <div class="rh-lineage-card-bottom">
-                    <span class="rh-node-sub">{hintLabel && node.status === "running" ? `${node.subtitle} · ${hintLabel}` : node.subtitle}</span>
+                    <span class="rh-node-sub">{node.subtitle}</span>
+                  </div>
+                  <div class="rh-lineage-card-action">
+                    {inlineBtnLabel && onNodePrimaryAction ? (
+                      <button
+                        type="button"
+                        class="rh-node-cta"
+                        disabled={disabled}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onNodePrimaryAction(node);
+                        }}
+                      >
+                        {inlineBtnLabel}
+                      </button>
+                    ) : (
+                      <span class={`rh-node-state-pill status-${node.status}`}>
+                        {node.id.startsWith("workload-")
+                          ? locale === "ko"
+                            ? "✓ OCI 이미지 바인딩됨"
+                            : "✓ OCI Digest Bound"
+                          : node.status === "complete"
+                            ? locale === "ko"
+                              ? "✓ 단계 완료"
+                              : "✓ Completed"
+                            : node.status === "recalled"
+                              ? locale === "ko"
+                                ? "✕ 회수/차단"
+                                : "✕ Blocked"
+                              : locale === "ko"
+                                ? "대기 중"
+                                : "Pending"}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -240,6 +287,7 @@ export function ReleaseLineageSection({
   buildingDraft,
   disabled,
   onAct,
+  onQuickPromote,
   onComparePair,
 }: {
   catalog: Catalog;
@@ -248,6 +296,7 @@ export function ReleaseLineageSection({
   buildingDraft?: { id: string; stencilId: string; label?: string | undefined } | null | undefined;
   disabled?: boolean | undefined;
   onAct?: ((action: Action, release: Release) => void) | undefined;
+  onQuickPromote?: ((release: Release) => Promise<void> | void) | undefined;
   onComparePair?: ((baseId: string, targetId: string) => void) | undefined;
 }) {
   const t = (en: string, ko: string) => (locale === "ko" ? ko : en);
@@ -293,33 +342,26 @@ export function ReleaseLineageSection({
   return (
     <section class="rh-lineage-section" aria-labelledby="rh-lineage-heading">
       <div class="rh-lineage-header">
-        <div>
-          <p class="eyebrow">
-            {t("Left-to-Right (LR) Version Lineage & Build Pipeline", "좌→우(LR) 버전 계통도 및 실시간 빌드·승격 상태")}
-          </p>
+        <div class="rh-lineage-title-row">
           <h2 id="rh-lineage-heading">
-            {t("Release Version Lineage Graph (LR)", "릴리스 버전 전체 계통도 (LR Lineage)")}
+            {t("Release Topology & Stage Pipeline", "릴리스 토폴로지 및 승격 파이프라인")}
           </h2>
-          <p>
-            {t(
-              "All registered Release versions connected from left to right across SemVer evolution, Stencil edition tracks, and recall-lifting succession. Active builds and in-progress stage promotions display an animated border beam.",
-              "모든 릴리스 버전의 파생·에디션 분기·리콜 계승 계통을 좌→우(LR)로 연결합니다. 현재 빌드·서명·카나리 승격이 진행 중인 노드는 테두리 광선 애니메이션(Running)으로 표시됩니다.",
-            )}
-          </p>
         </div>
         <div class="rh-lineage-summary-strip" aria-label={t("Lineage status summary", "버전 계통 상태 요약")}>
           <span class="rh-lineage-badge status-complete">
             <span class="rh-badge-check" aria-hidden="true">✓</span>
-            {t(`Complete: ${summary.complete}`, `운영 완료: ${summary.complete}`)}
+            {t(`RELEASE: ${summary.complete}`, `운영 완료: ${summary.complete}`)}
           </span>
           <span class="rh-lineage-badge status-running">
-            <span class="rh-badge-spinner" aria-hidden="true" />
-            {t(`Running / Active: ${summary.running}`, `진행 중: ${summary.running}`)}
+            <span class="rh-badge-check" aria-hidden="true">●</span>
+            {t(`Staged (DEV / RC): ${summary.running}`, `DEV / RC 단계: ${summary.running}`)}
           </span>
-          <span class="rh-lineage-badge status-recalled">
-            <span class="rh-badge-recall" aria-hidden="true">✕</span>
-            {t(`Recalled / Blocked: ${summary.recalled}`, `회수/차단: ${summary.recalled}`)}
-          </span>
+          {summary.recalled > 0 && (
+            <span class="rh-lineage-badge status-recalled">
+              <span class="rh-badge-recall" aria-hidden="true">✕</span>
+              {t(`Recalled / Blocked: ${summary.recalled}`, `회수/차단: ${summary.recalled}`)}
+            </span>
+          )}
           {summary.editionTracks.length > 1 && (
             <div class="quick-chips" role="group" aria-label={t("Filter by Stencil track", "에디션 트랙 필터")}>
               <button
@@ -327,7 +369,7 @@ export function ReleaseLineageSection({
                 class={`chip-btn ${filterTrack === "all" ? "is-active-chip" : ""}`}
                 onClick={() => setFilterTrack("all")}
               >
-                {t("All tracks", "전체 트랙")}
+                {t("All", "전체")}
               </button>
               {summary.editionTracks.map((tr) => (
                 <button
@@ -349,9 +391,33 @@ export function ReleaseLineageSection({
         locale={locale}
         selectedId={selectedRelease?.id}
         filterTrack={filterTrack}
+        disabled={disabled}
         idPrefix="catalog-lineage"
         onSelectNode={(node) => {
           setSelectedNodeId(node.id);
+        }}
+        nodeActionLabel={(node) => {
+          if (!node.release) return null;
+          if (node.release.state === "draft") {
+            return t("Sign DEV ->", "DEV 발행 ->");
+          }
+          const next = nextPromotionTransition(node.release);
+          if (!next) return null;
+          const shortTarget = next.targetChannel === "RELEASE_CANDIDATE" ? "RC" : "RELEASE";
+          return t(`Promote -> ${shortTarget}`, `${shortTarget} 즉시 승격 ->`);
+        }}
+        onNodePrimaryAction={(node) => {
+          if (!node.release || disabled) return;
+          setSelectedNodeId(node.id);
+          if (node.release.state === "draft" && onAct) {
+            onAct("publish", node.release);
+            return;
+          }
+          if (onQuickPromote) {
+            void onQuickPromote(node.release);
+          } else if (onAct) {
+            onAct("promote", node.release);
+          }
         }}
       />
 
@@ -360,13 +426,13 @@ export function ReleaseLineageSection({
           <div class="rh-lineage-stage-head">
             <strong>
               {t(
-                `Selected Version Pipeline (LR): Release v${selectedRelease.id}`,
-                `선택된 버전의 빌드·승격 LR 파이프라인: Release v${selectedRelease.id}`,
+                `v${selectedRelease.id} Stage & Workload Topology`,
+                `v${selectedRelease.id} 단계 및 컨테이너 워크로드 토폴로지`,
               )}
             </strong>
             <div class="actions">
               <a href={`#/releases/${selectedRelease.id}`} class="chip-btn">
-                {t(`Open v${selectedRelease.id} workspace ->`, `v${selectedRelease.id} 상세 작업 영역 열기 ->`)}
+                {t(`Open v${selectedRelease.id} ->`, `v${selectedRelease.id} 상세 열기 ->`)}
               </a>
               {onComparePair && selectedParentId && (
                 <button
@@ -375,31 +441,21 @@ export function ReleaseLineageSection({
                   onClick={() => onComparePair(selectedParentId, selectedRelease.id)}
                 >
                   {t(
-                    `Compare v${selectedParentId} -> v${selectedRelease.id}`,
-                    `이전 계통(v${selectedParentId} -> v${selectedRelease.id}) Diff 비교`,
+                    `Diff v${selectedParentId} -> v${selectedRelease.id}`,
+                    `Diff 비교 (v${selectedParentId} -> v${selectedRelease.id})`,
                   )}
                 </button>
               )}
-              {onAct && selectedRelease.state === "draft" && (
+              {nextPromotionTransition(selectedRelease) && onQuickPromote && (
                 <button
                   type="button"
                   class="primary"
                   disabled={disabled}
-                  onClick={() => onAct("publish", selectedRelease)}
-                >
-                  {t("Sign & Publish to DEV", "DEV 서명 및 발행")}
-                </button>
-              )}
-              {onAct && nextPromotionTransition(selectedRelease) && (
-                <button
-                  type="button"
-                  class="primary"
-                  disabled={disabled}
-                  onClick={() => onAct("promote", selectedRelease)}
+                  onClick={() => void onQuickPromote(selectedRelease)}
                 >
                   {t(
-                    `Promote to ${nextPromotionTransition(selectedRelease)!.targetChannel}`,
-                    `${nextPromotionTransition(selectedRelease)!.targetChannel} 단계로 승격`,
+                    `1-Click Promote to ${nextPromotionTransition(selectedRelease)!.targetChannel}`,
+                    `${nextPromotionTransition(selectedRelease)!.targetChannel} 원클릭 승격`,
                   )}
                 </button>
               )}
@@ -411,6 +467,7 @@ export function ReleaseLineageSection({
             locale={locale}
             disabled={disabled}
             onAct={onAct}
+            onQuickPromote={onQuickPromote}
           />
         </div>
       )}
@@ -424,49 +481,68 @@ export function ReleaseStageLineage({
   locale,
   disabled,
   onAct,
+  onQuickPromote,
 }: {
   release: Release;
   catalog: Catalog;
   locale: "en" | "ko";
   disabled?: boolean | undefined;
   onAct?: ((action: Action, release: Release) => void) | undefined;
+  onQuickPromote?: ((release: Release) => Promise<void> | void) | undefined;
 }) {
+  const t = (en: string, ko: string) => (locale === "ko" ? ko : en);
   const stageGraph = useMemo(
-    () => buildReleaseStagePipeline(release, catalog),
+    () => buildReleaseTopologyGraph(release, catalog),
     [release, catalog],
   );
   const transition = nextPromotionTransition(release);
+
+  function triggerStageNode(node: LineageNode) {
+    if (disabled) return;
+    if (node.id === "initialize-stencil") {
+      location.hash = "/stencils";
+    } else if (node.id === "clone-codebase") {
+      location.hash = `/releases/${release.id}`;
+    } else if (node.id === "build-sign-dev" && release.state === "draft" && onAct) {
+      onAct("publish", release);
+    } else if (
+      node.id === "promote-rc-canary" &&
+      transition?.targetChannel === "RELEASE_CANDIDATE"
+    ) {
+      if (onQuickPromote) void onQuickPromote(release);
+      else if (onAct) onAct("promote", release);
+    } else if (
+      node.id === "release-production" &&
+      transition?.targetChannel === "RELEASE"
+    ) {
+      if (onQuickPromote) void onQuickPromote(release);
+      else if (onAct) onAct("promote", release);
+    } else {
+      location.hash = `/releases/${release.id}`;
+    }
+  }
 
   return (
     <div class="rh-stage-lineage-box">
       <LineageCanvas
         graph={stageGraph}
         locale={locale}
+        disabled={disabled}
         idPrefix={`stage-${release.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`}
-        onSelectNode={(node) => {
-          if (disabled) return;
-          if (node.id === "initialize-stencil") {
-            location.hash = "/stencils";
-          } else if (node.id === "clone-codebase") {
-            location.hash = `/releases/${release.id}`;
-          } else if (node.id === "build-sign-dev" && release.state === "draft" && onAct) {
-            onAct("publish", release);
-          } else if (
-            node.id === "promote-rc-canary" &&
-            transition?.targetChannel === "RELEASE_CANDIDATE" &&
-            onAct
-          ) {
-            onAct("promote", release);
-          } else if (
-            node.id === "release-production" &&
-            transition?.targetChannel === "RELEASE" &&
-            onAct
-          ) {
-            onAct("promote", release);
-          } else {
-            location.hash = `/releases/${release.id}`;
+        onSelectNode={triggerStageNode}
+        nodeActionLabel={(node) => {
+          if (node.id === "build-sign-dev" && release.state === "draft") {
+            return t("Sign DEV ->", "DEV 서명·발행 ->");
           }
+          if (node.id === "promote-rc-canary" && transition?.targetChannel === "RELEASE_CANDIDATE") {
+            return t("1-Click Promote RC ->", "RC 즉시 승격 ->");
+          }
+          if (node.id === "release-production" && transition?.targetChannel === "RELEASE") {
+            return t("1-Click Promote RELEASE ->", "RELEASE 즉시 승격 ->");
+          }
+          return null;
         }}
+        onNodePrimaryAction={triggerStageNode}
       />
     </div>
   );

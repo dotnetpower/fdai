@@ -20,9 +20,10 @@ export function nextReleaseStep(release: Release, catalog: Catalog): "recall" | 
   return "review";
 }
 
-export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onLocaleChange, act, disabled, activity }: {
+export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onLocaleChange, act, onQuickPromote, disabled, activity }: {
   release: Release; catalog: Catalog; locale?: "en" | "ko"; onLocaleChange?: (next: "en" | "ko") => void;
   act: (action: Action, release: Release) => void;
+  onQuickPromote?: ((release: Release) => Promise<void> | void) | undefined;
   disabled: boolean; activity: ComponentChildren;
 }) {
   const [internalLocale, setInternalLocale] = useState<"en" | "ko">(navigator.language.startsWith("ko") ? "ko" : "en");
@@ -61,6 +62,8 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
   );
   const status = release.state === "recalled" ? t("Recalled", "회수됨")
     : release.state === "draft" ? t("Draft / unsigned", "초안 / 서명 없음")
+    : release.channels.includes("RELEASE") ? t("Production RELEASE", "운영 RELEASE 배포 완료")
+    : release.channels.includes("RELEASE_CANDIDATE") ? t("Staged in RC", "RC 카나리 승격 완료")
     : t("Development published", "개발용 발행 완료");
   function reviewEvidence() {
     if (evidence.current) {
@@ -70,68 +73,80 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
     }
   }
   return <div class="release-workspace" lang={locale}>
-    <div class="workspace-bar">
-      <a href="#/releases" class="back">{t("All releases", "← 모든 릴리스 목록으로")}</a>
-      <label>{t("Workspace language", "작업 영역 언어")} <select value={locale} onChange={(event) => setLocale(event.currentTarget.value as "en" | "ko")}>
-        <option value="en">English</option><option value="ko">한국어</option>
-      </select></label>
+    <div class="rh-argo-app-header">
+      <div class="rh-argo-app-title">
+        <a href="#/releases" class="back">{t("<- Releases", "← 목록")}</a>
+        <h1>{releaseTitle(release, manifest)}</h1>
+        <span class={`status ${release.state}`}>{status}</span>
+        <span class="stencil-chip">{stage ?? "DRAFT"}</span>
+        <span class="stencil-chip">{t(`Rev ${catalog.revision}`, `리비전 ${catalog.revision}`)}</span>
+        {stencil && (
+          <span class="stencil-pill locked">
+            {stencil.stencil_id} · {stencil.enabled_workloads.length}W/{stencil.enabled_panel_ids.length}M
+          </span>
+        )}
+        <span class="stencil-chip">
+          {release.signature ? t("ed25519 verified", "ed25519 검증됨") : t("Unsigned", "미서명")}
+        </span>
+      </div>
+      <div class="actions" style="margin-top: 0;">
+        {!externalLocale && (
+          <label style="margin: 0; display: inline-flex; align-items: center; gap: 6px;">
+            <span>{t("Workspace language", "작업 영역 언어")}</span>
+            <select value={locale} onChange={(event) => setLocale(event.currentTarget.value as "en" | "ko")}>
+              <option value="en">English</option><option value="ko">한국어</option>
+            </select>
+          </label>
+        )}
+        {step === "renew" ? (
+          <a class="next-link" href="#/trust">{t("Review catalog freshness", "카탈로그 유효 기간 검토")}</a>
+        ) : (
+          <>
+            <button class="chip-btn" disabled={disabled} onClick={() => {
+              if (step === "publish") act("publish", release);
+              else if (step === "review") reviewEvidence();
+              else { history.current?.focus(); history.current?.scrollIntoView({ block: "start" }); }
+            }}>{step === "publish" ? t("Review DEV publication", "DEV 발행 검토")
+              : step === "review" ? t("Review promotion evidence", "승격 근거 검토")
+              : t("Review recall activity", "회수 활동 검토")}</button>
+            {step === "review" && transition && blockedCaps.length === 0 && !catalog.expired && (
+              <button type="button" class="chip-btn" disabled={disabled} onClick={() => act("promote", release)}>
+                {t(`Quick advance to ${transition.targetChannel}`, `${transition.sourceChannel} -> ${transition.targetChannel} 옵션`)}
+              </button>
+            )}
+          </>
+        )}
+      </div>
     </div>
-    <div class="page-head"><div><p class="eyebrow">{t("Release workspace", "릴리스 작업 영역")}</p>
-      <h1>{releaseTitle(release, manifest)}</h1><p>{release.label || t("No release label", "릴리스 설명 없음")}</p>
-    </div><span class={`status ${release.state}`}>{status}</span></div>
-    <div class="facts">
-      <div><span>{t("Recorded stage", "기록된 단계")}</span><strong>{stage ?? t("No built-in channel", "기본 채널 소속 없음")}</strong></div>
-      <div><span>{t("Manifest signature", "매니페스트 서명")}</span><strong>{release.signature ? t("Development key verified", "개발용 키 검증됨") : t("Unsigned", "서명 없음")}</strong></div>
-      <div><span>{t("Catalog revision", "카탈로그 개정 번호")}</span><strong>{catalog.revision}</strong></div>
-      <div><span>{t("Stencil edition", "Stencil 에디션")}</span><strong>{stencil ? `${stencil.stencil_id} (${stencil.enabled_workloads.length} workloads / ${stencil.enabled_panel_ids.length} menus)` : t("Standard / Unscoped", "표준 전체 패키지")}</strong></div>
-    </div>
-    <section class="release-next" aria-labelledby="release-next-title">
-      <h2 id="release-next-title">{t("Next step", "다음 단계")}</h2>
-      <p>{step === "recall"
-        ? t("Recall blocks further publication and channel changes. Review the recorded activity; running installations are not changed here.", "회수된 릴리스는 다시 발행하거나 채널을 변경할 수 없습니다. 기록된 활동을 확인하세요. 실행 중인 설치에는 여기서 변경을 적용하지 않습니다.")
-        : step === "renew"
-        ? t("The catalog export has expired. Review releases, membership and recalls before explicitly renewing freshness.", "카탈로그 내보내기의 유효 기간이 지났습니다. 릴리스, 채널 소속 및 회수 내역을 검토한 후 명시적으로 갱신하세요.")
-        : step === "publish"
-        ? t("Review the exact manifest, then confirm development signing and DEV membership. This does not build images or publish them to a registry.", "정확한 매니페스트를 검토한 후 개발용 서명과 DEV 채널 추가를 확인하세요. 이미지를 빌드하거나 레지스트리에 발행하는 작업은 아닙니다.")
-        : t("Review promotion evidence before advancing. Channel membership alone does not prove that promotion gates passed.", "다음 단계로 이동하기 전에 승격 근거를 검토하세요. 채널 소속만으로 승격 검사를 통과했다고 판단할 수 없습니다.")}</p>
-      {step === "renew" ? <a class="next-link" href="#/trust">{t("Review catalog freshness", "카탈로그 유효 기간 검토")}</a>
-        : <div class="actions">
-          <button class={transition && blockedCaps.length === 0 ? "" : "primary"} disabled={disabled} onClick={() => {
-            if (step === "publish") act("publish", release);
-            else if (step === "review") reviewEvidence();
-            else { history.current?.focus(); history.current?.scrollIntoView({ block: "start" }); }
-          }}>{step === "publish" ? t("Review DEV publication", "DEV 발행 검토")
-            : step === "review" ? t("Review promotion evidence", "승격 근거 검토")
-            : t("Review recall activity", "회수 활동 검토")}</button>
-          {step === "review" && transition && blockedCaps.length === 0 && !catalog.expired && (
-            <button type="button" class="primary" disabled={disabled} onClick={() => act("promote", release)}>
-              {t(`Quick advance to ${transition.targetChannel}`, `${transition.sourceChannel} -> ${transition.targetChannel} 바로 승격하기`)}
-            </button>
-          )}
-        </div>}
+    <section class="rh-workspace-pipeline-section" aria-labelledby="release-stage-title">
+      <div class="rh-workspace-pipeline-head">
+        <h2 id="release-stage-title">{t("Release & Workload Topology", "릴리스 승격 및 워크로드 토폴로지")}</h2>
+        <div class="stage-pills">
+          {stages.map((name) => (
+            <span key={name} class={`stage-pill ${release.channels.includes(name) ? (release.state === "recalled" ? "recalled" : "done") : ""}`}>
+              {release.channels.includes(name) ? `✓ ${name}` : name}
+            </span>
+          ))}
+        </div>
+      </div>
+      <ReleaseStageLineage release={release} catalog={catalog} locale={locale} disabled={disabled} onAct={act} onQuickPromote={onQuickPromote} />
     </section>
     {stencil && (
-      <section aria-labelledby="release-stencil-title">
-        <h2 id="release-stencil-title">{t("Apollo Stencil & Topology Blueprint", "Apollo Stencil 및 토폴로지 블루프린트")}</h2>
-        <p>
-          {locale === "ko"
-            ? (stencil.title_ko || stencil.title || "서명된 릴리스 매니페스트에 내장된 Stencil 구성입니다.")
-            : (stencil.title || "Signed build-time Stencil composition embedded in this Release manifest.")}
-        </p>
-        <div class="preset-metrics">
+      <details class="release-disclosure">
+        <summary>
+          {t(
+            `Stencil Blueprint & Console Menus (${stencil.stencil_id} · ${stencil.enabled_workloads.length} workloads · ${stencil.enabled_panel_ids.length} menus)`,
+            `Stencil 블루프린트 및 활성 메뉴 (${stencil.stencil_id} · 워크로드 ${stencil.enabled_workloads.length}개 · 메뉴 ${stencil.enabled_panel_ids.length}개)`,
+          )}
+        </summary>
+        <div class="preset-metrics" style="margin: 8px 0 12px;">
           <span class="stencil-pill locked">{stencil.stencil_id}</span>
           <span class="stencil-chip">{t("Profile:", "프로파일:")} {stencil.topology_profile}</span>
           <span class="stencil-chip">{t("RBAC:", "권한:")} {stencil.azure_rbac_posture}</span>
           <span class="stencil-chip">
-            {t("Workloads:", "워크로드:")} {stencil.enabled_workloads.length}
-          </span>
-          <span class="stencil-chip">
-            {t("Console menus:", "메뉴:")} {stencil.enabled_panel_ids.length}
-          </span>
-          <span class="stencil-chip">
             {manifest.schema_expand
               ? t("Upgrade: Schema expand migration", "업그레이드: 스키마 확장 마이그레이션")
-              : t("Upgrade: Zero-downtime rolling", "업그레이드: 무중단 롤링(Zero-downtime)")}
+              : t("Upgrade: Zero-downtime rolling", "업그레이드: 무중단 롤링")}
           </span>
         </div>
         <dl>
@@ -184,52 +199,15 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
                 : "fail-closed"}
             </code>
           </dd>
-          {stencil.disabled_loops && stencil.disabled_loops.length > 0 && (
-            <>
-              <dt>{t("Disabled backend loops (-)", "비활성화된 백엔드 루프 (-)")}</dt>
-              <dd>{stencil.disabled_loops.join(", ")}</dd>
-            </>
-          )}
         </dl>
-        <details class="release-disclosure">
-          <summary>
-            {t(
-              `Enabled Console menus (${stencil.enabled_panel_ids.length})`,
-              `이 릴리스에 포함된 Console 메뉴 목록 (${stencil.enabled_panel_ids.length}개)`,
-            )}
-          </summary>
-          <div class="preset-metrics">
-            {stencil.enabled_panel_ids.map((panelId) => (
-              <code key={panelId} class="stencil-chip">{panelId}</code>
-            ))}
-          </div>
-        </details>
-        {stencil.disabled_panel_ids && stencil.disabled_panel_ids.length > 0 && (
-          <details class="release-disclosure">
-            <summary>
-              {t(
-                `Blocked inactive Console menus (${stencil.disabled_panel_ids.length})`,
-                `Feature Flag로 차단된 비활성 메뉴 목록 (${stencil.disabled_panel_ids.length}개)`,
-              )}
-            </summary>
-            <div class="preset-metrics">
-              {stencil.disabled_panel_ids.map((panelId) => (
-                <code key={panelId} class="stencil-chip">{panelId}</code>
-              ))}
-            </div>
-          </details>
-        )}
-      </section>
+        <p><strong>{t(`Enabled Console menus (${stencil.enabled_panel_ids.length})`, `포함된 Console 메뉴 목록 (${stencil.enabled_panel_ids.length}개)`)}</strong></p>
+        <div class="preset-metrics">
+          {stencil.enabled_panel_ids.map((panelId) => (
+            <code key={panelId} class="stencil-chip">{panelId}</code>
+          ))}
+        </div>
+      </details>
     )}
-    <section aria-labelledby="release-stage-title"><h2 id="release-stage-title">{t("Channel membership & LR Build/Promotion Pipeline", "채널 소속 및 좌→우(LR) 빌드·승격 파이프라인")}</h2>
-      <p>{t("Recorded membership and stage progression from Stencil composition through production RELEASE.", "스텐실 빌드부터 DEV 서명, RC 카나리 검증, 운영 RELEASE까지의 좌→우(LR) 단계 파이프라인과 기록된 소속입니다.")}</p>
-      <ReleaseStageLineage release={release} catalog={catalog} locale={locale} disabled={disabled} onAct={act} />
-      <ol class="release-stages">{stages.map((name) => <li key={name}><strong>{name}</strong><span>{
-        release.channels.includes(name)
-          ? release.state === "recalled" ? t("Withdrawn by recall", "회수로 사용 중지됨") : t("Member", "소속됨")
-          : t("Not added", "추가되지 않음")
-      }</span></li>)}</ol>
-    </section>
     <details ref={evidence} class="release-disclosure">
       <summary>{t("Promotion evidence and blockers", "승격 근거 및 차단 이유")}</summary>
       <p>{t("The existing server-side promotion evaluator owns source membership, labels, canary health, soak, timeout and recall checks. This catalog API does not expose its run results. No passed gate is inferred here.", "기존 서버 측 승격 검증기가 원본 채널 소속, 레이블, 카나리 상태, 관찰 시간, 제한 시간 및 회수를 검사합니다. 현재 카탈로그 API에는 실행 결과가 없습니다. 이 화면은 검사 통과를 추정하지 않습니다.")}</p>
@@ -288,16 +266,25 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
         <dt>{t("Published", "발행 시각")}</dt><dd>{release.published_at ?? t("Not published", "발행되지 않음")}</dd>
         <dt>{t("All channels", "모든 채널")}</dt><dd>{release.channels.join(" / ") || t("None", "없음")}</dd>
       </dl>
-      <h2>{t("Declared artifacts", "선언된 아티팩트")}</h2>
-      <p>{t("Declared digests only. No registry, SBOM or provenance verification is established by this view.", "선언된 다이제스트만 표시합니다. 이 화면은 레지스트리, SBOM 또는 출처 검증을 입증하지 않습니다.")}</p>
+      <h2>{t("Declared artifacts & OCI v2 registry manifests", "선언된 컨테이너 아티팩트 및 OCI v2 레지스트리 매니페스트")}</h2>
+      <p>{t("Bound component image digests. Click any OCI v2 manifest link below to verify its published registry manifest and Docker-Content-Digest header.", "바인딩된 컴포넌트 이미지 다이제스트입니다. 아래 OCI v2 매니페스트 링크를 클릭하면 레지스트리에 발행된 실제 매니페스트와 Docker-Content-Digest 헤더를 검증할 수 있습니다.")}</p>
       <div class="artifact-list">{declaredArtifacts.map((artifact) => <article key={artifact.component}>
-        <h3>{artifact.component}</h3><code class="digest">{artifact.digest}</code>
+        <div class="preset-card-head">
+          <h3>{artifact.component}</h3>
+          <a class="chip-btn" href={`/v2/fdai/${encodeURIComponent(artifact.component)}/manifests/${encodeURIComponent(artifact.digest)}`} target="_blank" rel="noreferrer">
+            {t("OCI v2 manifest ->", "OCI v2 매니페스트 ->")}
+          </a>
+        </div>
+        <code class="digest">{artifact.digest}</code>
         <details><summary>{t("SBOM digest", "SBOM 다이제스트")}</summary><code class="digest" lang="en">{artifact.sbom}</code></details>
       </article>)}</div>
       <details><summary>{t("Exact manifest and detached signature", "정확한 매니페스트 및 분리된 서명")}</summary>
         <pre>{release.manifest}</pre><code class="digest">{release.signature || t("No signature", "서명 없음")}</code>
       </details>
     </details>
-    <section ref={history} tabIndex={-1}><h2>{t("Release activity", "릴리스 활동")}</h2><div lang="en">{activity}</div></section>
+    <details ref={history as unknown as { current: HTMLDetailsElement | null }} class="release-disclosure" tabIndex={-1}>
+      <summary>{t("Release activity", "릴리스 활동 이력")}</summary>
+      <div lang="en">{activity}</div>
+    </details>
   </div>;
 }

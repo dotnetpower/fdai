@@ -55,6 +55,8 @@ describe("constraintVerdict", () => {
       expect(describeConstraintReason("maintenance_window_unavailable")).toContain("maintenance window");
       expect(describeConstraintReason("data_residency_mismatch")).toContain("data-residency");
       expect(describeConstraintReason("custom_future_code")).toContain("custom future code");
+      expect(describeConstraintReason("maintenance_window_unavailable", "ko")).toContain("유지보수 구간");
+      expect(describeConstraintReason("data_residency_mismatch", "ko")).toContain("데이터 상주 정책");
     });
 
     test("normalizeConstraintOutcome maps unknown or unexpected values to blocking fail-closed", () => {

@@ -35,6 +35,14 @@ from fdai_release_hub.deployment_requests import (
     record_request,
 )
 from fdai_release_hub.entra_session import EntraLoginRequest, EntraSessionManager
+from fdai_release_hub.registry_pipeline import (
+    CANDIDATE_DOCKER_TAGS,
+    OCI_IMAGE_MANIFEST_MEDIA_TYPE,
+    build_oci_manifest_bytes,
+    lookup_oci_manifest,
+    register_oci_manifest,
+    registry_inventory_payload,
+)
 from fdai_release_hub.stencils import (
     StencilComposeRequest,
     compose_stencil_response,
@@ -402,11 +410,152 @@ def create_app(
             return JSONResponse({"status": "not-ready"}, status_code=503)
         return JSONResponse({"status": "ready"})
 
+    async def registry_images(request: Request) -> Response:
+        return JSONResponse(await run_in_threadpool(registry_inventory_payload))
+
+    async def oci_v2_base(request: Request) -> Response:
+        return JSONResponse(
+            {},
+            headers={"Docker-Distribution-Api-Version": "registry/2.0"},
+        )
+
+    async def oci_v2_catalog(request: Request) -> Response:
+        repos = [f"fdai/{name}" for name in sorted(CANDIDATE_DOCKER_TAGS)]
+        return JSONResponse(
+            {"repositories": repos},
+            headers={"Docker-Distribution-Api-Version": "registry/2.0"},
+        )
+
+    def _resolve_store_oci_manifest(component: str, reference: str) -> tuple[bytes, str] | None:
+        direct = lookup_oci_manifest(component, reference)
+        if direct is not None:
+            return direct
+        snap = store.snapshot()
+        for rel in snap.get("releases", []):
+            try:
+                manifest_doc = load_json_object(
+                    str(rel.get("manifest", "")).encode("utf-8"),
+                    label="release manifest",
+                    max_bytes=MAX_BODY,
+                )
+            except ValueError:
+                continue
+            comps = manifest_doc.get("components")
+            if not isinstance(comps, dict) or component not in comps:
+                continue
+            comp_entry = comps[component]
+            if not isinstance(comp_entry, dict):
+                continue
+            comp_digest = str(comp_entry.get("image_digest", ""))
+            rel_id = str(rel.get("id", ""))
+            if reference not in (comp_digest, rel_id):
+                continue
+            source_commit = str(manifest_doc.get("source_commit", "0" * 40))
+            st_meta = manifest_doc.get("stencil")
+            st_id = (
+                str(st_meta.get("stencil_id", "standard-sre"))
+                if isinstance(st_meta, dict)
+                else "standard-sre"
+            )
+            oci_bytes = build_oci_manifest_bytes(
+                component=component,
+                release_version=rel_id,
+                source_commit=source_commit,
+                stencil_id=st_id,
+                config_digest=comp_digest,
+                layers=(comp_digest,),
+                size_bytes=0,
+                provenance="release-catalog-bound",
+            )
+            register_oci_manifest(
+                component,
+                reference=rel_id,
+                image_digest=comp_digest,
+                manifest_bytes=oci_bytes,
+            )
+            return oci_bytes, comp_digest
+        return None
+
+    async def oci_v2_manifest(request: Request) -> Response:
+        component = request.path_params["component"]
+        reference = request.path_params["reference"]
+        if request.method == "PUT":
+            body = bytearray()
+            async with asyncio.timeout(INTAKE_BODY_TIMEOUT_SECONDS):
+                async for chunk in request.stream():
+                    if len(chunk) > MAX_STENCIL_BODY - len(body):
+                        return JSONResponse({"error": "Manifest too large."}, status_code=413)
+                    body.extend(chunk)
+            raw_bytes = bytes(body)
+            try:
+                load_json_object(
+                    raw_bytes, label="oci manifest", max_bytes=MAX_STENCIL_BODY, strict=True
+                )
+            except ValueError:
+                return JSONResponse({"error": "Invalid OCI manifest JSON."}, status_code=422)
+            import hashlib
+
+            digest = (
+                reference
+                if reference.startswith("sha256:") and len(reference) == 71
+                else "sha256:" + hashlib.sha256(raw_bytes).hexdigest()
+            )
+            await run_in_threadpool(
+                partial(
+                    register_oci_manifest,
+                    component,
+                    reference=reference,
+                    image_digest=digest,
+                    manifest_bytes=raw_bytes,
+                )
+            )
+            return Response(
+                status_code=201,
+                headers={
+                    "Docker-Distribution-Api-Version": "registry/2.0",
+                    "Docker-Content-Digest": digest,
+                    "Location": f"/v2/fdai/{component}/manifests/{digest}",
+                },
+            )
+        found = await run_in_threadpool(_resolve_store_oci_manifest, component, reference)
+        if found is None:
+            return JSONResponse(
+                {
+                    "errors": [
+                        {
+                            "code": "MANIFEST_UNKNOWN",
+                            "message": f"manifest unknown for fdai/{component}:{reference}",
+                        }
+                    ]
+                },
+                status_code=404,
+                headers={"Docker-Distribution-Api-Version": "registry/2.0"},
+            )
+        raw_manifest, resolved_digest = found
+        return Response(
+            content=b"" if request.method == "HEAD" else raw_manifest,
+            media_type=OCI_IMAGE_MANIFEST_MEDIA_TYPE,
+            headers={
+                "Docker-Distribution-Api-Version": "registry/2.0",
+                "Docker-Content-Digest": resolved_digest,
+                "Content-Length": str(len(raw_manifest)),
+            },
+        )
+
     routes = [
         Route("/auth/config", lambda request: JSONResponse({"profile": "local-development"})),
         Route("/v1/auth/session", auth_session),
         Route("/v1/auth/entra/login", entra_login, methods=["POST"]),
         Route("/v1/auth/entra/logout", entra_logout, methods=["POST"]),
+        Route("/v2", oci_v2_base, methods=["GET", "HEAD"]),
+        Route("/v2/", oci_v2_base, methods=["GET", "HEAD"]),
+        Route("/v2/_catalog", oci_v2_catalog, methods=["GET", "HEAD"]),
+        Route(
+            "/v2/fdai/{component}/manifests/{reference}",
+            oci_v2_manifest,
+            methods=["GET", "HEAD", "PUT"],
+        ),
+        Route("/v1/registry/images", registry_images, methods=["GET"]),
         Route(
             "/healthz",
             lambda request: JSONResponse(
@@ -492,7 +641,7 @@ def create_app(
             app.routes.append(Mount("/brand", app=StaticFiles(directory=static_dir / "brand")))
 
         async def index(request: Request) -> Response:
-            if request.url.path.startswith("/v1/"):
+            if request.url.path.startswith(("/v1/", "/v2/")):
                 return JSONResponse({"error": "Unknown API route."}, status_code=404)
             requested = (static_dir / request.path_params["path"]).resolve()
             if requested.is_relative_to(resolved_static_dir) and requested.is_file():

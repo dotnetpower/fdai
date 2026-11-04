@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from fdai_deployment_cli.contracts import load_json_object
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
@@ -17,11 +19,22 @@ from fdai_lifecycle_hub.execution_settings import (
 from fdai_lifecycle_hub.store import HubStore
 
 
-def execution_settings_routes(store: HubStore, clock: Clock, *, authenticated: bool) -> list[Route]:
+def execution_settings_routes(
+    store: HubStore,
+    clock: Clock,
+    *,
+    authenticated: bool,
+    operator_resolver: Callable[[Request], str | None] | None = None,
+) -> list[Route]:
     async def endpoint(request: Request) -> Response:
         from fdai_lifecycle_hub.api import _read_limited
 
-        if not authenticated or not getattr(request.state, "operator", None):
+        operator = (
+            getattr(request.state, "operator", None)
+            if authenticated
+            else (operator_resolver(request) if operator_resolver is not None else None)
+        )
+        if not operator:
             return JSONResponse({"error": "authenticated_operator_required"}, status_code=403)
         installation_id = request.path_params["installation_id"]
         if request.method == "GET":
@@ -45,7 +58,7 @@ def execution_settings_routes(store: HubStore, clock: Clock, *, authenticated: b
                     store.bind_application,
                     installation_id,
                     command,
-                    operator=request.state.operator,
+                    operator=operator,
                     now=clock(),
                 )
             else:
@@ -53,7 +66,7 @@ def execution_settings_routes(store: HubStore, clock: Clock, *, authenticated: b
                     store.update_execution_settings,
                     installation_id,
                     command,
-                    operator=request.state.operator,
+                    operator=operator,
                     now=clock(),
                 )
         except ExecutionSettingsError as error:

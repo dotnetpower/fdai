@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { Nav } from "./components/nav";
+import { tr, useHubLocale } from "./locale";
 import { currentRoute, subscribe, type Route } from "./router";
 import { AuditPage } from "./routes/audit";
 import { BundleImportPage } from "./routes/bundle-import";
@@ -20,6 +21,7 @@ function useRoute(): Route {
 }
 
 function Screen({ route }: { route: Route }) {
+  const [locale] = useHubLocale();
   switch (route.kind) {
     case "catalog":
       return <CatalogPage />;
@@ -48,14 +50,19 @@ function Screen({ route }: { route: Route }) {
     case "enrollment":
       return <EnrollmentsPage selectedId={route.installationId} />;
     case "not-found":
-      return <p class="empty">No screen matches {route.path}.</p>;
+      return (
+        <p class="empty">
+          {tr(locale, `No screen matches ${route.path}.`, `${route.path} 경로에 해당하는 화면이 없습니다.`)}
+        </p>
+      );
   }
 }
 
 export function App() {
   const route = useRoute();
+  const [locale] = useHubLocale();
   return (
-    <div class="app">
+    <div class="app" lang={locale}>
       <Nav route={route} />
       <main class="main">
         <Screen route={route} />

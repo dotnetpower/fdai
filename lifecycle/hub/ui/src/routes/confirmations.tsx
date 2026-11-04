@@ -48,8 +48,16 @@ export function ConfirmationsPage() {
     } catch (failure) {
       setError(
         failure instanceof HubApiError
-          ? `Confirmation rejected (${failure.reasonCode}). A changed or superseded Plan invalidates the confirmation.`
-          : "Could not verify the confirmation decision. Refresh before retrying.",
+          ? tr(
+              locale,
+              `Confirmation rejected (${failure.reasonCode}). A changed or superseded Plan invalidates the confirmation.`,
+              `확인 결정이 거부되었습니다 (${failure.reasonCode}). 계획이 변경되거나 대체되면 확인이 무효화됩니다.`,
+            )
+          : tr(
+              locale,
+              "Could not verify the confirmation decision. Refresh before retrying.",
+              "확인 결정을 검증할 수 없습니다. 새로 고침한 뒤 다시 시도하세요.",
+            ),
       );
       confirmations.reload();
     } finally {
@@ -149,7 +157,19 @@ export function ConfirmationsPage() {
                       <h2 id={`confirm-${item.installation_id}-${item.plan_id}`}>
                         {item.title}
                       </h2>
-                      <span class="badge mute">{item.status}</span>
+                      <span class="badge mute">
+                        {locale === "ko"
+                          ? item.status === "pending"
+                            ? "대기 중"
+                            : item.status === "confirmed"
+                            ? "확인됨"
+                            : item.status === "held"
+                            ? "보류됨"
+                            : item.status === "invalidated"
+                            ? "무효화됨"
+                            : item.status
+                          : item.status}
+                      </span>
                     </div>
                     <div class="meta">
                       {item.summary} ·{" "}
@@ -160,7 +180,7 @@ export function ConfirmationsPage() {
                       <Link href={planPath(item.installation_id, item.plan_id)}>
                         {item.plan_id}
                       </Link>{" "}
-                      · plan digest{" "}
+                      · {tr(locale, "plan digest", "계획 다이제스트")}{" "}
                       <span class="mono" style={{ overflowWrap: "anywhere" }}>
                         {item.exact_plan_digest}
                       </span>
@@ -170,7 +190,11 @@ export function ConfirmationsPage() {
                         <b>{tr(locale, "Impact:", "영향 범위:")}</b> {item.impact}
                       </div>
                       <span class="badge warn">
-                        Replace {item.replace_count} · Delete {item.delete_count}
+                        {tr(
+                          locale,
+                          `Replace ${item.replace_count} · Delete ${item.delete_count}`,
+                          `교체 ${item.replace_count} · 삭제 ${item.delete_count}`,
+                        )}
                       </span>
                     </div>
                     <ul class="list">

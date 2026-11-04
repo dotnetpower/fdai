@@ -169,9 +169,14 @@ test("installation readiness, recovery timeline, configuration tab, commands, au
     page.getByRole("heading", { name: "Failure, hold, and recovery timeline" }),
   ).toBeVisible();
 
-  // Switch to Korean and verify localized headings without overflow.
+  // Switch to Korean and verify localized headings, navigation, and tabs without overflow.
   await page.getByRole("button", { name: "Switch workspace language" }).click();
   await expect(page.getByRole("heading", { name: "업데이트 준비 상태 및 다음 단계" })).toBeVisible();
+  await expect(
+    page.getByLabel("Lifecycle Hub").getByRole("link", { name: "설치 환경", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "카탈로그 가져오기", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "제약 조건 및 다음 계획", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Switch workspace language" }).click();
 
   // Open Configuration tab and verify lazy load of stored revision metadata.

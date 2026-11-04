@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 8115fa1d1c6471cb6862eccde89eba73ad380375
+translation_source_sha: 043acd75d483151dfba92f1614efba910d8e27c0
 translation_revised: 2026-11-04
 ---
 # Hub 관리형 수명 주기
@@ -53,10 +53,10 @@ Lifecycle Hub가 사용하는 릴리스 목록, 데이터 또는 피드인 **Rel
 
 조회는 자격 증명 없이 한 번 수행하며, 제한 시간은 5초, 응답 크기 한도는 16 MiB입니다.
 리디렉션을 따라가지 않습니다. HTTP는 명시적인 루프백 호스트에서만 허용하며, 그 외에는
-HTTPS가 필요합니다. 조회 실패를 다른 데이터로 대체하지 않습니다. 등록된 매니페스트는 빌드,
-이미지 가용성이나 배포 완료를 검증하지 않습니다. 연결 가능 여부로 키, 내보내기 데이터의
-고정 해시, 카탈로그 가져오기, Plan이나 승격이 승인되지는 않으며, 저장한 주소로
-Managed Identity의 연결 대상을 바꿀 수도 없습니다.
+HTTPS가 필요하며, 조회 실패를 다른 데이터로 대체하지 않습니다. 등록된 매니페스트는 빌드,
+이미지 가용성이나 배포 완료를 검증하지 않습니다. 연결 가능 여부는 키, 내보내기 데이터의
+고정 해시, 카탈로그 가져오기, Plan이나 승격을 승인하지 않으며, 저장한 주소로 Managed Identity의 연결 대상을 바꿀 수도 없습니다.
+카탈로그 신뢰가 없으면 Updates와 Available releases 화면은 신뢰된 갱신기 결과 대신 등록 목록 조회 결과와 구성 안내를 표시합니다.
 [로컬 연결 참조](../../../lifecycle/hub/README.md#release-hub-connection)에서 설정과 복구 절차를 확인하세요.
 
 ## 애플리케이션에 종속되지 않는 패키지 경계

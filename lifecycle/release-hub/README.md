@@ -87,6 +87,20 @@ The UI lists only manifests registered in the selected database. An empty databa
 releases; registration and development signatures do not verify a build, image availability,
 or deployment. Keep intentional demo catalogs in separate, explicitly selected directories.
 
+An untouched revision-zero empty catalog is labelled **Initial catalog**, not a failed build or
+an available update. The trust view still displays the real export expiry and explains that expired
+empty metadata cannot be imported. Once a catalog has a revision, release, event, or channel member,
+the ordinary expiry warning remains authoritative. No read renews freshness. The absence of
+capability recall records means only that no recalls are recorded, not that capabilities are healthy;
+recall actions require an operator-authored reason rather than a prefilled test reason.
+The Releases and Stencil Builder views also provide 1-click preset and custom Stencil release
+creation (`1-Click Create Release` / `1-Click Compose & Register Release`) that composes the
+manifest, registers the release, and signs it into `DEV` in one step without modal friction.
+During Stencil composition, `registry_pipeline` inspects built local Docker images (or explicit
+`component_digests`), publishes canonical OCI Distribution v2 manifests served at
+`/v2/fdai/<component>/manifests/<reference>` and `/v1/registry/images`, and binds the verified
+`sha256` digests into `release_manifest.components`.
+
 Build the UI with `npm --prefix lifecycle/release-hub/ui run build`; the API serves the built
 application from the same loopback origin when the build exists. The `serve` command never
 creates a missing key implicitly. Keep the state directory outside source control.

@@ -319,3 +319,114 @@ def test_missing_schema_requires_explicit_migration(store: HubStore, now: dateti
     assert state["requires_migration"] is True
     assert state["editable"] is False
     assert client.post("/v1/release-hub/connection", json=update(None)).status_code == 503
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/v1/catalog/trust",
+        "/v1/catalog/updates",
+        "/v1/catalog/releases",
+    ],
+)
+def test_missing_catalog_trust_is_explicit_not_a_missing_route(
+    client: TestClient, path: str
+) -> None:
+    response = client.get(path)
+    assert response.status_code == 503
+    assert response.json() == {"error": "catalog_not_configured"}
+    assert (
+        client.post("/v1/release-hub/connection", json=update("http://localhost:8091")).status_code
+        == 200
+    )
+    assert client.get(path).status_code == 503
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/v1/catalog/updates/check",
+        "/v1/catalog/updates/apply",
+        "/v1/catalog/trust/approve",
+        "/v1/catalog/import",
+        "/v1/installations/example/recompute",
+    ],
+)
+def test_unconfigured_catalog_never_accepts_authority_bearing_writes(
+    client: TestClient, path: str
+) -> None:
+    response = client.post(path, json={})
+    assert response.status_code == 503
+    assert response.json() == {"error": "catalog_not_configured"}
+
+
+def test_one_click_provision_issues_plan_and_updates_reported_state(
+    client: TestClient,
+    store: HubStore,
+    enroll: Callable[..., None],
+    installation: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import json
+
+    enroll(store, installation)
+    manifest = {
+        "schema_version": "fdai.application-release.v2",
+        "product": "fdai",
+        "release_version": "0.5.2",
+        "source_commit": "a" * 40,
+        "platform_tag": "linux-x86_64",
+        "components": {
+            "core-control-plane": {"image_digest": "sha256:" + "c" * 64},
+            "operator-service": {"image_digest": "sha256:" + "d" * 64},
+            "pgvector": {"image_digest": "sha256:" + "f" * 64},
+        },
+        "stencil": {
+            "stencil_id": "lite-observe-alert",
+            "stencil_digest": "sha256:" + "e" * 64,
+            "topology_profile": "lite-observe-alert",
+            "azure_rbac_posture": "read-only-observation",
+            "enabled_workloads": ["core-control-plane", "operator-service"],
+            "enabled_panel_ids": ["audit", "dashboard", "settings-general"],
+            "release_labels": ["digest:docker-local-verified"],
+        },
+    }
+    mock_catalog(
+        monkeypatch,
+        lambda request: httpx.Response(
+            200,
+            json={
+                "revision": 3,
+                "mode": "local-development",
+                "expired": False,
+                "releases": [
+                    {
+                        "id": "0.5.2",
+                        "state": "published",
+                        "channels": ["DEV", "RELEASE_CANDIDATE"],
+                        "manifest": json.dumps(manifest),
+                    }
+                ],
+            },
+        ),
+    )
+    preview = client.get("/v1/release-hub/catalog").json()
+    assert preview["enrolled_installations"] == ["installation-alpha"]
+    assert preview["release_details"]["0.5.2"]["stencil_id"] == "lite-observe-alert"
+    assert preview["release_details"]["0.5.2"]["digest_verified"] is True
+
+    response = client.post(
+        "/v1/release-hub/provision",
+        json={"installation_id": "installation-alpha", "release_id": "0.5.2", "apply_state": True},
+    )
+    assert response.status_code == 200
+    receipt = response.json()
+    assert receipt["installation_id"] == "installation-alpha"
+    assert receipt["release_id"] == "0.5.2"
+    assert receipt["outcome"] == "applied"
+    assert receipt["stencil_id"] == "lite-observe-alert"
+
+    installations = client.get("/v1/installations").json()["installations"]
+    assert installations[0]["current_release"] == "0.5.2"
+    assert installations[0]["target_release_id"] == "0.5.2"
+    assert store.audit_chain_intact() is True
