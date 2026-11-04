@@ -169,12 +169,20 @@ class OperationalContextMaterializer:
         )
         conflicts.extend(link_conflicts)
 
+        direct_ids = {
+            path.object_id
+            for path in evidence_paths
+            if all(link.link_type != "workload_depends_on" for link in path.links)
+        }
         by_type: dict[str, list[str]] = {}
+        direct_by_type: dict[str, list[str]] = {}
         for item in objects:
             by_type.setdefault(item.object_type, []).append(item.id)
-        service_ids = _ids(by_type, "BusinessService")
-        workload_ids = _ids(by_type, "Workload")
-        ownership_ids = _ids(by_type, "Ownership")
+            if item.id in direct_ids:
+                direct_by_type.setdefault(item.object_type, []).append(item.id)
+        service_ids = _ids(direct_by_type, "BusinessService") or _ids(by_type, "BusinessService")
+        workload_ids = _ids(direct_by_type, "Workload") or _ids(by_type, "Workload")
+        ownership_ids = _ids(direct_by_type, "Ownership") or _ids(by_type, "Ownership")
         if not service_ids:
             conflicts.append("service_mapping_missing")
         elif len(service_ids) > 1:
@@ -212,13 +220,13 @@ class OperationalContextMaterializer:
             elif (cutoff - freshness.observed_at).total_seconds() > freshness.max_age_seconds:
                 stale_sources.append(freshness.source)
 
-        service_objective_ids = _ids(by_type, "ServiceObjective")
-        recovery_objective_ids = _ids(by_type, "RecoveryObjective")
-        cost_objective_ids = _ids(by_type, "CostObjective")
+        service_objective_ids = _ids(direct_by_type, "ServiceObjective")
+        recovery_objective_ids = _ids(direct_by_type, "RecoveryObjective")
+        cost_objective_ids = _ids(direct_by_type, "CostObjective")
         objective_ids = tuple(
             sorted((*service_objective_ids, *recovery_objective_ids, *cost_objective_ids))
         )
-        constraint_ids = _ids(by_type, "ArchitectureConstraint")
+        constraint_ids = _ids(direct_by_type, "ArchitectureConstraint")
         dependency_ids = tuple(
             sorted(
                 item.id
