@@ -267,3 +267,25 @@ async def test_multi_vertical_outcome_assurance_rollup_zstd_archive_and_seeding(
         archive_result=zstd_res,
     )
     assert len(written_keys) == 4
+    assert zstd_res.frame_archive_bundle.artifact.compression_ratio > 5.0
+    assert zstd_res.dict_archive_bundle.artifact.compression_ratio > 5.0
+
+
+def test_zstd_codec_python313_compat_and_fail_closed_guards() -> None:
+    import pytest
+    from fdai.core.ontology_platform.zstd_codec import (
+        compress_canonical_json,
+        decompress_canonical_json,
+        train_zstd_dictionary,
+    )
+
+    samples = [f'{{"id": "res-{idx:03d}", "kind": "Resource"}}' for idx in range(10)]
+    b_samples = [s.encode("utf-8") for s in samples]
+    zdict = train_zstd_dictionary(samples[:5] + b_samples[5:], dict_size=2048)
+    art = compress_canonical_json({"id": "res-001", "kind": "Resource"}, dictionary=zdict)
+    assert decompress_canonical_json(art, dictionary=zdict) == {"id": "res-001", "kind": "Resource"}
+
+    with pytest.raises(ValueError, match="dictionary_digest"):
+        decompress_canonical_json(art, dictionary=None)
+    with pytest.raises(ValueError, match="max_decompressed_bytes"):
+        decompress_canonical_json(art, dictionary=zdict, max_decompressed_bytes=5)

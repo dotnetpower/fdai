@@ -9,8 +9,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from compression import zstd  # type: ignore[import-not-found]
-
 from fdai.core.ontology_platform.archive_manifest import (
     ArchiveManifest,
     ArchiveSourcePartition,
@@ -18,6 +16,7 @@ from fdai.core.ontology_platform.archive_manifest import (
     build_archive_manifest,
     verify_archive_manifest,
 )
+from fdai.rule_catalog.schema._zstd_compat import zstd_runtime as zstd
 
 ZSTD_PROFILE_FRAME = "zstd-v1"
 ZSTD_PROFILE_DICT = "zstd-dict-v1"
