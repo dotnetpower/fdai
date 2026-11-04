@@ -189,7 +189,10 @@ class SemanticOutputShape(StrEnum):
 
     ACTION_DRAFT = "action_draft"
     AGGREGATION_TABLE = "aggregation_table"
+    BUSINESS_SERVICE_BUDGET_BURN = "business_service_budget_burn"
+    BUSINESS_SERVICE_OBJECTIVE_POSTURE = "business_service_objective_posture"
     CAUSAL_EVIDENCE = "causal_evidence"
+    DECISION_EXPECTED_VS_OBSERVED_OUTCOME = "decision_expected_vs_observed_outcome"
     EVIDENCE_VALIDATION = "evidence_validation"
     GATEWAY_DIAGNOSTIC_EVIDENCE = "gateway_diagnostic_evidence"
     GOVERNED_DOCUMENT_EXCERPTS = "governed_document_excerpts"
