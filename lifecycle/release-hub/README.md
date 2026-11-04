@@ -93,6 +93,9 @@ empty metadata cannot be imported. Once a catalog has a revision, release, event
 the ordinary expiry warning remains authoritative. No read renews freshness. The absence of
 capability recall records means only that no recalls are recorded, not that capabilities are healthy;
 recall actions require an operator-authored reason rather than a prefilled test reason.
+The Releases and Stencil Builder views also provide 1-click preset and custom Stencil release
+creation (`1-Click Create Release` / `1-Click Compose & Register Release`) that composes the
+manifest, registers the release, and signs it into `DEV` in one step without modal friction.
 
 Build the UI with `npm --prefix lifecycle/release-hub/ui run build`; the API serves the built
 application from the same loopback origin when the build exists. The `serve` command never

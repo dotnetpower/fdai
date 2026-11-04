@@ -310,11 +310,13 @@ export function StencilBuilder({
   onLocaleChange,
   existingReleases = [],
   onPrepareRelease,
+  onQuickCreateRelease,
 }: {
   locale?: "en" | "ko";
   onLocaleChange?: (next: "en" | "ko") => void;
   existingReleases?: readonly Release[];
   onPrepareRelease: (draft: { id: string; label: string; manifest: string }) => void;
+  onQuickCreateRelease?: (draft: { id: string; label: string; manifest: string }) => Promise<void> | void;
 }) {
   const [internalLocale, setInternalLocale] = useState<"en" | "ko">(
     navigator.language.startsWith("ko") ? "ko" : "en",
@@ -551,7 +553,7 @@ export function StencilBuilder({
     sourceCommit,
   });
 
-  async function runCompose(event?: SubmitEvent, openRegisterAfter = false) {
+  async function runCompose(event?: SubmitEvent, openRegisterAfter = false, quickCreate = false) {
     event?.preventDefault();
     if (composing || !validInputs) return;
     setComposing(true);
@@ -575,12 +577,64 @@ export function StencilBuilder({
       });
       setComposed(result);
       applyPreset(result.stencil);
-      if (openRegisterAfter) {
-        onPrepareRelease({
-          id: releaseVersion.trim(),
-          label: `${result.stencil.stencil_id} (${result.footprint.enabled_panel_count} menus, ${result.footprint.workload_count} workloads)`,
-          manifest: JSON.stringify(result.release_manifest, null, 2),
-        });
+      const effectiveVersion =
+        typeof result.release_manifest?.release_version === "string" &&
+        result.release_manifest.release_version.trim()
+          ? result.release_manifest.release_version.trim()
+          : releaseVersion.trim();
+      setReleaseVersion(effectiveVersion);
+      const draft = {
+        id: effectiveVersion,
+        label: `${result.stencil.stencil_id} (${result.footprint.enabled_panel_count} menus, ${result.footprint.workload_count} workloads)`,
+        manifest: JSON.stringify(result.release_manifest, null, 2),
+      };
+      if (quickCreate && onQuickCreateRelease) {
+        await onQuickCreateRelease(draft);
+      } else if (openRegisterAfter) {
+        onPrepareRelease(draft);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Stencil composition failed.");
+    } finally {
+      setComposing(false);
+    }
+  }
+
+  async function runQuickPresetRelease(preset: StencilDefinitionRecord) {
+    if (composing) return;
+    setComposing(true);
+    setError("");
+    try {
+      const targetVer = SEMVER_RE.test(releaseVersion.trim())
+        ? releaseVersion.trim()
+        : nextSuggestedSemVer(existingReleases, "patch");
+      const result = await requestStencilCompose({
+        stencil_id: preset.stencil_id,
+        title: preset.title,
+        title_ko: preset.title_ko,
+        description: preset.description,
+        description_ko: preset.description_ko,
+        topology_profile: preset.topology_profile,
+        requested_panel_ids: [...preset.enabled_panel_ids],
+        requested_workloads: [...preset.enabled_workloads],
+        requested_scheduled_jobs: [...preset.enabled_scheduled_jobs],
+        requested_loops: [...preset.enabled_loops],
+        requested_addons: [...preset.enabled_addons],
+        auto_resolve_dependencies: true,
+        release_version: targetVer,
+        source_commit: sourceCommit.trim() || "auto",
+      });
+      setComposed(result);
+      applyPreset(result.stencil);
+      const draft = {
+        id: targetVer,
+        label: `${result.stencil.stencil_id} (${result.footprint.enabled_panel_count} menus, ${result.footprint.workload_count} workloads)`,
+        manifest: JSON.stringify(result.release_manifest, null, 2),
+      };
+      if (onQuickCreateRelease) {
+        await onQuickCreateRelease(draft);
+      } else {
+        onPrepareRelease(draft);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Stencil composition failed.");
@@ -650,16 +704,29 @@ export function StencilBuilder({
                         {footprint.azure_rbac_posture}
                       </span>
                     </div>
-                    <button
-                      type="button"
-                      class={isSelected ? "primary" : ""}
-                      onClick={() => {
-                        applyPreset(preset);
-                        setComposed(null);
-                      }}
-                    >
-                      {t(`Load ${preset.stencil_id}`, `${preset.stencil_id} 불러오기`)}
-                    </button>
+                    <div class="actions" style="margin-top: 8px;">
+                      <button
+                        type="button"
+                        class={isSelected ? "primary" : ""}
+                        onClick={() => {
+                          applyPreset(preset);
+                          setComposed(null);
+                        }}
+                      >
+                        {t(`Load ${preset.stencil_id}`, `${preset.stencil_id} 불러오기`)}
+                      </button>
+                      <button
+                        type="button"
+                        class="primary"
+                        disabled={composing}
+                        onClick={() => void runQuickPresetRelease(preset)}
+                      >
+                        {t(
+                          `1-Click Create ${preset.stencil_id} (${releaseVersion.trim()})`,
+                          `원클릭 ${preset.stencil_id} 즉시 생성 (${releaseVersion.trim()})`,
+                        )}
+                      </button>
+                    </div>
                   </article>
                 );
               })}
@@ -1263,19 +1330,19 @@ export function StencilBuilder({
                     type="button"
                     class="primary"
                     disabled={composing || !validInputs}
-                    onClick={() => void runCompose(undefined, true)}
+                    onClick={() => void runCompose(undefined, true, true)}
                   >
                     {composing
-                      ? t("Preparing...", "생성 중...")
+                      ? t("Creating...", "생성 중...")
                       : t(
                           `1-Click Compose & Register Release ${releaseVersion.trim()}`,
-                          `원클릭으로 릴리스 ${releaseVersion.trim()} 등록 모달 열기`,
+                          `원클릭으로 릴리스 ${releaseVersion.trim()} 즉시 생성·등록`,
                         )}
                   </button>
                   <button
                     type="button"
                     disabled={composing || !validInputs}
-                    onClick={() => void runCompose(undefined, false)}
+                    onClick={() => void runCompose(undefined, false, false)}
                   >
                     {t("Preview manifest only", "매니페스트만 미리보기")}
                   </button>
@@ -1336,9 +1403,28 @@ export function StencilBuilder({
                 </dd>
               </dl>
               <div class="actions">
+                {onQuickCreateRelease && (
+                  <button
+                    type="button"
+                    class="primary"
+                    disabled={composing}
+                    onClick={() =>
+                      void onQuickCreateRelease({
+                        id: releaseVersion.trim(),
+                        label: `${composed.stencil.stencil_id} (${composed.footprint.enabled_panel_count} menus, ${composed.footprint.workload_count} workloads)`,
+                        manifest: JSON.stringify(composed.release_manifest, null, 2),
+                      })
+                    }
+                  >
+                    {t(
+                      `1-Click Create Release ${releaseVersion.trim()} Now`,
+                      `원클릭으로 릴리스 ${releaseVersion.trim()} 즉시 생성`,
+                    )}
+                  </button>
+                )}
                 <button
                   type="button"
-                  class="primary"
+                  class={onQuickCreateRelease ? "" : "primary"}
                   onClick={() =>
                     onPrepareRelease({
                       id: releaseVersion.trim(),

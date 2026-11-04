@@ -98,9 +98,6 @@ function Confirm({ pending, catalog, locale, registration, setRegistration, clos
   const [busy, setBusy] = useState(false);
   const [templateBusy, setTemplateBusy] = useState(false);
   const id = pending.action === "register" ? registration.id : pending.release?.id ?? "";
-  const [confirmation, setConfirmation] = useState("");
-  const [reason, setReason] = useState("");
-  const { manifest, label } = registration;
   const transition = pending.release ? nextPromotionTransition(pending.release) : null;
   const pendingStencil = pending.release ? extractReleaseStencil(pending.release) : null;
   const [channel, setChannel] = useState(
@@ -118,9 +115,17 @@ function Confirm({ pending, catalog, locale, registration, setRegistration, clos
   const customChannel = isCustomChannel(channel);
   const action = pending.action;
   const target = action === "renew" ? `renew ${catalog.revision}` : id;
+  const [confirmation, setConfirmation] = useState(target);
+  const [reason, setReason] = useState(
+    () => (locale === "ko" ? DEFAULT_REASONS[action].ko : DEFAULT_REASONS[action].en),
+  );
+  const { manifest, label } = registration;
   useEffect(() => {
     const previous = document.activeElement;
     dialog.current?.showModal();
+    if (action === "register" && !registration.manifest.trim()) {
+      void fillPresetTemplate("lite-observe-alert");
+    }
     return () => {
       dialog.current?.close();
       if (previous instanceof HTMLElement) previous.focus();
@@ -227,6 +232,7 @@ function Confirm({ pending, catalog, locale, registration, setRegistration, clos
                 id: nextId,
                 manifest: syncManifestReleaseVersion(registration.manifest, nextId),
               });
+              setConfirmation(nextId);
             }}
             placeholder={nextSuggestedSemVer(catalog.releases, "patch")}
           />
@@ -308,7 +314,7 @@ function Confirm({ pending, catalog, locale, registration, setRegistration, clos
       <label>{t("Reason", "작업 사유 (Reason)")}<textarea required aria-label="Reason" minLength={3} maxLength={500} rows={2} value={reason} onInput={(e) => setReason(e.currentTarget.value)} /></label>
       <label>{t(`Type ${target || "the Release id"} to confirm`, `확인 코드 입력 (${target || "릴리스 ID"})`)}<input required autoComplete="off" value={confirmation} onInput={(e) => setConfirmation(e.currentTarget.value)} /></label>
       {target && (
-        <button type="button" disabled={busy || confirmation === target} onClick={() => {
+        <button type="button" disabled={busy} onClick={() => {
           setConfirmation(target);
           if (!reason.trim()) {
             setReason(locale === "ko" ? DEFAULT_REASONS[action].ko : DEFAULT_REASONS[action].en);
@@ -874,12 +880,95 @@ export function App() {
   const [route, setRoute] = useState(locationRoute);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [quickCreating, setQuickCreating] = useState(false);
   const [pending, setPending] = useState<Pending | null>(null);
   const [registration, setRegistration] = useState<RegistrationDraft>({ id: "", label: "", manifest: "" });
   const [diffPair, setDiffPair] = useState<{ baseId: string; targetId: string } | null>(null);
   const [notice, setNotice] = useState("");
   const [uncertain, setUncertain] = useState(false);
   const heading = useRef<HTMLElement>(null);
+  async function quickCreateRelease(
+    presetOrDraft:
+      | "lite-observe-alert"
+      | "standard-sre"
+      | "full-enterprise"
+      | { id: string; label: string; manifest: string },
+    publishToDev = true,
+  ) {
+    if (!catalog || quickCreating) return;
+    setQuickCreating(true);
+    setUncertain(false);
+    setError("");
+    try {
+      const current = await requestCatalog().catch(() => catalog);
+      let draft: { id: string; label: string; manifest: string };
+      if (typeof presetOrDraft === "string") {
+        const nextVer = nextSuggestedSemVer(current.releases, "patch");
+        const stCat = await requestStencilCatalog();
+        const found = stCat.presets.find((p) => p.stencil.stencil_id === presetOrDraft)?.stencil;
+        const composed = await requestStencilCompose({
+          stencil_id: presetOrDraft,
+          title: found?.title ?? presetOrDraft,
+          title_ko: found?.title_ko ?? presetOrDraft,
+          description: found?.description ?? presetOrDraft,
+          description_ko: found?.description_ko ?? presetOrDraft,
+          topology_profile: presetOrDraft,
+          requested_panel_ids: found?.enabled_panel_ids ?? ["audit", "dashboard", "live", "settings-general"],
+          requested_workloads: found?.enabled_workloads ?? ["core-control-plane", "operator-service"],
+          requested_scheduled_jobs: found?.enabled_scheduled_jobs ?? ["analyzer", "inventory"],
+          requested_loops: found?.enabled_loops ?? ["anomaly-analyzer", "inventory-reconciliation", "notification-dispatch", "saga-audit"],
+          requested_addons: found?.enabled_addons ?? ["notifications", "read-only-console"],
+          auto_resolve_dependencies: true,
+          release_version: nextVer,
+          source_commit: "auto",
+        });
+        draft = {
+          id: nextVer,
+          label: `${composed.stencil.stencil_id} (${composed.footprint.enabled_panel_count} menus, ${composed.footprint.workload_count} workloads)`,
+          manifest: JSON.stringify(composed.release_manifest, null, 2),
+        };
+      } else {
+        draft = presetOrDraft;
+      }
+      const regReason = locale === "ko" ? DEFAULT_REASONS.register.ko : DEFAULT_REASONS.register.en;
+      const afterReg = await requestCatalog(`/v1/releases/${encodeURIComponent(draft.id)}/register`, {
+        revision: current.revision,
+        confirmation: draft.id,
+        reason: regReason,
+        label: draft.label,
+        manifest: draft.manifest,
+      });
+      let finalCatalog = afterReg;
+      let signedIntoDev = false;
+      if (publishToDev) {
+        try {
+          const pubReason = locale === "ko" ? DEFAULT_REASONS.publish.ko : DEFAULT_REASONS.publish.en;
+          finalCatalog = await requestCatalog(`/v1/releases/${encodeURIComponent(draft.id)}/publish`, {
+            revision: afterReg.revision,
+            confirmation: draft.id,
+            reason: pubReason,
+          });
+          signedIntoDev = true;
+        } catch {
+          signedIntoDev = false;
+        }
+      }
+      setCatalog(finalCatalog);
+      setPending(null);
+      setRegistration({ id: "", label: "", manifest: "" });
+      location.hash = "/releases";
+      setNotice(
+        locale === "ko"
+          ? `원클릭 생성 완료: 릴리스 ${draft.id} (${draft.label}) 등록${signedIntoDev ? " 및 DEV 서명·발행" : ""}이 완료되었습니다.`
+          : `1-Click release created: Release ${draft.id} (${draft.label}) registered${signedIntoDev ? " and signed into DEV" : ""}.`,
+      );
+      heading.current?.focus();
+    } catch (failure) {
+      setError(catalogRecovery(failure));
+    } finally {
+      setQuickCreating(false);
+    }
+  }
   async function refresh() {
     setLoading(true);
     try {
@@ -1022,12 +1111,24 @@ export function App() {
                 <p>{t("Publish once. Curate eligibility. Keep the evidence in view.", "한 번 서명·발행한 불변 아티팩트를 DEV → RELEASE_CANDIDATE → RELEASE 단계별로 안전하게 승격합니다.")}</p>
               </div>
               <div class="actions" style="margin-top: 0;">
+                <button
+                  type="button"
+                  class="primary"
+                  disabled={disabled || quickCreating}
+                  onClick={() => void quickCreateRelease("lite-observe-alert", true)}
+                >
+                  {quickCreating
+                    ? t("Creating release...", "릴리스 생성 중...")
+                    : t(
+                        `1-Click Create Release (${nextSuggestedSemVer(catalog.releases, "patch")})`,
+                        `원클릭 릴리스 즉시 생성 (${nextSuggestedSemVer(catalog.releases, "patch")})`,
+                      )}
+                </button>
                 <a class="next-link" href="#/stencils" style="padding: 8px 14px; border: 1px solid var(--rh-border); border-radius: var(--cs-radius-sm); text-decoration: none;">
                   {t("Build custom Stencil first", "맞춤 Stencil 먼저 구성하기")}
                 </a>
                 <button
-                  class="primary"
-                  disabled={disabled}
+                  disabled={disabled || quickCreating}
                   aria-label="Register release"
                   onClick={() => {
                     if (!registration.id.trim()) {
@@ -1043,8 +1144,51 @@ export function App() {
                 </button>
               </div>
             </div>
+            <div class="stencil-provenance-preview" style="margin-bottom: 16px;">
+              <strong>
+                {t(
+                  `1-Click Edition Release Generator (Next version: ${nextSuggestedSemVer(catalog.releases, "patch")} · Auto-registers & signs into DEV):`,
+                  `원클릭 에디션 릴리스 즉시 생성 (다음 버전: ${nextSuggestedSemVer(catalog.releases, "patch")} · 매니페스트 생성 + 등록 + DEV 서명 한 번에 완료):`,
+                )}
+              </strong>
+              <div class="quick-chips" style="margin-top: 8px;">
+                <button
+                  type="button"
+                  class="chip-btn"
+                  disabled={disabled || quickCreating}
+                  onClick={() => void quickCreateRelease("lite-observe-alert", true)}
+                >
+                  {t(
+                    `1-Click Create Lite (${nextSuggestedSemVer(catalog.releases, "patch")})`,
+                    `원클릭 Lite 에디션 생성 (${nextSuggestedSemVer(catalog.releases, "patch")})`,
+                  )}
+                </button>
+                <button
+                  type="button"
+                  class="chip-btn"
+                  disabled={disabled || quickCreating}
+                  onClick={() => void quickCreateRelease("standard-sre", true)}
+                >
+                  {t(
+                    `1-Click Create Standard SRE (${nextSuggestedSemVer(catalog.releases, "patch")})`,
+                    `원클릭 Standard SRE 생성 (${nextSuggestedSemVer(catalog.releases, "patch")})`,
+                  )}
+                </button>
+                <button
+                  type="button"
+                  class="chip-btn"
+                  disabled={disabled || quickCreating}
+                  onClick={() => void quickCreateRelease("full-enterprise", true)}
+                >
+                  {t(
+                    `1-Click Create Full Enterprise (${nextSuggestedSemVer(catalog.releases, "patch")})`,
+                    `원클릭 Full Enterprise 생성 (${nextSuggestedSemVer(catalog.releases, "patch")})`,
+                  )}
+                </button>
+              </div>
+            </div>
             <div class="summary"><strong>{t(`${catalog.releases.length} releases`, `총 ${catalog.releases.length}개 릴리스`)}</strong><span>{t(`Revision ${catalog.revision}`, `카탈로그 리비전 ${catalog.revision}`)}</span><span>{t(`Updated ${time(catalog.updated_at)}`, `최근 갱신 ${time(catalog.updated_at)}`)}</span></div>
-            {catalog.releases.length === 0 ? <section class="empty"><h2>{t("No releases yet", "아직 등록된 릴리스가 없습니다")}</h2><p>{t("Use 1. Stencil Builder to compose a custom edition or click Register release to auto-fill a template.", "상단의 '새 릴리스 바로 등록' 버튼을 눌러 원클릭 템플릿으로 생성하거나, '1. 스텐실·메뉴 빌더'에서 원하는 메뉴만 골라 시작하세요.")}</p></section>
+            {catalog.releases.length === 0 ? <section class="empty"><h2>{t("No releases yet", "아직 등록된 릴리스가 없습니다")}</h2><p>{t("Click any 1-Click Create button above to compose, register, and sign a release into DEV immediately, or use 1. Stencil Builder for a custom menu selection.", "위의 '원클릭 릴리스 즉시 생성' 버튼을 누르면 클릭 한 번으로 매니페스트 생성·등록·DEV 서명이 즉시 완료됩니다. 원하는 메뉴만 골라 만들려면 '1. 스텐실·메뉴 빌더'를 사용하세요.")}</p></section>
               : <>
                 <ReleaseLineageSection
                   catalog={catalog}
@@ -1105,6 +1249,7 @@ export function App() {
               setRegistration(draft);
               setPending({ action: "register", release: null });
             }}
+            onQuickCreateRelease={(draft) => quickCreateRelease(draft, true)}
           />
           : route === "/channels" ? <Channels catalog={catalog} locale={locale} />
           : route === "/activity" ? <><h1>{t("Activity", "변경 및 감사 이력 (Activity)")}</h1><p>{t("Transactional publication changes, newest first. Development attribution is not a production audit guarantee.", "릴리스 등록, 서명 발행, 단계 승격, 기능 리콜 등 모든 카탈로그 트랜잭션 이력을 최신순으로 표시합니다.")}</p><Activity catalog={catalog} locale={locale} /></>
