@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 2078,
+  "file_count": 2079,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "8313db353cd6aa5c1e57bba5e259d1a48ace7da67a15646e8e3c51cf80860921",
     ".github/instructions/agent-stewardship.instructions.md": "6d34f24fe8879f3edac388d5e7fd9ab138563ca386a5c401f72d8fc3c1698624",
@@ -124,7 +124,8 @@
     "services/core-control-plane/src/fdai/agents/_framework/heimdall_retrieval_validation.py": "529489b4fea6aa75a64ef0ef93f0ff11282b166bd9a3e0a47860dd0f01f1daff",
     "services/core-control-plane/src/fdai/agents/_framework/heimdall_sensing_persistence.py": "c8fd260f30f39587d23edfed6510370dbabf6f851a0f0b9b3ed123d387af01cf",
     "services/core-control-plane/src/fdai/agents/_framework/heimdall_state_recovery.py": "3505be47a8c5725dca0b42e3900390bacbc67dbef953e3a2823e717bdede4a0c",
-    "services/core-control-plane/src/fdai/agents/_framework/huginn_dedup.py": "cdd302726ec65ff4d581c80a46f09930135b7b15f85fb792552119564ca8da34",
+    "services/core-control-plane/src/fdai/agents/_framework/huginn_dedup.py": "ec70b883c1b89869d91afa5fbb0da29f7dd2c0ef97f8807d5c93b296c8024c85",
+    "services/core-control-plane/src/fdai/agents/_framework/huginn_dedup_codec.py": "35013b70295af27c7aac3842361ded274be8052d34f57126f422cfc9db17f416",
     "services/core-control-plane/src/fdai/agents/_framework/huginn_ingress_helpers.py": "3eb4454a2230111850ca7c858d09d585418801e55163a49f3c855f320f39ccaa",
     "services/core-control-plane/src/fdai/agents/_framework/huginn_ingress_runtime.py": "490143e91b8cbb890e50758fff187adb0dab76ed156dfc2f4f317fa1def7beb3",
     "services/core-control-plane/src/fdai/agents/_framework/huginn_operator_receipt.py": "6266675fa93a077618a247aa38708143946de4716d59df44a92cd9b4c11f348f",

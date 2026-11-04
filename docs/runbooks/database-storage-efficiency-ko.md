@@ -1,7 +1,7 @@
 ---
 translation_of: database-storage-efficiency.md
-translation_source_sha: 637ce5968888335511646f61e6f1aac457613c93
-translation_revised: 2026-11-03
+translation_source_sha: c7f26c96f2a4f507d20120bf7eec43adfc511b86
+translation_revised: 2026-11-04
 ---
 # 데이터베이스 저장 공간 증가 진단
 
@@ -160,6 +160,37 @@ Resource를 보냅니다. 이벤트 식별자, 형태, 관찰 모드(`shadow-mod
 또한 Huginn이 자신의 generation 범위 키로만 상관시킨 전체 정합성 관측은 Heimdall이 더 이상
 추적하지 않습니다. 이런 episode는 두 번째 이벤트를 모을 수 없기 때문입니다. 명시적으로
 공유하는 상관 식별자가 있는 관측은 계속 추적합니다.
+
+## 수신 dedup을 작게 유지하고 오래된 감사 행을 보관
+
+Huginn 수신 dedup shard는 완료된 키를 모두 보관해서 수신 이벤트마다 약 225 KB의 shard 행을
+여러 번 다시 썼습니다. 이제 shard에는 처리 중인 claim만 남기고, terminal receipt가 완료 키의
+차단 표식이 되며 완료 수백 건마다 정리합니다. 이전 레이아웃으로 쓰인 shard는 처음 접근할 때
+한 번 정리합니다. 완료된 항목이 shard를 떠나기 전에 terminal receipt를 먼저 받으므로 중복
+차단 범위는 좁아지지 않습니다. receipt 구간은 dedup 구간의 4배라 대체되는 shard 구간보다 넓습니다.
+
+로컬 실행기는 reconciliation 서비스에 `FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS`를
+`1800`으로 설정합니다. 전체 스캔마다 generation을 쓰고 변경된 Resource를 다시 평가하기
+때문입니다. 환경변수로 재정의할 수 있으며 배포 기본값은 `120`입니다. 로컬 Postgres
+컨테이너는 `wal_compression=zstd`, `max_wal_size=512MB`, 256 MB `/dev/shm`을 사용하므로 병렬
+`VACUUM`도 실행할 수 있습니다.
+
+`compact-local-database.py`는 해결된 `hil_park:` 행 중 최신 500개도 유지합니다. 브로커가 이미
+가진 기록을 다시 게시할 수 있으므로 `analyzer-publication:` 같은 게시 차단 행은 절대 목록에
+넣지 않습니다.
+
+오래된 감사 행을 테이블 밖으로 복사하려면 저장소 루트에서 다음을 실행하세요.
+
+```bash
+uv run python scripts/deployment/local/archive-audit-segments.py --older-than-days 2
+```
+
+각 segment는 `audit_log` 행의 연속 구간을 Zstandard로 압축한 JSON 줄이며 저장된 JSON보다 약 7배
+작습니다. 스크립트는 쓰기 전후에 해시 체인을 다시 계산하고, 각 segment를
+`.fdai/audit-archive/manifest.jsonl`의 이전 segment에 연결하며, 최신 512행과 기준 시각보다 최근
+행은 유지합니다. 아무것도 삭제하지 않습니다. `verify_chain`은 여전히 genesis부터 테이블을
+순회하므로 내보낸 행을 지우려면 manifest 앵커를 받아들이는 검증기가 먼저 필요하며, 그 전까지
+테이블은 줄어들지 않습니다.
 
 ## 삭제 가능한 개발 데이터베이스의 명시적 재생성
 

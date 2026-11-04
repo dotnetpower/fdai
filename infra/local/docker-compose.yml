@@ -11,6 +11,15 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     container_name: fdai-postgres
+    # Docker's 64 MB /dev/shm made parallel VACUUM fail with "No space left on device". WAL
+    # compression and a smaller WAL ceiling bound the write volume of this disposable database.
+    shm_size: 256m
+    command:
+      - postgres
+      - -c
+      - wal_compression=zstd
+      - -c
+      - max_wal_size=512MB
     environment:
       POSTGRES_USER: fdai
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devonly}
@@ -30,6 +39,7 @@ services:
   postgres-validation:
     image: pgvector/pgvector:pg16
     container_name: fdai-postgres-validation
+    shm_size: 256m
     environment:
       POSTGRES_USER: fdai
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devonly}

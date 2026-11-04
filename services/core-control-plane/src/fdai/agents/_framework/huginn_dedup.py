@@ -11,6 +11,15 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
+from fdai.agents._framework.huginn_dedup_codec import (
+    _clock_now,
+    _decode,
+    _encode,
+    _json_mapping,
+    _parse_time,
+    _published_topics,
+    _validate_request,
+)
 from fdai.shared.providers.state_store import StateStore
 
 _LEGACY_STATE_KEY = "pantheon/huginn/ingress-dedup"
@@ -21,6 +30,9 @@ _MAX_CAS_ATTEMPTS = 8
 _DEFAULT_LEASE = timedelta(seconds=60)
 _MAX_LEASE = timedelta(minutes=5)
 _TERMINAL_RETENTION_MULTIPLIER = 4
+# The terminal window is pruned every N completions, N scaling with capacity up to this ceiling;
+# per-completion pruning scanned the whole prefix for a handful of rows.
+_MAX_TERMINAL_PRUNE_INTERVAL = 256
 
 
 class HuginnClaimInProgressError(RuntimeError):
@@ -60,6 +72,9 @@ class HuginnDedupJournal:
         self._migration_lock = asyncio.Lock()
         self._migration_complete = False
         self._recovery_shard = 0
+        self._compacted_shards: set[int] = set()
+        self._prune_interval = max(1, min(_MAX_TERMINAL_PRUNE_INTERVAL, capacity // 64))
+        self._completions_since_prune = self._prune_interval
 
     async def published_keys(self) -> tuple[str, ...]:
         """Return completed keys in oldest-to-newest retention order.
@@ -141,6 +156,8 @@ class HuginnDedupJournal:
     ) -> HuginnIngressClaim:
         """Claim one key or return its completed duplicate disposition."""
         await self._ensure_migrated()
+        # Compact first: an older completed entry becomes its terminal receipt before the check.
+        await self._compact_published(self._shard_index(idempotency_key))
         terminal = await self._store.read_state(_terminal_key(idempotency_key))
         if terminal is not None:
             await self._validate_terminal_request(
@@ -261,8 +278,27 @@ class HuginnDedupJournal:
         request_digest: str,
         require_published_topics: bool = False,
     ) -> None:
-        """Checkpoint successful publication without retaining the payload body."""
+        """Checkpoint successful publication without retaining the payload body.
+
+        The durable terminal receipt is the completed-key fence, so the shard keeps only
+        in-flight claims. Rewriting a shard that also held every completed key cost one
+        large row write per ingress event.
+        """
         await self._ensure_migrated()
+        shard_index = self._shard_index(idempotency_key)
+        state_key = self._shard_key(shard_index)
+        capacity = self._shard_capacity(shard_index)
+        await self._compact_published(shard_index)
+        _, _, _, shard_entries = _decode(await self._store.read_state(state_key))
+        if idempotency_key not in shard_entries:
+            if await self._store.read_state(_terminal_key(idempotency_key)) is not None:
+                await self._validate_terminal_request(
+                    idempotency_key=idempotency_key,
+                    request_digest=request_digest,
+                    legacy_request_digest=None,
+                )
+                return
+            raise RuntimeError("Huginn ingress claim disappeared before completion")
         await self._store.write_state(
             _terminal_key(idempotency_key),
             {
@@ -273,23 +309,29 @@ class HuginnDedupJournal:
                 "status": "published",
             },
         )
-        await self._store.delete_states_beyond(
-            _TERMINAL_PREFIX,
-            retain_newest=self._terminal_retention,
-        )
-        shard_index = self._shard_index(idempotency_key)
-        state_key = self._shard_key(shard_index)
-        capacity = self._shard_capacity(shard_index)
+        await self._prune_terminals()
         for _ in range(_MAX_CAS_ATTEMPTS):
             current = await self._store.read_state(state_key)
             revision, stored_capacity, next_sequence, entries = _decode(current)
             self._validate_capacity(stored_capacity, expected=capacity)
             existing = entries.get(idempotency_key)
             if existing is None:
-                raise RuntimeError("Huginn ingress claim disappeared before completion")
+                # Another completer removed it after the terminal receipt became durable.
+                return
             _validate_request(existing, request_digest=request_digest)
             if existing["status"] == "published":
-                return
+                # A legacy completed entry; compaction normally removes these first.
+                entries = {key: entry for key, entry in entries.items() if key != idempotency_key}
+                if await self._advance(
+                    state_key=state_key,
+                    current=current,
+                    revision=revision,
+                    capacity=capacity,
+                    next_sequence=next_sequence,
+                    entries=entries,
+                ):
+                    return
+                continue
             if existing["owner_token"] != self._owner_token:
                 raise HuginnClaimInProgressError("Huginn ingress claim belongs to another replica")
             published_topics = set(_published_topics(existing))
@@ -298,23 +340,13 @@ class HuginnDedupJournal:
                 required_topics.add("object.change")
             if require_published_topics and not required_topics.issubset(published_topics):
                 raise RuntimeError("Huginn ingress publication legs are incomplete")
-            completed = {
-                "request_digest": request_digest,
-                "status": "published",
-                "owner_token": "",
-                "lease_expires_at": "",
-                "sequence": existing["sequence"],
-                "payload": None,
-                "change_projection": None,
-                "published_topics": sorted(required_topics),
-            }
             if await self._advance(
                 state_key=state_key,
                 current=current,
                 revision=revision,
                 capacity=capacity,
                 next_sequence=next_sequence,
-                entries={**entries, idempotency_key: completed},
+                entries={key: entry for key, entry in entries.items() if key != idempotency_key},
             ):
                 return
         raise RuntimeError("Huginn dedup completion contention exceeded the bounded retry limit")
@@ -333,12 +365,15 @@ class HuginnDedupJournal:
         shard_index = self._shard_index(idempotency_key)
         state_key = self._shard_key(shard_index)
         capacity = self._shard_capacity(shard_index)
+        await self._compact_published(shard_index)
         for _ in range(_MAX_CAS_ATTEMPTS):
             current = await self._store.read_state(state_key)
             revision, stored_capacity, next_sequence, entries = _decode(current)
             self._validate_capacity(stored_capacity, expected=capacity)
             existing = entries.get(idempotency_key)
             if existing is None:
+                if await self._store.read_state(_terminal_key(idempotency_key)) is not None:
+                    return
                 raise RuntimeError("Huginn ingress claim disappeared before publication marker")
             _validate_request(existing, request_digest=request_digest)
             if existing["status"] == "published":
@@ -362,6 +397,57 @@ class HuginnDedupJournal:
             ):
                 return
         raise RuntimeError("Huginn publication marker contention exceeded the bounded retry limit")
+
+    async def _prune_terminals(self) -> None:
+        self._completions_since_prune += 1
+        if self._completions_since_prune < self._prune_interval:
+            return
+        self._completions_since_prune = 0
+        await self._store.delete_states_beyond(
+            _TERMINAL_PREFIX,
+            retain_newest=self._terminal_retention,
+        )
+
+    async def _compact_published(self, index: int) -> None:
+        """Move completed entries of an older layout to their terminal receipts, once per shard.
+
+        A receipt is written first, so the completed-key fence never narrows. The shard is
+        then rewritten without those entries and stays as small as its in-flight claims.
+        """
+        if index in self._compacted_shards:
+            return
+        state_key = self._shard_key(index)
+        capacity = self._shard_capacity(index)
+        for _ in range(_MAX_CAS_ATTEMPTS):
+            current = await self._store.read_state(state_key)
+            revision, stored_capacity, next_sequence, entries = _decode(current)
+            self._validate_capacity(stored_capacity, expected=capacity)
+            completed = {k: e for k, e in entries.items() if e["status"] == "published"}
+            if not completed:
+                self._compacted_shards.add(index)
+                return
+            for key, entry in completed.items():
+                await self._store.write_state_if_absent(
+                    _terminal_key(key),
+                    {
+                        "schema_version": "1.0.0",
+                        "revision": 1,
+                        "idempotency_key": key,
+                        "request_digest": entry["request_digest"],
+                        "status": "published",
+                    },
+                )
+            if await self._advance(
+                state_key=state_key,
+                current=current,
+                revision=revision,
+                capacity=capacity,
+                next_sequence=next_sequence,
+                entries={k: e for k, e in entries.items() if k not in completed},
+            ):
+                self._compacted_shards.add(index)
+                return
+        raise RuntimeError("Huginn dedup shard compaction exceeded the bounded retry limit")
 
     async def _validate_terminal_request(
         self,
@@ -568,84 +654,6 @@ def _terminal_key(idempotency_key: str) -> str:
     return f"{_TERMINAL_PREFIX}{digest}"
 
 
-def _decode(
-    record: Mapping[str, Any] | None,
-) -> tuple[int, int | None, int, dict[str, dict[str, Any]]]:
-    if record is None:
-        return 0, None, 1, {}
-    revision = record.get("revision")
-    capacity = record.get("capacity")
-    next_sequence = record.get("next_sequence")
-    raw_entries = record.get("entries")
-    if isinstance(revision, bool) or not isinstance(revision, int) or revision < 1:
-        raise ValueError("Huginn dedup revision MUST be positive")
-    if isinstance(capacity, bool) or not isinstance(capacity, int) or capacity < 1:
-        raise ValueError("Huginn dedup capacity MUST be positive")
-    if isinstance(next_sequence, bool) or not isinstance(next_sequence, int) or next_sequence < 1:
-        raise ValueError("Huginn dedup next sequence MUST be positive")
-    if not isinstance(raw_entries, Mapping) or len(raw_entries) > capacity:
-        raise ValueError("Huginn dedup entries are malformed")
-    entries: dict[str, dict[str, Any]] = {}
-    sequences: set[int] = set()
-    for key, raw_entry in raw_entries.items():
-        if not isinstance(key, str) or not key or not isinstance(raw_entry, Mapping):
-            raise ValueError("Huginn dedup entry is malformed")
-        entry = dict(raw_entry)
-        digest = entry.get("request_digest")
-        status = entry.get("status")
-        sequence = entry.get("sequence")
-        if (
-            not _is_digest(digest)
-            or status not in {"pending", "published"}
-            or isinstance(sequence, bool)
-            or not isinstance(sequence, int)
-            or sequence < 1
-            or sequence in sequences
-            or sequence >= next_sequence
-        ):
-            raise ValueError("Huginn dedup entry identity is malformed")
-        sequences.add(sequence)
-        if status == "pending":
-            if (
-                not isinstance(entry.get("owner_token"), str)
-                or not entry["owner_token"]
-                or not isinstance(entry.get("lease_expires_at"), str)
-                or not isinstance(entry.get("payload"), Mapping)
-                or entry.get("change_projection") is not None
-                and not isinstance(entry.get("change_projection"), Mapping)
-            ):
-                raise ValueError("Huginn pending dedup entry is malformed")
-            _parse_time(entry["lease_expires_at"])
-            _published_topics(entry)
-        elif any(
-            (
-                entry.get("owner_token") != "",
-                entry.get("lease_expires_at") != "",
-                entry.get("payload") is not None,
-                entry.get("change_projection") is not None,
-            )
-        ):
-            raise ValueError("Huginn published dedup entry retains pending state")
-        entries[key] = entry
-    return revision, capacity, next_sequence, entries
-
-
-def _encode(
-    *,
-    revision: int,
-    capacity: int,
-    next_sequence: int,
-    entries: Mapping[str, Mapping[str, Any]],
-) -> dict[str, Any]:
-    return {
-        "schema_version": "1.0.0",
-        "revision": revision,
-        "capacity": capacity,
-        "next_sequence": next_sequence,
-        "entries": {key: dict(entry) for key, entry in entries.items()},
-    }
-
-
 def _claim_from_entry(entry: Mapping[str, Any]) -> HuginnIngressClaim:
     payload = _json_mapping(entry.get("payload"), field="payload")
     raw_change = entry.get("change_projection")
@@ -657,75 +665,6 @@ def _claim_from_entry(entry: Mapping[str, Any]) -> HuginnIngressClaim:
         change_projection=change,
         published_topics=frozenset(_published_topics(entry)),
     )
-
-
-def _published_topics(entry: Mapping[str, Any]) -> tuple[str, ...]:
-    raw_topics = entry.get("published_topics", ())
-    if raw_topics in (None, ()):
-        return ()
-    if not isinstance(raw_topics, list | tuple):
-        raise ValueError("Huginn published topic markers are malformed")
-    topics: list[str] = []
-    for topic in raw_topics:
-        if topic not in {"object.event", "object.change"} or topic in topics:
-            raise ValueError("Huginn published topic marker is invalid")
-        topics.append(topic)
-    return tuple(topics)
-
-
-def _validate_request(
-    entry: Mapping[str, Any],
-    *,
-    request_digest: str,
-    legacy_request_digest: str | None = None,
-) -> None:
-    retained = entry.get("request_digest")
-    if retained != request_digest and (
-        legacy_request_digest is None or retained != legacy_request_digest
-    ):
-        raise ValueError("Huginn idempotency key collides with another raw request")
-
-
-def _json_mapping(value: object, *, field: str) -> dict[str, Any]:
-    if not isinstance(value, Mapping):
-        raise ValueError(f"Huginn dedup {field} MUST be an object")
-    try:
-        encoded = json.dumps(
-            value,
-            allow_nan=False,
-            ensure_ascii=True,
-            separators=(",", ":"),
-            sort_keys=True,
-        )
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"Huginn dedup {field} MUST be canonical JSON") from exc
-    decoded = json.loads(encoded)
-    if not isinstance(decoded, dict):
-        raise ValueError(f"Huginn dedup {field} MUST be an object")
-    return decoded
-
-
-def _clock_now(clock: Callable[[], datetime]) -> datetime:
-    now = clock()
-    if now.tzinfo is None or now.utcoffset() is None:
-        raise ValueError("Huginn dedup clock MUST be timezone-aware")
-    return now.astimezone(UTC)
-
-
-def _parse_time(value: str) -> datetime:
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError as exc:
-        raise ValueError("Huginn dedup lease timestamp is malformed") from exc
-    if parsed.tzinfo is None or parsed.utcoffset() is None:
-        raise ValueError("Huginn dedup lease timestamp MUST be timezone-aware")
-    return parsed.astimezone(UTC)
-
-
-def _is_digest(value: object) -> bool:
-    if not isinstance(value, str) or not value.startswith("sha256:") or len(value) != 71:
-        return False
-    return all(character in "0123456789abcdef" for character in value[7:])
 
 
 __all__ = [

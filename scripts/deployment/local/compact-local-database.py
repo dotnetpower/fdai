@@ -45,6 +45,13 @@ _OWNER_DSN_ENV = "FDAI_DATABASE_URL"
 _CONNECT_TIMEOUT_SECONDS = 5
 _CONNECTION_OPTIONS = "-c statement_timeout=30000 -c lock_timeout=1000"
 _CHECKPOINT_BATCH = 2_000
+# Disposable evidence rows whose audit summary is retained elsewhere: newest-N windows that no
+# running service bounds. An optional (field, value) pair limits a window to finished rows.
+# Publication fences such as analyzer-publication rows are never listed: deleting one could
+# republish a record the broker already holds.
+_LOCAL_WINDOWS: dict[str, tuple[int, tuple[str, str] | None]] = {
+    "hil_park:": (500, ("status", "resolved")),
+}
 _UNREACHABLE_USAGE_SQL = (
     "SELECT count(*), COALESCE(sum(pg_column_size(value)), 0) FROM state_kv "
     "WHERE starts_with(key, %s) AND updated_at < %s AND NOT (key = ANY(%s))"
@@ -76,15 +83,20 @@ def _usage(dsn: str, prefix: str, keep: int) -> dict[str, int]:
         dsn, connect_timeout=_CONNECT_TIMEOUT_SECONDS, options=_CONNECTION_OPTIONS
     ) as connection:
         connection.execute("SET default_transaction_read_only = on")
+        window_filter = _LOCAL_WINDOWS.get(prefix, (0, None))[1]
         row = connection.execute(
             "SELECT count(*), COALESCE(sum(value_bytes), 0), "
             "COALESCE(sum(value_bytes) FILTER (WHERE retained_rank <= %s), 0) FROM ("
             "SELECT pg_column_size(value) AS value_bytes, "
             "row_number() OVER (ORDER BY updated_at DESC, key DESC) AS retained_rank "
-            "FROM state_kv WHERE key LIKE %s ESCAPE '\\') AS ranked",
+            "FROM state_kv WHERE key LIKE %s ESCAPE '\\' "
+            "AND (%s::text IS NULL OR value->>%s = %s)) AS ranked",
             (
                 keep,
                 prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%",
+                window_filter[1] if window_filter else None,
+                window_filter[0] if window_filter else "",
+                window_filter[1] if window_filter else "",
             ),
         ).fetchone()
     if row is None:
@@ -112,6 +124,7 @@ def _bounds(dsn: str) -> dict[str, int]:
         BASELINE_EVALUATION_OUTCOME_PREFIX: max(2 * largest, BASELINE_EVALUATION_MIN_RETENTION),
         NO_RULE_FOLD_PREFIX: NO_RULE_FOLD_RETENTION,
         AKS_DIAGNOSTIC_RECEIPT_PREFIX: AKS_DIAGNOSTIC_RECEIPT_RETENTION,
+        **{prefix: keep for prefix, (keep, _filter) in _LOCAL_WINDOWS.items()},
     }
 
 
@@ -207,7 +220,14 @@ async def _run(
         for prefix, keep in bounds.items():
             rows = int(prefixes[prefix]["rows"])
             removed = (
-                await store.delete_states_beyond(prefix, retain_newest=keep) if rows > keep else 0
+                await store.delete_states_beyond(
+                    prefix,
+                    retain_newest=keep,
+                    field=(_LOCAL_WINDOWS.get(prefix, (0, None))[1] or (None, None))[0],
+                    value=(_LOCAL_WINDOWS.get(prefix, (0, None))[1] or (None, None))[1],
+                )
+                if rows > keep
+                else 0
             )
             prefixes[prefix]["deleted"] = removed
             remaining = _usage(dsn, prefix, keep)
