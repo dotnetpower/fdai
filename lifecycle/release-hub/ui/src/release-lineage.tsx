@@ -174,8 +174,11 @@ function LineageCanvas({
                           ✓
                         </span>
                       )}
-                      {node.status === "running" && (
+                      {node.status === "running" && node.id === "__building_draft__" && (
                         <span class="rh-badge-spinner" aria-hidden="true" />
+                      )}
+                      {node.status === "running" && node.id !== "__building_draft__" && (
+                        <span class="rh-badge-check" aria-hidden="true">●</span>
                       )}
                       {node.status === "recalled" && (
                         <span class="rh-badge-recall" aria-hidden="true">
@@ -194,7 +197,7 @@ function LineageCanvas({
                   aria-pressed={onSelectNode ? isSelected : undefined}
                   aria-current={isSelected ? "step" : undefined}
                   title={hintLabel ?? `${node.title} (${node.subtitle})`}
-                  class={`rh-lineage-card status-${node.status} ${node.status === "running" ? "is-running" : ""} ${isSelected ? "is-selected" : ""} ${hintLabel ? "is-actionable" : ""}`}
+                  class={`rh-lineage-card status-${node.status} ${node.id === "__building_draft__" ? "is-running" : ""} ${isSelected ? "is-selected" : ""} ${hintLabel ? "is-actionable" : ""}`}
                   onClick={() => onSelectNode?.(node)}
                   onKeyDown={(e) => {
                     if (!onSelectNode) return;
@@ -240,6 +243,7 @@ export function ReleaseLineageSection({
   buildingDraft,
   disabled,
   onAct,
+  onQuickPromote,
   onComparePair,
 }: {
   catalog: Catalog;
@@ -248,6 +252,7 @@ export function ReleaseLineageSection({
   buildingDraft?: { id: string; stencilId: string; label?: string | undefined } | null | undefined;
   disabled?: boolean | undefined;
   onAct?: ((action: Action, release: Release) => void) | undefined;
+  onQuickPromote?: ((release: Release) => Promise<void> | void) | undefined;
   onComparePair?: ((baseId: string, targetId: string) => void) | undefined;
 }) {
   const t = (en: string, ko: string) => (locale === "ko" ? ko : en);
@@ -307,8 +312,8 @@ export function ReleaseLineageSection({
             {t(`Complete: ${summary.complete}`, `운영 완료: ${summary.complete}`)}
           </span>
           <span class="rh-lineage-badge status-running">
-            <span class="rh-badge-spinner" aria-hidden="true" />
-            {t(`Running / Active: ${summary.running}`, `진행 중: ${summary.running}`)}
+            <span class="rh-badge-check" aria-hidden="true">●</span>
+            {t(`Staged (DEV / RC): ${summary.running}`, `DEV/RC 단계(승격 대기): ${summary.running}`)}
           </span>
           <span class="rh-lineage-badge status-recalled">
             <span class="rh-badge-recall" aria-hidden="true">✕</span>
@@ -384,16 +389,29 @@ export function ReleaseLineageSection({
                   {t("Sign & Publish to DEV", "DEV 서명 및 발행")}
                 </button>
               )}
-              {onAct && nextPromotionTransition(selectedRelease) && (
+              {nextPromotionTransition(selectedRelease) && onQuickPromote && (
                 <button
                   type="button"
                   class="primary"
+                  disabled={disabled}
+                  onClick={() => void onQuickPromote(selectedRelease)}
+                >
+                  {t(
+                    `1-Click Promote to ${nextPromotionTransition(selectedRelease)!.targetChannel}`,
+                    `원클릭 ${nextPromotionTransition(selectedRelease)!.targetChannel} 즉시 승격`,
+                  )}
+                </button>
+              )}
+              {onAct && nextPromotionTransition(selectedRelease) && (
+                <button
+                  type="button"
+                  class={onQuickPromote ? "chip-btn" : "primary"}
                   disabled={disabled}
                   onClick={() => onAct("promote", selectedRelease)}
                 >
                   {t(
                     `Promote to ${nextPromotionTransition(selectedRelease)!.targetChannel}`,
-                    `${nextPromotionTransition(selectedRelease)!.targetChannel} 단계로 승격`,
+                    `${nextPromotionTransition(selectedRelease)!.targetChannel} 단계로 승격 (옵션)`,
                   )}
                 </button>
               )}

@@ -415,14 +415,17 @@ export function buildReleaseLineageGraph(
 
     const workloadsCount = st?.enabled_workloads.length ?? 3;
     const menusCount = st?.enabled_panel_ids.length ?? 32;
+    const isActivelyMutating = Boolean(options?.activeReleaseId && options.activeReleaseId === rel.id);
     const badgeInfo =
       status === "complete"
-        ? { en: `Complete · ${stageLabel}`, ko: `승격 완료 · ${stageLabel}` }
+        ? { en: `Complete · ${stageLabel}`, ko: `운영 승격 완료 · ${stageLabel}` }
         : status === "running"
-          ? {
-              en: rel.state === "draft" ? "Building · Draft" : `Running · ${stageLabel}`,
-              ko: rel.state === "draft" ? "빌드/서명 대기 · 초안" : `검증 진행 중 · ${stageLabel}`,
-            }
+          ? isActivelyMutating
+            ? { en: `Updating · ${stageLabel}`, ko: `처리 중 · ${stageLabel}` }
+            : {
+                en: rel.state === "draft" ? "Draft · Unsigned" : `Staged · ${stageLabel}`,
+                ko: rel.state === "draft" ? "초안 · 미서명" : `${stageLabel} 발행됨 (승격 대기)`,
+              }
           : status === "recalled"
             ? rel.state === "recalled"
               ? { en: "Recalled · Release", ko: "긴급 회수됨" }

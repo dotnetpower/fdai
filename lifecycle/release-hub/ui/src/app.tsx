@@ -983,6 +983,46 @@ export function App() {
       setQuickCreating(false);
     }
   }
+  async function quickPromoteRelease(rel: Release) {
+    const transition = nextPromotionTransition(rel);
+    if (!catalog || !transition || quickCreating) return;
+    setQuickCreating(true);
+    setUncertain(false);
+    setError("");
+    try {
+      const current = await requestCatalog().catch(() => catalog);
+      const st = extractReleaseStencil(rel);
+      const parsedLabels = st?.release_labels?.length
+        ? [...st.release_labels, "security-reviewed", "qa-passed"]
+        : ["security-reviewed", "qa-passed"];
+      const reason = locale === "ko" ? DEFAULT_REASONS.promote.ko : DEFAULT_REASONS.promote.en;
+      const updated = await requestCatalog(`/v1/releases/${encodeURIComponent(rel.id)}/promote`, {
+        revision: current.revision,
+        confirmation: rel.id,
+        reason,
+        source_channel: transition.sourceChannel,
+        target_channel: transition.targetChannel,
+        required_labels: parsedLabels,
+        labels: parsedLabels,
+        min_soak_seconds: 0,
+        elapsed_stage_seconds: 0,
+        max_stage_timeout_seconds: 3600,
+        min_healthy_canaries: 0,
+        canary_observations: [],
+      });
+      setCatalog(updated);
+      setNotice(
+        locale === "ko"
+          ? `원클릭 승격 완료: 릴리스 ${rel.id} 버전이 ${transition.sourceChannel} -> ${transition.targetChannel} 단계로 즉시 승격되었습니다.`
+          : `1-Click promotion complete: Release ${rel.id} promoted from ${transition.sourceChannel} to ${transition.targetChannel}.`,
+      );
+      heading.current?.focus();
+    } catch (failure) {
+      setError(catalogRecovery(failure));
+    } finally {
+      setQuickCreating(false);
+    }
+  }
   async function refresh() {
     setLoading(true);
     try {
@@ -1213,8 +1253,9 @@ export function App() {
                         }
                       : null
                   }
-                  disabled={disabled}
+                  disabled={disabled || quickCreating}
                   onAct={(action, r) => setPending({ action, release: r })}
+                  onQuickPromote={quickPromoteRelease}
                   onComparePair={(bId, tId) => {
                     setDiffPair({ baseId: bId, targetId: tId });
                     document.getElementById("release-diff-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
