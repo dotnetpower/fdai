@@ -581,3 +581,76 @@ def test_release_hub_readyz_head_security_headers_and_0_5_x_patch_defaults(
         json={"mode": "workstation", "principal": "op@contoso.com", "display_name": "bad\nname"},
     )
     assert bad_entra.status_code == 422
+
+
+def test_oci_v2_registry_pipeline_and_real_digest_binding(
+    client: TestClient,
+) -> None:
+    v2_base = client.get("/v2/")
+    assert v2_base.status_code == 200
+    assert v2_base.headers["Docker-Distribution-Api-Version"] == "registry/2.0"
+
+    v2_cat = client.get("/v2/_catalog")
+    assert v2_cat.status_code == 200
+    assert "fdai/core-control-plane" in v2_cat.json()["repositories"]
+
+    reg_inv = client.get("/v1/registry/images")
+    assert reg_inv.status_code == 200
+    assert "core-control-plane" in reg_inv.json()["docker_components"]
+
+    explicit_digest = "sha256:" + "e" * 64
+    compose_resp = client.post(
+        "/v1/stencils/compose",
+        json={
+            "stencil_id": "lite-observe-alert",
+            "release_version": "0.5.9",
+            "source_commit": "c" * 40,
+            "component_digests": {
+                "core-control-plane": explicit_digest,
+            },
+            "tag_local_docker": False,
+        },
+    )
+    assert compose_resp.status_code == 200
+    composed = compose_resp.json()
+    core_comp = composed["release_manifest"]["components"]["core-control-plane"]
+    assert core_comp["image_digest"] == explicit_digest
+    assert core_comp["image_ref"].endswith(f"@{explicit_digest}")
+    assert "registry_pipeline" in composed["footprint"]
+
+    # Verify the published OCI v2 manifest is retrievable by exact digest and tag via HEAD and GET
+    head_resp = client.head(f"/v2/fdai/core-control-plane/manifests/{explicit_digest}")
+    assert head_resp.status_code == 200
+    assert head_resp.headers["Docker-Content-Digest"] == explicit_digest
+
+    get_resp = client.get(f"/v2/fdai/core-control-plane/manifests/{explicit_digest}")
+    assert get_resp.status_code == 200
+    assert get_resp.headers["Docker-Content-Digest"] == explicit_digest
+    oci_doc = get_resp.json()
+    assert oci_doc["schemaVersion"] == 2
+    assert oci_doc["config"]["digest"] == explicit_digest
+    assert oci_doc["annotations"]["org.opencontainers.image.version"] == "0.5.9"
+
+    # Also test PUT /v2/fdai/<component>/manifests/<ref>
+    put_payload = json.dumps(
+        {
+            "schemaVersion": 2,
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "config": {
+                "mediaType": "application/vnd.oci.image.config.v1+json",
+                "digest": explicit_digest,
+                "size": 128,
+            },
+            "layers": [],
+        }
+    )
+    put_resp = client.put(
+        "/v2/fdai/operator-service/manifests/0.5.9",
+        content=put_payload,
+        headers={"Content-Type": "application/vnd.oci.image.manifest.v1+json"},
+    )
+    assert put_resp.status_code == 201
+    pushed_digest = put_resp.headers["Docker-Content-Digest"]
+    assert pushed_digest.startswith("sha256:")
+    assert client.get(f"/v2/fdai/operator-service/manifests/{pushed_digest}").status_code == 200
+    assert client.get("/v2/fdai/unknown-comp/manifests/sha256:" + "0" * 64).status_code == 404

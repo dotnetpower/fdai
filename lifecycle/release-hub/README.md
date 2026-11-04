@@ -96,6 +96,10 @@ recall actions require an operator-authored reason rather than a prefilled test 
 The Releases and Stencil Builder views also provide 1-click preset and custom Stencil release
 creation (`1-Click Create Release` / `1-Click Compose & Register Release`) that composes the
 manifest, registers the release, and signs it into `DEV` in one step without modal friction.
+During Stencil composition, `registry_pipeline` inspects built local Docker images (or explicit
+`component_digests`), publishes canonical OCI Distribution v2 manifests served at
+`/v2/fdai/<component>/manifests/<reference>` and `/v1/registry/images`, and binds the verified
+`sha256` digests into `release_manifest.components`.
 
 Build the UI with `npm --prefix lifecycle/release-hub/ui run build`; the API serves the built
 application from the same loopback origin when the build exists. The `serve` command never

@@ -1275,6 +1275,9 @@ export function App() {
                           <span class="stencil-pill locked">{st.stencil_id}</span>
                           <span class="stencil-chip">{t(`${st.enabled_workloads.length} workloads · ${st.enabled_panel_ids.length} menus`, `컨테이너 ${st.enabled_workloads.length}개 · 메뉴 ${st.enabled_panel_ids.length}개`)}</span>
                           <span class="stencil-chip">{st.azure_rbac_posture === "read-only-observation" ? t("read-only-observation", "100% 읽기 전용") : t("governed-execution", "승인 기반 실행")}</span>
+                          {st.release_labels?.includes("digest:docker-verified") && (
+                            <span class="stencil-pill linked">{t("✓ Real OCI Digests", "✓ 실 이미지 다이제스트")}</span>
+                          )}
                         </div>
                       )}
                     </div>

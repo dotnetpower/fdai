@@ -20,6 +20,11 @@ from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.lifecycle_release import parse_lifecycle_release_manifest
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from fdai_release_hub.registry_pipeline import (
+    registry_inventory_payload,
+    resolve_and_bind_stencil_images,
+)
+
 STENCIL_DEFINITION_SCHEMA: Literal["fdai.stencil-definition.v1"] = "fdai.stencil-definition.v1"
 STENCIL_FEATURE_FLAGS_SCHEMA: Literal["fdai.stencil-feature-flags.v1"] = (
     "fdai.stencil-feature-flags.v1"
@@ -1484,6 +1489,9 @@ def build_stencil_release_manifest(
     source_commit: str,
     platform_tag: Literal["linux-x86_64", "linux-aarch64"] = "linux-x86_64",
     component_digests: Mapping[str, str] | None = None,
+    registry_host: str | None = None,
+    resolve_local_docker: bool = True,
+    tag_local_docker: bool = False,
 ) -> dict[str, Any]:
     """Generate a valid fdai.application-release.v2 manifest for the Stencil's components."""
 
@@ -1497,22 +1505,23 @@ def build_stencil_release_manifest(
         required_components.append("clamav")
     required_components.append("pgvector")
 
-    components: dict[str, dict[str, str]] = {}
-    for index, name in enumerate(sorted(set(required_components)), start=1):
-        provided = (component_digests or {}).get(name)
-        if provided is not None:
-            if not re.fullmatch(r"sha256:[0-9a-f]{64}\Z", provided):
-                raise ValueError(f"Invalid digest for component {name!r}.")
-            digest = provided
-        else:
-            seed = f"{stencil.digest}:{release_version}:{source_commit}:{name}:{index}".encode()
-            digest = "sha256:" + hashlib.sha256(seed).hexdigest()
-        components[name] = {
-            "image_digest": digest,
-            "image_ref": f"hub.msfdai.com/fdai/{name}@{digest}",
-        }
+    components, pipeline_summary = resolve_and_bind_stencil_images(
+        required_components=required_components,
+        stencil_id=stencil.stencil_id,
+        stencil_digest=stencil.digest,
+        release_version=release_version,
+        source_commit=source_commit,
+        explicit_digests=component_digests,
+        registry_host=registry_host,
+        resolve_local_docker=resolve_local_docker,
+        tag_local_docker=tag_local_docker,
+    )
 
     footprint = evaluate_stencil_footprint(stencil)
+    release_labels = list(footprint["release_labels"])
+    digest_label = f"digest:{pipeline_summary['digest_mode']}"
+    if digest_label not in release_labels:
+        release_labels.append(digest_label)
     manifest: dict[str, Any] = {
         "schema_version": "fdai.application-release.v2",
         "product": "fdai",
@@ -1535,7 +1544,7 @@ def build_stencil_release_manifest(
             "enabled_scheduled_jobs": list(stencil.enabled_scheduled_jobs),
             "enabled_panel_ids": list(stencil.enabled_panel_ids),
             "disabled_panel_ids": footprint["disabled_panel_ids"],
-            "release_labels": footprint["release_labels"],
+            "release_labels": release_labels,
             "feature_flags": footprint["feature_flags"],
         },
     }
@@ -1571,6 +1580,10 @@ class StencilComposeRequest(BaseModel):
     auto_resolve_dependencies: bool = True
     release_version: str = Field(default="0.5.0", min_length=1, max_length=64)
     source_commit: str = Field(default="auto", min_length=0, max_length=64)
+    component_digests: dict[str, str] | None = None
+    registry_host: str | None = None
+    resolve_local_docker: bool = True
+    tag_local_docker: bool = True
 
     @model_validator(mode="after")
     def _normalize_identifiers(self) -> StencilComposeRequest:
@@ -1601,6 +1614,7 @@ def stencil_catalog_payload() -> dict[str, Any]:
     return {
         "detected_source_commit": detected_commit,
         "detected_source_ref": detected_ref,
+        "registry": registry_inventory_payload(),
         "presets": [
             {
                 "stencil": preset.model_dump(mode="json"),
@@ -1684,13 +1698,36 @@ def compose_stencil_response(request: StencilComposeRequest) -> dict[str, Any]:
         stencil_digest=stencil.digest,
         release_version=request.release_version,
     )
+    required_components = list(stencil.enabled_workloads)
+    if "document-ingestion-api" in stencil.enabled_workloads:
+        required_components.append("clamav")
+    required_components.append("pgvector")
+    _, pipeline_summary = resolve_and_bind_stencil_images(
+        required_components=required_components,
+        stencil_id=stencil.stencil_id,
+        stencil_digest=stencil.digest,
+        release_version=request.release_version,
+        source_commit=resolved_commit,
+        explicit_digests=request.component_digests,
+        registry_host=request.registry_host,
+        resolve_local_docker=request.resolve_local_docker,
+        tag_local_docker=request.tag_local_docker,
+    )
     footprint = evaluate_stencil_footprint(stencil)
     footprint["source_commit"] = resolved_commit
     footprint["source_provenance_mode"] = provenance_mode
+    footprint["registry_pipeline"] = pipeline_summary
+    digest_label = f"digest:{pipeline_summary['digest_mode']}"
+    if digest_label not in footprint["release_labels"]:
+        footprint["release_labels"].append(digest_label)
     manifest = build_stencil_release_manifest(
         stencil,
         release_version=request.release_version,
         source_commit=resolved_commit,
+        component_digests=request.component_digests,
+        registry_host=request.registry_host,
+        resolve_local_docker=request.resolve_local_docker,
+        tag_local_docker=request.tag_local_docker,
     )
     return {
         "stencil": stencil.model_dump(mode="json"),

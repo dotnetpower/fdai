@@ -289,10 +289,16 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
         <dt>{t("Published", "발행 시각")}</dt><dd>{release.published_at ?? t("Not published", "발행되지 않음")}</dd>
         <dt>{t("All channels", "모든 채널")}</dt><dd>{release.channels.join(" / ") || t("None", "없음")}</dd>
       </dl>
-      <h2>{t("Declared artifacts", "선언된 아티팩트")}</h2>
-      <p>{t("Declared digests only. No registry, SBOM or provenance verification is established by this view.", "선언된 다이제스트만 표시합니다. 이 화면은 레지스트리, SBOM 또는 출처 검증을 입증하지 않습니다.")}</p>
+      <h2>{t("Declared artifacts & OCI v2 registry manifests", "선언된 컨테이너 아티팩트 및 OCI v2 레지스트리 매니페스트")}</h2>
+      <p>{t("Bound component image digests. Click any OCI v2 manifest link below to verify its published registry manifest and Docker-Content-Digest header.", "바인딩된 컴포넌트 이미지 다이제스트입니다. 아래 OCI v2 매니페스트 링크를 클릭하면 레지스트리에 발행된 실제 매니페스트와 Docker-Content-Digest 헤더를 검증할 수 있습니다.")}</p>
       <div class="artifact-list">{declaredArtifacts.map((artifact) => <article key={artifact.component}>
-        <h3>{artifact.component}</h3><code class="digest">{artifact.digest}</code>
+        <div class="preset-card-head">
+          <h3>{artifact.component}</h3>
+          <a class="chip-btn" href={`/v2/fdai/${encodeURIComponent(artifact.component)}/manifests/${encodeURIComponent(artifact.digest)}`} target="_blank" rel="noreferrer">
+            {t("OCI v2 manifest ->", "OCI v2 매니페스트 ->")}
+          </a>
+        </div>
+        <code class="digest">{artifact.digest}</code>
         <details><summary>{t("SBOM digest", "SBOM 다이제스트")}</summary><code class="digest" lang="en">{artifact.sbom}</code></details>
       </article>)}</div>
       <details><summary>{t("Exact manifest and detached signature", "정확한 매니페스트 및 분리된 서명")}</summary>
