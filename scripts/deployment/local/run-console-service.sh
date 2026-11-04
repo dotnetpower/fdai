@@ -224,6 +224,7 @@ case "$service" in
     service_command=(
       env -u AZURE_CONFIG_DIR
       FDAI_PANTHEON_HEARTBEAT_SECONDS=2
+      FDAI_STARTUP_KAFKA_SETTLE_SECONDS="${FDAI_STARTUP_KAFKA_SETTLE_SECONDS:-0.15}"
       FDAI_RUNTIME_LOCK_FILE="$repo_root/.fdai/core-runtime.lock"
       FDAI_SEMANTIC_SECOND_READER=1
       FDAI_SEMANTIC_COMPILED_ANSWERS=1
@@ -268,6 +269,8 @@ case "$service" in
       FDAI_INVENTORY_SCOPES="$AZURE_SUBSCRIPTION_ID"
       FDAI_INVENTORY_RECOVERY_DELTA=1
       FDAI_INVENTORY_OPERATOR_GRAPH_PROJECTION=1
+      # A local database grows with every full scan; the deployed default stays 120 seconds.
+      FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS="${FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS:-1800}"
       PYTHONPATH="$service_pythonpath"
       "$repo_root/.venv/bin/python" -m fdai.delivery.inventory_sync_cli --loop
     )

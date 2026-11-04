@@ -624,7 +624,7 @@ def test_console_launch_and_readiness_use_canonical_localhost_origin() -> None:
         item for item in launch["compounds"] if item["name"] == "Console Web: Full Stack"
     )
     assert "Console Web: Manual Studio" in full_stack["configurations"]
-    assert "Console Web: Code Security Worker" in full_stack["configurations"]
+    assert "Console Web: Code Security Worker" not in full_stack["configurations"]
     worker = next(
         item
         for item in launch["configurations"]

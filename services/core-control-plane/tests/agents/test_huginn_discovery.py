@@ -279,4 +279,5 @@ async def test_durable_dedup_migrates_and_compacts_legacy_journal() -> None:
         dedup_capacity=2,
     )
     assert await restarted.rehydrate() == 2
-    assert await restarted.ingest(first) is not None
+    # Migrated completions keep their terminal receipts for the whole receipt window.
+    assert await restarted.ingest(first) is None

@@ -103,6 +103,10 @@ observer.
 The role-gated Console projection distinguishes an unavailable proposal source from a current
 empty proposal set. When no current proposal exists, the view explains that it updates only after
 observer evidence arrives and that it cannot install an observer or grant execution authority.
+A proposal that no notification was ever attempted for has no durable dispatch plan. Discovery treats that
+as nothing delivered and lets the first publication create the plan, instead of failing the inventory
+service; a plan that exists but is incomplete still fails closed. This changes no proposal content,
+authority, or delivery guarantee.
 
 Two signed collectors cover constraints that were previously operator-asserted. Each fact is a
 necessary-condition observation, so Azure evidence can deny or stay `unknown` but never grants a

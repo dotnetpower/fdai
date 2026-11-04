@@ -149,6 +149,43 @@ Heimdall also stops tracking a full-reconciliation observation that Huginn corre
 generation-scoped key, because such an episode can never gather a second event. Observations with an
 explicit shared correlation identifier are still tracked.
 
+## Keep ingress dedup small and archive cold audit rows
+
+Huginn's ingress dedup shards used to retain every completed key, so each ingress event rewrote
+a shard row of roughly 225 KB several times. The shards now keep only in-flight claims; the
+terminal receipt is the completed-key fence and is pruned every few hundred completions. A shard
+written by the older layout is compacted once on first touch: its completed entries gain terminal
+receipts before they leave the shard, so the duplicate fence never narrows. The receipt window is
+four dedup windows, which is wider than the shard window it replaces.
+
+Completion first validates request identity, claim ownership, and required publication legs,
+then commits the completed shard entry through revision-fenced compare-and-swap. Only that
+acknowledged checkpoint can produce a terminal receipt. Interrupted receipt writes recover
+from the completed entry; rejected or contended completion never creates a success fence.
+
+The local launcher sets `FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS` to `1800` for the
+reconciliation service, because every full scan writes a generation and re-evaluates every changed
+Resource. Override it in the environment; the deployed default stays `120`. The local Postgres
+container uses `wal_compression=zstd`, `max_wal_size=512MB`, and a 256 MB `/dev/shm`, which
+also lets parallel `VACUUM` run.
+
+`compact-local-database.py` also keeps the newest 500 resolved `hil_park:` rows. It never lists
+publication fences such as `analyzer-publication:` rows, because deleting one could republish a
+record the broker already holds.
+
+To copy old audit rows out of the table, run the following from the repository root:
+
+```bash
+uv run python scripts/deployment/local/archive-audit-segments.py --older-than-days 2
+```
+
+Each segment is a contiguous run of `audit_log` rows as Zstandard-compressed JSON lines, about 7
+times smaller than the stored JSON. The script recomputes the hash chain before and after writing,
+anchors each segment to the previous one in `.fdai/audit-archive/manifest.jsonl`, and keeps the
+newest 512 rows and everything younger than the cutoff. It deletes nothing. `verify_chain` still
+walks the table from genesis, so removing exported rows needs a verifier that accepts a manifest
+anchor; until then the table does not shrink.
+
 ## Explicitly recreate a disposable development database
 
 Ordinary preparation and `--allow-recreate` preserve an under-limit database. After reviewing backup

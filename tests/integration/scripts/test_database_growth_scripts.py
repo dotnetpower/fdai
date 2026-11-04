@@ -109,8 +109,8 @@ async def test_compaction_vacuum_has_connection_and_lock_deadlines(
     assert connect.call_args.args == ("FDAI_DATABASE_URL",)
     assert connect.call_args.kwargs["autocommit"] is True
     assert connect.call_args.kwargs["connect_timeout"] == 5
-    assert "statement_timeout=30000" in connect.call_args.kwargs["options"]
-    assert "lock_timeout=1000" in connect.call_args.kwargs["options"]
+    assert "statement_timeout=120000" in connect.call_args.kwargs["options"]
+    assert "lock_timeout=15000" in connect.call_args.kwargs["options"]
     connection = connect.return_value.__enter__.return_value
     assert connection.execute.call_args_list[0].args[0] == "VACUUM (ANALYZE) state_kv"
     assert report["vacuum_mode"] == "ordinary"
@@ -445,3 +445,74 @@ async def test_heimdall_checkpoint_cleanup_keeps_reachable_rows_and_batches_dele
     assert all(
         call.args[1][2] == sorted(reachable) and call.args[1][3] == 2_000 for call in deletes
     )
+
+
+def _chain(count: int, *, anchor: str | None = None) -> list[dict[str, object]]:
+    from fdai.shared.providers.audit_hash import GENESIS_HASH, next_hash
+
+    previous, records = anchor or GENESIS_HASH, []
+    for seq in range(1, count + 1):
+        entry = {"action_kind": "example", "n": seq}
+        digest = next_hash(previous, entry)
+        records.append(
+            {"seq": seq, "entry": entry, "previous_hash": previous, "entry_hash": digest}
+        )
+        previous = digest
+    return records
+
+
+def _archive_module() -> ModuleType:
+    sys.path[:0] = [
+        str(_ROOT / "services/core-control-plane/src"),
+        str(_ROOT / "packages/service-contracts/src"),
+    ]
+    return _load("archive_audit_segments", "archive-audit-segments.py")
+
+
+def test_audit_segment_round_trips_and_is_anchored(tmp_path: Path) -> None:
+    module = _archive_module()
+    records = _chain(50)
+
+    entry = module.write_segment(tmp_path, records, anchor="0" * 64)
+
+    assert entry["rows"] == 50 and entry["last_entry_hash"] == records[-1]["entry_hash"]
+    restored = module._decode(
+        module.decompress_bytes(
+            (tmp_path / entry["segment"]).read_bytes(),
+            max_output_size=10_000_000,
+            expected_uncompressed_sha256=entry["uncompressed_sha256"],
+        )
+    )
+    assert module.verify_records(restored, anchor="0" * 64) == entry["last_entry_hash"]
+    assert not list(tmp_path.glob("*.partial"))
+
+
+def test_tampered_or_unanchored_audit_rows_are_never_written(tmp_path: Path) -> None:
+    module = _archive_module()
+    tampered = _chain(5)
+    tampered[2]["entry"] = {"action_kind": "example", "n": 999}
+
+    with pytest.raises(ValueError, match="hash mismatch"):
+        module.write_segment(tmp_path, tampered, anchor="0" * 64)
+    with pytest.raises(ValueError, match="link broken"):
+        module.write_segment(tmp_path, _chain(5), anchor="f" * 64)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_manifest_must_be_one_contiguous_chain(tmp_path: Path) -> None:
+    module = _archive_module()
+    first = module.write_segment(tmp_path, _chain(3), anchor="0" * 64)
+    (tmp_path / "manifest.jsonl").write_text(
+        json.dumps(first) + "\n" + json.dumps({**first, "first_previous_hash": "e" * 64}) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit, match="contiguous"):
+        module.read_manifest(tmp_path)
+
+
+def test_compaction_windows_include_resolved_hil_park_only() -> None:
+    module = _load("compact_database_windows", "compact-local-database.py")
+
+    assert module._LOCAL_WINDOWS["hil_park:"] == (500, ("status", "resolved"))
+    assert not any(prefix.startswith("analyzer-publication") for prefix in module._LOCAL_WINDOWS)

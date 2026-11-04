@@ -315,6 +315,9 @@ if [[ -n "$local_subscription_id" ]]; then
     exit 1
   fi
   default_subscription_id="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" account show --query id -o tsv 2>/dev/null || true)"
+  if [[ ! "$default_subscription_id" =~ $subscription_pattern ]]; then
+    default_subscription_id=""
+  fi
   if [[ -n "$default_subscription_id" && "$default_subscription_id" != "$subscription_id" ]]; then
     echo "the Azure CLI default subscription differs from the pinned local subscription; using the pinned one" >&2
   fi
@@ -324,8 +327,10 @@ else
     echo "the Azure CLI login did not return a subscription GUID" >&2
     exit 1
   fi
-  printf 'FDAI_LOCAL_SUBSCRIPTION_ID=%s\n' "$subscription_id" >> "$SOURCE_ENV"
-  echo "pinned the local subscription to the current Azure CLI login in console/.env.local" >&2
+  if ! grep -Fxq "FDAI_LOCAL_SUBSCRIPTION_ID=$subscription_id" "$SOURCE_ENV"; then
+    printf 'FDAI_LOCAL_SUBSCRIPTION_ID=%s\n' "$subscription_id" >> "$SOURCE_ENV"
+    echo "pinned the local subscription to the current Azure CLI login in console/.env.local" >&2
+  fi
 fi
 tenant_id="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" account show --subscription "$subscription_id" --query tenantId -o tsv)"
 echo "preparing local Docker state with an explicitly selected Azure read scope" >&2

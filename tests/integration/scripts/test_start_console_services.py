@@ -904,6 +904,8 @@ def test_supervisor_starts_one_restricted_code_security_worker() -> None:
     launcher = _RUN_SERVICE_SCRIPT.read_text(encoding="utf-8")
 
     assert supervisor.count("\n  code-security-worker\n") == 1
+    assert 'local_code_security_worker="${local_code_security_worker:-0}"' in supervisor
+    assert 'if [[ "$local_code_security_worker" == "1" ]]; then' in supervisor
     assert 'env_file=".fdai/local-code-security-worker.env"' in launcher
     assert "FDAI_DATABASE_ROLE=fdai_code_security_worker" in launcher
     assert "--state-access restricted" in launcher
@@ -1337,9 +1339,11 @@ def test_code_security_cache_reuse_requires_resolved_snapshot() -> None:
 
 
 @pytest.mark.parametrize("auth_mode", ["browser-entra", "azure-cli"])
+@pytest.mark.parametrize("code_security_worker", ["0", "1"])
 def test_preparation_reuses_an_unchanged_healthy_stack(
     tmp_path: Path,
     auth_mode: str,
+    code_security_worker: str,
 ) -> None:
     repo = tmp_path / "repo"
     prepare_script = repo / "scripts/deployment/local/prepare-console-full-stack.sh"
@@ -1380,6 +1384,7 @@ def test_preparation_reuses_an_unchanged_healthy_stack(
     )
     (repo / "console/package.json").write_text("{}\n", encoding="utf-8")
     (repo / "console/package-lock.json").write_text("{}\n", encoding="utf-8")
+    _write_executable(repo / "console/node_modules/.bin/npm", "#!/usr/bin/env bash\nexit 0\n")
     _write_executable(repo / "console/node_modules/.bin/vite", "#!/usr/bin/env bash\nexit 0\n")
     _write_ready_dependency_script(repo)
     (repo / "resolved-models.json").write_text("prepared\n", encoding="utf-8")
@@ -1412,14 +1417,18 @@ esac
     result = subprocess.run(  # noqa: S603 - fixed test script and executable.
         [_BASH, str(prepare_script), "--auth-mode", auth_mode],
         cwd=repo,
-        env={**os.environ, "PATH": f"{repo / 'console/node_modules/.bin'}:{os.environ['PATH']}"},
+        env={
+            **os.environ,
+            "PATH": f"{repo / 'console/node_modules/.bin'}:{os.environ['PATH']}",
+            "FDAI_LOCAL_CODE_SECURITY_WORKER": code_security_worker,
+        },
         capture_output=True,
         text=True,
         check=False,
         timeout=3,
     )
 
-    assert result.returncode == 0
+    assert result.returncode == 0, result.stderr
     assert "service=console-preparation event=reused" in result.stdout
     assert re.fullmatch(
         (
@@ -1626,7 +1635,32 @@ exit 99
     _write_executable(bin_dir / "az", "#!/usr/bin/env bash\nexit 0\n")
     _write_executable(bin_dir / "npm", "#!/usr/bin/env bash\nexit 0\n")
     _write_executable(bin_dir / "opa", "#!/usr/bin/env bash\nexit 0\n")
-    return repo, {"PATH": f"{bin_dir}:/usr/bin:/bin"}
+    return repo, {
+        "PATH": f"{bin_dir}:/usr/bin:/bin",
+        "FDAI_LOCAL_CODE_SECURITY_WORKER": "1",
+    }
+
+
+def test_preparation_skips_code_security_stages_by_default(tmp_path: Path) -> None:
+    repo, environment = _staged_preparation_repo(tmp_path)
+    default_env = {
+        key: value for key, value in environment.items() if key != "FDAI_LOCAL_CODE_SECURITY_WORKER"
+    }
+
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [_BASH, str(repo / "scripts/deployment/local/prepare-console-full-stack.sh")],
+        cwd=repo,
+        env=default_env,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.count("event=reused") == 8
+    assert "stage=code-security-scanner-image" not in result.stdout
+    assert "stage=code-security-vulnerability-cache" not in result.stdout
 
 
 def test_authoritative_settings_stage_tracks_runtime_setting_definitions() -> None:

@@ -197,7 +197,6 @@
         "Console Web: Document Ingestion API",
         "Console Web: Document Processing Worker",
         "Console Web: Isolated Executor",
-        "Console Web: Code Security Worker",
         "Console Web: Frontend",
         "Console Web: Manual Studio"
       ],

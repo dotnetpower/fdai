@@ -1,8 +1,8 @@
 ---
 title: AKS 역방향 커넥터
 translation_of: aks-outbound-connector.md
-translation_source_sha: c9885fb75fcfb68471067af963e968431f82ef9a
-translation_revised: 2026-10-31
+translation_source_sha: bb6d489d06ff1606da28effabc73cc87fc04e679
+translation_revised: 2026-11-04
 ---
 # AKS 역방향 커넥터
 
@@ -102,6 +102,9 @@ Observer 제안 발견은 기존 알림 라우터와 채널별 영속 전달 저
 역할로 제한된 Console 변환 결과는 제안 출처를 사용할 수 없는 상태와 현재 제안이 0건인
 상태를 구분합니다. 현재 제안이 없으면 관측 근거가 도착한 뒤에만 화면이 갱신되며 이 화면에서
 Observer를 설치하거나 실행 권한을 부여할 수 없다고 설명합니다.
+알림을 한 번도 시도하지 않은 제안은 영속 dispatch plan이 없습니다. 발견 단계는 이를 전달된 것이 없는
+상태로 보고 첫 게시가 plan을 만들게 하며 inventory 서비스를 실패시키지 않습니다. plan이 있지만
+불완전하면 여전히 안전하게 실패합니다. 제안 내용, 권한, 전달 보장은 바뀌지 않습니다.
 
 지금까지 운영자가 단언하던 제약은 서명된 수집기 두 개가 다룹니다. 각 사실은 필요 조건만 관찰하므로
 Azure 근거는 방법을 거부하거나 `unknown`으로 둘 수 있지만 방법을 허가하지는 못합니다.

@@ -22,6 +22,11 @@ from fdai.core.notifications.delivery import (
 )
 from fdai.delivery.persistence.postgres import PostgresStateStoreConfig
 
+
+class NotificationDispatchPlanMissingError(RuntimeError):
+    """No dispatch plan was recorded for the audit identity: nothing was ever attempted."""
+
+
 _DISPATCH_PREFIX = "notification-dispatch:"
 _DELIVERY_PREFIX = "notification-delivery:"
 
@@ -326,6 +331,7 @@ class PostgresNotificationDeliveryStore:
             "SELECT value FROM state_kv WHERE key = %s",
             (_dispatch_key(audit_id),),
             "notification dispatch plan does not exist",
+            NotificationDispatchPlanMissingError,
         )
         value = _mapping(row["value"], "notification dispatch plan")
         targets = _string_tuple(value.get("target_channel_ids"), "target_channel_ids")
@@ -491,11 +497,12 @@ async def _fetch_required(
     query: str,
     params: tuple[object, ...],
     message: str,
+    error: type[RuntimeError] = RuntimeError,
 ) -> dict[str, Any]:
     cursor = await connection.execute(query, params)
     row = await cursor.fetchone()
     if row is None:
-        raise RuntimeError(message)
+        raise error(message)
     return row
 
 

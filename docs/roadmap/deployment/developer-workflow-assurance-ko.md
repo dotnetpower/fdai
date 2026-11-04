@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: f9e22bcb5278d8bbe55fc375a04ea0041a5cbea8
-translation_revised: 2026-11-01
+translation_source_sha: e0dcac5c62a50063d991c0af1031d68502173934
+translation_revised: 2026-11-04
 ---
 
 # 개발 워크플로 보증
@@ -438,6 +438,16 @@ checkout만 미리 보거나 제거하며, `developer_workflow_worktrees.py sync
 빌드 입력 변경 검사, 알 수 없는 경로의 보수적 분류 및 보호된 후보 검증으로 각 담당 단계의
 검사를 유지합니다. 대기열, 준비, 검사 실행 및 반복 작업 시간을 구분해 측정하며,
 비교 가능한 실행 근거 없이 지연 감소를 주장하지 않습니다.
+
+## 로컬 데이터베이스 증가 통제
+
+루프백 5432 포트의 런타임 데이터베이스는 삭제 가능하지만 크기를 제한합니다. 준비 단계는
+`FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES`(2 GiB)를 넘으면 압축하거나 명시적으로 재생성하기
+전까지 진행하지 않습니다. 로컬 통제는 배포 동작을 바꾸지 않고 이 한계 아래로 유지합니다.
+실행기는 변경 기반 인벤토리 스캔 하한을 30분으로 설정하고, Postgres 컨테이너는 WAL을 zstd로
+압축하며, `compact-local-database.py`와 `archive-audit-segments.py`는 삭제 가능한 상태를
+제한하고 오래된 감사 행을 검증된 zstd segment로 복사합니다. 명령과 한계는
+[저장소 runbook](../../runbooks/database-storage-efficiency-ko.md)이 소유합니다.
 
 ## 안전 경계
 

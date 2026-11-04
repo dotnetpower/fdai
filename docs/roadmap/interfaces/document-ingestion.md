@@ -24,6 +24,11 @@ the file. Raw bytes, normalized content, metadata, and vectors use separate stor
 policies. Every preview, search result, and citation applies the document access policy again, so
 ingestion never turns a restricted document into broadly visible text.
 
+Local full-stack preparation always retains the ingestion API, processing worker, and ClamAV
+dependency. The separate repository code-security worker starts only when
+`FDAI_LOCAL_CODE_SECURITY_WORKER=1`; leaving it disabled skips its image and vulnerability-cache
+preparation, not document malware scanning, quarantine, or protection checks.
+
 ![Design at a glance. The main stages are Operator drop zone, Upload session, Authenticated ingestion gateway, Private quarantine storage, Malware and content safety, Protection and classification, Format extractor, Normalized document artifacts, Chunk and index, Knowledge retrieval, Manual distillation, Held for review.](../../diagrams/generated/fdai-roadmap-interfaces-document-ingestion-01.en.svg)
 
 ## Agent ownership of the ingestion pipeline

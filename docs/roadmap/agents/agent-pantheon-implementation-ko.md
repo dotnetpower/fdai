@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: f876eb02c7592115a6fec65426507b65c53d46b2
-translation_revised: 2026-11-03
+translation_source_sha: cdc7fdd0d6bf17e1a180b169e673b8ef91fb5e43
+translation_revised: 2026-11-04
 ---
 
 # 에이전트 판테온 구현 계획
@@ -140,6 +140,8 @@ sampler는 검토된 `resource.cpu.utilization_pct` 선언을 사용하고 조�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-11-04 | validated | zstd 감사 보관본(789,623행, 7.4배)을 검증한 뒤 삭제 가능한 개발 데이터베이스를 재생성하고 새 코드로 스택을 다시 시작했습니다. 약 40분 동안 측정한 결과 안정 상태의 감사 증가는 10분당 약 2,300행에서 약 220행으로, 가장 큰 Huginn dedup shard는 약 225 KB에서 1.7 KB로, `state_kv` TOAST 변동은 4,800만 청크에서 4만 2천 청크로 줄었고 데이터베이스는 111 MiB를 유지했습니다. 시작 결함 두 가지도 찾아 고쳤습니다. 하나는 materializer가 Operator 전용 알림 주체 맵을 Core 환경에 쓴 것이고, 다른 하나는 아직 알림을 보내지 않은 Kubernetes observer 제안의 dispatch plan이 아직 없어 inventory 서비스가 실패한 것입니다. | `current change`; 위 로컬 측정; delivery 테스트 799개와 신규 집중 테스트 2개 통과. | 핫/콜드 감사 삭제는 보관 앵커를 받아들이는 체인 검증기가 필요하고 감사 집계는 증거 모델을 바꿉니다. 측정된 증가량으로는 둘 다 정당화되지 않아 승인 대상으로 남깁니다. |
+| 2026-11-04 | implemented | Huginn 수신 dedup의 쓰기 증폭을 줄였습니다. shard에는 처리 중인 claim만 남기고 terminal receipt가 완료 키의 차단 표식이 되며 완료 수백 건마다 정리합니다. 이전 레이아웃 shard는 처음 접근할 때 한 번 정리하며 제거 전에 receipt를 먼저 써서 차단 범위가 좁아지지 않습니다(receipt 구간은 dedup 구간의 4배). 레코드 코덱을 동작 변경 없이 `huginn_dedup_codec.py`로 옮겼습니다. | `current change`; shard 크기, 멱등 완료, 알 수 없는 claim, 이전 레이아웃 정리 테스트를 추가했고 Core agent 테스트 3,018개와 Ruff, mypy가 통과했습니다. | 실제 워크로드의 쓰기 횟수는 이 코드로 재시작한 뒤 확인해야 하며, 감사 hot/cold 삭제는 남아 있습니다. |
 | 2026-11-03 | implemented | 반복되는 전체 정합성 인벤토리 관측으로 인한 데이터베이스 증가를 제한했습니다. Inventory Job은 유형, 공급자 참조, 속성 digest, 속성 신선도 메타데이터가 직전 완전 전달 generation과 같은 Resource를 보내지 않습니다(수집 시각은 무시). 직전 전달이 불완전하거나 기록된 전체 전달이 없거나 `FDAI_INVENTORY_CONFIGURATION_FULL_REDELIVERY_SECONDS`(기본값 21600, `0`이면 비활성화)가 지나면 전체 재전달하며, 이벤트 식별자, 형태, shadow 권한은 바뀌지 않습니다. Heimdall은 Huginn이 자신의 generation 범위 키로 자기 상관시킨 관측을 더 이상 추적하지 않고, 유지관리 틱에서 대체된 쓰기 시 복사 체크포인트 행을 검증된 버전 루트가 도달할 수 없고, 한 시간이 지났으며, 저장소의 루트가 메모리와 같고, 체크포인트 기록기가 유휴일 때만 회수합니다(`PostgresStateKeysetMixin.read_state_keys_before`, `heimdall_checkpoint_gc.py`). `compact-local-database.py`가 같은 도달성 규칙을 미리 보고 적용하며 증가 보고서에 `heimdall_versions`, `heimdall_manifests`, `huginn_ingress_dedup`, `audit_families`를 추가했습니다. | `current change`; delta, Heimdall 회수(정확한 복원, 나이, 불일치, 레거시 레이아웃, 미지원 저장소), 나이 기준 keyset PostgreSQL, compaction 테스트를 추가했고, Core agents, delivery, runtime, control-loop, persistence 테스트 13,561개가 통과했습니다(데이터베이스 스위트는 검증 데이터베이스 래퍼 사용). Ruff, mypy, agent import 경계 검사도 통과했습니다. 로컬 개발 데이터베이스에서 변경 없는 generation의 전달이 Resource 807개에서 99개로 줄었고, 정리로 도달 불가 행 341k개를 제거했으며 `state_kv`를 `VACUUM FULL`한 뒤 2,811 MiB에서 1,840 MiB로 줄었습니다. | 검증된 아카이브와 파티션 보존을 갖춘 핫/콜드 감사 계층화는 별도 설계가 필요해 남아 있습니다. 실행 중인 서비스는 재시작해야 이 변경을 불러옵니다. Saga는 수락한 이벤트마다 `audit.record`를 계속 하나씩 기록합니다. |
 | 2026-10-30 | implemented | Forseti의 no-rule-match 판정을 범위가 제한된 방식으로 집계하도록 구현했습니다. 영속 임시 저장, 감사 체인 원자 봉인, 대상별 감사 revision fence, inbox 복구와 완전성 health를 추가했습니다. 에이전트 역할, 토픽, 소유권, 작업 권한은 바꾸지 않았습니다. | `현재 변경`; `test_saga_verdict_aggregation.py` 9개 통과; `test_saga_audit_backpressure.py` 7개 통과; `test_framework_layout.py` 14개 통과; PostgreSQL pair-audit 통합 테스트 1개 통과; Ruff와 strict mypy 통과. | 패키지를 커밋하고 PR CI를 확인한 뒤 #2651 근거를 조정하고 이슈를 종료합니다. |
 | 2026-10-27 | implemented | Huginn의 제한된 대기 복구 패스에서 보존된 인벤토리 claim을 각각 독립적으로 재처리하도록 격리했습니다. 결정적으로 실패하는 claim 하나가 같은 페이지의 나머지 claim을 더 이상 막지 않습니다. 실패한 claim은 보존된 증거와 함께 대기 상태로 남고 `ingress_recovery:claim_failed`가 기록되며, 페이지 처리가 끝난 뒤 첫 실패를 다시 발생시킵니다. 역할, 토픽, 소유권, 권한은 바꾸지 않았습니다. | `현재 변경`; Huginn 복구 테스트 7개와 에이전트 레이아웃 테스트 통과; Ruff 검사와 형식 확인 통과. | 현재 incarnation이 없는 관측을 가진 claim의 격리 또는 타입 지정 거부, 그리고 로컬 인벤토리 스냅샷이 갱신되는지에 대한 라이브 확인. |

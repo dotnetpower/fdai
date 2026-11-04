@@ -79,6 +79,9 @@ Local connector validation also keeps reviewed constraint facts, guarded work de
 snapshot bodies, policy ownership analysis, and shadow segmentation probes outside diagnostic
 authority. These checks can make a proposal or evidence source unavailable, but they cannot promote
 inventory, approve installation, dispatch an Executor, or prove live network enforcement.
+Proposal notification state is separate from diagnostic evidence. A typed missing first dispatch
+plan permits initial informational publication, not an inventory failure or diagnostic readiness.
+Other storage errors remain explicit failures, and terminal delivery records suppress duplicates.
 
 The runtime accepts a bounded collection of cluster bindings. Each binding contains:
 

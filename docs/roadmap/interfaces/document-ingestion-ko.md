@@ -1,8 +1,8 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: a3ea2959dcfe909f27421a19d2812b9de34a37bc
-translation_revised: 2026-10-20
+translation_source_sha: 6dc27774e3a92b1e9fc8249cfdb561ca69f09230
+translation_revised: 2026-11-04
 ---
 # 문서 인제스트와 투입 구역
 
@@ -28,6 +28,11 @@ translation_revised: 2026-10-20
 콘텐츠, 메타데이터, 벡터에는 서로 다른 저장소와 보존 정책을 적용합니다. 모든 미리 보기,
 검색 결과, 인용에서 문서 액세스 정책을 다시 적용하므로 제한된 문서가 인제스트로 인해
 광범위하게 공개되는 텍스트로 바뀌지 않습니다.
+
+로컬 전체 스택 준비는 인제스트 API, 문서 처리 워커, ClamAV 의존성을 항상 유지합니다.
+별도의 저장소 코드 보안 워커는 `FDAI_LOCAL_CODE_SECURITY_WORKER=1`일 때만 시작합니다.
+이를 비활성화하면 해당 이미지와 취약점 캐시 준비만 생략하며, 문서 악성코드 검사,
+격리 또는 보호 검사를 생략하지 않습니다.
 
 ![설계 개요. 주요 단계는 Operator drop zone, Upload session, Authenticated ingestion gateway, Private quarantine storage, Malware and content safety, Protection and classification, Format extractor, Normalized document artifacts, Chunk and index, Knowledge retrieval, Manual distillation, Held for review입니다.](../../diagrams/generated/fdai-roadmap-interfaces-document-ingestion-01.ko.svg)
 

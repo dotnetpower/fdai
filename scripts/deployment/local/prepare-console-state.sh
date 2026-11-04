@@ -40,17 +40,24 @@ if [[ "$check_only" == "1" ]]; then
   FDAI_DATABASE_URL="$database_url" \
     "$repo_root/.venv/bin/python" \
       "$repo_root/scripts/deployment/local/maintain-development-database.py" --check
+  check_pids=()
   FDAI_DATABASE_URL="$validation_database_url" \
     "$repo_root/.venv/bin/python" -m alembic -c "$repo_root/alembic.ini" \
-      current --check-heads >/dev/null
+      current --check-heads >/dev/null &
+  check_pids+=("$!")
   FDAI_DATABASE_URL="$database_url" \
     "$repo_root/.venv/bin/python" -m alembic -c "$repo_root/alembic.ini" \
-      current --check-heads >/dev/null
+      current --check-heads >/dev/null &
+  check_pids+=("$!")
   for service_id in "${service_ids[@]}"; do
     FDAI_DATABASE_URL="$database_url" \
       "$repo_root/.venv/bin/python" -m alembic \
         -c "$repo_root/service-migrations/configs/$service_id.ini" \
-        current --check-heads >/dev/null
+        current --check-heads >/dev/null &
+    check_pids+=("$!")
+  done
+  for check_pid in "${check_pids[@]}"; do
+    wait "$check_pid"
   done
   echo "local PostgreSQL legacy schema and all five service migrations are current"
   exit 0
