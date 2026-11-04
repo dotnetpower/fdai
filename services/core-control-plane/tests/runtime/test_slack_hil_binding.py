@@ -118,3 +118,54 @@ async def test_only_slack_outbox_is_supervised_without_a_network_request() -> No
         assert task is not None and task.get_name() == "hil-slack-outbound-request-outbox"
         await task
         outbox.run.assert_awaited_once_with(stop)  # type: ignore[attr-defined]
+
+
+async def test_local_owner_only_slack_approval_activation_resolves_channel(
+    tmp_path: object,
+) -> None:
+    from pathlib import Path
+
+    from fdai.delivery.chatops.slack_binding import (
+        LOCAL_SLACK_APPROVAL_ACTIVATION_ENV,
+        build_slack_hil_channel,
+        resolve_local_slack_approval_environment,
+    )
+
+    fdai_dir = Path(str(tmp_path)) / ".fdai"
+    fdai_dir.mkdir(mode=0o700)
+    input_env = fdai_dir / "local-channel-edge-input.env"
+    input_env.write_text("FDAI_SLACK_BOT_TOKEN='xoxb-synthetic-local-token'\n", encoding="utf-8")
+    input_env.chmod(0o600)
+    channel_file = fdai_dir / "slack-public-channel"
+    channel_file.write_text("C012345678\n", encoding="utf-8")
+    channel_file.chmod(0o600)
+
+    inactive = resolve_local_slack_approval_environment({}, fdai_dir=fdai_dir)
+    assert "FDAI_SLACK_APPROVAL_BOT_TOKEN" not in inactive
+
+    active = resolve_local_slack_approval_environment(
+        {LOCAL_SLACK_APPROVAL_ACTIVATION_ENV: "1"},
+        fdai_dir=fdai_dir,
+    )
+    assert active["FDAI_SLACK_APPROVAL_API_URL"] == SLACK_POST_URL
+    assert active["FDAI_SLACK_APPROVAL_CHANNEL_ID"] == "C012345678"
+    assert active["FDAI_SLACK_APPROVAL_BOT_TOKEN"] == "xoxb-synthetic-local-token"
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(200))
+    ) as client:
+        channel = build_slack_hil_channel(
+            {LOCAL_SLACK_APPROVAL_ACTIVATION_ENV: "1"},
+            http_client=client,
+            teams_configured=False,
+            fdai_dir=fdai_dir,
+        )
+        assert isinstance(channel, SlackHilAdapter)
+
+    # Group-readable files must fail closed and resolve nothing.
+    input_env.chmod(0o640)
+    insecure = resolve_local_slack_approval_environment(
+        {LOCAL_SLACK_APPROVAL_ACTIVATION_ENV: "1"},
+        fdai_dir=fdai_dir,
+    )
+    assert "FDAI_SLACK_APPROVAL_BOT_TOKEN" not in insecure
