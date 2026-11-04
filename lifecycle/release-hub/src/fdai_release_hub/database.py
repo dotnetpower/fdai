@@ -1,6 +1,17 @@
 """Portable publication tables, including a singleton catalog lock shared by all replicas."""
 
-from sqlalchemy import Column, ForeignKey, Index, Integer, MetaData, String, Table, Text
+from sqlalchemy import (
+    Boolean,
+    Column,
+    ForeignKey,
+    Index,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    Text,
+    UniqueConstraint,
+)
 
 metadata = MetaData()
 releases = Table(
@@ -63,4 +74,88 @@ Index(
     deployment_requests.c.subscription_id,
     deployment_requests.c.recorded_at,
     deployment_requests.c.request_id,
+)
+
+stencil_variants = Table(
+    "stencil_variants",
+    metadata,
+    Column("variant_key", String(160), primary_key=True),
+    Column("base_release_version", String(64), nullable=False),
+    Column("stencil_id", String(64), nullable=False),
+    Column("release_id", String(160), ForeignKey("releases.id"), nullable=False, unique=True),
+    Column("stencil_digest", String(80), nullable=False),
+    Column("release_digest", String(80), nullable=False),
+    Column("source_commit", String(40), nullable=False),
+    Column("registered_at", String(40), nullable=False),
+    UniqueConstraint(
+        "base_release_version",
+        "stencil_id",
+        name="uq_stencil_variants_base_version_stencil",
+    ),
+)
+
+stencil_distribution_grants = Table(
+    "stencil_distribution_grants",
+    metadata,
+    Column("installation_id", String(128), primary_key=True),
+    Column("grant_id", String(128), nullable=False, unique=True),
+    Column("issuer_key_id", String(64), nullable=False),
+    Column("customer_principal", String(160), nullable=False),
+    Column("allowed_stencil_ids_json", Text, nullable=False),
+    Column("allowed_channels_json", Text, nullable=False),
+    Column("revision", Integer, nullable=False),
+    Column("issued_at", String(40), nullable=False),
+    Column("expires_at", String(40), nullable=False),
+    Column("revoked", Boolean, nullable=False),
+    Column("revocation_reason", Text),
+    Column("scope_digest", String(80), nullable=False),
+    Column("envelope_json", Text, nullable=False),
+    Column("updated_at", String(40), nullable=False),
+)
+
+stencil_grant_events = Table(
+    "stencil_grant_events",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("installation_id", String(128), nullable=False),
+    Column("grant_id", String(128), nullable=False),
+    Column("revision", Integer, nullable=False),
+    Column("action", String(32), nullable=False),
+    Column("actor", String(160), nullable=False),
+    Column("reason", Text, nullable=False),
+    Column("occurred_at", String(40), nullable=False),
+)
+
+release_workflow_jobs = Table(
+    "release_workflow_jobs",
+    metadata,
+    Column("job_id", String(128), primary_key=True),
+    Column("idempotency_key", String(128), nullable=False, unique=True),
+    Column("release_id", String(160), nullable=False),
+    Column("stencil_id", String(64), nullable=False),
+    Column("source_commit", String(40), nullable=False),
+    Column("stage", String(32), nullable=False),
+    Column("status", String(32), nullable=False),
+    Column("input_digest", String(80), nullable=False),
+    Column("manifest_digest", String(80), nullable=False),
+    Column("actor", String(160), nullable=False),
+    Column("error_code", String(128)),
+    Column("result_json", Text, nullable=False),
+    Column("created_at", String(40), nullable=False),
+    Column("updated_at", String(40), nullable=False),
+)
+
+promotion_run_receipts = Table(
+    "promotion_run_receipts",
+    metadata,
+    Column("receipt_id", String(128), primary_key=True),
+    Column("release_id", String(160), nullable=False),
+    Column("source_channel", String(64), nullable=False),
+    Column("target_channel", String(64), nullable=False),
+    Column("allowed", Boolean, nullable=False),
+    Column("reason_code", String(128), nullable=False),
+    Column("manifest_digest", String(80), nullable=False),
+    Column("component_digests_json", Text, nullable=False),
+    Column("actor", String(160), nullable=False),
+    Column("occurred_at", String(40), nullable=False),
 )
