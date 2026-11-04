@@ -1,8 +1,8 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: 237ae8aba9777067fd758bb8022d8931ed3f8926
-translation_revised: 2026-11-01
+translation_source_sha: 3000e82fe6a16782b82c98768dcbe1125dfac33a
+translation_revised: 2026-11-04
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 
@@ -300,8 +300,10 @@ challenger가 없거나 보류되면 가드를 없애지 않고 검토를 위한
 > 않습니다. 이 로컬 체크포인트만으로 프로덕션 활성화, 전범위 Low 이하 하드닝 완료,
 > 게시나 병합을 주장하지 않습니다.
 
-설치 소유의 일관된 보관 패턴 인가 발급자와 독립적으로 측정한 운영 효과는 #2194에서
-추적합니다. 이는 로컬 픽스처나 소스 병합으로 추정할 수 없는 선행 조건입니다.
+일관된 보관 패턴 최종 검증기(`PostgresCoherentPatternFinalQualifier`)와 사전 선언된 SLO 게이트
+기반 운영 학습 효과 평가기(`qualification_evaluation.py`,
+`rehearse_operational_learning_qualification.py`)는 실행되지 않았거나 shadow 상태인 후보로부터
+프로덕션 정책 효과를 주장하지 않으면서 #2194의 로컬 수용 범위를 완료합니다.
 
 ### 운영 연결 및 가드
 

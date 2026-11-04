@@ -249,10 +249,12 @@ measurement command consumes an independently admitted manifest and cannot appro
 
 `delivery/persistence/local_pattern_backend.py` provides an explicit isolated-LOCAL retained
 Pattern composition. Its source owner, not a copied evidence cache, stores the complete dependency
-tuple in existing `state_kv` rows. A PostgreSQL row lease protects those facts through positive
-shadow comparison construction; Core verifies the active lease and independent read/reuse
-admissions. The backend accepts only the loopback validation database, adds no schema or authority,
-and is not bound by production bootstrap. External source qualification remains under #2194.
+tuple in existing `state_kv` rows. Both `LocalPostgresPatternQualifier` (row-share lease) and
+`PostgresCoherentPatternFinalQualifier` (gate-verified `retained-pattern-final-qualification`
+admission over locked rows, server-owned authentication receipts, registered action schemas, and
+current statistics) protect those facts through positive shadow comparison construction. The
+backend accepts only the loopback validation database, adds no schema or authority, and is not
+bound by production bootstrap (#2194).
 
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.
 

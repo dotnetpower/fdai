@@ -21,6 +21,7 @@ from fdai.core.tiers.t1_lightweight.contextual_reuse import (
     current_reuse_scope_digest,
 )
 from fdai.core.tiers.t1_lightweight.retained_pattern_bindings import (
+    FINAL_QUALIFICATION_PURPOSE,
     BoundRetainedPatternAction,
     BoundRetainedPatternRequest,
     RetainedPatternQualification,
@@ -29,6 +30,7 @@ from fdai.core.tiers.t1_lightweight.retained_pattern_bindings import (
 from fdai.core.tiers.t1_lightweight.retained_pattern_lease import RetainedPatternLeaseEvidence
 from fdai.core.tiers.t1_lightweight.retained_patterns import (
     RetainedPatternComparison,
+    RetainedPatternRequest,
     RetainedPatternSource,
 )
 from fdai.core.tiers.t1_lightweight.testing import DeterministicEmbeddingModel
@@ -43,7 +45,10 @@ from fdai.delivery.persistence.local_pattern_owner import (
     local_dsn,
     owner_key,
 )
-from fdai.delivery.persistence.local_pattern_qualification import LocalPostgresPatternQualifier
+from fdai.delivery.persistence.local_pattern_qualification import (
+    LocalPostgresPatternQualifier,
+    PostgresCoherentPatternFinalQualifier,
+)
 from fdai.delivery.persistence.local_pattern_validation import lookups
 from fdai.delivery.persistence.state_store_case_history import StateStoreCaseHistoryMetadataStore
 from fdai.delivery.persistence.state_store_decision_evidence import (
@@ -51,6 +56,14 @@ from fdai.delivery.persistence.state_store_decision_evidence import (
     decision_evidence_state_key,
 )
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from fdai_service_contracts.operator_authentication import (
+    LOCAL_LOOPBACK_ISSUER,
+    OperatorAuthenticationEvidenceClass,
+    OperatorAuthenticationReceipt,
+    role_mapping_revision,
+    tenant_digest,
+    token_id_digest,
+)
 from psycopg.conninfo import make_conninfo
 
 from tests.core.tiers.t1_lightweight.test_contextual_reuse import _event, _Verifier
@@ -510,3 +523,127 @@ async def test_case_expiry_caps_lease_even_without_a_source_write(
     assert result.retained_pattern_comparison.stop_reason == (
         "retained_pattern_qualification_rejected"
     )
+
+
+async def test_coherent_final_qualifier_binds_server_owned_request_action_and_admissions(
+    local_case: tuple[Any, ...],
+) -> None:
+    dsn, store, owner, h, _, _, records, read_lookup, reuse_lookup, _ = local_case
+    event = _event()
+    assert h.statistics is not None
+    auth_receipt = OperatorAuthenticationReceipt.create(
+        evidence_class=OperatorAuthenticationEvidenceClass.LOCAL_LOOPBACK,
+        issuer=LOCAL_LOOPBACK_ISSUER,
+        audience="fdai-operator-api",
+        tenant_digest=tenant_digest("00000000-0000-0000-0000-000000000001"),
+        subject_id="example-operator",
+        principal_kind="human",
+        groups=("aw-owners",),
+        token_id_digest=token_id_digest("tok-2194"),
+        issued_at=NOW - timedelta(minutes=1),
+        expires_at=NOW + timedelta(minutes=30),
+        roles=("Owner",),
+        role_mapping_revision=role_mapping_revision({"Owner": "aw-owners"}),
+    )
+    server_context = h.request.context.model_copy(
+        update={
+            "principal_groups": ("aw-owners",),
+            "authentication_receipt_ref": auth_receipt.receipt_digest,
+            "authentication_request_ref": "server-request-2194",
+        }
+    )
+    server_request = RetainedPatternRequest(
+        context=server_context,
+        access_scope_digest=h.request.access_scope_digest,
+        purpose=h.request.purpose,
+        failure_fingerprint=h.request.failure_fingerprint,
+    )
+    await owner.retain_principal(
+        context=server_context,
+        scope=server_request.access_scope_digest,
+        purpose=server_request.purpose,
+        allowed=True,
+        valid_until=NOW + timedelta(minutes=3),
+    )
+    await owner.retain_authenticated_request(
+        event_id=str(event.event_id),
+        request=server_request,
+        receipt=auth_receipt,
+    )
+    await owner.retain_action_candidate(
+        event_id=str(event.event_id),
+        pattern_id=h.action.signature,
+        match=SimilarityMatch(h.action, 0.98),
+        statistics_ref=h.statistics.evidence_ref,
+    )
+    temp = InMemoryStateStore()
+    server_read_lookup = dict(read_lookup)
+    from fdai_service_contracts.ontology_query import content_digest
+
+    server_read_lookup["evidence_digest"] = content_digest(
+        {
+            "arguments": server_request.arguments(),
+            "principal": server_context.model_dump(mode="json"),
+        }
+    )
+    await _retain_protocol_fixture_admission(temp, **server_read_lookup)
+    read_key = decision_evidence_state_key(**server_read_lookup)
+    read_val = await temp.read_state(read_key)
+    assert read_val is not None
+    await store.write_state(read_key, read_val)
+
+    backend = LocalPostgresPatternBackend(
+        dsn=dsn, venue=LOCAL_VENUE, read_source_revision="a" * 40, clock=lambda: NOW
+    )
+    try:
+        tier = backend.qualified_tier(
+            embedding_model=DeterministicEmbeddingModel(),
+            baseline_library=_Library(()),
+            action_types=lambda: h.registry,
+            config=T1Config(compare_eligibility=True),
+        )
+        decision = await tier.evaluate(event=event)
+        assert decision.reason == "no_neighbour_found" and decision.best_match is None
+        comparison = decision.retained_pattern_comparison
+        assert comparison is not None
+        assert comparison.challenger_match is not None
+        assert comparison.final_qualification is not None
+        assert comparison.final_qualification.purpose_id == FINAL_QUALIFICATION_PURPOSE
+        await write_t1_audit(
+            store,
+            event=event,
+            decision=RoutingDecision(tier=RoutingTier.T1, resource_type="kubernetes.service"),
+            t1=decision,
+        )
+        async with await psycopg.AsyncConnection.connect(dsn) as check:
+            row = await (
+                await check.execute(
+                    "SELECT entry FROM audit_log WHERE action_kind = 'control_loop.t1_evaluate' "
+                    "ORDER BY seq DESC LIMIT 1"
+                )
+            ).fetchone()
+        assert row is not None
+        audit = row[0]["t1_retained_pattern_comparison"]
+        assert audit["qualification_receipt_digest"].startswith("sha256:")
+        assert audit["qualification_tuple_digest"].startswith("sha256:")
+        assert audit["execution_authority"] is False
+        assert audit["promotion_authority"] is False
+
+        # Withdraw negative case metadata and verify coherent final qualifier rejects
+        await store.delete_state("case-history:latest:" + records[-1].case_id)
+        after_withdrawal = await tier.evaluate(event=event)
+        assert after_withdrawal.retained_pattern_comparison is not None
+        assert after_withdrawal.retained_pattern_comparison.challenger_match is None
+        assert after_withdrawal.retained_pattern_comparison.final_qualification is None
+    finally:
+        await backend.aclose()
+
+
+def test_coherent_final_qualifier_rejects_unseparated_identities() -> None:
+    with pytest.raises(ValueError, match="separate source, producer, and verifier"):
+        PostgresCoherentPatternFinalQualifier(
+            dsn="postgresql://localhost:5433/example",
+            venue=LOCAL_VENUE,
+            verifier_id="core-control-plane",
+            producer_id="core-control-plane",
+        )

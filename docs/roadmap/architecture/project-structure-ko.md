@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: dff1589ec533101186f0dc32e0e92e90af946e22
+translation_source_sha: 720c9e6de01cdad902d48874d742be560ac59419
 translation_revised: 2026-11-04
 ---
 # 프로젝트 구조
@@ -255,10 +255,11 @@ StateStore 경계를 사용하고 구성된 T1 쓰기 대상을 명시합니다.
 
 `delivery/persistence/local_pattern_backend.py`는 격리된 LOCAL 보관 Pattern 조립을 명시적으로
 제공합니다. 근거를 복사한 캐시가 아니라 원본 소유자가 기존 `state_kv` 행에 전체 의존 입력
-묶음을 저장합니다. PostgreSQL 행 임대는 양성 shadow 비교 결과를 구성할 때까지 이 사실을
-보호하며 Core는 활성 임대와 독립 읽기/재사용 인가를 검증합니다. 이 backend는 loopback
-검증 DB만 허용하고 스키마나 권한을 추가하지 않으며 프로덕션 시작 경로에는 연결하지 않습니다.
-외부 원본 검증은 #2194에서 계속 추적합니다.
+묶음을 저장합니다. `LocalPostgresPatternQualifier`(행 공유 임대)와
+`PostgresCoherentPatternFinalQualifier`(잠긴 행, 서버 소유 인증 증적, 등록된 조치 스키마, 현재
+통계를 바탕으로 한 게이트 검증 `retained-pattern-final-qualification` 인가) 모두 양성 shadow 비교
+결과를 구성할 때까지 이 사실을 보호합니다. 이 backend는 loopback 검증 DB만 허용하고 스키마나
+권한을 추가하지 않으며 프로덕션 시작 경로에는 연결하지 않습니다(#2194).
 
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.
 

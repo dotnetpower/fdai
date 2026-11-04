@@ -315,9 +315,10 @@ and separate error, coverage and interval width. It does not measure a new polic
 > Their absence is not replaced by an accepting stub. No production activation, completed
 > whole-scope Low-only hardening claim, publication or merge is implied by this local checkpoint.
 
-The installation-owned coherent retained-pattern issuer and independently measured operational
-effects are tracked in #2194. They are prerequisites, not inferred from local fixtures or a merged
-source change.
+The coherent retained-pattern final qualifier (`PostgresCoherentPatternFinalQualifier`) and
+predeclared SLO-gated operational-learning effect evaluator (`qualification_evaluation.py` and
+`rehearse_operational_learning_qualification.py`) complete the local acceptance scope for #2194
+without claiming live production policy effects from unexecuted or shadow candidates.
 
 ### Operational binding and guard
 

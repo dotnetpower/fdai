@@ -1,8 +1,8 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: 276a395b5f9c179fc395a3f6afdc7a04fb78ca27
-translation_revised: 2026-10-17
+translation_source_sha: 8cd1b8cb07421ef0545df8b789b434c0b61f5f5f
+translation_revised: 2026-11-04
 ---
 # 운영 학습 온톨로지
 
@@ -173,14 +173,11 @@ shadow 복사본이 남지 않습니다. 같은 T1 전체 기한과 요청 전�
 추가하지 않습니다. 기존 감사에는 한도가 있는 다이제스트/건수와 실행, 승격, 운영 입증이
 false라는 값만 저장합니다. 저장형 인가를 사용한 집중 픽스처는 운영 검증이 아니라 배선을 확인합니다.
 
-독립적인 출처를 순서대로 다시 읽는 것만으로는 전체 상태의 일관성이 보장되지 않습니다.
-따라서 최종 적격성에는 `RetainedPatternFinalQualifier`가
-`retained-pattern-final-qualification`이라는 별도 목적으로 발급한 정확한 전체 입력 묶음의
-`DecisionEvidenceAdmission`도 필요합니다. 신뢰할 수 있는 발급자는 즉시 수락할 때까지 유효한
-버전 확인, 임대 또는 보호 경계로 모든 원본 버전, 통계, 읽기 권한, 조치/맥락과 현재 재사용
-인가를 함께 검증해야 합니다. 일반 읽기 인가나 재사용 인가로 대신할 수 없습니다.
-프로덕션 발급자는 이번에 제공하지 않습니다. 개별 검사를 앞서 통과했더라도 일관성 인가가
-없거나 사용할 수 없으면 적격성을 비우고 비교를 보류합니다.
+독립적인 출처를 순서대로 다시 읽는 것만으로는 전체 상태의 일관성이 보장되지 않습니다. 따라서 최종
+적격성에는 `RetainedPatternFinalQualifier`가 `retained-pattern-final-qualification` 목적으로 발급한
+전체 입력 묶음 `DecisionEvidenceAdmission`이 필요하며, 원본 버전, 통계, 읽기 권한, 조치/맥락, 현재
+재사용 인가를 수락 시점까지 함께 검증합니다(`PostgresCoherentPatternFinalQualifier`가 격리된 검증
+데이터베이스에서 이를 연결합니다). 일관성 인가가 없으면 비교를 보류합니다.
 
 ### 로컬 단일 소유 경계의 일관성 검증
 
@@ -217,16 +214,14 @@ Inventory, Blob 또는 프로덕션 일관성을 검증하지 않습니다.
 [후속 원본 연결 지도와 하드닝 증적](../../internals/operational-learning-hardening-20261017.md#authorization-provenance-follow-up)은
 확인한 연결과 미비점을 기록합니다.
 
-순수 동결 예측 평가기는 스칼라 절대 오차, 예측 구간 포함률과 독립 사건 키에 따른 제외를
-보고합니다. 기준 모델과 후보 모델의 대응 운영 코호트, 확률 보정/Brier score, 복구 시간,
-재발, 부작용, 위험 비용이나 정책의 인과적 효과는 제공하지 않습니다. 운영 평가 전에 해당
-설치 환경의 기존 SLO와 안전 예산 리비전, 관찰/재발 구간, 시간순 기준 시점, 장애/재시도/
-복제/공통 원인 그룹, 필요한 서비스/클러스터/토폴로지 holdout, 데이터 출처 구분, 분모와
-불확실성 산정 방법에 결속된 검토 계획을 보관하세요. 이번에는 대상 SLO나 승인된 실제 운영
-코호트를 선택하지 않았으므로 임의의 임계값을 부여하지 않고 검증되지 않은 상태로 유지합니다.
-실행하지 않은 후보에는 결과가 없습니다. 선택 확률과 overlap 근거가 없으면 선택 편향도
-미해결 상태입니다. 다음 shadow 예측이 바뀌었다는 사실은 학습 결과의 소비를 보여 줄 뿐,
-복구 성능의 개선을 입증하지는 않습니다.
+순수 동결 예측 평가기는 스칼라 절대 오차, 예측 구간 포함률과 독립 사건 키에 따른 제외를 보고합니다.
+`core/operational_learning/qualification_evaluation.py`는 `QualificationVenueSelection`과
+`PredeclaredLearningEvaluationGates`를 SLO 및 안전 예산 리비전에 고정하고, baseline/challenger
+코호트에서 재시도/재생과 공유 장애/공통 원인 그룹을 제거하며, `unknown` 결과를 보존한 채 동결
+예측기/관측기 계보를 검증하고 복구, 재발, 롤백/부작용, 보류/적용 범위, 보정, 독립 표본 수, 95%
+Wilson 신뢰 구간을 분리해 보고합니다. 실행하지 않은 후보에는 결과가 없으며 선택 확률과 overlap 근거가
+없으면 `policy_effect_claimed`는 `False`로 유지됩니다. 다음 shadow 예측이 바뀌었다는 사실은 학습
+결과의 소비를 보여 줄 뿐, 복구 성능의 개선을 입증하지는 않습니다.
 
 `PANTHEON_SPECS`는 한때 Norns에 `PatternObservation`을 할당했고 카탈로그는 같은 기록을 `Pattern`이라
 불렀습니다. 두 이름은 하나의 inert compiled cohort 기록을 가리켰을 뿐, 원시 관측과 검토된
