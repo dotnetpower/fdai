@@ -545,8 +545,12 @@ it also contains the Target Hub.
   Custom Menu Builder (`GET /v1/stencils`, `POST /v1/stencils/compose`, `#/stencils`) for composing
   lightweight (`lite-observe-alert`) or custom 63-panel Console-menu/loop/workload Release v2 manifests
   with compiled fail-closed `fdai.stencil-feature-flags.v1` inactive-menu feature flags, `feature_flags_digest`
-  provenance, and `panel:*`/`job:*`/`addon:*` surgical recall tokens; production catalog trust and
-  distribution remain open.
+  provenance, and `panel:*`/`job:*`/`addon:*` surgical recall tokens; same-version Stencil variant identity
+  (`<base_version>@<stencil_id>`), installation-bound signed Stencil distribution grants
+  (`fdai.stencil-distribution-grant.v1`), customer-scoped RC/RELEASE catalog/export/OCI pull endpoints
+  (`/v1/customer/catalog/*`, `/v2/fdai/{component}/manifests/{reference}`), and durable vendor workflow jobs
+  plus promotion-run receipts (`/v1/releases/{release_id}/workflow-jobs`, `/v1/releases/{release_id}/promotion-receipts`)
+  are implemented locally; production catalog trust and live canary qualification remain open.
 - The production trust-root ceremony hasn't run. A vendor release key must exist before any Hub
   path can verify Releases.
 - Reproducible double-build verification of the signed bundle remains open.

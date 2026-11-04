@@ -623,8 +623,15 @@ def _run() -> None:
             initialize=False,
             role_keys=catalog_role_keys(config),
         )
+        from fdai_lifecycle_hub.stencil_update_api import load_env_stencil_trust_keys
+
+        _env_export_pub, env_grant_pubs = load_env_stencil_trust_keys()
         app = release_app(
-            store, static_dir=args.ui, remote_auth=config.auth, remote_origin=config.origin
+            store,
+            static_dir=args.ui,
+            remote_auth=config.auth,
+            remote_origin=config.origin,
+            grant_issuer_public_keys=env_grant_pubs,
         )
         if config.timestamp_renewal_check_seconds:
             from fdai_release_hub.renewal import run_renewal
@@ -663,8 +670,10 @@ def _run() -> None:
         require_schema(engine, "lifecycle_hub", allow_pre_native=True)
         hub = HubStore(engine)
         from fdai_lifecycle_hub.api import create_app
+        from fdai_lifecycle_hub.stencil_update_api import load_env_stencil_trust_keys
 
         key = remote_key(config.key_epoch)
+        env_export_pub, env_grant_pubs = load_env_stencil_trust_keys()
         app = create_app(
             hub,
             static_dir=args.ui,
@@ -674,6 +683,8 @@ def _run() -> None:
             release_hub_endpoint=(
                 source.url.removesuffix("/v1/catalog/export") if source is not None else None
             ),
+            stencil_export_public_key=env_export_pub,
+            stencil_grant_issuer_public_keys=env_grant_pubs,
         )
         if source is not None:
             catalog = RemoteCatalog(engine, source)

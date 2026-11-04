@@ -7,10 +7,12 @@ sign-in, and transport authentication are Lifecycle I1 work and gate any non-loo
 from __future__ import annotations
 
 from base64 import b64encode
+from collections.abc import Sequence
 from functools import partial
 from pathlib import Path
 from typing import Literal
 
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
 from pydantic import ValidationError
 from starlette.applications import Starlette
@@ -67,6 +69,7 @@ from fdai_lifecycle_hub.schemas import (
     reported_state_json,
 )
 from fdai_lifecycle_hub.signing import HubSigningKey, verify_key_proof
+from fdai_lifecycle_hub.stencil_update_api import stencil_update_routes
 from fdai_lifecycle_hub.store import HubStore
 
 MAX_REPORT_BYTES = 16 * 1024
@@ -89,6 +92,8 @@ def create_app(
     transition_key: HubSigningKey | None = None,
     release_hub_endpoint: str | None = None,
     auto_workstation_auth: bool = False,
+    stencil_export_public_key: Ed25519PublicKey | None = None,
+    stencil_grant_issuer_public_keys: Sequence[Ed25519PublicKey] = (),
 ) -> Starlette:
     """The agent API, plus the read-only and approval routes the operator UI calls.
 
@@ -474,6 +479,17 @@ def create_app(
             operator_resolver=lambda _req: entra_sessions.active_operator,
         ),
         *operator_surface_routes(store, clock),
+        *stencil_update_routes(
+            store,
+            clock,
+            operator_resolver=lambda req: (
+                getattr(req.state, "operator", None)
+                if remote_auth is not None
+                else entra_sessions.active_operator
+            ),
+            export_public_key=stencil_export_public_key,
+            grant_issuer_public_keys=tuple(stencil_grant_issuer_public_keys),
+        ),
         *native_ownership_routes(
             store,
             clock,

@@ -1,7 +1,7 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: 2bbddac63f8ed54f53d6d963d6b2415bd1a25f08
+translation_source_sha: 8c0f09bc2ceb50bb5d5aa0363f8fa0c25d594af1
 translation_revised: 2026-11-04
 ---
 # Lifecycle Release와 채널
@@ -533,7 +533,12 @@ Target Hub도 들어 있습니다.
   입력과 비활성 메뉴 차단용 `fdai.stencil-feature-flags.v1` Feature Flag(`feature_flags_digest` 및
   `panel:*`/`job:*`/`addon:*` 회수 토큰 포함)를 갖춘 경량(`lite-observe-alert`) 또는 맞춤형 63개
   Console 메뉴·루프·워크로드 Release v2 매니페스트를 생성하는 Stencil 및 커스텀 메뉴 빌더(`GET /v1/stencils`,
-  `POST /v1/stencils/compose`, `#/stencils`)도 함께 제공하며, 프로덕션 카탈로그 신뢰와 배포는 미완료입니다.
+  `POST /v1/stencils/compose`, `#/stencils`), 동일 버전 Stencil 변형 식별자(`<base_version>@<stencil_id>`),
+  설치 결속 서명형 Stencil 배포 권한 부여(`fdai.stencil-distribution-grant.v1`), 고객 범위 제한 RC/RELEASE
+  카탈로그·내보내기·OCI 풀 엔드포인트(`/v1/customer/catalog/*`, `/v2/fdai/{component}/manifests/{reference}`),
+  영속형 공급업체 워크플로 작업 및 승격 실행 증적(`/v1/releases/{release_id}/workflow-jobs`,
+  `/v1/releases/{release_id}/promotion-receipts`)도 로컬로 구현되어 있으며, 프로덕션 카탈로그 신뢰와 라이브 카나리
+  자격 검증은 미완료입니다.
 - 프로덕션 신뢰 루트 절차를 아직 수행하지 않았습니다. Hub 경로가 Release를 검증하려면 먼저
   공급업체 release 키가 있어야 합니다.
 - 서명된 번들의 재현 가능한 이중 빌드 검증이 남아 있습니다.

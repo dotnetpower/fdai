@@ -71,6 +71,10 @@ from fdai_release_hub.database import (
     metadata,
     releases,
 )
+from fdai_release_hub.stencil_grants import (
+    record_promotion_run_receipt,
+    record_stencil_variant_on_register,
+)
 
 CHANNELS = ("DEV", "RELEASE_CANDIDATE", "RELEASE")
 MAX_VERIFIED_MANIFEST_CACHE = 1024
@@ -366,6 +370,12 @@ class ReleaseStore:
                         digest=release.digest,
                     )
                 )
+                record_stencil_variant_on_register(
+                    db,
+                    release_id=release_id,
+                    release=release,
+                    now_iso=now,
+                )
             else:
                 if row is None:
                     raise CatalogError("Release not found.", 404)
@@ -589,7 +599,23 @@ class ReleaseStore:
                 recall_records=self._recall_records_from_events(events_asc),
             )
             decision = evaluate_promotion_stage(criteria, stage_input)
+            comp_digests = (
+                dict(release.components) if isinstance(release, ApplicationRelease) else {}
+            )
             if not decision.allowed:
+                record_promotion_run_receipt(
+                    db,
+                    release_id=release_id,
+                    source_channel=criteria.source_channel,
+                    target_channel=criteria.target_channel,
+                    allowed=False,
+                    reason_code=decision.reason_code or "promotion_blocked",
+                    manifest_digest=f"sha256:{row['digest']}",
+                    component_digests=comp_digests,
+                    actor=actor,
+                    occurred_at=now,
+                )
+                db.commit()
                 raise CatalogError(f"Promotion stage blocked ({decision.reason_code}).", 409)
             exists = db.execute(
                 select(membership).where(
@@ -601,6 +627,18 @@ class ReleaseStore:
                 raise CatalogError("Release already belongs to this channel.", 409)
             db.execute(
                 membership.insert().values(channel=criteria.target_channel, release_id=release_id)
+            )
+            record_promotion_run_receipt(
+                db,
+                release_id=release_id,
+                source_channel=criteria.source_channel,
+                target_channel=criteria.target_channel,
+                allowed=True,
+                reason_code="promoted",
+                manifest_digest=f"sha256:{row['digest']}",
+                component_digests=comp_digests,
+                actor=actor,
+                occurred_at=now,
             )
             self._record_event(
                 db,

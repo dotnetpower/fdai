@@ -6,10 +6,12 @@ import asyncio
 import ipaddress
 import logging
 import sqlite3
+from collections.abc import Sequence
 from functools import partial
 from pathlib import Path
 from threading import BoundedSemaphore
 
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from fdai_deployment_cli.contracts import load_json_object
 from fdai_deployment_cli.lifecycle_promotion import (
     CanaryObservation,
@@ -27,6 +29,7 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from fdai_lifecycle_hub.remote_auth import RemoteAuth, secure_app
+from fdai_lifecycle_hub.stencil_update_api import load_env_stencil_trust_keys
 from fdai_release_hub.deployment_requests import (
     MAX_REQUEST_BODY,
     RequestPage,
@@ -38,11 +41,15 @@ from fdai_release_hub.entra_session import EntraLoginRequest, EntraSessionManage
 from fdai_release_hub.registry_pipeline import (
     CANDIDATE_DOCKER_TAGS,
     OCI_IMAGE_MANIFEST_MEDIA_TYPE,
-    build_oci_manifest_bytes,
     lookup_oci_manifest,
     register_oci_manifest,
     registry_inventory_payload,
 )
+from fdai_release_hub.stencil_grants import (
+    resolve_scoped_customer_artifact_pull,
+    store_requires_scoped_oci_pull,
+)
+from fdai_release_hub.stencil_workflow_jobs import build_stencil_routes
 from fdai_release_hub.stencils import (
     StencilComposeRequest,
     compose_stencil_response,
@@ -71,9 +78,15 @@ def create_app(
     static_dir: Path | None = None,
     remote_auth: RemoteAuth | None = None,
     remote_origin: str | None = None,
+    grant_issuer_public_keys: Sequence[Ed25519PublicKey] = (),
 ) -> Starlette:
     intake_slots = BoundedSemaphore(MAX_INTAKE_CONCURRENCY)
     entra_sessions = EntraSessionManager()
+    if not grant_issuer_public_keys:
+        _, grant_issuer_public_keys = load_env_stencil_trust_keys()
+
+    def _resolve_actor(request: Request) -> str:
+        return request.state.operator if remote_auth else entra_sessions.current_actor
 
     async def catalog(request: Request) -> Response:
         try:
@@ -426,56 +439,6 @@ def create_app(
             headers={"Docker-Distribution-Api-Version": "registry/2.0"},
         )
 
-    def _resolve_store_oci_manifest(component: str, reference: str) -> tuple[bytes, str] | None:
-        direct = lookup_oci_manifest(component, reference)
-        if direct is not None:
-            return direct
-        snap = store.snapshot()
-        for rel in snap.get("releases", []):
-            try:
-                manifest_doc = load_json_object(
-                    str(rel.get("manifest", "")).encode("utf-8"),
-                    label="release manifest",
-                    max_bytes=MAX_BODY,
-                )
-            except ValueError:
-                continue
-            comps = manifest_doc.get("components")
-            if not isinstance(comps, dict) or component not in comps:
-                continue
-            comp_entry = comps[component]
-            if not isinstance(comp_entry, dict):
-                continue
-            comp_digest = str(comp_entry.get("image_digest", ""))
-            rel_id = str(rel.get("id", ""))
-            if reference not in (comp_digest, rel_id):
-                continue
-            source_commit = str(manifest_doc.get("source_commit", "0" * 40))
-            st_meta = manifest_doc.get("stencil")
-            st_id = (
-                str(st_meta.get("stencil_id", "standard-sre"))
-                if isinstance(st_meta, dict)
-                else "standard-sre"
-            )
-            oci_bytes = build_oci_manifest_bytes(
-                component=component,
-                release_version=rel_id,
-                source_commit=source_commit,
-                stencil_id=st_id,
-                config_digest=comp_digest,
-                layers=(comp_digest,),
-                size_bytes=0,
-                provenance="release-catalog-bound",
-            )
-            register_oci_manifest(
-                component,
-                reference=rel_id,
-                image_digest=comp_digest,
-                manifest_bytes=oci_bytes,
-            )
-            return oci_bytes, comp_digest
-        return None
-
     async def oci_v2_manifest(request: Request) -> Response:
         component = request.path_params["component"]
         reference = request.path_params["reference"]
@@ -517,7 +480,82 @@ def create_app(
                     "Location": f"/v2/fdai/{component}/manifests/{digest}",
                 },
             )
-        found = await run_in_threadpool(_resolve_store_oci_manifest, component, reference)
+        inst_hdr = request.headers.get("x-fdai-installation-id")
+        princ_hdr = request.headers.get("x-fdai-customer-principal")
+        requires_scoped = (
+            bool(grant_issuer_public_keys)
+            or inst_hdr is not None
+            or princ_hdr is not None
+            or request.headers.get("x-fdai-distribution-grant") is not None
+            or await run_in_threadpool(store_requires_scoped_oci_pull, store)
+        )
+        if requires_scoped:
+            try:
+                if not grant_issuer_public_keys:
+                    raise CatalogError(
+                        "Stencil distribution grant trust keys are not configured.",
+                        503,
+                    )
+                server_actor = _resolve_actor(request)
+                if not server_actor or server_actor == "local-operator":
+                    raise CatalogError(
+                        "OCI pull requires an authenticated Entra or remote session.",
+                        401,
+                    )
+                if princ_hdr and princ_hdr.strip() != server_actor:
+                    raise CatalogError(
+                        "Authenticated session principal does not match header.",
+                        403,
+                    )
+                raw_grant_hdr = request.headers.get("x-fdai-distribution-grant")
+                if not raw_grant_hdr:
+                    raise CatalogError(
+                        "OCI pull requires a signed X-FDAI-Distribution-Grant header.",
+                        401,
+                    )
+                presented_env = load_json_object(
+                    raw_grant_hdr.encode("utf-8"),
+                    label="grant header",
+                    max_bytes=32768,
+                    strict=True,
+                )
+                oci_bytes, scoped_digest, _meta = await run_in_threadpool(
+                    partial(
+                        resolve_scoped_customer_artifact_pull,
+                        store,
+                        component=component,
+                        reference=reference,
+                        installation_id=(inst_hdr or "").strip(),
+                        customer_principal=server_actor,
+                        trusted_public_keys=grant_issuer_public_keys,
+                        presented_envelope=presented_env,
+                        installed_release_id=request.headers.get("x-fdai-installed-release-id"),
+                    )
+                )
+                return Response(
+                    content=b"" if request.method == "HEAD" else oci_bytes,
+                    media_type=OCI_IMAGE_MANIFEST_MEDIA_TYPE,
+                    headers={
+                        "Docker-Distribution-Api-Version": "registry/2.0",
+                        "Docker-Content-Digest": scoped_digest,
+                        "Content-Length": str(len(oci_bytes)),
+                    },
+                )
+            except (CatalogError, ValueError) as error:
+                status = error.status if isinstance(error, CatalogError) else 400
+                return JSONResponse(
+                    {
+                        "errors": [
+                            {
+                                "code": "DENIED",
+                                "message": str(error),
+                            }
+                        ]
+                    },
+                    status_code=status,
+                    headers={"Docker-Distribution-Api-Version": "registry/2.0"},
+                )
+        found = await run_in_threadpool(lookup_oci_manifest, component, reference)
         if found is None:
             return JSONResponse(
                 {
@@ -576,6 +614,11 @@ def create_app(
         Route("/v1/deployment-requests", deployment_requests, methods=["GET", "POST"]),
         Route("/v1/stencils", stencils_catalog),
         Route("/v1/stencils/compose", stencils_compose, methods=["POST"]),
+        *build_stencil_routes(
+            store,
+            grant_issuer_public_keys=grant_issuer_public_keys,
+            resolve_actor=_resolve_actor,
+        ),
     ]
     routes += [
         Route(
