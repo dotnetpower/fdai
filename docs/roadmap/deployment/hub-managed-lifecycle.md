@@ -42,6 +42,19 @@ Release Hub service already exists.
 | Data boundary | The Hub holds no customer workload credential or operational data. Its own bounded service identity and signing key do not authorize customer resource changes. Only lifecycle metadata crosses the boundary. |
 | Records | Hub PostgreSQL per cell or Target Hub, and append-only installation receipts in Foundation storage |
 
+## Local Release Hub connection
+
+**Catalog import** separates transport settings from trust; changes require the current revision,
+exact target confirmation, a reason and an attributed audit record. Explicit remote endpoints stay
+deployment-owned; otherwise saved origins override `FDAI_RELEASE_HUB_ENDPOINT`, then default
+to `http://127.0.0.1:8091`. Settings tables are prepared during migration, never during serving.
+
+One credential-free preview has a five-second deadline and 16 MiB limit, with no redirects.
+HTTP is limited to explicit loopback hosts; other origins require HTTPS. Failed reads never substitute data.
+Registrations verify neither builds, image availability nor deployments. Reachability never approves
+keys, export pins, catalog import, Plans or promotion; saved origins cannot redirect Managed Identity.
+The [local connection reference](../../../lifecycle/hub/README.md#release-hub-connection) describes setup and recovery.
+
 ## Application-neutral package boundary
 
 The optional `fdai.application-release.v2` extension separates signed component images from the

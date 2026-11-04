@@ -38,7 +38,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         return ceremony(arguments[1:])
     parser = argparse.ArgumentParser(prog="fdai-release-hub")
     parser.add_argument("command", choices=("dev-init", "serve", "tuf-init", "install-root"))
-    parser.add_argument("state", type=Path, help="private state directory outside the checkout")
+    parser.add_argument(
+        "state",
+        type=Path,
+        nargs="?",
+        default=Path.home() / ".local/state/fdai/lifecycle-preview/release-hub",
+        help="private state directory outside the checkout; defaults to persistent local state",
+    )
     parser.add_argument("--port", type=_port, default=8091)
     parser.add_argument("--ui", type=Path, help="built UI directory; container images use /app/ui")
     parser.add_argument("--root", type=Path, help="signed root record for install-root")

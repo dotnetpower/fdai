@@ -78,6 +78,15 @@ Register an existing `fdai.runtime-release.v3` manifest; registration validates 
 Artifact archives, SBOM contents, provenance semantics and registry presence remain unverified.
 The optional local label may contain Korean; machine release ids remain canonical SemVer.
 
+When the state argument is omitted, the local CLI uses
+`~/.local/state/fdai/lifecycle-preview/release-hub`, the same persistent directory as the
+committed local preview task. Initialize its development key explicitly with `dev-init`
+before the first `serve`. An explicit state argument still selects another private directory.
+Normal startup never loads demo releases or falls back to a temporary fixture database.
+The UI lists only manifests registered in the selected database. An empty database shows no
+releases; registration and development signatures do not verify a build, image availability,
+or deployment. Keep intentional demo catalogs in separate, explicitly selected directories.
+
 Build the UI with `npm --prefix lifecycle/release-hub/ui run build`; the API serves the built
 application from the same loopback origin when the build exists. The `serve` command never
 creates a missing key implicitly. Keep the state directory outside source control.

@@ -398,6 +398,27 @@ uv run fdai-lifecycle-hub serve
 build, or omit the build entirely to run the Hub API alone. `npm test` runs the UI's Vitest unit
 tests, and `npm run typecheck` runs strict TypeScript across the app and its tests.
 
+## Release Hub connection
+
+On **Catalog import**, you can configure the Release Hub origin, save it with a reason, or
+reset it to the startup default (`http://127.0.0.1:8091` when none is configured).
+Run `fdai-lifecycle-hub migrate` first
+to prepare the connection settings and audit tables in the existing Hub database.
+`FDAI_RELEASE_HUB_ENDPOINT` supplies an optional startup default; a saved setting takes
+precedence. An explicitly configured remote catalog remains deployment-owned and read-only
+here, so changing this screen cannot redirect its Managed Identity or catalog updater.
+
+The connection preview reads the selected Hub's registered catalog once. It uses no credentials,
+follows no redirects, and has a five-second deadline and a 16 MiB response limit. HTTP is
+supported only for literal loopback addresses and `localhost`; other origins require HTTPS.
+Credentials, paths, queries, and fragments are not accepted in an endpoint.
+
+Design and critique: a reachable endpoint or registered manifest is not build evidence or a
+trusted catalog. The revised boundary therefore separates revision-checked, audited transport
+settings and an unverified preview from the existing independent key/pin approval and import
+workflow. Failed reads remain errors, not empty catalogs. No automatic import, promotion,
+planning, or deployment is enabled by the local default.
+
 ## Limits
 
 - The API binds to loopback and has no caller authentication. Agent identity is Lifecycle I1 work.

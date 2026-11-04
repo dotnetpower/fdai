@@ -1002,7 +1002,7 @@ export function App() {
           <small>{t("Verify export pin or recall specific capabilities", "Export 핀 검증 및 결함 기능 단위 정밀 리콜 제어")}</small>
         </a>
       </nav>
-      <p class="boundary">{t("Development signatures only. Images remain external; nothing is deployed.", "모든 매니페스트와 Stencil 블루프린트는 전자서명으로 무결성이 검증되며, 클러스터 배포는 별도 승인 후 수행됩니다.")}</p>
+      <p class="boundary">{t("Registered manifests from the selected catalog database only. Builds, image availability, and deployments are not verified here.", "선택한 카탈로그 데이터베이스에 실제 등록된 매니페스트만 표시합니다. 이 화면은 빌드, 이미지 가용성, 배포 완료를 검증하지 않습니다.")}</p>
       {error && <p class="error" role="alert">Catalog unavailable: {error} {catalog ? "Previously loaded data is shown; mutations are disabled." : "Use Refresh catalog to retry."}</p>}
       {notice && <p role={uncertain ? "alert" : "status"} class={error || uncertain ? "warning" : "success"}>{notice}</p>}
       {route === "/deployment-requests" && <DeploymentRequests catalog={catalog} locale={locale} />}
