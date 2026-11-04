@@ -12,6 +12,14 @@ from pathlib import Path
 from typing import Any
 
 import psycopg
+from fdai.core.stewardship.governance import (
+    StewardshipGovernanceError,
+    validate_stewardship_candidate,
+)
+from fdai.runtime.stewardship_merge_effects import (
+    COVERAGE_PROJECTION_KEY,
+    build_stewardship_coverage_projection,
+)
 from fdai_operator_service.alert_quality_records import alert_quality_requester_ref
 from fdai_operator_service.alert_quality_settings import StateKvAlertQualityPreferenceStore
 from fdai_operator_service.alert_quality_store import StateKvAlertQualityStore
@@ -115,6 +123,22 @@ async def materialize_local_operations_state(
         snapshots[onboarding_key] = {"_revision": onboarding_rev, **onboarding_body}
 
     async with await psycopg.AsyncConnection.connect(core_dsn, row_factory=dict_row) as conn:
+        merge_cur = await conn.execute(
+            "SELECT value FROM state_kv WHERE key LIKE 'stewardship_merge:%' "
+            "ORDER BY updated_at DESC LIMIT 1"
+        )
+        merge_row = await merge_cur.fetchone()
+        if merge_row and isinstance(merge_row.get("value"), Mapping):
+            merged_yaml = merge_row["value"].get("merged_yaml")
+            if isinstance(merged_yaml, str) and merged_yaml.strip():
+                try:
+                    stewardship_map = validate_stewardship_candidate(merged_yaml, environ={})
+                    snapshots[COVERAGE_PROJECTION_KEY] = build_stewardship_coverage_projection(
+                        stewardship_map
+                    )
+                except StewardshipGovernanceError:
+                    pass
+
         pref_cur = await conn.execute("SELECT principal_id FROM user_preference LIMIT 20")
         pref_rows = await pref_cur.fetchall()
         principals = _resolve_local_principals([str(r["principal_id"]) for r in pref_rows])

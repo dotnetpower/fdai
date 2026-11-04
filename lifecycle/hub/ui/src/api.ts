@@ -319,6 +319,123 @@ export interface LiftSuppressionPayload {
   confirmation: string;
 }
 
+export type LifecycleCommandKind = "suppression-window" | "authority-lowering" | "break-glass";
+
+export interface LifecycleCommandItem {
+  command_id: string;
+  installation_id: string;
+  kind: LifecycleCommandKind;
+  actor: string;
+  reason: string;
+  scope: string;
+  starts_at: string;
+  expires_at: string;
+  active: boolean;
+  expired: boolean;
+  reconciles_to_git_on_expiry: boolean;
+  target_action_type: string | null;
+  target_mode: string | null;
+  target_autonomy: string | null;
+  engage_kill_switch: boolean;
+  bypass_scopes: readonly string[];
+  override_count: number;
+}
+
+export interface IssueLifecycleCommandPayload {
+  command_id: string;
+  kind: LifecycleCommandKind;
+  scope: string;
+  starts_at: string;
+  expires_at: string;
+  reason: string;
+  target_action_type?: string | null;
+  target_mode?: string | null;
+  target_autonomy?: string | null;
+  engage_kill_switch?: boolean;
+  bypass_scopes?: readonly string[];
+  confirmation: string;
+}
+
+export interface DestructiveConfirmationItem {
+  installation_id: string;
+  plan_id: string;
+  exact_plan_digest: string;
+  change_kind: "resource-replacement" | "resource-deletion" | "uninstall";
+  title: string;
+  summary: string;
+  impact: string;
+  replace_count: number;
+  delete_count: number;
+  affected_addresses: readonly string[];
+  foundation_ownership_verified: boolean;
+  within_local_envelope: boolean;
+  dry_run_succeeded: boolean;
+  status: "pending" | "confirmed" | "held" | "invalidated";
+  plan_current: boolean;
+  created_at: string;
+  decided_by: string | null;
+  decided_at: string | null;
+  decision_reason: string | null;
+}
+
+export interface DecideConfirmationPayload {
+  decision: "confirm" | "hold";
+  expected_plan_digest: string;
+  confirmed_addresses: readonly string[];
+  reason: string;
+  confirmation: string;
+}
+
+export interface BundleImportRecord {
+  bundle_id: string;
+  extends_bundle_id: string | null;
+  catalog_export_sha256: string;
+  imported_at: string;
+  operator: string;
+  verification: {
+    vendor_signature_verified: boolean;
+    checksums_matched: boolean;
+    checksum_count: number;
+    lineage_verified: boolean;
+    recall_sequence_continuous: boolean;
+    configuration_signature_verified: boolean;
+  };
+  contents: {
+    releases: readonly string[];
+    channels: Readonly<Record<string, string>>;
+    recall_notices: readonly string[];
+    image_layer_count: number;
+    configuration_package_count: number;
+    metadata_expiry_days: number;
+  };
+}
+
+export interface BundleImportListResponse {
+  last_bundle_id: string | null;
+  last_imported_at: string | null;
+  metadata_expiry_days: number;
+  imports: readonly BundleImportRecord[];
+}
+
+export interface BundleImportPayload {
+  bundle_id: string;
+  extends_bundle_id: string | null;
+  catalog_export_sha256: string;
+  checksum_count: number;
+  signature_verified: boolean;
+  checksums_verified: boolean;
+  configuration_signature_verified: boolean;
+  recall_sequence_start: number;
+  recall_sequence_end: number;
+  releases: readonly string[];
+  channels: Readonly<Record<string, string>>;
+  recall_notices: readonly string[];
+  image_layer_count: number;
+  configuration_package_count: number;
+  metadata_expiry_days: number;
+  confirmation: string;
+}
+
 export class HubApiError extends Error {
   constructor(
     readonly status: number,
@@ -484,4 +601,48 @@ export const hubApi = {
         signal: AbortSignal.timeout(10_000),
       },
     ),
+  listCommands: (installationId = "") => {
+    const query = installationId.trim()
+      ? `?installation_id=${encodeURIComponent(installationId.trim())}`
+      : "";
+    return request<{ commands: readonly LifecycleCommandItem[] }>(`/v1/commands${query}`, {
+      signal: AbortSignal.timeout(10_000),
+    });
+  },
+  issueCommand: (installationId: string, body: IssueLifecycleCommandPayload) =>
+    request<LifecycleCommandItem>(
+      `/v1/installations/${encodeURIComponent(installationId)}/commands`,
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(10_000),
+      },
+    ),
+  listConfirmations: () =>
+    request<{ confirmations: readonly DestructiveConfirmationItem[] }>("/v1/confirmations", {
+      signal: AbortSignal.timeout(10_000),
+    }),
+  decideConfirmation: (
+    installationId: string,
+    planId: string,
+    body: DecideConfirmationPayload,
+  ) =>
+    request<DestructiveConfirmationItem>(
+      `/v1/installations/${encodeURIComponent(installationId)}/plans/${encodeURIComponent(planId)}/confirmations/decision`,
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(10_000),
+      },
+    ),
+  listBundleImports: () =>
+    request<BundleImportListResponse>("/v1/bundle-imports", {
+      signal: AbortSignal.timeout(10_000),
+    }),
+  importBundle: (body: BundleImportPayload) =>
+    request<BundleImportRecord>("/v1/bundle-imports", {
+      method: "POST",
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10_000),
+    }),
 };

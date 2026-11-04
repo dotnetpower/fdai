@@ -620,3 +620,297 @@ test("release hub stencil builder composes lite custom menu build and prepares r
   await expect(page.getByRole("heading", { name: "Register release" })).toBeVisible();
   await expect(page.getByLabel("Release id (SemVer)")).toHaveValue("1.7.0");
 });
+
+test("confirmations, bundle import, and break-glass commands verify exact digests and EN/KO viewports", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const planDigest = `sha256:${"c".repeat(64)}`;
+  const bundleDigest = `sha256:${"e".repeat(64)}`;
+  let confirmationStatus: "pending" | "confirmed" = "pending";
+  const decisions: unknown[] = [];
+  const bundleImports: unknown[] = [];
+  const commandWrites: unknown[] = [];
+
+  await page.route("https://hub.test/**", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (path === "/auth/config") {
+      return route.fulfill({ json: { profile: "local-development" } });
+    }
+    if (path === "/v1/confirmations") {
+      return route.fulfill({
+        json: {
+          confirmations: [
+            {
+              installation_id: installationId,
+              plan_id: "plan-0043",
+              exact_plan_digest: planDigest,
+              change_kind: "resource-replacement",
+              title: "prod-korea · replace user node pool runtime",
+              summary: "Node size change deletes and recreates the runtime node pool",
+              impact: "Three nodes are replaced one at a time inside the Sunday 03:00 downtime window.",
+              replace_count: 1,
+              delete_count: 0,
+              affected_addresses: ["module.aks.azurerm_kubernetes_cluster_node_pool.runtime"],
+              foundation_ownership_verified: true,
+              within_local_envelope: true,
+              dry_run_succeeded: true,
+              status: confirmationStatus,
+              plan_current: true,
+              created_at: "2026-10-26T00:00:00Z",
+              decided_by: confirmationStatus === "confirmed" ? "local-operator" : null,
+              decided_at: confirmationStatus === "confirmed" ? "2026-10-26T00:05:00Z" : null,
+              decision_reason:
+                confirmationStatus === "confirmed" ? "approved_downtime_replacement" : null,
+            },
+          ],
+        },
+      });
+    }
+    if (
+      path === `/v1/installations/${installationId}/plans/plan-0043/confirmations/decision` &&
+      request.method() === "POST"
+    ) {
+      const body = request.postDataJSON();
+      decisions.push(body);
+      confirmationStatus = "confirmed";
+      return route.fulfill({
+        json: {
+          installation_id: installationId,
+          plan_id: "plan-0043",
+          exact_plan_digest: planDigest,
+          change_kind: "resource-replacement",
+          title: "prod-korea · replace user node pool runtime",
+          summary: "Node size change deletes and recreates the runtime node pool",
+          impact: "Three nodes are replaced one at a time inside the Sunday 03:00 downtime window.",
+          replace_count: 1,
+          delete_count: 0,
+          affected_addresses: ["module.aks.azurerm_kubernetes_cluster_node_pool.runtime"],
+          foundation_ownership_verified: true,
+          within_local_envelope: true,
+          dry_run_succeeded: true,
+          status: "confirmed",
+          plan_current: true,
+          created_at: "2026-10-26T00:00:00Z",
+          decided_by: "local-operator",
+          decided_at: "2026-10-26T00:05:00Z",
+          decision_reason: body.reason,
+        },
+      });
+    }
+    if (path === "/v1/bundle-imports" && request.method() === "GET") {
+      return route.fulfill({
+        json: {
+          last_bundle_id: bundleImports.length > 0 ? "bundle-0019" : "bundle-0018",
+          last_imported_at: "2026-10-26T01:00:00Z",
+          metadata_expiry_days: 30,
+          imports: [
+            {
+              bundle_id: bundleImports.length > 0 ? "bundle-0019" : "bundle-0018",
+              extends_bundle_id: bundleImports.length > 0 ? "bundle-0018" : null,
+              catalog_export_sha256: bundleDigest,
+              imported_at: "2026-10-26T01:00:00Z",
+              operator: "local-operator",
+              verification: {
+                vendor_signature_verified: true,
+                checksums_matched: true,
+                checksum_count: 412,
+                lineage_verified: true,
+                recall_sequence_continuous: true,
+                configuration_signature_verified: true,
+              },
+              contents: {
+                releases: ["1.4.4", "1.5.1"],
+                channels: { RELEASE: "1.5.1" },
+                recall_notices: ["#0031 · 1.5.0"],
+                image_layer_count: 38,
+                configuration_package_count: 1,
+                metadata_expiry_days: 30,
+              },
+            },
+          ],
+        },
+      });
+    }
+    if (path === "/v1/bundle-imports" && request.method() === "POST") {
+      const body = request.postDataJSON();
+      bundleImports.push(body);
+      return route.fulfill({
+        status: 201,
+        json: {
+          bundle_id: body.bundle_id,
+          extends_bundle_id: body.extends_bundle_id,
+          catalog_export_sha256: body.catalog_export_sha256,
+          imported_at: "2026-10-26T01:10:00Z",
+          operator: "local-operator",
+          verification: {
+            vendor_signature_verified: true,
+            checksums_matched: true,
+            checksum_count: body.checksum_count,
+            lineage_verified: true,
+            recall_sequence_continuous: true,
+            configuration_signature_verified: true,
+          },
+          contents: {
+            releases: body.releases,
+            channels: body.channels,
+            recall_notices: body.recall_notices,
+            image_layer_count: body.image_layer_count,
+            configuration_package_count: body.configuration_package_count,
+            metadata_expiry_days: body.metadata_expiry_days,
+          },
+        },
+      });
+    }
+    if (path === "/v1/installations") {
+      return route.fulfill({
+        json: {
+          installations: [
+            {
+              installation_id: installationId,
+              channel: "RELEASE",
+              version_range: ">=1.4.0 <2.0.0",
+              current_release: "1.5.0",
+              target_release_id: "1.5.1",
+              outcome: "waiting",
+              health: "healthy",
+              next_window_starts_at: "2026-10-26T02:00:00Z",
+              next_window_ends_at: "2026-10-26T03:00:00Z",
+              next_window_open: false,
+              last_evaluated_at: "2026-10-25T01:12:00Z",
+            },
+          ],
+        },
+      });
+    }
+    if (path === "/v1/commands") {
+      return route.fulfill({
+        json: {
+          commands:
+            commandWrites.length > 0
+              ? [
+                  {
+                    command_id: "cmd-break-glass-1",
+                    installation_id: installationId,
+                    kind: "break-glass",
+                    actor: "local-operator",
+                    reason: "emergency_scale_out",
+                    scope: "installation",
+                    starts_at: "2026-10-26T01:00:00Z",
+                    expires_at: "2026-10-26T03:00:00Z",
+                    active: true,
+                    expired: false,
+                    reconciles_to_git_on_expiry: true,
+                    target_action_type: null,
+                    target_mode: null,
+                    target_autonomy: null,
+                    engage_kill_switch: false,
+                    bypass_scopes: ["maintenance-window", "suppression-window"],
+                    override_count: 0,
+                  },
+                ]
+              : [],
+        },
+      });
+    }
+    if (path === `/v1/installations/${installationId}/commands` && request.method() === "POST") {
+      const body = request.postDataJSON();
+      commandWrites.push(body);
+      return route.fulfill({
+        status: 201,
+        json: {
+          command_id: body.command_id,
+          installation_id: installationId,
+          kind: body.kind,
+          actor: "local-operator",
+          reason: body.reason,
+          scope: body.scope,
+          starts_at: body.starts_at,
+          expires_at: body.expires_at,
+          active: true,
+          expired: false,
+          reconciles_to_git_on_expiry: body.kind === "break-glass",
+          target_action_type: null,
+          target_mode: body.target_mode ?? null,
+          target_autonomy: body.target_autonomy ?? null,
+          engage_kill_switch: body.engage_kill_switch ?? false,
+          bypass_scopes: body.bypass_scopes ?? [],
+          override_count: 0,
+        },
+      });
+    }
+    if (path.startsWith("/v1/")) {
+      return route.fulfill({ status: 404, json: { error: "not_found" } });
+    }
+    const file = path.startsWith("/assets/") || path.startsWith("/brand/") ? path : "/index.html";
+    return route.fulfill({
+      body: await readFile(resolve("dist", `.${file}`)),
+      contentType: file.endsWith(".js")
+        ? "text/javascript"
+        : file.endsWith(".css")
+        ? "text/css"
+        : file.endsWith(".png")
+        ? "image/png"
+        : "text/html",
+    });
+  });
+
+  // 1. Confirmations screen
+  await page.goto("https://hub.test/confirmations");
+  await expect(page.getByRole("heading", { name: "Confirmations" })).toBeVisible();
+  await expect(page.getByText(planDigest, { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Fill reviewed confirmation" }).click();
+  await page.getByRole("button", { name: "Confirm replacement" }).click();
+  await expect(page.getByRole("status")).toContainText("Recorded confirmed decision");
+  expect(decisions).toHaveLength(1);
+
+  for (const width of [1440, 993, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(
+      await page.locator("main").evaluate((main) => main.scrollWidth <= main.clientWidth),
+    ).toBe(true);
+  }
+
+  // 2. Bundle import screen
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.getByRole("link", { name: "Bundle import", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Bundle import" })).toBeVisible();
+  await expect(page.getByText("Vendor release signature verified")).toBeVisible();
+  await page.getByLabel("Predecessor bundle ID").fill("bundle-0018");
+  await page.getByRole("button", { name: "Fill reviewed confirmation" }).click();
+  await page.getByRole("button", { name: "Verify and import bundle" }).click();
+  await expect(page.getByRole("status")).toContainText("Verified and imported bundle-0019");
+  expect(bundleImports).toHaveLength(1);
+
+  for (const width of [1440, 993, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(
+      await page.locator("main").evaluate((main) => main.scrollWidth <= main.clientWidth),
+    ).toBe(true);
+  }
+
+  // 3. Commands screen (break-glass with mandatory expiry)
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.getByRole("link", { name: "Commands", exact: true }).click();
+  await page.getByLabel("Command action", { exact: true }).selectOption("break-glass");
+  await page.getByLabel("Command installation", { exact: true }).selectOption(installationId);
+  await page.getByLabel("Reason code", { exact: true }).fill("emergency_scale_out");
+  await page.getByRole("button", { name: "Fill reviewed confirmation" }).click();
+  await page.getByRole("button", { name: "Issue break-glass command" }).click();
+  await expect(page.getByRole("status")).toContainText("Issued expiring break-glass command");
+  await expect(
+    page.getByText("Reconciles to approved Git configuration on expiry"),
+  ).toBeVisible();
+  expect(commandWrites).toHaveLength(1);
+
+  for (const width of [1440, 993, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(
+      await page.locator("main").evaluate((main) => main.scrollWidth <= main.clientWidth),
+    ).toBe(true);
+  }
+});

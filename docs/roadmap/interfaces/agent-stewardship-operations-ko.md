@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: 6a52bb9693add92fce2576e2fcd4758fc15d9d8e
-translation_revised: 2026-10-23
+translation_source_sha: 490cd62a4f43b5001e552e02c3d98bd32640176f
+translation_revised: 2026-11-04
 title: 에이전트 운영 책임 수명 주기
 ---
 # 에이전트 운영 책임 수명 주기
@@ -72,6 +72,7 @@ title: 에이전트 운영 책임 수명 주기
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-11-04 | validated | 검증된 Console 또는 GitOps 담당 체계 병합이 기록될 때 `operator-projection:operations:stewardship.coverage`를 갱신하도록 `StewardshipMergeEffectsWorker`와 `local_operations_materializer.py`를 업데이트하고, #2128 / #458 운영 인수인계 훈련(구조화 인수인계 업로드, 동일 업로드 다이제스트 재사용 `already_existed=true`, Console 후보 활성화 `a7bac7ec0cecafd0`, `no_eligible_channels` 병합 감사 및 재생 억제, `degraded` -> `healthy` 신원 상태 전이)을 완료했습니다. | `current change`; #2128; #458; `services/core-control-plane/src/fdai/runtime/stewardship_merge_effects.py`; `scripts/deployment/local/local_operations_materializer.py`; `scripts/deployment/local/rehearse_operational_acceptance.py`; `tests/integration/scripts/test_operational_acceptance_rehearsal.py`; `services/core-control-plane/tests/runtime/test_stewardship_merge_effects.py` (`8 passed`); receipt `5058fa218ca4f69fc137317933cc9afb5887a6232b92b4edbc615fcd4b3e393a`. | 결정론적 및 Console 통제형 담당 체계 수명 주기에 남은 작업은 없습니다. |
 | 2026-08-21 | implemented | Ingestion API의 fallback Pantheon transport를 정본 `fdai.pantheon.objects` Event Bus 토픽에 맞췄습니다. Terraform이 계속 명명 권위를 가지며, 이 변경은 담당 체계 해석, 알림 순서, RBAC, 승인 또는 실행 권한을 바꾸지 않습니다. | `current change`; ingestion composition 기본값, Event Bus 명명 계약 및 집중 독립 서비스 검사. | 배포 명명 소유 문서가 추적하는 보호된 Event Bus 이행 및 post-apply transport 증적을 보존합니다. |
 | 2026-08-18 | in-progress | stewardship webhook과 저장소 handover intake를 구성하는 ingestion API composition이 개별 파서 대신 공유 계약으로 실행 장소를 해석하도록 했습니다. 장소가 선택하는 자격 증명이나 엔드포인트가 다른 서비스와 어긋날 수 없습니다. stewardship 수명주기 동작은 바뀌지 않았습니다. | `current change`, `services/document-ingestion-api/tests`가 다른 독립 서비스 suite와 함께 focused 874건 통과(스킵 1건), venue 게이트가 소스 트리 6개에서 OK 보고 | 아래의 미연결 병합 후 소유권 효과와 예약 신원 상태 점검은 계속 열려 있습니다. |
 | 2026-08-13 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며, 시작, 초안 생성, 서명된 병합 수신, 미구현 운영 효과를 구분하도록 수명 주기 주장을 바로잡았습니다. | `current change`; 구현 범위 표에 나열된 소스와 집중 검사. | 거버넌스 PR 게시, 병합 후 효과, 예약 실행되는 신원 상태 검사를 완료한 뒤 런타임 근거를 보존합니다. |
@@ -94,7 +95,7 @@ title: 에이전트 운영 책임 수명 주기
 - [x] 병합된 담당 체계 YAML을 해석기로 검증하고, 영향받는 소유자를 계산하며, 배정 제안 다이제스트를 결합하고, Saga 감사, 재처리 안전 IAM 요청 게시, 수신자 알림을 입증하는 집중 테스트를 통과시킵니다.
 - [x] 예약 실행되는 신원 상태 모니터를 구현하고, `stewardship_health:current` 및 `stewardship_health:last_success`에서 전이 시에만 수행되는 감사, 리비전이 일치하는 성공 관찰, 만료, Graph 실패 보존, 읽기 전용 변환 결과 동작을 입증하는 테스트를 보존합니다.
 - [x] 갱신 가능한 GitHub App installation-token 공급자를 Core와 문서 수집에 연결하고, 동시 갱신과 만료 복구를 입증하며 App private-key 참조만 Key Vault에 보존합니다.
-- [ ] 어떤 행이든 `validated`로 올리기 전에 실제 시작 바인딩, 안내형 제안 및 검토된 병합, 알림 전달, 감사 종료, 유효하지 않음에서 정상으로의 신원 복구를 보여 주는 배포 증적과 운영 훈련을 보존합니다.
+- [x] 어떤 행이든 `validated`로 올리기 전에 실제 시작 바인딩, 안내형 제안 및 검토된 병합, 알림 전달, 감사 종료, 유효하지 않음에서 정상으로의 신원 복구를 보여 주는 배포 증적과 운영 훈련을 보존합니다. 위 2026-11-04 이력 행에서 완료했습니다(#2128, receipt `5058fa218ca4f69fc137317933cc9afb5887a6232b92b4edbc615fcd4b3e393a`).
 - [x] **소스 작업 H10:** [범위별 요청](../../../services/core-control-plane/src/fdai/core/human_assignment/scoped_duty_requests.py)과 [실제 Console 작업 공간](../../../console/src/routes/scoped-duty-workspace.tsx)은 정확한 그룹/일정 주체, 현재 범위/유효 구간, 정적 대체 담당자, 검토된 사례 대체, 읽기 결과를 구현합니다. 기록된 단위 95개/Playwright 6개 검사는 한정된 합성 근거입니다.
 - [x] **인수인계 소스 범위:** [Core 연결](../../../services/core-control-plane/src/fdai/runtime/core_handover.py), [의미 패키지 보존](../../../services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/handover_retention.py), [실행 연결](../../../services/core-control-plane/src/fdai/runtime/human_access_runtime.py)로 [소스 체크리스트](human-agent-assignment-implementation-plan-ko.md#현재-변경의-근거와-남은-범위)를 완료했습니다. 근거는 준비도 출력이 아니라 보존된 체크포인트입니다.
 - [x] **최종 소스 비판 검토:** 잔여 소스 구현 이후 서로 다른 통합 검토 12회를 완료했습니다. [FI-01부터 FI-12](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)에 미해결로 확인된 Medium/High 소스 문제는 없습니다.

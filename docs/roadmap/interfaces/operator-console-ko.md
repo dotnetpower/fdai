@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 6d780bd960852f49461405554f760f5f0999d689
+translation_source_sha: ae6e8327b7160d0c27a189007693a886d7141c7b
 translation_revised: 2026-11-04
 ---
 # FDAI Console 대화
@@ -72,7 +72,11 @@ Promotion gates 화면은 측정된 준비 상태 표시 데이터와 영속 승
 정책 관리도 제품 프로필로 게이트됩니다. Operator API는 canonical 제품 프로필이
 `policy-administration` 추가 기능을 선택할 때만 `POST /policy/revisions`를 등록하고, 이 경로는
 Mimir에 타입 지정 요청만 게시합니다. 프로필 JSON이 없거나 잘못되면 경로가 없거나 시작이 실패하며,
-브라우저 쪽 정책 작성자나 실행 자격 증명을 만들지 않습니다.
+브라우저 쪽 정책 작성자나 실행 자격 증명을 만들지 않습니다. FDAI Console의 `Settings > Runtime policies`는
+승인 프로필(`multi-operator`와 `single-operator-production`, 분리된 승인 및 실행 주체)과 제한된
+OPA/Rego 허용 규칙 개정을 위한 `Policy administration` 작성기(`settings-policy-administration.tsx`)를
+제공하며, `Settings > Environment and deployment`는 변경 컨트롤 없이 설치 환경의 릴리스, 채널,
+개정 이력을 보여 주는 읽기 전용 `Version` 탭(`environment-deployment-version.tsx`)을 제공합니다.
 Outcome Assurance 상세 화면은 기존 Operating outcomes, Control assurance, Verticals 정보
 아키텍처를 재사용합니다. 인증된 `/kpi/outcome-assurance` 변환 결과만 읽고, 누락되거나
 오래된 출처 상태를 사용 불가로 보존하며, 요청, 승인, 승격 또는 실행 권한을 추가하지 않습니다.

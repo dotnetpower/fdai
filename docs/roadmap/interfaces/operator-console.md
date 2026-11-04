@@ -65,15 +65,8 @@ remains unavailable when that read fails. Capability-specific links lead to the 
 Console surface; mutating declarations also link to the separate Promotion gates view without
 claiming an ActionType mapping. Catalog parity, official source, source reference, and implementation
 references remain secondary provenance details.
-Policy administration is also product-profile gated. The Operator API registers
-`POST /policy/revisions` only when the canonical product profile selects the
-`policy-administration` add-on, and the route publishes only a typed request for Mimir. Missing or
-malformed profile JSON leaves the route absent or fails startup; it never creates a browser-side
-policy writer or execution credential.
-The Outcome Assurance drill-down reuses the existing Operating outcomes, Control assurance, and
-Verticals information architecture. It reads only the authenticated `/kpi/outcome-assurance`
-projection, preserves missing or stale source states as unavailable, and adds no request,
-approval, promotion, or execution authority.
+Policy administration is also product-profile gated: Operator registers `POST /policy/revisions` only when the canonical product profile selects `policy-administration` and publishes only a typed request for Mimir, while missing or malformed profile JSON leaves the route absent or fails startup without creating a browser-side policy writer or execution credential. In FDAI Console, `Settings > Runtime policies` exposes the bounded `Policy administration` revision composer (`settings-policy-administration.tsx`) for approval-profile (`multi-operator` vs `single-operator-production` with distinct approval and executor principals) and restricted OPA/Rego admission revisions, and `Settings > Environment and deployment` adds a read-only `Version` tab (`environment-deployment-version.tsx`) showing the installation's Release, channel, and revision history without mutation controls.
+The Outcome Assurance drill-down reuses Operating outcomes, Control assurance, and Verticals: it reads only the authenticated `/kpi/outcome-assurance` projection, preserves missing or stale source states as unavailable, and adds no request, approval, promotion, or execution authority.
 Adaptive answer evidence crosses the model boundary as `ModelEvidenceView`, a Core-built
 allowlisted projection. Raw query tables, provider bodies, handles, and retained snapshot cells do
 not reach answer-authoring or review model calls.

@@ -11,14 +11,17 @@ describe("environment and deployment navigation", () => {
   test("uses readiness as the default and rejects unknown views", () => {
     expect(environmentDeploymentTabFromSegment(undefined)).toBe("readiness");
     expect(environmentDeploymentTabFromSegment("deployment")).toBe("deployment");
+    expect(environmentDeploymentTabFromSegment("version")).toBe("version");
     expect(environmentDeploymentTabFromSegment("history")).toBeNull();
   });
 
-  test("builds canonical Settings routes for both tabs", () => {
+  test("builds canonical Settings routes for tabs", () => {
     expect(environmentDeploymentHref("readiness"))
       .toBe("/settings/environment-and-deployment");
     expect(environmentDeploymentHref("deployment"))
       .toBe("/settings/environment-and-deployment/deployment");
+    expect(environmentDeploymentHref("version"))
+      .toBe("/settings/environment-and-deployment/version");
   });
 
   test.each(["stages", "readiness", "resources"])("restores only a valid deployment subview: %s", (value) => {
@@ -37,6 +40,8 @@ describe("environment and deployment navigation", () => {
       .toBe("/settings/environment-and-deployment/deployment?data=sample&locale=ko&deployment-view=resources");
     expect(environmentDeploymentHref("observers", "sample", search))
       .toBe("/settings/environment-and-deployment/observers?data=sample&locale=ko&deployment-view=resources");
+    expect(environmentDeploymentHref("version", "sample", search))
+      .toBe("/settings/environment-and-deployment/version?data=sample&locale=ko&deployment-view=resources");
   });
 
   test("omits default or untrusted subviews and unsupported locale overrides", () => {
@@ -47,9 +52,10 @@ describe("environment and deployment navigation", () => {
   });
 
   test("cycles keyboard focus and honors boundary keys", () => {
-    expect(nextEnvironmentDeploymentTab("readiness", "ArrowLeft")).toBe("observers");
+    expect(nextEnvironmentDeploymentTab("readiness", "ArrowLeft")).toBe("version");
     expect(nextEnvironmentDeploymentTab("deployment", "ArrowRight")).toBe("observers");
+    expect(nextEnvironmentDeploymentTab("observers", "ArrowRight")).toBe("version");
     expect(nextEnvironmentDeploymentTab("deployment", "Home")).toBe("readiness");
-    expect(nextEnvironmentDeploymentTab("readiness", "End")).toBe("observers");
+    expect(nextEnvironmentDeploymentTab("readiness", "End")).toBe("version");
   });
 });

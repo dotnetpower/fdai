@@ -11,6 +11,8 @@ export type Route =
   | { kind: "updates" }
   | { kind: "releases" }
   | { kind: "configurations" }
+  | { kind: "confirmations" }
+  | { kind: "bundle-import" }
   | { kind: "commands" }
   | { kind: "audit" }
   | { kind: "not-found"; path: string };
@@ -22,6 +24,8 @@ export function parseRoute(pathname: string): Route {
   if (segments.length === 1 && segments[0] === "updates") return { kind: "updates" };
   if (segments.length === 1 && segments[0] === "available-releases") return { kind: "releases" };
   if (segments.length === 1 && segments[0] === "configuration-packages") return { kind: "configurations" };
+  if (segments.length === 1 && segments[0] === "confirmations") return { kind: "confirmations" };
+  if (segments.length === 1 && segments[0] === "bundle-import") return { kind: "bundle-import" };
   if (segments.length === 1 && segments[0] === "commands") return { kind: "commands" };
   if (segments.length === 1 && segments[0] === "audit") return { kind: "audit" };
   if (segments[0] === "installations") {
@@ -52,6 +56,14 @@ export function availableReleasesPath(): string {
 
 export function configurationPackagesPath(): string {
   return "/configuration-packages";
+}
+
+export function confirmationsPath(): string {
+  return "/confirmations";
+}
+
+export function bundleImportPath(): string {
+  return "/bundle-import";
 }
 
 export function commandsPath(): string {
