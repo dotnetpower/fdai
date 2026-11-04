@@ -102,6 +102,9 @@ from fdai.runtime.control_loop_execution_ports import (
     require_production_safeguard_readiness,
 )
 from fdai.runtime.control_loop_support import (
+    build_ontology_gate_reader as _build_ontology_gate_reader,
+)
+from fdai.runtime.control_loop_support import (
     build_operating_intent_change_window_provider as _build_intent_windows,
 )
 from fdai.runtime.control_loop_support import (
@@ -649,6 +652,12 @@ def _build_control_loop(
             audit_store,
             resource_lock=resource_lock,
         )
+        ontology_gate = _build_ontology_gate_reader(
+            catalog_root=catalog_root,
+            ontology_store=ontology_instance_store,
+            ontology_release=ontology_release,
+            audit_store=audit_store,
+        )
         workflow_coordinator = _build_workflow_coordinator(
             catalog_root=catalog_root,
             workflows=workflows,
@@ -661,6 +670,10 @@ def _build_control_loop(
             decision_evidence_provider=container.decision_evidence_admission_provider,
             action_dispatcher=workflow_action_dispatcher,
             automation_holds=workflow_automation_holds,
+            ontology_gate_reader=ontology_gate[0] if ontology_gate else None,
+            ontology_gate_max_reading_age=(
+                ontology_gate[1] if ontology_gate else timedelta(minutes=5)
+            ),
         )
         alert_bindings = build_alert_workflow_bindings(
             workflow_coordinator=workflow_coordinator,

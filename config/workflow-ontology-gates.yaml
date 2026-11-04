@@ -1,0 +1,22 @@
+# Reviewed deployment configuration for workflow `ontology-function:` gates.
+#
+# A gate can only keep a workflow step closed. A satisfied gate never grants execution
+# authority: approval and the safety pipeline still decide. Omitting a block leaves that
+# gate shut, which is the safe default. See docs/roadmap/decisioning/process-automation.md.
+schema_version: "1.0"
+max_reading_age_seconds: 300
+decision.blast_radius:
+  max_tier: medium
+  max_depth: 3
+decision.change_risk:
+  max_tier: medium
+  failed_change_lookback_days: 7
+  recovery_rehearsal_lookback_days: 30
+  dry_run_lookback_days: 30
+# `decision.cost_of_delay` has no shipped default. The threshold is a business decision in a
+# deployment currency, so an installation that wants the gate sets all four fields:
+#   decision.cost_of_delay:
+#     metric: <cost metric name carried by CostObservation objects>
+#     delay_hours: 24
+#     min_total_amount: "<decimal in the observation currency>"
+#     max_observation_age_hours: 48

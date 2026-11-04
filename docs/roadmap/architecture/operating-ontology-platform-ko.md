@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 501af8e77be8dccc10e52187ab10f2dc34360ca8
+translation_source_sha: f17207a2dd021af9e0722440dfc1914fbb49530f
 translation_revised: 2026-11-04
 ---
 # FDAI 온톨로지 안전 인프라
@@ -616,7 +616,7 @@ payload, 변경/executor 자격 증명 또는 browser 계산 권한/호환성이
 
 검토되지 않은 중요도, 불완전한 순회, 관측되지 않은 변경 위험 요인, 비용 기준 부재는 `unknown`과 닫힌 조건을 만듭니다. 낙관적 기본값은 만들지 않습니다. 판독은 자율성을 유지하거나 낮추기만 하는 조언입니다.
 
-`RegistryOntologyGateReader`는 검토된 고정 인자와 프로세스 대상을 담은 서버 생성 context로 `OntologyFunctionRegistry`를 통해 함수를 호출합니다. 워크플로우 `ontology-function:` 게이트는 이 결과를 영수증에 묶인 판독으로 사용합니다([프로세스 자동화](../decisioning/process-automation-ko.md)). 기본 composition은 근거 reader를 바인딩하지 않으므로 게이트가 열리려면 설치 환경이 reader를 제공해야 합니다.
+`RegistryOntologyGateReader`는 검토된 고정 인자와 프로세스 대상을 담은 서버 생성 context로 `OntologyFunctionRegistry`를 통해 함수를 호출합니다. 워크플로우 `ontology-function:` 게이트는 이 결과를 영수증에 묶인 판독으로 사용합니다([프로세스 자동화](../decisioning/process-automation-ko.md)). `decision_evidence_readers.py`는 세 함수를 런타임 온톨로지 그래프에 바인딩하며, 제어 루프는 `config/workflow-ontology-gates.yaml`이 구성한 게이트만 구성합니다. 비용 지연 게이트는 배포본 임계값이 없으므로 배포 환경이 설정하기 전까지 닫힌 채로 유지됩니다.
 
 ## 관련 문서
 

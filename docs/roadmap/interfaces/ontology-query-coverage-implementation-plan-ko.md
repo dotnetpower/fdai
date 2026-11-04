@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: bdc9a132846bbb54063199e4d034fc1182d8f0ef
+translation_source_sha: 7dd75065bd0b863de26d3e36953c2589d54515ed
 translation_revised: 2026-11-04
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -785,7 +785,7 @@ fail-close합니다.
 
 ## 판단 함수와 인과 메커니즘
 
-읽기 전용 판단 FunctionType 3개(`decision.blast_radius`, `decision.change_risk`, `decision.cost_of_delay`)가 운영 release에 포함되고, 검토된 인과 메커니즘 카탈로그는 이제 메커니즘 8개를 선언합니다. 둘 다 기본으로 원본 reader를 바인딩하지 않으며 권한을 주지 않습니다. [판단 함수](../architecture/operating-ontology-platform-ko.md#판단-함수)와 [인과 메커니즘 카탈로그](../architecture/ontology-structural-model-ko.md#인과-메커니즘-카탈로그)를 참고하세요.
+읽기 전용 판단 FunctionType 3개(`decision.blast_radius`, `decision.change_risk`, `decision.cost_of_delay`)가 운영 release에 포함되고, 검토된 인과 메커니즘 카탈로그는 이제 메커니즘 8개를 선언합니다. 판단 함수는 `config/workflow-ontology-gates.yaml`에 구성된 게이트에 대해 `decision_evidence_readers.py`로 런타임 온톨로지 그래프에 바인딩되고, 카탈로그는 인과 메커니즘의 원본 reader를 선언하지 않으며, 어느 쪽도 권한을 주지 않습니다. [판단 함수](../architecture/operating-ontology-platform-ko.md#판단-함수)와 [인과 메커니즘 카탈로그](../architecture/ontology-structural-model-ko.md#인과-메커니즘-카탈로그)를 참고하세요.
 
 ## 관련 문서
 

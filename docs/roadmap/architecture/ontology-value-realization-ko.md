@@ -1,7 +1,7 @@
 ---
 title: Ontology Value Realization
 translation_of: ontology-value-realization.md
-translation_source_sha: 9da50d54f945d8e2c064b9438a153ad496fa9bfb
+translation_source_sha: 63945ba1e882d4b5bd1871713d14b278f7f8a835
 translation_revised: 2026-11-04
 ---
 # 온톨로지 가치 실현
@@ -59,6 +59,7 @@ FDAI는 이미 개체, 관계, 시간, 근거를 타입이 있는 온톨로지�
 - 폭발 반경, 변경 위험, 지연 비용에 대한 판단 함수를 추가합니다. 각각 결정론적이고 읽기 전용이며 리플레이할 수 있어야 합니다.
 - 반증 읽기가 있는 인과 메커니즘 카탈로그를 늘리고 기존 엔진을 같은 근거 규칙 뒤에 연결합니다.
 - 카탈로그 워크플로우 3개 이상을 shadow에서 온톨로지 함수 게이트에 바인딩합니다.
+- 읽기 전용 근거 reader로 판단 함수를 런타임 온톨로지 그래프, provider가 관측한 변경 피드, 관측된 비용에 바인딩합니다. 잘렸거나 오래되었거나 합성이거나 충돌하거나 관측되지 않은 원본은 게이트를 닫고, 검토된 구성은 임계값을 선택하며 근거는 선택하지 않습니다.
 
 ### VR2 - 실데이터 근거
 

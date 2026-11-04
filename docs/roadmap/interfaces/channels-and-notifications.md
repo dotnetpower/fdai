@@ -651,6 +651,10 @@ the source strings are English, and a channel MAY render them in another locale.
   (`<channel-id>: { locale: ko }`), not per operator. A channel without an entry
   renders in English.
 
+## Ontology gate readings
+
+An `ontology-function:` workflow gate evaluation sends no notification and opens no approval channel. A closed gate is recorded in the Process journal only, and approval routing is unchanged.
+
 ## Related docs
 
 | To learn about | Read |

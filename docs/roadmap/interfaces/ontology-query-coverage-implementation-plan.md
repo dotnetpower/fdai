@@ -776,7 +776,7 @@ or execution authority.
 
 ## Decision functions and causal mechanisms
 
-Three read-only decision FunctionTypes (`decision.blast_radius`, `decision.change_risk`, `decision.cost_of_delay`) join the operational release, and the reviewed causal mechanism catalog now declares eight mechanisms. Both bind no source reader by default and grant no authority. See [Decision functions](../architecture/operating-ontology-platform.md#decision-functions) and [Causal mechanism catalog](../architecture/ontology-structural-model.md#causal-mechanism-catalog).
+Three read-only decision FunctionTypes (`decision.blast_radius`, `decision.change_risk`, `decision.cost_of_delay`) join the operational release, and the reviewed causal mechanism catalog now declares eight mechanisms. The decision functions bind to the runtime ontology graph through `decision_evidence_readers.py` for gates configured in `config/workflow-ontology-gates.yaml`, the catalog declares no source reader for causal mechanisms, and neither grants authority. See [Decision functions](../architecture/operating-ontology-platform.md#decision-functions) and [Causal mechanism catalog](../architecture/ontology-structural-model.md#causal-mechanism-catalog).
 
 ## Related docs
 

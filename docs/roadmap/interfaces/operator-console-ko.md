@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: ae6e8327b7160d0c27a189007693a886d7141c7b
+translation_source_sha: de64201050d8bb1c8345056f9a31039ed281d6e9
 translation_revised: 2026-11-04
 ---
 # FDAI Console 대화
@@ -15,7 +15,7 @@ translation_revised: 2026-11-04
 [Console 웹 알림 계약](console-web-notifications-ko.md)을 사용합니다. 가용성 기대 상태는
 구조화된 정책을 검증한 뒤, 기존 Owner 전용 Runtime Settings 경로에서 버전을 비교하고 감사
 기록을 남겨 저장합니다. Finding 조회, 브라우저 채널 선택이나 기대 상태 저장은 리소스 실행,
-승인 또는 보고 권한을 부여하지 않습니다.
+승인 또는 보고 권한을 부여하지 않습니다. 온톨로지 게이트 판독과 가치 주장 정산은 아직 Console 화면이 없으며 앞으로 추가되는 화면은 읽기 전용이어야 합니다.
 
 운영자가 CLI, Teams, Slack, 웹 채팅으로 FDAI에 **질문하고 요청하는** 방법을 설명합니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**으로서 계층 아키텍처, 도구 카탈로그, LLM 계층, 세션 영속성, 도구별 RBAC, 안전 불변식, 롤아웃 상태를 정의합니다. FDAI Console은 읽기 전용 제품이 아니라 통제된 운영자 인터페이스입니다. 서버가 인가한 타입 지정 요청을 제출할 수 있지만, 관리 리소스에 대한 실행은 브라우저 밖에서 이루어지며 고위험 작업에는 계속 사람 승인이 필요합니다.
 모듈 분리 후에도 제안의 주장 타입은 목적별 담당 모델에 유지합니다. 공개 보증 파사드, 생성된 CQAS 인벤토리, 정본 시각 매핑을 보존하며 요청 또는 실행 권한은 바뀌지 않습니다. 런타임 카탈로그 로더를 분리하더라도 파사드의 가져오기 이름을 보존하며, 사람 보고 관계, 승인 경로, RBAC 또는 Console 요청 계약은 변경하지 않습니다. Rule 활성화 테스트와 프레임워크 컨트롤 변환 테스트를 담당 Core 및 Operator 서비스 테스트 묶음에 등록하는 변경은 테스트 선택만 바꾸며 보고 관계나 승인 권한을 부여하지 않습니다. Console 카탈로그나 deck 표현 계약을 변경한 뒤 질문은행과 CQAS 산출물을 다시 생성하는 작업은 원본 결속값만 갱신하며 질문 신원, 보고 권한 또는 대화 실행 권한을 바꾸지 않습니다.
@@ -23,7 +23,7 @@ translation_revised: 2026-11-04
 제목을 표시합니다. 제목이 없거나 공백뿐이면 규칙 ID를 표시합니다. 목록의 표시만 바꾸며
 상세 패널, 출처 정보, 다른 열, 필터링, 선택 동작과 정규 ID는 그대로 유지합니다.
 ID 및 액세스 검토 컨트롤은 서버가 검증한 principal을 사용해 제출 전에 자기 검토를 비활성화합니다. 다른 Owner는 추가 검토 메모 없이 요청을 결정할 수 있습니다. 원래 요청 사유, 검토자 신원, 결정 및 시각은 계속 감사 기록에 남으며 승인만으로 공급자를 변경하지 않습니다.
-Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](channels-and-notifications-ko.md)에 있고, 운영 화면과 요청은 [console-operations-ko.md](console-operations-ko.md)에 정의되며 SPA는 [project-structure.md § 콘솔/](../architecture/project-structure-ko.md#모듈-경계모듈-boundaries)에 있습니다. 근거 출처 이력, 스트림 복구, localization 및 아키텍처 지도 복원력은 [console-evidence-and-resilience-ko.md](console-evidence-and-resilience-ko.md)가 소유합니다. Settings > Integrations는 비밀 값을 노출하지 않고 `teams-a1-approval-send`, `teams-a1-approval-callback`, `slack-a1-approval-send`, `slack-a1-approval-callback`을 A1 승인으로, `teams-a3-conversation`과 `slack-a3-conversation`을 A3 대화로 묶어 표시합니다. Login 초기화는 역할이 할당된 principal의 접근을 검증된 App 역할에서 도출하고 선택적 access-request 변환 결과를 요구하지 않으며, 역할이 없을 때 해당 변환 결과가 사용 불가이면 접근을 계속 차단합니다. 로컬 개발의 독립 서비스 어댑터는 모델 서술에만 Azure CLI를 사용할 수 있고 provider-read 또는 실행 권한은 없습니다. 온톨로지는 하나의 exact-release 레지스트리 변환 결과에서 검토된 의미 모델과 카탈로그 토폴로지를 제공합니다. 런타임 인스턴스는 보안 receipt를 기반으로 하는 별도의 목적 범위 컨텍스트 스냅샷에만 표시됩니다. 인스턴스 화면은 출처 후보 회계, 범위가 제한된 응답 수, 집중 그래프 항목, Inspector 전용 관계, IAM 전용 관계를 분리하여 레이아웃 생략이 프로바이더 근거 누락처럼 보이지 않게 합니다. Fleet 출처 행은 `(source, scope_digest)` 신원을 사용하고 각 불투명 범위 다이제스트를 표시하며 여러 클러스터 상태를 행 하나로 축약하지 않습니다. 화면이 보이는 동안 인증된 인벤토리 무효화 SSE 스트림을 사용하고 커밋된 watermark를 받으면 선택한 인스턴스를 즉시 다시 검증합니다. 교차 출처 재현은 범위가 제한된 `Last-Event-ID` 요청 헤더를 명시적으로 허용합니다. SSE를 사용할 수 없으면 단조 증가 시계를 기준으로 다음 15초 fallback 폴링까지 남은 시간을 표시하며 브라우저 복귀 시에도 즉시 다시 확인합니다. 새로고침 실패 시 마지막으로 검증된 응답을 유지하고 프로바이더 상태를 텍스트가 있는 의미 배지로 표시합니다. SSE와 폴링은 인벤토리 관측을 대체하거나 관계 완전성을 높이지 않습니다. 인시던트 주의 컨트롤은 마운트 중 제출하지 않으며, 명시적으로 클릭할 때마다 인시던트에 결속된 새 대화를 열고, 증적에 결속된 플래너 중단 시 모델 연결 또는 의미 런타임 복구 단계를 현지화해 표시합니다. 서버 검증 결과가 있으면 참조가 0개인 경우까지 그 근거 참조만 인용 출처로 사용하며, 검증 결과가 없을 때만 화면 맥락을 인용합니다.
+Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](channels-and-notifications-ko.md)에 있고, 운영 화면과 요청은 [console-operations-ko.md](console-operations-ko.md)에 정의되며 SPA는 [project-structure.md § 콘솔/](../architecture/project-structure-ko.md#모듈-경계모듈-boundaries)에 있습니다. 근거 출처 이력, 스트림 복구, localization 및 아키텍처 지도 복원력은 [console-evidence-and-resilience-ko.md](console-evidence-and-resilience-ko.md)가 소유합니다. Login 초기화는 역할이 할당된 principal의 접근을 검증된 App 역할에서 도출하고 선택적 access-request 변환 결과를 요구하지 않으며, 역할이 없을 때 해당 변환 결과가 사용 불가이면 접근을 계속 차단합니다. 로컬 개발의 독립 서비스 어댑터는 모델 서술에만 Azure CLI를 사용할 수 있고 provider-read 또는 실행 권한은 없습니다. 온톨로지는 하나의 exact-release 레지스트리 변환 결과에서 검토된 의미 모델과 카탈로그 토폴로지를 제공합니다. 런타임 인스턴스는 보안 receipt를 기반으로 하는 별도의 목적 범위 컨텍스트 스냅샷에만 표시됩니다. 인스턴스 화면은 출처 후보 회계, 범위가 제한된 응답 수, 집중 그래프 항목, Inspector 전용 관계, IAM 전용 관계를 분리하여 레이아웃 생략이 프로바이더 근거 누락처럼 보이지 않게 합니다. Fleet 출처 행은 `(source, scope_digest)` 신원을 사용하고 각 불투명 범위 다이제스트를 표시하며 여러 클러스터 상태를 행 하나로 축약하지 않습니다. 화면이 보이는 동안 인증된 인벤토리 무효화 SSE 스트림을 사용하고 커밋된 watermark를 받으면 선택한 인스턴스를 즉시 다시 검증합니다. 교차 출처 재현은 범위가 제한된 `Last-Event-ID` 요청 헤더를 명시적으로 허용합니다. SSE를 사용할 수 없으면 단조 증가 시계를 기준으로 다음 15초 fallback 폴링까지 남은 시간을 표시하며 브라우저 복귀 시에도 즉시 다시 확인합니다. 새로고침 실패 시 마지막으로 검증된 응답을 유지하고 프로바이더 상태를 텍스트가 있는 의미 배지로 표시합니다. SSE와 폴링은 인벤토리 관측을 대체하거나 관계 완전성을 높이지 않습니다. 인시던트 주의 컨트롤은 마운트 중 제출하지 않으며, 명시적으로 클릭할 때마다 인시던트에 결속된 새 대화를 열고, 증적에 결속된 플래너 중단 시 모델 연결 또는 의미 런타임 복구 단계를 현지화해 표시합니다. 서버 검증 결과가 있으면 참조가 0개인 경우까지 그 근거 참조만 인용 출처로 사용하며, 검증 결과가 없을 때만 화면 맥락을 인용합니다.
 
 
 Workflow Builder 저장은 이제 커밋된 Operator 레코드를 반환합니다. 비공개 초안과 바인딩은 영속 리비전을 포함하고 요청 principal 의 Mine 또는 My automations projection 에만 나타나며, Built-in 정의는 계속 카탈로그에서 시드되고 읽기 전용으로 유지됩니다. 로컬 Console은 다른 출처에서 Operator API를 호출하므로, Operator의 CORS 정책은 리비전을 확인하는 모든 변경 요청이 보내는 `If-Match` 헤더를 허용합니다. 허용하지 않으면 브라우저 사전 요청이 Operator에 도달하기 전에 이 저장을 차단합니다. 커밋된 리비전은 `X-FDAI-Revision` 응답 헤더로 전달되며, Operator의 CORS 정책은 이 헤더를 노출합니다. Console은 이 헤더에서 초안 리비전을 읽고, 헤더가 없으면 저장을 실패로 처리합니다.
@@ -72,11 +72,7 @@ Promotion gates 화면은 측정된 준비 상태 표시 데이터와 영속 승
 정책 관리도 제품 프로필로 게이트됩니다. Operator API는 canonical 제품 프로필이
 `policy-administration` 추가 기능을 선택할 때만 `POST /policy/revisions`를 등록하고, 이 경로는
 Mimir에 타입 지정 요청만 게시합니다. 프로필 JSON이 없거나 잘못되면 경로가 없거나 시작이 실패하며,
-브라우저 쪽 정책 작성자나 실행 자격 증명을 만들지 않습니다. FDAI Console의 `Settings > Runtime policies`는
-승인 프로필(`multi-operator`와 `single-operator-production`, 분리된 승인 및 실행 주체)과 제한된
-OPA/Rego 허용 규칙 개정을 위한 `Policy administration` 작성기(`settings-policy-administration.tsx`)를
-제공하며, `Settings > Environment and deployment`는 변경 컨트롤 없이 설치 환경의 릴리스, 채널,
-개정 이력을 보여 주는 읽기 전용 `Version` 탭(`environment-deployment-version.tsx`)을 제공합니다.
+브라우저 쪽 정책 작성자나 실행 자격 증명을 만들지 않습니다.
 Outcome Assurance 상세 화면은 기존 Operating outcomes, Control assurance, Verticals 정보
 아키텍처를 재사용합니다. 인증된 `/kpi/outcome-assurance` 변환 결과만 읽고, 누락되거나
 오래된 출처 상태를 사용 불가로 보존하며, 요청, 승인, 승격 또는 실행 권한을 추가하지 않습니다.

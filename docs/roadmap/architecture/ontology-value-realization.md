@@ -56,6 +56,7 @@ These decisions fix the scope so the phases can proceed without further agreemen
 - Add decision functions for blast radius, change risk, and cost of delay, each deterministic, read-only, and replayable.
 - Grow the catalog of causal mechanisms with refutation reads, and wire the existing engine behind the same evidence rules.
 - Bind at least three catalog workflows to ontology function gates in shadow.
+- Bind the decision functions to the runtime ontology graph, the provider-observed change feed, and observed cost through read-only evidence readers. A truncated, stale, synthetic, conflicted, or unobserved source closes the gate, and a reviewed configuration selects thresholds and never evidence.
 
 ### VR2 - Real-data evidence
 

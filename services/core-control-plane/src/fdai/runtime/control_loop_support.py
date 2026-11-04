@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Mapping
-from datetime import timedelta
+from collections.abc import Callable, Mapping
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +22,27 @@ from fdai.core.hil_resume import (
     EscalationRung,
 )
 from fdai.core.notifications.matrix import load_matrix_from_yaml
+from fdai.core.ontology_platform.decision_evidence_readers import (
+    ChangeRiskLookbacks,
+    OntologyBlastRadiusEvidenceReader,
+    OntologyChangeRiskEvidenceReader,
+    OntologyCostOfDelayEvidenceReader,
+)
+from fdai.core.ontology_platform.decision_functions import (
+    DECISION_PURPOSE,
+    blast_radius_function,
+    blast_radius_function_type,
+    change_risk_function,
+    change_risk_function_type,
+    cost_of_delay_function,
+    cost_of_delay_function_type,
+)
+from fdai.core.ontology_platform.functions import OntologyFunctionRegistry
+from fdai.core.ontology_platform.workflow_gate_config import load_ontology_gate_config
+from fdai.core.ontology_platform.workflow_gate_reader import (
+    GateTargetAnchorResolver,
+    RegistryOntologyGateReader,
+)
 from fdai.core.operational_context import StateStoreOperatingIntentAdmissionReader
 from fdai.core.rbac.resolver import GroupMapping
 from fdai.core.risk_gate import OntologyChangeWindowEvidenceProvider
@@ -90,6 +111,111 @@ def build_operating_intent_change_window_provider(
             audit_store,
             expectation=operating_intent_admission_expectation_from_env(os.environ),
         ),
+    )
+
+
+def build_ontology_gate_reader(
+    *,
+    catalog_root: Path,
+    ontology_store: Any,
+    ontology_release: Any,
+    audit_store: Any,
+    environment: Mapping[str, str] | None = None,
+    clock: Callable[[], datetime] | None = None,
+) -> tuple[OntologyGateReader, timedelta] | None:
+    """Bind the configured decision gates to the runtime ontology graph, or bind none.
+
+    A missing or malformed configuration, a release that omits the decision functions, or an
+    absent graph leaves every ``ontology-function:`` gate shut. Only configured gates are
+    registered, so an unconfigured gate has no arguments and produces no reading.
+    """
+
+    config_path = catalog_root.parent / "config" / "workflow-ontology-gates.yaml"
+    if ontology_store is None or not config_path.is_file():
+        return None
+    environment = os.environ if environment is None else environment
+    now = clock or (lambda: datetime.now(UTC))
+    try:
+        with config_path.open("r", encoding="utf-8") as handle:
+            config = load_ontology_gate_config(yaml.safe_load(handle))
+        registry = OntologyFunctionRegistry(release=ontology_release)
+        anchor = GateTargetAnchorResolver()
+        blast = None
+        if config.blast_radius is not None:
+            blast = OntologyBlastRadiusEvidenceReader(
+                ontology_store, clock=now, max_depth=config.blast_radius.max_depth
+            )
+            registry.register_contextual(
+                blast_radius_function_type(),
+                blast_radius_function(reader=blast, anchor_resolver=anchor),
+            )
+        if config.change_risk is not None:
+            risk = config.change_risk
+            blast_for_risk = blast or OntologyBlastRadiusEvidenceReader(ontology_store, clock=now)
+            registry.register_contextual(
+                change_risk_function_type(),
+                change_risk_function(
+                    reader=OntologyChangeRiskEvidenceReader(
+                        ontology_store,
+                        blast_radius=blast_for_risk,
+                        change_windows=build_operating_intent_change_window_provider(
+                            ontology_store, audit_store
+                        ),
+                        recent_changes=_recent_change_reader(environment),
+                        lookbacks=ChangeRiskLookbacks(
+                            failed_change=risk.failed_change_lookback,
+                            recovery_rehearsal=risk.recovery_rehearsal_lookback,
+                            dry_run=risk.dry_run_lookback,
+                        ),
+                        clock=now,
+                    ),
+                    anchor_resolver=anchor,
+                ),
+            )
+        if config.cost_of_delay is not None:
+            cost = config.cost_of_delay
+            registry.register_contextual(
+                cost_of_delay_function_type(),
+                cost_of_delay_function(
+                    reader=OntologyCostOfDelayEvidenceReader(
+                        ontology_store,
+                        metric=cost.metric,
+                        max_observation_age=cost.max_observation_age,
+                        clock=now,
+                    ),
+                    anchor_resolver=anchor,
+                ),
+            )
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        _LOGGER.warning("ontology_gate_reader_disabled", extra={"error": type(exc).__name__})
+        return None
+    return (
+        RegistryOntologyGateReader(
+            registry=registry,
+            gate_arguments=config.gate_arguments(),
+            purposes=(DECISION_PURPOSE,),
+        ),
+        config.max_reading_age,
+    )
+
+
+def _recent_change_reader(environment: Mapping[str, str]) -> Any:
+    """Bind the provider-observed change feed only when the durable store is configured."""
+
+    dsn = environment.get("FDAI_STATE_STORE_DSN", "").strip()
+    if not dsn:
+        return None
+    from fdai.delivery.inventory_job_config import inventory_scopes_from_env
+    from fdai.delivery.persistence.postgres_recent_resource_changes import (
+        PostgresRecentResourceChangeReader,
+        PostgresRecentResourceChangeReaderConfig,
+    )
+
+    return PostgresRecentResourceChangeReader(
+        config=PostgresRecentResourceChangeReaderConfig(
+            dsn=dsn,
+            scope_refs=tuple(sorted(inventory_scopes_from_env(environment))),
+        )
     )
 
 

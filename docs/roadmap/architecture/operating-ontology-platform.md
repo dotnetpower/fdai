@@ -609,7 +609,7 @@ The platform declares three deterministic, read-only `derive` FunctionTypes in `
 
 An unreviewed criticality, an incomplete traversal, an unobserved change-risk factor, or an absent cost basis yields `unknown` and a closed predicate. It never yields an optimistic default. A reading is advice that can only preserve or lower autonomy.
 
-`RegistryOntologyGateReader` invokes a function through `OntologyFunctionRegistry` with fixed reviewed arguments and a server-built context that carries the Process target. A workflow `ontology-function:` gate consumes the result as a receipt-bound reading ([process automation](../decisioning/process-automation.md)). The default composition binds no evidence reader, so an installation must supply readers before a gate can open.
+`RegistryOntologyGateReader` invokes a function through `OntologyFunctionRegistry` with fixed reviewed arguments and a server-built context that carries the Process target. A workflow `ontology-function:` gate consumes the result as a receipt-bound reading ([process automation](../decisioning/process-automation.md)). `decision_evidence_readers.py` binds the three functions to the runtime ontology graph, and the control loop composes only the gates that `config/workflow-ontology-gates.yaml` configures. The cost-of-delay gate has no shipped threshold, so it stays closed until a deployment sets one.
 
 ## Related docs
 
