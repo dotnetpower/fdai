@@ -168,40 +168,30 @@ def test_any_unobserved_change_risk_factor_is_unknown_and_shut(field: str, reaso
     assert result["reason_codes"] == [reason]
 
 
-def test_cost_of_delay_prices_the_delay_and_gates_on_the_minimum() -> None:
+def test_cost_of_delay_prices_the_delay_as_a_ranking_signal_without_a_predicate() -> None:
     evidence = CostOfDelayEvidence(Decimal("12.5"), "USD", "basis-1", _NOW)
 
-    opens = assess_cost_of_delay(
-        evidence, target_ref="a", delay_hours=4, min_total_amount=Decimal("50")
-    )
-    shut = assess_cost_of_delay(
-        evidence, target_ref="a", delay_hours=4, min_total_amount=Decimal("50.01")
-    )
+    result = assess_cost_of_delay(evidence, target_ref="a", delay_hours=4)
 
-    assert opens["total_amount"] == "50"
-    assert opens["currency"] == "USD"
-    assert opens["gate_satisfied"] is True
-    assert shut["gate_satisfied"] is False
+    assert result["total_amount"] == "50"
+    assert result["currency"] == "USD"
+    assert result["tier"] == "known"
+    assert "gate_satisfied" not in result
+    assert result["execution_authority"] is False
 
 
-def test_cost_of_delay_without_a_basis_is_unknown_and_shut() -> None:
+def test_cost_of_delay_without_a_basis_is_unknown() -> None:
     result = assess_cost_of_delay(
-        CostOfDelayEvidence(None, None, "basis-1", _NOW),
-        target_ref="a",
-        delay_hours=1,
-        min_total_amount=Decimal(0),
+        CostOfDelayEvidence(None, None, "basis-1", _NOW), target_ref="a", delay_hours=1
     )
 
     assert result["tier"] == "unknown"
+    assert result["complete"] is False
     assert result["total_amount"] is None
-    assert result["gate_satisfied"] is False
     assert result["reason_codes"] == ["currency_unobserved", "hourly_cost_unobserved"]
     with pytest.raises(ValueError, match="delay_hours"):
         assess_cost_of_delay(
-            CostOfDelayEvidence(Decimal(1), "USD", "b", _NOW),
-            target_ref="a",
-            delay_hours=0,
-            min_total_amount=Decimal(0),
+            CostOfDelayEvidence(Decimal(1), "USD", "b", _NOW), target_ref="a", delay_hours=0
         )
 
 
@@ -261,7 +251,6 @@ def _gate(registry: OntologyFunctionRegistry) -> OntologyFunctionGateEvaluator:
             gate_arguments={
                 BLAST_RADIUS_FUNCTION_NAME: {"max_tier": "medium"},
                 CHANGE_RISK_FUNCTION_NAME: {"max_tier": "medium"},
-                COST_OF_DELAY_FUNCTION_NAME: {"delay_hours": 4, "min_total_amount": "10"},
             },
             purposes=(DECISION_PURPOSE,),
         ),
@@ -289,7 +278,8 @@ async def test_registry_gate_opens_end_to_end_for_receipted_complete_evidence() 
 
     assert await _open(gate, BLAST_RADIUS_FUNCTION_NAME) is True
     assert await _open(gate, CHANGE_RISK_FUNCTION_NAME) is True
-    assert await _open(gate, COST_OF_DELAY_FUNCTION_NAME) is True
+    # A priced signal states no predicate, so a gate cannot open on it.
+    assert await _open(gate, COST_OF_DELAY_FUNCTION_NAME) is False
     assert blast_reader.targets == ["res-1"]
 
 
@@ -303,7 +293,7 @@ async def test_registry_gate_stays_shut_when_evidence_is_missing_or_unsafe() -> 
 
     assert await _open(gate, BLAST_RADIUS_FUNCTION_NAME) is False  # tier exceeds the ceiling
     assert await _open(gate, CHANGE_RISK_FUNCTION_NAME) is False  # evidence unavailable
-    assert await _open(gate, COST_OF_DELAY_FUNCTION_NAME) is False  # 4 < 10
+    assert await _open(gate, COST_OF_DELAY_FUNCTION_NAME) is False
     assert await _open(gate, "decision.unconfigured") is False
 
 

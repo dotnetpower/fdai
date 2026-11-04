@@ -1,7 +1,7 @@
 ---
 title: Agent Workflow Shadow Rollout
 translation_of: agent-workflow-rollout.md
-translation_source_sha: aaaa741feaa2ca199bf1de02a2faa6978b75e4c7
+translation_source_sha: d0754c776c96bc8b5796da7d30ba68d99f960688
 translation_revised: 2026-11-04
 ---
 # 에이전트 작업 흐름 shadow 롤아웃
@@ -91,7 +91,7 @@ Wave 6가 완료되어야 합니다. 이 롤아웃 wave에서는 작업 흐름�
 
 ## 온톨로지 게이트 카탈로그 워크플로우
 
-카탈로그 전용 shadow 워크플로우 3개(`blast-radius-gated-service-restart`, `change-risk-gated-scale-in`, `cost-of-delay-gated-vm-deallocate`)는 승인과 액션 앞에 `ontology-function:` 게이트를 둡니다. 이들은 Pantheon WorkflowSpec이 없는 독립 실행 정의이므로 각각 승격 판정 항목을 가지며 shadow에 머뭅니다. [프로세스 자동화](../decisioning/process-automation-ko.md)를 참고하세요.
+카탈로그 전용 shadow 워크플로우 2개(`blast-radius-gated-service-restart`, `change-risk-gated-scale-in`)는 승인과 액션 앞에 `ontology-function:` 게이트를 둡니다. 이들은 Pantheon WorkflowSpec이 없는 독립 실행 정의이므로 각각 승격 판정 항목을 가지며 shadow에 머뭅니다. [프로세스 자동화](../decisioning/process-automation-ko.md)를 참고하세요.
 
 ## 관련 문서
 

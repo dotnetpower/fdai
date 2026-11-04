@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -27,38 +26,23 @@ def _shipped() -> dict[str, object]:
     return yaml.safe_load((REPO_ROOT / "config" / "workflow-ontology-gates.yaml").read_text())
 
 
-def test_shipped_configuration_configures_only_the_gates_that_need_no_business_threshold() -> None:
+def test_shipped_configuration_configures_the_blast_radius_and_change_risk_gates() -> None:
     config = load_ontology_gate_config(_shipped())
 
     assert config.max_reading_age == timedelta(seconds=300)
     assert config.blast_radius is not None and config.blast_radius.max_tier == "medium"
     assert config.change_risk is not None and config.change_risk.max_tier == "medium"
-    assert config.cost_of_delay is None
     assert config.gate_arguments() == {
         "decision.blast_radius": {"max_tier": "medium"},
         "decision.change_risk": {"max_tier": "medium"},
     }
 
 
-def test_cost_of_delay_needs_every_business_field() -> None:
+def test_cost_of_delay_is_not_a_configurable_gate() -> None:
     raw = _shipped()
-    raw["decision.cost_of_delay"] = {
-        "metric": "cost",
-        "delay_hours": 24,
-        "min_total_amount": "100.50",
-        "max_observation_age_hours": 48,
-    }
+    raw["decision.cost_of_delay"] = {"delay_hours": 24}
 
-    config = load_ontology_gate_config(raw)
-
-    assert config.cost_of_delay is not None
-    assert config.cost_of_delay.min_total_amount == Decimal("100.50")
-    assert config.gate_arguments()["decision.cost_of_delay"] == {
-        "delay_hours": 24,
-        "min_total_amount": "100.50",
-    }
-    del raw["decision.cost_of_delay"]["metric"]
-    with pytest.raises(ValueError, match="exactly"):
+    with pytest.raises(ValueError, match="unknown key"):
         load_ontology_gate_config(raw)
 
 
@@ -79,20 +63,6 @@ def test_malformed_configuration_is_rejected(mutate, message: str) -> None:
     mutate(raw)
 
     with pytest.raises(ValueError, match=message):
-        load_ontology_gate_config(raw)
-
-
-@pytest.mark.parametrize("amount", ["-1", "NaN", "abc", 5])
-def test_cost_threshold_must_be_a_non_negative_decimal_string(amount: object) -> None:
-    raw = _shipped()
-    raw["decision.cost_of_delay"] = {
-        "metric": "cost",
-        "delay_hours": 1,
-        "min_total_amount": amount,
-        "max_observation_age_hours": 1,
-    }
-
-    with pytest.raises(ValueError, match="min_total_amount"):
         load_ontology_gate_config(raw)
 
 
@@ -192,7 +162,7 @@ async def test_composition_opens_a_configured_gate_end_to_end_for_complete_evide
     assert await _gate(bound, "decision.blast_radius") is True
     # Change risk stays shut: no change feed, recovery plan, or dry run is observed.
     assert await _gate(bound, "decision.change_risk") is False
-    # Cost of delay is unconfigured, so it has no arguments and no reading.
+    # Cost of delay is a ranking signal, not a gate, so it is not registered.
     assert await _gate(bound, "decision.cost_of_delay") is False
     assert await _gate(bound, "decision.blast_radius", target="missing") is False
 

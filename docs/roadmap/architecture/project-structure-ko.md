@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 28e173c75063b4ee573c7fed063f0502d1af194c
+translation_source_sha: 5503180c6d956334ac9a532d1d843d4d7324727b
 translation_revised: 2026-11-04
 ---
 # 프로젝트 구조
@@ -117,7 +117,7 @@ unavailable binding을 출처가 명시된 운영 메트릭으로 교체해야 �
 미충족 근거를 소유하며 [수집원 주입 계약](project-structure-dependency-injection-ko.md#자체-상태-수집원-연결)은
 서비스 및 에이전트 소유권을 유지합니다. 임베딩 및 교차검사/풀 근거는 전체 등록을 갖춘 별도 모델 범위이지
 어댑터 집계 상태가 아니며, 이 읽기로 전체 복제본의 상태나 배포 수락을 입증하지 않습니다.
-가치 주장 정산(`core/measurement/value_claim.py`)은 권한이 없는 순수 reducer이고, `core/workflow/ontology_gate.py`는 영수증이 있는 온톨로지 함수 판독에 대한 실패 시 차단 게이트 평가기입니다. 둘 다 I/O를 하지 않고 실행 권한을 주지 않습니다([온톨로지 가치 실현](ontology-value-realization-ko.md)). `core/measurement/value_claim_ledger.py`는 state store로 정산을 한 번만 기록하고, `core/ontology_platform/decision_functions.py`는 읽기 전용 판단 FunctionType 3개를 선언하며, `core/ontology_platform/workflow_gate_reader.py`는 함수 registry로 게이트를 구현합니다. `core/ontology_platform/decision_evidence_readers.py`는 `OntologyInstanceStore`를 통해 이 함수를 런타임 온톨로지 그래프에 바인딩하고, `core/ontology_platform/workflow_gate_config.py`는 `config/workflow-ontology-gates.yaml`에서 검토된 임계값을 읽으며, `runtime/control_loop_support.py`는 해당 파일, 그래프, 판단 release가 모두 있을 때만 이들을 구성합니다.
+가치 주장 정산(`core/measurement/value_claim.py`)은 권한이 없는 순수 reducer이고, `core/workflow/ontology_gate.py`는 영수증이 있는 온톨로지 함수 판독에 대한 실패 시 차단 게이트 평가기입니다. 둘 다 I/O를 하지 않고 실행 권한을 주지 않습니다([온톨로지 가치 실현](ontology-value-realization-ko.md)). `core/measurement/value_claim_ledger.py`는 state store로 정산을 한 번만 기록하고, `core/ontology_platform/decision_functions.py`는 읽기 전용 판단 FunctionType 3개(비용 지연은 게이트 없는 순위 신호)를 선언하며, `core/ontology_platform/workflow_gate_reader.py`는 함수 registry로 게이트를 구현합니다. `core/ontology_platform/decision_evidence_readers.py`는 `OntologyInstanceStore`를 통해 이 함수를 런타임 온톨로지 그래프에 바인딩하고, `core/ontology_platform/workflow_gate_config.py`는 `config/workflow-ontology-gates.yaml`에서 검토된 임계값을 읽으며, `runtime/control_loop_support.py`는 해당 파일, 그래프, 판단 release가 모두 있을 때만 이들을 구성합니다.
 
 운영 승격은 또 하나의 정확한 계층 간 ID를 사용합니다. Core 측정은 모든 O7 임계값 정책을
 다이제스트하고 증적에 포함합니다. 검토된 replay 권한, 거버넌스 승격 요청, 영속 증적 저장,

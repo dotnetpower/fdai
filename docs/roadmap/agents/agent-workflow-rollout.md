@@ -89,7 +89,7 @@ happens after Wave 8, independently per workflow and gated on its measured KPI t
 
 ## Ontology-gated catalog workflows
 
-Three catalog-only shadow workflows (`blast-radius-gated-service-restart`, `change-risk-gated-scale-in`, and `cost-of-delay-gated-vm-deallocate`) place an `ontology-function:` gate before approval and the action. They are independent executable definitions with no Pantheon WorkflowSpec, so each carries a promotion verdict entry and stays in shadow. See [process automation](../decisioning/process-automation.md).
+Two catalog-only shadow workflows (`blast-radius-gated-service-restart` and `change-risk-gated-scale-in`) place an `ontology-function:` gate before approval and the action. They are independent executable definitions with no Pantheon WorkflowSpec, so each carries a promotion verdict entry and stays in shadow. See [process automation](../decisioning/process-automation.md).
 
 ## Related docs
 

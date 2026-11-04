@@ -521,10 +521,9 @@ async def test_cost_basis_is_an_hourly_rate_from_the_newest_valid_observation() 
     assert evidence.hourly_cost_amount == Decimal(240) / Decimal(23)
     assert evidence.currency == "USD"
     assert evidence.basis_ref == "evidence:newest"
-    priced = assess_cost_of_delay(
-        evidence, target_ref="db", delay_hours=23, min_total_amount=Decimal(240)
-    )
-    assert priced["gate_satisfied"] is True
+    priced = assess_cost_of_delay(evidence, target_ref="db", delay_hours=23)
+    assert priced["total_amount"] == "240"
+    assert "gate_satisfied" not in priced
 
 
 @pytest.mark.parametrize(
@@ -549,10 +548,8 @@ async def test_unusable_cost_observation_leaves_the_basis_unobserved(
 
     assert evidence is not None
     assert evidence.hourly_cost_amount is None and evidence.currency is None
-    result = assess_cost_of_delay(
-        evidence, target_ref="db", delay_hours=1, min_total_amount=Decimal(0)
-    )
-    assert result["gate_satisfied"] is False
+    result = assess_cost_of_delay(evidence, target_ref="db", delay_hours=1)
+    assert result["tier"] == "unknown"
 
 
 async def test_cost_reader_has_no_evidence_for_an_unknown_target_or_bad_bounds() -> None:

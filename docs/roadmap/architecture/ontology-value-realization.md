@@ -53,9 +53,9 @@ These decisions fix the scope so the phases can proceed without further agreemen
 ### VR1 - Ontology-aware workflows
 
 - Add a gate that reads an ontology function reading, using the `ontology-function:<function>` gate reference, and opens only for a complete, fresh, receipted, exact-function result.
-- Add decision functions for blast radius, change risk, and cost of delay, each deterministic, read-only, and replayable.
+- Add decision functions for blast radius, change risk, and cost of delay, each deterministic, read-only, and replayable. Cost of delay is a ranking signal with no gate, because a cost threshold is a business decision that FinOps will own.
 - Grow the catalog of causal mechanisms with refutation reads, and wire the existing engine behind the same evidence rules.
-- Bind at least three catalog workflows to ontology function gates in shadow.
+- Bind at least two catalog workflows to ontology function gates in shadow.
 - Bind the decision functions to the runtime ontology graph, the provider-observed change feed, and observed cost through read-only evidence readers. A truncated, stale, synthetic, conflicted, or unobserved source closes the gate, and a reviewed configuration selects thresholds and never evidence.
 
 ### VR2 - Real-data evidence
@@ -81,7 +81,7 @@ These decisions fix the scope so the phases can proceed without further agreemen
 
 | Measure | Starting point | Target at VR3 exit |
 |---------|----------------|--------------------|
-| Workflows that consume ontology function results | 0 | 3 or more |
+| Workflows that consume ontology function results | 0 | 2 or more |
 | Source-derived decision functions | 0 | 3 or more |
 | Wired causal mechanisms | 1 | 8 or more |
 | Root-cause accuracy on a retained holdout | none | reported with interval |

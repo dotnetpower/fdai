@@ -26,7 +26,6 @@ from fdai.core.ontology_platform.decision_evidence_readers import (
     ChangeRiskLookbacks,
     OntologyBlastRadiusEvidenceReader,
     OntologyChangeRiskEvidenceReader,
-    OntologyCostOfDelayEvidenceReader,
 )
 from fdai.core.ontology_platform.decision_functions import (
     DECISION_PURPOSE,
@@ -34,8 +33,6 @@ from fdai.core.ontology_platform.decision_functions import (
     blast_radius_function_type,
     change_risk_function,
     change_risk_function_type,
-    cost_of_delay_function,
-    cost_of_delay_function_type,
 )
 from fdai.core.ontology_platform.functions import OntologyFunctionRegistry
 from fdai.core.ontology_platform.workflow_gate_config import load_ontology_gate_config
@@ -167,20 +164,6 @@ def build_ontology_gate_reader(
                             recovery_rehearsal=risk.recovery_rehearsal_lookback,
                             dry_run=risk.dry_run_lookback,
                         ),
-                        clock=now,
-                    ),
-                    anchor_resolver=anchor,
-                ),
-            )
-        if config.cost_of_delay is not None:
-            cost = config.cost_of_delay
-            registry.register_contextual(
-                cost_of_delay_function_type(),
-                cost_of_delay_function(
-                    reader=OntologyCostOfDelayEvidenceReader(
-                        ontology_store,
-                        metric=cost.metric,
-                        max_observation_age=cost.max_observation_age,
                         clock=now,
                     ),
                     anchor_resolver=anchor,

@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: f17207a2dd021af9e0722440dfc1914fbb49530f
+translation_source_sha: 4da5aa3043eb5b6643c6a83ea099acc219f52371
 translation_revised: 2026-11-04
 ---
 # FDAI 온톨로지 안전 인프라
@@ -612,11 +612,11 @@ payload, 변경/executor 자격 증명 또는 browser 계산 권한/호환성이
 
 ## 판단 함수
 
-플랫폼은 `ontology_platform/decision_functions.py`에 결정론적 읽기 전용 `derive` FunctionType 3개를 선언합니다. `decision.blast_radius`, `decision.change_risk`, `decision.cost_of_delay`입니다. 각 함수는 모델 인자가 아니라 주입된 서버 고정 reader에서 근거를 받습니다. 결과는 `tier`, `complete`, `observed_at`, `gate_satisfied`, `reason_codes`를 담고 두 권한 플래그는 모두 `false`입니다.
+플랫폼은 `ontology_platform/decision_functions.py`에 결정론적 읽기 전용 `derive` FunctionType 3개를 선언합니다. `decision.blast_radius`, `decision.change_risk`, `decision.cost_of_delay`입니다. 각 함수는 모델 인자가 아니라 주입된 서버 고정 reader에서 근거를 받습니다. 결과는 `tier`, `complete`, `observed_at`, `reason_codes`를 담고 두 권한 플래그는 모두 `false`입니다. blast-radius와 change-risk 결과는 `gate_satisfied`도 담습니다. 비용 지연 결과는 판정이 없는 가격 순위 신호이므로 게이트가 이 결과로 열릴 수 없습니다.
 
 검토되지 않은 중요도, 불완전한 순회, 관측되지 않은 변경 위험 요인, 비용 기준 부재는 `unknown`과 닫힌 조건을 만듭니다. 낙관적 기본값은 만들지 않습니다. 판독은 자율성을 유지하거나 낮추기만 하는 조언입니다.
 
-`RegistryOntologyGateReader`는 검토된 고정 인자와 프로세스 대상을 담은 서버 생성 context로 `OntologyFunctionRegistry`를 통해 함수를 호출합니다. 워크플로우 `ontology-function:` 게이트는 이 결과를 영수증에 묶인 판독으로 사용합니다([프로세스 자동화](../decisioning/process-automation-ko.md)). `decision_evidence_readers.py`는 세 함수를 런타임 온톨로지 그래프에 바인딩하며, 제어 루프는 `config/workflow-ontology-gates.yaml`이 구성한 게이트만 구성합니다. 비용 지연 게이트는 배포본 임계값이 없으므로 배포 환경이 설정하기 전까지 닫힌 채로 유지됩니다.
+`RegistryOntologyGateReader`는 검토된 고정 인자와 프로세스 대상을 담은 서버 생성 context로 `OntologyFunctionRegistry`를 통해 함수를 호출합니다. 워크플로우 `ontology-function:` 게이트는 이 결과를 영수증에 묶인 판독으로 사용합니다([프로세스 자동화](../decisioning/process-automation-ko.md)). `decision_evidence_readers.py`는 세 함수를 런타임 온톨로지 그래프에 바인딩하며, 제어 루프는 `config/workflow-ontology-gates.yaml`이 구성한 게이트만 구성합니다. 비용 지연은 구성 가능한 게이트가 아닙니다. 이 신호의 사용 방식은 FinOps가 정의할 예정입니다.
 
 ## 관련 문서
 

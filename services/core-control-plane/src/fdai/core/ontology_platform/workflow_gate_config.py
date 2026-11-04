@@ -9,20 +9,17 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import timedelta
-from decimal import Decimal, InvalidOperation
 from typing import Any, Final
 
 from .decision_functions import (
     BLAST_RADIUS_FUNCTION_NAME,
     CHANGE_RISK_FUNCTION_NAME,
-    COST_OF_DELAY_FUNCTION_NAME,
     MAX_DEPTH,
 )
 
 _BLAST_TIERS: Final = ("low", "medium", "high")
 _MAX_LOOKBACK_DAYS: Final = 365
 _MAX_AGE_SECONDS: Final = 3_600
-_MAX_OBSERVATION_AGE_HOURS: Final = 24 * 31
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,19 +37,10 @@ class ChangeRiskGateConfig:
 
 
 @dataclass(frozen=True, slots=True)
-class CostOfDelayGateConfig:
-    metric: str
-    delay_hours: int
-    min_total_amount: Decimal
-    max_observation_age: timedelta
-
-
-@dataclass(frozen=True, slots=True)
 class OntologyGateConfig:
     max_reading_age: timedelta
     blast_radius: BlastRadiusGateConfig | None
     change_risk: ChangeRiskGateConfig | None
-    cost_of_delay: CostOfDelayGateConfig | None
 
     def gate_arguments(self) -> dict[str, dict[str, Any]]:
         """Return the fixed registry arguments of every configured gate."""
@@ -62,11 +50,6 @@ class OntologyGateConfig:
             arguments[BLAST_RADIUS_FUNCTION_NAME] = {"max_tier": self.blast_radius.max_tier}
         if self.change_risk is not None:
             arguments[CHANGE_RISK_FUNCTION_NAME] = {"max_tier": self.change_risk.max_tier}
-        if self.cost_of_delay is not None:
-            arguments[COST_OF_DELAY_FUNCTION_NAME] = {
-                "delay_hours": self.cost_of_delay.delay_hours,
-                "min_total_amount": format(self.cost_of_delay.min_total_amount, "f"),
-            }
         return arguments
 
 
@@ -80,7 +63,6 @@ def load_ontology_gate_config(raw: object) -> OntologyGateConfig:
         "max_reading_age_seconds",
         BLAST_RADIUS_FUNCTION_NAME,
         CHANGE_RISK_FUNCTION_NAME,
-        COST_OF_DELAY_FUNCTION_NAME,
     }
     unknown = sorted(set(raw) - allowed)
     if unknown:
@@ -92,7 +74,6 @@ def load_ontology_gate_config(raw: object) -> OntologyGateConfig:
         max_reading_age=timedelta(seconds=age),
         blast_radius=_blast_radius(raw.get(BLAST_RADIUS_FUNCTION_NAME)),
         change_risk=_change_risk(raw.get(CHANGE_RISK_FUNCTION_NAME)),
-        cost_of_delay=_cost_of_delay(raw.get(COST_OF_DELAY_FUNCTION_NAME)),
     )
 
 
@@ -135,41 +116,6 @@ def _change_risk(value: object) -> ChangeRiskGateConfig | None:
     )
 
 
-def _cost_of_delay(value: object) -> CostOfDelayGateConfig | None:
-    block = _block(
-        value,
-        COST_OF_DELAY_FUNCTION_NAME,
-        {"metric", "delay_hours", "min_total_amount", "max_observation_age_hours"},
-    )
-    if block is None:
-        return None
-    metric = block["metric"]
-    if not isinstance(metric, str) or not metric.strip():
-        raise ValueError("cost of delay metric MUST be non-empty text")
-    amount = block["min_total_amount"]
-    if not isinstance(amount, str):
-        raise ValueError("min_total_amount MUST be a decimal string")
-    try:
-        minimum = Decimal(amount)
-    except InvalidOperation as exc:
-        raise ValueError("min_total_amount MUST be a decimal string") from exc
-    if not minimum.is_finite() or minimum < 0:
-        raise ValueError("min_total_amount MUST be a non-negative decimal")
-    return CostOfDelayGateConfig(
-        metric=metric.strip(),
-        delay_hours=_bounded_int(block["delay_hours"], "delay_hours", 1, 720),
-        min_total_amount=minimum,
-        max_observation_age=timedelta(
-            hours=_bounded_int(
-                block["max_observation_age_hours"],
-                "max_observation_age_hours",
-                1,
-                _MAX_OBSERVATION_AGE_HOURS,
-            )
-        ),
-    )
-
-
 def _tier(value: object) -> str:
     if value not in _BLAST_TIERS:
         raise ValueError(f"max_tier MUST be one of {', '.join(_BLAST_TIERS)}")
@@ -189,7 +135,6 @@ def _bounded_int(value: object, name: str, low: int, high: int) -> int:
 __all__ = [
     "BlastRadiusGateConfig",
     "ChangeRiskGateConfig",
-    "CostOfDelayGateConfig",
     "OntologyGateConfig",
     "load_ontology_gate_config",
 ]

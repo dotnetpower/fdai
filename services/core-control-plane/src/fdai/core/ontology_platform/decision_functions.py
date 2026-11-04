@@ -4,9 +4,12 @@ Three functions turn already-observed ontology evidence into a bounded decision 
 ``decision.blast_radius`` weighs the reachable resources by reviewed service criticality,
 ``decision.change_risk`` combines blast radius with change-safety factors, and
 ``decision.cost_of_delay`` prices a delay from an observed hourly cost. Each result carries
-``complete``, ``observed_at`` and a ``gate_satisfied`` predicate that a workflow
-``ontology-function:`` gate can read. A missing or unreviewed input yields ``unknown`` and a
-closed predicate, never an optimistic default. A reading is advice that can only preserve or
+``complete`` and ``observed_at``. The blast-radius and change-risk results also carry a
+``gate_satisfied`` predicate that a workflow ``ontology-function:`` gate can read. A missing or
+unreviewed input yields ``unknown`` and a closed predicate, never an optimistic default. The
+cost result is a ranking signal and carries no predicate, because a cost threshold is a
+business decision that no workflow gate encodes. It never opens a gate: a gate reading without
+a boolean predicate is treated as no reading. A reading is advice that can only preserve or
 lower autonomy. It grants no execution or mutation authority.
 """
 
@@ -16,7 +19,7 @@ import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, Final, Protocol
 
@@ -201,14 +204,11 @@ def assess_cost_of_delay(
     *,
     target_ref: str,
     delay_hours: int,
-    min_total_amount: Decimal,
 ) -> dict[str, object]:
-    """Price a delay; the gate opens when waiting costs at least the stated minimum."""
+    """Price a delay as a ranking signal. It states no threshold and opens no gate."""
 
     if not 1 <= delay_hours <= _MAX_DELAY_HOURS:
         raise ValueError("delay_hours is outside the reviewed bound")
-    if min_total_amount < 0:
-        raise ValueError("min_total_amount MUST NOT be negative")
     reasons: list[str] = []
     rate = evidence.hourly_cost_amount
     if rate is None or not rate.is_finite() or rate < 0:
@@ -222,7 +222,7 @@ def assess_cost_of_delay(
         target_ref=target_ref,
         tier="unknown" if total is None else "known",
         complete=complete,
-        gate_satisfied=total is not None and total >= min_total_amount,
+        gate_satisfied=None,
         observed_at=evidence.observed_at,
         reasons=reasons,
         extra={
@@ -269,16 +269,11 @@ def change_risk_function_type() -> OntologyFunctionType:
 def cost_of_delay_function_type() -> OntologyFunctionType:
     return _declaration(
         COST_OF_DELAY_FUNCTION_NAME,
-        {
-            "delay_hours": {"type": "integer", "minimum": 1, "maximum": _MAX_DELAY_HOURS},
-            "min_total_amount": {
-                "type": "string",
-                "pattern": (rf"^(0|[1-9][0-9]{{0,{_MAX_DECIMAL_DIGITS - 1}}})(\.[0-9]{{1,6}})?$"),
-            },
-        },
-        ["delay_hours", "min_total_amount"],
+        {"delay_hours": {"type": "integer", "minimum": 1, "maximum": _MAX_DELAY_HOURS}},
+        ["delay_hours"],
         _output_schema(
             tier_values=("known", "unknown"),
+            gated=False,
             extra={
                 "delay_hours": {"type": "integer"},
                 "currency": {"type": ["string", "null"]},
@@ -336,15 +331,10 @@ def cost_of_delay_function(
         if evidence is None:
             raise LookupError("cost of delay evidence is unavailable")
         _require_aware(evidence.observed_at)
-        try:
-            minimum = Decimal(str(arguments["min_total_amount"]))
-        except InvalidOperation as exc:
-            raise ValueError("min_total_amount MUST be a decimal") from exc
         return assess_cost_of_delay(
             evidence,
             target_ref=target_ref,
             delay_hours=int(arguments["delay_hours"]),
-            min_total_amount=minimum,
         )
 
     return evaluate
@@ -392,44 +382,49 @@ def _result(
     target_ref: str,
     tier: str,
     complete: bool,
-    gate_satisfied: bool,
+    gate_satisfied: bool | None,
     observed_at: datetime,
     reasons: list[str],
     extra: dict[str, object],
 ) -> dict[str, object]:
-    return {
+    result: dict[str, object] = {
         "schema_version": "1.0.0",
         "function": function,
         "target_ref": target_ref,
         "tier": tier,
         "complete": complete,
-        "gate_satisfied": gate_satisfied,
         "observed_at": observed_at.isoformat(),
         "reason_codes": sorted(reasons),
         "execution_authority": False,
         "mutation_authority": False,
         **extra,
     }
+    if gate_satisfied is not None:
+        result["gate_satisfied"] = gate_satisfied
+    return result
 
 
 def _tier_schema(values: tuple[str, ...]) -> dict[str, object]:
     return {"type": "string", "enum": list(values)}
 
 
-def _output_schema(*, tier_values: tuple[str, ...], extra: dict[str, object]) -> dict[str, object]:
+def _output_schema(
+    *, tier_values: tuple[str, ...], extra: dict[str, object], gated: bool = True
+) -> dict[str, object]:
     base: dict[str, object] = {
         "schema_version": {"const": "1.0.0"},
         "function": {"type": "string"},
         "target_ref": {"type": "string"},
         "tier": {"type": "string", "enum": list(tier_values)},
         "complete": {"type": "boolean"},
-        "gate_satisfied": {"type": "boolean"},
         "observed_at": {"type": "string"},
         "reason_codes": {"type": "array", "items": {"type": "string"}},
         "execution_authority": {"const": False},
         "mutation_authority": {"const": False},
     }
     properties = {**base, **extra}
+    if gated:
+        properties["gate_satisfied"] = {"type": "boolean"}
     return {
         "type": "object",
         "additionalProperties": False,

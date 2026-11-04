@@ -19,8 +19,8 @@
       "workflow_count": 13,
       "cataloged": 2,
       "metadata_only": 11,
-      "executable_count": 19,
-      "independent": 17
+      "executable_count": 18,
+      "independent": 16
     },
     "entries": [
       {
@@ -158,14 +158,6 @@
         "catalog_definitions": [{
           "catalog_ref": "rule-catalog/workflows/chaos-detection-validation.yaml",
           "definition_digest": "ffcd3f1dc350a3572e716e99dce49500af427ec3117444e69ec05ff2725f9860"
-        }]
-      },
-      {
-        "workflow_id": "cost-of-delay-gated-vm-deallocate",
-        "disposition": "process_catalog_only",
-        "catalog_definitions": [{
-          "catalog_ref": "rule-catalog/workflows/cost-of-delay-gated-vm-deallocate.yaml",
-          "definition_digest": "651550750c3d42f8630f43b420ea34f7740aaf71cb0828dce0151deeca8abc44"
         }]
       },
       {

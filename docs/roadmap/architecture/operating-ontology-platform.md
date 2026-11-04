@@ -605,11 +605,11 @@ decoding is removed only after retained audit and instance fixtures replay under
 
 ## Decision functions
 
-The platform declares three deterministic, read-only `derive` FunctionTypes in `ontology_platform/decision_functions.py`: `decision.blast_radius`, `decision.change_risk`, and `decision.cost_of_delay`. Each takes its evidence from an injected, server-anchored reader and never from model arguments. The result carries `tier`, `complete`, `observed_at`, `gate_satisfied`, and `reason_codes`, and both authority flags are `false`.
+The platform declares three deterministic, read-only `derive` FunctionTypes in `ontology_platform/decision_functions.py`: `decision.blast_radius`, `decision.change_risk`, and `decision.cost_of_delay`. Each takes its evidence from an injected, server-anchored reader and never from model arguments. The result carries `tier`, `complete`, `observed_at`, and `reason_codes`, and both authority flags are `false`. The blast-radius and change-risk results also carry `gate_satisfied`. The cost-of-delay result is a priced ranking signal with no predicate, so a gate cannot open on it.
 
 An unreviewed criticality, an incomplete traversal, an unobserved change-risk factor, or an absent cost basis yields `unknown` and a closed predicate. It never yields an optimistic default. A reading is advice that can only preserve or lower autonomy.
 
-`RegistryOntologyGateReader` invokes a function through `OntologyFunctionRegistry` with fixed reviewed arguments and a server-built context that carries the Process target. A workflow `ontology-function:` gate consumes the result as a receipt-bound reading ([process automation](../decisioning/process-automation.md)). `decision_evidence_readers.py` binds the three functions to the runtime ontology graph, and the control loop composes only the gates that `config/workflow-ontology-gates.yaml` configures. The cost-of-delay gate has no shipped threshold, so it stays closed until a deployment sets one.
+`RegistryOntologyGateReader` invokes a function through `OntologyFunctionRegistry` with fixed reviewed arguments and a server-built context that carries the Process target. A workflow `ontology-function:` gate consumes the result as a receipt-bound reading ([process automation](../decisioning/process-automation.md)). `decision_evidence_readers.py` binds the three functions to the runtime ontology graph, and the control loop composes only the gates that `config/workflow-ontology-gates.yaml` configures. Cost of delay is not a configurable gate. FinOps will define how the signal is used.
 
 ## Related docs
 
