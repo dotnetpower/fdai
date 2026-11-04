@@ -162,6 +162,20 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
               </dd>
             </>
           )}
+          <dt>{t("Inactive menu feature-flag gate", "비활성 메뉴 Feature Flag 게이트")}</dt>
+          <dd>
+            <code class="digest">
+              {stencil.feature_flags
+                ? `${stencil.feature_flags.enforcement_mode}${stencil.feature_flags.feature_flags_digest ? ` · ${stencil.feature_flags.feature_flags_digest}` : ""}`
+                : "fail-closed"}
+            </code>
+          </dd>
+          {stencil.disabled_loops && stencil.disabled_loops.length > 0 && (
+            <>
+              <dt>{t("Disabled backend loops (-)", "비활성화된 백엔드 루프 (-)")}</dt>
+              <dd>{stencil.disabled_loops.join(", ")}</dd>
+            </>
+          )}
         </dl>
         <details class="release-disclosure">
           <summary>
@@ -176,6 +190,21 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
             ))}
           </div>
         </details>
+        {stencil.disabled_panel_ids && stencil.disabled_panel_ids.length > 0 && (
+          <details class="release-disclosure">
+            <summary>
+              {t(
+                `Blocked inactive Console menus (${stencil.disabled_panel_ids.length})`,
+                `Feature Flag로 차단된 비활성 메뉴 목록 (${stencil.disabled_panel_ids.length}개)`,
+              )}
+            </summary>
+            <div class="preset-metrics">
+              {stencil.disabled_panel_ids.map((panelId) => (
+                <code key={panelId} class="stencil-chip">{panelId}</code>
+              ))}
+            </div>
+          </details>
+        )}
       </section>
     )}
     <section aria-labelledby="release-stage-title"><h2 id="release-stage-title">{t("Channel membership & LR Build/Promotion Pipeline", "채널 소속 및 좌→우(LR) 빌드·승격 파이프라인")}</h2>

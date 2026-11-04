@@ -89,7 +89,50 @@ def aks_core_environment(
     if stewardship_governance_selected(application_values):
         environment["FDAI_STEWARDSHIP_GOVERNANCE_ENABLED"] = "true"
         environment.update(_stewardship_bindings_environment(application_values))
+    stencil_env = aks_stencil_environment(context, application_values)
+    if stencil_env:
+        environment.update(stencil_env)
     return environment
+
+
+def aks_stencil_environment(
+    context: dict[str, object],
+    application_values: dict[str, object] | None = None,
+) -> dict[str, str]:
+    """Project verified Stencil inactive-menu feature-flag env vars into AKS workload settings."""
+
+    raw_stencil = context.get("stencil")
+    if raw_stencil is None and isinstance(application_values, dict):
+        raw_stencil = application_values.get("stencil")
+    if not isinstance(raw_stencil, dict):
+        return {}
+    feature_flags = raw_stencil.get("feature_flags")
+    if isinstance(feature_flags, dict) and isinstance(feature_flags.get("runtime_env"), dict):
+        runtime_env = feature_flags["runtime_env"]
+        if all(isinstance(k, str) and isinstance(v, str) for k, v in runtime_env.items()):
+            return dict(sorted(runtime_env.items()))
+    stencil_id = raw_stencil.get("stencil_id")
+    enabled_panels = raw_stencil.get("enabled_panel_ids")
+    if not isinstance(stencil_id, str) or not isinstance(enabled_panels, list):
+        return {}
+    out: dict[str, str] = {
+        "FDAI_STENCIL_ID": stencil_id,
+        "FDAI_STENCIL_ENABLED_PANELS": ",".join(sorted(str(p) for p in enabled_panels)),
+        "FDAI_STENCIL_ENFORCE_INACTIVE_MENUS": "1",
+    }
+    if isinstance(raw_stencil.get("disabled_panel_ids"), list):
+        out["FDAI_STENCIL_DISABLED_PANELS"] = ",".join(
+            sorted(str(p) for p in raw_stencil["disabled_panel_ids"])
+        )
+    if isinstance(raw_stencil.get("enabled_loops"), list):
+        out["FDAI_STENCIL_ENABLED_LOOPS"] = ",".join(
+            sorted(str(lp) for lp in raw_stencil["enabled_loops"])
+        )
+    if isinstance(raw_stencil.get("disabled_loops"), list):
+        out["FDAI_STENCIL_DISABLED_LOOPS"] = ",".join(
+            sorted(str(lp) for lp in raw_stencil["disabled_loops"])
+        )
+    return dict(sorted(out.items()))
 
 
 def stewardship_governance_selected(application_values: dict[str, object]) -> bool:

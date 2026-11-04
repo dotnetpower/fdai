@@ -24,7 +24,9 @@ from fdai_release_hub.stencils import (
     LOCKED_CORE_WORKLOADS,
     STENCIL_PRESETS,
     StencilDefinition,
+    build_stencil_release_manifest,
     compose_custom_stencil,
+    evaluate_stencil_feature_flag_gate,
     evaluate_stencil_footprint,
 )
 from fdai_release_hub.store import ReleaseStore
@@ -423,3 +425,116 @@ def test_stencil_api_rejects_duplicate_json_keys_cross_origin_and_invalid_inputs
         "/v1/stencils/compose", content="plain", headers={"Content-Type": "text/plain"}
     )
     assert bad_ct.status_code == 415
+
+
+def test_hardening_h21_to_h34_catalog_parity_manifest_validation_and_console_config() -> None:
+    from fdai_deployment_cli.console_config import render_console_config
+    from fdai_deployment_cli.contracts import canonical_bytes
+    from fdai_deployment_cli.lifecycle_release import parse_lifecycle_release_manifest
+    from fdai_deployment_cli.standalone_host_values import aks_stencil_environment
+
+    # H21: All 63 Console panels including hidden routes (dashboard-v2, provision, onboarding).
+    assert len(CONSOLE_PANEL_CATALOG) == 63
+    for hidden_id in ("dashboard-v2", "provision", "onboarding"):
+        assert hidden_id in ALL_PANEL_IDS
+
+    # H22: Selecting settings-environment auto-resolves provision and onboarding.
+    env_stencil = compose_custom_stencil(
+        stencil_id="custom-env-ops",
+        title="Custom Env Ops",
+        title_ko="맞춤형 환경 운영",
+        description="Includes settings-environment.",
+        description_ko="환경 설정을 포함합니다.",
+        requested_panel_ids=("settings-environment",),
+        auto_resolve_dependencies=True,
+    )
+    assert {"settings-environment", "provision", "onboarding"}.issubset(
+        env_stencil.enabled_panel_ids
+    )
+
+    # H23 & H24: Control characters and standard-sre document-ingestion violations are rejected.
+    with pytest.raises(ValueError, match="control characters"):
+        compose_custom_stencil(
+            stencil_id="bad-ctrl",
+            title="Bad\nTitle",
+            title_ko="정상",
+            description="Valid",
+            description_ko="정상",
+            requested_panel_ids=("live",),
+        )
+    with pytest.raises(ValueError, match="omits heavy document ingestion"):
+        StencilDefinition(
+            stencil_id="bad-std-doc",
+            title="Bad Std",
+            title_ko="잘못된 표준",
+            description="Standard with docs",
+            description_ko="문서 수집이 포함된 잘못된 표준",
+            topology_profile="standard-sre",
+            enabled_workloads=(
+                "core-control-plane",
+                "document-ingestion-api",
+                "document-processing-worker",
+                "operator-service",
+            ),
+            enabled_scheduled_jobs=LOCKED_CORE_SCHEDULED_JOBS,
+            enabled_loops=tuple(sorted({*LOCKED_CORE_LOOPS, "document-ingestion"})),
+            enabled_addons=LOCKED_CORE_ADDONS,
+            enabled_panel_ids=LITE_OBSERVE_ALERT_PANELS,
+        )
+
+    # H25 & H26: evaluate_stencil_feature_flag_gate and feature_flags_digest.
+    lite = STENCIL_PRESETS["lite-observe-alert"]
+    gate_live = evaluate_stencil_feature_flag_gate(lite, requested_panel_id="live")
+    assert gate_live["allowed"] is True
+    assert str(gate_live["feature_flags_digest"]).startswith("sha256:")
+    gate_cost = evaluate_stencil_feature_flag_gate(
+        lite, requested_panel_id="cost-governance", requested_loop_id="cost-governance"
+    )
+    assert gate_cost["allowed"] is False
+    assert "panel_disabled:cost-governance" in gate_cost["reasons"]
+    assert "loop_disabled:cost-governance" in gate_cost["reasons"]
+
+    # H27, H28 & H29: Release v2 manifest validation and surgical capability_maximums.
+    manifest = build_stencil_release_manifest(
+        lite,
+        release_version="1.8.0",
+        source_commit="b" * 40,
+    )
+    parsed_rel = parse_lifecycle_release_manifest(canonical_bytes(manifest))
+    assert "panel:live" in parsed_rel.capability_maximums
+    assert "panel:aks-commerce" not in parsed_rel.capability_maximums
+    assert "job:analyzer" in parsed_rel.capability_maximums
+    assert "addon:read-only-console" in parsed_rel.capability_maximums
+
+    # Tampering with feature_flags.stencil_id or disabled_panel_ids fails closed.
+    bad_manifest = json.loads(json.dumps(manifest))
+    bad_manifest["stencil"]["feature_flags"]["stencil_id"] = "tampered-id"
+    with pytest.raises(ValueError, match="Lifecycle release metadata is invalid") as exc_info:
+        parse_lifecycle_release_manifest(canonical_bytes(bad_manifest))
+    assert "stencil_id does not match" in str(exc_info.value.__cause__)
+
+    # H30: aks_stencil_environment projects verified Stencil runtime_env flags.
+    projected_env = aks_stencil_environment({"stencil": manifest["stencil"]})
+    assert projected_env["FDAI_STENCIL_ID"] == "lite-observe-alert"
+    assert projected_env["FDAI_STENCIL_ENFORCE_INACTIVE_MENUS"] == "1"
+
+    # H34: render_console_config supports optional stencil_feature_flags and emits both globals.
+    cfg_bytes = json.dumps(
+        {
+            "schema_version": "fdai.console-runtime.v1",
+            "operator_api_base_url": "https://api.example.com",
+            "ingestion_api_base_url": "https://ingest.example.com",
+            "tenant_id": "00000000-0000-0000-0000-000000000001",
+            "spa_client_id": "00000000-0000-0000-0000-000000000002",
+            "api_scope": "api://00000000-0000-0000-0000-000000000003/access",
+            "stencil_feature_flags": {
+                "schema_version": "fdai.stencil-feature-flags.v1",
+                "stencil_id": "lite-observe-alert",
+                "enforcement_mode": "fail-closed",
+                "enabled_panel_ids": ["audit", "dashboard", "live", "settings-general"],
+            },
+        }
+    ).encode("utf-8")
+    rendered_js = render_console_config(cfg_bytes).decode("ascii")
+    assert "globalThis.__FDAI_CONSOLE_CONFIG__ =" in rendered_js
+    assert "globalThis.__FDAI_STENCIL_FEATURE_FLAGS__ =" in rendered_js

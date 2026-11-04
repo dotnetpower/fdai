@@ -1,8 +1,8 @@
 ---
 title: Release Hub 이미지로 배포
 translation_of: hub-image-deployment.md
-translation_source_sha: 073c3c7c2aa71caf864a9e7a8e5d42969f6504c3
-translation_revised: 2026-10-26
+translation_source_sha: 57128c59f3cf3a9ec779c03e68c1d5f681865a9a
+translation_revised: 2026-11-04
 ---
 # Release Hub 이미지로 배포
 
@@ -159,7 +159,7 @@ Hub 모드의 해체는 구현되지 않았습니다. Hub 실행을 해체하거
 
 ## 검증과 전달의 한계
 
-집중 로컬 테스트로 카탈로그 검증, 이미지 가져오기와 재조회, 요청 영속성, 인증 분리와 UI 동작을
+집중 로컬 테스트로 카탈로그 검증(`verify_export`가 반환하는 검증된 `stencil` 및 `fdai.stencil-feature-flags.v1` 청사진 메타데이터 포함), 이미지 가져오기와 재조회, 요청 영속성, 인증 분리와 UI 동작을
 확인할 수 있습니다. 실제 Hub 가용성, 호환 Release 게시 여부, 다른 구독에서의 레지스트리
 접근이나 Azure 설치 인수를 입증하지는 못합니다. 새 Hub와 CLI 빌드의 게시와 배포에는
 별도의 승인이 필요합니다.

@@ -121,6 +121,23 @@ class ApplicationRelease:
                 for item in items:
                     if isinstance(item, str):
                         caps[item] = "enabled"
+        raw_panels = self.stencil.get("enabled_panel_ids")
+        if isinstance(raw_panels, list):
+            for panel in raw_panels:
+                if isinstance(panel, str):
+                    caps[f"panel:{panel}"] = "enabled"
+        raw_jobs = self.stencil.get("enabled_scheduled_jobs")
+        if isinstance(raw_jobs, list):
+            for job in raw_jobs:
+                if isinstance(job, str):
+                    caps[f"job:{job}"] = "enabled"
+        feature_flags = self.stencil.get("feature_flags")
+        if isinstance(feature_flags, dict) and isinstance(
+            feature_flags.get("enabled_addons"), list
+        ):
+            for addon in feature_flags["enabled_addons"]:
+                if isinstance(addon, str):
+                    caps[f"addon:{addon}"] = "enabled"
         return caps
 
     def to_mapping(self) -> dict[str, object]:
@@ -373,6 +390,33 @@ def _validate_release_stencil(
         or not {"audit", "dashboard", "settings-general"}.issubset(panels)
     ):
         raise ValueError("stencil enabled_panel_ids must include locked safety-core panels")
+    disabled_panels = value.get("disabled_panel_ids")
+    if disabled_panels is not None:
+        if (
+            not isinstance(disabled_panels, list)
+            or not all(isinstance(p, str) and _IDENTIFIER.fullmatch(p) for p in disabled_panels)
+            or bool({"audit", "dashboard", "settings-general"} & set(disabled_panels))
+            or bool(set(panels) & set(disabled_panels))
+        ):
+            raise ValueError("stencil disabled_panel_ids is invalid or overlaps enabled_panel_ids")
+    enabled_loops = value.get("enabled_loops")
+    disabled_loops = value.get("disabled_loops")
+    if disabled_loops is not None:
+        if (
+            not isinstance(disabled_loops, list)
+            or not all(isinstance(lp, str) and _IDENTIFIER.fullmatch(lp) for lp in disabled_loops)
+            or bool(
+                {
+                    "anomaly-analyzer",
+                    "inventory-reconciliation",
+                    "notification-dispatch",
+                    "saga-audit",
+                }
+                & set(disabled_loops)
+            )
+            or (isinstance(enabled_loops, list) and bool(set(enabled_loops) & set(disabled_loops)))
+        ):
+            raise ValueError("stencil disabled_loops is invalid or overlaps enabled_loops")
     expected_components = set(workloads) | {"pgvector"}
     if "document-ingestion-api" in workloads:
         expected_components.add("clamav")
@@ -380,13 +424,20 @@ def _validate_release_stencil(
         raise ValueError("stencil enabled_workloads do not match manifest components")
     feature_flags = value.get("feature_flags")
     if feature_flags is not None:
-        _validate_stencil_feature_flags(feature_flags, enabled_panels=set(panels))
+        _validate_stencil_feature_flags(
+            feature_flags,
+            stencil_id=stencil_id,
+            stencil_digest=stencil_digest,
+            enabled_panels=set(panels),
+        )
     return MappingProxyType(dict(value))
 
 
 def _validate_stencil_feature_flags(
     value: object,
     *,
+    stencil_id: str,
+    stencil_digest: str,
     enabled_panels: set[str],
 ) -> None:
     if not isinstance(value, dict):
@@ -395,6 +446,17 @@ def _validate_stencil_feature_flags(
         raise ValueError("stencil feature_flags schema_version is invalid")
     if value.get("enforcement_mode") != "fail-closed":
         raise ValueError("stencil feature_flags enforcement_mode must be fail-closed")
+    if "stencil_id" in value and value["stencil_id"] != stencil_id:
+        raise ValueError("stencil feature_flags.stencil_id does not match parent stencil_id")
+    if "stencil_digest" in value and value["stencil_digest"] != stencil_digest:
+        raise ValueError(
+            "stencil feature_flags.stencil_digest does not match parent stencil_digest"
+        )
+    ff_digest = value.get("feature_flags_digest")
+    if ff_digest is not None and (
+        not isinstance(ff_digest, str) or _DIGEST.fullmatch(ff_digest) is None
+    ):
+        raise ValueError("stencil feature_flags.feature_flags_digest is invalid")
     panel_flags = value.get("panel_flags")
     if not isinstance(panel_flags, dict) or not all(
         isinstance(k, str) and _IDENTIFIER.fullmatch(k) and type(v) is bool
@@ -409,6 +471,12 @@ def _validate_stencil_feature_flags(
     for enabled_panel in enabled_panels:
         if panel_flags.get(enabled_panel) is not True:
             raise ValueError("stencil feature_flags.panel_flags must match enabled_panel_ids")
+    ff_disabled_panels = value.get("disabled_panel_ids")
+    if isinstance(ff_disabled_panels, list):
+        if bool(enabled_panels & set(ff_disabled_panels)) or any(
+            panel_flags.get(dp) is not False for dp in ff_disabled_panels if isinstance(dp, str)
+        ):
+            raise ValueError("stencil feature_flags.disabled_panel_ids contradicts panel_flags")
     loop_flags = value.get("loop_flags")
     if not isinstance(loop_flags, dict) or not all(
         isinstance(k, str) and _IDENTIFIER.fullmatch(k) and type(v) is bool
@@ -425,6 +493,22 @@ def _validate_stencil_feature_flags(
             raise ValueError(
                 "stencil feature_flags.loop_flags must keep locked safety-core loops enabled"
             )
+    for map_key, locked_keys in (
+        ("workload_flags", ("core-control-plane", "operator-service")),
+        ("scheduled_job_flags", ("analyzer", "inventory")),
+        ("addon_flags", ("notifications", "read-only-console")),
+    ):
+        axis_map = value.get(map_key)
+        if axis_map is not None:
+            if not isinstance(axis_map, dict) or not all(
+                isinstance(k, str) and _IDENTIFIER.fullmatch(k) and type(v) is bool
+                for k, v in axis_map.items()
+            ):
+                raise ValueError(f"stencil feature_flags.{map_key} is invalid")
+            if any(axis_map.get(lk) is not True for lk in locked_keys):
+                raise ValueError(
+                    f"stencil feature_flags.{map_key} must keep locked core items enabled"
+                )
     runtime_env = value.get("runtime_env")
     if (
         not isinstance(runtime_env, dict)

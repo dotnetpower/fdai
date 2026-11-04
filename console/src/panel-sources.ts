@@ -1,5 +1,6 @@
 import type { ReadDataSourcesPayload, ReadSourceAvailability } from "./api-data-sources";
 import { sourceForRoute } from "./api-data-sources";
+import { isStencilPanelEnabled } from "./stencil-panels";
 
 const PANEL_SOURCE_ROUTES: Readonly<Record<string, readonly string[]>> = {
   dashboard: ["/kpi", "/finops", "/kpi/promotion-gates", "/kpi/autonomy", "/reports"],
@@ -92,6 +93,7 @@ export function panelSourceAvailability(
 ): ReadSourceAvailability | null {
   const routes = PANEL_SOURCE_ROUTES[panelId];
   if (routes === undefined) return null;
+  if (!isStencilPanelEnabled(panelId)) return "unavailable";
   const resolved = routes.map((route) => sourceForRoute(payload, route));
   const sources = resolved.filter((source) => source !== null);
   if (sources.some((source) => source.availability === "unavailable" || !source.authoritative)) {

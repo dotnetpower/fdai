@@ -507,6 +507,28 @@ def test_lite_stencil_bundle_excludes_heavy_workloads_and_enforces_core_guards()
         assert cm_data["FDAI_STENCIL_ENABLED_LOOPS"] == (
             "anomaly-analyzer,inventory-reconciliation,notification-dispatch,saga-audit"
         )
+        assert cm_data["FDAI_STENCIL_ENABLED_WORKLOADS"] == "core-control-plane,operator-service"
+        assert "isolated-executor" in cm_data["FDAI_STENCIL_DISABLED_WORKLOADS"]
+        assert cm_data["FDAI_STENCIL_ENABLED_JOBS"] == "analyzer,inventory"
+        assert "FDAI_STENCIL_FEATURE_FLAGS_JSON" in cm_data
+
+    # H32: Loop-to-workload/job cross-dependency violations fail closed.
+    with pytest.raises(ValueError, match="requires workload 'isolated-executor'"):
+        generate_fdai_runtime_bundle(
+            workloads=workloads,
+            scheduled_jobs=scheduled_jobs,
+            installation_id="installation-fdai-dev-wus3",
+            enabled_workloads=frozenset({"core-control-plane", "operator-service"}),
+            enabled_loops=frozenset(
+                {
+                    "anomaly-analyzer",
+                    "inventory-reconciliation",
+                    "notification-dispatch",
+                    "remediation-execution",
+                    "saga-audit",
+                }
+            ),
+        )
 
     # Missing required core workloads, scheduled jobs, panels, or loops is rejected fail-closed.
     with pytest.raises(ValueError, match="requires locked safety-core panels"):

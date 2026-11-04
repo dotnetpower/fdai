@@ -318,6 +318,14 @@ CONSOLE_PANEL_CATALOG: tuple[ConsolePanelDescriptor, ...] = (
         feature_ids=("F01.1", "F02.1", "F03.1"),
     ),
     ConsolePanelDescriptor(
+        id="dashboard-v2",
+        group="overview",
+        label="Resource dashboard (Compact scope)",
+        label_ko="리소스 대시보드 (요약 범위)",
+        required_loops=("inventory-reconciliation",),
+        feature_ids=("F02.1", "F03.1"),
+    ),
+    ConsolePanelDescriptor(
         id="operating-outcomes",
         group="overview",
         label="Operating outcomes",
@@ -401,6 +409,20 @@ CONSOLE_PANEL_CATALOG: tuple[ConsolePanelDescriptor, ...] = (
         required_workloads=("isolated-executor",),
         required_addons=("enterprise-identity-governance", "governed-execution"),
         feature_ids=("F06.1", "F07.1"),
+    ),
+    ConsolePanelDescriptor(
+        id="provision",
+        group="operations",
+        label="Environment provisioning",
+        label_ko="환경 프로비저닝",
+        feature_ids=("F15.1",),
+    ),
+    ConsolePanelDescriptor(
+        id="onboarding",
+        group="operations",
+        label="Subscription onboarding",
+        label_ko="구독 온보딩",
+        feature_ids=("F01.1", "F15.1"),
     ),
     ConsolePanelDescriptor(
         id="detection-readiness",
@@ -807,9 +829,12 @@ STANDARD_SRE_PANELS: tuple[str, ...] = tuple(
     sorted(
         {
             *LITE_OBSERVE_ALERT_PANELS,
+            "dashboard-v2",
             "operating-outcomes",
             "trust-routing",
             "hil-queue",
+            "provision",
+            "onboarding",
             "processes",
             "scheduler-runs",
             "background-tasks",
@@ -869,6 +894,11 @@ class StencilDefinition(BaseModel):
             raise ValueError("Stencil titles must not be blank.")
         if not self.description.strip() or not self.description_ko.strip():
             raise ValueError("Stencil descriptions must not be blank.")
+        for text_val in (self.title, self.title_ko, self.description, self.description_ko):
+            if any(ord(ch) < 32 or ord(ch) == 127 for ch in text_val):
+                raise ValueError(
+                    "Stencil titles and descriptions must not contain control characters."
+                )
 
         workloads = _canonical_sorted_unique(
             self.enabled_workloads, "enabled_workloads", frozenset(ALL_WORKLOADS)
@@ -993,6 +1023,14 @@ class StencilDefinition(BaseModel):
                     "topology_profile 'lite-observe-alert' is observation-only and "
                     "cannot enable governed execution."
                 )
+        if self.topology_profile == "standard-sre":
+            if "document-ingestion" in loop_set or (
+                {"document-ingestion-api", "document-processing-worker"} & workload_set
+            ):
+                raise ValueError(
+                    "topology_profile 'standard-sre' omits heavy document ingestion workloads; "
+                    "select 'full-enterprise' when enabling document ingestion."
+                )
         return self
 
     @property
@@ -1109,6 +1147,8 @@ def compose_custom_stencil(
     addons = set(requested_addons) | set(LOCKED_CORE_ADDONS)
 
     if auto_resolve_dependencies:
+        if "settings-environment" in panels or "provision" in panels or "onboarding" in panels:
+            panels.update(("settings-environment", "provision", "onboarding"))
         for panel_id in sorted(panels):
             descriptor = PANEL_BY_ID[panel_id]
             workloads.update(descriptor.required_workloads)
@@ -1128,15 +1168,14 @@ def compose_custom_stencil(
             jobs.add("cost-collector")
         if {"governed-execution", "policy-administration"} & addons:
             addons.add("enterprise-identity-governance")
-        if topology_profile == "lite-observe-alert":
-            if "document-ingestion" in loops:
-                topology_profile = "full-enterprise"
-            elif (
-                len(workloads - set(LOCKED_CORE_WORKLOADS)) > 0
-                or "governed-execution" in addons
-                or "remediation-execution" in loops
-            ):
-                topology_profile = "standard-sre"
+        if "document-ingestion" in loops:
+            topology_profile = "full-enterprise"
+        elif topology_profile == "lite-observe-alert" and (
+            len(workloads - set(LOCKED_CORE_WORKLOADS)) > 0
+            or "governed-execution" in addons
+            or "remediation-execution" in loops
+        ):
+            topology_profile = "standard-sre"
 
     return StencilDefinition(
         stencil_id=stencil_id,
@@ -1182,13 +1221,37 @@ def compile_stencil_feature_flags(stencil: StencilDefinition) -> dict[str, Any]:
         "FDAI_STENCIL_DISABLED_PANELS": ",".join(disabled_panels),
         "FDAI_STENCIL_ENABLED_LOOPS": ",".join(stencil.enabled_loops),
         "FDAI_STENCIL_DISABLED_LOOPS": ",".join(disabled_loops),
+        "FDAI_STENCIL_ENABLED_WORKLOADS": ",".join(stencil.enabled_workloads),
+        "FDAI_STENCIL_DISABLED_WORKLOADS": ",".join(disabled_workloads),
+        "FDAI_STENCIL_ENABLED_JOBS": ",".join(stencil.enabled_scheduled_jobs),
+        "FDAI_STENCIL_DISABLED_JOBS": ",".join(disabled_jobs),
+        "FDAI_STENCIL_ENABLED_ADDONS": ",".join(stencil.enabled_addons),
+        "FDAI_STENCIL_DISABLED_ADDONS": ",".join(disabled_addons),
         "FDAI_STENCIL_ENFORCE_INACTIVE_MENUS": "1",
     }
+
+    digest_payload = {
+        "stencil_id": stencil.stencil_id,
+        "stencil_digest": stencil.digest,
+        "enforcement_mode": "fail-closed",
+        "panel_flags": panel_flags,
+        "loop_flags": loop_flags,
+        "workload_flags": workload_flags,
+        "scheduled_job_flags": scheduled_job_flags,
+        "addon_flags": addon_flags,
+    }
+    feature_flags_digest = (
+        "sha256:"
+        + hashlib.sha256(
+            json.dumps(digest_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+    )
 
     return {
         "schema_version": STENCIL_FEATURE_FLAGS_SCHEMA,
         "stencil_id": stencil.stencil_id,
         "stencil_digest": stencil.digest,
+        "feature_flags_digest": feature_flags_digest,
         "enforcement_mode": "fail-closed",
         "enabled_panel_ids": list(stencil.enabled_panel_ids),
         "disabled_panel_ids": list(disabled_panels),
@@ -1206,6 +1269,41 @@ def compile_stencil_feature_flags(stencil: StencilDefinition) -> dict[str, Any]:
         "scheduled_job_flags": scheduled_job_flags,
         "addon_flags": addon_flags,
         "runtime_env": runtime_env,
+    }
+
+
+def evaluate_stencil_feature_flag_gate(
+    stencil_or_flags: StencilDefinition | Mapping[str, Any],
+    *,
+    requested_panel_id: str | None = None,
+    requested_loop_id: str | None = None,
+    requested_workload_id: str | None = None,
+) -> dict[str, Any]:
+    """Deterministically evaluate whether a menu, loop, or workload is permitted."""
+
+    flags = (
+        compile_stencil_feature_flags(stencil_or_flags)
+        if isinstance(stencil_or_flags, StencilDefinition)
+        else dict(stencil_or_flags)
+    )
+    panel_flags: Mapping[str, bool] = flags.get("panel_flags") or {}
+    loop_flags: Mapping[str, bool] = flags.get("loop_flags") or {}
+    workload_flags: Mapping[str, bool] = flags.get("workload_flags") or {}
+
+    reasons: list[str] = []
+    if requested_panel_id is not None and panel_flags.get(requested_panel_id) is not True:
+        reasons.append(f"panel_disabled:{requested_panel_id}")
+    if requested_loop_id is not None and loop_flags.get(requested_loop_id) is not True:
+        reasons.append(f"loop_disabled:{requested_loop_id}")
+    if requested_workload_id is not None and workload_flags.get(requested_workload_id) is not True:
+        reasons.append(f"workload_disabled:{requested_workload_id}")
+
+    return {
+        "allowed": len(reasons) == 0,
+        "enforcement_mode": flags.get("enforcement_mode", "fail-closed"),
+        "stencil_id": flags.get("stencil_id"),
+        "feature_flags_digest": flags.get("feature_flags_digest"),
+        "reasons": reasons,
     }
 
 
@@ -1627,6 +1725,7 @@ __all__ = [
     "compose_stencil_response",
     "derive_stencil_source_commit",
     "detect_workspace_source_commit",
+    "evaluate_stencil_feature_flag_gate",
     "evaluate_stencil_footprint",
     "resolve_stencil_source_commit",
     "stencil_catalog_payload",

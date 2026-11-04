@@ -240,6 +240,7 @@ def verify_export(
         "image_sources": {name: value["image_ref"] for name, value in components.items()},
         "catalog_digest": digest,
         "catalog_revision": revision,
+        **({"stencil": dict(stencil_meta)} if isinstance(stencil_meta, dict) else {}),
     }
 
 

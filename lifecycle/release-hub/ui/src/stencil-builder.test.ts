@@ -142,10 +142,19 @@ describe("stencil-builder helpers", () => {
     expect(liteBp.loopFeatureFlags["document-ingestion"]).toBe(false);
     expect(liteBp.runtimeEnvFlags.FDAI_STENCIL_ENFORCE_INACTIVE_MENUS).toBe("1");
     expect(liteBp.runtimeEnvFlags.FDAI_STENCIL_DISABLED_PANELS).toBe("documents");
+    expect(liteBp.runtimeEnvFlags.FDAI_STENCIL_ENABLED_WORKLOADS).toBe(
+      "core-control-plane,operator-service",
+    );
+    expect(liteBp.runtimeEnvFlags.FDAI_STENCIL_DISABLED_WORKLOADS).toBe(
+      "document-ingestion-api,document-processing-worker,isolated-executor",
+    );
+    expect(liteBp.workloadFeatureFlags["document-ingestion-api"]).toBe(false);
+    expect(liteBp.jobFeatureFlags.canary).toBe(false);
+    expect(liteBp.addonFeatureFlags.notifications).toBe(true);
 
     const docBp = computeLiveApolloBlueprint(catalog, {
       stencilId: "custom-docs",
-      topologyProfile: "full-enterprise",
+      topologyProfile: "lite-observe-alert",
       selectedPanels: ["live", "documents"],
       selectedWorkloads: [],
       selectedLoops: [],
@@ -153,8 +162,10 @@ describe("stencil-builder helpers", () => {
       autoResolve: true,
     });
     expect(docBp.includesClamav).toBe(true);
+    expect(docBp.effectiveTopologyProfile).toBe("full-enterprise");
     expect(docBp.workloadReasons["document-ingestion-api"]).toContain("menu:documents");
     expect(docBp.releaseLabels).toContain("clamav:included");
+    expect(docBp.releaseLabels).toContain("profile:full-enterprise");
   });
 
   it("extracts Stencil metadata and component artifacts from application-release.v2 manifests", () => {
@@ -239,7 +250,30 @@ describe("stencil-builder helpers", () => {
     };
     const diff = computeApolloReleaseDiff(liteRel, stdRel);
     expect(diff.addedWorkloads).toEqual(["isolated-executor"]);
+    expect(diff.addedPanels).toEqual(["remediation"]);
     expect(diff.addedPanelCount).toBe(1);
     expect(diff.rbacChanged).toBe(true);
+    expect(diff.featureFlagEnforcementChanged).toBe(false);
+
+    const recalledPanelReadiness = evaluateApolloPromotionReadiness({
+      release: liteRel,
+      manifest: manifestObj,
+      events: [
+        {
+          revision: 2,
+          release_id: "panel:live",
+          action: "recall_capability",
+          reason: "recall live menu",
+          channel: null,
+          occurred_at: "2026-11-02T00:00:00Z",
+        },
+      ],
+      sourceChannel: "DEV",
+      targetChannel: "RELEASE_CANDIDATE",
+    });
+    expect(recalledPanelReadiness.allowed).toBe(false);
+    expect(recalledPanelReadiness.gates.some((g) => g.id === "stencil-feature-flags" && g.passed)).toBe(
+      true,
+    );
   });
 });

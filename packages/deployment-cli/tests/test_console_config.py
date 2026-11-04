@@ -30,6 +30,53 @@ def test_console_config_renders_only_public_authentication_settings() -> None:
     assert json.loads(script.split(b" = ", 1)[1][:-2]) == SETTINGS
 
 
+def test_console_config_renders_stencil_feature_flags_when_present() -> None:
+    payload = {
+        **SETTINGS,
+        "stencil_feature_flags": {
+            "stencil_id": "lite-observe-alert",
+            "enforcement_mode": "fail-closed",
+            "enabled_panel_ids": ["audit", "dashboard", "live", "settings-general"],
+            "disabled_panel_ids": ["chaos"],
+            "enabled_loops": ["anomaly-analyzer"],
+            "disabled_loops": ["remediation-execution"],
+            "panel_flags": {
+                "audit": True,
+                "chaos": False,
+                "dashboard": True,
+                "live": True,
+                "settings-general": True,
+            },
+            "loop_flags": {"anomaly-analyzer": True, "remediation-execution": False},
+        },
+    }
+    script = render_console_config(json.dumps(payload).encode()).decode("utf-8")
+    assert "globalThis.__FDAI_CONSOLE_CONFIG__ = " in script
+    assert "globalThis.__FDAI_STENCIL_FEATURE_FLAGS__ = " in script
+    with pytest.raises(ValueError, match="locked panel"):
+        render_console_config(
+            json.dumps(
+                {
+                    **SETTINGS,
+                    "stencil_feature_flags": {
+                        "stencil_id": "lite-observe-alert",
+                        "enforcement_mode": "fail-closed",
+                        "enabled_panel_ids": ["dashboard", "settings-general"],
+                        "disabled_panel_ids": ["audit"],
+                        "enabled_loops": [],
+                        "disabled_loops": [],
+                        "panel_flags": {
+                            "audit": False,
+                            "dashboard": True,
+                            "settings-general": True,
+                        },
+                        "loop_flags": {},
+                    },
+                }
+            ).encode()
+        )
+
+
 @pytest.mark.parametrize(
     ("key", "value"),
     [

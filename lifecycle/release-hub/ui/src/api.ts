@@ -111,6 +111,7 @@ export type StencilFeatureFlagsRecord = {
   schema_version: "fdai.stencil-feature-flags.v1";
   stencil_id: string;
   stencil_digest: string;
+  feature_flags_digest?: string;
   enforcement_mode: "fail-closed";
   enabled_panel_ids: string[];
   disabled_panel_ids: string[];
@@ -221,6 +222,11 @@ export function blockedReleaseCapabilities(
     declared.add(`stencil:${manifest.stencil.stencil_id}`);
     for (const w of manifest.stencil.enabled_workloads ?? []) declared.add(w);
     for (const l of manifest.stencil.enabled_loops ?? []) declared.add(l);
+    for (const p of manifest.stencil.enabled_panel_ids ?? []) declared.add(`panel:${p}`);
+    for (const j of manifest.stencil.enabled_scheduled_jobs ?? []) declared.add(`job:${j}`);
+    for (const a of manifest.stencil.feature_flags?.enabled_addons ?? []) {
+      declared.add(`addon:${a}`);
+    }
   }
   if (declared.size === 0) return [];
   const recalled = new Set(activeCapabilityRecalls(events));
@@ -308,6 +314,31 @@ export function evaluateApolloPromotionReadiness(input: {
       detail_ko: `관찰 ${elapsed}초 / 최소 요구 ${minSoak}초`,
     },
   ];
+  if (input.manifest.stencil) {
+    const st = input.manifest.stencil;
+    const ff = st.feature_flags;
+    const lockedPanelsOk =
+      st.enabled_panel_ids.includes("audit") &&
+      st.enabled_panel_ids.includes("dashboard") &&
+      st.enabled_panel_ids.includes("settings-general") &&
+      (!ff ||
+        (ff.enforcement_mode === "fail-closed" &&
+          ff.panel_flags.audit === true &&
+          ff.panel_flags.dashboard === true &&
+          ff.panel_flags["settings-general"] === true));
+    gates.push({
+      id: "stencil-feature-flags",
+      label: "Stencil fail-closed feature-flag gate",
+      label_ko: "Stencil 비활성 메뉴 Feature Flag 게이트",
+      passed: lockedPanelsOk,
+      detail: lockedPanelsOk
+        ? `fail-closed verified (${st.enabled_panel_ids.length} active menus)`
+        : "Stencil feature flags missing locked safety-core panels or fail-closed mode",
+      detail_ko: lockedPanelsOk
+        ? `fail-closed 검증됨 (활성 메뉴 ${st.enabled_panel_ids.length}개)`
+        : "필수 안전 코어 메뉴 또는 fail-closed 정책 누락",
+    });
+  }
   return {
     allowed: gates.every((g) => g.passed),
     gates,
@@ -322,9 +353,14 @@ export type ApolloReleaseDiff = {
   addedWorkloads: string[];
   removedWorkloads: string[];
   changedComponents: string[];
+  addedPanels: string[];
+  removedPanels: string[];
+  addedLoops: string[];
+  removedLoops: string[];
   addedPanelCount: number;
   removedPanelCount: number;
   rbacChanged: boolean;
+  featureFlagEnforcementChanged: boolean;
   baseRbac: string;
   targetRbac: string;
 };
@@ -352,11 +388,20 @@ export function computeApolloReleaseDiff(base: Release, target: Release): Apollo
 
   const basePanels = new Set(baseSt?.enabled_panel_ids ?? []);
   const targetPanels = new Set(targetSt?.enabled_panel_ids ?? []);
-  const addedPanelCount = [...targetPanels].filter((p) => !basePanels.has(p)).length;
-  const removedPanelCount = [...basePanels].filter((p) => !targetPanels.has(p)).length;
+  const addedPanels = [...targetPanels].filter((p) => !basePanels.has(p)).sort();
+  const removedPanels = [...basePanels].filter((p) => !targetPanels.has(p)).sort();
+  const addedPanelCount = addedPanels.length;
+  const removedPanelCount = removedPanels.length;
+
+  const baseLoops = new Set(baseSt?.enabled_loops ?? []);
+  const targetLoops = new Set(targetSt?.enabled_loops ?? []);
+  const addedLoops = [...targetLoops].filter((l) => !baseLoops.has(l)).sort();
+  const removedLoops = [...baseLoops].filter((l) => !targetLoops.has(l)).sort();
 
   const baseRbac = baseSt?.azure_rbac_posture ?? "standard";
   const targetRbac = targetSt?.azure_rbac_posture ?? "standard";
+  const baseEnforcement = baseSt?.feature_flags?.enforcement_mode ?? (baseSt ? "fail-closed" : "unscoped");
+  const targetEnforcement = targetSt?.feature_flags?.enforcement_mode ?? (targetSt ? "fail-closed" : "unscoped");
 
   return {
     baseId: base.id,
@@ -366,9 +411,14 @@ export function computeApolloReleaseDiff(base: Release, target: Release): Apollo
     addedWorkloads,
     removedWorkloads,
     changedComponents: changedComponents.sort(),
+    addedPanels,
+    removedPanels,
+    addedLoops,
+    removedLoops,
     addedPanelCount,
     removedPanelCount,
     rbacChanged: baseRbac !== targetRbac,
+    featureFlagEnforcementChanged: baseEnforcement !== targetEnforcement,
     baseRbac,
     targetRbac,
   };

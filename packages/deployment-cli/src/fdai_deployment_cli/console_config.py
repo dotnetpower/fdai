@@ -26,6 +26,58 @@ _FIELDS = {
     "spa_client_id",
     "api_scope",
 }
+_OPTIONAL_FIELDS = {"stencil_feature_flags"}
+_PANEL_ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*\Z", re.ASCII)
+_LOCKED_PANELS = ("audit", "dashboard", "settings-general")
+
+
+def _validate_console_stencil_flags(raw: object) -> dict[str, object]:
+    if not isinstance(raw, dict):
+        raise ValueError("Console stencil_feature_flags MUST be an object")
+    allowed_keys = {
+        "schema_version",
+        "stencil_id",
+        "enforcement_mode",
+        "enabled_panel_ids",
+        "disabled_panel_ids",
+        "panel_flags",
+    }
+    if not set(raw).issubset(allowed_keys):
+        raise ValueError("Console stencil_feature_flags contains unsupported fields")
+    if (
+        raw.get("schema_version", "fdai.stencil-feature-flags.v1")
+        != "fdai.stencil-feature-flags.v1"
+    ):
+        raise ValueError("Console stencil_feature_flags schema_version is invalid")
+    if raw.get("enforcement_mode", "fail-closed") != "fail-closed":
+        raise ValueError("Console stencil_feature_flags enforcement_mode MUST be fail-closed")
+    stencil_id = raw.get("stencil_id")
+    if stencil_id is not None and (
+        not isinstance(stencil_id, str) or _PANEL_ID_RE.fullmatch(stencil_id) is None
+    ):
+        raise ValueError("Console stencil_feature_flags.stencil_id is invalid")
+    for list_key in ("enabled_panel_ids", "disabled_panel_ids"):
+        items = raw.get(list_key)
+        if items is not None:
+            if not isinstance(items, list) or not all(
+                isinstance(p, str) and _PANEL_ID_RE.fullmatch(p) is not None for p in items
+            ):
+                raise ValueError(f"Console stencil_feature_flags.{list_key} is invalid")
+    disabled = set(raw.get("disabled_panel_ids") or ())
+    if any(lp in disabled for lp in _LOCKED_PANELS):
+        raise ValueError("Console stencil_feature_flags cannot disable locked safety-core panels")
+    panel_flags = raw.get("panel_flags")
+    if panel_flags is not None:
+        if not isinstance(panel_flags, dict) or not all(
+            isinstance(k, str) and _PANEL_ID_RE.fullmatch(k) is not None and type(v) is bool
+            for k, v in panel_flags.items()
+        ):
+            raise ValueError("Console stencil_feature_flags.panel_flags is invalid")
+        if any(panel_flags.get(lp) is False for lp in _LOCKED_PANELS):
+            raise ValueError(
+                "Console stencil_feature_flags.panel_flags cannot disable locked safety-core panels"
+            )
+    return dict(raw)
 
 
 def render_console_config(settings: bytes) -> bytes:
@@ -36,10 +88,19 @@ def render_console_config(settings: bytes) -> bytes:
     authentication bypass flags, are rejected.
     """
     values = load_json_object(settings, label="Console settings", max_bytes=16_384)
-    if set(values) != _FIELDS or values["schema_version"] != "fdai.console-runtime.v1":
+    if (
+        not _FIELDS <= set(values) <= (_FIELDS | _OPTIONAL_FIELDS)
+        or values["schema_version"] != "fdai.console-runtime.v1"
+    ):
         raise ValueError("Console settings fields do not match fdai.console-runtime.v1")
+    stencil_flags = (
+        _validate_console_stencil_flags(values["stencil_feature_flags"])
+        if "stencil_feature_flags" in values
+        else None
+    )
     text_values: dict[str, str] = {}
-    for key, value in values.items():
+    for key in _FIELDS:
+        value = values[key]
         if not isinstance(value, str) or not value.isascii():
             raise ValueError("Console settings MUST contain only ASCII string values")
         text_values[key] = value
@@ -73,7 +134,18 @@ def render_console_config(settings: bytes) -> bytes:
     scope = text_values["api_scope"]
     if re.fullmatch(rf"api://{_UUID}/[A-Za-z0-9._-]+", scope) is None:
         raise ValueError("Console api_scope MUST identify an Entra API application scope")
-    document = json.dumps(text_values, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    output_payload: dict[str, object] = dict(text_values)
+    if stencil_flags is not None:
+        output_payload["stencil_feature_flags"] = stencil_flags
+    document = json.dumps(output_payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    if stencil_flags is not None:
+        flags_doc = json.dumps(
+            stencil_flags, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+        )
+        return (
+            f"globalThis.__FDAI_CONSOLE_CONFIG__ = {document};\n"
+            f"globalThis.__FDAI_STENCIL_FEATURE_FLAGS__ = {flags_doc};\n"
+        ).encode("ascii")
     return f"globalThis.__FDAI_CONSOLE_CONFIG__ = {document};\n".encode("ascii")
 
 

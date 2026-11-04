@@ -36,24 +36,69 @@ const PANEL_TO_ROUTE_MODULE = new Map([
   ["dashboard", "src/routes/dashboard.tsx"],
   ["dashboard-v2", "src/routes/dashboard-v2.tsx"],
   ["live", "src/routes/live.tsx"],
+  ["gpu", "src/routes/gpu-monitoring.tsx"],
+  ["incidents", "src/routes/incidents.tsx"],
   ["agents", "src/routes/agents.tsx"],
   ["pantheon", "src/routes/agents.tsx"],
   ["hil-queue", "src/routes/hil-queue.tsx"],
   ["provision", "src/routes/provision.tsx"],
+  ["onboarding", "src/routes/onboarding.tsx"],
+  ["detection-readiness", "src/routes/detection-readiness.tsx"],
+  ["alert-quality", "src/routes/alert-quality.tsx"],
+  ["configuration-baselines", "src/routes/configuration-baselines.tsx"],
   ["processes", "src/routes/processes.tsx"],
+  ["workflow-apps", "src/routes/workflow-apps.tsx"],
+  ["scheduler-runs", "src/routes/scheduler-runs.tsx"],
+  ["background-tasks", "src/routes/background-tasks.tsx"],
+  ["automation-blueprints", "src/routes/automation-blueprints.tsx"],
+  ["scheduled-continuations", "src/routes/scheduled-continuations.tsx"],
+  ["conversation-delivery", "src/routes/conversation-delivery.tsx"],
+  ["conversation-assurance", "src/routes/conversation-assurance.tsx"],
+  ["conversation-search", "src/routes/conversation-search.tsx"],
+  ["reports", "src/routes/reports.tsx"],
   ["agent-activity", "src/routes/agent-activity.tsx"],
   ["audit", "src/routes/audit.tsx"],
+  ["browser-evidence", "src/routes/browser-evidence.tsx"],
+  ["forecast-learning", "src/routes/forecast-learning.tsx"],
+  ["assurance-twin", "src/routes/assurance-twin.tsx"],
+  ["code-security", "src/routes/code-security.tsx"],
   ["trace", "src/routes/rule-trace.tsx"],
+  ["rca", "src/routes/rca.tsx"],
   ["architecture", "src/routes/architecture.tsx"],
   ["ontology", "src/routes/ontology.tsx"],
   ["handover", "src/routes/handover.tsx"],
   ["rules", "src/routes/rule-catalog.tsx"],
   ["workflow-builder", "src/routes/workflow-builder.tsx"],
+  ["capabilities", "src/routes/capabilities.tsx"],
+  ["skills", "src/routes/skills.tsx"],
+  ["knowledge", "src/routes/knowledge-domain.tsx"],
+  ["documents", "src/routes/knowledge-domain.tsx"],
+  ["github", "src/routes/knowledge-domain.tsx"],
+  ["gitlab", "src/routes/knowledge-domain.tsx"],
+  ["azure-devops", "src/routes/knowledge-domain.tsx"],
   ["blast-radius", "src/routes/blast-radius.tsx"],
   ["promotion-gates", "src/routes/promotion-gates.tsx"],
+  ["context-selection-comparisons", "src/routes/context-selection-comparisons.tsx"],
+  ["scope", "src/routes/scope.tsx"],
   ["llm-cost", "src/routes/llm-cost.tsx"],
+  ["cost-governance", "src/routes/cost-governance.tsx"],
+  ["aks-commerce", "src/routes/aks-commerce.tsx"],
+  ["operating-outcomes", "src/routes/analytics-hubs.tsx"],
+  ["control-assurance", "src/routes/analytics-hubs.tsx"],
+  ["verticals", "src/routes/analytics-hubs.tsx"],
+  ["trust-routing", "src/routes/analytics-hubs.tsx"],
+  ["labs", "src/routes/labs.tsx"],
   ["settings-general", "src/routes/settings.tsx"],
+  ["settings-environment", "src/routes/environment-deployment.tsx"],
+  ["settings-models", "src/routes/settings-models.tsx"],
+  ["settings-runtime", "src/routes/settings-runtime.tsx"],
+  ["settings-memory", "src/routes/operator-memory.tsx"],
+  ["settings-iam", "src/routes/settings-iam.tsx"],
+  ["settings-integrations", "src/routes/settings-system.tsx"],
+  ["settings-diagnostics", "src/routes/settings-system.tsx"],
 ]);
+
+const ALL_STENCIL_ROUTE_MODULES = new Set(PANEL_TO_ROUTE_MODULE.values());
 
 const directory = process.argv[2] ?? "dist";
 const manifest = JSON.parse(await readFile(join(directory, ".vite/manifest.json"), "utf8"));
@@ -86,8 +131,8 @@ if (!rawStencilPanels) {
   if (missing.length > 0) {
     throw new Error(`bundle check (stencil): enabled routes are not lazy: ${missing.join(", ")}`);
   }
-  // Verify that disabled routes from EXPECTED_LAZY_ROUTES are physically absent from dynamicImports.
-  const unexpectedIncluded = [...EXPECTED_LAZY_ROUTES].filter(
+  // Verify that disabled routes from ALL_STENCIL_ROUTE_MODULES are physically absent from dynamicImports.
+  const unexpectedIncluded = [...ALL_STENCIL_ROUTE_MODULES].filter(
     (route) => !expectedStencilRoutes.has(route) && actualLazy.has(route),
   );
   if (unexpectedIncluded.length > 0) {
