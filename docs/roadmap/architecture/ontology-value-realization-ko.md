@@ -1,7 +1,7 @@
 ---
 title: Ontology Value Realization
 translation_of: ontology-value-realization.md
-translation_source_sha: e0133b267cf2ba417ac3a271fc7cea9e0f8f219a
+translation_source_sha: b8cff20d130677f64a67c2858ede95fb94b34d80
 translation_revised: 2026-11-04
 ---
 # 온톨로지 가치 실현
@@ -80,6 +80,7 @@ FDAI는 이미 개체, 관계, 시간, 근거를 타입이 있는 온톨로지�
 
 - 추천 액션, 근거, 불확실성, 기대 효과, 승인 제어를 보여 주고 게이트 없는 `decision.cost_of_delay` 순위 신호로 정렬하는 운영자 의사결정 큐(`core/decision_case/decision_queue.py`, `core/ontology_platform/enterprise_governance_bridges.py`)와 Console Decision Inbox(`build_decision_inbox_view_model`), 워크플로우별 `ValueClaim` 드릴다운 뷰(`build_workflow_value_claim_drilldowns`)를 추가합니다.
 - 벤더 중립 배포 및 서비스 카탈로그 브리지(`DeploymentAndServiceCatalogBridge`), ITSM 변경 창·온콜 교대조 및 티켓 감사 매핑 브리지(`EnterpriseGovernanceOntologyBridge`)를 추가합니다. 특정 비 Azure 외부 벤더 어댑터는 개별 명시적 승인 후 추가합니다.
+- 워크플로우, 비즈니스 시나리오, 원자적 규칙, 프레임워크 컨트롤(WAF/CAF/WARA/MCSB), 모범 사례, 베이스라인, 프로브, 그리고 클라우드 도메인 아키텍처 지식(예: AKS 네트워크 정책 종류 등)에 대한 자연어 질문이 실행 권한 없는 인용 기반 `QueryTable` 행을 반환하도록 읽기 전용 시맨틱 쿼리 함수 5종(`catalog.search_workflows`, `catalog.search_business_scenarios`, `catalog.search_rules_and_controls`, `catalog.resolve_governance_chain`, `catalog.search_cloud_reference`, `core/ontology_platform/catalog_knowledge_queries.py` 및 `config/cloud-reference-corpus.yaml`)을 `build_semantic_query_runtime`에 바인딩합니다.
 - 데이터 연결, 가치 주장 선언, 기준선, shadow, 승격 순서의 도입 플레이북을 게시합니다.
 
 ## 유스케이스 온보딩 플레이북

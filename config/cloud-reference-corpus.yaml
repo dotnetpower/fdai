@@ -1,0 +1,562 @@
+schema_version: "1.0.0"
+corpus_id: "fdai-reviewed-cloud-reference-v1"
+description: >-
+  Reviewed provider-neutral and Azure/AKS domain reference corpus for grounding
+  conceptual cloud architecture, network policy, resilience, security, and FinOps
+  questions with deterministic V-CLAIM evidence citations and zero execution authority.
+topics:
+  - topic_id: "aks.network-policies"
+    resource_type: "kubernetes-cluster"
+    category: "security"
+    title_en: "AKS Network Policies and CNI Data Plane Options"
+    title_ko: "AKS 네트워크 정책(Network Policy) 및 CNI 데이터 플레인 옵션"
+    summary_en: >-
+      Azure Kubernetes Service (AKS) enforces pod-to-pod traffic segmentation using
+      three primary network policy engines (Azure Network Policy Manager, Calico, and
+      Cilium) paired with Azure CNI Overlay, Azure CNI Flat, Kubenet, or BYO CNI.
+    summary_ko: >-
+      Azure Kubernetes Service(AKS)는 파드 간 동서(East-West) 트래픽 격리를 위해
+      Azure Network Policy Manager(NPM), Calico, Cilium의 3대 네트워크 정책 엔진과
+      Azure CNI Overlay, Azure CNI Flat, Kubenet, BYO CNI 네트워킹 모델을 제공합니다.
+    query_terms:
+      - "aks network policy"
+      - "kubernetes network policy"
+      - "calico"
+      - "cilium"
+      - "azure npm"
+      - "azure cni"
+      - "cni overlay"
+      - "kubenet"
+      - "네트워크 정책"
+      - "AKS 네트워크 정책"
+      - "파드 방화벽"
+      - "칼리코"
+      - "실리움"
+    options:
+      - option_id: "azure"
+        name_en: "Azure Network Policy Manager (NPM)"
+        name_ko: "Azure 네트워크 정책 관리자 (Azure NPM)"
+        layer_scope: "L3/L4 (IP and Port)"
+        os_support: "Linux and Windows Server nodes"
+        cni_compatibility: "Azure CNI, Azure CNI Overlay"
+        description_en: >-
+          Microsoft-maintained implementation of standard Kubernetes NetworkPolicy
+          using Linux iptables or Windows HNS. Ideal when native Azure support and
+          Windows node policy enforcement are required without third-party CRDs.
+        description_ko: >-
+          표준 Kubernetes NetworkPolicy 스펙을 Linux iptables 및 Windows HNS 기반으로 구현한
+          Microsoft 공식 관리형 정책 엔진입니다. 서드파티 CRD 없이 Windows 노드 정책 적용과
+          Azure 기본 기술 지원이 필요할 때 적합합니다.
+      - option_id: "calico"
+        name_en: "Calico Network Policy"
+        name_ko: "Calico 네트워크 정책"
+        layer_scope: "L3/L4 + Extended Calico CRDs (GlobalNetworkPolicy, NetworkSet)"
+        os_support: "Linux and Windows Server nodes"
+        cni_compatibility: "Azure CNI, Azure CNI Overlay, Kubenet"
+        description_en: >-
+          Open-source Tigera Calico policy engine supporting both standard Kubernetes
+          NetworkPolicy and advanced Calico CRDs such as cluster-wide GlobalNetworkPolicy,
+          explicit deny rules, and hierarchical policy ordering.
+        description_ko: >-
+          표준 Kubernetes NetworkPolicy뿐만 아니라 클러스터 전역 정책(GlobalNetworkPolicy),
+          명시적 차단(Deny) 규칙, 우선순위 지정 등 확장 Calico CRD를 지원하는 엔진입니다.
+          Kubenet과 Azure CNI 모두에서 사용할 수 있습니다.
+      - option_id: "cilium"
+        name_en: "Azure CNI Powered by Cilium"
+        name_ko: "Cilium 기반 Azure CNI (Azure CNI Powered by Cilium)"
+        layer_scope: "eBPF Data Plane + L3/L4/FQDN/L7 Network Policies"
+        os_support: "Linux nodes"
+        cni_compatibility: "Azure CNI Overlay, Azure CNI Dynamic IP"
+        description_en: >-
+          High-performance eBPF data plane that replaces kube-proxy with eBPF service
+          load balancing, enforces Kubernetes NetworkPolicy and CiliumNetworkPolicy,
+          and provides deep observability and high-scale pod density.
+        description_ko: >-
+          Linux 커널 eBPF 데이터 플레인을 사용하여 kube-proxy를 대체하는 고성능 서비스 라우팅과
+          Kubernetes NetworkPolicy/CiliumNetworkPolicy 기반 정밀 트래픽 제어를 제공합니다.
+          대규모 AKS 클러스터와 Azure CNI Overlay 환경에서 권장됩니다.
+      - option_id: "none"
+        name_en: "Disabled (No Network Policy Engine)"
+        name_ko: "비활성화 (네트워크 정책 미설정)"
+        layer_scope: "Unrestricted pod-to-pod traffic"
+        os_support: "All nodes"
+        cni_compatibility: "All CNI modes"
+        description_en: >-
+          All pods can communicate freely across namespaces without ingress or egress
+          filtering. Flagged as a high-severity finding by kubernetes-cluster.network-policy.
+        description_ko: >-
+          네임스페이스 간 모든 파드가 제약 없이 통신할 수 있는 상태입니다.
+          측면 이동(Lateral Movement) 보안 위험이 있어 kubernetes-cluster.network-policy 규칙에서
+          고위험(High) 위반으로 탐지됩니다.
+    cni_models:
+      - mode_id: "azure-cni-overlay"
+        title: "Azure CNI Overlay"
+        summary: "Assigns pod IPs from a private overlay CIDR while nodes use VNet subnet IPs, preventing VNet IP exhaustion at scale."
+      - mode_id: "azure-cni-flat"
+        title: "Azure CNI (Flat VNet IP)"
+        summary: "Assigns directly routable VNet subnet IPs to every pod; directly reachable from peered VNets and on-premises networks."
+      - mode_id: "kubenet"
+        title: "Kubenet"
+        summary: "Legacy NAT and route-table networking conserving VNet IPs; superseded by Azure CNI Overlay for new deployments."
+      - mode_id: "byo-cni"
+        title: "Bring Your Own CNI (BYO CNI)"
+        summary: "Provisions AKS without a managed CNI plugin so operators can install custom Cilium, Calico, or Flannel distributions."
+    evaluated_property: "property.kubernetes-cluster.network_policy"
+    related_rules:
+      - "kubernetes-cluster.network-policy"
+    related_controls:
+      - "MCSB:NS-1"
+      - "MCSB:NS-2"
+      - "WAF:SE:06"
+      - "AKS-BASELINE:kubernetes-cluster.hardening.baseline"
+    related_actions:
+      - "remediate.kubernetes-network-policy"
+      - "remediate.restrict-network-access"
+    related_workflows:
+      - "blast-radius-gated-service-restart"
+      - "aks-pod-crashloop-mitigation"
+    source_url: "https://learn.microsoft.com/azure/aks/use-network-policies"
+    retrieved_at: "2026-08-31T00:00:00Z"
+
+  - topic_id: "aks.security-and-access"
+    resource_type: "kubernetes-cluster"
+    category: "security"
+    title_en: "AKS API Server Isolation, Identity, and Access Control"
+    title_ko: "AKS API 서버 네트워크 격리, ID 및 접근 제어 아키텍처"
+    summary_en: >-
+      Covers Private Cluster API server isolation via Private Link, Microsoft Entra ID
+      and Azure RBAC integration for Kubernetes authorization, Workload Identity for
+      pod-to-Azure authentication, and control-plane diagnostic logging.
+    summary_ko: >-
+      Private Link 기반 프라이빗 클러스터 API 서버 격리, Microsoft Entra ID 및 Azure RBAC 기반
+      쿠버네티스 권한 제어, 파드의 Azure 리소스 접근을 위한 Workload Identity,
+      컨트롤 플레인 진단 로그 구성을 다룹니다.
+    query_terms:
+      - "aks private cluster"
+      - "aks rbac"
+      - "workload identity"
+      - "aks security"
+      - "프라이빗 클러스터"
+      - "AKS 보안"
+      - "워크로드 ID"
+      - "쿠버네티스 권한"
+    options:
+      - option_id: "private-cluster"
+        name_en: "AKS Private Cluster (Private Link API Server)"
+        name_ko: "AKS 프라이빗 클러스터 (Private Link API 서버)"
+        layer_scope: "Control Plane Network Isolation"
+        os_support: "All nodes"
+        cni_compatibility: "All CNI modes"
+        description_en: >-
+          Exposes the Kubernetes API server only on a private VNet endpoint rather than
+          a public IP, preventing internet exposure of the control plane.
+        description_ko: >-
+          쿠버네티스 API 서버를 공인 IP 대신 VNet 내부 프라이빗 엔드포인트로만 노출하여
+          외부 인터넷으로부터 컨트롤 플레인 접근을 원천 차단합니다.
+      - option_id: "azure-rbac-for-k8s"
+        name_en: "Azure RBAC for Kubernetes Authorization"
+        name_ko: "Kubernetes 권한 부여용 Azure RBAC"
+        layer_scope: "Identity and Authorization"
+        os_support: "All nodes"
+        cni_compatibility: "All CNI modes"
+        description_en: >-
+          Unifies Kubernetes cluster role bindings with Microsoft Entra ID and Azure IAM
+          so cluster permissions follow central conditional access and PIM policies.
+        description_ko: >-
+          쿠버네티스 클러스터 권한을 Microsoft Entra ID 및 Azure IAM과 통합하여
+          조건부 액세스 및 PIM(Privileged Identity Management) 정책을 일관되게 적용합니다.
+      - option_id: "entra-workload-identity"
+        name_en: "Microsoft Entra Workload Identity"
+        name_ko: "Microsoft Entra 워크로드 ID (Workload Identity)"
+        layer_scope: "Pod-to-Cloud Authentication"
+        os_support: "Linux and Windows Server nodes"
+        cni_compatibility: "All CNI modes"
+        description_en: >-
+          Uses Kubernetes service account OIDC token federation to authenticate pods
+          to Azure Key Vault, Storage, and SQL without static client secrets.
+        description_ko: >-
+          쿠버네티스 서비스 계정의 OIDC 토큰 페더레이션을 통해 정적 시크릿 없이
+          파드가 Key Vault, Storage, SQL 등 Azure 리소스에 안전하게 인증하도록 지원합니다.
+    evaluated_property: "property.kubernetes-cluster.rbac_enabled"
+    related_rules:
+      - "kubernetes-cluster.private-cluster"
+      - "kubernetes-cluster.rbac-enabled"
+      - "kubernetes-cluster.diagnostic-settings-required"
+    related_controls:
+      - "MCSB:IM-1"
+      - "MCSB:PA-7"
+      - "MCSB:NS-2"
+      - "WAF:SE:05"
+      - "AKS-BASELINE:kubernetes-cluster.hardening.baseline"
+    related_actions:
+      - "remediate.enable-rbac"
+      - "remediate.disable-public-access"
+      - "remediate.enable-diagnostic-settings"
+    related_workflows:
+      - "architecture-review"
+    source_url: "https://learn.microsoft.com/azure/architecture/reference-architectures/containers/aks/baseline-aks"
+    retrieved_at: "2026-08-31T00:00:00Z"
+
+  - topic_id: "aks.resilience-and-scaling"
+    resource_type: "kubernetes-cluster"
+    category: "reliability"
+    title_en: "AKS High Availability, Zone Redundancy, and Safe Scaling"
+    title_ko: "AKS 고가용성, 가용성 영역 중복 및 안전한 스케일링"
+    summary_en: >-
+      Covers multi-zone node pools, system vs user node pool isolation, Pod Disruption
+      Budgets (PDB), Cluster Autoscaler, and blast-radius/change-risk gated operations.
+    summary_ko: >-
+      다중 가용성 영역(Availability Zones) 노드 풀 분산, 시스템/사용자 노드 풀 분리,
+      파드 중단 예산(PDB), 클러스터 오토스케일러, 폭발 반경·변경 위험도 게이트 기반
+      안전한 재시작 및 스케일 인 운영을 다룹니다.
+    query_terms:
+      - "aks availability zones"
+      - "node pool zone redundancy"
+      - "aks autoscaling"
+      - "pod disruption budget"
+      - "aks rollout rollback"
+      - "노드 풀 가용성 영역"
+      - "AKS 가용성"
+      - "롤아웃 롤백"
+      - "스케일 인"
+    options:
+      - option_id: "zone-redundant-node-pools"
+        name_en: "Zone-Redundant Node Pools (Zones 1, 2, 3)"
+        name_ko: "가용성 영역 중복 노드 풀 (영역 1, 2, 3)"
+        layer_scope: "Regional Datacenter Fault Tolerance"
+        os_support: "Linux and Windows Server nodes"
+        cni_compatibility: "All CNI modes"
+        description_en: >-
+          Spreads node pool instances across three physical availability zones so a
+          single datacenter outage does not take down cluster workloads.
+        description_ko: >-
+          노드 풀 인스턴스를 3개의 물리적 가용성 영역에 분산 배치하여 단일 데이터센터 장애 시에도
+          비즈니스 워크로드 가용성을 유지합니다.
+      - option_id: "change-risk-gated-scaling"
+        name_en: "Ontology-Gated Scale-In and Rollout Recovery"
+        name_ko: "온톨로지 게이트 기반 스케일 인 및 롤아웃 복구"
+        layer_scope: "Operational Change Safety"
+        os_support: "All nodes"
+        cni_compatibility: "All CNI modes"
+        description_en: >-
+          Verifies blast radius, active change collisions, and SLO error-budget burn
+          before scaling in capacity or restarting services, with automatic rollout rollback.
+        description_ko: >-
+          용량 축소(Scale-in)나 서비스 재시작 전 폭발 반경, 변경 충돌, SLO 에러 버짓 소진 속도를
+          온톨로지 함수로 검증하고, 불량 배포 시 롤아웃을 즉시 롤백합니다.
+    evaluated_property: "property.kubernetes-cluster.availability_zones"
+    related_rules:
+      - "kubernetes-cluster.zone-redundant-node-pool"
+    related_controls:
+      - "WAF:RE:05"
+      - "WAF:RE:06"
+      - "WAF:RE:07"
+      - "WARA:005ccbbd"
+    related_actions:
+      - "remediate.enable-zone-redundancy"
+      - "ops.rollback-kubernetes-rollout"
+      - "ops.scale-out"
+      - "ops.scale-in"
+      - "ops.restart-service"
+    related_workflows:
+      - "blast-radius-gated-service-restart"
+      - "change-risk-gated-scale-in"
+      - "aks-bad-rollout-rollback"
+      - "order-backlog-recovery"
+    source_url: "https://learn.microsoft.com/azure/aks/availability-zones"
+    retrieved_at: "2026-08-31T00:00:00Z"
+
+  - topic_id: "postgresql.high-availability-and-security"
+    resource_type: "postgresql-server"
+    category: "reliability"
+    title_en: "PostgreSQL High Availability, Encryption, and Backup Retention"
+    title_ko: "PostgreSQL 고가용성(HA), 암호화 및 백업 보존 정책"
+    summary_en: >-
+      Covers Zone-Redundant vs Same-Zone High Availability standby modes, TLS/SSL
+      transport enforcement, encryption at rest, and point-in-time backup retention.
+    summary_ko: >-
+      PostgreSQL 서버의 영역 중복(Zone-Redundant) 및 동일 영역(Same-Zone) 고가용성 모드,
+      SSL/TLS 전송 암호화 강제, 저장 데이터 암호화, 시점 복구(PITR) 백업 보존 정책을 다룹니다.
+    query_terms:
+      - "postgresql high availability"
+      - "postgres zone redundant"
+      - "postgres ssl"
+      - "postgres backup retention"
+      - "포스트그레 고가용성"
+      - "DB 페일오버"
+      - "백업 보존"
+    options:
+      - option_id: "zone-redundant-ha"
+        name_en: "Zone-Redundant High Availability (Hot Standby)"
+        name_ko: "영역 중복 고가용성 (Zone-Redundant HA)"
+        layer_scope: "Cross-Zone Synchronous Standby"
+        os_support: "Managed Database"
+        cni_compatibility: "VNet Injection or Private Endpoint"
+        description_en: >-
+          Maintains a synchronous standby replica in a separate Availability Zone with
+          automated failover and zero RPO for mission-critical relational workloads.
+        description_ko: >-
+          별도의 가용성 영역에 동기식 대기 복제본을 유지하여 데이터 손실(RPO=0) 없이
+          자동 장애 조치(Failover)를 수행합니다.
+      - option_id: "ssl-and-retention"
+        name_en: "Enforced TLS/SSL and Governed Backup Retention"
+        name_ko: "TLS/SSL 전송 암호화 강제 및 백업 보존 거버넌스"
+        layer_scope: "Data Protection and Recovery"
+        os_support: "Managed Database"
+        cni_compatibility: "All network modes"
+        description_en: >-
+          Requires encrypted client connections and enforces sufficient PITR backup
+          retention days to satisfy RPO/RTO recovery feasibility gates.
+        description_ko: >-
+          모든 클라이언트 연결에 TLS 암호화를 강제하고, 복구 타당성(Recovery Feasibility) 기준을
+          충족하도록 시점 복구 백업 보존 기간을 보장합니다.
+    evaluated_property: "property.postgresql-server.ssl_enforcement"
+    related_rules:
+      - "postgresql-server.ssl-enforcement"
+      - "postgresql-server.zone-redundant-ha"
+      - "postgresql-server.backup-retention-days"
+    related_controls:
+      - "WAF:RE:05"
+      - "WAF:RE:09"
+      - "MCSB:DP-3"
+      - "MCSB:BR-1"
+    related_actions:
+      - "ops.failover-primary"
+      - "remediate.enable-zone-redundancy"
+      - "remediate.set-retention-policy"
+    related_workflows:
+      - "db-primary-failover-with-verification"
+    source_url: "https://learn.microsoft.com/azure/postgresql/flexible-server/concepts-high-availability"
+    retrieved_at: "2026-08-31T00:00:00Z"
+
+  - topic_id: "storage.network-isolation-and-data-protection"
+    resource_type: "object-storage"
+    category: "security"
+    title_en: "Object Storage Private Access, Key Disablement, and Data Protection"
+    title_ko: "스토리지 프라이빗 엔드포인트, 공유키 차단 및 데이터 보호"
+    summary_en: >-
+      Covers disabling public blob access and shared account keys in favor of Entra RBAC,
+      requiring Private Endpoints, enforcing HTTPS and TLS 1.2+, and enabling soft delete.
+    summary_ko: >-
+      스토리지 계정의 공용 네트워크 접근 및 공유키(Shared Key) 인증을 비활성화하고
+      Entra RBAC, 프라이빗 엔드포인트, HTTPS/TLS 1.2 이상 강제, 소프트 삭제를 적용하는 보안 아키텍처입니다.
+    query_terms:
+      - "storage private endpoint"
+      - "storage public access"
+      - "shared key access"
+      - "storage tls"
+      - "스토리지 프라이빗 엔드포인트"
+      - "공유키 차단"
+      - "스토리지 보안"
+    options:
+      - option_id: "private-endpoint-isolation"
+        name_en: "Private Endpoint with Public Network Access Disabled"
+        name_ko: "프라이빗 엔드포인트 및 공용 네트워크 접근 차단"
+        layer_scope: "Network Perimeter"
+        os_support: "Managed Storage"
+        cni_compatibility: "Private Link VNet"
+        description_en: >-
+          Blocks all public internet ingress and serves storage traffic exclusively
+          over Azure Private Link within authorized virtual networks.
+        description_ko: >-
+          공용 인터넷 인바운드 접근을 전면 차단하고 승인된 가상 네트워크 내부의
+          Private Link를 통해서만 스토리지 트래픽을 허용합니다.
+      - option_id: "entra-only-no-shared-key"
+        name_en: "Shared Key Disabled (Entra ID RBAC Only)"
+        name_ko: "공유키 비활성화 (Entra ID RBAC 전용 인증)"
+        layer_scope: "Identity and Access Management"
+        os_support: "Managed Storage"
+        cni_compatibility: "All modes"
+        description_en: >-
+          Disables storage account master keys and SAS tokens derived from account keys,
+          requiring all data-plane requests to authenticate via Entra ID tokens.
+        description_ko: >-
+          스토리지 계정 마스터 키 및 계정 키 기반 SAS 사용을 차단하고 모든 데이터 플레인 요청에
+          Entra ID 토큰 인증을 강제합니다.
+    evaluated_property: "property.object-storage.public_network_access"
+    related_rules:
+      - "object-storage.private-endpoint.required"
+      - "object-storage.public-access.deny"
+      - "object-storage.shared-key-access.disabled"
+      - "object-storage.https-only.required"
+      - "object-storage.min-tls-version"
+    related_controls:
+      - "MCSB:NS-2"
+      - "MCSB:IM-8"
+      - "MCSB:DP-3"
+      - "WARA:03263c57"
+    related_actions:
+      - "remediate.disable-public-access"
+      - "remediate.set-tls-policy"
+      - "remediate.enable-backup-protection"
+    related_workflows:
+      - "architecture-review"
+    source_url: "https://learn.microsoft.com/azure/storage/common/storage-network-security"
+    retrieved_at: "2026-08-31T00:00:00Z"
+
+  - topic_id: "network.perimeter-and-segmentation"
+    resource_type: "network-security-group"
+    category: "security"
+    title_en: "Network Segmentation, NSG Management Port Protection, and DDoS Defense"
+    title_ko: "네트워크 세그멘테이션, NSG 관리 포트 보호 및 DDoS 방어"
+    summary_en: >-
+      Covers blocking internet inbound SSH (22) and RDP (3389) on Network Security Groups,
+      attaching Azure DDoS Protection Plans to virtual networks, and enforcing edge firewalls.
+    summary_ko: >-
+      네트워크 보안 그룹(NSG)에서 인터넷 인바운드 SSH(22) 및 RDP(3389) 노출을 차단하고,
+      가상 네트워크(VNet)에 DDoS 보호 플랜을 연결하며, 엣지 방화벽으로 경계를 보호하는 아키텍처입니다.
+    query_terms:
+      - "nsg ssh rdp"
+      - "network segmentation"
+      - "vnet ddos plan"
+      - "NSG 보안 규칙"
+      - "원격 포트 차단"
+      - "DDoS 보호"
+    options:
+      - option_id: "restrict-management-ports"
+        name_en: "Zero Internet Exposure for SSH/RDP Ports"
+        name_ko: "인터넷 인바운드 SSH/RDP 관리 포트 전면 차단"
+        layer_scope: "L4 Subnet/NIC Filtering"
+        os_support: "All IaaS/PaaS"
+        cni_compatibility: "VNet Subnets"
+        description_en: >-
+          Replaces 0.0.0.0/0 or Any inbound rules on TCP 22 and 3389 with Azure Bastion,
+          Just-In-Time (JIT) access, or restricted management subnet CIDRs.
+        description_ko: >-
+          TCP 22(SSH) 및 3389(RDP) 포트에 대한 0.0.0.0/0 허용 규칙을 제거하고
+          Azure Bastion이나 승인된 관리 서브넷 CIDR로만 접근을 제한합니다.
+      - option_id: "vnet-ddos-protection"
+        name_en: "VNet DDoS Network Protection Plan"
+        name_ko: "가상 네트워크 DDoS 보호 플랜 적용"
+        layer_scope: "L3/L4 Volumetric Attack Mitigation"
+        os_support: "Virtual Network"
+        cni_compatibility: "All VNet resources"
+        description_en: >-
+          Provides adaptive real-time tuning, attack telemetry, and cost protection
+          against volumetric L3/L4 DDoS attacks on public-facing VNet endpoints.
+        description_ko: >-
+          공인 엔드포인트가 포함된 가상 네트워크에 적응형 실시간 트래픽 튜닝과
+          대규모 L3/L4 볼류메트릭 공격 완화 기능을 제공합니다.
+    evaluated_property: "property.network.nsg.inbound_rules"
+    related_rules:
+      - "network.nsg.no-inbound-any-rdp"
+      - "network.nsg.no-inbound-any-ssh"
+      - "network.nsg.no-internet-inbound-rdp"
+      - "network.nsg.no-internet-inbound-ssh"
+      - "network.vnet.ddos-plan.required"
+    related_controls:
+      - "MCSB:NS-1"
+      - "MCSB:NS-5"
+      - "MCSB:NS-8"
+      - "WAF:SE:06"
+    related_actions:
+      - "remediate.restrict-network-access"
+      - "ops.upsert-network-rule"
+      - "ops.delete-network-rule"
+    related_workflows:
+      - "architecture-review"
+    source_url: "https://learn.microsoft.com/azure/virtual-network/network-security-groups-overview"
+    retrieved_at: "2026-08-31T00:00:00Z"
+
+  - topic_id: "secret-store.zero-trust-governance"
+    resource_type: "secret-store"
+    category: "security"
+    title_en: "Key Vault RBAC Authorization, Purge Protection, and Secret Rotation"
+    title_ko: "Key Vault RBAC 권한 부여, 영구 삭제 방지(Purge Protection) 및 시크릿 회전"
+    summary_en: >-
+      Covers migrating Key Vault from legacy access policies to Azure RBAC, enforcing
+      soft delete plus purge protection against ransomware/accidental deletion, and automated rotation.
+    summary_ko: >-
+      Key Vault를 레거시 액세스 정책에서 Azure RBAC 권한 모델로 전환하고,
+      랜섬웨어 및 실수로 인한 영구 삭제를 막는 Purge Protection과 자동 키/시크릿 회전을 적용합니다.
+    query_terms:
+      - "key vault rbac"
+      - "purge protection"
+      - "secret rotation"
+      - "키 볼트 보안"
+      - "영구 삭제 방지"
+      - "시크릿 로테이션"
+    options:
+      - option_id: "keyvault-rbac-and-purge-protection"
+        name_en: "Azure RBAC Data Plane + Purge Protection"
+        name_ko: "Azure RBAC 데이터 플레인 + 영구 삭제 방지"
+        layer_scope: "Secret & Key Governance"
+        os_support: "Managed Secret Store"
+        cni_compatibility: "Private Endpoint recommended"
+        description_en: >-
+          Enables per-secret/key/certificate RBAC least privilege and guarantees that
+          deleted vault objects cannot be permanently purged before the retention period expires.
+        description_ko: >-
+          개별 시크릿·키·인증서 단위의 최소 권한 RBAC을 적용하고, 보존 기간 만료 전에는
+          관리자라도 삭제된 객체를 영구 파기할 수 없도록 보장합니다.
+    evaluated_property: "property.secret-store.purge_protection_enabled"
+    related_rules:
+      - "secret-store.rbac-authorization.enabled"
+      - "secret-store.purge-protection.enabled"
+      - "secret-store.public-network-access.disabled"
+    related_controls:
+      - "MCSB:PA-7"
+      - "MCSB:IM-8"
+      - "MCSB:DP-8"
+      - "WARA:00c3d2b0"
+    related_actions:
+      - "remediate.enable-rbac"
+      - "remediate.enable-purge-protection"
+      - "remediate.disable-public-access"
+      - "remediate.rotate-secret"
+    related_workflows:
+      - "cert-expiry-preventive-rotation"
+    source_url: "https://learn.microsoft.com/azure/key-vault/general/security-features"
+    retrieved_at: "2026-08-31T00:00:00Z"
+
+  - topic_id: "compute.resilience-and-finops"
+    resource_type: "compute.vm"
+    category: "cost"
+    title_en: "Compute Managed Identity, Right-Sizing, and Safe FinOps Optimization"
+    title_ko: "컴퓨트 관리 ID, 적정 규모 조정(Right-Sizing) 및 안전한 FinOps 최적화"
+    summary_en: >-
+      Covers eliminating credential files on VMs via Managed Identity, right-sizing
+      under-utilized compute instances, and gating scale-in/deallocation with ontology safety checks.
+    summary_ko: >-
+      VM 내 자격 증명 파일을 제거하는 관리 ID(Managed Identity) 부여, 저사용 컴퓨트 인스턴스의
+      적정 규모 조정(Right-Sizing), 온톨로지 안전 게이트를 통한 유휴 리소스 축소 및 할당 해제를 다룹니다.
+    query_terms:
+      - "vm managed identity"
+      - "right sizing"
+      - "finops cost optimization"
+      - "idle vm"
+      - "관리 ID"
+      - "적정 규모 조정"
+      - "유휴 VM"
+      - "비용 최적화"
+    options:
+      - option_id: "managed-identity-and-right-sizing"
+        name_en: "Managed Identity + SLO-Safe Right-Sizing"
+        name_ko: "관리 ID 적용 및 SLO 안전 기반 적정 규모 조정"
+        layer_scope: "Compute Security and Cost Governance"
+        os_support: "Linux and Windows VMs/VMSS"
+        cni_compatibility: "VNet Subnets"
+        description_en: >-
+          Assigns system/user-assigned identities for passwordless authentication and
+          evaluates CPU/memory utilization plus blast radius before right-sizing or deallocating VMs.
+        description_ko: >-
+          패스워드 없는 인증을 위해 관리 ID를 부여하고, VM 축소나 할당 해제 전
+          CPU/메모리 사용률과 비즈니스 폭발 반경을 함께 검증하여 안전하게 비용을 절감합니다.
+    evaluated_property: "property.compute.vm.identity_type"
+    related_rules:
+      - "compute.vm.managed-identity.assigned"
+    related_controls:
+      - "MCSB:IM-3"
+      - "WAF:CO:05"
+      - "WAF:CO:07"
+      - "WAF:RE:05"
+    related_actions:
+      - "remediate.assign-identity"
+      - "remediate.right-size"
+      - "ops.deallocate-vm"
+      - "ops.scale-in"
+    related_workflows:
+      - "change-risk-gated-scale-in"
+      - "finops-idle-vm-cleanup"
+    source_url: "https://learn.microsoft.com/azure/well-architected/cost-optimization/optimize-component-costs"
+    retrieved_at: "2026-08-31T00:00:00Z"
