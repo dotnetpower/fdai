@@ -373,9 +373,9 @@ selected integration still blocks the installation review.
 ## Qualification evidence
 
 An installation qualifies the governance rollout through one review-only record, built by
-`fdai.core.governance_qualification` and `scripts/governance/build-governance-qualification.py`.
-The record binds the installation, management scope, environment class, Rule generation digest,
-ontology release digest, pinned provider revisions, and evidence cutoff before collection.
+`fdai.core.governance_qualification`, `scripts/governance/build-governance-qualification.py`, and
+`scripts/governance/rehearse_f062_governance_rollout.py`. It binds the installation, management
+scope, environment class, Rule generation, ontology release, provider revisions, and cutoff.
 
 - **Sources.** Every required provider source is admitted only when it is available, observed no
   later than the cutoff, and fresh at the cutoff. Unavailable, stale, incomplete, revoked,
@@ -764,9 +764,9 @@ provenance:
       key or an out-of-bound value fails the catalog load closed; there is no runtime HIL
       fallback for a policy violation.
 - [x] The initial "over-overridden" signal requires three distinct scopes, 14 observed days, and
-      100 shadow hits. `OverrideDiscoverySignalSource` applies configurable positive thresholds to
-      `governance.override_resolved` audit records and emits only inert
-      `DiscoverySignalKind.OVERRIDE` evidence.
+      100 shadow hits. `OverrideDiscoverySignalSource` and `StateStoreOverrideAuditReader`
+      (`fdai.delivery.override_discovery`) bind `governance.override_resolved` records with exact
+      window filtering and independent `Mimir` admission, emitting inert `DiscoverySignalKind.OVERRIDE`.
 
 ## Related docs
 

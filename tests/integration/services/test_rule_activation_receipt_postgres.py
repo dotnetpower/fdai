@@ -33,7 +33,7 @@ OPERATOR_MIGRATION = ROOT / (
 
 @pytest.fixture
 def database() -> Iterator[str]:
-    source = os.environ.get("FDAI_RULE_ACTIVATION_TEST_DSN")
+    source = os.environ.get("FDAI_RULE_ACTIVATION_TEST_DSN") or os.environ.get("FDAI_DATABASE_URL")
     if not source:
         pytest.skip("FDAI_RULE_ACTIVATION_TEST_DSN is unset")
     source = source.replace("postgresql+psycopg://", "postgresql://", 1)
