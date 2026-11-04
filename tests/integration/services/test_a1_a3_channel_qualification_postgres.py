@@ -98,7 +98,7 @@ APPROVER_OID = "00000000-0000-0000-0000-00000000b002"
 SLACK_TEAM_ID = "T941QUAL"
 SLACK_CHANNEL_ID = "C941QUAL01"
 SLACK_USER_ID = "U941APPROVER"
-SLACK_SIGNING_SECRET = "synthetic-slack-signing-secret-941"  # noqa: S105 - synthetic test key
+SLACK_SIGNING_SECRET = "fixture"  # noqa: S105 - synthetic test key
 TEAMS_TEAM_ID = "team-941-a1"
 TEAMS_CHANNEL_ID = "channel-941-a1"
 TEAMS_AUDIENCE = f"teams:{TEAMS_TEAM_ID}:{TEAMS_CHANNEL_ID}"
@@ -310,7 +310,7 @@ async def test_slack_a1_durable_outbox_handoff_nonce_race_and_decision_round_tri
             config=SlackHilAdapterConfig(
                 api_url=SLACK_POST_URL,
                 channel_id=SLACK_CHANNEL_ID,
-                bot_token="xoxb-synthetic-941",
+                bot_token="fixture",
             ),
             http_client=slack_http,
         )
@@ -510,7 +510,7 @@ async def test_teams_a1_bot_activity_obo_round_trip_and_broker_replay_postgres(
 
     bot_identity = StaticWorkloadIdentity(
         audience="https://api.botframework.com/.default",
-        token="synthetic-teams-bot-credential",  # noqa: S106 - synthetic test token
+        token="fixture",  # noqa: S106 - synthetic test token
     )
     async with httpx.AsyncClient(transport=httpx.MockTransport(_teams_bot_transport)) as bot_http:
         teams_adapter = TeamsHilAdapter(

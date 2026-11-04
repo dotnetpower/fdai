@@ -316,7 +316,7 @@ class _LifecycleNoop:
 
 class _TeamsTokenProvider:
     async def get_token(self, audience: str) -> ChannelAccessToken:
-        return ChannelAccessToken(token="synthetic-teams-bot-token", audience=audience)
+        return ChannelAccessToken(token="fixture", audience=audience)
 
 
 class _TeamsSemantic:

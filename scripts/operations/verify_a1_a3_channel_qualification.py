@@ -173,7 +173,7 @@ async def run_qualification(*, allow_live_slack: bool = True) -> dict[str, Any]:
         op_dsn = make_conninfo(dsn, options="-c role=fdai_operator")
         seed_park = _QUAL_TEST["_seed_action_park"]
         channel_id = live_slack_channel if use_live_slack else _QUAL_TEST["SLACK_CHANNEL_ID"]
-        bot_token = live_slack_token if use_live_slack else "xoxb-synthetic-941"
+        bot_token = live_slack_token if use_live_slack else "fixture"
 
         slack_approve_req, _ = seed_park(dsn, approval_id="qual-941-slack-approve", now=now)
         slack_reject_req, _ = seed_park(dsn, approval_id="qual-941-slack-reject", now=now)

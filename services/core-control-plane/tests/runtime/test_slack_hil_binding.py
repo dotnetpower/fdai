@@ -134,7 +134,7 @@ async def test_local_owner_only_slack_approval_activation_resolves_channel(
     fdai_dir = Path(str(tmp_path)) / ".fdai"
     fdai_dir.mkdir(mode=0o700)
     input_env = fdai_dir / "local-channel-edge-input.env"
-    input_env.write_text("FDAI_SLACK_BOT_TOKEN='xoxb-synthetic-local-token'\n", encoding="utf-8")
+    input_env.write_text("FDAI_SLACK_BOT_TOKEN='fixture'\n", encoding="utf-8")
     input_env.chmod(0o600)
     channel_file = fdai_dir / "slack-public-channel"
     channel_file.write_text("C012345678\n", encoding="utf-8")
@@ -149,7 +149,7 @@ async def test_local_owner_only_slack_approval_activation_resolves_channel(
     )
     assert active["FDAI_SLACK_APPROVAL_API_URL"] == SLACK_POST_URL
     assert active["FDAI_SLACK_APPROVAL_CHANNEL_ID"] == "C012345678"
-    assert active["FDAI_SLACK_APPROVAL_BOT_TOKEN"] == "xoxb-synthetic-local-token"
+    assert active["FDAI_SLACK_APPROVAL_BOT_TOKEN"] == "fixture"
 
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(lambda _: httpx.Response(200))
