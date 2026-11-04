@@ -210,6 +210,9 @@ def reconcile_runtime_integrations(
             "teams-a1-approval-send",
             "teams-a1-approval-callback",
             "teams-a3-conversation",
+            "slack-a1-approval-send",
+            "slack-a1-approval-callback",
+            "slack-a3-conversation",
             "notification-bindings",
         }:
             a1_reason = (

@@ -37,4 +37,15 @@ describe("Settings integrations route catalog", () => {
     expect(settingsIntegrationsText("personalChannelsTitle")).toBe("내 알림 채널");
     expect(settingsIntegrationsText("consoleWebPersonalLabel")).toBe("콘솔 웹(개인)");
   });
+
+  it("renders bilingual Teams and Slack A1/A3 integration labels", () => {
+    setLocale("en");
+    expect(settingsIntegrationsText("slackA1SendLabel")).toBe("Slack A1 approval delivery");
+    expect(settingsIntegrationsText("slackA1CallbackLabel")).toBe("Slack A1 approval handoff");
+    expect(settingsIntegrationsText("slackA3Label")).toBe("Slack A3 conversations");
+    setLocale("ko");
+    expect(settingsIntegrationsText("slackA1SendLabel")).toBe("Slack A1 승인 전달");
+    expect(settingsIntegrationsText("slackA1CallbackLabel")).toBe("Slack A1 승인 핸드오프");
+    expect(settingsIntegrationsText("slackA3Label")).toBe("Slack A3 대화");
+  });
 });
