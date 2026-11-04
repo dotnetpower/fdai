@@ -153,33 +153,40 @@ COPY services/document-ingestion-api/pyproject.toml ./services/document-ingestio
 COPY services/document-processing-worker/pyproject.toml ./services/document-processing-worker/pyproject.toml
 COPY services/isolated-executor/pyproject.toml ./services/isolated-executor/pyproject.toml
 COPY services/system-knowledge-service/pyproject.toml ./services/system-knowledge-service/pyproject.toml
-COPY packages/github-app-auth/ ./packages/github-app-auth/
-COPY packages/service-contracts/ ./packages/service-contracts/
-COPY packages/runtime-diagnostics/ ./packages/runtime-diagnostics/
-COPY services/core-control-plane/ ./services/core-control-plane/
+COPY packages/github-app-auth/pyproject.toml ./packages/github-app-auth/pyproject.toml
+COPY packages/service-contracts/pyproject.toml ./packages/service-contracts/pyproject.toml
+COPY packages/runtime-diagnostics/pyproject.toml ./packages/runtime-diagnostics/pyproject.toml
+COPY services/core-control-plane/pyproject.toml ./services/core-control-plane/pyproject.toml
 RUN timeout --signal=TERM --kill-after=10 180s uv export --frozen --all-packages --all-extras \
         --no-emit-workspace --output-file /build/build-constraints.txt \
-    && timeout --signal=TERM --kill-after=10 180s uv build --build-constraints /build/build-constraints.txt --require-hashes --wheel --package fdai-github-app-auth --out-dir /wheels \
-    && timeout --signal=TERM --kill-after=10 180s uv build --build-constraints /build/build-constraints.txt --require-hashes --wheel --package fdai-service-contracts --out-dir /wheels \
-    && timeout --signal=TERM --kill-after=10 180s uv build --build-constraints /build/build-constraints.txt --require-hashes --wheel --package fdai-runtime-diagnostics --out-dir /wheels \
-    && timeout --signal=TERM --kill-after=10 180s uv build --build-constraints /build/build-constraints.txt --require-hashes --wheel --package fdai-core-control-plane --out-dir /wheels \
     && timeout --signal=TERM --kill-after=10 180s uv sync --frozen --package fdai-core-control-plane --no-dev --no-editable \
         --no-install-package fdai \
         --no-install-package fdai-github-app-auth \
         --no-install-package fdai-service-contracts \
         --no-install-package fdai-runtime-diagnostics \
         --no-install-package fdai-core-control-plane \
+    && timeout --signal=TERM --kill-after=10 180s /app/.venv/bin/python -m compileall -q -j4 /app/.venv/lib/python3.13
+COPY packages/github-app-auth/ ./packages/github-app-auth/
+COPY packages/service-contracts/ ./packages/service-contracts/
+COPY packages/runtime-diagnostics/ ./packages/runtime-diagnostics/
+COPY services/core-control-plane/ ./services/core-control-plane/
+RUN timeout --signal=TERM --kill-after=10 180s uv build --build-constraints /build/build-constraints.txt --require-hashes --wheel --package fdai-github-app-auth --out-dir /wheels \
+    && timeout --signal=TERM --kill-after=10 180s uv build --build-constraints /build/build-constraints.txt --require-hashes --wheel --package fdai-service-contracts --out-dir /wheels \
+    && timeout --signal=TERM --kill-after=10 180s uv build --build-constraints /build/build-constraints.txt --require-hashes --wheel --package fdai-runtime-diagnostics --out-dir /wheels \
+    && timeout --signal=TERM --kill-after=10 180s uv build --build-constraints /build/build-constraints.txt --require-hashes --wheel --package fdai-core-control-plane --out-dir /wheels \
     && timeout --signal=TERM --kill-after=10 180s uv pip install --python /app/.venv/bin/python --no-deps \
         /wheels/fdai_github_app_auth-*.whl \
         /wheels/fdai_service_contracts-*.whl \
         /wheels/fdai_runtime_diagnostics-*.whl \
         /wheels/fdai_core_control_plane-*.whl \
-    && timeout --signal=TERM --kill-after=10 180s /app/.venv/bin/python -m compileall -q -j4 /app/.venv/lib/python3.13
+    && timeout --signal=TERM --kill-after=10 180s /app/.venv/bin/python -m compileall -q -j4 \
+        /app/.venv/lib/python3.13/site-packages/fdai_github_app_auth \
+        /app/.venv/lib/python3.13/site-packages/fdai_service_contracts \
+        /app/.venv/lib/python3.13/site-packages/fdai_runtime_diagnostics \
+        /app/.venv/lib/python3.13/site-packages/fdai \
+        /app/.venv/lib/python3.13/site-packages/fdai_core_service
 
 FROM python-runtime AS base
-
-ARG FDAI_CODE_SECURITY_BUILD_INPUT_DIGEST=unbound
-LABEL org.fdai.code-security.build-input-digest="${FDAI_CODE_SECURITY_BUILD_INPUT_DIGEST}"
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -187,11 +194,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH="/app/.venv/bin:/opt/scanners/bin:${PATH}"
 
 WORKDIR /app
-COPY --from=builder --chown=65532:65532 /app/.venv /app/.venv
 COPY --from=tools /opt/scanners/bin/ /opt/scanners/bin/
 COPY --chown=65532:65532 rule-catalog/code-security/ /app/rule-catalog/code-security/
 COPY --chown=65532:65532 config/ /app/config/
 COPY --chmod=0755 services/core-control-plane/docker/code-security-scanner-entrypoint.sh /usr/local/bin/fdai-scan-runner
+COPY --from=builder --chown=65532:65532 /app/.venv /app/.venv
+ARG FDAI_CODE_SECURITY_BUILD_INPUT_DIGEST=unbound
+LABEL org.fdai.code-security.build-input-digest="${FDAI_CODE_SECURITY_BUILD_INPUT_DIGEST}"
 USER 65532
 ENTRYPOINT ["fdai-scan-runner"]
 

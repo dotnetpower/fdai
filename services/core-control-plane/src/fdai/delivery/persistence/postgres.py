@@ -140,12 +140,14 @@ class PostgresStateStore(
         if config.connect_timeout_s < 1:
             raise ValueError("connect_timeout_s MUST be >= 1")
         self._config = config
+        self._configured_connections: set[int] = set()
         self._pool: AsyncConnectionPool[Any] = AsyncConnectionPool(
             conninfo=config.dsn,
             kwargs={
                 "connect_timeout": config.connect_timeout_s,
                 "row_factory": dict_row,
             },
+            configure=self._configure_connection,
             min_size=_POOL_MIN_SIZE,
             max_size=_POOL_MAX_SIZE,
             open=False,
@@ -677,6 +679,7 @@ class PostgresStateStore(
         async with self._connection() as conn:
             await self._set_statement_timeout(conn)
             async with conn.cursor(name="fdai_verify_chain") as cur:
+                cur.itersize = 5_000
                 await cur.execute(
                     """
                     SELECT entry, previous_hash, entry_hash
@@ -700,6 +703,12 @@ class PostgresStateStore(
     # Internals
     # ------------------------------------------------------------------
 
+    async def _configure_connection(self, conn: psycopg.AsyncConnection[Any]) -> None:
+        ms = int(self._config.statement_timeout_ms)
+        await conn.execute(f"SET statement_timeout = {ms}")
+        await conn.commit()
+        self._configured_connections.add(id(conn))
+
     async def aclose(self) -> None:
         """Close the adapter-owned pool after every runtime consumer has stopped."""
 
@@ -707,6 +716,7 @@ class PostgresStateStore(
             if not self._pool_open:
                 return
             self._pool_open = False
+            self._configured_connections.clear()
             await self._pool.close()
 
     async def _ensure_pool(self) -> None:
@@ -730,6 +740,8 @@ class PostgresStateStore(
             yield connection
 
     async def _set_statement_timeout(self, conn: psycopg.AsyncConnection[Any]) -> None:
+        if id(conn) in self._configured_connections:
+            return
         # SET LOCAL does not accept parametrized values in Postgres; inline
         # the (validated int) timeout literally.
         ms = int(self._config.statement_timeout_ms)

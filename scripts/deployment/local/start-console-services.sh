@@ -79,13 +79,31 @@ if [[ "$owns_stack_lock" == "1" ]]; then
   printf '%s\n' "$$" > "$stack_lock_file"
 fi
 
+local_code_security_worker="${FDAI_LOCAL_CODE_SECURITY_WORKER:-}"
+if [[ -z "$local_code_security_worker" && -f "$repo_root/console/.env.local" ]]; then
+  mapfile -t worker_matches < <(
+    grep -E '^FDAI_LOCAL_CODE_SECURITY_WORKER=' "$repo_root/console/.env.local" || true
+  )
+  if (( ${#worker_matches[@]} > 1 )); then
+    echo "duplicate local Console setting: FDAI_LOCAL_CODE_SECURITY_WORKER" >&2
+    exit 1
+  fi
+  if (( ${#worker_matches[@]} == 1 )); then
+    local_code_security_worker="${worker_matches[0]#*=}"
+  fi
+fi
+local_code_security_worker="${local_code_security_worker:-0}"
+if [[ "$local_code_security_worker" != "0" && "$local_code_security_worker" != "1" ]]; then
+  echo "FDAI_LOCAL_CODE_SECURITY_WORKER MUST be 0 or 1" >&2
+  exit 1
+fi
+
 services=(
   core-runtime
   operator-api
   document-ingestion-api
   document-processing-worker
   isolated-executor
-  code-security-worker
   local-analyzer
   cost-governance-analytics
   inventory-reconciliation
@@ -93,6 +111,11 @@ services=(
   console-frontend
   manual-studio
 )
+if [[ "$local_code_security_worker" == "1" ]]; then
+  services+=(
+  code-security-worker
+  )
+fi
 child_pids=()
 active_pids=()
 readiness_pid=""

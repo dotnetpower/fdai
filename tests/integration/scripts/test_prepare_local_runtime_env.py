@@ -1205,7 +1205,11 @@ def test_an_unpinned_local_subscription_is_pinned_from_the_login_once(
 
     assert first.returncode == 0, first.stderr
     persisted = (repo / "console/.env.local").read_text(encoding="utf-8")
-    assert f"FDAI_LOCAL_SUBSCRIPTION_ID={_DRIFTED}" in persisted.splitlines()
+    assert persisted.splitlines().count(f"FDAI_LOCAL_SUBSCRIPTION_ID={_DRIFTED}") == 1
+
+    second, _ = _run_prepare(repo, az)
+    assert second.returncode == 0, second.stderr
+    assert (repo / "console/.env.local").read_text(encoding="utf-8") == persisted
 
 
 def test_a_pinned_subscription_that_the_login_lacks_fails_before_any_read(

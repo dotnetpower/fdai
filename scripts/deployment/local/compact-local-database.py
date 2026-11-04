@@ -44,6 +44,7 @@ _DSN_ENV = "FDAI_STATE_STORE_DSN"
 _OWNER_DSN_ENV = "FDAI_DATABASE_URL"
 _CONNECT_TIMEOUT_SECONDS = 5
 _CONNECTION_OPTIONS = "-c statement_timeout=30000 -c lock_timeout=1000"
+_VACUUM_CONNECTION_OPTIONS = "-c statement_timeout=120000 -c lock_timeout=15000"
 _CHECKPOINT_BATCH = 2_000
 # Disposable evidence rows whose audit summary is retained elsewhere: newest-N windows that no
 # running service bounds. An optional (field, value) pair limits a window to finished rows.
@@ -247,7 +248,7 @@ async def _run(
             _dsn(_OWNER_DSN_ENV),
             autocommit=True,
             connect_timeout=_CONNECT_TIMEOUT_SECONDS,
-            options=_CONNECTION_OPTIONS,
+            options=_VACUUM_CONNECTION_OPTIONS,
         ) as connection:
             connection.execute(
                 "VACUUM (FULL, ANALYZE) state_kv" if vacuum_full else "VACUUM (ANALYZE) state_kv"

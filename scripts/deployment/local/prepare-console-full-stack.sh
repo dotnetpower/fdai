@@ -73,6 +73,9 @@ load_optional_console_setting() {
       FDAI_LOCAL_KUBERNETES_BINDINGS_PATH)
         export FDAI_LOCAL_KUBERNETES_BINDINGS_PATH="$value"
         ;;
+      FDAI_LOCAL_CODE_SECURITY_WORKER)
+        export FDAI_LOCAL_CODE_SECURITY_WORKER="$value"
+        ;;
       *)
         echo "unsupported local Console setting: $key" >&2
         return 1
@@ -84,6 +87,12 @@ load_optional_console_setting() {
 load_optional_console_setting FDAI_LOCAL_RESOURCE_GROUP
 load_optional_console_setting FDAI_LOCAL_KUBERNETES_LIFECYCLE
 load_optional_console_setting FDAI_LOCAL_KUBERNETES_BINDINGS_PATH
+load_optional_console_setting FDAI_LOCAL_CODE_SECURITY_WORKER
+local_code_security_worker="${FDAI_LOCAL_CODE_SECURITY_WORKER:-0}"
+if [[ "$local_code_security_worker" != "0" && "$local_code_security_worker" != "1" ]]; then
+  echo "FDAI_LOCAL_CODE_SECURITY_WORKER MUST be 0 or 1" >&2
+  exit 1
+fi
 if [[ ! -v FDAI_LOCAL_RESOURCE_GROUP && -f "$repo_root/.fdai/local-runtime.env" ]]; then
   mapfile -t previous_scope < <(grep -E '^AZURE_RESOURCE_GROUP=' "$repo_root/.fdai/local-runtime.env" || true)
   if (( ${#previous_scope[@]} > 1 )); then
@@ -158,8 +167,10 @@ required_outputs=(
   .fdai/local-document-processing-worker.env
   .fdai/local-isolated-executor.env
   .fdai/local-code-security-worker.env
-  .fdai/code-security-cache/current.json
 )
+if [[ "$local_code_security_worker" == "1" ]]; then
+  required_outputs+=(.fdai/code-security-cache/current.json)
+fi
 for optional_input in \
   resolved-models.json \
   .fdai/resolved-models-vision.json; do
@@ -279,8 +290,10 @@ can_reuse_legacy_preparation() {
     [[ -s "$repo_root/$output" ]] || return 1
   done
   auth_mode_outputs_match || return 1
-  bash "$scanner_image_contract" verify "$scanner_image" "$scanner_image_input_digest" \
-    >/dev/null 2>&1 || return 1
+  if [[ "$local_code_security_worker" == "1" ]]; then
+    bash "$scanner_image_contract" verify "$scanner_image" "$scanner_image_input_digest" \
+      >/dev/null 2>&1 || return 1
+  fi
   "$repo_root/.venv/bin/python" \
     "$repo_root/scripts/automation/developer-workflow.py" \
     local-services \
@@ -611,15 +624,17 @@ run_stage \
   "$repo_root/console/node_modules/.bin/vite" \
   "$repo_root/.venv/bin/fdai-document-processing-worker" \
   "$repo_root/.venv/bin/fdai-isolated-executor-service"
-run_stage \
-  code-security-scanner-image \
-  "$scanner_image_input_digest" \
-  prepare_code_security_scanner_image
-run_stage \
-  code-security-vulnerability-cache \
-  "$(configuration_digest "$code_security_cache_input_digest" "cache-contract=1")" \
-  prepare_code_security_cache \
-  "$repo_root/.fdai/code-security-cache/current.json"
+if [[ "$local_code_security_worker" == "1" ]]; then
+  run_stage \
+    code-security-scanner-image \
+    "$scanner_image_input_digest" \
+    prepare_code_security_scanner_image
+  run_stage \
+    code-security-vulnerability-cache \
+    "$(configuration_digest "$code_security_cache_input_digest" "cache-contract=1")" \
+    prepare_code_security_cache \
+    "$repo_root/.fdai/code-security-cache/current.json"
+fi
 
 require_cloud_tools
 run_bounded local-model-settings \
