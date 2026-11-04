@@ -220,3 +220,78 @@ async def test_composition_binds_nothing_without_a_store_config_or_decision_rele
         )
         is None
     )
+
+
+async def test_advanced_decision_gates_bind_and_evaluate_end_to_end(tmp_path: Path) -> None:
+    catalog = _catalog()
+    store = await _low_risk_graph(catalog)
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="db",
+            object_type="Resource",
+            properties={
+                "id": "db",
+                "type": "compute",
+                "properties": {
+                    "state_fact_metadata": _metadata(),
+                    "zone_redundant": True,
+                    "backup_verified": True,
+                    "alternate_path_count": 2,
+                    "critical_dependent_count": 1,
+                    "remaining_budget_ratio": 0.5,
+                    "burn_rate_per_hour": 0.05,
+                },
+            },
+        )
+    )
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="plan-1",
+            object_type="RecoveryPlan",
+            properties={
+                "id": "plan-1",
+                "strategy": "rollback",
+                "status": "ready",
+                "workflow_ref": "wf@1.0.0",
+                "action_type_refs": ["ops.scale-in@1.0.0"],
+                "compensation_order": ["a"],
+                "impact_envelope_id": "env",
+                "recovery_objective_ref": "obj",
+                "verification_probes": ["target_healthy"],
+                "last_rehearsed_at": NOW - timedelta(hours=1),
+                "expires_at": NOW + timedelta(days=5),
+            },
+        )
+    )
+    await store.upsert_link(
+        OntologyLinkRecord(link_type="recovery_targets_resource", from_id="plan-1", to_id="db")
+    )
+
+    (tmp_path / "config").mkdir()
+    (tmp_path / "rule-catalog").mkdir()
+    (tmp_path / "config" / "workflow-ontology-gates.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1.0",
+                "max_reading_age_seconds": 300,
+                "decision.slo_exhaustion_eta": {"min_remaining_minutes": 120},
+                "decision.change_collision": {"max_collisions": 0},
+                "decision.recovery_feasibility": {"enabled": True},
+                "decision.spof_exposure": {"max_tier": "low"},
+            }
+        )
+    )
+    release = _release(catalog, operational_function_types(catalog.function_types))
+    bound = build_ontology_gate_reader(
+        catalog_root=tmp_path / "rule-catalog",
+        ontology_store=store,
+        ontology_release=release,
+        audit_store=InMemoryStateStore(),
+        environment={},
+        clock=lambda: NOW,
+    )
+    assert bound is not None
+    assert await _gate(bound, "decision.slo_exhaustion_eta") is True
+    assert await _gate(bound, "decision.change_collision") is True
+    assert await _gate(bound, "decision.recovery_feasibility") is True
+    assert await _gate(bound, "decision.spof_exposure") is True

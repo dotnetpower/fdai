@@ -57,6 +57,8 @@ These decisions fix the scope so the phases can proceed without further agreemen
 - Grow the catalog of causal mechanisms with refutation reads, and wire the existing engine behind the same evidence rules.
 - Bind at least two catalog workflows to ontology function gates in shadow.
 - Bind the decision functions to the runtime ontology graph, the provider-observed change feed, and observed cost through read-only evidence readers. A truncated, stale, synthetic, conflicted, or unobserved source closes the gate, and a reviewed configuration selects thresholds and never evidence.
+- Provide ontology-native workflow primitives (`core/workflow/ontology_native.py`: `ObjectSetWorkflowInput`, `ForEachObjectSetRunner`, receipt-bound `${step.<id>.output.<field>}` substitution, `evaluate_ontology_decision_branch`, `OntologyConditionTriggerEvaluator`, and `OntologyOwnershipApprovalResolver`), advanced decision functions and Merkle DAG composition (`core/ontology_platform/advanced_decision_functions.py`: `decision.slo_exhaustion_eta`, `decision.change_collision`, `decision.recovery_feasibility`, `decision.spof_exposure`, `OntologyFunctionDagRunner`), FinOps value modeling (`core/ontology_platform/finops_value_modeling.py`: `CostObservationOntologyProjector`, `decision.budget_burn_risk`, `score_business_service_criticality`, `filter_safe_sizing_recommendations`, `evaluate_unit_economics`), and scenario-branch digital twin simulation (`core/ontology_platform/digital_twin_simulation.py`: `simulate_workflow_on_scenario_branch`, `compare_counterfactual_options`, `build_workflow_topology_preview`, `validate_chaos_spof_recovery_readiness`).
+- Connect T2 reasoning to allowlisted decision tools, shadow workflow compilation, live RCA hypothesis filtering, abstention recovery planning, and approver briefings (`core/ontology_platform/aip_agent_integration.py`).
 
 ### VR2 - Real-data evidence
 
@@ -67,14 +69,15 @@ These decisions fix the scope so the phases can proceed without further agreemen
 
 ### VR3 - Close the loop
 
-- Promote one workflow per value loop through the normal gates, with real executor bindings, staging parity, and independent effect verification.
-- Settle one value claim per loop from independent observation.
-- Feed the gap between expected and observed effect back to operational learning.
+- Promote one workflow per value loop through the normal gates, with real executor bindings, staging parity (`verify_action_staging_parity`), Wave 5 scale controls (`WorkflowScaleSafetyController`), and independent effect verification.
+- Settle one value claim per loop from independent observation (`PostWindowValueClaimAutoSettler`), and benchmark parity (`evaluate_sre_agent_parity_cohort`).
+- Feed the gap between expected and observed effect back to operational learning (`recalibrate_option_utility_from_settlement`).
 
 ### VR4 - Consumption and reach
 
-- Add an operator decision queue (`core/decision_case/decision_queue.py`) that shows recommended action, evidence, uncertainty, expected effect, and the approval control, ordered by the ungated `decision.cost_of_delay` ranking signal.
-- Add deployment, service-catalog, ITSM, and billing adapters behind provider contracts after explicit approval of each non-Azure adapter.
+- Add an operator decision queue (`core/decision_case/decision_queue.py`, `core/ontology_platform/enterprise_governance_bridges.py`) that shows recommended action, evidence, uncertainty, expected effect, and the approval control, ordered by the ungated `decision.cost_of_delay` ranking signal, together with Console Decision Inbox (`build_decision_inbox_view_model`) and per-workflow `ValueClaim` drill-down views (`build_workflow_value_claim_drilldowns`).
+- Add provider-neutral deployment, service-catalog (`DeploymentAndServiceCatalogBridge`), ITSM change-window, on-call shift, and ticket audit correlation bridges (`EnterpriseGovernanceOntologyBridge`); vendor-specific non-Azure adapters still require explicit per-adapter approval.
+- Bind read-only semantic catalog, rule/control, workflow/business-scenario, governance-lineage, and reviewed cloud-reference query functions (`catalog.search_workflows`, `catalog.search_business_scenarios`, `catalog.search_rules_and_controls`, `catalog.resolve_governance_chain`, `catalog.search_cloud_reference` in `core/ontology_platform/catalog_knowledge_queries.py` over `config/cloud-reference-corpus.yaml`) into `build_semantic_query_runtime` so natural-language questions over workflows, atomic rules, WAF/CAF/WARA/MCSB controls, best practices, baselines, probes, and cloud domain concepts (such as AKS network policies) return citation-backed `QueryTable` rows with zero execution authority.
 - Publish an onboarding playbook: connect data, state a value claim, baseline, shadow, promote.
 
 ## Use-case onboarding playbook

@@ -125,3 +125,66 @@ export function buildOperatingOutcomeViewSnapshot({
     },
   };
 }
+
+export interface DecisionQueueCardPayload {
+  readonly rank: number;
+  readonly case_id: string;
+  readonly target_resource_ref: string;
+  readonly recommended_action_type: string;
+  readonly cost_badge: string;
+  readonly blast_radius_tier: string;
+  readonly change_risk_tier: string;
+  readonly uncertainty: number;
+  readonly quorum_label: string;
+  readonly approval_status: string;
+}
+
+export interface DecisionQueueOperatorPayload {
+  readonly read_only: true;
+  readonly authority: "none";
+  readonly state: "complete" | "unavailable";
+  readonly scope_ref: string;
+  readonly ranking_currency: string | null;
+  readonly total_pending_count: number;
+  readonly cards: readonly DecisionQueueCardPayload[];
+}
+
+export interface WorkflowValueClaimDrilldownInput {
+  readonly workflow_ref: string;
+  readonly objective_ref: string;
+  readonly unit: "duration_seconds" | "cost_amount" | "count";
+  readonly currency: string | null;
+  readonly settled_claim_count: number;
+  readonly total_conservative_improvement: string;
+  readonly average_reduction_pct: number | null;
+}
+
+export function formatDecisionQueueHeadline(
+  payload: DecisionQueueOperatorPayload,
+  unavailableLabel = "Unavailable",
+): string {
+  if (payload.state !== "complete") {
+    return `Decision Queue (${payload.scope_ref}): ${unavailableLabel}`;
+  }
+  const top = payload.cards[0];
+  const topLabel = top
+    ? `top candidate ${top.case_id} (${top.cost_badge}, ${top.recommended_action_type})`
+    : "no queued items";
+  return `Decision Queue (${payload.scope_ref}): ${payload.total_pending_count} pending; ${topLabel}.`;
+}
+
+export function formatWorkflowValueClaimDrilldown(
+  drilldown: WorkflowValueClaimDrilldownInput,
+  unavailableLabel = "Unavailable",
+): string {
+  if (drilldown.settled_claim_count <= 0) {
+    return `${drilldown.workflow_ref}: ${unavailableLabel}`;
+  }
+  const unitLabel = drilldown.unit === "cost_amount" && drilldown.currency
+    ? `${drilldown.total_conservative_improvement} ${drilldown.currency}`
+    : `${drilldown.total_conservative_improvement} ${drilldown.unit}`;
+  const pct = drilldown.average_reduction_pct !== null
+    ? ` (-${drilldown.average_reduction_pct.toFixed(1)}% vs baseline)`
+    : "";
+  return `${drilldown.workflow_ref}: ${unitLabel} across ${drilldown.settled_claim_count} settled claim(s)${pct}`;
+}

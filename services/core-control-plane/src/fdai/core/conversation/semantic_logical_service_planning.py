@@ -48,6 +48,19 @@ def compile_logical_service_current_state_plan(
 ) -> OntologyQueryPlan | None:
     """Build one exact service read or return no plan for another frame family."""
 
+    if frame.output_shape in {
+        SemanticOutputShape.BUSINESS_SERVICE_OBJECTIVE_POSTURE,
+        SemanticOutputShape.BUSINESS_SERVICE_BUDGET_BURN,
+        SemanticOutputShape.DECISION_EXPECTED_VS_OBSERVED_OUTCOME,
+    }:
+        return compile_business_service_posture_or_burn_plan(
+            frame=frame,
+            utterance=utterance,
+            manifest=manifest,
+            verifier=verifier,
+            evaluation_time=evaluation_time,
+            purpose=purpose,
+        )
     if frame.output_shape != SemanticOutputShape.LOGICAL_SERVICE_CURRENT_STATE:
         return None
     target = _operating_target(frame, utterance=utterance)
@@ -170,6 +183,216 @@ def compile_logical_service_current_state_plan(
         plan_digest=content_digest(body),
     )
     return verifier.verify(plan, manifest=manifest)
+
+
+def compile_business_service_posture_or_burn_plan(
+    *,
+    frame: SemanticProblemFrame,
+    utterance: str,
+    manifest: QueryManifest,
+    verifier: OntologyQueryPlanVerifier,
+    evaluation_time: datetime,
+    purpose: str,
+) -> OntologyQueryPlan | None:
+    """Compile plans for business service posture, budget burn, or decision outcome comparison."""
+
+    if frame.output_shape not in {
+        SemanticOutputShape.BUSINESS_SERVICE_OBJECTIVE_POSTURE,
+        SemanticOutputShape.BUSINESS_SERVICE_BUDGET_BURN,
+        SemanticOutputShape.DECISION_EXPECTED_VS_OBSERVED_OUTCOME,
+    }:
+        return None
+    if evaluation_time.utcoffset() is None:
+        raise ValueError("business-service plan requires timezone-aware evaluation_time")
+    as_of = evaluation_time.astimezone(UTC)
+
+    if frame.output_shape == SemanticOutputShape.DECISION_EXPECTED_VS_OBSERVED_OUTCOME:
+        dc_val = _decision_case_target_value(frame, utterance=utterance)
+        predicates = (ObjectPredicate(property="id", equals=dc_val),) if dc_val is not None else ()
+        dc_def = ObjectSetDefinition(
+            selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="DecisionCase"),
+            predicates=predicates,
+            as_of=as_of,
+            purpose=purpose,
+            limit=20,
+            include_relationships=False,
+        )
+        dc_node = _node(
+            "decision-cases",
+            QueryNodeKind.OBJECT_SET,
+            arguments={"definition": dc_def.model_dump(mode="json")},
+            output_kind="query.table",
+        )
+        expected_node = _typed_path_node(
+            "decision-expected-effects",
+            depends_on=dc_node.node_id,
+            steps=(
+                _path_step("considers", "ActionOption"),
+                _path_step("expects", "ExpectedEffect"),
+            ),
+            as_of=as_of,
+            purpose=purpose,
+        )
+        observed_node = _typed_path_node(
+            "decision-observed-outcomes",
+            depends_on=dc_node.node_id,
+            steps=(
+                _path_step("considers", "ActionOption"),
+                _path_step("executed_as", "ActionRun"),
+                _path_step("resulted_in", "ObservedOutcome"),
+            ),
+            as_of=as_of,
+            purpose=purpose,
+        )
+        nodes = (dc_node, expected_node, observed_node)
+        output_node_ids = (dc_node.node_id, expected_node.node_id, observed_node.node_id)
+        return _finalize_verified_plan(
+            nodes=nodes,
+            output_node_ids=output_node_ids,
+            frame=frame,
+            manifest=manifest,
+            verifier=verifier,
+            purpose=purpose,
+        )
+
+    target = _operating_target(frame, utterance=utterance)
+    if target is None or target[0] != "BusinessService":
+        return None
+    _, target_value = target
+    svc_node = _object_set_node(
+        "business-service-target",
+        object_type="BusinessService",
+        predicate=ObjectPredicate(property="id", equals=target_value),
+        as_of=as_of,
+        purpose=purpose,
+        limit=2,
+    )
+    if frame.output_shape == SemanticOutputShape.BUSINESS_SERVICE_BUDGET_BURN:
+        budget_node = _typed_path_node(
+            "business-service-budgets",
+            depends_on=svc_node.node_id,
+            steps=(_path_step("service_has_budget", "Budget"),),
+            as_of=as_of,
+            purpose=purpose,
+        )
+        cost_obj_node = _typed_path_node(
+            "business-service-cost-objectives",
+            depends_on=svc_node.node_id,
+            steps=(_path_step("service_has_cost_objective", "CostObjective"),),
+            as_of=as_of,
+            purpose=purpose,
+        )
+        nodes = (svc_node, budget_node, cost_obj_node)
+        output_node_ids = (svc_node.node_id, budget_node.node_id, cost_obj_node.node_id)
+        return _finalize_verified_plan(
+            nodes=nodes,
+            output_node_ids=output_node_ids,
+            frame=frame,
+            manifest=manifest,
+            verifier=verifier,
+            purpose=purpose,
+        )
+
+    slo_node = _typed_path_node(
+        "business-service-slo",
+        depends_on=svc_node.node_id,
+        steps=(_path_step("service_has_service_objective", "ServiceObjective"),),
+        as_of=as_of,
+        purpose=purpose,
+    )
+    rto_node = _typed_path_node(
+        "business-service-recovery-objectives",
+        depends_on=svc_node.node_id,
+        steps=(_path_step("service_has_recovery_objective", "RecoveryObjective"),),
+        as_of=as_of,
+        purpose=purpose,
+    )
+    cost_node = _typed_path_node(
+        "business-service-cost-objectives",
+        depends_on=svc_node.node_id,
+        steps=(_path_step("service_has_cost_objective", "CostObjective"),),
+        as_of=as_of,
+        purpose=purpose,
+    )
+    budget_node = _typed_path_node(
+        "business-service-budgets",
+        depends_on=svc_node.node_id,
+        steps=(_path_step("service_has_budget", "Budget"),),
+        as_of=as_of,
+        purpose=purpose,
+    )
+    posture_nodes: tuple[OntologyQueryNode, ...] = (
+        svc_node,
+        slo_node,
+        rto_node,
+        cost_node,
+        budget_node,
+    )
+    posture_output_ids: tuple[str, ...] = (
+        svc_node.node_id,
+        slo_node.node_id,
+        rto_node.node_id,
+        cost_node.node_id,
+        budget_node.node_id,
+    )
+    return _finalize_verified_plan(
+        nodes=posture_nodes,
+        output_node_ids=posture_output_ids,
+        frame=frame,
+        manifest=manifest,
+        verifier=verifier,
+        purpose=purpose,
+    )
+
+
+def _finalize_verified_plan(
+    *,
+    nodes: tuple[OntologyQueryNode, ...],
+    output_node_ids: tuple[str, ...],
+    frame: SemanticProblemFrame,
+    manifest: QueryManifest,
+    verifier: OntologyQueryPlanVerifier,
+    purpose: str,
+) -> OntologyQueryPlan:
+    body = {
+        "schema_version": "1.0.0",
+        "ontology_release_digest": manifest.release_digest,
+        "semantic_catalog_digest": manifest.manifest_digest,
+        "problem_frame_digest": frame.frame_digest,
+        "purpose": purpose,
+        "caller_role": manifest.principal_role.value,
+        "nodes": [node.model_dump(mode="json") for node in nodes],
+        "output_node_ids": list(output_node_ids),
+        "execution_authority": False,
+    }
+    plan = OntologyQueryPlan(
+        ontology_release_digest=manifest.release_digest,
+        semantic_catalog_digest=manifest.manifest_digest,
+        problem_frame_digest=frame.frame_digest,
+        purpose=purpose,
+        caller_role=manifest.principal_role.value,
+        nodes=nodes,
+        output_node_ids=output_node_ids,
+        plan_digest=content_digest(body),
+    )
+    return verifier.verify(plan, manifest=manifest)
+
+
+def _decision_case_target_value(
+    frame: SemanticProblemFrame,
+    *,
+    utterance: str,
+) -> str | None:
+    values = tuple(
+        dict.fromkeys(
+            constraint.removeprefix(_TARGET_VALUE_PREFIX).strip()
+            for constraint in frame.subject_constraints
+            if constraint.startswith(_TARGET_VALUE_PREFIX)
+        )
+    )
+    if len(values) == 1 and values[0] and utterance.count(values[0]) >= 1:
+        return values[0]
+    return None
 
 
 def _operating_target(
@@ -314,4 +537,7 @@ def _node(
     )
 
 
-__all__ = ["compile_logical_service_current_state_plan"]
+__all__ = [
+    "compile_business_service_posture_or_burn_plan",
+    "compile_logical_service_current_state_plan",
+]

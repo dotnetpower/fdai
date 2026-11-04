@@ -1,0 +1,7 @@
+schema_version: 1.0.0
+interface: Recoverable
+object_types:
+- BusinessService
+- RecoveryObjective
+- RecoveryPlan
+- Workload

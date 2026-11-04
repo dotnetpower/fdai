@@ -210,7 +210,7 @@ A workflow value claim settles through one pure reducer in `core/measurement/val
 accepts only complete, independently observed baseline and treatment cohorts that share one
 scenario-set version and currency, requires observation after the window ends and a sample floor,
 and reports the conservative bound of the 95% interval. An executor report never counts, a policy
-escape blocks any claimed value, and the ledger records units, never revenue. `StateStoreValueClaimLedger` records each settlement once by digest, and `outcome_measurement_from_settlement` reshapes it for this projection without turning an unsettled claim into a measured one. See
+escape blocks any claimed value, and the ledger records units, never revenue. `StateStoreValueClaimLedger` records each settlement once by digest, `PostWindowValueClaimAutoSettler` and `recalibrate_option_utility_from_settlement` in `core/measurement/closed_loop_governance.py` automate post-window settlement and utility feedback alongside staging parity and SRE Agent parity scoring, and `outcome_measurement_from_settlement` reshapes it for this projection without turning an unsettled claim into a measured one. See
 [Ontology Value Realization](ontology-value-realization.md).
 
 Odin may compare objective score inputs for arbitration, but the read projection never ranks

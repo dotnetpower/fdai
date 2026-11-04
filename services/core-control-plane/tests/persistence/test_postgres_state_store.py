@@ -821,3 +821,62 @@ def test_config_rejects_bad_timeout() -> None:
         PostgresStateStore(
             config=PostgresStateStoreConfig(dsn="postgresql://x", statement_timeout_ms=0)
         )
+
+
+async def test_verify_chain_accepts_anchored_pruned_prefix_and_rejects_corruption(
+    saga_database: str,
+) -> None:
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=saga_database))
+    try:
+        for index in range(3):
+            await store.append_audit_entry(
+                {
+                    "event_id": str(uuid.uuid4()),
+                    "actor": "integration-test",
+                    "action_kind": "smoke",
+                    "mode": "shadow",
+                    "step": index,
+                }
+            )
+        async with await psycopg.AsyncConnection.connect(
+            saga_database, autocommit=True, connect_timeout=5
+        ) as connection:
+            rows = await (
+                await connection.execute(
+                    "SELECT seq, entry_hash, created_at FROM audit_log ORDER BY seq ASC"
+                )
+            ).fetchall()
+            assert len(rows) == 3
+            first_seq, first_hash, first_created = int(rows[0][0]), str(rows[0][1]), rows[0][2]
+            second_seq, second_hash = int(rows[1][0]), str(rows[1][1])
+            anchor = {
+                "schema_version": "1.0.0",
+                "generation_id": "a" * 16,
+                "first_seq": first_seq,
+                "first_entry_hash": first_hash,
+                "first_created_at": first_created.isoformat(),
+                "through_seq": second_seq,
+                "last_entry_hash": second_hash,
+                "archived_rows": 2,
+                "segment_count": 1,
+                "manifest_sha256": "sha256:" + "b" * 64,
+            }
+            await store.write_state("audit-archive:anchor", anchor)
+            # Unpruned rows at or below through_seq must fail verification.
+            assert await store.verify_chain() is False
+            await connection.execute("DELETE FROM audit_log WHERE seq <= %s", (second_seq,))
+            assert await store.verify_chain() is True
+            await store.append_audit_entry(
+                {
+                    "event_id": str(uuid.uuid4()),
+                    "actor": "integration-test",
+                    "action_kind": "smoke",
+                    "mode": "shadow",
+                    "step": 3,
+                }
+            )
+            assert await store.verify_chain() is True
+            await store.write_state("audit-archive:anchor", {**anchor, "last_entry_hash": "c" * 64})
+            assert await store.verify_chain() is False
+    finally:
+        await store.aclose()

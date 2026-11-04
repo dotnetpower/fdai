@@ -452,12 +452,14 @@ work separately; this design does not claim a latency reduction without comparab
 
 ## Local database growth controls
 
-The runtime database on loopback port 5432 is disposable but bounded: preparation refuses to
-continue above `FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES` (2 GiB) until it is compacted or explicitly
-recreated. Local controls keep it below that bound without changing deployed behavior. The launcher
-sets a 30-minute change-driven inventory scan floor, the Postgres container compresses WAL with
-zstd, and `compact-local-database.py` and `archive-audit-segments.py` bound disposable state and
-copy old audit rows out as verified zstd segments. The
+The runtime database on loopback port 5432 is governed by lifecycle retention (generation counts,
+reachability, completion status, and verified archive anchors) rather than a byte-size ceiling:
+preparation never refuses startup or forces recreation because of database byte size. The launcher
+sets a 30-minute change-driven inventory scan floor and a 5-minute analyzer tick, the Postgres
+container compresses WAL with zstd, and `compact-local-database.py` and
+`archive-audit-segments.py --prune` bound disposable state and rotate cold audit rows out as
+verified, anchor-pinned zstd segments. Explicit `--recreate` first archives and verifies every
+audit row and is refused if that fails. The
 [storage runbook](../../runbooks/database-storage-efficiency.md) owns the commands and limits.
 
 ## Safety boundaries

@@ -407,7 +407,10 @@ class PostgresOntologyInstanceStore:
                     "ON CONFLICT (from_id, link_type, to_id) "
                     "DO UPDATE SET properties = EXCLUDED.properties, "
                     "type_version = EXCLUDED.type_version, "
-                    "catalog_digest = EXCLUDED.catalog_digest",
+                    "catalog_digest = EXCLUDED.catalog_digest WHERE "
+                    "(ontology_link.properties, ontology_link.type_version, "
+                    "ontology_link.catalog_digest) IS DISTINCT FROM "
+                    "(EXCLUDED.properties, EXCLUDED.type_version, EXCLUDED.catalog_digest)",
                     (
                         record.link_type,
                         record.from_id,

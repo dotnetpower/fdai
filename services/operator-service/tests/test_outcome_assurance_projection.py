@@ -389,3 +389,142 @@ def test_operator_projection_includes_digest_and_rejects_duplicate_metric_or_gua
             projection=dup_guards,
             now=NOW,
         )
+
+
+@pytest.mark.anyio
+async def test_read_decision_queue_operator_projection_round_trip() -> None:
+    from fdai_operator_service.decision_queue_projection import (
+        decision_queue_operator_key,
+        read_decision_queue_operator_projection,
+    )
+
+    stored_payload = {
+        "type": "decision-queue.operator-projection",
+        "schema_version": "1.0.0",
+        "read_only": True,
+        "authority": "none",
+        "principal_id": "operator-reader-1",
+        "scope_ref": "scope.payments",
+        "ranking_currency": "USD",
+        "projection_digest": "sha256:" + "9" * 64,
+        "items": [
+            {
+                "case_id": "case-101",
+                "process_id": "proc-101",
+                "target_resource_ref": "res-aks-payments",
+                "recommended_action_type": "ops.scale-in",
+                "uncertainty": 0.08,
+                "blast_radius_tier": "low",
+                "change_risk_tier": "medium",
+                "cost_of_delay_amount": "240",
+                "cost_of_delay_currency": "USD",
+                "evidence_refs": ["evidence:101"],
+                "approval_control": {
+                    "requires_human_approval": True,
+                    "required_role": "owner",
+                    "quorum": 2,
+                    "no_self_approval": True,
+                    "approval_status": "pending",
+                },
+            }
+        ],
+    }
+
+    async def fetch_all(
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        assert statement == "SELECT value FROM state_kv WHERE key = %s"
+        assert parameters == (decision_queue_operator_key("operator-reader-1", "scope.payments"),)
+        return [{"value": stored_payload}]
+
+    result = await read_decision_queue_operator_projection(
+        fetch_all=fetch_all,
+        query=ProjectionQuery(
+            operation="decision_queue",
+            path={},
+            limit=50,
+            cursor=None,
+            principal_id="operator-reader-1",
+            params={"scope_ref": ("scope.payments",)},
+        ),
+    )
+    assert result["state"] == "complete"
+    assert result["read_only"] is True
+    assert result["authority"] == "none"
+    assert result["total_pending_count"] == 1
+    cards = result["cards"]
+    assert isinstance(cards, list) and len(cards) == 1
+    assert cards[0]["cost_badge"] == "240 USD"
+    assert cards[0]["quorum_label"] == "owner (quorum 2)"
+
+
+@pytest.mark.anyio
+async def test_read_catalog_knowledge_operator_projection_round_trip() -> None:
+    from fdai_operator_service.decision_queue_projection import (
+        catalog_knowledge_operator_key,
+        read_catalog_knowledge_operator_projection,
+    )
+
+    stored_payload = {
+        "workflow_count": 17,
+        "business_scenario_count": 2,
+        "rule_and_control_count": 512,
+        "cloud_reference_topic_count": 8,
+        "highlighted_topics": ["aks.network-policies", "aks.security-and-access"],
+        "corpus_digest": "sha256:" + "8" * 64,
+    }
+
+    async def fetch_all(
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        assert statement == "SELECT value FROM state_kv WHERE key = %s"
+        assert parameters == (catalog_knowledge_operator_key("scope.aks"),)
+        return [{"value": stored_payload}]
+
+    result = await read_catalog_knowledge_operator_projection(
+        fetch_all=fetch_all,
+        query=ProjectionQuery(
+            operation="catalog_knowledge",
+            path={},
+            limit=50,
+            cursor=None,
+            principal_id="operator-reader-1",
+            params={"scope_ref": ("scope.aks",)},
+        ),
+    )
+    assert result["state"] == "complete"
+    assert result["read_only"] is True
+    assert result["authority"] == "none"
+    assert result["workflow_count"] == 17
+    assert result["cloud_reference_topic_count"] == 8
+    topics = result["highlighted_topics"]
+    assert isinstance(topics, list) and "aks.network-policies" in topics
+
+
+def test_business_service_posture_card_and_scenario_what_if_summary() -> None:
+    from fdai_operator_service.outcome_assurance_projection import (
+        ScenarioWhatIfSummary,
+        build_business_service_posture_card,
+    )
+
+    card = build_business_service_posture_card(
+        service_id="svc-checkout-api",
+        service_name="Checkout API",
+        criticality="tier_0_mission_critical",
+        slo_target=0.9995,
+        budget_burn_ratio=0.82,
+        allocated_shared_spend=2500.0,
+    )
+    assert card.read_only is True
+    assert card.authority == "none"
+    assert card.budget_status == "within_budget"
+
+    what_if = ScenarioWhatIfSummary(
+        branch_id="what-if-rightsize-01",
+        target_resource_id="res-aks-checkout-01",
+        violated_invariants=(),
+    )
+    assert what_if.base_store_mutated is False
+    assert what_if.authority == "none"

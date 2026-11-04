@@ -2463,3 +2463,37 @@ async def test_postgres_upsert_and_replace_share_cardinality_lock() -> None:
         winning_link = links[0]
     graph = await store.traverse(root_ids=(*review_ids, check_id), max_depth=1)
     assert tuple(replace(link, type_ref=None) for link in graph.links) == (winning_link,)
+
+
+async def test_postgres_unchanged_link_upsert_does_not_rewrite_the_row() -> None:
+    dsn = _requires_live_db()
+    _upgrade_head()
+    store = _store()
+    suffix = uuid.uuid4().hex
+    review_id, check_id = f"review-{suffix}", f"check-{suffix}"
+    for object_id, object_type in ((review_id, "ReviewCase"), (check_id, "ReviewCheck")):
+        await store.upsert_object(
+            OntologyObjectRecord(
+                id=object_id,
+                object_type=object_type,
+                properties={"id": object_id, "status": "open"},
+            )
+        )
+    link = OntologyLinkRecord(link_type="contains_check", from_id=review_id, to_id=check_id)
+
+    async def row_version() -> str:
+        async with await psycopg.AsyncConnection.connect(dsn) as connection:
+            cursor = await connection.execute(
+                "SELECT xmin::text FROM ontology_link WHERE from_id=%s AND to_id=%s",
+                (review_id, check_id),
+            )
+            row = await cursor.fetchone()
+        assert row is not None
+        return str(row[0])
+
+    await store.upsert_link(link)
+    first = await row_version()
+    await store.upsert_link(link)
+    await store.upsert_link(link)
+    # A rewritten row would carry a new transaction id even though its content is identical.
+    assert await row_version() == first

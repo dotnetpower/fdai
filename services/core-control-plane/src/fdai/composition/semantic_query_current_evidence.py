@@ -31,6 +31,9 @@ from fdai.core.ontology_platform import (
     OntologyFunctionRegistry,
     OntologyQueryPlanExecutor,
 )
+from fdai.core.ontology_platform.catalog_knowledge_queries import (
+    bind_semantic_catalog_and_decision_functions,
+)
 from fdai.core.ontology_platform.graph_query_refresh import (
     SecuredGraphEvidenceQueryRefresher,
 )
@@ -180,6 +183,12 @@ def bind_semantic_current_evidence(
         state_declaration,
         resource_state_inventory_function(ontology_release),
         authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+    )
+    bind_semantic_catalog_and_decision_functions(
+        registry=registry,
+        declarations=declarations,
+        ontology_release=ontology_release,
+        now=now,
     )
     health_concepts: tuple[str, ...] = ()
     if resource_health_reader is not None and inventory_query_language is not None:

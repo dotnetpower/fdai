@@ -5,8 +5,9 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -28,12 +29,9 @@ _REPORT = _load("report_database_growth", "report-database-growth.py")
 _GIB = 1024**3
 
 
-@pytest.mark.parametrize(
-    ("size", "expected"),
-    [(0, "ok"), (int(1.4 * _GIB), "ok"), (int(1.6 * _GIB), "warn"), (2 * _GIB, "over")],
-)
-def test_assess_warns_before_the_recreation_guard(size: int, expected: str) -> None:
-    assert _REPORT.assess(size, 2 * _GIB) == expected
+def test_assess_lifecycle_depends_on_lifecycle_warnings_not_byte_size() -> None:
+    assert _REPORT.assess_lifecycle([]) == "ok"
+    assert _REPORT.assess_lifecycle(["public.audit_log has 60,000 live rows"]) == "warn"
 
 
 def test_growth_needs_a_usable_previous_sample() -> None:
@@ -156,13 +154,6 @@ def test_corrupt_sample_is_reported_instead_of_silently_trusted(
     monkeypatch.setattr(_REPORT, "_SAMPLE_PATH", sample)
     assert _REPORT._previous_sample(42) is None
     assert "WARNING" in capsys.readouterr().err
-
-
-@pytest.mark.parametrize("value", ["invalid", "0", "-1"])
-def test_invalid_database_bound_is_explicit(value: str, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES", value)
-    with pytest.raises(SystemExit, match="positive integer"):
-        _REPORT._bound()
 
 
 async def test_compaction_byte_budget_never_discards_the_required_newest_window(
@@ -455,7 +446,13 @@ def _chain(count: int, *, anchor: str | None = None) -> list[dict[str, object]]:
         entry = {"action_kind": "example", "n": seq}
         digest = next_hash(previous, entry)
         records.append(
-            {"seq": seq, "entry": entry, "previous_hash": previous, "entry_hash": digest}
+            {
+                "seq": seq,
+                "entry": entry,
+                "previous_hash": previous,
+                "entry_hash": digest,
+                "created_at": "2026-11-03T00:00:00+00:00",
+            }
         )
         previous = digest
     return records
@@ -516,3 +513,317 @@ def test_compaction_windows_include_resolved_hil_park_only() -> None:
 
     assert module._LOCAL_WINDOWS["hil_park:"] == (500, ("status", "resolved"))
     assert not any(prefix.startswith("analyzer-publication") for prefix in module._LOCAL_WINDOWS)
+
+
+def _written_archive(tmp_path: Path) -> tuple[ModuleType, dict[str, object]]:
+    module = _archive_module()
+    records = _chain(10)
+    entry = module.write_segment(tmp_path, records, anchor="0" * 64)
+    (tmp_path / "manifest.jsonl").write_text(json.dumps(entry) + "\n", encoding="utf-8")
+    return module, entry
+
+
+def test_verify_accepts_an_intact_archive(tmp_path: Path) -> None:
+    module, entry = _written_archive(tmp_path)
+
+    report = module.verify_archive(tmp_path)
+
+    assert report == {
+        "generations": 1,
+        "segments": 1,
+        "rows": 10,
+        "chains": [entry["last_entry_hash"]],
+    }
+
+
+def test_verify_of_an_empty_archive_is_vacuously_valid(tmp_path: Path) -> None:
+    assert _archive_module().verify_archive(tmp_path)["segments"] == 0
+
+
+@pytest.mark.parametrize("defect", ["missing", "bytes", "manifest_rows", "manifest_head"])
+def test_verify_rejects_every_kind_of_archive_damage(tmp_path: Path, defect: str) -> None:
+    module, entry = _written_archive(tmp_path)
+    segment = tmp_path / str(entry["segment"])
+    manifest = tmp_path / "manifest.jsonl"
+    if defect == "missing":
+        segment.unlink()
+    elif defect == "bytes":
+        data = bytearray(segment.read_bytes())
+        data[len(data) // 2] ^= 0xFF
+        segment.write_bytes(bytes(data))
+    else:
+        field = "rows" if defect == "manifest_rows" else "last_entry_hash"
+        changed = {**entry, field: 11 if field == "rows" else "e" * 64}
+        manifest.write_text(json.dumps(changed) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        module.verify_archive(tmp_path)
+
+
+def test_verify_command_exits_nonzero_on_damage_without_a_database(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    module, entry = _written_archive(tmp_path)
+    (tmp_path / str(entry["segment"])).unlink()
+    monkeypatch.setattr(sys, "argv", ["archive", "--verify", "--out", str(tmp_path)])
+
+    assert module.main() == 1
+    assert "verification failed" in capsys.readouterr().err
+
+
+def test_final_archive_fails_unless_it_reaches_the_table_head(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _archive_module()
+    records = _chain(5)
+    rows = [
+        (
+            record["seq"],
+            "00000000-0000-0000-0000-000000000001",
+            None,
+            "actor",
+            "example",
+            "shadow",
+            record["entry"],
+            record["previous_hash"],
+            record["entry_hash"],
+            datetime(2026, 11, 4, tzinfo=UTC),
+        )
+        for record in records
+    ]
+
+    class Database:
+        def __init__(self, head: int) -> None:
+            self.head = head
+
+        def __enter__(self) -> Database:
+            return self
+
+        def __exit__(self, *_arguments: object) -> bool:
+            return False
+
+        def execute(self, query: str, parameters: tuple = ()) -> object:
+            handlers = {
+                "to_regclass": lambda: ("audit_log",),
+                "max(seq)": lambda: (self.head,),
+                "ORDER BY seq LIMIT 1": lambda: (
+                    records[0]["entry_hash"],
+                    datetime(2026, 11, 4, tzinfo=UTC),
+                ),
+            }
+            key = next((name for name in handlers if name in query), None)
+            if key is not None:
+                return SimpleNamespace(fetchone=handlers[key])
+            if not parameters:
+                return SimpleNamespace()
+            wanted = [row for row in rows if parameters[0] < row[0] <= parameters[1]]
+            return SimpleNamespace(fetchall=lambda: wanted, fetchone=lambda: None)
+
+    monkeypatch.setattr(module.psycopg, "connect", lambda *_a, **_k: Database(5))
+    complete = module.archive(
+        "dsn", tmp_path, older_than=timedelta(0), segment_rows=100, max_segments=5, final=True
+    )
+    assert complete["archived_through_seq"] == 5 and complete["rows"] == 5
+
+    monkeypatch.setattr(module.psycopg, "connect", lambda *_a, **_k: Database(9))
+    with pytest.raises(SystemExit, match="stops at seq 5 but the table reaches 9"):
+        module.archive(
+            "dsn", tmp_path, older_than=timedelta(0), segment_rows=100, max_segments=5, final=True
+        )
+
+
+def test_missing_audit_table_is_reported_not_treated_as_an_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _archive_module()
+
+    class Database:
+        def __enter__(self) -> Database:
+            return self
+
+        def __exit__(self, *_arguments: object) -> bool:
+            return False
+
+        def execute(self, query: str, parameters: tuple = ()) -> object:
+            return SimpleNamespace(fetchone=lambda: (None,))
+
+    monkeypatch.setattr(module.psycopg, "connect", lambda *_a, **_k: Database())
+
+    report = module.archive(
+        "dsn", tmp_path, older_than=timedelta(0), segment_rows=10, max_segments=1, final=True
+    )
+
+    assert report["audit_log"] == "absent" and report["rows"] == 0
+
+
+def test_a_recreated_database_gets_its_own_generation_and_old_ones_stay_verifiable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _archive_module()
+    old_entry = module.write_segment(tmp_path, _chain(4), anchor="0" * 64)
+    (tmp_path / "manifest.jsonl").write_text(json.dumps(old_entry) + "\n", encoding="utf-8")
+
+    new_records = _chain(3, anchor="0" * 64)
+    new_records = [
+        {**record, "entry": {"action_kind": "recreated", "n": record["seq"]}}
+        for record in new_records[:1]
+    ]
+    from fdai.shared.providers.audit_hash import next_hash
+
+    new_records[0]["previous_hash"] = "0" * 64
+    new_records[0]["entry_hash"] = next_hash("0" * 64, new_records[0]["entry"])
+    row = (
+        1,
+        "00000000-0000-0000-0000-000000000001",
+        None,
+        "actor",
+        "example",
+        "shadow",
+        new_records[0]["entry"],
+        "0" * 64,
+        new_records[0]["entry_hash"],
+        datetime(2026, 11, 4, tzinfo=UTC),
+    )
+
+    class Database:
+        def __enter__(self) -> Database:
+            return self
+
+        def __exit__(self, *_arguments: object) -> bool:
+            return False
+
+        def execute(self, query: str, parameters: tuple = ()) -> object:
+            if "to_regclass" in query:
+                return SimpleNamespace(fetchone=lambda: ("audit_log",))
+            if "ORDER BY seq LIMIT 1" in query:
+                return SimpleNamespace(fetchone=lambda: (row[8], row[9]))
+            if "max(seq)" in query:
+                return SimpleNamespace(fetchone=lambda: (1,))
+            if not parameters:
+                return SimpleNamespace()
+            return SimpleNamespace(fetchall=lambda: [row] if parameters[0] < 1 else [])
+
+    monkeypatch.setattr(module.psycopg, "connect", lambda *_a, **_k: Database())
+
+    report = module.archive(
+        "dsn", tmp_path, older_than=timedelta(0), segment_rows=10, max_segments=5, final=True
+    )
+
+    assert report["generation"] == module.generation_id(
+        new_records[0]["entry_hash"], datetime(2026, 11, 4, tzinfo=UTC).isoformat()
+    )
+    assert report["archived_through_seq"] == 1
+    assert not (tmp_path / "manifest.jsonl").exists()
+    verified = module.verify_archive(tmp_path)
+    assert verified["generations"] == 2 and verified["rows"] == 5
+
+
+_MIB = 1024 * 1024
+
+
+def test_lifecycle_warnings_report_dead_rows_cold_audit_and_expired_state_not_byte_size() -> None:
+    healthy_large_tables = [
+        {
+            "relation": "public.state_kv",
+            "total_bytes": 10 * _GIB,
+            "estimated_live_rows": 5_000,
+            "estimated_dead_rows": 100,
+        },
+        {
+            "relation": "public.audit_log",
+            "total_bytes": 4 * _GIB,
+            "estimated_live_rows": 1_000,
+            "estimated_dead_rows": 0,
+        },
+    ]
+    assert _REPORT.lifecycle_warnings(healthy_large_tables, None) == []
+
+    bloated_tables = [
+        {
+            "relation": "public.state_kv",
+            "total_bytes": 50 * _MIB,
+            "estimated_live_rows": 1_000,
+            "estimated_dead_rows": 15_000,
+        },
+        {
+            "relation": "public.audit_log",
+            "total_bytes": 50 * _MIB,
+            "estimated_live_rows": 60_000,
+            "estimated_dead_rows": 0,
+        },
+    ]
+    details = {
+        "t2_cache": {"rows": 10, "expired_rows": 3},
+        "state_families": [{"family": "heimdall_versions", "rows": 6_000}],
+    }
+    warnings = _REPORT.lifecycle_warnings(bloated_tables, details)
+    assert any("dead rows" in item for item in warnings)
+    assert any("archive-audit-segments.py --prune" in item for item in warnings)
+    assert any("t2_cache has 3 expired rows" in item for item in warnings)
+    assert any("heimdall_versions has 6,000 rows" in item for item in warnings)
+
+
+def test_prune_archived_segments_writes_anchor_and_deletes_cold_prefix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from fdai.delivery.persistence.postgres_audit_history import parse_audit_archive_anchor
+
+    module = _archive_module()
+    records = _chain(600)
+    gen_dir = tmp_path / module.generation_id(
+        str(records[0]["entry_hash"]), str(records[0]["created_at"])
+    )
+    gen_dir.mkdir(parents=True)
+    first_seg = module.write_segment(gen_dir, records[:50], anchor="0" * 64)
+    (gen_dir / "manifest.jsonl").write_text(json.dumps(first_seg) + "\n", encoding="utf-8")
+
+    anchored: list[dict[str, object]] = []
+    deleted_upto: list[int] = []
+
+    class Database:
+        def __enter__(self) -> Database:
+            return self
+
+        def __exit__(self, *_arguments: object) -> bool:
+            return False
+
+        def commit(self) -> None:
+            return None
+
+        def execute(self, query: str, parameters: tuple = ()) -> object:
+            if "pg_advisory_xact_lock" in query or "VACUUM (ANALYZE) audit_log" in query:
+                return SimpleNamespace()
+            if "key = 'audit-archive:anchor'" in query:
+                return SimpleNamespace(fetchone=lambda: (anchored[-1],) if anchored else None)
+            if "ORDER BY seq DESC OFFSET" in query and "actor = 'Saga'" not in query:
+                return SimpleNamespace(fetchone=lambda: (88,))
+            if "SELECT value FROM state_kv" in query:
+                return SimpleNamespace(fetchone=lambda: ({"schema_version": "3.0.0"},))
+            if "actor = 'Saga'" in query:
+                assert parameters == (511,)
+                return SimpleNamespace(fetchone=lambda: (75,))
+            if "incident." in query:
+                return SimpleNamespace(fetchone=lambda: (None,))
+            if "WHERE seq > %s ORDER BY seq ASC LIMIT 1" in query:
+                assert parameters == (50,)
+                return SimpleNamespace(fetchone=lambda: (51, records[50]["previous_hash"]))
+            if "INSERT INTO state_kv" in query:
+                anchored.append(json.loads(parameters[1]))
+                return SimpleNamespace()
+            if "DELETE FROM audit_log" in query:
+                deleted_upto.append(int(parameters[0]))
+                return SimpleNamespace(rowcount=50)
+            raise AssertionError(f"unexpected query: {query}")
+
+    monkeypatch.setattr(module.psycopg, "connect", lambda *_a, **_k: Database())
+    deleted, through_seq = module.prune_archived_segments("dsn", gen_dir)
+
+    assert deleted == 50 and through_seq == 50
+    assert deleted_upto == [50]
+    assert len(anchored) == 1
+    assert parse_audit_archive_anchor(anchored[0]) == (50, str(records[49]["entry_hash"]))
+
+    # A second prune with no newer eligible segment is a clean no-op.
+    second_deleted, second_through = module.prune_archived_segments("dsn", gen_dir)
+    assert second_deleted == 0 and second_through == 50
+    assert len(anchored) == 1 and deleted_upto == [50]

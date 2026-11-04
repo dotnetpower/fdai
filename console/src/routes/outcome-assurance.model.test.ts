@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   decodeOutcomeAssuranceOperatorProjection,
+  formatBusinessServicePostureSummary,
   formatOutcomeAssuranceViewModel,
 } from "./outcome-assurance.model";
 
@@ -287,5 +288,26 @@ describe("outcome-assurance.model", () => {
         },
       }),
     ).toThrow(/inverted confidence interval/);
+  });
+
+  it("formats business_service_posture summary in English and Korean with read-only authority", () => {
+    const raw = {
+      service_id: "svc-checkout-api",
+      service_name: "Checkout API",
+      criticality: "tier_0",
+      slo_target: 0.9995,
+      budget_burn_ratio: 0.82,
+      budget_status: "within_budget" as const,
+      allocated_shared_spend: 2500,
+      external_sla_tier: "tier-1-enterprise",
+    };
+    const en = formatBusinessServicePostureSummary(raw, "en");
+    const ko = formatBusinessServicePostureSummary(raw, "ko");
+    expect(en.readOnly).toBe(true);
+    expect(en.authority).toBe("none");
+    expect(en.sloDisplay).toBe("99.95%");
+    expect(en.budgetBurnDisplay).toBe("82%");
+    expect(en.budgetStatusLabel).toBe("Within budget");
+    expect(ko.budgetStatusLabel).toBe("예산 내");
   });
 });

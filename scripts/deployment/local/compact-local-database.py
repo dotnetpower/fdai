@@ -52,6 +52,7 @@ _CHECKPOINT_BATCH = 2_000
 # republish a record the broker already holds.
 _LOCAL_WINDOWS: dict[str, tuple[int, tuple[str, str] | None]] = {
     "hil_park:": (500, ("status", "resolved")),
+    "measurement:control-loop:": (1000, None),
 }
 _UNREACHABLE_USAGE_SQL = (
     "SELECT count(*), COALESCE(sum(pg_column_size(value)), 0) FROM state_kv "
@@ -252,6 +253,9 @@ async def _run(
         ) as connection:
             connection.execute(
                 "VACUUM (FULL, ANALYZE) state_kv" if vacuum_full else "VACUUM (ANALYZE) state_kv"
+            )
+            connection.execute(
+                "VACUUM (FULL, ANALYZE) audit_log" if vacuum_full else "VACUUM (ANALYZE) audit_log"
             )
         report["vacuumed"] = "state_kv"
         report["vacuum_mode"] = "full" if vacuum_full else "ordinary"
