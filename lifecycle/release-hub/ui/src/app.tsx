@@ -1154,7 +1154,7 @@ export function App() {
           "Initial catalog: no releases have been registered or published. Export metadata is not evidence of a build or an available update.",
           "초기 카탈로그입니다. 등록하거나 발행한 릴리스가 없습니다. 내보내기 메타데이터는 빌드나 사용 가능한 업데이트를 입증하지 않습니다.")}</p>}
         {catalog.expired && !isInitialCatalog(catalog) && <p class="warning">{t(`Catalog export expired at ${time(catalog.expires_at)}. Consumers will reject it. Review the releases, channels and recalls, then use `, `카탈로그 Export 유효기간(${time(catalog.expires_at)})이 만료되었습니다. 하위 설치본이 이를 거부하므로 검토 후 `)}<a href="#/trust">{t("Catalog trust", "서명 신뢰 및 기능 리콜")}</a>{t(" to explicitly renew freshness. Refresh catalog is read-only.", " 메뉴에서 유효기간을 24시간 연장하세요.")}</p>}
-        {release ? <ReleaseWorkspace release={release} catalog={catalog} locale={locale} onLocaleChange={setLocale} disabled={disabled} act={(action, r) => setPending({ action, release: r })} activity={<Activity catalog={catalog} releaseId={release.id} locale={locale} />} />
+        {release ? <ReleaseWorkspace release={release} catalog={catalog} locale={locale} onLocaleChange={setLocale} disabled={disabled} act={(action, r) => setPending({ action, release: r })} onQuickPromote={quickPromoteRelease} activity={<Activity catalog={catalog} releaseId={release.id} locale={locale} />} />
           : releaseId ? <><h1>{t("Release unavailable", "릴리스를 찾을 수 없음")}</h1><p>{t(`No release matches ${releaseId}.`, `${releaseId} 버전의 릴리스가 존재하지 않습니다.`)}</p><a href="#/releases">{t("Back to releases", "릴리스 목록으로 돌아가기")}</a></>
           : route === "/releases" ? <>
             <div class="page-head">

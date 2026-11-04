@@ -12,6 +12,7 @@ export type LineageNodeStatus = "complete" | "running" | "recalled" | "pending";
 export type LineageNode = {
   id: string;
   title: string;
+  titleKo?: string;
   subtitle: string;
   badgeText: string;
   badgeTextKo: string;
@@ -57,13 +58,13 @@ export type LineageGraph = {
   height: number;
 };
 
-export const CARD_WIDTH = 166;
-export const CARD_HEIGHT = 82;
+export const CARD_WIDTH = 176;
+export const CARD_HEIGHT = 108;
 export const BADGE_HEIGHT = 24;
-export const COL_GAP = 46;
+export const COL_GAP = 28;
 export const ROW_GAP = 24;
-export const PAD_X = 12;
-export const PAD_Y = 14;
+export const PAD_X = 10;
+export const PAD_Y = 12;
 
 export function buildConnectorGeometry(edge: {
   startX: number;
@@ -541,6 +542,7 @@ export function buildReleaseStagePipeline(
   const stageSpecs: {
     id: string;
     title: string;
+    titleKo: string;
     subtitle: string;
     icon: LineageNode["icon"];
     done: boolean;
@@ -550,7 +552,8 @@ export function buildReleaseStagePipeline(
   }[] = [
     {
       id: "initialize-stencil",
-      title: "initialize-stencil",
+      title: "1. Stencil Blueprint",
+      titleKo: "1. 스텐실 구성",
       subtitle: `${stencilId} · ${st ? `${st.enabled_workloads.length}w/${st.enabled_panel_ids.length}m` : "full-stack"}`,
       icon: "init",
       done: true,
@@ -559,7 +562,8 @@ export function buildReleaseStagePipeline(
     },
     {
       id: "clone-codebase",
-      title: "clone-codebase",
+      title: "2. Source & Digest",
+      titleKo: "2. 소스·다이제스트",
       subtitle: `git · ${commitShort}`,
       icon: "branch",
       done: true,
@@ -568,8 +572,9 @@ export function buildReleaseStagePipeline(
     },
     {
       id: "build-sign-dev",
-      title: "build-sign-dev",
-      subtitle: `ed25519 · ${inDev ? "DEV ring verified" : "awaiting DEV sign"}`,
+      title: "3. DEV Ring",
+      titleKo: "3. DEV 서명·발행",
+      subtitle: `ed25519 · ${inDev ? "DEV verified" : "awaiting DEV sign"}`,
       icon: "shield",
       done: inDev && !recalled,
       running: !recalled && release.state === "draft",
@@ -581,8 +586,9 @@ export function buildReleaseStagePipeline(
     },
     {
       id: "promote-rc-canary",
-      title: "promote-rc-canary",
-      subtitle: `apollo-gate · ${inRc ? "RELEASE_CANDIDATE" : capBlocked && inDev && !inRc ? `blocked (${blockedCaps[0]})` : "canary soak"}`,
+      title: "4. RC Canary",
+      titleKo: "4. RC 카나리",
+      subtitle: `apollo-gate · ${inRc ? "RC verified" : capBlocked && inDev && !inRc ? `blocked (${blockedCaps[0]})` : "canary soak"}`,
       icon: "branch",
       done: inRc && !recalled,
       running: !recalled && !capBlocked && transition?.targetChannel === "RELEASE_CANDIDATE",
@@ -594,7 +600,8 @@ export function buildReleaseStagePipeline(
     },
     {
       id: "release-production",
-      title: "release-production",
+      title: "5. Production RELEASE",
+      titleKo: "5. 운영 RELEASE",
       subtitle: `hub-catalog · ${inProd ? `RELEASE v${release.id}` : capBlocked && inRc && !inProd ? `blocked (${blockedCaps[0]})` : "production ring"}`,
       icon: "cloud",
       done: inProd && !recalled,
@@ -620,7 +627,7 @@ export function buildReleaseStagePipeline(
       status === "complete"
         ? { en: "Complete", ko: "Complete · 완료" }
         : status === "running"
-          ? { en: "Running", ko: "Running · 진행 중" }
+          ? { en: "Ready · Next Stage", ko: "승격 가능 · 다음 단계" }
           : status === "recalled"
             ? spec.blocked && !recalled
               ? { en: "Blocked · Recall", ko: "기능 리콜 차단" }
@@ -629,6 +636,7 @@ export function buildReleaseStagePipeline(
     return {
       id: spec.id,
       title: spec.title,
+      titleKo: spec.titleKo,
       subtitle: spec.subtitle,
       badgeText: badgeInfo.en,
       badgeTextKo: badgeInfo.ko,

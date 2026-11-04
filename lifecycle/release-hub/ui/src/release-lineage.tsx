@@ -93,14 +93,20 @@ function LineageCanvas({
   locale,
   selectedId,
   filterTrack,
+  disabled,
   onSelectNode,
+  onNodePrimaryAction,
+  nodeActionLabel,
   idPrefix,
 }: {
   graph: LineageGraph;
   locale: "en" | "ko";
   selectedId?: string | null | undefined;
   filterTrack?: string | null | undefined;
+  disabled?: boolean | undefined;
   onSelectNode?: ((node: LineageNode) => void) | undefined;
+  onNodePrimaryAction?: ((node: LineageNode) => void) | undefined;
+  nodeActionLabel?: ((node: LineageNode) => string | null) | undefined;
   idPrefix: string;
 }) {
   void idPrefix;
@@ -127,9 +133,10 @@ function LineageCanvas({
     >
       <svg
         class="rh-lineage-canvas-svg"
-        width={graph.width}
+        width={graph.nodes.length <= 5 ? "100%" : graph.width}
         height={graph.height}
         viewBox={`0 0 ${graph.width} ${graph.height}`}
+        preserveAspectRatio="xMinYMid meet"
       >
         {graph.edges.map((edge) => {
           const { portCx, portCy, pathD, arrowD } = buildConnectorGeometry(edge);
@@ -155,7 +162,9 @@ function LineageCanvas({
               ? node.actionableHint.ko
               : node.actionableHint.en
             : null;
-          const ariaLabel = `${node.title}, ${badgeLabel}, ${node.subtitle}${hintLabel ? ` (${hintLabel})` : ""}`;
+          const displayTitle = locale === "ko" && node.titleKo ? node.titleKo : node.title;
+          const inlineBtnLabel = nodeActionLabel ? nodeActionLabel(node) : null;
+          const ariaLabel = `${displayTitle}, ${badgeLabel}, ${node.subtitle}${hintLabel ? ` (${hintLabel})` : ""}`;
           return (
             <foreignObject
               key={node.id}
@@ -197,7 +206,7 @@ function LineageCanvas({
                   aria-pressed={onSelectNode ? isSelected : undefined}
                   aria-current={isSelected ? "step" : undefined}
                   title={hintLabel ?? `${node.title} (${node.subtitle})`}
-                  class={`rh-lineage-card status-${node.status} ${node.id === "__building_draft__" ? "is-running" : ""} ${isSelected ? "is-selected" : ""} ${hintLabel ? "is-actionable" : ""}`}
+                  class={`rh-lineage-card status-${node.status} ${node.id === "__building_draft__" ? "is-running" : ""} ${isSelected ? "is-selected" : ""} ${hintLabel || inlineBtnLabel ? "is-actionable" : ""}`}
                   onClick={() => onSelectNode?.(node)}
                   onKeyDown={(e) => {
                     if (!onSelectNode) return;
@@ -221,10 +230,39 @@ function LineageCanvas({
                 >
                   <div class="rh-lineage-card-top">
                     <NodeIcon kind={node.icon} />
-                    <strong class="rh-node-title">{node.title}</strong>
+                    <strong class="rh-node-title">{displayTitle}</strong>
                   </div>
                   <div class="rh-lineage-card-bottom">
-                    <span class="rh-node-sub">{hintLabel && node.status === "running" ? `${node.subtitle} · ${hintLabel}` : node.subtitle}</span>
+                    <span class="rh-node-sub">{node.subtitle}</span>
+                  </div>
+                  <div class="rh-lineage-card-action">
+                    {inlineBtnLabel && onNodePrimaryAction ? (
+                      <button
+                        type="button"
+                        class="rh-node-cta"
+                        disabled={disabled}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onNodePrimaryAction(node);
+                        }}
+                      >
+                        {inlineBtnLabel}
+                      </button>
+                    ) : (
+                      <span class={`rh-node-state-pill status-${node.status}`}>
+                        {node.status === "complete"
+                          ? locale === "ko"
+                            ? "✓ 단계 완료"
+                            : "✓ Completed"
+                          : node.status === "recalled"
+                            ? locale === "ko"
+                              ? "✕ 회수/차단"
+                              : "✕ Blocked"
+                            : locale === "ko"
+                              ? "대기 중"
+                              : "Pending"}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -348,9 +386,33 @@ export function ReleaseLineageSection({
         locale={locale}
         selectedId={selectedRelease?.id}
         filterTrack={filterTrack}
+        disabled={disabled}
         idPrefix="catalog-lineage"
         onSelectNode={(node) => {
           setSelectedNodeId(node.id);
+        }}
+        nodeActionLabel={(node) => {
+          if (!node.release) return null;
+          if (node.release.state === "draft") {
+            return t("Sign DEV ->", "DEV 발행 ->");
+          }
+          const next = nextPromotionTransition(node.release);
+          if (!next) return null;
+          const shortTarget = next.targetChannel === "RELEASE_CANDIDATE" ? "RC" : "RELEASE";
+          return t(`Promote -> ${shortTarget}`, `${shortTarget} 즉시 승격 ->`);
+        }}
+        onNodePrimaryAction={(node) => {
+          if (!node.release || disabled) return;
+          setSelectedNodeId(node.id);
+          if (node.release.state === "draft" && onAct) {
+            onAct("publish", node.release);
+            return;
+          }
+          if (onQuickPromote) {
+            void onQuickPromote(node.release);
+          } else if (onAct) {
+            onAct("promote", node.release);
+          }
         }}
       />
 
@@ -430,6 +492,7 @@ export function ReleaseLineageSection({
               locale={locale}
               disabled={disabled}
               onAct={onAct}
+              onQuickPromote={onQuickPromote}
             />
           </details>
         </div>
@@ -444,49 +507,68 @@ export function ReleaseStageLineage({
   locale,
   disabled,
   onAct,
+  onQuickPromote,
 }: {
   release: Release;
   catalog: Catalog;
   locale: "en" | "ko";
   disabled?: boolean | undefined;
   onAct?: ((action: Action, release: Release) => void) | undefined;
+  onQuickPromote?: ((release: Release) => Promise<void> | void) | undefined;
 }) {
+  const t = (en: string, ko: string) => (locale === "ko" ? ko : en);
   const stageGraph = useMemo(
     () => buildReleaseStagePipeline(release, catalog),
     [release, catalog],
   );
   const transition = nextPromotionTransition(release);
 
+  function triggerStageNode(node: LineageNode) {
+    if (disabled) return;
+    if (node.id === "initialize-stencil") {
+      location.hash = "/stencils";
+    } else if (node.id === "clone-codebase") {
+      location.hash = `/releases/${release.id}`;
+    } else if (node.id === "build-sign-dev" && release.state === "draft" && onAct) {
+      onAct("publish", release);
+    } else if (
+      node.id === "promote-rc-canary" &&
+      transition?.targetChannel === "RELEASE_CANDIDATE"
+    ) {
+      if (onQuickPromote) void onQuickPromote(release);
+      else if (onAct) onAct("promote", release);
+    } else if (
+      node.id === "release-production" &&
+      transition?.targetChannel === "RELEASE"
+    ) {
+      if (onQuickPromote) void onQuickPromote(release);
+      else if (onAct) onAct("promote", release);
+    } else {
+      location.hash = `/releases/${release.id}`;
+    }
+  }
+
   return (
     <div class="rh-stage-lineage-box">
       <LineageCanvas
         graph={stageGraph}
         locale={locale}
+        disabled={disabled}
         idPrefix={`stage-${release.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`}
-        onSelectNode={(node) => {
-          if (disabled) return;
-          if (node.id === "initialize-stencil") {
-            location.hash = "/stencils";
-          } else if (node.id === "clone-codebase") {
-            location.hash = `/releases/${release.id}`;
-          } else if (node.id === "build-sign-dev" && release.state === "draft" && onAct) {
-            onAct("publish", release);
-          } else if (
-            node.id === "promote-rc-canary" &&
-            transition?.targetChannel === "RELEASE_CANDIDATE" &&
-            onAct
-          ) {
-            onAct("promote", release);
-          } else if (
-            node.id === "release-production" &&
-            transition?.targetChannel === "RELEASE" &&
-            onAct
-          ) {
-            onAct("promote", release);
-          } else {
-            location.hash = `/releases/${release.id}`;
+        onSelectNode={triggerStageNode}
+        nodeActionLabel={(node) => {
+          if (node.id === "build-sign-dev" && release.state === "draft") {
+            return t("Sign DEV ->", "DEV 서명·발행 ->");
           }
+          if (node.id === "promote-rc-canary" && transition?.targetChannel === "RELEASE_CANDIDATE") {
+            return t("1-Click Promote RC ->", "RC 즉시 승격 ->");
+          }
+          if (node.id === "release-production" && transition?.targetChannel === "RELEASE") {
+            return t("1-Click Promote RELEASE ->", "RELEASE 즉시 승격 ->");
+          }
+          return null;
         }}
+        onNodePrimaryAction={triggerStageNode}
       />
     </div>
   );

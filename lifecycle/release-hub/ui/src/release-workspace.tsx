@@ -20,9 +20,10 @@ export function nextReleaseStep(release: Release, catalog: Catalog): "recall" | 
   return "review";
 }
 
-export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onLocaleChange, act, disabled, activity }: {
+export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onLocaleChange, act, onQuickPromote, disabled, activity }: {
   release: Release; catalog: Catalog; locale?: "en" | "ko"; onLocaleChange?: (next: "en" | "ko") => void;
   act: (action: Action, release: Release) => void;
+  onQuickPromote?: ((release: Release) => Promise<void> | void) | undefined;
   disabled: boolean; activity: ComponentChildren;
 }) {
   const [internalLocale, setInternalLocale] = useState<"en" | "ko">(navigator.language.startsWith("ko") ? "ko" : "en");
@@ -61,6 +62,8 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
   );
   const status = release.state === "recalled" ? t("Recalled", "회수됨")
     : release.state === "draft" ? t("Draft / unsigned", "초안 / 서명 없음")
+    : release.channels.includes("RELEASE") ? t("Production RELEASE", "운영 RELEASE 배포 완료")
+    : release.channels.includes("RELEASE_CANDIDATE") ? t("Staged in RC", "RC 카나리 승격 완료")
     : t("Development published", "개발용 발행 완료");
   function reviewEvidence() {
     if (evidence.current) {
@@ -72,9 +75,11 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
   return <div class="release-workspace" lang={locale}>
     <div class="workspace-bar">
       <a href="#/releases" class="back">{t("All releases", "← 모든 릴리스 목록으로")}</a>
-      <label>{t("Workspace language", "작업 영역 언어")} <select value={locale} onChange={(event) => setLocale(event.currentTarget.value as "en" | "ko")}>
-        <option value="en">English</option><option value="ko">한국어</option>
-      </select></label>
+      {!externalLocale && (
+        <label>{t("Workspace language", "작업 영역 언어")} <select value={locale} onChange={(event) => setLocale(event.currentTarget.value as "en" | "ko")}>
+          <option value="en">English</option><option value="ko">한국어</option>
+        </select></label>
+      )}
     </div>
     <div class="page-head"><div><p class="eyebrow">{t("Release workspace", "릴리스 작업 영역")}</p>
       <h1>{releaseTitle(release, manifest)}</h1><p>{release.label || t("No release label", "릴리스 설명 없음")}</p>
@@ -85,30 +90,37 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
       <div><span>{t("Catalog revision", "카탈로그 개정 번호")}</span><strong>{catalog.revision}</strong></div>
       <div><span>{t("Stencil edition", "Stencil 에디션")}</span><strong>{stencil ? `${stencil.stencil_id} (${stencil.enabled_workloads.length} workloads / ${stencil.enabled_panel_ids.length} menus)` : t("Standard / Unscoped", "표준 전체 패키지")}</strong></div>
     </div>
-    <section class="release-next" aria-labelledby="release-next-title">
-      <h2 id="release-next-title">{t("Next step", "다음 단계")}</h2>
-      <p>{step === "recall"
-        ? t("Recall blocks further publication and channel changes. Review the recorded activity; running installations are not changed here.", "회수된 릴리스는 다시 발행하거나 채널을 변경할 수 없습니다. 기록된 활동을 확인하세요. 실행 중인 설치에는 여기서 변경을 적용하지 않습니다.")
-        : step === "renew"
-        ? t("The catalog export has expired. Review releases, membership and recalls before explicitly renewing freshness.", "카탈로그 내보내기의 유효 기간이 지났습니다. 릴리스, 채널 소속 및 회수 내역을 검토한 후 명시적으로 갱신하세요.")
-        : step === "publish"
-        ? t("Review the exact manifest, then confirm development signing and DEV membership. This does not build images or publish them to a registry.", "정확한 매니페스트를 검토한 후 개발용 서명과 DEV 채널 추가를 확인하세요. 이미지를 빌드하거나 레지스트리에 발행하는 작업은 아닙니다.")
-        : t("Review promotion evidence before advancing. Channel membership alone does not prove that promotion gates passed.", "다음 단계로 이동하기 전에 승격 근거를 검토하세요. 채널 소속만으로 승격 검사를 통과했다고 판단할 수 없습니다.")}</p>
-      {step === "renew" ? <a class="next-link" href="#/trust">{t("Review catalog freshness", "카탈로그 유효 기간 검토")}</a>
-        : <div class="actions">
-          <button class={transition && blockedCaps.length === 0 ? "" : "primary"} disabled={disabled} onClick={() => {
-            if (step === "publish") act("publish", release);
-            else if (step === "review") reviewEvidence();
-            else { history.current?.focus(); history.current?.scrollIntoView({ block: "start" }); }
-          }}>{step === "publish" ? t("Review DEV publication", "DEV 발행 검토")
-            : step === "review" ? t("Review promotion evidence", "승격 근거 검토")
-            : t("Review recall activity", "회수 활동 검토")}</button>
-          {step === "review" && transition && blockedCaps.length === 0 && !catalog.expired && (
-            <button type="button" class="primary" disabled={disabled} onClick={() => act("promote", release)}>
-              {t(`Quick advance to ${transition.targetChannel}`, `${transition.sourceChannel} -> ${transition.targetChannel} 바로 승격하기`)}
-            </button>
-          )}
-        </div>}
+    <section class="rh-workspace-pipeline-section" aria-labelledby="release-stage-title">
+      <div class="rh-workspace-pipeline-head">
+        <div>
+          <h2 id="release-stage-title">{t("LR Build & Stage Promotion Pipeline", "좌→우(LR) 빌드·채널 승격 파이프라인")}</h2>
+          <p>{t("Click the active stage button inside the node card to promote directly from DEV -> RC -> RELEASE.", "노드 카드 내부의 버튼을 클릭하면 DEV -> RC -> 운영 RELEASE로 즉시 승격됩니다.")}</p>
+        </div>
+        {step === "renew" ? (
+          <a class="next-link" href="#/trust">{t("Review catalog freshness", "카탈로그 유효 기간 검토")}</a>
+        ) : (
+          <div class="actions">
+            <button class={transition && blockedCaps.length === 0 ? "chip-btn" : "primary"} disabled={disabled} onClick={() => {
+              if (step === "publish") act("publish", release);
+              else if (step === "review") reviewEvidence();
+              else { history.current?.focus(); history.current?.scrollIntoView({ block: "start" }); }
+            }}>{step === "publish" ? t("Review DEV publication", "DEV 발행 검토")
+              : step === "review" ? t("Review promotion evidence", "승격 근거 검토")
+              : t("Review recall activity", "회수 활동 검토")}</button>
+            {step === "review" && transition && blockedCaps.length === 0 && !catalog.expired && (
+              <button type="button" class="chip-btn" disabled={disabled} onClick={() => act("promote", release)}>
+                {t(`Quick advance to ${transition.targetChannel}`, `${transition.sourceChannel} -> ${transition.targetChannel} 승격 옵션`)}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      <ReleaseStageLineage release={release} catalog={catalog} locale={locale} disabled={disabled} onAct={act} onQuickPromote={onQuickPromote} />
+      <ol class="release-stages">{stages.map((name) => <li key={name}><strong>{name}</strong><span>{
+        release.channels.includes(name)
+          ? release.state === "recalled" ? t("Withdrawn by recall", "회수로 사용 중지됨") : t("Member", "소속됨")
+          : t("Not added", "추가되지 않음")
+      }</span></li>)}</ol>
     </section>
     {stencil && (
       <section aria-labelledby="release-stencil-title">
@@ -222,15 +234,6 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
         </details>
       </section>
     )}
-    <section aria-labelledby="release-stage-title"><h2 id="release-stage-title">{t("Channel membership & LR Build/Promotion Pipeline", "채널 소속 및 좌→우(LR) 빌드·승격 파이프라인")}</h2>
-      <p>{t("Recorded membership and stage progression from Stencil composition through production RELEASE.", "스텐실 빌드부터 DEV 서명, RC 카나리 검증, 운영 RELEASE까지의 좌→우(LR) 단계 파이프라인과 기록된 소속입니다.")}</p>
-      <ReleaseStageLineage release={release} catalog={catalog} locale={locale} disabled={disabled} onAct={act} />
-      <ol class="release-stages">{stages.map((name) => <li key={name}><strong>{name}</strong><span>{
-        release.channels.includes(name)
-          ? release.state === "recalled" ? t("Withdrawn by recall", "회수로 사용 중지됨") : t("Member", "소속됨")
-          : t("Not added", "추가되지 않음")
-      }</span></li>)}</ol>
-    </section>
     <details ref={evidence} class="release-disclosure">
       <summary>{t("Promotion evidence and blockers", "승격 근거 및 차단 이유")}</summary>
       <p>{t("The existing server-side promotion evaluator owns source membership, labels, canary health, soak, timeout and recall checks. This catalog API does not expose its run results. No passed gate is inferred here.", "기존 서버 측 승격 검증기가 원본 채널 소속, 레이블, 카나리 상태, 관찰 시간, 제한 시간 및 회수를 검사합니다. 현재 카탈로그 API에는 실행 결과가 없습니다. 이 화면은 검사 통과를 추정하지 않습니다.")}</p>
