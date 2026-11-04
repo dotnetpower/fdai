@@ -3,13 +3,16 @@ import { hubApi, HubApiError, type ExecutionSettings } from "../api";
 import { useAsync } from "../hooks/use-async";
 import { tr, useHubLocale } from "../locale";
 import { AsyncBoundary } from "./async-boundary";
+import { useEntraSession } from "./nav";
 
 type Props = { installationId: string; blocked: boolean; onSaved: () => void };
 
 export function ApplicationBindingPanel(props: Props) {
   const [locale] = useHubLocale();
+  const entraSession = useEntraSession();
   const state = useAsync(
-    () => hubApi.getExecutionSettings(props.installationId), [props.installationId],
+    () => hubApi.getExecutionSettings(props.installationId),
+    [props.installationId, entraSession?.authenticated ?? false, entraSession?.actor ?? ""],
   );
   return <section aria-label={tr(locale, "Application binding", "애플리케이션 바인딩")}>
     <h2 class="panel-title">{tr(locale, "Application binding", "애플리케이션 바인딩")}</h2>

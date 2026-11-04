@@ -28,6 +28,7 @@ from fdai_lifecycle_hub.entitlement_handoff import (
     HubEntitlementHandoffStore,
     OpaqueEntitlementCarrierHandoff,
 )
+from fdai_lifecycle_hub.entra_session import EntraLoginRequest, EntraSessionManager
 from fdai_lifecycle_hub.errors import (
     ConcurrentWriteError,
     EnrollmentProofError,
@@ -87,12 +88,64 @@ def create_app(
     remote_origin: str | None = None,
     transition_key: HubSigningKey | None = None,
     release_hub_endpoint: str | None = None,
+    auto_workstation_auth: bool = False,
 ) -> Starlette:
     """The agent API, plus the read-only and approval routes the operator UI calls.
 
     `static_dir`, when given an existing directory, serves the built operator UI from it as a
     single-page app, so `/v1/...` and `/healthz` always take priority over the UI's own routes.
     """
+    entra_sessions = EntraSessionManager(
+        auto_workstation=(auto_workstation_auth and remote_auth is None)
+    )
+
+    async def auth_config(request: Request) -> Response:
+        remote_principal = (
+            getattr(request.state, "operator", None) if remote_auth is not None else None
+        )
+        entra = await run_in_threadpool(
+            partial(entra_sessions.status_payload, remote_principal=remote_principal)
+        )
+        return JSONResponse({"profile": "local-development", "entra": entra})
+
+    async def auth_session(request: Request) -> Response:
+        remote_principal = (
+            getattr(request.state, "operator", None) if remote_auth is not None else None
+        )
+        return JSONResponse(
+            await run_in_threadpool(
+                partial(entra_sessions.status_payload, remote_principal=remote_principal)
+            )
+        )
+
+    async def entra_login(request: Request) -> Response:
+        if error := _decision_request_error(request):
+            return error
+        body = await _read_limited(request, 8192)
+        if body is None:
+            return _error(413, "request_too_large")
+        try:
+            login_req = EntraLoginRequest.model_validate_json(body)
+            payload = await run_in_threadpool(entra_sessions.sign_in, login_req)
+        except (ValidationError, ValueError) as error:
+            return JSONResponse({"error": str(error)}, status_code=422)
+        return JSONResponse(payload)
+
+    async def entra_logout(request: Request) -> Response:
+        if not hasattr(request.state, "operator") and request.url.hostname not in {
+            "localhost",
+            "127.0.0.1",
+            "::1",
+        }:
+            return _error(403, "untrusted_host")
+        origin = request.headers.get("origin")
+        if (
+            not hasattr(request.state, "operator")
+            and origin is not None
+            and origin != str(request.base_url).rstrip("/")
+        ):
+            return _error(403, "untrusted_origin")
+        return JSONResponse(await run_in_threadpool(entra_sessions.sign_out))
 
     async def healthz(request: Request) -> Response:
         return JSONResponse({"status": "ok"})
@@ -414,7 +467,12 @@ def create_app(
         return response
 
     routes: list[BaseRoute] = [
-        *execution_settings_routes(store, clock, authenticated=remote_auth is not None),
+        *execution_settings_routes(
+            store,
+            clock,
+            authenticated=remote_auth is not None,
+            operator_resolver=lambda _req: entra_sessions.active_operator,
+        ),
         *operator_surface_routes(store, clock),
         *native_ownership_routes(
             store,
@@ -430,7 +488,13 @@ def create_app(
                 None if remote_auth is None else remote_auth.development_recovery
             ),
         ),
-        Route("/auth/config", lambda request: JSONResponse({"profile": "local-development"})),
+        Route("/auth/config", auth_config),
+        Route("/auth/session", auth_session),
+        Route("/auth/entra/login", entra_login, methods=["POST"]),
+        Route("/auth/entra/logout", entra_logout, methods=["POST"]),
+        Route("/v1/auth/session", auth_session),
+        Route("/v1/auth/entra/login", entra_login, methods=["POST"]),
+        Route("/v1/auth/entra/logout", entra_logout, methods=["POST"]),
         Route("/healthz", healthz),
         Route("/v1/installations/{installation_id}/enrollment", post_enrollment, methods=["POST"]),
         Route("/v1/installations/{installation_id}/plan", get_plan),

@@ -330,3 +330,34 @@ def test_loopback_names_do_not_authorize_execution_settings(
             ).status_code
             == 403
         )
+
+
+def test_entra_workstation_login_authorizes_execution_settings_and_logout_revokes(
+    enrolled_store: HubStore, installation: Installation
+) -> None:
+    identifier = installation.installation_id
+    with TestClient(create_app(enrolled_store), base_url="http://127.0.0.1:8090") as client:
+        path = f"/v1/installations/{identifier}/execution-settings"
+        assert client.get(path).status_code == 403
+        login = client.post(
+            "/v1/auth/entra/login",
+            json={
+                "mode": "workstation",
+                "principal": "operator@microsoft.com",
+                "tenant_id": "00000000-0000-0000-0000-000000000001",
+            },
+        )
+        assert login.status_code == 200
+        assert login.json()["authenticated"] is True
+        assert login.json()["actor"] == "operator@microsoft.com"
+
+        read_resp = client.get(path)
+        assert read_resp.status_code == 200
+        write_resp = client.post(path, json=command_body(enrolled_store, identifier))
+        assert write_resp.status_code == 200
+        assert write_resp.json()["changed"] is True
+
+        logout = client.post("/v1/auth/entra/logout")
+        assert logout.status_code == 200
+        assert logout.json()["authenticated"] is False
+        assert client.get(path).status_code == 403

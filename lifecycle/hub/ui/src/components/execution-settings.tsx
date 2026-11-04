@@ -4,6 +4,7 @@ import type { ExecutionSettings, MaintenanceWindow } from "../api";
 import { useAsync } from "../hooks/use-async";
 import { tr, useHubLocale } from "../locale";
 import { AsyncBoundary } from "./async-boundary";
+import { useEntraSession } from "./nav";
 
 type Props = {
   installationId: string;
@@ -13,8 +14,10 @@ type Props = {
 
 export function ExecutionSettingsPanel(props: Props) {
   const [locale] = useHubLocale();
+  const entraSession = useEntraSession();
   const state = useAsync(
-    () => hubApi.getExecutionSettings(props.installationId), [props.installationId],
+    () => hubApi.getExecutionSettings(props.installationId),
+    [props.installationId, entraSession?.authenticated ?? false, entraSession?.actor ?? ""],
   );
   return <section aria-label={tr(locale, "Execution schedule", "실행 일정")}>
     <h2 class="panel-title">{tr(locale, "Execution schedule", "실행 일정")}</h2>
