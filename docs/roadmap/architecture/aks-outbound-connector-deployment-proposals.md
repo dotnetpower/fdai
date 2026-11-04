@@ -250,6 +250,11 @@ principal/channel, while a changed proposal digest sends one new informational m
 contains only a Console link and text stating that it does not approve, install, execute, or grant
 deployment authority.
 
+For a never-notified proposal, an absent dispatch plan means the first informational publication
+has not occurred. Only that typed missing-plan condition allows initial publication; corrupt
+plans and storage failures still stop discovery. Existing delivery records remain authoritative
+for suppressing already-delivered messages.
+
 The implementation uses `core.observer-deployment.projections` and honors the existing
 `FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC` multiplexing setting. A successful discovery publishes the
 current durable targets; no broker topic or permission is created by this code. Operator composition

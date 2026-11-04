@@ -1,8 +1,8 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: f32b8f284b937f832f3a99407e7558ddc11e4fdf
-translation_revised: 2026-10-29
+translation_source_sha: 95a7df67444d192ba621c6aaf4b5b9f00c4a2aeb
+translation_revised: 2026-11-04
 ---
 # AKS 진단 근거 플레인
 
@@ -25,6 +25,10 @@ translation_revised: 2026-10-29
 있습니다. 인벤토리 및 감시 수집기는 UID와 리소스 버전 신원을 보존합니다. 메트릭, 로그 요약 및
 Azure 관측은 정확한 대상을 검증한 뒤에만 결합됩니다. 결정론적 축약기는 명시적인 근거 공백과
 실행 권한 없음 상태를 가진 진단 하나를 반환합니다.
+
+관측기 제안의 알림 상태는 진단 근거와 별개입니다. 유형화된 전송 계획 부재는 첫 정보성
+게시만 허용하며, 출처가 정상이라는 가정이나 진단 준비 상태를 의미하지 않습니다. 다른
+저장소 오류는 명시적인 실패로 유지하고 기존 최종 전달 기록은 중복 알림을 계속 차단합니다.
 
 ## 진단 기능
 

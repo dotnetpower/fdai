@@ -1,7 +1,7 @@
 ---
 translation_of: aks-outbound-connector-deployment-proposals.md
-translation_source_sha: 79e0b522891044c86c4c49d67f67afcea86f132c
-translation_revised: 2026-10-04
+translation_source_sha: a964a4011d60c0d9318f545fb31a88c4210a49ad
+translation_revised: 2026-11-04
 ---
 
 # AKS 아웃바운드 커넥터 배포 제안
@@ -251,6 +251,11 @@ Core의 영속 checkpoint를 읽고 설치나 알림 부수 효과를 만들지 
 채널 경계를 제공합니다. 같은 제안을 재생해도 같은 principal과 채널로 Teams 또는 Slack
 메시지를 중복 전송하지 않으며, 제안 해시가 바뀌면 새 정보성 메시지 하나를 보냅니다. 카드에는
 Console 링크와 승인, 설치, 실행, 배포 권한 부여를 하지 않는다는 문구만 포함합니다.
+
+아직 알림을 보내지 않은 제안에 전송 계획이 없으면 첫 정보성 게시가 이루어지지 않았다는
+뜻입니다. 이 유형화된 계획 부재에만 최초 게시를 허용하며, 손상된 계획이나 저장소 오류는
+여전히 탐색을 중단합니다. 이미 전달한 메시지를 다시 보내지 않도록 하는 판단에는 기존
+전달 기록을 그대로 사용합니다.
 
 구현은 `core.observer-deployment.projections`를 사용하고 기존
 `FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC` 다중화 설정을 따릅니다. 발견이 성공하면 현재 저장된

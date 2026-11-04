@@ -25,6 +25,11 @@ summaries, and Azure observations join only after exact-target verification. Det
 reducers then return one evidence-qualified diagnosis with explicit gaps and no execution
 authority.
 
+Observer-proposal notification state is separate from diagnostic evidence. A typed missing
+dispatch plan permits the first informational publication, not a healthy-source assumption or
+diagnostic readiness. Other storage errors remain explicit failures; an existing terminal
+delivery record continues to suppress duplicates.
+
 ## Diagnostic competencies
 
 | ID | Operator question | Required evidence |
