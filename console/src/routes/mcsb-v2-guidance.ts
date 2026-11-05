@@ -437,8 +437,8 @@ export function buildMcsbV2Guidance(detail: McsbControlDetail): GuidancePresenta
   const benefits = ai
     ? ai.benefits
     : text(
-        `Establishes a verifiable ${profile.nameEn.toLowerCase()} boundary across cloud workloads and reduces exposure to configuration drift or unmonitored attack paths.`,
-        `클라우드 워크로드 전반에 검증 가능한 ${profile.nameKo} 경계를 수립하고 구성 드리프트나 모니터링되지 않는 공격 경로 노출을 줄입니다.`,
+        `Establishes a verifiable ${profile.nameEn.toLowerCase()} boundary for ${detail.control_id} (${detail.title.toLowerCase()}) across cloud workloads and reduces exposure to configuration drift or unmonitored attack paths.`,
+        `${titleKo}(${detail.control_id}) 기준에 따라 클라우드 워크로드 전반에 검증 가능한 ${profile.nameKo} 경계를 수립하고 구성 드리프트나 모니터링되지 않는 공격 경로 노출을 줄입니다.`,
       );
   const before = ai
     ? ai.before
@@ -449,14 +449,14 @@ export function buildMcsbV2Guidance(detail: McsbControlDetail): GuidancePresenta
   const after = ai
     ? ai.after
     : text(
-        `Enforce ${detail.control_id} (${detail.title}) across the target workload scope and retain auditable configuration, policy, and operational evidence.`,
-        `대상 워크로드 범위에 ${detail.control_id}(${titleKo}) 통제를 일관되게 구성하고 감사 가능한 정책·런타임·운영 근거를 보존합니다.`,
+        `Enforce ${detail.control_id} (${detail.title}) across the target workload scope${detail.rule_ids.length > 0 ? ` (linked rules: ${detail.rule_ids.join(", ")})` : ""} and retain auditable configuration, policy, and operational evidence.`,
+        `대상 워크로드 범위에 ${detail.control_id}(${titleKo}) 통제를 일관되게 구성하고${detail.rule_ids.length > 0 ? `(연결 규칙: ${detail.rule_ids.join(", ")})` : ""} 감사 가능한 정책·런타임·운영 근거를 보존합니다.`,
       );
   const verify = ai
     ? ai.verify
     : text(
-        `Inspect authoritative resource configuration, policy compliance state, and operational logs for ${detail.control_id} across the workload scope.`,
-        `대상 워크로드 범위에서 ${detail.control_id} 관련 리소스 구성, 정책 준수 상태, 운영 감사 로그를 독립적으로 대조하여 검증합니다.`,
+        `Inspect authoritative resource configuration, policy compliance state, and operational logs for ${detail.control_id} (${detail.title}) across the workload scope.`,
+        `대상 워크로드 범위에서 ${detail.control_id}(${titleKo}) 관련 리소스 구성, 정책 준수 상태, 운영 감사 로그를 독립적으로 대조하여 검증합니다.`,
       );
   const caution = ai
     ? ai.caution

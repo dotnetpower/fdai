@@ -95,8 +95,9 @@
     statusCell.appendChild(statusNode(control.status));
     row.appendChild(statusCell);
     var chevron = document.createElement("td");
+    chevron.className = "row-chevron";
     chevron.setAttribute("aria-hidden", "true");
-    chevron.textContent = ">";
+    chevron.textContent = "›";
     row.appendChild(chevron);
     return row;
   }

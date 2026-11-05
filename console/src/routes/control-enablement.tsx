@@ -6,7 +6,12 @@ import { displayValue, t } from "./i18n/governance";
 const key = "governance.rules.enablement";
 
 export function ControlEnablementBadge({ value }: { readonly value: ControlEnablement | null | undefined }) {
-  return <StatusPill kind="neutral" label={t(`${key}.${value ? value.enabled ? "enabled" : "disabled" : "unknown"}`)} />;
+  return (
+    <StatusPill
+      kind={value?.enabled ? "success" : "neutral"}
+      label={t(`${key}.${value ? value.enabled ? "enabled" : "disabled" : "unknown"}`)}
+    />
+  );
 }
 
 export function ControlEnablementSection({ value, severitySource }: {

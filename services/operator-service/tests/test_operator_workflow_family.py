@@ -1522,6 +1522,93 @@ def test_skill_candidate_approval_is_an_approver_gated_proposal() -> None:
     assert proposals.proposals[0].path_parameters == {"source_id": "source-a"}
 
 
+async def test_rule_inventory_projection_resolves_related_resources() -> None:
+    from fdai_operator_service.workflow_rule_inventory_projection import (
+        derive_rule_findings_payload,
+        enrich_rule_catalog_payload,
+        resolve_rule_inventory_types,
+    )
+
+    available = frozenset(
+        {"kubernetes-cluster", "kubernetes-node-pool", "object-storage", "resource-group"}
+    )
+    assert resolve_rule_inventory_types(
+        {"resource_type": "kubernetes-cluster.control-plane", "category": "security"},
+        available,
+    ) == ("kubernetes-cluster", "kubernetes-node-pool")
+    assert resolve_rule_inventory_types(
+        {"resource_type": "azure.storage.storageaccounts", "category": "security"},
+        available,
+    ) == ("object-storage",)
+    assert resolve_rule_inventory_types(
+        {"resource_type": "azure.resource", "id": "azure.policy.custom", "category": "compliance"},
+        available,
+    ) == ("resource-group",)
+
+    enriched = enrich_rule_catalog_payload(
+        {
+            "rules": [
+                {
+                    "id": "kube-bench.1.1",
+                    "origin": "collected",
+                    "resource_type": "kubernetes-cluster.control-plane",
+                }
+            ]
+        },
+        {
+            "kubernetes-cluster": {"count": 2, "sample_names": ["aks-prod", "aks-dev"]},
+            "kubernetes-node-pool": {"count": 3, "sample_names": ["nodepool1"]},
+        },
+    )
+    rule_row = cast(list[dict[str, object]], enriched["rules"])[0]
+    assert rule_row["related_resource_count"] == 5
+    assert rule_row["related_resource_names"] == ["aks-prod", "aks-dev", "nodepool1"]
+
+    class InventoryStore:
+        async def _fetch_all(
+            self,
+            query: str,
+            params: object,
+        ) -> list[dict[str, object]]:
+            del params
+            if "GROUP BY resource_type" in query:
+                return [
+                    {
+                        "resource_type": "object-storage",
+                        "total_count": 1,
+                        "sample_names": ["stprod01"],
+                    }
+                ]
+            return [
+                {
+                    "resource_id": (
+                        "scope-1/resource-group/rg-prod/providers/"
+                        "microsoft.storage/storageaccounts/stprod01"
+                    ),
+                    "resource_type": "object-storage",
+                    "props": {"name": "stprod01", "location": "westus3"},
+                    "last_seen": "2026-10-01T00:00:00Z",
+                }
+            ]
+
+    derived = await derive_rule_findings_payload(
+        InventoryStore(),
+        {
+            "id": "object-storage.min-tls-version",
+            "origin": "active",
+            "severity": "high",
+            "resource_type": "object-storage",
+        },
+    )
+    assert derived is not None
+    assert derived["evaluated"] is True
+    assert derived["finding_count"] == 1
+    findings = cast(list[dict[str, object]], derived["findings"])
+    assert findings[0]["resource_name"] == "stprod01"
+    assert findings[0]["resource_group"] == "rg-prod"
+    assert findings[0]["status"] == "observed"
+
+
 def test_payload_caps_fail_before_any_store_or_writer_call() -> None:
     client, _, reads, proposals = _client(role=OperatorRole.OWNER)
     oversized = {"blob": "x" * 4_097}

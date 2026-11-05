@@ -2,7 +2,11 @@ import { useState } from "preact/hooks";
 import { ErrorState, LoadingState, StatusPill } from "../components/ui";
 import { formatConsoleTimestamp } from "../time-format";
 import { displayValue, t } from "./i18n/governance";
-import type { RuleActivationProposalReceipt } from "./rule-catalog-activation";
+import {
+  isRuleEffectiveEnabled,
+  isSeverityDefaultEnabled,
+  type RuleActivationProposalReceipt,
+} from "./rule-catalog-activation";
 import { DetailRow, DetailSection } from "./rule-catalog-components";
 import type {
   ActivationHistoryState,
@@ -12,23 +16,47 @@ import type {
 
 interface Props {
   readonly ruleId: string;
+  readonly severity?: string | null;
   readonly activation: ActivationState;
   readonly history: ActivationHistoryState;
   readonly onRequest: (enabled: boolean, reason: string) => Promise<RuleActivationProposalReceipt>;
   readonly onApprove: (request: PendingRuleActivationRequest) => Promise<RuleActivationProposalReceipt>;
 }
 
-export function RuleActivationPanel({ ruleId, activation, history, onRequest, onApprove }: Props) {
+export function RuleActivationPanel({
+  ruleId,
+  severity,
+  activation,
+  history,
+  onRequest,
+  onApprove,
+}: Props) {
   if (activation.status === "loading") {
     return <LoadingState label={t("governance.rules.activation.loading")} />;
   }
+  const defaultEnabled = isSeverityDefaultEnabled(severity);
   if (activation.status === "unavailable") {
-    return <p class="muted footnote">{activation.message}</p>;
+    return (
+      <div class="rule-activation-stack">
+        <DetailSection title={t("governance.rules.activation.currentTitle")}>
+          <div class="pill-row">
+            <StatusPill
+              kind={defaultEnabled ? "success" : "neutral"}
+              label={defaultEnabled
+                ? t("governance.rules.activation.enabled")
+                : t("governance.rules.activation.disabled")}
+            />
+            <StatusPill kind="neutral" label={t("governance.rules.enablement.sources.severity_default")} />
+          </div>
+          <p class="muted footnote">{activation.message}</p>
+        </DetailSection>
+      </div>
+    );
   }
   if (activation.status === "error") {
     return <ErrorState message={activation.message} />;
   }
-  const enabled = activation.data.active_rule_ids.includes(ruleId);
+  const enabled = isRuleEffectiveEnabled({ id: ruleId, severity }, activation);
   const pending = activation.data.pending_requests.filter((request) =>
     request.changes.some((change) => change.rule_id === ruleId)
   );
@@ -43,6 +71,9 @@ export function RuleActivationPanel({ ruleId, activation, history, onRequest, on
               : t("governance.rules.activation.disabled")}
           />
           <StatusPill kind="neutral" label={activation.data.profile_id} />
+          {defaultEnabled ? (
+            <StatusPill kind="info" label={t("governance.rules.enablement.sources.severity_default")} />
+          ) : null}
         </div>
         <dl class="detail-grid rule-activation-facts">
           <DetailRow label={t("governance.rules.activation.generation")} value={activation.data.generation_id} mono />

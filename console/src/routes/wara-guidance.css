@@ -52,7 +52,7 @@
 .wara-guidance-figure-head h4 { margin: 4px 0 0; font-size: var(--cs-type-lead-size); line-height: var(--cs-type-lead-line-height); }
 .wara-guidance-eyebrow { margin: 0; color: var(--fg-muted); font-size: var(--cs-type-label-size); }
 .wara-guidance-figure button { flex-shrink: 0; }
-.wara-guidance-graph { position: relative; display: grid; grid-template-columns: repeat(var(--guidance-columns), minmax(0, 1fr)); gap: 72px; padding: var(--guidance-top, 32px) 0 8px var(--guidance-gutter, 40px); }
+.wara-guidance-graph { position: relative; display: grid; grid-template-columns: repeat(var(--guidance-columns), minmax(0, 1fr)); gap: var(--guidance-gap, 72px); padding: var(--guidance-top, 32px) 0 8px var(--guidance-gutter, 40px); }
 .wara-guidance-graph-column { display: flex; flex-direction: column; justify-content: center; gap: 24px; min-width: 0; }
 .wara-guidance-connectors { position: absolute; inset: 0; color: var(--cs-steel); pointer-events: none; overflow: visible; }
 .wara-guidance-edge-number { fill: var(--fg); stroke: var(--bg-soft, var(--cs-shade)); stroke-width: 4px; paint-order: stroke; font-size: var(--cs-type-compact-size); font-weight: 600; }

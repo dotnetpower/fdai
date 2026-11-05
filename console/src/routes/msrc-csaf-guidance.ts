@@ -7,55 +7,79 @@ function text(en: string, ko: string): GuidanceText {
 }
 
 const VULNERABILITY_SUFFIX_TRANSLATIONS: readonly (readonly [RegExp, string])[] = [
-  [/\bRemote Code Execution Vulnerability$/i, "원격 코드 실행(RCE) 취약점"],
-  [/\bElevation of Privilege Vulnerability$/i, "권한 상승(EoP) 취약점"],
-  [/\bPrivilege Escalation Vulnerability$/i, "권한 상승(EoP) 취약점"],
-  [/\bInformation Disclosure Vulnerability$/i, "정보 노출(ID) 취약점"],
-  [/\bDenial of Service Vulnerability$/i, "서비스 거부(DoS) 취약점"],
-  [/\bSecurity Feature Bypass Vulnerability$/i, "보안 기능 우회(SFB) 취약점"],
-  [/\bSpoofing Vulnerability$/i, "스푸핑(Spoofing) 취약점"],
-  [/\bTampering Vulnerability$/i, "데이터·구성 변조(Tampering) 취약점"],
-  [/\bCross-Site Scripting \(XSS\) Vulnerability$/i, "사이트 간 스크립팅(XSS) 취약점"],
-  [/\bCross-Site Scripting Vulnerability$/i, "사이트 간 스크립팅(XSS) 취약점"],
-  [/\bCross-Site Request Forgery \(CSRF\) Vulnerability$/i, "사이트 간 요청 위조(CSRF) 취약점"],
-  [/\bCross-Site Request Forgery Vulnerability$/i, "사이트 간 요청 위조(CSRF) 취약점"],
-  [/\bAuthentication Bypass Vulnerability$/i, "인증 우회 취약점"],
-  [/\bImproper Access Control Vulnerability$/i, "부적절한 접근 통제 취약점"],
-  [/\bImproper Certificate Validation Vulnerability$/i, "인증서 검증 미흡 취약점"],
-  [/\bDeserialization of Untrusted Data Vulnerability$/i, "비신뢰 데이터 역직렬화 취약점"],
-  [/\bCommand Injection Vulnerability$/i, "명령어 인젝션 취약점"],
-  [/\bPrompt Injection Vulnerability$/i, "프롬프트 인젝션(Prompt Injection) 취약점"],
-  [/\bModel Weight Exfiltration Vulnerability$/i, "모델 가중치 유출 취약점"],
-  [/\bDirectory Traversal Vulnerability$/i, "디렉터리 트래버설(경로 조작) 취약점"],
-  [/\bPath Traversal Vulnerability$/i, "경로 탐색(Path Traversal) 취약점"],
-  [/\bInteger Overflow Vulnerability$/i, "정수 오버플로(Integer Overflow) 취약점"],
-  [/\bRace Condition Vulnerability$/i, "경쟁 조건(Race Condition) 취약점"],
-  [/\bCryptographic Weakness Vulnerability$/i, "암호화 약점 취약점"],
-  [/\bNull Pointer Dereference Vulnerability$/i, "널 포인터 역참조 취약점"],
-  [/\bMemory Corruption Vulnerability$/i, "메모리 손상 취약점"],
-  [/\bOut-of-bounds Read Vulnerability$/i, "경계 밖 읽기(OOB Read) 취약점"],
-  [/\bOut-of-bounds Write Vulnerability$/i, "경계 밖 쓰기(OOB Write) 취약점"],
-  [/\bUse After Free Vulnerability$/i, "해제 후 재사용(UAF) 취약점"],
-  [/\bHeap-based Buffer Overflow Vulnerability$/i, "힙 버퍼 오버플로 취약점"],
-  [/\bStack-based Buffer Overflow Vulnerability$/i, "스택 버퍼 오버플로 취약점"],
-  [/\bServer-Side Request Forgery \(SSRF\) Vulnerability$/i, "서버 측 요청 위조(SSRF) 취약점"],
-  [/\bServer-Side Request Forgery Vulnerability$/i, "서버 측 요청 위조(SSRF) 취약점"],
-  [/\bSQL Injection Vulnerability$/i, "SQL 인젝션 취약점"],
-  [/\bArbitrary Code Execution Vulnerability$/i, "임의 코드 실행 취약점"],
-  [/\bLocal Privilege Escalation Vulnerability$/i, "로컬 권한 상승 취약점"],
-  [/\bDirectory Traversal Vulnerability$/i, "디렉터리 탐색(Directory Traversal) 취약점"],
-  [/\bPath Traversal Vulnerability$/i, "경로 탐색(Path Traversal) 취약점"],
-  [/\bImproper Input Validation Vulnerability$/i, "입력값 검증 미흡 취약점"],
-  [/\bDeserialization of Untrusted Data Vulnerability$/i, "신뢰되지 않는 데이터 역직렬화 취약점"],
-  [/\bInteger Overflow Vulnerability$/i, "정수 오버플로 취약점"],
-  [/\bRace Condition Vulnerability$/i, "경쟁 상태(Race Condition) 취약점"],
-  [/\bNull Pointer Dereference Vulnerability$/i, "널 포인터 역참조 취약점"],
-  [/\bCommand Injection Vulnerability$/i, "명령어 인젝션 취약점"],
+  [/\bRemote Code Execution(?:\s+Vuln?erability)?$/i, "원격 코드 실행(RCE) 취약점"],
+  [/\bElevation of Privileges?(?:\s+Vuln?erability)?$/i, "권한 상승(EoP) 취약점"],
+  [/\bPrivilege Escalation(?:\s+Vuln?erability)?$/i, "권한 상승(EoP) 취약점"],
+  [/\bInformation Disclosure(?:\s+Vuln?erability)?$/i, "정보 노출(ID) 취약점"],
+  [/\bDenial of Service(?:\s+Vuln?erability)?$/i, "서비스 거부(DoS) 취약점"],
+  [/\b(?:Security|Secure) Feature Bypass(?:\s+Vuln?erability)?$/i, "보안 기능 우회(SFB) 취약점"],
+  [/\bSpoofing on IE Mode$/i, "IE 모드 스푸핑(Spoofing) 취약점"],
+  [/\bSpoofing(?:\s+Vuln?erability)?$/i, "스푸핑(Spoofing) 취약점"],
+  [/\bTampering(?:\s+Vuln?erability)?$/i, "데이터·구성 변조(Tampering) 취약점"],
+  [/\bDefense in Depth(?:\s+Vuln?erability)?(?:\s*-\s*Rejected)?$/i, "심층 방어(Defense in Depth) 보안 권고"],
+  [/\bSignature Validation(?:\s+Vuln?erability)?$/i, "전자 서명 검증 미흡 취약점"],
+  [/\bUnsigned Code Execution(?:\s+Vuln?erability)?$/i, "미서명 코드 실행 취약점"],
+  [/\bCross-Site Scripting \(XSS\)(?:\s+Vuln?erability)?$/i, "사이트 간 스크립팅(XSS) 취약점"],
+  [/\bCross-Site Scripting(?:\s+Vuln?erability)?$/i, "사이트 간 스크립팅(XSS) 취약점"],
+  [/\bCross-Site Request Forgery \(CSRF\)(?:\s+Vuln?erability)?$/i, "사이트 간 요청 위조(CSRF) 취약점"],
+  [/\bCross-Site Request Forgery(?:\s+Vuln?erability)?$/i, "사이트 간 요청 위조(CSRF) 취약점"],
+  [/\bAuthentication Bypass(?:\s+Vuln?erability)?$/i, "인증 우회 취약점"],
+  [/\bImproper Access Control(?:\s+Vuln?erability)?$/i, "부적절한 접근 통제 취약점"],
+  [/\bImproper Certificate Validation(?:\s+Vuln?erability)?$/i, "인증서 검증 미흡 취약점"],
+  [/\bDeserialization of Untrusted Data(?:\s+Vuln?erability)?$/i, "비신뢰 데이터 역직렬화 취약점"],
+  [/\bCommand Injection(?:\s+Vuln?erability)?$/i, "명령어 인젝션 취약점"],
+  [/\bPrompt Injection(?:\s+Vuln?erability)?$/i, "프롬프트 인젝션(Prompt Injection) 취약점"],
+  [/\bModel Weight Exfiltration(?:\s+Vuln?erability)?$/i, "모델 가중치 유출 취약점"],
+  [/\bDirectory Traversal(?:\s+Vuln?erability)?$/i, "디렉터리 트래버설(경로 조작) 취약점"],
+  [/\bPath Traversal(?:\s+Vuln?erability)?$/i, "경로 탐색(Path Traversal) 취약점"],
+  [/\bInteger Overflow(?:\s+Vuln?erability)?$/i, "정수 오버플로(Integer Overflow) 취약점"],
+  [/\bRace Condition(?:\s+Vuln?erability)?$/i, "경쟁 조건(Race Condition) 취약점"],
+  [/\bCryptographic Weakness(?:\s+Vuln?erability)?$/i, "암호화 약점 취약점"],
+  [/\bNull Pointer Dereference(?:\s+Vuln?erability)?$/i, "널 포인터 역참조 취약점"],
+  [/\bMemory Corruption(?:\s+Vuln?erability)?$/i, "메모리 손상 취약점"],
+  [/\bOut[- ]of[- ]bounds Read(?:\s+Vuln?erability)?$/i, "경계 밖 읽기(OOB Read) 취약점"],
+  [/\bOut[- ]of[- ]bounds Write(?:\s+Vuln?erability)?$/i, "경계 밖 쓰기(OOB Write) 취약점"],
+  [/\bOut of bounds memory access in ANGLE$/i, "ANGLE 경계 밖 메모리 접근(OOB) 취약점"],
+  [/\bHeap Based Overflow libjpeg-turbo$/i, "libjpeg-turbo 힙 버퍼 오버플로 취약점"],
+  [/\bUse After Free(?:\s+Vuln?erability)?$/i, "해제 후 재사용(UAF) 취약점"],
+  [/\bHeap-based Buffer Overflow(?:\s+Vuln?erability)?$/i, "힙 버퍼 오버플로 취약점"],
+  [/\bStack-based Buffer Overflow(?:\s+Vuln?erability)?$/i, "스택 버퍼 오버플로 취약점"],
+  [/\bServer-Side Request Forgery \(SSRF\)(?:\s+Vuln?erability)?$/i, "서버 측 요청 위조(SSRF) 취약점"],
+  [/\bServer-Side Request Forgery(?:\s+Vuln?erability)?$/i, "서버 측 요청 위조(SSRF) 취약점"],
+  [/\bSQL Injection(?:\s+Vuln?erability)?$/i, "SQL 인젝션 취약점"],
+  [/\bexecutes arbitrary SQL$/i, "비인가 임의 SQL 실행 취약점"],
+  [/\bArbitrary Code Execution(?:\s+Vuln?erability)?$/i, "임의 코드 실행 취약점"],
+  [/\bLocal Privilege Escalation(?:\s+Vuln?erability)?$/i, "로컬 권한 상승 취약점"],
+  [/\bImproper Input Validation(?:\s+Vuln?erability)?$/i, "입력값 검증 미흡 취약점"],
   [/\bCross-Tenant Information Disclosure$/i, "테넌트 간 정보 노출 취약점"],
   [/\bContainer Escape and Privilege Escalation$/i, "컨테이너 이스케이프 및 권한 상승 취약점"],
   [/\bProtocol Downgrade and Session Hijacking$/i, "프로토콜 다운그레이드 및 세션 하이재킹 취약점"],
+  [/\bLegacy TLS Downgrade$/i, "레거시 TLS 프로토콜 다운그레이드 취약점"],
+  [/\bUnmapped Advisory$/i, "미매핑 레거시 어플라이언스 보안 권고"],
+  [/\bHardening changes for ReFS volumes on removable media$/i, "이동식 미디어 ReFS 볼륨 보안 강화 권고"],
   [/\bUnauthenticated Administrative API Exposure$/i, "비인증 관리 API 노출 취약점"],
-  [/\bVulnerability$/i, "보안 취약점"],
+  [/\bVuln?erability$/i, "보안 취약점"],
+];
+
+const COMPONENT_TERM_TRANSLATIONS_KO: readonly (readonly [RegExp, string])[] = [
+  [/\bAKS Node Image\b/g, "AKS 노드 이미지"],
+  [/\bAzure Kubernetes Service Node Image\b/g, "Azure Kubernetes Service 노드 이미지"],
+  [/\bAzure Legacy Appliance\b/g, "Azure 레거시 어플라이언스"],
+  [/\bAzure Storage Transport\b/g, "Azure Storage 전송 계층"],
+  [/\bInternet Shortcut Files\b/g, "인터넷 바로 가기 파일(.url)"],
+  [/\bWindows Print Spooler\b/g, "Windows 인쇄 스풀러(Print Spooler)"],
+  [/\bWindows Task Scheduler\b/g, "Windows 작업 스케줄러"],
+  [/\bWindows Scripting Languages\b/g, "Windows 스크립팅 엔진"],
+  [/\bWindows Event Tracing\b/g, "Windows 이벤트 추적(ETW)"],
+  [/\bWindows User Account Profile Picture\b/g, "Windows 계정 프로필 이미지"],
+  [/\bWindows Update Stack Setup\b/g, "Windows 업데이트 스택 설치 관리자"],
+  [/\bWindows Error Reporting\b/g, "Windows 오류 보고(WER)"],
+  [/\bVirtual Hard Disk \(VHD\) Miniport Driver\b/g, "가상 하드 디스크(VHD) 미니포트 드라이버"],
+  [/\bWindows Bluetooth Port Driver\b/g, "Windows Bluetooth 포트 드라이버"],
+  [/\bWindows Deployment Services \(WDS\)\b/g, "Windows 배포 서비스(WDS)"],
+  [/\bWindows Kerberos Key Distribution Center \(KDC\)\b/g, "Windows Kerberos 키 배포 센터(KDC)"],
+  [/\bWindows Remote Desktop Protocol\b/g, "Windows 원격 데스크톱 프로토콜(RDP)"],
+  [/\bWindows Resilient File System\b/g, "Windows 복원 파일 시스템(ReFS)"],
 ];
 
 export type CvePriorityTier = "P0" | "P1" | "P2" | "P3";
@@ -183,12 +207,16 @@ export function msrcCsafDisplayTitle(
   locale: string,
 ): string {
   if (locale !== "ko") return row.title;
+  let translated = row.title;
+  for (const [compPattern, compKo] of COMPONENT_TERM_TRANSLATIONS_KO) {
+    translated = translated.replace(compPattern, compKo);
+  }
   for (const [pattern, replacement] of VULNERABILITY_SUFFIX_TRANSLATIONS) {
-    if (pattern.test(row.title)) {
-      return row.title.replace(pattern, replacement);
+    if (pattern.test(translated)) {
+      return translated.replace(pattern, replacement);
     }
   }
-  return `${row.title} (보안 권고)`;
+  return `${translated} (보안 권고)`;
 }
 
 export interface CvssVectorDimension {
@@ -463,8 +491,8 @@ export function buildMsrcCsafGuidance(
     },
     implementation_steps: [
       text(
-        `Verify the detached signature and SHA-256 digest (${row.document_digest.slice(0, 23)}...) of advisory ${row.advisory_tracking_id}.`,
-        `권고문 ${row.advisory_tracking_id}의 분리 서명 검증 여부와 SHA-256 다이제스트(${row.document_digest.slice(0, 23)}...)를 확인합니다.`,
+        `Verify the detached signature and advisory integrity of ${row.advisory_tracking_id}.`,
+        `권고문(${row.advisory_tracking_id})의 분리 서명 검증 상태와 무결성을 확인합니다.`,
       ),
       after,
       text(
@@ -545,8 +573,8 @@ export function buildMsrcCsafGuidance(
         kind: "learn",
         url: row.source_url,
         label: text(
-          `MSRC Security Update Guide - ${row.cve_id} (${row.advisory_tracking_id}, source revision ${sourceRevision})`,
-          `MSRC 보안 업데이트 가이드 - ${row.cve_id} (${row.advisory_tracking_id}, 소스 리비전 ${sourceRevision})`,
+          `MSRC Security Update Guide - ${row.cve_id} (${row.advisory_tracking_id})`,
+          `MSRC 보안 업데이트 가이드 - ${row.cve_id} (${row.advisory_tracking_id})`,
         ),
       },
     ],

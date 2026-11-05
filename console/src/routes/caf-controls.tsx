@@ -320,7 +320,7 @@ function CafControlsBody({
       {
         key: "owner",
         header: t("governance.rules.caf.column.owner"),
-        render: (item) => <code>{item.owner_slot}</code>,
+        render: (item) => <code>{displayValue("cafOwner", item.owner_slot)}</code>,
       },
       {
         key: "state",
@@ -478,7 +478,7 @@ function CafDrawer({
 function CafDetailContent({ data, expanded, onExpand }: { readonly data: CafControlDetail; readonly expanded: boolean; readonly onExpand: () => void }) {
   return (
     <div class="stack">
-      <FrameworkGuidanceContent guidance={data.guidance} controlId={data.control_id} title={data.title} description={data.description} expanded={expanded} onExpand={onExpand} unavailableReason={data.guidance_unavailable_reason} />
+      <FrameworkGuidanceContent guidance={data.guidance} controlId={data.control_id} title={frameworkDisplayTitle("azure-caf", data, getLocale())} description={data.description} expanded={expanded} onExpand={onExpand} unavailableReason={data.guidance_unavailable_reason} />
       <h3 id="framework-runtime" tabIndex={-1}>{t("governance.rules.wara.guidance.runtime")}</h3>
       <ControlEnablementSection value={data.enablement} severitySource={data.severity_source} />
       <ControlRemediationSection value={data.remediation} />
@@ -492,7 +492,7 @@ function CafDetailContent({ data, expanded, onExpand }: { readonly data: CafCont
         <DetailRow label={t("governance.rules.controls.column.applicability")} value={displayValue("controlStatus", data.applicability)} />
         <DetailRow label={t("governance.rules.controls.column.evaluation")} value={displayValue("controlEvaluation", data.evaluation_status)} />
         <DetailRow label={t("governance.rules.controls.column.satisfaction")} value={displayValue("controlStatus", data.satisfaction)} />
-        <DetailRow label={t("governance.rules.caf.detail.owner")} value={data.owner_slot} mono />
+        <DetailRow label={t("governance.rules.caf.detail.owner")} value={displayValue("cafOwner", data.owner_slot)} mono />
         <DetailRow label={t("governance.rules.caf.detail.cadence")} value={t("governance.rules.controls.detail.cadenceDays", { days: data.cadence_days })} />
         <DetailRow label={t("governance.rules.caf.detail.scope")} value={data.evaluation_scope ?? "-"} mono />
         <DetailRow label={t("governance.rules.caf.detail.evaluatedAt")} value={data.evaluated_at ?? "-"} mono />
@@ -528,7 +528,7 @@ function CafDetailContent({ data, expanded, onExpand }: { readonly data: CafCont
                 </span>
                 <code>{item.source_ref}</code>
               </div>
-              <span>{item.authoritative_producer ?? item.blocked_dependency}</span>
+              <span>{displayValue("waraEvidence", item.authoritative_producer ?? item.blocked_dependency ?? "-")}</span>
             </article>
           ))}
         </div>

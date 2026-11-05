@@ -9,7 +9,7 @@ import { ruleCatalogHref, type RuleFilters } from "./rule-catalog-state";
 import { FrameworkGuidanceContent } from "./framework-guidance";
 import { IllustratedGuidanceContent, formatGuidanceMarkdownBrief } from "./wara-guidance";
 import { getLocale } from "../i18n";
-import { buildMcsbV2Guidance, resolveMcsbAiTaxonomy } from "./mcsb-v2-guidance";
+import { buildMcsbV2Guidance, mcsbDisplayTitle, resolveMcsbAiTaxonomy } from "./mcsb-v2-guidance";
 import { ControlEnablementSection } from "./control-enablement";
 import { ControlRemediationSection } from "./control-remediation";
 
@@ -126,7 +126,7 @@ function McsbControlDetailContent({ data, expanded, onExpand }: { readonly data:
         <IllustratedGuidanceContent
           control={{
             id: data.control_id,
-            title: data.title,
+            title: mcsbDisplayTitle(data.benchmark_version, data, getLocale()),
             description: t("governance.rules.mcsb.detail.boundary"),
             guidance: buildMcsbV2Guidance(data),
             source_version: sourceRevision,
@@ -136,7 +136,7 @@ function McsbControlDetailContent({ data, expanded, onExpand }: { readonly data:
           prefix="framework"
         />
       ) : (
-        <FrameworkGuidanceContent guidance={data.guidance} controlId={data.control_id} title={data.title} description={t("governance.rules.mcsb.detail.boundary")} expanded={expanded} onExpand={onExpand} unavailableReason={data.guidance_unavailable_reason} />
+        <FrameworkGuidanceContent guidance={data.guidance} controlId={data.control_id} title={mcsbDisplayTitle(data.benchmark_version, data, getLocale())} description={t("governance.rules.mcsb.detail.boundary")} expanded={expanded} onExpand={onExpand} unavailableReason={data.guidance_unavailable_reason} />
       )}
       <h3 id="framework-runtime" tabIndex={-1}>{t("governance.rules.wara.guidance.runtime")}</h3>
       <ControlEnablementSection value={data.enablement} severitySource={data.severity_source} />

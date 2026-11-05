@@ -332,11 +332,15 @@ function WaraControlsBody({
           />
         ),
       },
-      {
-        key: "enablement",
-        header: t("governance.rules.enablement.column"),
-        render: (control) => <ControlEnablementBadge value={control.enablement} />,
-      },
+      ...(data.controls.some((item) => Boolean(item.enablement))
+        ? [
+            {
+              key: "enablement",
+              header: t("governance.rules.enablement.column"),
+              render: (control: WaraControl) => <ControlEnablementBadge value={control.enablement} />,
+            },
+          ]
+        : []),
       {
         key: "mapping",
         header: t("governance.rules.controls.column.mapping"),
@@ -359,7 +363,7 @@ function WaraControlsBody({
         ),
       },
     ],
-    [],
+    [data.controls],
   );
   const facets = data.facets;
   const active = data.inventory.active_recommendations;
@@ -385,8 +389,8 @@ function WaraControlsBody({
       <section class="stack-section">
         <div class="rule-facet-toolbar">
           <FacetSelect label={t("governance.rules.wara.filter.resourceType")} value={filters.resource_type} counts={facet("by_resource_type")} onChange={(value) => onFilter({ resource_type: value })} />
-          <FacetSelect label={t("governance.rules.wara.filter.control")} value={filters.recommendation_control} counts={facet("by_recommendation_control")} onChange={(value) => onFilter({ recommendation_control: value })} />
-          <FacetSelect label={t("governance.rules.wara.filter.impact")} value={filters.impact} counts={facet("by_impact")} onChange={(value) => onFilter({ impact: value })} />
+          <FacetSelect label={t("governance.rules.wara.filter.control")} value={filters.recommendation_control} counts={facet("by_recommendation_control")} displayGroup="waraControl" onChange={(value) => onFilter({ recommendation_control: value })} />
+          <FacetSelect label={t("governance.rules.wara.filter.impact")} value={filters.impact} counts={facet("by_impact")} displayGroup="waraImpact" onChange={(value) => onFilter({ impact: value })} />
           <FacetSelect label={t("governance.rules.wara.filter.lifecycle")} value={filters.lifecycle} counts={facet("by_lifecycle")} displayGroup="waraLifecycle" onChange={(value) => onFilter({ lifecycle: value })} />
           <FacetSelect label={t("governance.rules.wara.filter.productVerified")} value={filters.product_group_verified} counts={facet("by_product_group_verified")} displayGroup="boolean" onChange={(value) => onFilter({ product_group_verified: value })} />
           <FacetSelect label={t("governance.rules.wara.filter.automation")} value={filters.automation_available} counts={facet("by_automation_available")} displayGroup="boolean" onChange={(value) => onFilter({ automation_available: value })} />
@@ -531,8 +535,8 @@ function WaraDrawer({ detail, onClose }: { readonly detail: DetailState; readonl
                   {detail.data.manual_evidence ? <DetailRow label={t("governance.rules.wara.detail.manualEvidence")} value={JSON.stringify(detail.data.manual_evidence, null, 2)} mono /> : null}
                   <DetailRow label={t("governance.rules.wara.guidance.recommendationId")} value={<span class="pill-row"><code>{detail.data.id}</code><CopyButton text={detail.data.id} label={t("governance.common.copyId")} /></span>} />
                   <DetailRow label={t("governance.rules.wara.column.resourceType")} value={detail.data.resource_type} mono />
-                  <DetailRow label={t("governance.rules.wara.column.control")} value={detail.data.recommendation_control} />
-                  <DetailRow label={t("governance.rules.wara.column.impact")} value={detail.data.impact} />
+                  <DetailRow label={t("governance.rules.wara.column.control")} value={displayValue("waraControl", detail.data.recommendation_control)} />
+                  <DetailRow label={t("governance.rules.wara.column.impact")} value={displayValue("waraImpact", detail.data.impact)} />
                   <DetailRow label={t("governance.rules.wara.detail.aprlSource")} value={<a href={detail.data.source_url} target="_blank" rel="noreferrer">{detail.data.source_path}</a>} />
                   <DetailRow label={t("governance.rules.wara.detail.sourceVersion")} value={detail.data.source_version} mono />
                   <DetailRow label={t("governance.rules.wara.detail.sourceRevision")} value={detail.data.source_revision} mono />

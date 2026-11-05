@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { OperatorApiClient } from "../api";
-import { approveRuleActivation, requestRuleActivation } from "./rule-catalog-activation";
+import {
+  approveRuleActivation,
+  isRuleEffectiveEnabled,
+  isSeverityDefaultEnabled,
+  requestRuleActivation,
+} from "./rule-catalog-activation";
 
 const client = {
   authorizationHeader: vi.fn(async () => "Bearer test-only"),
@@ -62,5 +67,41 @@ describe("Rule activation governed requests", () => {
 
     const body = JSON.parse(String(fetch.mock.calls[0]?.[1]?.body));
     expect(body).toEqual({ mode: "shadow", decision: "approve" });
+  });
+
+  it("enables critical and high severity rules by default while respecting explicit active membership for lower severities", () => {
+    expect(isSeverityDefaultEnabled("critical")).toBe(true);
+    expect(isSeverityDefaultEnabled("high")).toBe(true);
+    expect(isSeverityDefaultEnabled("medium")).toBe(false);
+    expect(isSeverityDefaultEnabled("low")).toBe(false);
+
+    const unavailable = { status: "unavailable" as const, message: "unavailable" };
+    expect(isRuleEffectiveEnabled({ id: "collected.high", severity: "high" }, unavailable)).toBe(true);
+    expect(isRuleEffectiveEnabled({ id: "collected.critical", severity: "critical" }, unavailable)).toBe(true);
+    expect(isRuleEffectiveEnabled({ id: "collected.medium", severity: "medium" }, unavailable)).toBe(false);
+
+    const ready = {
+      status: "ready" as const,
+      data: {
+        revision: 1,
+        generation_id: "gen-1",
+        generation_digest: "a".repeat(64),
+        profile_id: "default",
+        profile_version: "1.0.0",
+        active_rule_count: 1,
+        active_rule_ids: ["active.medium"],
+        source: "installation",
+        source_ref: "ref",
+        requested_by: "req",
+        approver_ids: ["app"],
+        activated_at: "2026-10-01T00:00:00Z",
+        pending_requests: [],
+        pending_truncated: false,
+        execution_authority: false as const,
+      },
+    };
+    expect(isRuleEffectiveEnabled({ id: "collected.high", severity: "high" }, ready)).toBe(true);
+    expect(isRuleEffectiveEnabled({ id: "active.medium", severity: "medium" }, ready)).toBe(true);
+    expect(isRuleEffectiveEnabled({ id: "collected.medium", severity: "medium" }, ready)).toBe(false);
   });
 });

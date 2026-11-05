@@ -24,6 +24,9 @@ export interface RuleDto {
     readonly license: string;
     readonly redistribution: string;
   };
+  readonly related_resource_count?: number;
+  readonly related_resource_names?: readonly string[];
+  readonly related_resource_types?: readonly string[];
 }
 
 export interface RuleCatalogResponse {
@@ -69,10 +72,15 @@ export interface RuleDetailDto extends RuleDto {
 export interface FindingDto {
   readonly resource_id: string;
   readonly resource_name?: string | null;
+  readonly resource_type?: string | null;
+  readonly resource_group?: string | null;
+  readonly location?: string | null;
+  readonly status?: string;
   readonly severity?: string;
+  readonly reason_code?: string | null;
   readonly problem?: string;
   readonly context?: Readonly<Record<string, unknown>>;
-  readonly observed_at?: string;
+  readonly observed_at?: string | null;
 }
 
 export interface FindingsResponse {
@@ -80,6 +88,11 @@ export interface FindingsResponse {
   readonly origin: string;
   readonly evaluated: boolean;
   readonly finding_count?: number;
+  readonly violated_count?: number;
+  readonly compliant_count?: number;
+  readonly abstained_count?: number;
+  readonly observed_count?: number;
+  readonly matched_resource_types?: readonly string[];
   readonly findings: readonly FindingDto[];
 }
 

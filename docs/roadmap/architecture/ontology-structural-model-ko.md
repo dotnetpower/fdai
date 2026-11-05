@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 395f4474d09eaf0da164cbd0f146a1c9b84b6910
-translation_revised: 2026-11-04
+translation_source_sha: 5461493e011b177643b809523fa27017225d9c3c
+translation_revised: 2026-11-06
 ---
 # 온톨로지 구조 모델
 
@@ -36,6 +36,7 @@ translation_revised: 2026-11-04
 
 규칙 카탈로그 목록의 읽기 쉬운 제목은 해당 규칙의 상세 정보에서 가져오는 표시용 메타데이터이며,
 새 온톨로지 속성이나 식별자가 아닙니다. 정규 규칙 ID와 조회 계약은 그대로 유지합니다.
+읽기 전용 규칙 인벤토리 리소스 보강(`workflow_rule_inventory_projection.py`) 역시 온톨로지 타입, 링크 또는 실행 권한을 새로 만들지 않고 활성 스냅샷의 리소스 수와 예시 이름을 규칙 조회 결과에 투영합니다.
 
 인과 메트릭 결합은 토폴로지 변경만으로 의존성을 인정하지 않고 권한 검증을 거친 변경 전후
 그래프를 보존합니다. 정확한 원인과 결과 쌍에는 근거 구간 안의 한 과거 그래프에서 방향과

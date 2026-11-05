@@ -30,6 +30,7 @@ Workflow authoring records remain outside ontology identity. Saved private draft
 
 Readable rule catalog list titles are presentation metadata from the matching rule detail,
 not new ontology properties or identities. Canonical rule IDs and query contracts remain unchanged.
+Read-only Rule inventory resource enrichment (`workflow_rule_inventory_projection.py`) likewise projects active-snapshot resource counts and sample names onto Rule reads without creating ontology types, links, or execution authority.
 
 Causal metric joins retain the secured before/after topology views instead of treating any
 topology change as proof of a dependency. An exact cause/effect pair needs one correctly directed,

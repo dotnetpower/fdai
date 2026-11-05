@@ -878,13 +878,46 @@
       "missing_exact_evaluator": "No evaluator is bound to this exact recommendation.",
       "undeclared_resource_type": "The resource type has no declared evaluation binding.",
       "unsupported_join": "The required evidence relationship is not supported.",
-      "manual_evidence_fallback_available": "Optional manual evidence review is available."
+      "manual_evidence_fallback_available": "Optional manual evidence review is available.",
+      "manual_evidence_required": "Manual architecture or operational evidence is required.",
+      "automatic_assessment_blocked_scope_requires_review": "Automated assessment is blocked until scope and eligibility semantics are reviewed.",
+      "control_disabled": "Assessment is disabled for this control in the current installation profile."
+    },
+    "waraControl": {
+      "BusinessContinuity": "Business continuity",
+      "DisasterRecovery": "Disaster recovery",
+      "Governance": "Governance",
+      "HighAvailability": "High availability",
+      "MonitoringAndAlerting": "Monitoring and alerting",
+      "OtherBestPractices": "Other best practices",
+      "Personalized": "Personalized guidance",
+      "Scalability": "Scalability and performance",
+      "Security": "Security",
+      "ServiceUpgradeAndRetirement": "Service upgrade and retirement"
+    },
+    "waraImpact": {
+      "High": "High",
+      "Medium": "Medium",
+      "Low": "Low"
     },
     "waraEvidence": {
       "recovery_drill": "Recovery drill record",
       "workload-evidence-owner": "Authoritative workload evidence owner",
       "exact-workload-and-resource-scope": "Exact workload and resource scope",
-      "workload-reliability-owner": "Workload reliability owner"
+      "workload-reliability-owner": "Workload reliability owner",
+      "governed-framework-evidence": "Governed framework evidence producer"
+    },
+    "cafOwner": {
+      "strategy-owner": "Cloud strategy owner (strategy-owner)",
+      "adoption-plan-owner": "Cloud adoption plan owner (adoption-plan-owner)",
+      "platform-owner": "Cloud platform owner (platform-owner)",
+      "adoption-delivery-owner": "Adoption delivery owner (adoption-delivery-owner)",
+      "governance-owner": "Cloud governance owner (governance-owner)",
+      "operations-owner": "Cloud operations owner (operations-owner)",
+      "security-owner": "Security governance owner (security-owner)",
+      "cost-owner": "FinOps cost owner (cost-owner)",
+      "identity-owner": "Identity and access owner (identity-owner)",
+      "network-owner": "Network architecture owner (network-owner)"
     },
     "status": {
       "selected": "Selected",

@@ -12,6 +12,7 @@ import { SECURITY_AND_RULES_GLOSSARY, TERMS, composeGlossary } from "../deck/glo
 import { getLocale } from "../i18n";
 import { currentRoute, routeHref } from "../router";
 import { displayValue, t } from "./i18n/governance";
+import { isRuleEffectiveEnabled } from "./rule-catalog-activation";
 import { FacetSelect } from "./rule-catalog-components";
 import { buildRuleGuidance, formatRuleResourceType, ruleDisplayTitle } from "./rule-catalog-guidance";
 import { PINNED_MSRC_CSAF_CATALOG } from "./msrc-csaf-controls.model";
@@ -60,10 +61,14 @@ export function RuleCatalogBody({
 }: RuleCatalogBodyProps) {
   const catalogActive = data.facets.by_origin["active"] ?? 0;
   const collected = data.facets.by_origin["collected"] ?? 0;
-  const activeMembership = activation.status === "ready" ? activation.data.active_rule_count : null;
-  const activeRuleIds = new Set(
-    activation.status === "ready" ? activation.data.active_rule_ids : [],
-  );
+  const defaultEnabledCount =
+    (data.facets.by_severity["critical"] ?? 0) + (data.facets.by_severity["high"] ?? 0);
+  const activeMembership =
+    activation.status === "ready"
+      ? Math.max(activation.data.active_rule_count, defaultEnabledCount)
+      : defaultEnabledCount > 0
+        ? defaultEnabledCount
+        : null;
 
   usePublishViewContext(
     () => {
@@ -216,7 +221,9 @@ export function RuleCatalogBody({
         header: t("governance.rules.column.rule"),
         render: (rule) => {
           const baseTitle = rule.title?.trim() || rule.id;
-          const displayTitle = getLocale() === "ko" && rule.title_ko?.trim() ? rule.title_ko.trim() : baseTitle;
+          const displayTitle = getLocale() === "ko"
+            ? (rule.title_ko?.trim() || (rule.origin === "collected" || !rule.title?.trim() ? ruleDisplayTitle(rule, "ko") : baseTitle))
+            : baseTitle;
           return (
             <span class="rule-table-identity" data-rule-key={`${rule.origin}:${rule.id}`}>
               {displayTitle === baseTitle ? (
@@ -241,14 +248,17 @@ export function RuleCatalogBody({
       {
         key: "activation",
         header: t("governance.rules.column.activation"),
-        render: (rule) => activation.status === "ready" ? (
-          <StatusPill
-            kind={activeRuleIds.has(rule.id) ? "success" : "neutral"}
-            label={activeRuleIds.has(rule.id)
-              ? t("governance.rules.activation.enabled")
-              : t("governance.rules.activation.disabled")}
-          />
-        ) : <span class="muted">-</span>,
+        render: (rule) => {
+          const enabled = isRuleEffectiveEnabled(rule, activation);
+          return (
+            <StatusPill
+              kind={enabled ? "success" : "neutral"}
+              label={enabled
+                ? t("governance.rules.activation.enabled")
+                : t("governance.rules.activation.disabled")}
+            />
+          );
+        },
       },
       {
         key: "severity",
@@ -297,13 +307,25 @@ export function RuleCatalogBody({
         headerClass: "num",
         cellClass: "num",
         render: (rule) => {
-          const count = affectedCounts[rule.id];
-          return count ? (
-            <Tooltip content={t("tooltip.affectedResources", { count })}>
-              <span class="affected-badge">{count}</span>
+          const violationCount = affectedCounts[rule.id] ?? affectedCounts[`rule:${rule.id}`];
+          const count = rule.related_resource_count ?? violationCount ?? 0;
+          const names = rule.related_resource_names ?? [];
+          if (count > 0) {
+            const preview = names.slice(0, 3).join(", ");
+            const tooltipLabel = preview
+              ? `${t("tooltip.affectedResources", { count })} (${preview}${count > names.slice(0, 3).length ? " ..." : ""})`
+              : t("tooltip.affectedResources", { count });
+            return (
+              <Tooltip content={tooltipLabel}>
+                <span class="affected-badge">{count}</span>
+              </Tooltip>
+            );
+          }
+          const formattedType = formatRuleResourceType(rule.resource_type);
+          return (
+            <Tooltip content={rule.resource_type}>
+              <code class="small">{formattedType}</code>
             </Tooltip>
-          ) : (
-            <span class="muted rule-affected-empty" aria-hidden="true">-</span>
           );
         },
       },

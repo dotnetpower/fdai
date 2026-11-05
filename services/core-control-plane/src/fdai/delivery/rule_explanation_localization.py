@@ -409,33 +409,80 @@ _AZURE_POLICY_PHRASE_KO: tuple[tuple[str, str], ...] = (
         "웹 앱·API 앱 내장 인증(App Service Authentication) 활성화 필요",
     ),
     ("web application firewall (waf) should be enabled", "웹 애플리케이션 방화벽(WAF) 활성화 필요"),
+    ("disable public network access", "공용 네트워크 접근 비활성화 구성"),
+    ("disable local authentication", "로컬 인증 방식 비활성화 구성"),
+    ("configure private endpoints", "프라이빗 엔드포인트(Private Endpoint) 연결 구성"),
+    ("private dns zone", "프라이빗 엔드포인트용 Private DNS 영역 연동 구성"),
+    ("username and password authentication", "사용자 이름·암호 기본 인증 비활성화 필요"),
+    ("cors should not allow", "CORS 모든 출처 도메인 허용 제한 필요"),
+    ("minimum api version", "최소 API 버전 보안 기준 준수 필요"),
+    ("geo-replication", "지역 복제(Geo-Replication) 고가용성 활성화 필요"),
+    ("network injection", "가상 네트워크(VNet) 주입 구성 필요"),
+    ("encrypted protocols", "암호화된 통신 프로토콜만 허용 필요"),
+    ("stored in azure key vault", "비밀값·인증서를 Azure Key Vault에 안전하게 보관 필요"),
+    ("thumbprint or name validation", "백엔드 인증서 지문 및 이름 검증 우회 금지"),
+    ("calls to api backends should be authenticated", "API 백엔드 호출 시 상호 인증 구성 필요"),
+    ("direct management endpoint", "직접 관리 엔드포인트 비활성화 필요"),
+    ("scoped to all apis", "구독 키의 전체 API 무제한 범위 허용 금지"),
+    ("platform version should be", "권장 플랫폼 버전(stv2+) 유지 필요"),
+    ("inherit parent scope policies", "상위 범위 기본 정책(<base />) 상속 필수"),
+    ("sku that supports virtual networks", "가상 네트워크(VNet)를 지원하는 SKU 사용 필요"),
 )
 
 _KUBE_BENCH_PHRASE_KO: tuple[tuple[str, str], ...] = (
     ("anonymous-auth argument is set to false", "익명 인증(--anonymous-auth=false) 비활성화"),
+    ("anonymous-auth", "익명 인증(--anonymous-auth) 비활성화 설정 준수"),
     ("authorization-mode argument", "인가 모드(--authorization-mode) RBAC/Node 설정 준수"),
+    ("authorization-mode", "인가 모드(--authorization-mode) RBAC/Node 설정 준수"),
     ("client-ca-file argument", "클라이언트 CA 인증서(--client-ca-file) 설정 준수"),
+    ("client-ca-file", "클라이언트 CA 인증서(--client-ca-file) 설정 준수"),
     ("tls-cert-file and --tls-private-key-file", "TLS 서버 인증서 및 개인 키 인자 설정 준수"),
+    ("tls-cert-file", "TLS 서버 인증서 및 개인 키 인자 설정 준수"),
     ("audit-log-path argument", "감사 로그 경로(--audit-log-path) 설정 준수"),
+    ("audit-log-path", "감사 로그 경로(--audit-log-path) 설정 준수"),
     ("audit-log-maxage argument", "감사 로그 보존 일수(--audit-log-maxage) 설정 준수"),
+    ("audit-log-maxage", "감사 로그 보존 일수(--audit-log-maxage) 설정 준수"),
     ("audit-log-maxbackup argument", "감사 로그 백업 파일 수(--audit-log-maxbackup) 설정 준수"),
+    ("audit-log-maxbackup", "감사 로그 백업 파일 수(--audit-log-maxbackup) 설정 준수"),
     ("audit-log-maxsize argument", "감사 로그 최대 크기(--audit-log-maxsize) 설정 준수"),
+    ("audit-log-maxsize", "감사 로그 최대 크기(--audit-log-maxsize) 설정 준수"),
     ("profiling argument is set to false", "프로파일링(--profiling=false) 비활성화"),
+    ("profiling", "프로파일링(--profiling=false) 비활성화"),
     ("read-only-port argument is set to 0", "읽기 전용 포트(--read-only-port=0) 비활성화"),
+    ("read-only-port", "읽기 전용 포트(--read-only-port=0) 비활성화"),
     ("protect-kernel-defaults", "커널 기본값 보호(--protect-kernel-defaults) 활성화"),
     (
         "kubelet-https argument is set to true",
         "Kubelet HTTPS(--kubelet-https=true) 암호화 통신 강제",
     ),
+    ("kubelet-https", "Kubelet HTTPS(--kubelet-https=true) 암호화 통신 강제"),
     ("service-account-lookup", "서비스 계정 토큰 검증(--service-account-lookup) 활성화"),
+    ("service-account-key-file", "서비스 계정 공개 키(--service-account-key-file) 설정 준수"),
+    (
+        "service-account-private-key-file",
+        "서비스 계정 개인 키(--service-account-private-key-file) 설정 준수",
+    ),
     ("rotate-certificates", "Kubelet 인증서 자동 순환(--rotate-certificates) 활성화"),
     ("streaming-connection-idle-timeout", "스트리밍 연결 유휴 타임아웃 설정 준수"),
     ("make-iptables-util-chains", "iptables 유틸리티 체인 자동 관리 활성화"),
     ("tls-cipher-suites", "안전한 TLS 암호화 스위트(--tls-cipher-suites) 설정 준수"),
+    ("strong cryptographic ciphers", "강력한 TLS 암호화 스위트만 허용하도록 설정 준수"),
     ("pod-max-pids", "Pod 최대 프로세스 수(--pod-max-pids) 제한 설정"),
+    ("insecure-bind-address", "비보안 바인드 주소(--insecure-bind-address) 미설정 준수"),
     ("insecure-port", "비보안 포트(--insecure-port) 비활성화"),
+    ("secure-port", "보안 포트(--secure-port) 활성화 설정 준수"),
     ("token-auth-file", "정적 토큰 파일 인증(--token-auth-file) 사용 금지"),
     ("basic-auth-file", "기본 인증 파일(--basic-auth-file) 사용 금지"),
+    ("request-timeout", "API 요청 타임아웃(--request-timeout) 적정값 설정 준수"),
+    ("terminated-pod-gc-threshold", "종료된 Pod 가비지 컬렉션 임계값 설정 준수"),
+    (
+        "encryption-provider-config",
+        "etcd 비밀 데이터 저장 암호화(--encryption-provider-config) 구성",
+    ),
+    ("encryption providers", "etcd 비밀 데이터 암호화 공급자 설정 준수"),
+    ("etcd-certfile", "etcd TLS 인증서 및 키(--etcd-certfile/--etcd-keyfile) 설정 준수"),
+    ("etcd-cafile", "etcd CA 인증서(--etcd-cafile) 설정 준수"),
+    ("kubelet-client-certificate", "Kubelet 클라이언트 인증서 및 키 설정 준수"),
     ("etcd data directory", "etcd 데이터 디렉터리 권한·소유권 보호"),
     ("pki directory and file", "PKI 인증서 디렉터리 및 파일 권한 보호"),
     ("kubeconfig file", "kubeconfig 구성 파일 권한·소유권 설정 준수"),
@@ -445,9 +492,10 @@ _KUBE_BENCH_PHRASE_KO: tuple[tuple[str, str], ...] = (
     ("file permissions are set to", "파일 권한 설정 준수"),
     ("file ownership is set to", "파일 소유권(root:root) 설정 준수"),
     ("argument is set to", "실행 인자(Argument) 보안 설정 준수"),
+    ("argument is not set", "비보안 실행 인자 미설정 기준 준수"),
     ("admission control plugin", "어드미션 컨트롤 플러그인 활성화"),
     ("minimize the admission of", "컨테이너 고위험 권한 허용 최소화"),
-    ("ensure that the", "보안 기준 점검:"),
+    ("ensure that the", "보안 구성 기준 준수 점검"),
 )
 
 
@@ -464,24 +512,25 @@ def _translate_policy_phrase_ko(display_name: str) -> str:
         lifecycle_prefix = "[미리 보기(Preview)] "
     for pattern, ko_phrase in _AZURE_POLICY_PHRASE_KO:
         if pattern in lower:
-            return f"{lifecycle_prefix}{display_name} - {ko_phrase}"
+            return f"{lifecycle_prefix}{ko_phrase}"
     if lower.startswith("configure ") or "]: configure " in lower:
-        return f"{lifecycle_prefix}{display_name} (자동 구성 정책)"
+        return f"{lifecycle_prefix}자동 구성(Modify/DeployIfNotExists) 정책 준수"
     if lower.startswith("deploy ") or "]: deploy " in lower:
-        return f"{lifecycle_prefix}{display_name} (자동 배포 정책)"
+        return f"{lifecycle_prefix}필수 보안·진단 리소스 자동 배포 정책 준수"
     if lower.startswith("audit ") or "]: audit " in lower:
-        return f"{lifecycle_prefix}{display_name} (구성 감사 정책)"
+        return f"{lifecycle_prefix}리소스 구성 감사 정책 준수"
     if lower.startswith("microsoft managed control"):
-        return f"{lifecycle_prefix}{display_name} (Microsoft 관리형 규정 준수 통제)"
-    return f"{lifecycle_prefix}{display_name}" if lifecycle_prefix else display_name
+        return f"{lifecycle_prefix}Microsoft 관리형 규정 준수 통제 항목"
+    return f"{lifecycle_prefix}Azure 리소스 보안 및 거버넌스 구성 기준 준수"
 
 
 def _translate_kube_bench_clause_ko(clause: str) -> str:
-    lower = clause.lower()
+    lower = re.sub(r"\s+", " ", clause.lower().replace("-", " ")).strip()
     for pattern, ko_phrase in _KUBE_BENCH_PHRASE_KO:
-        if pattern in lower:
-            return f"{ko_phrase} ({clause})"
-    return clause
+        norm_pat = re.sub(r"\s+", " ", pattern.lower().replace("-", " ")).strip()
+        if norm_pat in lower:
+            return ko_phrase
+    return "보안 구성 기준 준수 점검"
 
 
 def humanize_kube_bench_slug(rule_id: str, ruleset: str, bench_id: str) -> str:
@@ -489,7 +538,11 @@ def humanize_kube_bench_slug(rule_id: str, ruleset: str, bench_id: str) -> str:
     slug = (
         rule_id.removeprefix(prefix) if rule_id.startswith(prefix) else rule_id.rsplit(".", 1)[-1]
     )
-    slug = re.sub(r"-(?:automated|manual|m|a)$", "", slug)
+    slug = re.sub(
+        r"-(?:a(?:uto(?:m(?:a(?:t(?:e(?:d)?)?)?)?)?)?|m(?:a(?:n(?:u(?:a(?:l)?)?)?)?)?)$",
+        "",
+        slug,
+    )
     words = slug.replace("-", " ").strip()
     if not words:
         return f"CIS {ruleset} {bench_id}".strip()
@@ -533,7 +586,7 @@ def localize_kube_bench_explanation(
     )
     description_ko = (
         f"`{resource_type}`({component_ko})를 대상으로 CIS Kubernetes 벤치마크({ruleset}, 섹션 {group_id or bench_id}, {scored_ko}) "
-        f"권고 기준({readable_clause}) 충족 여부를 검사합니다.{audit_clause_ko}"
+        f"권고 기준({clause_ko}) 충족 여부를 검사합니다.{audit_clause_ko}"
     )
     return title_en, title_ko, description_en, description_ko
 

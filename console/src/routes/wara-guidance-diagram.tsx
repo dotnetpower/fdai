@@ -46,13 +46,26 @@ export function guidanceColumns(diagram: Diagram): readonly (readonly Diagram["n
     const targets = flow.filter((edge) => edge.from === node.id).map((edge) => ranks.get(edge.to) ?? 0);
     if (targets.length > 0) ranks.set(node.id, Math.max(ranks.get(node.id) ?? 0, Math.min(...targets) - 1));
   }
-  return [0, 1, 2].map((rank) => diagram.nodes.filter((node) => ranks.get(node.id) === rank)).filter((column) => column.length > 0);
+  const rank2Ids = diagram.nodes.filter((node) => ranks.get(node.id) === 2).map((node) => node.id);
+  for (const id of rank2Ids) {
+    const hasForwardOut = flow.some((edge) => edge.from === id);
+    const rank2Sources = flow.filter((edge) => edge.to === id && ranks.get(edge.from) === 2).map((edge) => edge.from);
+    if (!hasForwardOut && rank2Sources.length > 0 && (rank2Sources.length >= 2 || diagram.nodes[0]?.id === "subject")) {
+      ranks.set(id, 3);
+    }
+  }
+  return [0, 1, 2, 3].map((rank) => diagram.nodes.filter((node) => ranks.get(node.id) === rank)).filter((column) => column.length > 0);
 }
 
 function routeEdges(diagram: Diagram, boxes: Readonly<Record<string, Box>>, canvasBottom: number): readonly (EdgeRoute | null)[] {
   const centerY = (id: string) => {
     const box = boxes[id];
     return box ? box.y + box.height / 2 : 0;
+  };
+  const isStackedPair = (fromId: string, toId: string) => {
+    const a = boxes[fromId];
+    const b = boxes[toId];
+    return Boolean(a && b && a.x < b.x + b.width && b.x < a.x + a.width);
   };
   let topRank = 0;
   let bottomRank = 0;
@@ -61,8 +74,13 @@ function routeEdges(diagram: Diagram, boxes: Readonly<Record<string, Box>>, canv
     const from = boxes[edge.from];
     const to = boxes[edge.to];
     if (!from || !to) return null;
-    const outgoing = diagram.edges.filter((item) => item.from === edge.from).sort((a, b) => centerY(a.to) - centerY(b.to));
-    const incoming = diagram.edges.filter((item) => item.to === edge.to).sort((a, b) => centerY(a.from) - centerY(b.from));
+    const stacked = isStackedPair(edge.from, edge.to);
+    const outgoing = diagram.edges
+      .filter((item) => item.from === edge.from && isStackedPair(item.from, item.to) === stacked)
+      .sort((a, b) => centerY(a.to) - centerY(b.to));
+    const incoming = diagram.edges
+      .filter((item) => item.to === edge.to && isStackedPair(item.from, item.to) === stacked)
+      .sort((a, b) => centerY(a.from) - centerY(b.from));
     const route = guidanceEdgeRoute(from, to, {
       startPort: (outgoing.indexOf(edge) + 1) / (outgoing.length + 1),
       endPort: (incoming.indexOf(edge) + 1) / (incoming.length + 1),
@@ -129,9 +147,9 @@ export function WaraGuidanceDiagram({ diagram, expanded, onExpand }: {
         <div><p class="wara-guidance-eyebrow">{t("governance.rules.wara.guidance.referenceFigure")}</p><h4 id={`${diagram.id}-title`}>{guidanceText(diagram.title, locale)}</h4></div>
         <button type="button" class="btn" aria-pressed={expanded} onClick={onExpand}>{t(`governance.rules.wara.guidance.${expanded ? "compact" : "expand"}`)}</button>
       </header>
-      <div class="wara-guidance-graph" ref={rootRef} style={{ "--guidance-columns": columns.length, "--guidance-gutter": `${gutter}px`, "--guidance-top": `${24 + longEdges.length * 8}px` }}>
+      <div class="wara-guidance-graph" ref={rootRef} style={{ "--guidance-columns": columns.length, "--guidance-gap": columns.length >= 4 ? "52px" : "72px", "--guidance-gutter": `${gutter}px`, "--guidance-top": `${24 + longEdges.length * 8}px` }}>
         {geometry ? <svg class="wara-guidance-connectors" viewBox={`0 0 ${geometry.width} ${geometry.height}`} width={geometry.width} height={geometry.height} aria-hidden="true" role="presentation" focusable="false">
-          <defs><marker id={marker} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" /></marker></defs>
+          <defs><marker id={marker} viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M 1 1.25 L 9 5 L 1 8.75 L 2.6 5 z" fill="currentColor" /></marker></defs>
           {diagram.edges.map((edge, index) => {
             const route = routes[index];
             return route ? <g key={`${edge.from}-${edge.to}-${index}`}>

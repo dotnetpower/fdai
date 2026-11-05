@@ -11,6 +11,7 @@ import { displayValue, t } from "./i18n/governance";
 import { DetailRow, DetailSection } from "./rule-catalog-components";
 import { ruleCatalogHref, type RuleFilters } from "./rule-catalog-state";
 import { SEVERITY_PILL } from "./rule-catalog-types";
+import { frameworkDisplayTitle } from "./reference-images.catalog";
 import { FrameworkGuidanceContent } from "./framework-guidance";
 import { formatGuidanceMarkdownBrief } from "./wara-guidance";
 import { getLocale } from "../i18n";
@@ -101,7 +102,7 @@ function BestPracticeDetailContent({ data, expanded, onExpand }: { readonly data
   ) as Readonly<Record<string, string>>;
   return (
     <div class="stack">
-      <FrameworkGuidanceContent guidance={data.guidance} controlId={data.control_id} title={data.title} description={data.rationale} expanded={expanded} onExpand={onExpand} unavailableReason={data.guidance_unavailable_reason} />
+      <FrameworkGuidanceContent guidance={data.guidance} controlId={data.control_id} title={frameworkDisplayTitle("azure-waf", data, getLocale())} description={data.rationale} expanded={expanded} onExpand={onExpand} unavailableReason={data.guidance_unavailable_reason} />
       <h3 id="framework-runtime" tabIndex={-1}>{t("governance.rules.wara.guidance.runtime")}</h3>
       <ControlEnablementSection value={data.enablement} severitySource={data.severity_source} />
       <ControlRemediationSection value={data.remediation} />
