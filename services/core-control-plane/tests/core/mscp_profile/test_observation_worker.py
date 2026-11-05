@@ -2,16 +2,24 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from fdai.core.mscp_profile.effect_verification import (
     EffectVerificationReason,
     EffectVerificationStatus,
     ExpectedEffect,
     ObservedEffect,
 )
-from fdai.core.mscp_profile.observation_worker import PendingEffectObservationWorker
-from fdai.core.mscp_profile.pending_effect_store import StateStorePendingEffectStore
+from fdai.core.mscp_profile.observation_worker import (
+    ObservationWorkerReport,
+    PendingEffectObservationWorker,
+)
+from fdai.core.mscp_profile.pending_effect_store import (
+    PendingEffectOwnershipError,
+    StateStorePendingEffectStore,
+)
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _NOW = datetime(2026, 8, 29, 3, 0, tzinfo=UTC)
@@ -119,3 +127,58 @@ async def test_completed_effects_do_not_run_again() -> None:
     assert first.verified == 1
     assert replay.considered == 0
     assert calls == 1
+
+
+async def test_worker_validation_conflicts_and_cancellation() -> None:
+    with pytest.raises(ValueError, match="MUST NOT grant execution authority"):
+        ObservationWorkerReport(0, 0, 0, 0, 0, 0, execution_authority=True)
+
+    store = StateStorePendingEffectStore(InMemoryStateStore())
+
+    async def _noop(_record):
+        return None
+
+    with pytest.raises(ValueError, match="owner_id"):
+        PendingEffectObservationWorker(store=store, observer=_noop, owner_id=" ")
+    with pytest.raises(ValueError, match="lease_seconds"):
+        PendingEffectObservationWorker(
+            store=store, observer=_noop, owner_id="worker", lease_seconds=0
+        )
+    with pytest.raises(ValueError, match="max_items"):
+        PendingEffectObservationWorker(store=store, observer=_noop, owner_id="worker", max_items=0)
+
+    await _register(store, "claim-conflict")
+    await _register(store, "complete-conflict")
+
+    class _ConflictStore(StateStorePendingEffectStore):
+        async def claim(self, prediction_id: str, **kwargs):  # type: ignore[no-untyped-def]
+            if prediction_id == "claim-conflict":
+                raise PendingEffectOwnershipError("claimed elsewhere")
+            return await super().claim(prediction_id, **kwargs)
+
+        async def complete(self, prediction_id: str, **kwargs):  # type: ignore[no-untyped-def]
+            if prediction_id == "complete-conflict":
+                raise PendingEffectOwnershipError("completed elsewhere")
+            return await super().complete(prediction_id, **kwargs)
+
+    conflict_store = _ConflictStore(store._state_store)
+    report = await PendingEffectObservationWorker(
+        store=conflict_store,
+        observer=_noop,
+        owner_id="worker",
+        clock=lambda: _NOW,
+    ).run_once()
+    assert report.ownership_conflicts == 2
+
+    await _register(store, "cancel-target")
+
+    async def _cancel(_record):
+        raise asyncio.CancelledError
+
+    with pytest.raises(asyncio.CancelledError):
+        await PendingEffectObservationWorker(
+            store=store,
+            observer=_cancel,
+            owner_id="worker",
+            clock=lambda: _NOW,
+        ).run_once()

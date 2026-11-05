@@ -160,3 +160,48 @@ def test_candidate_dimensions_are_never_pooled() -> None:
 def test_policy_cannot_weaken_initial_shadow_floors() -> None:
     with pytest.raises(ValueError, match="cannot weaken"):
         MscpReadinessPolicy(min_shadow_days=13, min_samples=99)
+
+
+def test_readiness_models_and_evaluator_reject_invalid_inputs() -> None:
+    with pytest.raises(ValueError, match="bounded non-empty text"):
+        MscpCandidateKey(
+            action_type=" ",
+            effect_metric="availability",
+            environment="non-production",
+            observer_version="observer-v1",
+        )
+    with pytest.raises(ValueError, match="timezone-aware"):
+        _outcome(0, observed_at=datetime(2026, 8, 1))
+    with pytest.raises(ValueError, match="MUST be a boolean"):
+        _outcome(0, reviewed="yes")
+    with pytest.raises(ValueError, match="MUST be an integer"):
+        _outcome(0, observation_latency_ms=True)
+    with pytest.raises(ValueError, match="MUST be non-negative"):
+        _outcome(0, observation_latency_ms=-1)
+    with pytest.raises(ValueError, match="unreviewed outcomes"):
+        _outcome(0, reviewed=False, prediction_accurate=True)
+    with pytest.raises(ValueError, match="accurate outcomes"):
+        _outcome(0, prediction_accurate=True, false_positive=True)
+
+    with pytest.raises(ValueError, match="finite ratio"):
+        _policy(min_accuracy=1.5)
+    with pytest.raises(ValueError, match="max_p95_latency_ms"):
+        _policy(max_p95_latency_ms=0)
+    with pytest.raises(ValueError, match="max_human_touchpoints_per_100"):
+        _policy(max_human_touchpoints_per_100=-1.0)
+    with pytest.raises(ValueError, match="demotion_drill_passed"):
+        _policy(demotion_drill_passed="yes")
+
+    base_report = evaluate_mscp_readiness(_cohort(), policy=_policy())
+    with pytest.raises(ValueError, match="MUST NOT grant promotion authority"):
+        replace(base_report, promotion_authority=True)  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="at least one outcome"):
+        evaluate_mscp_readiness((), policy=_policy())
+
+    unreviewed_report = evaluate_mscp_readiness(
+        (_outcome(0, reviewed=False, prediction_accurate=False),),
+        policy=_policy(),
+    )
+    assert unreviewed_report.reviewed_count == 0
+    assert unreviewed_report.accuracy_lower_95 == 0.0

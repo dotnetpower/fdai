@@ -42,3 +42,38 @@ def test_catalog_digest_detects_recipe_substitution() -> None:
 def test_lookup_strips_whitespace_around_recipe_id_and_version() -> None:
     recipe = DEFAULT_TELEMETRY_RECIPE_CATALOG.get("  requests.failed  ", " 1.0.0 ")
     assert recipe.mechanism is TelemetryMechanism.FAILED_REQUESTS
+
+
+def test_catalog_invariants_and_non_string_lookup_reject_invalid_inputs() -> None:
+    from fdai.core.rca.telemetry_recipes import (
+        TELEMETRY_RECIPE_CATALOG_VERSION,
+        ReviewedTelemetryRecipeCatalog,
+        _catalog_digest,
+    )
+
+    recipes = DEFAULT_TELEMETRY_RECIPE_CATALOG.recipes
+    with pytest.raises(ValueError, match="catalog version"):
+        replace(DEFAULT_TELEMETRY_RECIPE_CATALOG, version="0.0.0")
+    with pytest.raises(ValueError, match="non-empty"):
+        ReviewedTelemetryRecipeCatalog(
+            version=TELEMETRY_RECIPE_CATALOG_VERSION,
+            recipes=(),
+            catalog_digest="sha256:" + "0" * 64,
+        )
+    with pytest.raises(ValueError, match="sorted and unique"):
+        ReviewedTelemetryRecipeCatalog(
+            version=TELEMETRY_RECIPE_CATALOG_VERSION,
+            recipes=tuple(reversed(recipes)),
+            catalog_digest=_catalog_digest(
+                TELEMETRY_RECIPE_CATALOG_VERSION,
+                tuple(reversed(recipes)),
+            ),
+        )
+    with pytest.raises(ValueError, match="every reviewed mechanism"):
+        ReviewedTelemetryRecipeCatalog(
+            version=TELEMETRY_RECIPE_CATALOG_VERSION,
+            recipes=recipes[:-1],
+            catalog_digest=_catalog_digest(TELEMETRY_RECIPE_CATALOG_VERSION, recipes[:-1]),
+        )
+    with pytest.raises(ValueError, match="reviewed catalog"):
+        DEFAULT_TELEMETRY_RECIPE_CATALOG.get(None, "1.0.0")  # type: ignore[arg-type]

@@ -22,6 +22,12 @@ from fdai.core.executor.lock_continuity import (
     EffectSinkContinuityPolicy,
     OwnershipContinuityStrategy,
 )
+from fdai.core.executor.port import (
+    DirectApiExecutionPort,
+    InProcessThorExecutionPort,
+    MutationDependencyReadiness,
+    ThorExecutionPort,
+)
 from fdai.core.executor.safeguard_lifecycle_coordinator import (
     SafeguardLifecycleCoordinator,
     SafeguardLifecycleCoordinatorConfig,
@@ -72,6 +78,30 @@ _HOLD_PROCESS_ID = "process-hold-1"
 _HOLD_RECEIPTS = ("sha256:" + "b" * 64, "sha256:" + "c" * 64)
 
 
+def _continuity_policy() -> EffectSinkContinuityPolicy:
+    return EffectSinkContinuityPolicy.create(
+        sink_id="test-dispatch",
+        sink_version="1.0.0",
+        strategy=OwnershipContinuityStrategy.QUARANTINED_RECONCILIATION,
+        cancellation_supported=True,
+        durable_unknown_quarantine=True,
+        reconciliation_supported=True,
+    )
+
+
+def _coordinator_config(*, production: bool = False) -> SafeguardLifecycleCoordinatorConfig:
+    return SafeguardLifecycleCoordinatorConfig(
+        source_revision=_SOURCE_REVISION,
+        producer_id="fdai.core.executor",
+        producer_version="1.0.0",
+        actor="fdai.core.executor",
+        expected_lock_verifier_id="fdai-in-memory-lock-readback",
+        expected_lock_verifier_version="1.0.0",
+        expected_lock_trust_anchor_id="fdai:local-test-only",
+        production=production,
+    )
+
+
 def _coordinator(
     audit: InMemoryStateStore,
     *,
@@ -95,29 +125,73 @@ def _coordinator(
             fence_store=fences,
         ),
         denial_audit_store=audit,
-        continuity_policy=EffectSinkContinuityPolicy.create(
-            sink_id="test-dispatch",
-            sink_version="1.0.0",
-            strategy=OwnershipContinuityStrategy.QUARANTINED_RECONCILIATION,
-            cancellation_supported=True,
-            durable_unknown_quarantine=True,
-            reconciliation_supported=True,
-        ),
-        config=SafeguardLifecycleCoordinatorConfig(
-            source_revision=_SOURCE_REVISION,
-            producer_id="fdai.core.executor",
-            producer_version="1.0.0",
-            actor="fdai.core.executor",
-            expected_lock_verifier_id="fdai-in-memory-lock-readback",
-            expected_lock_verifier_version="1.0.0",
-            expected_lock_trust_anchor_id="fdai:local-test-only",
-        ),
+        continuity_policy=_continuity_policy(),
+        config=_coordinator_config(),
         commitment_store=commitment_store,  # type: ignore[arg-type]
         hold_state_reader=hold_state_reader,  # type: ignore[arg-type]
         hold_release_authorizations=hold_release_authorizations,  # type: ignore[arg-type]
         clock=lifecycle_clock,
     )
     return coordinator, lock
+
+
+def _direct_executor(
+    audit: InMemoryStateStore,
+    coordinator: SafeguardLifecycleCoordinator,
+    lock: ResourceLockManager,
+    adapter: RecordingDirectApiExecutor | None = None,
+) -> tuple[DirectApiShadowExecutor, RecordingDirectApiExecutor]:
+    bound_adapter = adapter or RecordingDirectApiExecutor()
+    executor = DirectApiShadowExecutor(
+        executor=bound_adapter,
+        audit_store=audit,
+        resource_lock=lock,
+        safeguard_coordinator=coordinator,
+    )
+    return executor, bound_adapter
+
+
+def _hold_denial(audit: InMemoryStateStore) -> Mapping[str, object]:
+    return next(
+        row["entry"]
+        for row in audit.audit_entries
+        if row["entry"].get("action_kind") == "executor.hold_dispatch_fence.denied"
+    )
+
+
+def test_mutation_dependency_readiness_and_in_process_port() -> None:
+    ready = MutationDependencyReadiness(True, frozenset({"rb-99"}))
+    assert ready.mutation_ready is True
+    ready.require_for_mode(enforce=True)
+    ready.require_for_mode(enforce=False)
+    for saga, vidar, expected in (
+        (False, frozenset(), "durable_saga, rollback_executors"),
+        (False, frozenset({"rb-99"}), "^Thor mutation requires.*: durable_saga$"),
+        (True, frozenset(), "^Thor mutation requires.*: rollback_executors$"),
+    ):
+        readiness = MutationDependencyReadiness(saga, vidar)
+        assert readiness.mutation_ready is False
+        readiness.require_for_mode(enforce=False)
+        with pytest.raises(ValueError, match=expected):
+            readiness.require_for_mode(enforce=True)
+    audit = InMemoryStateStore()
+    coordinator, lock = _coordinator(audit)
+    pr_exec = ShadowExecutor(
+        publisher=RecordingRemediationPrPublisher(),
+        audit_store=audit,
+        renderer=TemplateRenderer(remediation_root=_ROOT / "rule-catalog" / "remediation"),
+        resource_lock=lock,
+        safeguard_coordinator=coordinator,
+    )
+    direct_exec, _ = _direct_executor(audit, coordinator, lock)
+    port = InProcessThorExecutionPort(
+        pr_native=pr_exec,
+        direct_api=direct_exec,
+        safeguard_lifecycle_ready=True,
+    )
+    assert isinstance(direct_exec, DirectApiExecutionPort)
+    assert isinstance(port, ThorExecutionPort)
+    assert port.safeguard_lifecycle_ready is True
 
 
 @pytest.mark.parametrize("path", [ExecutionPath.PR_NATIVE, ExecutionPath.PR_MANUAL])
@@ -132,9 +206,7 @@ async def test_pr_paths_dispatch_through_shared_lifecycle(path: ExecutionPath) -
         resource_lock=lock,
         safeguard_coordinator=coordinator,
     )
-
     result = await executor.execute(action=_pr_action(), rule=_rule(), execution_path=path)
-
     assert result.outcome is ExecutorOutcome.PUBLISHED
     assert result.safeguard_bundle_digest is not None
     assert len(publisher.records) == 1
@@ -146,16 +218,8 @@ async def test_pr_paths_dispatch_through_shared_lifecycle(path: ExecutionPath) -
 async def test_direct_api_dispatches_through_shared_lifecycle() -> None:
     audit = InMemoryStateStore()
     coordinator, lock = _coordinator(audit)
-    adapter = RecordingDirectApiExecutor()
-    executor = DirectApiShadowExecutor(
-        executor=adapter,
-        audit_store=audit,
-        resource_lock=lock,
-        safeguard_coordinator=coordinator,
-    )
-
+    executor, adapter = _direct_executor(audit, coordinator, lock)
     result = await executor.execute(action=_direct_action())
-
     assert result.outcome is DirectApiExecutionOutcome.DISPATCHED
     assert result.safeguard_bundle_digest is not None
     assert len(adapter.records) == 1
@@ -165,23 +229,10 @@ async def test_direct_api_dispatches_through_shared_lifecycle() -> None:
 async def test_direct_api_restart_reuses_retained_bundle_without_dispatch() -> None:
     audit = InMemoryStateStore()
     coordinator, lock = _coordinator(audit)
-    adapter = RecordingDirectApiExecutor()
-    first_executor = DirectApiShadowExecutor(
-        executor=adapter,
-        audit_store=audit,
-        resource_lock=lock,
-        safeguard_coordinator=coordinator,
-    )
+    first_executor, adapter = _direct_executor(audit, coordinator, lock)
     first = await first_executor.execute(action=_direct_action())
-    restarted_executor = DirectApiShadowExecutor(
-        executor=adapter,
-        audit_store=audit,
-        resource_lock=lock,
-        safeguard_coordinator=coordinator,
-    )
-
+    restarted_executor, _ = _direct_executor(audit, coordinator, lock, adapter)
     replay = await restarted_executor.execute(action=_direct_action())
-
     assert replay.outcome is DirectApiExecutionOutcome.ALREADY_APPLIED
     assert replay.safeguard_bundle_digest == first.safeguard_bundle_digest
     assert len(adapter.records) == 1
@@ -189,19 +240,9 @@ async def test_direct_api_restart_reuses_retained_bundle_without_dispatch() -> N
 
 async def test_replay_uses_its_closure_after_a_newer_target_generation() -> None:
     current_time = [_NOW]
-
-    def clock() -> datetime:
-        return current_time[0]
-
     audit = InMemoryStateStore()
-    coordinator, lock = _coordinator(audit, clock=clock)
-    adapter = RecordingDirectApiExecutor()
-    executor = DirectApiShadowExecutor(
-        executor=adapter,
-        audit_store=audit,
-        resource_lock=lock,
-        safeguard_coordinator=coordinator,
-    )
+    coordinator, lock = _coordinator(audit, clock=lambda: current_time[0])
+    executor, adapter = _direct_executor(audit, coordinator, lock)
     first_action = _direct_action()
     second_action = _direct_action(
         action_id="00000000-0000-0000-0000-000000000099",
@@ -211,15 +252,8 @@ async def test_replay_uses_its_closure_after_a_newer_target_generation() -> None
     current_time[0] += timedelta(seconds=1)
     second = await executor.execute(action=second_action)
     current_time[0] += timedelta(seconds=1)
-    restarted_executor = DirectApiShadowExecutor(
-        executor=adapter,
-        audit_store=audit,
-        resource_lock=lock,
-        safeguard_coordinator=coordinator,
-    )
-
+    restarted_executor, _ = _direct_executor(audit, coordinator, lock, adapter)
     replay = await restarted_executor.execute(action=first_action)
-
     assert first.outcome is DirectApiExecutionOutcome.DISPATCHED
     assert second.outcome is DirectApiExecutionOutcome.DISPATCHED
     assert replay.outcome is DirectApiExecutionOutcome.ALREADY_APPLIED
@@ -237,9 +271,7 @@ async def test_tool_call_dispatches_through_shared_lifecycle() -> None:
         resource_lock=lock,
         safeguard_coordinator=coordinator,
     )
-
     result = await executor.execute(action=_tool_action())
-
     assert result.outcome is ToolCallExecutionOutcome.DISPATCHED
     assert result.safeguard_bundle_digest is not None
     assert len(adapter.records) == 1
@@ -249,13 +281,7 @@ async def test_tool_call_dispatches_through_shared_lifecycle() -> None:
 async def test_workflow_dispatch_rejects_missing_commitment_store() -> None:
     audit = InMemoryStateStore()
     coordinator, lock = _coordinator(audit)
-    adapter = RecordingDirectApiExecutor()
-    executor = DirectApiShadowExecutor(
-        executor=adapter,
-        audit_store=audit,
-        resource_lock=lock,
-        safeguard_coordinator=coordinator,
-    )
+    executor, adapter = _direct_executor(audit, coordinator, lock)
     action = _direct_action().model_copy(
         update={
             "workflow_action": WorkflowActionRef(
@@ -266,9 +292,7 @@ async def test_workflow_dispatch_rejects_missing_commitment_store() -> None:
             )
         }
     )
-
     result = await executor.execute(action=action)
-
     assert result.outcome is DirectApiExecutionOutcome.REJECTED_INVARIANT
     assert result.safeguard_bundle_digest is None
     assert adapter.records == ()
@@ -280,7 +304,6 @@ def test_production_coordinator_rejects_test_stores() -> None:
     lock = ResourceLockManager(clock=lambda: _NOW)
     reservations = InMemoryIdempotencyReservationStore()
     fences = InMemoryTargetDispatchFenceStore()
-
     with pytest.raises(RuntimeError, match="not production eligible|stores are unavailable"):
         SafeguardLifecycleCoordinator(
             resource_lock=lock,
@@ -293,24 +316,8 @@ def test_production_coordinator_rejects_test_stores() -> None:
                 fence_store=fences,
             ),
             denial_audit_store=audit,
-            continuity_policy=EffectSinkContinuityPolicy.create(
-                sink_id="test-dispatch",
-                sink_version="1.0.0",
-                strategy=OwnershipContinuityStrategy.QUARANTINED_RECONCILIATION,
-                cancellation_supported=True,
-                durable_unknown_quarantine=True,
-                reconciliation_supported=True,
-            ),
-            config=SafeguardLifecycleCoordinatorConfig(
-                source_revision=_SOURCE_REVISION,
-                producer_id="fdai.core.executor",
-                producer_version="1.0.0",
-                actor="fdai.core.executor",
-                expected_lock_verifier_id="fdai-in-memory-lock-readback",
-                expected_lock_verifier_version="1.0.0",
-                expected_lock_trust_anchor_id="fdai:local-test-only",
-                production=True,
-            ),
+            continuity_policy=_continuity_policy(),
+            config=_coordinator_config(production=True),
             clock=lambda: _NOW,
         )
 
@@ -434,9 +441,9 @@ async def _release_hold(
     *,
     target_ref: str,
     action_id: str,
-    hold_revision: int,
-    admission_receipt_digest: str,
-    step_id: str,
+    hold_revision: int = 1,
+    admission_receipt_digest: str = "sha256:" + "e" * 64,
+    step_id: str = "recover_first",
 ) -> AutomationHoldReleaseReceipt | None:
     """Release one real hold revision through the production ledger."""
 
@@ -457,6 +464,7 @@ async def _release_hold(
             ),
         ),
     )
+    decision = snapshot.decisions[0]
     await store.write_state(
         workflow_approval_state_key(snapshot.process_id, snapshot.step_id, snapshot.attempt),
         {
@@ -470,22 +478,23 @@ async def _release_hold(
             "expires_at": snapshot.expires_at.isoformat() if snapshot.expires_at else None,
             "decision_claims": {
                 "slot-1": {
-                    "principal": snapshot.decisions[0].principal,
-                    "decision": snapshot.decisions[0].decision,
-                    "receipt_ref": snapshot.decisions[0].receipt_ref,
+                    "principal": decision.principal,
+                    "decision": decision.decision,
+                    "receipt_ref": decision.receipt_ref,
                 }
             },
             "state": "pending",
             "revision": snapshot.revision,
         },
     )
+    target_digest = "sha256:" + hashlib.sha256(target_ref.encode()).hexdigest()
     assessment = await assess_workflow_recovery_admission(
         _HoldAdmissions(admission_receipt_digest),
         snapshot=snapshot,
         quorum=1,
         no_self_approval=True,
         hold_revision=hold_revision,
-        target_digest="sha256:" + hashlib.sha256(target_ref.encode()).hexdigest(),
+        target_digest=target_digest,
         compensation_receipt_digests=_HOLD_RECEIPTS,
         executor_identity="executor@example.com",
         source_revision=_SOURCE_REVISION,
@@ -507,28 +516,36 @@ async def _release_hold(
     )
 
 
+async def _issue_and_authorize_scoped(
+    ledger: StateStoreAutomationHoldLedger,
+    target_ref: str,
+    step_id: str = "recover_first",
+) -> None:
+    await ledger.issue(
+        target_ref=target_ref,
+        process_id=_HOLD_PROCESS_ID,
+        reason="compensation_failed",
+    )
+    assert await ledger.authorize_hold_scoped_dispatch(
+        target_ref=target_ref,
+        process_id=_HOLD_PROCESS_ID,
+        step_id=step_id,
+        hold_revision=1,
+    )
+
+
 async def test_active_hold_fences_direct_api_dispatch_inside_the_lock() -> None:
     audit = InMemoryStateStore()
     reader = _StaticHoldReader({"state": "active", "revision": 3})
     coordinator, lock = _coordinator(audit, hold_state_reader=reader)
-    adapter = RecordingDirectApiExecutor()
-    executor = DirectApiShadowExecutor(
-        executor=adapter,
-        audit_store=audit,
-        resource_lock=lock,
-        safeguard_coordinator=coordinator,
-    )
+    executor, adapter = _direct_executor(audit, coordinator, lock)
 
     result = await executor.execute(action=_direct_action())
 
     assert reader.reads == 1
     assert len(adapter.records) == 0
     assert result.outcome is not DirectApiExecutionOutcome.DISPATCHED
-    denial = next(
-        row["entry"]
-        for row in audit.audit_entries
-        if row["entry"].get("action_kind") == "executor.hold_dispatch_fence.denied"
-    )
+    denial = _hold_denial(audit)
     assert denial["rejection_reasons"] == ["active_hold"]
     assert denial["outcome"] == "not_invoked"
     assert denial["execution_authority"] is False
@@ -544,19 +561,8 @@ async def test_hold_reissued_after_release_fences_tool_dispatch() -> None:
     action = _workflow_action(_tool_action(), "recover_first")
     target = action.target_resource_ref
     ledger = StateStoreAutomationHoldLedger(audit, clock=lambda: _NOW)
-    await ledger.issue(
-        target_ref=target,
-        process_id=_HOLD_PROCESS_ID,
-        reason="compensation_failed",
-    )
-    authorized = await _release_hold(
-        audit,
-        target_ref=target,
-        action_id=str(action.action_id),
-        hold_revision=1,
-        admission_receipt_digest="sha256:" + "e" * 64,
-        step_id="recover_first",
-    )
+    await ledger.issue(target_ref=target, process_id=_HOLD_PROCESS_ID, reason="compensation_failed")
+    authorized = await _release_hold(audit, target_ref=target, action_id=str(action.action_id))
     assert authorized is not None
     await ledger.issue(
         target_ref=target,
@@ -574,7 +580,6 @@ async def test_hold_reissued_after_release_fences_tool_dispatch() -> None:
         step_id="recover_second",
     )
     assert second is not None and second.receipt_digest != authorized.receipt_digest
-
     coordinator, lock = _coordinator(
         audit,
         hold_state_reader=ledger,
@@ -588,55 +593,32 @@ async def test_hold_reissued_after_release_fences_tool_dispatch() -> None:
         resource_lock=lock,
         safeguard_coordinator=coordinator,
     )
-
     result = await executor.execute(action=action)
-
     assert len(adapter.records) == 0
     assert result.outcome is not ToolCallExecutionOutcome.DISPATCHED
-    denial = next(
-        row["entry"]
-        for row in audit.audit_entries
-        if row["entry"].get("action_kind") == "executor.hold_dispatch_fence.denied"
-    )
-    assert "hold_reissued_after_release" in denial["rejection_reasons"]
-    assert "release_receipt_mismatch" in denial["rejection_reasons"]
-    assert "fencing_generation_mismatch" in denial["rejection_reasons"]
+    denial = _hold_denial(audit)
+    assert "hold_reissued_after_release" in denial["rejection_reasons"]  # type: ignore[operator]
+    assert "release_receipt_mismatch" in denial["rejection_reasons"]  # type: ignore[operator]
+    assert "fencing_generation_mismatch" in denial["rejection_reasons"]  # type: ignore[operator]
 
 
 async def test_unreadable_hold_state_fences_dispatch_closed() -> None:
     audit = InMemoryStateStore()
     coordinator, lock = _coordinator(audit, hold_state_reader=_UnreadableHoldReader())
-    adapter = RecordingDirectApiExecutor()
-    executor = DirectApiShadowExecutor(
-        executor=adapter,
-        audit_store=audit,
-        resource_lock=lock,
-        safeguard_coordinator=coordinator,
-    )
+    executor, adapter = _direct_executor(audit, coordinator, lock)
 
     result = await executor.execute(action=_direct_action())
 
     assert len(adapter.records) == 0
     assert result.outcome is not DirectApiExecutionOutcome.DISPATCHED
-    denial = next(
-        row["entry"]
-        for row in audit.audit_entries
-        if row["entry"].get("action_kind") == "executor.hold_dispatch_fence.denied"
-    )
-    assert denial["rejection_reasons"] == ["unreadable_state"]
+    assert _hold_denial(audit)["rejection_reasons"] == ["unreadable_state"]
 
 
 async def test_hold_issued_during_path_audit_fences_provider_dispatch() -> None:
     reader = _StaticHoldReader(None)
     audit = _HoldActivatingAuditStore(reader)
     coordinator, lock = _coordinator(audit, hold_state_reader=reader)
-    adapter = RecordingDirectApiExecutor()
-    executor = DirectApiShadowExecutor(
-        executor=adapter,
-        audit_store=audit,
-        resource_lock=lock,
-        safeguard_coordinator=coordinator,
-    )
+    executor, adapter = _direct_executor(audit, coordinator, lock)
 
     result = await executor.execute(action=_direct_action())
 
@@ -649,9 +631,6 @@ async def test_hold_issued_during_path_audit_fences_provider_dispatch() -> None:
 async def test_elapsed_hold_preflight_rechecks_lock_before_provider() -> None:
     current_time = [_NOW]
 
-    def clock() -> datetime:
-        return current_time[0]
-
     def advance() -> None:
         current_time[0] += timedelta(seconds=6)
 
@@ -659,15 +638,9 @@ async def test_elapsed_hold_preflight_rechecks_lock_before_provider() -> None:
     coordinator, lock = _coordinator(
         audit,
         hold_state_reader=_AdvancingEmptyHoldReader(advance),
-        clock=clock,
+        clock=lambda: current_time[0],
     )
-    adapter = RecordingDirectApiExecutor()
-    executor = DirectApiShadowExecutor(
-        executor=adapter,
-        audit_store=audit,
-        resource_lock=lock,
-        safeguard_coordinator=coordinator,
-    )
+    executor, adapter = _direct_executor(audit, coordinator, lock)
 
     result = await executor.execute(action=_direct_action())
 
@@ -676,42 +649,31 @@ async def test_elapsed_hold_preflight_rechecks_lock_before_provider() -> None:
     assert result.reason == "dispatch blocked before provider invocation: ValueError"
 
 
-async def test_released_hold_with_matching_lineage_permits_dispatch() -> None:
-    audit = InMemoryStateStore(linearization_clock=lambda: _NOW)
-    action = _workflow_action(_direct_action(), "recover_first")
-    target = action.target_resource_ref
-    ledger = StateStoreAutomationHoldLedger(audit, clock=lambda: _NOW)
-    await ledger.issue(
-        target_ref=target,
-        process_id=_HOLD_PROCESS_ID,
-        reason="compensation_failed",
-    )
-    receipt = await _release_hold(
-        audit,
-        target_ref=target,
-        action_id=str(action.action_id),
-        hold_revision=1,
-        admission_receipt_digest="sha256:" + "e" * 64,
-        step_id="recover_first",
-    )
-    assert receipt is not None
-
+async def _execute_with_ledger(
+    audit: InMemoryStateStore,
+    ledger: StateStoreAutomationHoldLedger,
+    action,
+):
     coordinator, lock = _coordinator(
         audit,
         hold_state_reader=ledger,
         hold_release_authorizations=ledger,
         commitment_store=await _workflow_commitment_store(),
     )
-    adapter = RecordingDirectApiExecutor()
-    executor = DirectApiShadowExecutor(
-        executor=adapter,
-        audit_store=audit,
-        resource_lock=lock,
-        safeguard_coordinator=coordinator,
-    )
-
+    executor, adapter = _direct_executor(audit, coordinator, lock)
     result = await executor.execute(action=action)
+    return result, adapter
 
+
+async def test_released_hold_with_matching_lineage_permits_dispatch() -> None:
+    audit = InMemoryStateStore(linearization_clock=lambda: _NOW)
+    action = _workflow_action(_direct_action(), "recover_first")
+    target = action.target_resource_ref
+    ledger = StateStoreAutomationHoldLedger(audit, clock=lambda: _NOW)
+    await ledger.issue(target_ref=target, process_id=_HOLD_PROCESS_ID, reason="compensation_failed")
+    receipt = await _release_hold(audit, target_ref=target, action_id=str(action.action_id))
+    assert receipt is not None
+    result, adapter = await _execute_with_ledger(audit, ledger, action)
     assert result.outcome is DirectApiExecutionOutcome.DISPATCHED
     assert len(adapter.records) == 1
     assert not any(
@@ -725,76 +687,20 @@ async def test_released_hold_without_authorization_for_this_action_is_denied() -
     action = _workflow_action(_direct_action(), "recover_other")
     target = action.target_resource_ref
     ledger = StateStoreAutomationHoldLedger(audit, clock=lambda: _NOW)
-    await ledger.issue(
-        target_ref=target,
-        process_id=_HOLD_PROCESS_ID,
-        reason="compensation_failed",
-    )
-    await ledger.issue(
-        target_ref=target,
-        process_id=_HOLD_PROCESS_ID,
-        reason="still_failing",
-    )
-
-    coordinator, lock = _coordinator(
-        audit,
-        hold_state_reader=ledger,
-        hold_release_authorizations=ledger,
-        commitment_store=await _workflow_commitment_store(),
-    )
-    adapter = RecordingDirectApiExecutor()
-    executor = DirectApiShadowExecutor(
-        executor=adapter,
-        audit_store=audit,
-        resource_lock=lock,
-        safeguard_coordinator=coordinator,
-    )
-
-    result = await executor.execute(action=action)
-
+    await ledger.issue(target_ref=target, process_id=_HOLD_PROCESS_ID, reason="compensation_failed")
+    await ledger.issue(target_ref=target, process_id=_HOLD_PROCESS_ID, reason="still_failing")
+    result, adapter = await _execute_with_ledger(audit, ledger, action)
     assert len(adapter.records) == 0
     assert result.outcome is not DirectApiExecutionOutcome.DISPATCHED
-    denial = next(
-        row["entry"]
-        for row in audit.audit_entries
-        if row["entry"].get("action_kind") == "executor.hold_dispatch_fence.denied"
-    )
-    assert denial["rejection_reasons"] == ["active_hold"]
+    assert _hold_denial(audit)["rejection_reasons"] == ["active_hold"]
 
 
 async def test_hold_scoped_authorization_permits_the_approved_recovery_step() -> None:
     audit = InMemoryStateStore(linearization_clock=lambda: _NOW)
     action = _workflow_action(_direct_action(), "recover_first")
-    target = action.target_resource_ref
     ledger = StateStoreAutomationHoldLedger(audit, clock=lambda: _NOW)
-    await ledger.issue(
-        target_ref=target,
-        process_id=_HOLD_PROCESS_ID,
-        reason="compensation_failed",
-    )
-    assert await ledger.authorize_hold_scoped_dispatch(
-        target_ref=target,
-        process_id=_HOLD_PROCESS_ID,
-        step_id="recover_first",
-        hold_revision=1,
-    )
-
-    coordinator, lock = _coordinator(
-        audit,
-        hold_state_reader=ledger,
-        hold_release_authorizations=ledger,
-        commitment_store=await _workflow_commitment_store(),
-    )
-    adapter = RecordingDirectApiExecutor()
-    executor = DirectApiShadowExecutor(
-        executor=adapter,
-        audit_store=audit,
-        resource_lock=lock,
-        safeguard_coordinator=coordinator,
-    )
-
-    result = await executor.execute(action=action)
-
+    await _issue_and_authorize_scoped(ledger, action.target_resource_ref)
+    result, adapter = await _execute_with_ledger(audit, ledger, action)
     assert result.outcome is DirectApiExecutionOutcome.DISPATCHED
     assert len(adapter.records) == 1
     assert not any(
@@ -808,51 +714,18 @@ async def test_hold_scoped_authorization_is_denied_after_the_hold_moves() -> Non
     action = _workflow_action(_direct_action(), "recover_first")
     target = action.target_resource_ref
     ledger = StateStoreAutomationHoldLedger(audit, clock=lambda: _NOW)
-    await ledger.issue(
-        target_ref=target,
-        process_id=_HOLD_PROCESS_ID,
-        reason="compensation_failed",
-    )
-    assert await ledger.authorize_hold_scoped_dispatch(
-        target_ref=target,
-        process_id=_HOLD_PROCESS_ID,
-        step_id="recover_first",
-        hold_revision=1,
-    )
+    await _issue_and_authorize_scoped(ledger, target)
     released = await _release_hold(
         audit,
         target_ref=target,
         action_id="recovery-action-other",
-        hold_revision=1,
-        admission_receipt_digest="sha256:" + "e" * 64,
         step_id="recover_other",
     )
     assert released is not None
-
-    coordinator, lock = _coordinator(
-        audit,
-        hold_state_reader=ledger,
-        hold_release_authorizations=ledger,
-        commitment_store=await _workflow_commitment_store(),
-    )
-    adapter = RecordingDirectApiExecutor()
-    executor = DirectApiShadowExecutor(
-        executor=adapter,
-        audit_store=audit,
-        resource_lock=lock,
-        safeguard_coordinator=coordinator,
-    )
-
-    result = await executor.execute(action=action)
-
+    result, adapter = await _execute_with_ledger(audit, ledger, action)
     assert len(adapter.records) == 0
     assert result.outcome is not DirectApiExecutionOutcome.DISPATCHED
-    denial = next(
-        row["entry"]
-        for row in audit.audit_entries
-        if row["entry"].get("action_kind") == "executor.hold_dispatch_fence.denied"
-    )
-    assert denial["rejection_reasons"] == ["hold_authorization_mismatch"]
+    assert _hold_denial(audit)["rejection_reasons"] == ["hold_authorization_mismatch"]
 
 
 async def test_a_hold_reissued_under_a_scoped_authorization_is_denied() -> None:
@@ -860,23 +733,11 @@ async def test_a_hold_reissued_under_a_scoped_authorization_is_denied() -> None:
     action = _workflow_action(_direct_action(), "recover_first")
     target = action.target_resource_ref
     ledger = StateStoreAutomationHoldLedger(audit, clock=lambda: _NOW)
-    await ledger.issue(
-        target_ref=target,
-        process_id=_HOLD_PROCESS_ID,
-        reason="compensation_failed",
-    )
-    assert await ledger.authorize_hold_scoped_dispatch(
-        target_ref=target,
-        process_id=_HOLD_PROCESS_ID,
-        step_id="recover_first",
-        hold_revision=1,
-    )
+    await _issue_and_authorize_scoped(ledger, target)
     released = await _release_hold(
         audit,
         target_ref=target,
         action_id="recovery-action-other",
-        hold_revision=1,
-        admission_receipt_digest="sha256:" + "e" * 64,
         step_id="recover_other",
     )
     assert released is not None
@@ -885,31 +746,10 @@ async def test_a_hold_reissued_under_a_scoped_authorization_is_denied() -> None:
         process_id=_HOLD_PROCESS_ID,
         reason="compensation_failed_again",
     )
-
-    coordinator, lock = _coordinator(
-        audit,
-        hold_state_reader=ledger,
-        hold_release_authorizations=ledger,
-        commitment_store=await _workflow_commitment_store(),
-    )
-    adapter = RecordingDirectApiExecutor()
-    executor = DirectApiShadowExecutor(
-        executor=adapter,
-        audit_store=audit,
-        resource_lock=lock,
-        safeguard_coordinator=coordinator,
-    )
-
-    result = await executor.execute(action=action)
-
+    result, adapter = await _execute_with_ledger(audit, ledger, action)
     assert len(adapter.records) == 0
     assert result.outcome is not DirectApiExecutionOutcome.DISPATCHED
-    denial = next(
-        row["entry"]
-        for row in audit.audit_entries
-        if row["entry"].get("action_kind") == "executor.hold_dispatch_fence.denied"
-    )
-    assert sorted(denial["rejection_reasons"]) == [
+    assert sorted(_hold_denial(audit)["rejection_reasons"]) == [  # type: ignore[arg-type]
         "active_hold",
         "hold_authorization_mismatch",
     ]
@@ -919,17 +759,7 @@ async def test_an_unreadable_dispatch_authorization_fences_dispatch_closed() -> 
     audit = InMemoryStateStore(linearization_clock=lambda: _NOW)
     action = _workflow_action(_direct_action(), "recover_first")
     ledger = StateStoreAutomationHoldLedger(audit, clock=lambda: _NOW)
-    await ledger.issue(
-        target_ref=action.target_resource_ref,
-        process_id=_HOLD_PROCESS_ID,
-        reason="compensation_failed",
-    )
-    await ledger.authorize_hold_scoped_dispatch(
-        target_ref=action.target_resource_ref,
-        process_id=_HOLD_PROCESS_ID,
-        step_id="recover_first",
-        hold_revision=1,
-    )
+    await _issue_and_authorize_scoped(ledger, action.target_resource_ref)
     key = next(
         stored
         for stored in audit._state
@@ -938,28 +768,7 @@ async def test_an_unreadable_dispatch_authorization_fences_dispatch_closed() -> 
     record = await audit.read_state(key)
     assert record is not None
     await audit.write_state(key, {**dict(record), "authorization_kind": "forged"})
-
-    coordinator, lock = _coordinator(
-        audit,
-        hold_state_reader=ledger,
-        hold_release_authorizations=ledger,
-        commitment_store=await _workflow_commitment_store(),
-    )
-    adapter = RecordingDirectApiExecutor()
-    executor = DirectApiShadowExecutor(
-        executor=adapter,
-        audit_store=audit,
-        resource_lock=lock,
-        safeguard_coordinator=coordinator,
-    )
-
-    result = await executor.execute(action=action)
-
+    result, adapter = await _execute_with_ledger(audit, ledger, action)
     assert len(adapter.records) == 0
     assert result.outcome is not DirectApiExecutionOutcome.DISPATCHED
-    denial = next(
-        row["entry"]
-        for row in audit.audit_entries
-        if row["entry"].get("action_kind") == "executor.hold_dispatch_fence.denied"
-    )
-    assert denial["rejection_reasons"] == ["unreadable_state"]
+    assert _hold_denial(audit)["rejection_reasons"] == ["unreadable_state"]

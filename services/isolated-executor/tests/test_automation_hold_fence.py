@@ -330,3 +330,85 @@ async def test_malformed_hold_revision_never_authorizes_dispatch() -> None:
     assert result.outcome is DirectApiEffectOutcome.REJECTED_INVARIANT
     assert result.reason == "active automation hold lacks exact recovery-step authorization"
     assert provider.calls == 0
+
+
+async def test_authorization_without_hold_and_malformed_or_released_hold_states() -> None:
+    from fdai_executor_service.automation_hold_fence import automation_hold_refusal
+
+    action = _action(with_workflow=True)
+    lock = _Lock()
+    target_digest = hashlib.sha256(_TARGET.encode()).hexdigest()
+    auth_key = _authorization_key(action)
+
+    async with lock.acquire(resource_lock_key(_TARGET)):
+        orphan_store = _StateStore({auth_key: {"authorization_kind": "hold_scoped"}}, lock)
+        assert (
+            await automation_hold_refusal(action, state_store=orphan_store)  # type: ignore[arg-type]
+            == "automation hold authorization exists without matching hold state"
+        )
+
+        malformed_store = _StateStore(
+            {_hold_key(): {"target_digest": "wrong", "revision": 1, "state": "active"}},
+            lock,
+        )
+        assert (
+            await automation_hold_refusal(action, state_store=malformed_store)  # type: ignore[arg-type]
+            == "automation hold state is malformed"
+        )
+
+        unknown_state_store = _StateStore(
+            {_hold_key(): {"target_digest": target_digest, "revision": 1, "state": "paused"}},
+            lock,
+        )
+        assert (
+            await automation_hold_refusal(action, state_store=unknown_state_store)  # type: ignore[arg-type]
+            == "automation hold state is malformed"
+        )
+
+        no_receipt_store = _StateStore(
+            {
+                _hold_key(): {
+                    "target_digest": target_digest,
+                    "revision": 2,
+                    "state": "released",
+                    "release_receipt": "not-a-mapping",
+                },
+                auth_key: {"authorization_kind": "released"},
+            },
+            lock,
+        )
+        assert (
+            await automation_hold_refusal(action, state_store=no_receipt_store)  # type: ignore[arg-type]
+            == "released automation hold lineage does not match this workflow step"
+        )
+
+        valid_released_store = _StateStore(
+            {
+                _hold_key(): {
+                    "target_digest": target_digest,
+                    "revision": 2,
+                    "fencing_generation": 2,
+                    "state": "released",
+                    "release_receipt": {
+                        "receipt_digest": "sha256:" + "c" * 64,
+                        "released_hold_revision": 1,
+                        "fencing_generation": 2,
+                    },
+                },
+                auth_key: {
+                    "authorization_kind": "released",
+                    "target_digest": f"sha256:{target_digest}",
+                    "process_id": "process-1",
+                    "step_id": "recover_" + "a" * 32,
+                    "execution_authority": False,
+                    "released_hold_revision": 1,
+                    "fencing_generation": 2,
+                    "release_receipt_digest": "sha256:" + "c" * 64,
+                },
+            },
+            lock,
+        )
+        assert (
+            await automation_hold_refusal(action, state_store=valid_released_store)  # type: ignore[arg-type]
+            is None
+        )

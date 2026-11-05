@@ -8,9 +8,13 @@ from fdai.core.quality_gate import (
     DeterministicEvidenceKind,
     DeterministicEvidenceStatus,
     DeterministicVerifierEvidence,
+    HashedRuleEmbeddingIndex,
     QualityCandidate,
     QualityGate,
     QualityOutcome,
+    RagGroundingSource,
+    RuleBasedVerifier,
+    RuleEmbeddingIndex,
     quality_candidate_digest,
 )
 from fdai.core.quality_gate.testing import (
@@ -266,3 +270,170 @@ async def test_unavailable_evidence_cannot_reach_the_risk_gate() -> None:
 
     assert decision.outcome is T2Outcome.ESCALATE
     assert decision.eligible_for_risk_gate is False
+
+
+# ---------------------------------------------------------------------------
+# RuleBasedVerifier unit coverage
+# ---------------------------------------------------------------------------
+
+
+def _catalog_rule(
+    rule_id: str = "rule-a",
+    *,
+    resource_type: str = "compute.vm",
+    applies_to: list[str] | None = None,
+    remediates: str = "remediate.tag-add",
+    alternatives: list[str] | None = None,
+    reference: str = "policies/tag_owner.rego",
+) -> Rule:
+    return Rule(
+        schema_version="1.0.0",
+        id=rule_id,
+        version="1.0.0",
+        source=RuleSource.CUSTOM,
+        severity=Severity.LOW,
+        category=Category.SECURITY,
+        resource_type=resource_type,
+        applies_to=applies_to or [],
+        check_logic=CheckLogic(kind=CheckLogicKind.REGO, reference=reference),
+        remediation=Remediation(template_ref="remediation/x.tftpl"),
+        remediates=remediates,
+        alternatives=alternatives or [],
+        provenance=Provenance(
+            source_url="https://example.com/x",
+            resolved_ref="0" * 40,
+            content_hash="sha256:0",
+            license="MIT",
+            redistribution=Redistribution.EMBEDDABLE,
+            retrieved_at="2026-07-05T00:00:00Z",  # type: ignore[arg-type]
+        ),
+    )
+
+
+def test_rule_based_verifier_abstains_when_no_cited_rules_resolve() -> None:
+    verifier = RuleBasedVerifier(rules_by_id={"rule-a": _catalog_rule()})
+    assert verifier.verify(replace(_candidate(), cited_rule_ids=())) is None
+    assert verifier.verify(replace(_candidate(), cited_rule_ids=("unknown-rule",))) is None
+
+
+def test_rule_based_verifier_abstains_when_target_resource_type_cannot_be_resolved() -> None:
+    no_type_candidate = replace(_candidate(), target_resource_type=None)
+    verifier_without_lookup = RuleBasedVerifier(rules_by_id={"rule-a": _catalog_rule()})
+    assert verifier_without_lookup.verify(no_type_candidate) is None
+
+    verifier_missing_ref = RuleBasedVerifier(
+        rules_by_id={"rule-a": _catalog_rule()},
+        target_resource_type_lookup={"other-resource": "compute.vm"},
+    )
+    assert verifier_missing_ref.verify(no_type_candidate) is None
+
+
+def test_rule_based_verifier_resolves_target_type_from_lookup_and_matches_remediates() -> None:
+    no_type_candidate = replace(_candidate(), target_resource_type=None)
+    verifier = RuleBasedVerifier(
+        rules_by_id={"rule-a": _catalog_rule()},
+        target_resource_type_lookup={"resource-a": "compute.vm"},
+    )
+    assert verifier.verify(no_type_candidate) is True
+
+
+def test_rule_based_verifier_matches_alternatives_and_applies_to_list() -> None:
+    rule_mismatch_type = _catalog_rule("rule-mismatch", resource_type="storage.bucket")
+    rule_applies_to = _catalog_rule(
+        "rule-alt",
+        resource_type="compute.scale-set",
+        applies_to=["compute.vm"],
+        remediates="remediate.restart",
+        alternatives=["remediate.tag-add"],
+    )
+    verifier = RuleBasedVerifier(
+        rules_by_id={"rule-mismatch": rule_mismatch_type, "rule-alt": rule_applies_to}
+    )
+    candidate = replace(_candidate(), cited_rule_ids=("rule-mismatch", "rule-alt"))
+    assert verifier.verify(candidate) is True
+
+
+def test_rule_based_verifier_denies_when_cited_rules_do_not_authorize_action() -> None:
+    rule_no_alt = _catalog_rule("rule-1", remediates="remediate.restart", alternatives=[])
+    rule_other_alt = _catalog_rule(
+        "rule-2", remediates="remediate.restart", alternatives=["remediate.reimage"]
+    )
+    rule_wrong_type = _catalog_rule("rule-3", resource_type="network.vnet")
+    verifier = RuleBasedVerifier(
+        rules_by_id={
+            "rule-1": rule_no_alt,
+            "rule-2": rule_other_alt,
+            "rule-3": rule_wrong_type,
+        }
+    )
+    candidate = replace(_candidate(), cited_rule_ids=("rule-1", "rule-2", "rule-3"))
+    assert verifier.verify(candidate) is False
+
+
+# ---------------------------------------------------------------------------
+# HashedRuleEmbeddingIndex & RagGroundingSource unit coverage
+# ---------------------------------------------------------------------------
+
+
+def test_hashed_rule_embedding_index_validation_and_cosine() -> None:
+    with pytest.raises(ValueError, match="dim MUST be >= 1"):
+        HashedRuleEmbeddingIndex(dim=0)
+    with pytest.raises(ValueError, match="dim MUST be >= 1"):
+        HashedRuleEmbeddingIndex(dim=True)
+
+    index = HashedRuleEmbeddingIndex(dim=16)
+    assert isinstance(index, RuleEmbeddingIndex)
+    assert index.dim == 16
+
+    zero_vec = index.encode("   ---   ")
+    assert all(v == 0.0 for v in zero_vec)
+
+    vec_a = index.encode("remediate.tag-add tag_name=owner")
+    vec_b = index.encode("remediate.tag-add tag_name=owner")
+    assert index.cosine(vec_a, vec_b) == pytest.approx(1.0)
+    assert index.cosine(zero_vec, vec_a) == 0.0
+    assert index.cosine(vec_a, zero_vec) == 0.0
+
+    with pytest.raises(ValueError, match="equal-length vectors"):
+        index.cosine((1.0, 0.0), (1.0,))
+
+
+def test_rag_grounding_source_validation_and_supports_branches() -> None:
+    index = HashedRuleEmbeddingIndex(dim=32)
+    rule_primary = _catalog_rule(
+        "rule-a",
+        remediates="remediate.tag-add",
+        alternatives=["remediate.custom-fallback"],
+        reference="policies/tag_add_owner.rego",
+    )
+    with pytest.raises(ValueError, match="threshold MUST be in"):
+        RagGroundingSource(rules={"rule-a": rule_primary}, embedding_index=index, threshold=1.2)
+    with pytest.raises(ValueError, match="threshold MUST be in"):
+        RagGroundingSource(rules={"rule-a": rule_primary}, embedding_index=index, threshold=-1.2)
+
+    source = RagGroundingSource(
+        rules={"rule-a": rule_primary},
+        embedding_index=index,
+        threshold=0.3,
+    )
+    assert source.known_rule_ids() == {"rule-a"}
+    assert source.known_rule_count == 1
+    assert source.threshold == pytest.approx(0.3)
+    assert source.get("rule-a") == rule_primary
+    assert source.get("unknown") is None
+
+    # Unknown rule id returns False.
+    assert source.supports(_candidate(), "unknown") is False
+
+    # Exact match in Rule.alternatives returns True before similarity calculation.
+    alt_candidate = replace(_candidate(), action_type="remediate.custom-fallback", params={})
+    assert source.supports(alt_candidate, "rule-a") is True
+
+    # Candidate with empty params vs non-empty params on similarity path.
+    empty_params_candidate = replace(_candidate(), params={})
+    assert source.supports(empty_params_candidate, "rule-a") is True
+    assert source.supports(_candidate(), "rule-a") is True
+
+    # Unrelated action_type with zero shared tokens fails threshold.
+    unrelated = replace(_candidate(), action_type=" isolate.quantum.flux ", params={})
+    assert source.supports(unrelated, "rule-a") is False

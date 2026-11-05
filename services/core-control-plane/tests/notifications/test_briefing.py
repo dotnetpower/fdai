@@ -143,3 +143,67 @@ def test_no_guard_breaches_reports_within_threshold() -> None:
     briefing = composer.compose(_busy_input())
     assert briefing.escalations == ()
     assert "All guard metrics within threshold." in briefing.sections["guardrails"]
+
+
+def test_actions_alone_make_window_significant_without_rollbacks() -> None:
+    composer = StakeholderBriefingComposer()
+    briefing = composer.compose(
+        BriefingInput(
+            window_label="2026-W31",
+            incidents=IncidentTally(by_severity={}, opened=0, resolved=0),
+            actions=ActionTally(
+                auto_executed=2,
+                hil_approved=0,
+                rolled_back=0,
+                shadow_only=0,
+            ),
+        )
+    )
+    assert briefing.has_significant_activity is True
+    assert "rolled back" not in briefing.content.splitlines()[2]
+
+
+def test_forecast_risks_or_guard_breaches_alone_make_window_significant() -> None:
+    composer = StakeholderBriefingComposer()
+    briefing = composer.compose(
+        BriefingInput(
+            window_label="2026-W32",
+            incidents=IncidentTally(by_severity={}, opened=0, resolved=0),
+            actions=ActionTally(auto_executed=0, hil_approved=0, rolled_back=0, shadow_only=0),
+            forecast_risks=(
+                ForecastRisk(
+                    label="cert expiry",
+                    horizon="48h",
+                    detail="ingress TLS certificate expires soon",
+                ),
+            ),
+        )
+    )
+    assert briefing.has_significant_activity is True
+
+
+def test_large_cost_delta_alone_makes_window_significant() -> None:
+    composer = StakeholderBriefingComposer()
+    briefing = composer.compose(
+        BriefingInput(
+            window_label="2026-W33",
+            incidents=IncidentTally(by_severity={}, opened=0, resolved=0),
+            actions=ActionTally(auto_executed=0, hil_approved=0, rolled_back=0, shadow_only=0),
+            cost=CostSnapshot(current_run_rate=250.0, delta_pct=-3.5, top_drivers=()),
+        )
+    )
+    assert briefing.has_significant_activity is True
+    assert "down 3.5%" in briefing.sections["cost"]
+    assert "no dominant drivers" in briefing.sections["cost"]
+
+
+def test_incidents_without_severity_breakdown_render_fallback_note() -> None:
+    composer = StakeholderBriefingComposer()
+    briefing = composer.compose(
+        BriefingInput(
+            window_label="2026-W34",
+            incidents=IncidentTally(by_severity={}, opened=1, resolved=1),
+            actions=ActionTally(auto_executed=0, hil_approved=0, rolled_back=0, shadow_only=0),
+        )
+    )
+    assert "no per-severity breakdown recorded" in briefing.sections["incidents"]

@@ -21,6 +21,11 @@ from fdai.core.risk_gate.approval_profile import (
     evaluate_profile_approval,
     profile_transition_quorum,
 )
+from fdai.core.risk_gate.approval_profile_store import (
+    _history_profile_digest,
+    _history_revision_id,
+    approval_profile_pin_is_authorized,
+)
 from fdai.core.risk_gate.authority import evaluate_execution_authority
 from fdai.core.risk_gate.ceiling import AxisLevel
 from fdai.runtime.approval_profile import (
@@ -209,6 +214,13 @@ async def _activate_profile(
             "activated_at": _AT.isoformat(),
         },
     )
+    await store.write_state(
+        f"policy_activation_history:approval-profile:{payload['policy_digest']}",
+        {
+            "approval_profile_digest": payload["policy_digest"],
+            "revision_id": record.revision_id,
+        },
+    )
 
 
 def _multi() -> ApprovalProfileRevision:
@@ -293,27 +305,36 @@ def test_approval_profile_rejects_noncanonical_effective_from(effective_from: st
         ApprovalPolicyContent(document=payload)
 
 
-def test_active_policy_pointer_wins_over_bootstrap_profile_and_audits_mismatch() -> None:
-    store = InMemoryStateStore()
-    active_payload = _profile_payload_with_revision("approval-profile-r2", "active@example.com")
-    bootstrap_payload = _profile_payload_with_revision(
-        "approval-profile-bootstrap",
-        "bootstrap@example.com",
-    )
-    asyncio.run(_activate_profile(store, active_payload))
-
-    loaded = asyncio.run(
+def _load_active(
+    store: InMemoryStateStore,
+    env: dict[str, str] | None = None,
+    *,
+    verifier: _SignatureVerifier | None = None,
+    audit: bool = False,
+) -> ApprovalProfileRevision | None:
+    return asyncio.run(
         load_active_approval_profile(
-            {PROFILE_JSON_ENV: json.dumps(bootstrap_payload)},
-            reader=StateStoreApprovalProfileRevisionReader(
-                store,
-                signature_verifier=_SignatureVerifier(),
-            ),
-            audit_store=store,
+            {} if env is None else env,
+            reader=StateStoreApprovalProfileRevisionReader(store, signature_verifier=verifier),
+            audit_store=store if audit else None,
             clock=lambda: _AT,
         )
     )
 
+
+def test_active_policy_pointer_wins_over_bootstrap_profile_and_audits_mismatch() -> None:
+    store = InMemoryStateStore()
+    active_payload = _profile_payload_with_revision("approval-profile-r2", "active@example.com")
+    bootstrap_payload = _profile_payload_with_revision(
+        "approval-profile-bootstrap", "bootstrap@example.com"
+    )
+    asyncio.run(_activate_profile(store, active_payload))
+    loaded = _load_active(
+        store,
+        {PROFILE_JSON_ENV: json.dumps(bootstrap_payload)},
+        verifier=_SignatureVerifier(),
+        audit=True,
+    )
     assert loaded is not None
     assert loaded.revision_id == "approval-profile-r2"
     assert loaded.operator_principal == "active@example.com"
@@ -330,28 +351,16 @@ def test_active_policy_pointer_digest_mismatch_fails_closed() -> None:
     record["content"]["document"]["policy_digest"] = "sha256:" + "3" * 64
     asyncio.run(
         store.write_state(
-            f"policy_revision:{PolicyKind.APPROVAL.value}:approval-profile-r2",
-            record,
+            f"policy_revision:{PolicyKind.APPROVAL.value}:approval-profile-r2", record
         )
     )
     asyncio.run(
         store.write_state(
-            f"policy_activation:{PolicyKind.APPROVAL.value}",
-            {"revision_id": "approval-profile-r2"},
+            f"policy_activation:{PolicyKind.APPROVAL.value}", {"revision_id": "approval-profile-r2"}
         )
     )
-
     with pytest.raises(RuntimeError, match="active approval profile revision is invalid"):
-        asyncio.run(
-            load_active_approval_profile(
-                {},
-                reader=StateStoreApprovalProfileRevisionReader(
-                    store,
-                    signature_verifier=_SignatureVerifier(),
-                ),
-                clock=lambda: _AT,
-            )
-        )
+        _load_active(store, verifier=_SignatureVerifier())
 
 
 @pytest.mark.parametrize(
@@ -369,18 +378,8 @@ def test_active_policy_pointer_without_verified_signature_fails_closed_instead_o
     store = InMemoryStateStore()
     payload = _profile_payload_with_revision("approval-profile-r2", "active@example.com")
     asyncio.run(_activate_profile(store, payload, signature_base64=signature_base64))
-
     with pytest.raises(RuntimeError, match="active approval profile revision is invalid"):
-        asyncio.run(
-            load_active_approval_profile(
-                {PROFILE_JSON_ENV: _single_json()},
-                reader=StateStoreApprovalProfileRevisionReader(
-                    store,
-                    signature_verifier=verifier,
-                ),
-                clock=lambda: _AT,
-            )
-        )
+        _load_active(store, {PROFILE_JSON_ENV: _single_json()}, verifier=verifier)
 
 
 def test_active_policy_document_swapped_under_valid_signature_fails_closed() -> None:
@@ -393,33 +392,15 @@ def test_active_policy_document_swapped_under_valid_signature_fails_closed() -> 
     stored = asyncio.run(store.read_state(key))
     assert stored is not None
     stored["content"]["document"] = _profile_payload_with_revision(
-        "approval-profile-r2",
-        "attacker@example.com",
+        "approval-profile-r2", "attacker@example.com"
     )
     asyncio.run(store.write_state(key, stored))
-
     with pytest.raises(RuntimeError, match="active approval profile revision is invalid"):
-        asyncio.run(
-            load_active_approval_profile(
-                {},
-                reader=StateStoreApprovalProfileRevisionReader(
-                    store,
-                    signature_verifier=_SignatureVerifier(),
-                ),
-                clock=lambda: _AT,
-            )
-        )
+        _load_active(store, verifier=_SignatureVerifier())
 
 
 def test_missing_policy_pointer_keeps_bootstrap_profile_without_verifier() -> None:
-    loaded = asyncio.run(
-        load_active_approval_profile(
-            {PROFILE_JSON_ENV: _single_json()},
-            reader=StateStoreApprovalProfileRevisionReader(InMemoryStateStore()),
-            clock=lambda: _AT,
-        )
-    )
-
+    loaded = _load_active(InMemoryStateStore(), {PROFILE_JSON_ENV: _single_json()})
     assert loaded is not None
     assert loaded.as_audit_dict() == _single().as_audit_dict()
 
@@ -430,15 +411,8 @@ def test_malformed_active_policy_pointer_fails_closed_instead_of_env_fallback(
 ) -> None:
     store = InMemoryStateStore()
     asyncio.run(store.write_state(f"policy_activation:{PolicyKind.APPROVAL.value}", activation))
-
     with pytest.raises(RuntimeError, match="active approval profile revision is invalid"):
-        asyncio.run(
-            load_active_approval_profile(
-                {PROFILE_JSON_ENV: _single_json()},
-                reader=StateStoreApprovalProfileRevisionReader(store),
-                clock=lambda: _AT,
-            )
-        )
+        _load_active(store, {PROFILE_JSON_ENV: _single_json()})
 
 
 def test_parked_profile_digest_mismatch_is_malformed() -> None:
@@ -607,26 +581,22 @@ def test_governance_quorum_never_below_two() -> None:
 # --- execution authority integration ----------------------------------------
 
 
-def test_single_operator_reduces_irreversible_quorum_but_keeps_hil() -> None:
-    baseline = evaluate_execution_authority(
+def _eval_auth(action_type: OntologyActionType | None = None, **kwargs: object):  # type: ignore[no-untyped-def]
+    return evaluate_execution_authority(
         tier=Tier.T0,
-        action_type=_irreversible_at(),
+        action_type=action_type or _low_risk_at(),
         table=_table(),
         principal_role=None,
         environment="non-prod",
-        cost_impact_monthly=10.0,
+        **kwargs,  # type: ignore[arg-type]
     )
+
+
+def test_single_operator_reduces_irreversible_quorum_but_keeps_hil() -> None:
+    baseline = _eval_auth(_irreversible_at(), cost_impact_monthly=10.0)
     assert baseline.decision == "hil"
     assert baseline.quorum == 2
-    decision = evaluate_execution_authority(
-        tier=Tier.T0,
-        action_type=_irreversible_at(),
-        table=_table(),
-        principal_role=None,
-        environment="non-prod",
-        cost_impact_monthly=10.0,
-        approval_profile=_single(),
-    )
+    decision = _eval_auth(_irreversible_at(), cost_impact_monthly=10.0, approval_profile=_single())
     assert decision.decision == "hil"
     assert decision.original_quorum == 2
     assert decision.quorum == 1
@@ -638,36 +608,16 @@ def test_single_operator_reduces_irreversible_quorum_but_keeps_hil() -> None:
 
 
 def test_multi_operator_profile_keeps_irreversible_quorum_of_two() -> None:
-    decision = evaluate_execution_authority(
-        tier=Tier.T0,
-        action_type=_irreversible_at(),
-        table=_table(),
-        principal_role=None,
-        environment="non-prod",
-        cost_impact_monthly=10.0,
-        approval_profile=_multi(),
-    )
+    decision = _eval_auth(_irreversible_at(), cost_impact_monthly=10.0, approval_profile=_multi())
     assert decision.decision == "hil"
     assert decision.quorum == 2
 
 
 def test_single_operator_never_raises_a_denial_or_shadow_cap() -> None:
-    denied = evaluate_execution_authority(
-        tier=Tier.T0,
-        action_type=_low_risk_at(),
-        table=_table(),
-        principal_role=None,
-        environment="non-prod",
-        policy_violation=True,
-        approval_profile=_single(),
-    )
+    denied = _eval_auth(policy_violation=True, approval_profile=_single())
     assert denied.decision == "deny"
-    capped = evaluate_execution_authority(
-        tier=Tier.T0,
-        action_type=_destructive_at(),
-        table=_table(),
-        principal_role=None,
-        environment="non-prod",
+    capped = _eval_auth(
+        _destructive_at(),
         cost_impact_monthly=10.0,
         kill_switch_engaged=True,
         approval_profile=_single(),
@@ -676,30 +626,14 @@ def test_single_operator_never_raises_a_denial_or_shadow_cap() -> None:
 
 
 def test_single_operator_leaves_auto_decisions_unchanged() -> None:
-    decision = evaluate_execution_authority(
-        tier=Tier.T0,
-        action_type=_low_risk_at(),
-        table=_table(),
-        principal_role=None,
-        environment="non-prod",
-        cost_impact_monthly=50.0,
-        approval_profile=_single(),
-    )
+    decision = _eval_auth(cost_impact_monthly=50.0, approval_profile=_single())
     assert decision.decision == "auto"
     assert decision.quorum == decision.original_quorum
 
 
 def test_approval_profile_and_development_profile_are_mutually_exclusive() -> None:
     with pytest.raises(ValueError, match="MUST NOT both"):
-        evaluate_execution_authority(
-            tier=Tier.T0,
-            action_type=_low_risk_at(),
-            table=_table(),
-            principal_role=None,
-            environment="non-prod",
-            approval_profile=_single(),
-            development_profile={"profile_id": "unused"},
-        )
+        _eval_auth(approval_profile=_single(), development_profile={"profile_id": "unused"})
 
 
 # --- operator policy never raises past hard constraints ---------------------
@@ -724,12 +658,7 @@ def test_operator_policy_combination_never_raises(
 
 
 def test_operator_revision_allowing_a_hard_constraint_violation_still_denies() -> None:
-    decision = evaluate_execution_authority(
-        tier=Tier.T0,
-        action_type=_low_risk_at(),
-        table=_table(),
-        principal_role=None,
-        environment="non-prod",
+    decision = _eval_auth(
         policy_violation=True,
         operator_policy=_allow_all(),
         approval_profile=_single(),
@@ -743,35 +672,19 @@ def test_operator_revision_allowing_a_hard_constraint_violation_still_denies() -
 
 
 def test_operator_allow_cannot_lift_irreversible_hil_to_auto() -> None:
-    decision = evaluate_execution_authority(
-        tier=Tier.T0,
-        action_type=_irreversible_at(),
-        table=_table(),
-        principal_role=None,
-        environment="non-prod",
-        cost_impact_monthly=10.0,
-        operator_policy=_allow_all(),
+    decision = _eval_auth(
+        _irreversible_at(), cost_impact_monthly=10.0, operator_policy=_allow_all()
     )
     assert decision.decision == "hil"
 
 
 def test_operator_policy_can_tighten_an_auto_decision() -> None:
-    decision = evaluate_execution_authority(
-        tier=Tier.T0,
-        action_type=_low_risk_at(),
-        table=_table(),
-        principal_role=None,
-        environment="non-prod",
+    decision = _eval_auth(
         cost_impact_monthly=50.0,
         operator_policy=replace(_allow_all(), outcome=OperatorPolicyOutcome.REQUIRE_APPROVAL),
     )
     assert decision.decision == "hil"
-    denied = evaluate_execution_authority(
-        tier=Tier.T0,
-        action_type=_low_risk_at(),
-        table=_table(),
-        principal_role=None,
-        environment="non-prod",
+    denied = _eval_auth(
         cost_impact_monthly=50.0,
         operator_policy=replace(_allow_all(), outcome=OperatorPolicyOutcome.DENY),
     )
@@ -783,3 +696,68 @@ def test_operator_policy_requires_a_pinned_digest() -> None:
         OperatorPolicyInput(
             revision_id="r", policy_digest="latest", outcome=OperatorPolicyOutcome.ALLOW
         )
+
+
+async def test_approval_profile_pin_authorization_store_and_fallbacks() -> None:
+    pinned = _single()
+    other_payload = _profile_payload_with_revision("approval-profile-r2", "other@example.com")
+    other = approval_profile_from_audit_dict(other_payload)
+    assert other is not None
+    assert _history_revision_id(None) is None
+    assert _history_revision_id({"revision_id": ""}) is None
+    assert _history_profile_digest(None) is None
+
+    assert await approval_profile_pin_is_authorized(None, pinned=pinned, bound=pinned) is True
+    assert (
+        await approval_profile_pin_is_authorized(None, pinned=pinned, bound=other, bootstrap=pinned)
+        is True
+    )
+    assert (
+        await approval_profile_pin_is_authorized(None, pinned=pinned, bound=other, bootstrap=other)
+        is False
+    )
+
+    store = InMemoryStateStore()
+    verifier = _SignatureVerifier()
+
+    async def _check() -> bool:
+        return await approval_profile_pin_is_authorized(
+            store, pinned=pinned, bound=None, signature_verifier=verifier
+        )
+
+    assert await approval_profile_pin_is_authorized(store, pinned=pinned, bound=None) is False
+    assert await _check() is False
+
+    await _activate_profile(store, _profile_payload())
+    assert await _check() is True
+
+    index_key = f"policy_activation_history:approval-profile:{pinned.policy_digest}"
+    index_row = await store.read_state(index_key)
+    assert index_row is not None
+    rev_id = str(index_row["revision_id"])
+    hist_key = f"policy_activation_history:{PolicyKind.APPROVAL.value}:{rev_id}"
+    rev_key = f"policy_revision:{PolicyKind.APPROVAL.value}:{rev_id}"
+    valid_hist = await store.read_state(hist_key)
+    valid_rev = await store.read_state(rev_key)
+    assert valid_hist is not None and valid_rev is not None
+
+    await store.write_state(index_key, {"revision_id": rev_id, "policy_digest": "wrong"})
+    assert await _check() is False
+    await store.write_state(index_key, {"revision_id": rev_id, "policy_digest": _DIGEST})
+    await store.write_state(hist_key, {"revision_id": "mismatch"})
+    assert await _check() is False
+    await store.write_state(hist_key, valid_hist)
+
+    for bad_rev in [
+        None,
+        {"content": "not-a-dict"},
+        {"content": {"document": "not-a-dict"}},
+        {"content": {"document": {"bad": 1}}},
+        {**valid_rev, "content_digest": "sha256:" + "0" * 64},
+        {**_policy_revision(other_payload).model_dump(mode="json"), "revision_id": rev_id},
+    ]:
+        if bad_rev is None:
+            store._state.pop(rev_key, None)
+        else:
+            await store.write_state(rev_key, bad_rev)
+        assert await _check() is False

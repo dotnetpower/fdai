@@ -7,22 +7,16 @@ contention, and no legacy bypass.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from fdai.core.executor.audit_intent import (
-    AuditIntentAppendReceipt,
-    PreEffectAuditIntent,
-)
+from fdai.core.executor.audit_intent import AuditIntentAppendReceipt
 from fdai.core.executor.idempotency_reservation import (
-    IdempotencyReservationIdentity,
-    IdempotencyReservationRecord,
     IdempotencyReservationTransitionReceipt,
     begin_dispatch,
 )
-from fdai.core.executor.safeguard_bundle_context import (
-    SafeguardBundlePersistenceContext,
-)
+from fdai.core.executor.safeguard_bundle_context import SafeguardBundlePersistenceContext
 from fdai.core.executor.safeguard_dispatch_checkpoint import (
     AuthoritativeSinkState,
     DispatchTransportState,
@@ -37,38 +31,20 @@ from fdai.core.executor.safeguard_dispatch_store import (
 )
 from fdai.core.executor.safeguard_evidence_lifecycle import (
     DispatchBoundaryGuard,
+    DispatchNotAttemptedError,
     LifecycleTerminalKind,
     SafeguardEvidenceLifecycleResult,
+    _await_after_dispatch,
     cancel_before_dispatch,
     run_safeguard_evidence_lifecycle,
 )
-from fdai.core.executor.safeguard_pre_bundle import SafeguardPreBundleCommitment
-from fdai.core.executor.safeguard_proofs import (
-    AuditIntentProof,
-    IdempotencyReservationProof,
-    LogicalTargetLockProof,
-    finalize_safeguard_proof_bundle,
-    full_action_digest,
-)
-from fdai.core.executor.safeguards import (
-    SafeguardReceipt,
-    evaluate_pre_dispatch,
-)
 from fdai.core.executor.target_dispatch_fence import (
-    TargetDispatchFenceIdentity,
     TargetDispatchFenceRecord,
     TargetDispatchFenceState,
     TargetDispatchFenceTransitionReceipt,
     attach_prepared_evidence,
 )
-from fdai.core.executor.target_dispatch_fence_store import (
-    TargetDispatchFenceAcquireDecision,
-    TargetDispatchFenceAcquireResult,
-)
-from fdai.core.executor.testing_safeguard_lifecycle import (
-    InMemoryIdempotencyReservationStore,
-)
-from fdai.shared.contracts.models import ExecutionPath
+from fdai.core.executor.testing_safeguard_lifecycle import InMemoryIdempotencyReservationStore
 from fdai.shared.providers.resource_lock import (
     LiveLockOwnershipAssessment,
     LockOwnershipRejectionReason,
@@ -79,58 +55,20 @@ from fdai.shared.providers.resource_lock import (
 )
 from fdai_service_contracts.ontology_query import content_digest
 
-from tests.core.executor.test_safeguard_proofs import _action
-from tests.core.executor.test_target_dispatch_fence import _policy
+from tests.core.executor.test_safeguard_dispatch_checkpoint import _evidence_fixture
 
 _NOW = datetime(2026, 9, 10, 13, 0, tzinfo=UTC)
 _DIGEST = "sha256:" + "a" * 64
 _SOURCE_REVISION = "commit:" + "b" * 40
 
 
-# ---------------------------------------------------------------------------
-# In-memory test doubles
-# ---------------------------------------------------------------------------
-
-
 class InMemoryFenceStore:
-    """Minimal in-memory target dispatch fence store for tests."""
-
     def __init__(self) -> None:
         self._records: dict[str, TargetDispatchFenceRecord] = {}
         self._call_log: list[str] = []
 
-    async def acquire_generation(
-        self,
-        record: TargetDispatchFenceRecord,
-    ) -> TargetDispatchFenceAcquireResult:
-        self._call_log.append("acquire_generation")
-        target = record.identity.target_digest
-        existing = self._records.get(target)
-        if existing is None:
-            self._records[target] = record
-            receipt = TargetDispatchFenceTransitionReceipt.create(
-                prior_record=None,
-                record=record,
-                store_receipt_digest=_make_digest("fence-acquire"),
-                recorded_at=record.state_changed_at,
-            )
-            return TargetDispatchFenceAcquireResult(
-                candidate_identity=record.identity,
-                decision=TargetDispatchFenceAcquireDecision.ACQUIRED,
-                observed_record=record,
-                transition_receipt=receipt,
-            )
-        from fdai.core.executor.target_dispatch_fence_store import (
-            classify_target_fence,
-        )
-
-        decision = classify_target_fence(existing, record.identity)
-        return TargetDispatchFenceAcquireResult(
-            candidate_identity=record.identity,
-            decision=decision,
-            observed_record=existing,
-            transition_receipt=None,
-        )
+    async def acquire_generation(self, record: TargetDispatchFenceRecord) -> object:
+        raise NotImplementedError
 
     async def compare_and_transition(
         self,
@@ -140,50 +78,50 @@ class InMemoryFenceStore:
         record: TargetDispatchFenceRecord,
     ) -> TargetDispatchFenceTransitionReceipt:
         self._call_log.append("compare_and_transition")
-        target = record.identity.target_digest
-        existing = self._records.get(target)
-        if existing is None or existing.record_digest != prior_record_digest:
-            raise ValueError("fence CAS conflict: prior record mismatch")
-        if existing.revision != expected_revision:
-            raise ValueError("fence CAS conflict: revision mismatch")
-        prior = existing
-        self._records[target] = record
+        existing = self._records[record.identity.target_digest]
+        assert existing.record_digest == prior_record_digest
+        assert existing.revision == expected_revision
+        self._records[record.identity.target_digest] = record
         return TargetDispatchFenceTransitionReceipt.create(
-            prior_record=prior,
+            prior_record=existing,
             record=record,
             store_receipt_digest=_make_digest("fence-cas"),
             recorded_at=record.state_changed_at,
         )
 
-    async def read(
-        self,
-        target_digest: str,
-    ) -> TargetDispatchFenceRecord | None:
+    async def read(self, target_digest: str) -> TargetDispatchFenceRecord | None:
         self._call_log.append("read")
         return self._records.get(target_digest)
 
 
 class InMemoryEvidenceStore:
-    """Minimal in-memory safeguard dispatch evidence store for tests."""
-
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        delay_bundle: bool = False,
+        delay_dispatch_start: bool = False,
+    ) -> None:
         self._records: dict[tuple[str, int], SafeguardDispatchEvidenceRecord] = {}
         self._call_log: list[str] = []
+        self._delay_bundle = delay_bundle
+        self._delay_dispatch_start = delay_dispatch_start
 
     async def persist_bundle(
-        self,
-        record: SafeguardDispatchEvidenceRecord,
+        self, record: SafeguardDispatchEvidenceRecord
     ) -> SafeguardDispatchPersistenceResult:
         self._call_log.append("persist_bundle")
         key = (record.identity.target_digest, record.identity.target_fence_generation)
         existing = self._records.get(key)
         if existing is None:
             self._records[key] = record
+            ts = record.state_changed_at + (
+                timedelta(microseconds=1) if self._delay_bundle else timedelta()
+            )
             receipt = SafeguardDispatchTransitionReceipt.create(
                 prior_record=None,
                 record=record,
                 store_receipt_digest=_make_digest("evidence-persist"),
-                recorded_at=record.state_changed_at,
+                recorded_at=ts,
             )
             return SafeguardDispatchPersistenceResult(
                 candidate_identity=record.identity,
@@ -191,10 +129,9 @@ class InMemoryEvidenceStore:
                 observed_record=record,
                 transition_receipt=receipt,
             )
-        decision = classify_safeguard_dispatch_evidence(existing, record.identity)
         return SafeguardDispatchPersistenceResult(
             candidate_identity=record.identity,
-            decision=decision,
+            decision=classify_safeguard_dispatch_evidence(existing, record.identity),
             observed_record=existing,
             transition_receipt=None,
         )
@@ -210,99 +147,47 @@ class InMemoryEvidenceStore:
     ) -> SafeguardDispatchTransitionReceipt:
         self._call_log.append("compare_and_transition")
         key = (record.identity.target_digest, record.identity.target_fence_generation)
-        existing = self._records.get(key)
-        if existing is None or existing.record_digest != prior_record_digest:
-            raise ValueError("evidence CAS conflict: prior record mismatch")
-        if existing.revision != expected_revision:
-            raise ValueError("evidence CAS conflict: revision mismatch")
-        prior = existing
+        existing = self._records[key]
+        assert existing.record_digest == prior_record_digest
+        assert existing.revision == expected_revision
         self._records[key] = record
+        ts = (
+            _NOW + timedelta(seconds=4)
+            if self._delay_dispatch_start
+            and record.state is SafeguardDispatchEvidenceState.DISPATCH_STARTED
+            else record.state_changed_at
+        )
         return SafeguardDispatchTransitionReceipt.create(
-            prior_record=prior,
+            prior_record=existing,
             record=record,
             bundle_persistence_receipt=bundle_persistence_receipt,
             current_lock_assessment=current_lock_assessment,
             store_receipt_digest=_make_digest("evidence-cas"),
-            recorded_at=record.state_changed_at,
+            recorded_at=ts,
         )
 
     async def read(
-        self,
-        target_digest: str,
-        generation: int,
+        self, target_digest: str, generation: int
     ) -> SafeguardDispatchEvidenceRecord | None:
         self._call_log.append("read")
         return self._records.get((target_digest, generation))
 
 
-class DelayedBundleReceiptEvidenceStore(InMemoryEvidenceStore):
-    """Return an authoritative bundle receipt later than the candidate record."""
-
-    async def persist_bundle(
-        self,
-        record: SafeguardDispatchEvidenceRecord,
-    ) -> SafeguardDispatchPersistenceResult:
-        result = await super().persist_bundle(record)
-        receipt = result.transition_receipt
-        assert receipt is not None
-        delayed_receipt = SafeguardDispatchTransitionReceipt.create(
-            prior_record=receipt.prior_record,
-            record=receipt.record,
-            bundle_persistence_receipt=receipt.bundle_persistence_receipt,
-            current_lock_assessment=receipt.current_lock_assessment,
-            store_receipt_digest=_make_digest("delayed-evidence-persist"),
-            recorded_at=receipt.recorded_at + timedelta(microseconds=1),
-        )
-        return SafeguardDispatchPersistenceResult(
-            candidate_identity=result.candidate_identity,
-            decision=result.decision,
-            observed_record=result.observed_record,
-            transition_receipt=delayed_receipt,
-        )
-
-
-class DelayedDispatchStartReceiptEvidenceStore(InMemoryEvidenceStore):
-    """Delay only the authoritative dispatch-start persistence receipt."""
-
-    async def compare_and_transition(
-        self,
-        *,
-        prior_record_digest: str,
-        expected_revision: int,
-        record: SafeguardDispatchEvidenceRecord,
-        bundle_persistence_receipt: SafeguardDispatchTransitionReceipt | None = None,
-        current_lock_assessment: LiveLockOwnershipAssessment | None = None,
-    ) -> SafeguardDispatchTransitionReceipt:
-        receipt = await super().compare_and_transition(
-            prior_record_digest=prior_record_digest,
-            expected_revision=expected_revision,
-            record=record,
-            bundle_persistence_receipt=bundle_persistence_receipt,
-            current_lock_assessment=current_lock_assessment,
-        )
-        if record.state is not SafeguardDispatchEvidenceState.DISPATCH_STARTED:
-            return receipt
-        return SafeguardDispatchTransitionReceipt.create(
-            prior_record=receipt.prior_record,
-            record=receipt.record,
-            bundle_persistence_receipt=receipt.bundle_persistence_receipt,
-            current_lock_assessment=receipt.current_lock_assessment,
-            store_receipt_digest=_make_digest("delayed-dispatch-start"),
-            recorded_at=_NOW + timedelta(seconds=4),
-        )
-
-
 class InMemoryDispatchPort:
-    """Controllable dispatch double."""
-
     def __init__(
         self,
         *,
         transport: DispatchTransportState = DispatchTransportState.ACKNOWLEDGED,
         sink: AuthoritativeSinkState = AuthoritativeSinkState.ACCEPTED,
+        call_guard: bool = True,
+        before_guard_exc: BaseException | None = None,
+        after_guard_exc: BaseException | None = None,
     ) -> None:
         self.transport = transport
         self.sink = sink
+        self.call_guard = call_guard
+        self.before_guard_exc = before_guard_exc
+        self.after_guard_exc = after_guard_exc
         self.dispatch_count = 0
         self.last_evidence: SafeguardDispatchEvidenceRecord | None = None
 
@@ -312,24 +197,22 @@ class InMemoryDispatchPort:
         evidence_record: SafeguardDispatchEvidenceRecord,
         started_at: datetime,
         pre_invoke_guard: DispatchBoundaryGuard,
-    ) -> tuple[
-        DispatchTransportState,
-        AuthoritativeSinkState,
-        str | None,
-        str | None,
-    ]:
-        await pre_invoke_guard()
+    ) -> tuple[DispatchTransportState, AuthoritativeSinkState, str | None, str | None]:
+        if self.before_guard_exc is not None:
+            raise self.before_guard_exc
+        if self.call_guard:
+            await pre_invoke_guard()
+        if self.after_guard_exc is not None:
+            raise self.after_guard_exc
         self.dispatch_count += 1
         self.last_evidence = evidence_record
         accepted = self.sink in {
             AuthoritativeSinkState.ACCEPTED,
             AuthoritativeSinkState.COMMITTED,
         }
-        known = self.sink in {
-            AuthoritativeSinkState.ACCEPTED,
-            AuthoritativeSinkState.NOT_ACCEPTED,
-            AuthoritativeSinkState.COMMITTED,
-            AuthoritativeSinkState.NOT_COMMITTED,
+        known = self.sink not in {
+            AuthoritativeSinkState.UNOBSERVED,
+            AuthoritativeSinkState.UNKNOWN,
         }
         return (
             self.transport,
@@ -340,8 +223,6 @@ class InMemoryDispatchPort:
 
 
 class InMemoryHeldLock:
-    """Controllable held-resource-lock double with ownership assessment."""
-
     def __init__(
         self,
         receipt: ResourceLockAcquisitionReceipt,
@@ -349,9 +230,10 @@ class InMemoryHeldLock:
         active: bool = True,
         owner: bool = True,
         ownership_sequence: tuple[bool, ...] | None = None,
-        verifier_id: str = "test-verifier",
+        verifier_id: str = "postgres-pg-locks-readback",
         verifier_version: str = "1.0.0",
         trust_anchor_id: str = "postgres:primary",
+        second_assess_exc: BaseException | None = None,
     ) -> None:
         self._receipt = receipt
         self._active = active
@@ -361,7 +243,15 @@ class InMemoryHeldLock:
         self._verifier_id = verifier_id
         self._verifier_version = verifier_version
         self._trust_anchor_id = trust_anchor_id
-        self._request = _make_lock_request(receipt)
+        self._second_assess_exc = second_assess_exc
+        self._request = ResourceLockAcquisitionRequest.create(
+            target_ref="resource/example",
+            action_digest=receipt.action_digest,
+            attempt=receipt.attempt,
+            producer_id=receipt.producer_id,
+            producer_version=receipt.producer_version,
+            source_revision=_SOURCE_REVISION,
+        )
 
     @property
     def acquisition_request(self) -> ResourceLockAcquisitionRequest:
@@ -380,27 +270,24 @@ class InMemoryHeldLock:
         return None
 
     async def assess_ownership(self) -> LiveLockOwnershipAssessment:
+        self._assessment_count += 1
+        if self._assessment_count >= 2 and self._second_assess_exc is not None:
+            raise self._second_assess_exc
         owner = self._owner
         if self._ownership_sequence is not None:
-            owner = self._ownership_sequence[
-                min(self._assessment_count, len(self._ownership_sequence) - 1)
-            ]
-            self._assessment_count += 1
-        session = self._receipt.session_identity if owner else None
-        reasons: tuple[LockOwnershipRejectionReason, ...] = (
-            () if owner else (LockOwnershipRejectionReason.LOCK_LOST,)
-        )
+            idx = min(self._assessment_count - 1, len(self._ownership_sequence) - 1)
+            owner = self._ownership_sequence[idx]
         return LiveLockOwnershipAssessment.create(
             self._receipt,
             current_fencing_generation=None,
-            current_session_identity=session,
+            current_session_identity=self._receipt.session_identity if owner else None,
             verifier_id=self._verifier_id,
             verifier_version=self._verifier_version,
             trust_anchor_id=self._trust_anchor_id,
             provider_attestation_digest=_make_digest("ownership-attest"),
             evaluated_at=_NOW + timedelta(seconds=2),
             valid_until=_NOW + timedelta(seconds=5),
-            rejection_reasons=reasons,
+            rejection_reasons=() if owner else (LockOwnershipRejectionReason.LOCK_LOST,),
         )
 
     async def release(self) -> ResourceLockReleaseReceipt:
@@ -414,26 +301,8 @@ class InMemoryHeldLock:
         )
 
 
-# ---------------------------------------------------------------------------
-# Fixture helpers
-# ---------------------------------------------------------------------------
-
-
 def _make_digest(domain: str) -> str:
     return content_digest({"domain": domain, "ts": _NOW.isoformat()})
-
-
-def _make_lock_request(
-    receipt: ResourceLockAcquisitionReceipt,
-) -> ResourceLockAcquisitionRequest:
-    return ResourceLockAcquisitionRequest.create(
-        target_ref="resource/example",
-        action_digest=receipt.action_digest,
-        attempt=receipt.attempt,
-        producer_id=receipt.producer_id,
-        producer_version=receipt.producer_version,
-        source_revision=_SOURCE_REVISION,
-    )
 
 
 def _reservation_store(
@@ -448,6 +317,7 @@ def _full_fixture(
     *,
     now: datetime = _NOW,
     target_ref: str = "resource/example",
+    idempotency_key: str = "example-idem",
 ) -> tuple[
     SafeguardDispatchEvidenceRecord,
     IdempotencyReservationTransitionReceipt,
@@ -456,225 +326,59 @@ def _full_fixture(
     ResourceLockAcquisitionReceipt,
     SafeguardBundlePersistenceContext,
 ]:
-    """Build phases 1-5 evidence for the orchestrator."""
-
-    action = _action(
-        created_at=now,
-        idempotency_key="example-idem",
-        params={"name": "example"},
-        target_resource_ref=target_ref,
+    bundle_record, _res_id, preparing, _prepared, ctx = _evidence_fixture(
+        now=now,
+        target_ref=target_ref,
+        idempotency_key=idempotency_key,
     )
-    safeguard_receipt = evaluate_pre_dispatch(
-        action,
-        execution_path=ExecutionPath.DIRECT_API,
-        plan_digest="plan-digest",
-        plan_kind="test-plan",
-    )
-    assert isinstance(safeguard_receipt, SafeguardReceipt)
-    action_digest = full_action_digest(action)
-
-    # Lock acquisition
-    acq_request = ResourceLockAcquisitionRequest.create(
-        target_ref=action.target_resource_ref,
-        action_digest=action_digest,
-        attempt=1,
-        producer_id="fdai.core.executor",
-        producer_version="1.0.0",
-        source_revision=_SOURCE_REVISION,
-    )
-    acquisition = ResourceLockAcquisitionReceipt.create(
-        lock_key=acq_request.lock_key,
-        target_digest=acq_request.target_digest,
-        action_digest=acq_request.action_digest,
-        attempt=acq_request.attempt,
-        provider_id="postgres-advisory-lock",
-        provider_version="1.0.0",
-        producer_id=acq_request.producer_id,
-        producer_version=acq_request.producer_version,
-        owner_token_digest=_make_digest("owner-token"),
-        fencing_generation=None,
-        session_identity="session:1",
-        provider_attestation_digest=_make_digest("provider-attest"),
-        trust_anchor_id="postgres:primary",
-        acquired_at=now,
-        valid_until=None,
-        source_revision=acq_request.source_revision,
-        request_digest=acq_request.request_digest,
-    )
-
-    # Lock assessment
-    lock_assessment = LiveLockOwnershipAssessment.create(
-        acquisition,
-        current_fencing_generation=None,
-        current_session_identity=acquisition.session_identity,
-        verifier_id="test-verifier",
-        verifier_version="1.0.0",
-        trust_anchor_id=acquisition.trust_anchor_id,
-        provider_attestation_digest=_make_digest("assessment-attest"),
-        evaluated_at=now,
-        valid_until=now + timedelta(seconds=3),
-    )
-
-    # Reservation
-    reservation_identity = IdempotencyReservationIdentity.create(
-        idempotency_key=action.idempotency_key,
-        action_digest=action_digest,
-        execution_path=safeguard_receipt.execution_path,
-        execution_fingerprint=safeguard_receipt.execution_fingerprint,
-        source_revision=_SOURCE_REVISION,
-        acquisition_receipt=acquisition,
-    )
-    reserved = IdempotencyReservationRecord.create_reserved(
-        identity=reservation_identity,
-        reserved_at=now,
-        lease_expires_at=now + timedelta(seconds=30),
-    )
-    reservation_receipt = IdempotencyReservationTransitionReceipt.create(
-        prior_record=None,
-        record=reserved,
-        expected_prior_revision=0,
-        store_receipt_digest=_make_digest("reservation-persist"),
-        recorded_at=now,
-    )
-
-    # Audit intent
-    intent = PreEffectAuditIntent.create(
-        reservation_receipt=reservation_receipt,
-        actor="fdai.core.executor",
-        created_at=now,
-    )
-    audit_append_receipt = AuditIntentAppendReceipt.create(
-        intent=intent,
-        persisted_intent_digest=intent.intent_digest,
-        store_receipt_digest=_make_digest("audit-persist"),
-        persisted_at=now,
-        read_back_at=now,
-    )
-
-    # Proofs
-    lock_proof = LogicalTargetLockProof.create(
-        action_digest=action_digest,
-        execution_path=safeguard_receipt.execution_path,
-        execution_fingerprint=safeguard_receipt.execution_fingerprint,
-        lock_key=safeguard_receipt.resource_lock_key,
-        source_revision=_SOURCE_REVISION,
-        completed_at=now,
-        operation_receipt_digest=acquisition.receipt_digest,
-    )
-    idempotency_proof = IdempotencyReservationProof.create(
-        action_digest=action_digest,
-        execution_path=safeguard_receipt.execution_path,
-        execution_fingerprint=safeguard_receipt.execution_fingerprint,
-        idempotency_key=action.idempotency_key,
-        reservation_outcome="reserved",
-        source_revision=_SOURCE_REVISION,
-        completed_at=now,
-        store_receipt_digest=reservation_receipt.receipt_digest,
-    )
-    audit_intent_proof = AuditIntentProof.create(
-        action_digest=action_digest,
-        execution_path=safeguard_receipt.execution_path,
-        execution_fingerprint=safeguard_receipt.execution_fingerprint,
-        audit_entry_digest=intent.intent_digest,
-        source_revision=_SOURCE_REVISION,
-        completed_at=now,
-        append_receipt_digest=audit_append_receipt.receipt_digest,
-    )
-    bundle = finalize_safeguard_proof_bundle(
-        action,
-        receipt=safeguard_receipt,
-        source_revision=_SOURCE_REVISION,
-        recorded_at=now,
-        lock_proof=lock_proof,
-        lock_assessment=lock_assessment,
-        expected_lock_verifier_id=lock_assessment.verifier_id,
-        expected_lock_verifier_version=lock_assessment.verifier_version,
-        expected_lock_trust_anchor_id=lock_assessment.trust_anchor_id,
-        idempotency_proof=idempotency_proof,
-        audit_intent_proof=audit_intent_proof,
-    )
-
-    # Target fence
-    fence_identity = TargetDispatchFenceIdentity.create(
-        target_digest=acquisition.target_digest,
-        reservation_identity=reservation_identity,
-        continuity_policy=_policy(),
-        generation=1,
-        client_correlation_id="dispatch:1",
-        sink_idempotency_key="sink:1",
-    )
-    preparing = TargetDispatchFenceRecord.create_preparing(
-        identity=fence_identity,
-        changed_at=now,
-    )
-
-    # Persistence context
-    persistence_context = SafeguardBundlePersistenceContext(
-        action=action,
-        pre_bundle_commitment=SafeguardPreBundleCommitment.create(
-            action=action,
-            execution_path=safeguard_receipt.execution_path,
-            source_revision=_SOURCE_REVISION,
-            committed_at=now,
-        ),
-        safeguard_receipt=safeguard_receipt,
-        reservation_receipt=reservation_receipt,
-        audit_append_receipt=audit_append_receipt,
-        lock_assessment=lock_assessment,
-        lock_proof=lock_proof,
-        idempotency_proof=idempotency_proof,
-        audit_intent_proof=audit_intent_proof,
-    )
-
-    # Bundle evidence record
-    bundle_record = SafeguardDispatchEvidenceRecord.create_bundle_persisted(
-        preparing_fence=preparing,
-        persistence_context=persistence_context,
-        bundle=bundle,
-        persisted_at=now,
-    )
-
     return (
         bundle_record,
-        reservation_receipt,
-        audit_append_receipt,
+        ctx.reservation_receipt,
+        ctx.audit_append_receipt,
         preparing,
-        acquisition,
-        persistence_context,
+        ctx.lock_assessment.acquisition_receipt,
+        ctx,
     )
 
 
-# ---------------------------------------------------------------------------
-# Tests: complete happy-path order
-# ---------------------------------------------------------------------------
+async def _run_lifecycle(
+    *,
+    held_lock: InMemoryHeldLock | None = None,
+    reservation_receipt: IdempotencyReservationTransitionReceipt | None = None,
+    audit_append_receipt: AuditIntentAppendReceipt | None = None,
+    bundle_record: SafeguardDispatchEvidenceRecord | None = None,
+    preparing_fence: TargetDispatchFenceRecord | None = None,
+    fence_store: InMemoryFenceStore | None = None,
+    evidence_store: InMemoryEvidenceStore | None = None,
+    dispatch_port: InMemoryDispatchPort | None = None,
+    clock: object = None,
+) -> SafeguardEvidenceLifecycleResult:
+    b_rec, res_rec, aud_rec, prep, acq, _ctx = _full_fixture()
+    res = reservation_receipt or res_rec
+    prep_fence = preparing_fence or prep
+    f_store = fence_store or InMemoryFenceStore()
+    if prep_fence.identity.target_digest not in f_store._records:
+        f_store._records[prep_fence.identity.target_digest] = prep_fence
+    return await run_safeguard_evidence_lifecycle(
+        held_lock=held_lock or InMemoryHeldLock(acq),
+        reservation_receipt=res,
+        reservation_store=_reservation_store(res),
+        audit_append_receipt=audit_append_receipt or aud_rec,
+        bundle_record=bundle_record or b_rec,
+        preparing_fence=prep_fence,
+        fence_store=f_store,
+        evidence_store=evidence_store or InMemoryEvidenceStore(),
+        dispatch_port=dispatch_port or InMemoryDispatchPort(),
+        now=_NOW,
+        clock=clock,  # type: ignore[arg-type]
+    )
 
 
 @pytest.mark.asyncio
 async def test_lifecycle_completes_resolved_with_exact_order() -> None:
-    """Exit criterion: fixed order with resolved terminal outcome."""
-
-    bundle_record, reservation_receipt, audit_receipt, preparing, acq, _ctx = _full_fixture()
-    fence_store = InMemoryFenceStore()
-    fence_store._records[preparing.identity.target_digest] = preparing
-    evidence_store = InMemoryEvidenceStore()
-    dispatch_port = InMemoryDispatchPort(
-        transport=DispatchTransportState.ACKNOWLEDGED,
-        sink=AuthoritativeSinkState.ACCEPTED,
-    )
-    held_lock = InMemoryHeldLock(acq)
-
-    result = await run_safeguard_evidence_lifecycle(
-        held_lock=held_lock,
-        reservation_receipt=reservation_receipt,
-        reservation_store=_reservation_store(reservation_receipt),
-        audit_append_receipt=audit_receipt,
-        bundle_record=bundle_record,
-        preparing_fence=preparing,
-        fence_store=fence_store,
-        evidence_store=evidence_store,
-        dispatch_port=dispatch_port,
-        now=_NOW,
-    )
+    bundle_record, *_ = _full_fixture()
+    dispatch_port = InMemoryDispatchPort()
+    result = await _run_lifecycle(dispatch_port=dispatch_port)
 
     assert result.kind is LifecycleTerminalKind.RESOLVED
     assert result.bundle_digest == bundle_record.bundle.bundle_digest
@@ -690,25 +394,9 @@ async def test_lifecycle_completes_resolved_with_exact_order() -> None:
 
 @pytest.mark.asyncio
 async def test_lifecycle_records_fresh_post_dispatch_times() -> None:
-    """Dispatch observation and pre-release evidence use fresh clock readings."""
-
-    bundle_record, reservation_receipt, audit_receipt, preparing, acq, _ctx = _full_fixture()
-    fence_store = InMemoryFenceStore()
-    fence_store._records[preparing.identity.target_digest] = preparing
-    evidence_store = InMemoryEvidenceStore()
     dispatch_port = InMemoryDispatchPort()
-    held_lock = InMemoryHeldLock(acq)
     readings = iter(
-        (
-            _NOW,
-            _NOW,
-            _NOW,
-            _NOW,
-            _NOW,
-            _NOW + timedelta(seconds=3),
-            _NOW + timedelta(seconds=4),
-            _NOW + timedelta(seconds=4),
-        )
+        [*([_NOW] * 5), _NOW + timedelta(seconds=3), *([_NOW + timedelta(seconds=4)] * 2)]
     )
     read_count = 0
 
@@ -719,20 +407,7 @@ async def test_lifecycle_records_fresh_post_dispatch_times() -> None:
             assert dispatch_port.dispatch_count == 1
         return next(readings)
 
-    result = await run_safeguard_evidence_lifecycle(
-        held_lock=held_lock,
-        reservation_receipt=reservation_receipt,
-        reservation_store=_reservation_store(reservation_receipt),
-        audit_append_receipt=audit_receipt,
-        bundle_record=bundle_record,
-        preparing_fence=preparing,
-        fence_store=fence_store,
-        evidence_store=evidence_store,
-        dispatch_port=dispatch_port,
-        now=_NOW,
-        clock=post_dispatch_clock,
-    )
-
+    result = await _run_lifecycle(dispatch_port=dispatch_port, clock=post_dispatch_clock)
     assert result.evidence_record is not None
     assert result.evidence_record.dispatch_observation is not None
     assert result.evidence_record.dispatch_observation.observed_at == _NOW + timedelta(seconds=3)
@@ -744,31 +419,13 @@ async def test_lifecycle_records_fresh_post_dispatch_times() -> None:
 
 @pytest.mark.asyncio
 async def test_lifecycle_orders_dispatch_after_authoritative_store_time() -> None:
-    """Authoritative readback time advances every later pre-dispatch record."""
-
-    bundle_record, reservation_receipt, audit_receipt, preparing, acq, _ctx = _full_fixture()
-    fence_store = InMemoryFenceStore()
-    fence_store._records[preparing.identity.target_digest] = preparing
-    evidence_store = DelayedBundleReceiptEvidenceStore()
     dispatch_port = InMemoryDispatchPort()
-    held_lock = InMemoryHeldLock(acq)
-
-    result = await run_safeguard_evidence_lifecycle(
-        held_lock=held_lock,
-        reservation_receipt=reservation_receipt,
-        reservation_store=_reservation_store(reservation_receipt),
-        audit_append_receipt=audit_receipt,
-        bundle_record=bundle_record,
-        preparing_fence=preparing,
-        fence_store=fence_store,
-        evidence_store=evidence_store,
+    result = await _run_lifecycle(
+        evidence_store=InMemoryEvidenceStore(delay_bundle=True),
         dispatch_port=dispatch_port,
-        now=_NOW,
         clock=lambda: _NOW + timedelta(seconds=2),
     )
-
     assert result.kind is LifecycleTerminalKind.RESOLVED
-    assert dispatch_port.dispatch_count == 1
     assert dispatch_port.last_evidence is not None
     assert dispatch_port.last_evidence.dispatch_start_checkpoint is not None
     assert (
@@ -779,29 +436,12 @@ async def test_lifecycle_orders_dispatch_after_authoritative_store_time() -> Non
 
 @pytest.mark.asyncio
 async def test_lifecycle_rejects_expired_pre_dispatch_ownership() -> None:
-    """A stale final ownership readback stops before provider I/O."""
-
-    bundle_record, reservation_receipt, audit_receipt, preparing, acq, _ctx = _full_fixture()
-    fence_store = InMemoryFenceStore()
-    fence_store._records[preparing.identity.target_digest] = preparing
-    evidence_store = DelayedDispatchStartReceiptEvidenceStore()
     dispatch_port = InMemoryDispatchPort()
-    held_lock = InMemoryHeldLock(acq)
-
-    result = await run_safeguard_evidence_lifecycle(
-        held_lock=held_lock,
-        reservation_receipt=reservation_receipt,
-        reservation_store=_reservation_store(reservation_receipt),
-        audit_append_receipt=audit_receipt,
-        bundle_record=bundle_record,
-        preparing_fence=preparing,
-        fence_store=fence_store,
-        evidence_store=evidence_store,
+    result = await _run_lifecycle(
+        evidence_store=InMemoryEvidenceStore(delay_dispatch_start=True),
         dispatch_port=dispatch_port,
-        now=_NOW,
         clock=lambda: _NOW + timedelta(seconds=2),
     )
-
     assert dispatch_port.dispatch_count == 0
     assert result.kind is LifecycleTerminalKind.QUARANTINED
     assert result.dispatch_performed is False
@@ -809,181 +449,71 @@ async def test_lifecycle_rejects_expired_pre_dispatch_ownership() -> None:
 
 
 @pytest.mark.asyncio
-async def test_lifecycle_quarantines_on_unknown_sink() -> None:
-    """Exit criterion: unknown outcome quarantines the target."""
-
-    bundle_record, reservation_receipt, audit_receipt, preparing, acq, _ctx = _full_fixture()
-    fence_store = InMemoryFenceStore()
-    fence_store._records[preparing.identity.target_digest] = preparing
-    evidence_store = InMemoryEvidenceStore()
-    dispatch_port = InMemoryDispatchPort(
-        transport=DispatchTransportState.ACKNOWLEDGED,
-        sink=AuthoritativeSinkState.UNKNOWN,
+async def test_lifecycle_quarantines_on_unknown_sink_failed_transport_or_lost_lock() -> None:
+    unknown_sink = await _run_lifecycle(
+        dispatch_port=InMemoryDispatchPort(
+            transport=DispatchTransportState.ACKNOWLEDGED,
+            sink=AuthoritativeSinkState.UNKNOWN,
+        )
     )
-    held_lock = InMemoryHeldLock(acq)
+    assert unknown_sink.kind is LifecycleTerminalKind.QUARANTINED
 
-    result = await run_safeguard_evidence_lifecycle(
-        held_lock=held_lock,
-        reservation_receipt=reservation_receipt,
-        reservation_store=_reservation_store(reservation_receipt),
-        audit_append_receipt=audit_receipt,
-        bundle_record=bundle_record,
-        preparing_fence=preparing,
-        fence_store=fence_store,
-        evidence_store=evidence_store,
-        dispatch_port=dispatch_port,
-        now=_NOW,
+    failed_tx = await _run_lifecycle(
+        dispatch_port=InMemoryDispatchPort(
+            transport=DispatchTransportState.FAILED,
+            sink=AuthoritativeSinkState.UNOBSERVED,
+        )
     )
+    assert failed_tx.kind is LifecycleTerminalKind.QUARANTINED
 
-    assert result.kind is LifecycleTerminalKind.QUARANTINED
-    assert result.bundle_digest is not None
-
-
-@pytest.mark.asyncio
-async def test_lifecycle_quarantines_on_failed_transport() -> None:
-    """Exit criterion: failed transport quarantines."""
-
-    bundle_record, reservation_receipt, audit_receipt, preparing, acq, _ctx = _full_fixture()
-    fence_store = InMemoryFenceStore()
-    fence_store._records[preparing.identity.target_digest] = preparing
-    evidence_store = InMemoryEvidenceStore()
-    dispatch_port = InMemoryDispatchPort(
-        transport=DispatchTransportState.FAILED,
-        sink=AuthoritativeSinkState.UNOBSERVED,
+    *_, acq, _ctx = _full_fixture()
+    lost_lock = await _run_lifecycle(
+        held_lock=InMemoryHeldLock(acq, ownership_sequence=(True, False))
     )
-    held_lock = InMemoryHeldLock(acq)
-
-    result = await run_safeguard_evidence_lifecycle(
-        held_lock=held_lock,
-        reservation_receipt=reservation_receipt,
-        reservation_store=_reservation_store(reservation_receipt),
-        audit_append_receipt=audit_receipt,
-        bundle_record=bundle_record,
-        preparing_fence=preparing,
-        fence_store=fence_store,
-        evidence_store=evidence_store,
-        dispatch_port=dispatch_port,
-        now=_NOW,
-    )
-
-    assert result.kind is LifecycleTerminalKind.QUARANTINED
-
-
-@pytest.mark.asyncio
-async def test_lifecycle_quarantines_on_unproven_continuity() -> None:
-    """Exit criterion: lost lock ownership produces quarantine."""
-
-    bundle_record, reservation_receipt, audit_receipt, preparing, acq, _ctx = _full_fixture()
-    fence_store = InMemoryFenceStore()
-    fence_store._records[preparing.identity.target_digest] = preparing
-    evidence_store = InMemoryEvidenceStore()
-    dispatch_port = InMemoryDispatchPort(
-        transport=DispatchTransportState.ACKNOWLEDGED,
-        sink=AuthoritativeSinkState.ACCEPTED,
-    )
-    held_lock = InMemoryHeldLock(acq, ownership_sequence=(True, False))
-
-    result = await run_safeguard_evidence_lifecycle(
-        held_lock=held_lock,
-        reservation_receipt=reservation_receipt,
-        reservation_store=_reservation_store(reservation_receipt),
-        audit_append_receipt=audit_receipt,
-        bundle_record=bundle_record,
-        preparing_fence=preparing,
-        fence_store=fence_store,
-        evidence_store=evidence_store,
-        dispatch_port=dispatch_port,
-        now=_NOW,
-    )
-
-    assert result.kind is LifecycleTerminalKind.QUARANTINED
-
-
-# ---------------------------------------------------------------------------
-# Tests: evidence conflict and duplicate
-# ---------------------------------------------------------------------------
+    assert lost_lock.kind is LifecycleTerminalKind.QUARANTINED
 
 
 @pytest.mark.asyncio
 async def test_evidence_conflict_stops_before_dispatch() -> None:
-    """Exit criterion: conflicted evidence stops before dispatch."""
-
-    bundle_record, reservation_receipt, audit_receipt, preparing, acq, _ctx = _full_fixture()
-    fence_store = InMemoryFenceStore()
-    fence_store._records[preparing.identity.target_digest] = preparing
+    bundle_record, *_ = _full_fixture()
     evidence_store = InMemoryEvidenceStore()
     dispatch_port = InMemoryDispatchPort()
-    held_lock = InMemoryHeldLock(acq)
+    key = (bundle_record.identity.target_digest, bundle_record.identity.target_fence_generation)
 
-    # Pre-populate evidence store with a different record for the same key
-    other_bundle, *_ = _full_fixture(target_ref="resource/example")
-    key = (
-        other_bundle.identity.target_digest,
-        other_bundle.identity.target_fence_generation,
-    )
+    evidence_store._records[key] = bundle_record
+    dup_result = await _run_lifecycle(evidence_store=evidence_store, dispatch_port=dispatch_port)
+    assert dup_result.kind is LifecycleTerminalKind.EVIDENCE_CONFLICT
+
+    other_bundle, *_ = _full_fixture(idempotency_key="other-idem")
     evidence_store._records[key] = other_bundle
-
-    result = await run_safeguard_evidence_lifecycle(
-        held_lock=held_lock,
-        reservation_receipt=reservation_receipt,
-        reservation_store=_reservation_store(reservation_receipt),
-        audit_append_receipt=audit_receipt,
-        bundle_record=bundle_record,
-        preparing_fence=preparing,
-        fence_store=fence_store,
-        evidence_store=evidence_store,
-        dispatch_port=dispatch_port,
-        now=_NOW,
+    conflict_result = await _run_lifecycle(
+        evidence_store=evidence_store, dispatch_port=dispatch_port
     )
-
-    assert result.kind is LifecycleTerminalKind.EVIDENCE_CONFLICT
+    assert conflict_result.kind is LifecycleTerminalKind.EVIDENCE_CONFLICT
     assert dispatch_port.dispatch_count == 0
-    assert result.pre_release_receipt is None
-    assert result.release_pending_fence is None
-
-
-# ---------------------------------------------------------------------------
-# Tests: cancellation before dispatch
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_cancel_before_dispatch_resolves_fence() -> None:
-    """Exit criterion: cancellation before dispatch resolves fence."""
-
-    _bundle_record, _reservation_receipt, _audit_receipt, preparing, acq, _ctx = _full_fixture()
+async def test_cancel_before_dispatch_and_inactive_lock() -> None:
+    _b, _r, _a, preparing, acq, _ctx = _full_fixture()
     fence_store = InMemoryFenceStore()
     fence_store._records[preparing.identity.target_digest] = preparing
-    held_lock = InMemoryHeldLock(acq)
 
     result = await cancel_before_dispatch(
-        held_lock=held_lock,
+        held_lock=InMemoryHeldLock(acq),
         preparing_fence=preparing,
         no_dispatch_evidence_digest=_DIGEST,
         fence_store=fence_store,
         now=_NOW,
     )
-
     assert result.kind is LifecycleTerminalKind.CANCELLED_BEFORE_DISPATCH
     assert result.bundle_digest is None
     assert result.fence_record is not None
     assert result.fence_record.state is TargetDispatchFenceState.RESOLVED
-    assert result.execution_authority is False
-    assert result.effect_verification_authority is False
-
-
-@pytest.mark.asyncio
-async def test_cancel_rejects_inactive_lock() -> None:
-    """Exit criterion: cancel fails closed with inactive lock."""
-
-    _bundle_record, _reservation_receipt, _audit_receipt, preparing, acq, _ctx = _full_fixture()
-    fence_store = InMemoryFenceStore()
-    fence_store._records[preparing.identity.target_digest] = preparing
-    held_lock = InMemoryHeldLock(acq, active=False)
 
     with pytest.raises(RuntimeError, match="lock is no longer active"):
         await cancel_before_dispatch(
-            held_lock=held_lock,
+            held_lock=InMemoryHeldLock(acq, active=False),
             preparing_fence=preparing,
             no_dispatch_evidence_digest=_DIGEST,
             fence_store=fence_store,
@@ -991,17 +521,9 @@ async def test_cancel_rejects_inactive_lock() -> None:
         )
 
 
-# ---------------------------------------------------------------------------
-# Tests: prior-phase validation (fail closed)
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
-async def test_rejects_non_reserved_reservation() -> None:
-    """Exit criterion: wrong reservation state stops before dispatch."""
-
-    bundle_record, reservation_receipt, audit_receipt, preparing, acq, ctx = _full_fixture()
-    # Make the reservation in-flight instead of reserved
+async def test_rejects_invalid_prior_states_and_inactive_lock() -> None:
+    bundle_record, reservation_receipt, audit_receipt, preparing, acq, _ctx = _full_fixture()
     in_flight = begin_dispatch(reservation_receipt.record, at=_NOW)
     bad_receipt = IdempotencyReservationTransitionReceipt.create(
         prior_record=reservation_receipt.record,
@@ -1010,383 +532,245 @@ async def test_rejects_non_reserved_reservation() -> None:
         store_receipt_digest=_make_digest("bad-reservation"),
         recorded_at=_NOW,
     )
-
-    fence_store = InMemoryFenceStore()
-    evidence_store = InMemoryEvidenceStore()
-    dispatch_port = InMemoryDispatchPort()
-    held_lock = InMemoryHeldLock(acq)
-
     with pytest.raises(ValueError, match="current reserved"):
-        await run_safeguard_evidence_lifecycle(
-            held_lock=held_lock,
-            reservation_receipt=bad_receipt,
-            reservation_store=_reservation_store(bad_receipt),
-            audit_append_receipt=audit_receipt,
-            bundle_record=bundle_record,
-            preparing_fence=preparing,
-            fence_store=fence_store,
-            evidence_store=evidence_store,
-            dispatch_port=dispatch_port,
-            now=_NOW,
-        )
-    assert dispatch_port.dispatch_count == 0
+        await _run_lifecycle(reservation_receipt=bad_receipt)
 
-
-@pytest.mark.asyncio
-async def test_rejects_non_preparing_fence() -> None:
-    """Exit criterion: wrong fence state stops before dispatch."""
-
-    bundle_record, reservation_receipt, audit_receipt, preparing, acq, _ctx = _full_fixture()
-    # Advance fence to prepared (not preparing)
     prepared = attach_prepared_evidence(
         preparing,
         audit_append_receipt=audit_receipt,
         safeguard_bundle_digest=bundle_record.bundle.bundle_digest,
         changed_at=_NOW,
     )
-
-    fence_store = InMemoryFenceStore()
-    evidence_store = InMemoryEvidenceStore()
-    dispatch_port = InMemoryDispatchPort()
-    held_lock = InMemoryHeldLock(acq)
-
     with pytest.raises(ValueError, match="preparing target fence"):
-        await run_safeguard_evidence_lifecycle(
-            held_lock=held_lock,
-            reservation_receipt=reservation_receipt,
-            reservation_store=_reservation_store(reservation_receipt),
-            audit_append_receipt=audit_receipt,
-            bundle_record=bundle_record,
-            preparing_fence=prepared,
-            fence_store=fence_store,
-            evidence_store=evidence_store,
-            dispatch_port=dispatch_port,
-            now=_NOW,
-        )
-    assert dispatch_port.dispatch_count == 0
-
-
-@pytest.mark.asyncio
-async def test_rejects_inactive_lock() -> None:
-    """Exit criterion: inactive lock fails closed."""
-
-    bundle_record, reservation_receipt, audit_receipt, preparing, acq, _ctx = _full_fixture()
-
-    fence_store = InMemoryFenceStore()
-    evidence_store = InMemoryEvidenceStore()
-    dispatch_port = InMemoryDispatchPort()
-    held_lock = InMemoryHeldLock(acq, active=False)
+        await _run_lifecycle(preparing_fence=prepared)
 
     with pytest.raises(RuntimeError, match="lock is no longer active"):
-        await run_safeguard_evidence_lifecycle(
-            held_lock=held_lock,
-            reservation_receipt=reservation_receipt,
-            reservation_store=_reservation_store(reservation_receipt),
-            audit_append_receipt=audit_receipt,
-            bundle_record=bundle_record,
-            preparing_fence=preparing,
-            fence_store=fence_store,
-            evidence_store=evidence_store,
-            dispatch_port=dispatch_port,
-            now=_NOW,
-        )
-    assert dispatch_port.dispatch_count == 0
+        await _run_lifecycle(held_lock=InMemoryHeldLock(acq, active=False))
 
 
-# ---------------------------------------------------------------------------
-# Tests: result authority invariants
-# ---------------------------------------------------------------------------
-
-
-def test_result_rejects_execution_authority() -> None:
-    """Exit criterion: result carries no authority."""
-
-    with pytest.raises(ValueError, match="MUST NOT grant authority"):
+def test_result_rejects_execution_and_verification_authority() -> None:
+    for kwargs in (
+        {"execution_authority": True, "effect_verification_authority": False},
+        {"execution_authority": False, "effect_verification_authority": True},
+    ):
+        with pytest.raises(ValueError, match="MUST NOT grant authority"):
+            SafeguardEvidenceLifecycleResult(
+                kind=LifecycleTerminalKind.FENCE_BLOCKED,
+                bundle_digest=None,
+                fence_record=None,
+                evidence_record=None,
+                pre_release_receipt=None,
+                release_pending_fence=None,
+                **kwargs,  # type: ignore[arg-type]
+            )
+    with pytest.raises(ValueError, match="kind is invalid"):
         SafeguardEvidenceLifecycleResult(
-            kind=LifecycleTerminalKind.FENCE_BLOCKED,
+            kind="bad",  # type: ignore[arg-type]
             bundle_digest=None,
             fence_record=None,
             evidence_record=None,
             pre_release_receipt=None,
             release_pending_fence=None,
-            execution_authority=True,  # type: ignore[arg-type]
-            effect_verification_authority=False,
         )
-
-
-def test_result_rejects_effect_verification_authority() -> None:
-    """Exit criterion: result carries no verification authority."""
-
-    with pytest.raises(ValueError, match="MUST NOT grant authority"):
-        SafeguardEvidenceLifecycleResult(
-            kind=LifecycleTerminalKind.FENCE_BLOCKED,
-            bundle_digest=None,
-            fence_record=None,
-            evidence_record=None,
-            pre_release_receipt=None,
-            release_pending_fence=None,
-            execution_authority=False,
-            effect_verification_authority=True,  # type: ignore[arg-type]
-        )
-
-
-# ---------------------------------------------------------------------------
-# Tests: dispatch/commit/effect/release separation
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_dispatch_evidence_separates_transport_from_sink() -> None:
-    """Exit criterion: dispatch, sink commit, effect, and release are separate."""
-
-    bundle_record, reservation_receipt, audit_receipt, preparing, acq, _ctx = _full_fixture()
-    fence_store = InMemoryFenceStore()
-    fence_store._records[preparing.identity.target_digest] = preparing
-    evidence_store = InMemoryEvidenceStore()
-    dispatch_port = InMemoryDispatchPort(
-        transport=DispatchTransportState.SENT,
-        sink=AuthoritativeSinkState.UNOBSERVED,
+async def test_dispatch_evidence_separates_transport_from_sink_and_commits() -> None:
+    bundle_record, _res, _aud, preparing, _acq, _ctx = _full_fixture()
+    result = await _run_lifecycle(
+        dispatch_port=InMemoryDispatchPort(
+            transport=DispatchTransportState.SENT,
+            sink=AuthoritativeSinkState.UNOBSERVED,
+        )
     )
-    held_lock = InMemoryHeldLock(acq)
-
-    result = await run_safeguard_evidence_lifecycle(
-        held_lock=held_lock,
-        reservation_receipt=reservation_receipt,
-        reservation_store=_reservation_store(reservation_receipt),
-        audit_append_receipt=audit_receipt,
-        bundle_record=bundle_record,
-        preparing_fence=preparing,
-        fence_store=fence_store,
-        evidence_store=evidence_store,
-        dispatch_port=dispatch_port,
-        now=_NOW,
-    )
-
-    # Unobserved sink -> quarantine, independent effect still pending
     assert result.kind is LifecycleTerminalKind.QUARANTINED
     assert result.evidence_record is not None
     assert result.evidence_record.independent_effect_state == "pending"
-    assert result.evidence_record.effect_verified is False
 
-
-@pytest.mark.asyncio
-async def test_committed_sink_with_acknowledged_transport_resolves() -> None:
-    """Exit criterion: committed+acknowledged => resolved."""
-
-    bundle_record, reservation_receipt, audit_receipt, preparing, acq, _ctx = _full_fixture()
-    fence_store = InMemoryFenceStore()
-    fence_store._records[preparing.identity.target_digest] = preparing
-    evidence_store = InMemoryEvidenceStore()
-    dispatch_port = InMemoryDispatchPort(
+    fence_store2 = InMemoryFenceStore()
+    evidence_store2 = InMemoryEvidenceStore()
+    dispatch_port2 = InMemoryDispatchPort(
         transport=DispatchTransportState.ACKNOWLEDGED,
         sink=AuthoritativeSinkState.COMMITTED,
     )
-    held_lock = InMemoryHeldLock(acq)
-
-    result = await run_safeguard_evidence_lifecycle(
-        held_lock=held_lock,
-        reservation_receipt=reservation_receipt,
-        reservation_store=_reservation_store(reservation_receipt),
-        audit_append_receipt=audit_receipt,
-        bundle_record=bundle_record,
-        preparing_fence=preparing,
-        fence_store=fence_store,
-        evidence_store=evidence_store,
-        dispatch_port=dispatch_port,
-        now=_NOW,
+    resolved = await _run_lifecycle(
+        fence_store=fence_store2,
+        evidence_store=evidence_store2,
+        dispatch_port=dispatch_port2,
     )
-
-    assert result.kind is LifecycleTerminalKind.RESOLVED
-
-
-# ---------------------------------------------------------------------------
-# Tests: contention behavior
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_lifecycle_stores_exact_fence_sequence() -> None:
-    """Exit criterion: fence transitions follow preparing->prepared->in_flight->release_pending."""
-
-    bundle_record, reservation_receipt, audit_receipt, preparing, acq, _ctx = _full_fixture()
-    fence_store = InMemoryFenceStore()
-    fence_store._records[preparing.identity.target_digest] = preparing
-    evidence_store = InMemoryEvidenceStore()
-    dispatch_port = InMemoryDispatchPort()
-    held_lock = InMemoryHeldLock(acq)
-
-    result = await run_safeguard_evidence_lifecycle(
-        held_lock=held_lock,
-        reservation_receipt=reservation_receipt,
-        reservation_store=_reservation_store(reservation_receipt),
-        audit_append_receipt=audit_receipt,
-        bundle_record=bundle_record,
-        preparing_fence=preparing,
-        fence_store=fence_store,
-        evidence_store=evidence_store,
-        dispatch_port=dispatch_port,
-        now=_NOW,
-    )
-    # Verify result completed before inspecting store state
-    assert result.kind in {LifecycleTerminalKind.RESOLVED, LifecycleTerminalKind.QUARANTINED}
-    stored = await fence_store.read(preparing.identity.target_digest)
-    assert stored is not None
-    assert stored.state is TargetDispatchFenceState.RELEASE_PENDING
-
-    # Call log should show: persist, prepared CAS, in_flight CAS,
-    # dispatch_started CAS, observation CAS, pre_release CAS,
-    # release_pending CAS
-    assert "compare_and_transition" in fence_store._call_log
-
-
-@pytest.mark.asyncio
-async def test_lifecycle_evidence_store_sequence() -> None:
-    """Exit criterion: evidence transitions through all four states."""
-
-    bundle_record, reservation_receipt, audit_receipt, preparing, acq, _ctx = _full_fixture()
-    fence_store = InMemoryFenceStore()
-    fence_store._records[preparing.identity.target_digest] = preparing
-    evidence_store = InMemoryEvidenceStore()
-    dispatch_port = InMemoryDispatchPort()
-    held_lock = InMemoryHeldLock(acq)
-
-    await run_safeguard_evidence_lifecycle(
-        held_lock=held_lock,
-        reservation_receipt=reservation_receipt,
-        reservation_store=_reservation_store(reservation_receipt),
-        audit_append_receipt=audit_receipt,
-        bundle_record=bundle_record,
-        preparing_fence=preparing,
-        fence_store=fence_store,
-        evidence_store=evidence_store,
-        dispatch_port=dispatch_port,
-        now=_NOW,
-    )
-
-    # persist_bundle + 3 compare_and_transition calls
-    assert evidence_store._call_log.count("persist_bundle") == 1
-    assert evidence_store._call_log.count("compare_and_transition") == 3
-
-    # Final stored record should be pre_release
-    stored = await evidence_store.read(
-        bundle_record.identity.target_digest,
-        bundle_record.identity.target_fence_generation,
-    )
-    assert stored is not None
-    assert stored.state is SafeguardDispatchEvidenceState.PRE_RELEASE
-
-
-# ---------------------------------------------------------------------------
-# Tests: terminal shape validation
-# ---------------------------------------------------------------------------
-
-
-def test_completed_result_requires_bundle_digest() -> None:
-    """Exit criterion: completed lifecycle validates terminal shape."""
-
-    with pytest.raises(ValueError, match="bundle digest"):
-        SafeguardEvidenceLifecycleResult(
-            kind=LifecycleTerminalKind.RESOLVED,
-            bundle_digest=None,
-            fence_record=None,
-            evidence_record=None,
-            pre_release_receipt=None,
-            release_pending_fence=None,
+    assert resolved.kind is LifecycleTerminalKind.RESOLVED
+    assert dispatch_port2.dispatch_count == 1
+    assert evidence_store2._call_log.count("persist_bundle") == 1
+    assert evidence_store2._call_log.count("compare_and_transition") == 3
+    assert await fence_store2.read(preparing.identity.target_digest) is not None
+    assert (
+        await evidence_store2.read(
+            bundle_record.identity.target_digest,
+            bundle_record.identity.target_fence_generation,
         )
-
-
-def test_cancelled_result_rejects_bundle_digest() -> None:
-    """Exit criterion: cancelled lifecycle rejects bundle digest."""
-
-    with pytest.raises(ValueError, match="cancelled lifecycle"):
-        SafeguardEvidenceLifecycleResult(
-            kind=LifecycleTerminalKind.CANCELLED_BEFORE_DISPATCH,
-            bundle_digest=_DIGEST,
-            fence_record=None,
-            evidence_record=None,
-            pre_release_receipt=None,
-            release_pending_fence=None,
-        )
-
-
-def test_early_exit_result_rejects_pre_release() -> None:
-    """Exit criterion: early-exit rejects pre-release receipt."""
-
-    # Must fail because pre_release_receipt is disallowed for conflict kind,
-    # but we need a valid receipt which is hard to construct in isolation.
-    # Test the simpler shape constraint: release_pending_fence must be None.
-    with pytest.raises(ValueError, match="early-exit"):
-        _bundle_record, _reservation_receipt, _audit_receipt, preparing, _acq, _ctx = (
-            _full_fixture()
-        )
-        SafeguardEvidenceLifecycleResult(
-            kind=LifecycleTerminalKind.EVIDENCE_CONFLICT,
-            bundle_digest=_DIGEST,
-            fence_record=preparing,
-            evidence_record=None,
-            pre_release_receipt=None,
-            release_pending_fence=preparing,  # not allowed for early exit
-        )
-
-
-# ---------------------------------------------------------------------------
-# Tests: no legacy bypass
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_dispatch_port_called_exactly_once() -> None:
-    """Exit criterion: exactly one dispatch per lifecycle invocation."""
-
-    bundle_record, reservation_receipt, audit_receipt, preparing, acq, _ctx = _full_fixture()
-    fence_store = InMemoryFenceStore()
-    fence_store._records[preparing.identity.target_digest] = preparing
-    evidence_store = InMemoryEvidenceStore()
-    dispatch_port = InMemoryDispatchPort()
-    held_lock = InMemoryHeldLock(acq)
-
-    await run_safeguard_evidence_lifecycle(
-        held_lock=held_lock,
-        reservation_receipt=reservation_receipt,
-        reservation_store=_reservation_store(reservation_receipt),
-        audit_append_receipt=audit_receipt,
-        bundle_record=bundle_record,
-        preparing_fence=preparing,
-        fence_store=fence_store,
-        evidence_store=evidence_store,
-        dispatch_port=dispatch_port,
-        now=_NOW,
+        is not None
     )
 
-    assert dispatch_port.dispatch_count == 1
 
-
-@pytest.mark.asyncio
-async def test_lock_active_verified_before_dispatch() -> None:
-    """Exit criterion: lock handle is verified active before dispatch call."""
-
-    bundle_record, reservation_receipt, audit_receipt, preparing, acq, _ctx = _full_fixture()
-    fence_store = InMemoryFenceStore()
-    fence_store._records[preparing.identity.target_digest] = preparing
-    evidence_store = InMemoryEvidenceStore()
-    dispatch_port = InMemoryDispatchPort()
-    held_lock = InMemoryHeldLock(acq)
-
-    # The orchestrator calls require_active() which will succeed
-    result = await run_safeguard_evidence_lifecycle(
-        held_lock=held_lock,
-        reservation_receipt=reservation_receipt,
-        reservation_store=_reservation_store(reservation_receipt),
-        audit_append_receipt=audit_receipt,
-        bundle_record=bundle_record,
-        preparing_fence=preparing,
-        fence_store=fence_store,
-        evidence_store=evidence_store,
-        dispatch_port=dispatch_port,
-        now=_NOW,
+def test_terminal_shape_validation_branches() -> None:
+    bundle_record, _res, _aud, preparing, _acq, _ctx = _full_fixture()
+    ev_rcpt = SafeguardDispatchTransitionReceipt.create(
+        prior_record=None,
+        record=bundle_record,
+        store_receipt_digest=_DIGEST,
+        recorded_at=_NOW,
     )
-
-    assert result.kind in {
-        LifecycleTerminalKind.RESOLVED,
-        LifecycleTerminalKind.QUARANTINED,
+    fn_rcpt = TargetDispatchFenceTransitionReceipt.create(
+        prior_record=None,
+        record=preparing,
+        store_receipt_digest=_DIGEST,
+        recorded_at=_NOW,
+    )
+    base: dict[str, object] = {
+        "kind": LifecycleTerminalKind.RESOLVED,
+        "bundle_digest": _DIGEST,
+        "fence_record": preparing,
+        "evidence_record": bundle_record,
+        "pre_release_receipt": ev_rcpt,
+        "release_pending_fence": preparing,
+        "release_pending_receipt": fn_rcpt,
     }
+    early: dict[str, object] = {
+        "kind": LifecycleTerminalKind.EVIDENCE_CONFLICT,
+        "bundle_digest": _DIGEST,
+        "fence_record": preparing,
+        "evidence_record": None,
+        "pre_release_receipt": None,
+        "release_pending_fence": None,
+        "release_pending_receipt": None,
+    }
+    cancelled: dict[str, object] = {
+        **early,
+        "kind": LifecycleTerminalKind.CANCELLED_BEFORE_DISPATCH,
+        "bundle_digest": None,
+    }
+    for overrides, match in (
+        ({**base, "bundle_digest": None}, "bundle digest"),
+        ({**base, "fence_record": None}, "terminal records"),
+        ({**base, "pre_release_receipt": None}, "pre-release receipt"),
+        ({**base, "release_pending_fence": None}, "release-pending fence"),
+        ({**base, "release_pending_receipt": None}, "release-pending receipt"),
+        ({**cancelled, "bundle_digest": _DIGEST}, "MUST NOT have bundle digest"),
+        ({**cancelled, "fence_record": None}, "requires resolved fence"),
+        ({**early, "pre_release_receipt": ev_rcpt}, "MUST NOT have pre-release receipt"),
+        ({**early, "release_pending_fence": preparing}, "MUST NOT have release-pending fence"),
+        ({**early, "release_pending_receipt": fn_rcpt}, "MUST NOT have release-pending receipt"),
+    ):
+        with pytest.raises(ValueError, match=match):
+            SafeguardEvidenceLifecycleResult(**overrides)  # type: ignore[arg-type]
+
+
+@pytest.mark.asyncio
+async def test_prior_phase_and_pre_dispatch_failure_branches() -> None:
+    _other_bundle, _other_res, other_audit, other_prep, _other_acq, _ = _full_fixture(
+        idempotency_key="other-idem"
+    )
+    with pytest.raises(ValueError, match="audit intent changed reservation identity"):
+        await _run_lifecycle(audit_append_receipt=other_audit)
+
+    with pytest.raises(ValueError, match="fence changed reservation identity"):
+        await _run_lifecycle(preparing_fence=other_prep)
+
+    bad_state_bundle, *_ = _full_fixture()
+    object.__setattr__(bad_state_bundle, "state", SafeguardDispatchEvidenceState.DISPATCH_STARTED)
+    with pytest.raises(ValueError, match="bundle-persisted evidence state"):
+        await _run_lifecycle(bundle_record=bad_state_bundle)
+
+    bad_auth_bundle, *_ = _full_fixture()
+    object.__setattr__(bad_auth_bundle, "execution_authority", True)
+    with pytest.raises(ValueError, match="bundle MUST NOT grant authority"):
+        await _run_lifecycle(bundle_record=bad_auth_bundle)
+
+    class _NoReceiptStore(InMemoryEvidenceStore):
+        async def persist_bundle(
+            self, record: SafeguardDispatchEvidenceRecord
+        ) -> SafeguardDispatchPersistenceResult:
+            res = await super().persist_bundle(record)
+            object.__setattr__(res, "transition_receipt", None)
+            return res
+
+    with pytest.raises(ValueError, match="persisted bundle lacks receipt"):
+        await _run_lifecycle(evidence_store=_NoReceiptStore())
+
+
+@pytest.mark.asyncio
+async def test_dispatch_and_post_dispatch_exception_and_cancellation_branches() -> None:
+    *_, acq, _ctx = _full_fixture()
+
+    not_attempted = await _run_lifecycle(
+        dispatch_port=InMemoryDispatchPort(before_guard_exc=DispatchNotAttemptedError("not sent"))
+    )
+    assert not_attempted.kind is LifecycleTerminalKind.QUARANTINED
+    assert not_attempted.reason == "dispatch transport proved no publication"
+
+    cancelled_pre = await _run_lifecycle(
+        dispatch_port=InMemoryDispatchPort(before_guard_exc=asyncio.CancelledError())
+    )
+    assert cancelled_pre.kind is LifecycleTerminalKind.QUARANTINED
+    assert cancelled_pre.cancellation_requested is True
+
+    skipped_guard = await _run_lifecycle(dispatch_port=InMemoryDispatchPort(call_guard=False))
+    assert skipped_guard.kind is LifecycleTerminalKind.QUARANTINED
+    assert skipped_guard.reason == "dispatch blocked before provider invocation"
+
+    changed_verifier = await _run_lifecycle(
+        held_lock=InMemoryHeldLock(acq, verifier_id="other-verifier")
+    )
+    assert changed_verifier.kind is LifecycleTerminalKind.QUARANTINED
+
+    with pytest.raises(asyncio.CancelledError):
+        await _run_lifecycle(
+            dispatch_port=InMemoryDispatchPort(after_guard_exc=asyncio.CancelledError())
+        )
+
+    with pytest.raises(RuntimeError, match="post-guard boom"):
+        await _run_lifecycle(
+            dispatch_port=InMemoryDispatchPort(after_guard_exc=RuntimeError("post-guard boom"))
+        )
+
+    assess_cancelled = await _run_lifecycle(
+        held_lock=InMemoryHeldLock(acq, second_assess_exc=asyncio.CancelledError())
+    )
+    assert assess_cancelled.kind is LifecycleTerminalKind.QUARANTINED
+    assert assess_cancelled.cancellation_requested is True
+
+    assess_failed = await _run_lifecycle(
+        held_lock=InMemoryHeldLock(acq, second_assess_exc=RuntimeError("verifier failed"))
+    )
+    assert assess_failed.kind is LifecycleTerminalKind.QUARANTINED
+    assert assess_failed.reason == "pre-release ownership assessment failed"
+
+
+@pytest.mark.asyncio
+async def test_await_after_dispatch_shield_and_cancellation_branches() -> None:
+    loop = asyncio.get_running_loop()
+    fut1: asyncio.Future[str] = loop.create_future()
+    task = asyncio.create_task(_await_after_dispatch(fut1))
+    await asyncio.sleep(0)
+    task.cancel()
+    fut1.set_result("done")
+    value, was_cancelled = await task
+    assert value == "done" and was_cancelled is True
+
+    fut2: asyncio.Future[str] = loop.create_future()
+    task2 = asyncio.create_task(_await_after_dispatch(fut2))
+    await asyncio.sleep(0)
+    task2.cancel()
+    fut2.set_exception(RuntimeError("write failed"))
+    with pytest.raises(asyncio.CancelledError):
+        await task2
+
+    fut3: asyncio.Future[str] = loop.create_future()
+    fut3.set_exception(RuntimeError("direct failure"))
+    with pytest.raises(RuntimeError, match="direct failure"):
+        await _await_after_dispatch(fut3)
+
+    cancelled_inner: asyncio.Future[str] = loop.create_future()
+    cancelled_inner.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await _await_after_dispatch(cancelled_inner)

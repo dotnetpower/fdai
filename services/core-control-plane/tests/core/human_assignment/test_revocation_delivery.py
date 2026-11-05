@@ -291,3 +291,93 @@ async def test_interrupted_original_closure_stays_held_until_exact_merge_replay(
     )
     assert (await coordinator.cases.get_case("old")).state is AssignmentState.SUPERSEDED
     assert len(coordinator.pr_publisher.records) == 1
+
+
+async def test_render_revocation_ownership_yaml_error_branches(monkeypatch):
+    from fdai.core.human_assignment.ownership import AssignmentOwnershipError
+    from fdai.core.human_assignment.revocation_ownership import render_revocation_ownership_yaml
+
+    coordinator = await _coordinator()
+    removed = await _removed(coordinator.cases)
+    old = await coordinator.cases.get_case("old")
+    primary = await coordinator.cases.get_case("primary")
+    backup = await coordinator.cases.get_case("backup")
+    base = _base()
+
+    # Invalid removal state -> line 43
+    with pytest.raises(AssignmentOwnershipError, match="exact held original"):
+        render_revocation_ownership_yaml(
+            base,
+            replace(removed, state=AssignmentState.APPROVED),
+            original=old,
+            replacements={"primary": primary, "backup": backup},
+        )
+
+    # Incomplete replacement keys -> line 47
+    with pytest.raises(AssignmentOwnershipError, match="replacement evidence is incomplete"):
+        render_revocation_ownership_yaml(
+            base,
+            removed,
+            original=old,
+            replacements={"primary": primary},
+        )
+
+    # Non-platform scope -> line 62
+    scoped_duties = (DutyBinding("Thor", Duty.PRIMARY, "scope:tenant-a"),)
+    with pytest.raises(AssignmentOwnershipError, match="supports only scope:platform"):
+        render_revocation_ownership_yaml(
+            base,
+            replace(removed, intent=replace(removed.intent, duty_bindings=scoped_duties)),
+            original=replace(old, intent=replace(old.intent, duty_bindings=scoped_duties)),
+            replacements={"primary": primary, "backup": backup},
+        )
+
+    # Replacement with extra unrelated agent duty (line 80) and duplicate primary (line 95)
+    dup_backup = replace(
+        backup,
+        intent=replace(
+            backup.intent,
+            duty_bindings=(
+                DutyBinding("Odin", Duty.BACKUP, "scope:platform"),
+                DutyBinding("Thor", Duty.PRIMARY, "scope:platform"),
+            ),
+        ),
+    )
+    from fdai.core.human_assignment.ownership import _base_mapping
+
+    raw = _base_mapping(base)
+    for item in raw["stewardship"]["agents"]["Thor"]["stewards"]:
+        if item["id"] == BACKUP:
+            item["duty"] = "primary"
+    raw["stewardship"]["agents"]["Thor"]["stewards"].append(
+        {
+            "kind": "user",
+            "id": "00000000-0000-0000-0000-000000000019",
+            "responsibility": "accountable",
+            "duty": "backup",
+        }
+    )
+    dup_base = load_stewardship_from_mapping(raw, environ={})
+    with pytest.raises(AssignmentOwnershipError, match="primary and distinct fallback"):
+        render_revocation_ownership_yaml(
+            dup_base,
+            removed,
+            original=old,
+            replacements={"primary": primary, "backup": dup_backup},
+        )
+
+    # Post-removal load_stewardship_from_mapping failure -> lines 99-100
+    import fdai.core.human_assignment.revocation_ownership as rev_own_mod
+
+    monkeypatch.setattr(
+        rev_own_mod,
+        "load_stewardship_from_mapping",
+        lambda *_a, **_kw: (_ for _ in ()).throw(ValueError("broken v2 coverage")),
+    )
+    with pytest.raises(AssignmentOwnershipError, match="complete v2 ownership coverage"):
+        render_revocation_ownership_yaml(
+            base,
+            removed,
+            original=old,
+            replacements={"primary": primary, "backup": backup},
+        )

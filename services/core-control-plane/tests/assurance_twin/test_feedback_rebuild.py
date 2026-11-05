@@ -7,7 +7,14 @@ from datetime import timedelta
 
 import pytest
 from fdai.core.assurance_twin import EffectModelStatus, StateStoreEffectModelRegistry
-from fdai.core.assurance_twin.feedback_generation import REBUILD_PURPOSE, generation_scope
+from fdai.core.assurance_twin.feedback_generation import (
+    REBUILD_PURPOSE,
+    generation_evidence,
+    generation_scope,
+    read_admission,
+    read_generation,
+    rebuild_admission_valid,
+)
 from fdai.core.assurance_twin.feedback_rebuild import latest_feedback_revisions, rebuild_feedback
 from fdai.core.assurance_twin.prequential_evaluation import evaluate_frozen_predictions
 from fdai.shared.contracts.models import ResponseOutcome
@@ -392,3 +399,94 @@ def test_rebuild_cannot_clear_cross_outcome_idempotency_conflicts() -> None:
             as_of=_AS_OF,
             complete=True,
         )
+
+
+def test_generation_evidence_and_read_generation_validation() -> None:
+    first = _feedback(1)
+    future = _feedback(2, minutes=180)
+    without_snapshot = first.model_copy(update={"prediction_snapshot": None})
+    seed = _model(EffectModelStatus.CHALLENGER)
+    candidate = rebuild_feedback(seed=seed, outcomes=(first,), as_of=_AS_OF, complete=True)
+    admission = _admission(candidate.input_manifest_digest)
+
+    assert rebuild_admission_valid(
+        admission,
+        manifest=candidate.input_manifest_digest,
+        action_type=seed.action_type_id,
+        metric=seed.metric,
+        evaluated_at=_AS_OF,
+    )
+    assert not rebuild_admission_valid(
+        admission,
+        manifest=candidate.input_manifest_digest,
+        action_type=seed.action_type_id,
+        metric=seed.metric,
+        evaluated_at=admission.valid_until,
+    )
+    assert not rebuild_admission_valid(
+        admission,
+        manifest="0" * 64,
+        action_type=seed.action_type_id,
+        metric=seed.metric,
+        evaluated_at=_AS_OF,
+    )
+
+    evidence = generation_evidence(candidate, (first, future, without_snapshot), admission)
+    assert read_generation({}) is None
+    assert read_generation({"generation_evidence": evidence}) == evidence
+
+    for invalid_top in (
+        "not-a-mapping",
+        {**evidence, "schema_version": "2.0.0"},
+        {**evidence, "admission": "not-a-mapping"},
+        {**evidence, "input_manifest_digest": "invalid"},
+    ):
+        with pytest.raises(ValueError, match="stored scalar generation evidence is invalid"):
+            read_generation({"generation_evidence": invalid_top})
+
+    for bad_index in (
+        {**evidence, "source_digests": "not-a-list"},
+        {**evidence, "source_digests": [""]},
+        {**evidence, "source_digests": ["b" * 64, "a" * 64]},
+    ):
+        with pytest.raises(ValueError, match="source index is invalid"):
+            read_generation({"generation_evidence": bad_index})
+
+    with pytest.raises(ValueError, match="source digest is invalid"):
+        read_generation(
+            {"generation_evidence": {**evidence, "source_digests": ["not-a-sha256-digest"]}}
+        )
+
+    with pytest.raises(ValueError, match="outcome identity is invalid"):
+        read_generation({"generation_evidence": {**evidence, "covered_outcome_ids": ["not-uuid"]}})
+
+    with pytest.raises(ValueError, match="outcome identity is not canonical"):
+        read_generation(
+            {
+                "generation_evidence": {
+                    **evidence,
+                    "covered_outcome_ids": ["00000000-0000-0000-0000-00000000000A"],
+                }
+            }
+        )
+
+    for bad_order in (
+        {**evidence, "replay_order": "not-a-list"},
+        {**evidence, "replay_order": ["00000000-0000-0000-0000-000000000999"]},
+    ):
+        with pytest.raises(ValueError, match="replay order is invalid"):
+            read_generation({"generation_evidence": bad_order})
+
+
+def test_read_admission_validation() -> None:
+    raw = _admission("a" * 64).to_mapping()
+    assert read_admission(raw) == _admission("a" * 64)
+
+    with pytest.raises(ValueError, match="MUST NOT grant authority"):
+        read_admission({**raw, "execution_authority": True})
+    with pytest.raises(ValueError, match="MUST NOT grant authority"):
+        read_admission({**raw, "promotion_authority": True})
+    with pytest.raises(ValueError, match="admission field is invalid"):
+        read_admission({**raw, "receipt_digest": 123})
+    with pytest.raises(ValueError, match="admission time is invalid"):
+        read_admission({**raw, "verified_at": 123})

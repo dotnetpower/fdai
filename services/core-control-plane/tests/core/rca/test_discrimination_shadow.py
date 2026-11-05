@@ -12,6 +12,7 @@ from fdai.core.rca.discrimination import (
     DISCRIMINATION_SCHEMA_VERSION,
     DiscriminatingObservationCandidate,
     DiscriminationDisposition,
+    DiscriminationHoldReason,
     ExpectedObservationOutcome,
     HypothesisDiscriminationFrame,
     HypothesisDiscriminationSelection,
@@ -25,6 +26,8 @@ from fdai.core.rca.discrimination_shadow import (
     DiscriminationSelector,
     ShadowComparisonDisposition,
     ShadowComparisonHoldReason,
+    _expected_outcome,
+    discrimination_shadow_material,
     run_discrimination_shadow,
 )
 
@@ -381,3 +384,234 @@ def test_malformed_boundary_inputs_raise() -> None:
             challenger_selector=select_discriminating_observation,
             safety_failure=1,  # type: ignore[arg-type]
         )
+
+
+def _held_selection(
+    frame: HypothesisDiscriminationFrame,
+    candidates: tuple[DiscriminatingObservationCandidate, ...],
+) -> HypothesisDiscriminationSelection:
+    candidate_digests = tuple(sorted(item.candidate_digest for item in candidates))
+    material = {
+        "schema_version": DISCRIMINATION_SCHEMA_VERSION,
+        "frame_digest": frame.frame_digest,
+        "method_version": DISCRIMINATION_METHOD_VERSION,
+        "disposition": DiscriminationDisposition.HELD.value,
+        "candidate_digests": list(candidate_digests),
+        "rejected_candidates": [],
+        "total_pair_count": 3,
+        "separated_pair_count": 0,
+        "selected_candidate_id": None,
+        "hold_reason": DiscriminationHoldReason.NO_DISCRIMINATION.value,
+    }
+    encoded = json.dumps(
+        material, allow_nan=False, ensure_ascii=True, separators=(",", ":"), sort_keys=True
+    ).encode()
+    digest = f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+    return HypothesisDiscriminationSelection(
+        selection_id=f"hypothesis-discrimination-{digest[7:39]}",
+        selection_digest=digest,
+        frame_digest=frame.frame_digest,
+        method_version=DISCRIMINATION_METHOD_VERSION,
+        disposition=DiscriminationDisposition.HELD,
+        candidate_digests=candidate_digests,
+        rejected_candidates=(),
+        total_pair_count=3,
+        separated_pair_count=0,
+        selected_candidate_id=None,
+        hold_reason=DiscriminationHoldReason.NO_DISCRIMINATION,
+    )
+
+
+def test_outcomes_selector_conflicts_and_comparison_validations() -> None:
+    frame = _frame()
+    weak, strong = _candidates(frame)
+    cheaper_strong = _candidate(
+        frame,
+        "cheaper-strong",
+        (
+            ExpectedObservationOutcome.SUPPORTS,
+            ExpectedObservationOutcome.REFUTES,
+            ExpectedObservationOutcome.NEUTRAL,
+        ),
+        5,
+    )
+    triple = (weak, strong, cheaper_strong)
+
+    challenger_held = run_discrimination_shadow(
+        frame=frame,
+        candidates=triple,
+        active_strategy_digest=_ACTIVE,
+        challenger_strategy_digest=_CHALLENGER,
+        active_selector=_selector_for(weak),
+        challenger_selector=_held_selection,
+    )
+    assert challenger_held.challenger_outcome is ChallengerComparisonOutcome.NON_IMPROVEMENT
+
+    active_held = run_discrimination_shadow(
+        frame=frame,
+        candidates=triple,
+        active_strategy_digest=_ACTIVE,
+        challenger_strategy_digest=_CHALLENGER,
+        active_selector=_held_selection,
+        challenger_selector=_selector_for(weak),
+    )
+    assert active_held.challenger_outcome is ChallengerComparisonOutcome.IMPROVEMENT
+
+    cost_improved = run_discrimination_shadow(
+        frame=frame,
+        candidates=triple,
+        active_strategy_digest=_ACTIVE,
+        challenger_strategy_digest=_CHALLENGER,
+        active_selector=_selector_for(strong),
+        challenger_selector=_selector_for(cheaper_strong),
+    )
+    assert cost_improved.challenger_outcome is ChallengerComparisonOutcome.IMPROVEMENT
+
+    worse = run_discrimination_shadow(
+        frame=frame,
+        candidates=triple,
+        active_strategy_digest=_ACTIVE,
+        challenger_strategy_digest=_CHALLENGER,
+        active_selector=_selector_for(strong),
+        challenger_selector=_selector_for(weak),
+    )
+    assert worse.challenger_outcome is ChallengerComparisonOutcome.NON_IMPROVEMENT
+    assert discrimination_shadow_material(worse)["challenger_outcome"] == "non_improvement"
+
+    # Active selector returning non-Selection object -> ACTIVE_SELECTOR_FAILED
+    bad_type = run_discrimination_shadow(
+        frame=frame,
+        candidates=(weak, strong),
+        active_strategy_digest=_ACTIVE,
+        challenger_strategy_digest=_CHALLENGER,
+        active_selector=lambda _f, _c: "invalid",  # type: ignore[return-value]
+        challenger_selector=_selector_for(weak),
+    )
+    assert bad_type.hold_reasons == (ShadowComparisonHoldReason.ACTIVE_SELECTOR_FAILED,)
+
+    # Selected candidate whose predictions do not match frame.active_hypothesis_ids
+    mismatched_pred = build_discriminating_observation_candidate(
+        frame=frame,
+        observation_ref="query:incomplete",
+        verified_query_receipt_digest=_RECEIPT,
+        cost_units=10,
+        predictions=strong.predictions[:2],
+    )
+    pred_conflict = run_discrimination_shadow(
+        frame=frame,
+        candidates=(mismatched_pred, strong),
+        active_strategy_digest=_ACTIVE,
+        challenger_strategy_digest=_CHALLENGER,
+        active_selector=lambda candidate_frame, cands: _forced_selection(
+            candidate_frame, cands, mismatched_pred
+        ),
+        challenger_selector=_selector_for(strong),
+    )
+    assert pred_conflict.hold_reasons == (ShadowComparisonHoldReason.ACTIVE_SELECTION_CONFLICT,)
+
+    for kwargs, match in (
+        ({"frame": "bad"}, "MUST be a HypothesisDiscriminationFrame"),
+        ({"candidates": (weak, weak)}, "candidates MUST be unique"),
+        ({"active_strategy_digest": 123}, "strategy digests MUST be strings"),
+        ({"active_selector": "not-callable"}, "selectors MUST be callable"),
+    ):
+        call_args: dict[str, object] = {
+            "frame": frame,
+            "candidates": (weak, strong),
+            "active_strategy_digest": _ACTIVE,
+            "challenger_strategy_digest": _CHALLENGER,
+            "active_selector": _selector_for(weak),
+            "challenger_selector": _selector_for(strong),
+        }
+        call_args.update(kwargs)
+        with pytest.raises(ValueError, match=match):
+            run_discrimination_shadow(**call_args)  # type: ignore[arg-type]
+
+    for changes, match in (
+        ({"frame_digest": "bad"}, "frame MUST be a sha256 digest"),
+        ({"candidate_digests": ("b", "a")}, "sorted, unique, bounded tuple"),
+        ({"active_strategy_digest": _CHALLENGER}, "strategy digests MUST differ"),
+        ({"disposition": "bad"}, "disposition is invalid"),
+        ({"hold_reasons": ["bad"]}, "canonical tuple"),
+        ({"disposition": ShadowComparisonDisposition.HELD}, "carry a hold reason"),
+        ({"active_selection_id": ""}, "non-empty and bounded"),
+        ({"active_pair_separation": -1}, "non-negative integers"),
+        ({"safety_failure": "no"}, "safety_failure MUST be boolean"),
+        (
+            {"active_selection_id": None, "active_recommendation": None, "agreement": False},
+            "requires both selection ids",
+        ),
+        (
+            {"active_recommendation": _forced_selection(frame, triple, weak)},
+            "does not match comparison evidence",
+        ),
+        ({"active_recommendation": None}, "MUST expose its recommendation"),
+        (
+            {
+                "disposition": ShadowComparisonDisposition.HELD,
+                "hold_reasons": (ShadowComparisonHoldReason.ACTIVE_SELECTOR_FAILED,),
+                "active_recommendation": None,
+                "active_selection_id": None,
+                "active_selected_candidate_id": None,
+                "active_cost_units": None,
+                "agreement": False,
+                "realized_evidence_eligible": False,
+            },
+            "active metrics require selection evidence",
+        ),
+        (
+            {
+                "disposition": ShadowComparisonDisposition.HELD,
+                "hold_reasons": (ShadowComparisonHoldReason.CHALLENGER_SELECTOR_FAILED,),
+                "challenger_selection_id": None,
+                "challenger_selected_candidate_id": None,
+                "challenger_cost_units": None,
+                "agreement": False,
+                "realized_evidence_eligible": False,
+            },
+            "challenger metrics require selection evidence",
+        ),
+        (
+            {
+                "active_selected_candidate_id": "observation-candidate-unknown",
+                "active_recommendation": None,
+                "active_selection_id": None,
+                "disposition": ShadowComparisonDisposition.HELD,
+                "hold_reasons": (ShadowComparisonHoldReason.ACTIVE_SELECTOR_FAILED,),
+                "active_pair_separation": None,
+                "agreement": False,
+                "realized_evidence_eligible": False,
+            },
+            "belong to the compared candidate set",
+        ),
+        (
+            {
+                "active_cost_units": None,
+                "challenger_selection_id": worse.active_selection_id,
+                "challenger_selected_candidate_id": worse.active_selected_candidate_id,
+                "agreement": True,
+                "realized_evidence_eligible": True,
+            },
+            "active cost requires",
+        ),
+        (
+            {
+                "challenger_cost_units": None,
+                "challenger_selection_id": worse.active_selection_id,
+                "challenger_selected_candidate_id": worse.active_selected_candidate_id,
+                "agreement": True,
+                "realized_evidence_eligible": True,
+            },
+            "challenger cost requires",
+        ),
+    ):
+        with pytest.raises(ValueError, match=match):
+            replace(worse, **changes)  # type: ignore[arg-type]
+
+    object.__setattr__(worse, "active_pair_separation", None)
+    with pytest.raises(ValueError, match="requires predicted pair separation"):
+        _expected_outcome(worse)
+    object.__setattr__(worse, "active_pair_separation", 3)
+    object.__setattr__(worse, "active_cost_units", None)
+    with pytest.raises(ValueError, match="requires predicted costs"):
+        _expected_outcome(worse)

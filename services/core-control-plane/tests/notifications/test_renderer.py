@@ -109,3 +109,45 @@ def test_has_requires_full_english_template() -> None:
 
 def test_default_catalog_fully_defines_decision() -> None:
     assert default_catalog().has("decision") is True
+
+
+def test_load_missing_locale_file_raises_value_error() -> None:
+    from fdai.core.notifications import renderer
+
+    with pytest.raises(ValueError, match="failed to load notification catalog"):
+        renderer._load("missing_locale_file")
+
+
+def test_load_rejects_non_object_root(monkeypatch: pytest.MonkeyPatch) -> None:
+    from fdai.core.notifications import renderer
+
+    monkeypatch.setattr(renderer.json, "loads", lambda _raw: ["not-an-object"])
+    with pytest.raises(ValueError, match="must be an object"):
+        renderer._load("en")
+
+
+def test_load_rejects_non_object_entry(monkeypatch: pytest.MonkeyPatch) -> None:
+    from fdai.core.notifications import renderer
+
+    monkeypatch.setattr(renderer.json, "loads", lambda _raw: {"decision": "not-an-object"})
+    with pytest.raises(ValueError, match="entry 'decision' must be an object"):
+        renderer._load("en")
+
+
+def test_default_catalog_double_checked_lock_reuses_populated_instance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai.core.notifications import renderer
+
+    sentinel = NotificationCatalog(locales={"en": {"decision": {"title": "t", "body": "b"}}})
+
+    class _PopulatingLock:
+        def __enter__(self) -> None:
+            renderer._DEFAULT_CATALOG = sentinel
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+    monkeypatch.setattr(renderer, "_DEFAULT_CATALOG", None)
+    monkeypatch.setattr(renderer, "_CATALOG_LOCK", _PopulatingLock())
+    assert renderer.default_catalog() is sentinel

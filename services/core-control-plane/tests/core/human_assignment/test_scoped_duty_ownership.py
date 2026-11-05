@@ -172,3 +172,105 @@ async def test_projection_expiry_cannot_outlive_an_imminent_duty_transition(runt
     plan = case.plan()
     plan["bindings"][0]["binding"]["effective_until"] = (AT + timedelta(seconds=2)).isoformat()
     assert plan_expiry(plan) == AT + timedelta(seconds=2)
+
+
+async def test_scoped_duty_ownership_and_merge_observation_edge_branches(runtime, monkeypatch):
+    from fdai.core.human_assignment.scoped_duty_case_model import (
+        SCOPED_CASE_PREFIX,
+        ScopedDutyCase,
+    )
+    from fdai.core.human_assignment.scoped_duty_case_service import ScopedDutyCaseService
+
+    with pytest.raises(ValueError, match="MUST be non-empty"):
+        ScopedDutyMergeObservation(
+            pr_ref=" ",
+            path="p",
+            candidate_digest="a" * 64,
+            merge_commit_sha="b" * 40,
+            observed_at=AT,
+            expires_at=AT,
+        )
+    with pytest.raises(ValueError, match="MUST not invert"):
+        ScopedDutyMergeObservation(
+            pr_ref="pr:1",
+            path="p",
+            candidate_digest="a" * 64,
+            merge_commit_sha="b" * 40,
+            observed_at=AT + timedelta(seconds=5),
+            expires_at=AT,
+        )
+
+    case = await approved(runtime)
+    owner = delivery(runtime)
+
+    # observe() on non-ownership_pr_open returns ()
+    assert await owner.observe(case) == ()
+
+    # open_proposal with conflicting retained artifact intent
+    intent_key = "human_assignment:scoped-artifact-intent:" + case.case_id
+    await owner.cases.store.write_state(intent_key, {"case_id": case.case_id, "bad": True})
+    with pytest.raises(ValueError, match="conflicts with its original intent"):
+        await owner.open_proposal(case.case_id, expected_revision=case.revision)
+
+    # open_proposal when artifact intent did not persist
+    fresh_store = owner.cases.store
+    orig_write = fresh_store.write_state_with_audit_if_absent
+    orig_read = fresh_store.read_state
+
+    async def no_intent_read(k: str):
+        return None if k == intent_key else await orig_read(k)
+
+    monkeypatch.setattr(
+        fresh_store, "write_state_with_audit_if_absent", AsyncMock(return_value=False)
+    )
+    monkeypatch.setattr(fresh_store, "read_state", no_intent_read)
+    with pytest.raises(ValueError, match="intent did not persist"):
+        await owner.open_proposal(case.case_id, expected_revision=case.revision)
+    monkeypatch.setattr(fresh_store, "write_state_with_audit_if_absent", orig_write)
+    monkeypatch.setattr(fresh_store, "read_state", orig_read)
+
+    # Clean intent key by overwriting with expected intent
+    path, _content, digest = scoped_artifact(case)
+    await fresh_store.write_state(
+        intent_key, {"case_id": case.case_id, "candidate_digest": digest, "path": path}
+    )
+
+    # Source changed before publication
+    get_calls = 0
+    orig_get = ScopedDutyCaseService.get
+
+    async def mutating_get(self_svc: ScopedDutyCaseService, cid: str):
+        nonlocal get_calls
+        res = await orig_get(self_svc, cid)
+        get_calls += 1
+        if get_calls >= 2:
+            return ScopedDutyCase.model_validate(
+                {**res.model_dump(), "justification": "Mutated justification text."}
+            )
+        return res
+
+    monkeypatch.setattr(ScopedDutyCaseService, "get", mutating_get)
+    with pytest.raises(ValueError, match="source changed before publication"):
+        await owner.open_proposal(case.case_id, expected_revision=case.revision)
+    monkeypatch.setattr(ScopedDutyCaseService, "get", orig_get)
+
+    # CAS race after publish: mismatched winner vs matching winner
+    orig_cas = fresh_store.compare_and_set_state_with_audit
+    monkeypatch.setattr(
+        fresh_store, "compare_and_set_state_with_audit", AsyncMock(return_value=False)
+    )
+    with pytest.raises(ValueError, match="exact replay recovery"):
+        await owner.open_proposal(case.case_id, expected_revision=case.revision)
+    monkeypatch.setattr(fresh_store, "compare_and_set_state_with_audit", orig_cas)
+
+    opened = await owner.open_proposal(case.case_id, expected_revision=case.revision)
+
+    # Tampered candidate_digest on opened case in open_proposal and observe
+    tampered = ScopedDutyCase.model_validate({**opened.model_dump(), "candidate_digest": "f" * 64})
+    with pytest.raises(ValueError, match="candidate changed"):
+        await owner.observe(tampered)
+    await fresh_store.write_state(
+        SCOPED_CASE_PREFIX + case.case_id, tampered.model_dump(mode="json")
+    )
+    with pytest.raises(ValueError, match="does not match its retained intent"):
+        await owner.open_proposal(case.case_id, expected_revision=tampered.revision)

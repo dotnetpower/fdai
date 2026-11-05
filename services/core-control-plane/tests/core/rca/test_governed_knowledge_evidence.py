@@ -538,3 +538,237 @@ async def test_empty_custom_governed_result_holds_instead_of_using_other_evidenc
 
     assert result.reason == "governed_knowledge_evidence_held:document_evidence_missing"
     assert result.hypothesis is None
+
+
+def test_adapter_constructor_and_helper_validations() -> None:
+    from fdai.core.rca.governed_document_evidence import _aware_now, _hit_identity, _summary
+
+    for kwargs, match in (
+        ({"freshness_ceiling_seconds": 0}, "freshness ceiling MUST be positive"),
+        ({"freshness_ceiling_seconds": 60, "max_bytes": 0}, "max_bytes MUST be positive"),
+    ):
+        with pytest.raises(ValueError, match=match):
+            GovernedDocumentEvidenceReadAdapter(
+                search=_Search(()),
+                metadata=cast(DocumentMetadataStore, _Metadata(None)),
+                access=cast(DocumentAccessProvider, _Access()),
+                clock=lambda: NOW,
+                **kwargs,  # type: ignore[arg-type]
+            )
+    valid_meta = {
+        "governed_document": "true",
+        "document_id": str(DOCUMENT_ID),
+        "version_id": str(VERSION_ID),
+    }
+    for doc_id, meta, match in (
+        ("doc:1", {"governed_document": "false"}, "ungoverned_search_result"),
+        ("doc:1", {"governed_document": "true", "document_id": "bad"}, "document_identity_missing"),
+        ("governed:wrong", valid_meta, "document_revision_mismatch"),
+    ):
+        chunk = KnowledgeChunk(doc_id, "c:1", "t", "r", 1.0, meta)
+        with pytest.raises(GovernedKnowledgeEvidenceHoldError, match=match):
+            _hit_identity(chunk)
+    with pytest.raises(GovernedKnowledgeEvidenceHoldError, match="document_metadata_invalid"):
+        _summary(123)
+    with pytest.raises(GovernedKnowledgeEvidenceHoldError, match="document_redaction_missing"):
+        _summary(" , ")
+    with pytest.raises(ValueError, match="timezone-aware"):
+        _aware_now(lambda: datetime(2026, 9, 4, 2, 30))
+
+
+async def test_adapter_read_guards_search_metadata_access_and_version_errors() -> None:
+    from dataclasses import replace
+
+    from fdai.core.rca.governed_document_evidence import (
+        _GovernedDocumentEvidenceSource,
+        _validate_version,
+    )
+
+    adapter = _adapter(search=_Search((_hit(),)), metadata=_Metadata(_version()), access=_Access())
+    with pytest.raises(GovernedKnowledgeEvidenceHoldError, match="query_missing"):
+        await adapter.read(query="   ", context=_context(), limit=5)
+    with pytest.raises(ValueError, match="limit MUST be in"):
+        await adapter.read(query="latency", context=_context(), limit=0)
+
+    naive_adapter = GovernedDocumentEvidenceReadAdapter(
+        search=_Search((_hit(),)),
+        metadata=cast(DocumentMetadataStore, _Metadata(_version())),
+        access=cast(DocumentAccessProvider, _Access()),
+        clock=lambda: datetime(2026, 9, 4, 2, 30),
+        freshness_ceiling_seconds=3600,
+    )
+    with pytest.raises(ValueError, match="timezone-aware"):
+        await naive_adapter.read(query="latency", context=_context(), limit=5)
+
+    source = _GovernedDocumentEvidenceSource(
+        search=_Search((_hit(),)),
+        metadata=cast(DocumentMetadataStore, _Metadata(_version())),
+        access=cast(DocumentAccessProvider, _Access()),
+        clock=lambda: NOW,
+        freshness_ceiling_seconds=3600,
+        query="latency",
+        context=_context(),
+        limit=5,
+    )
+    with pytest.raises(GovernedKnowledgeEvidenceHoldError, match="request_identity_mismatch"):
+        await source.collect(replace(_context().read_request, catalog_revision="other"))
+
+    class _FailingSearch(_Search):
+        async def search(self, *args: object, **kwargs: object) -> Sequence[KnowledgeChunk]:
+            raise RuntimeError("search down")
+
+    class _BoomMetadata(_Metadata):
+        async def get_version(self, document_id: UUID, version_id: UUID) -> DocumentVersion:
+            raise RuntimeError("db error")
+
+    class _BoomAccess(_Access):
+        async def authorize_read(self, **_kwargs: object) -> None:
+            raise RuntimeError("auth error")
+
+    for s, m, a, hold in (
+        (_FailingSearch(()), _Metadata(_version()), _Access(), "search_unavailable"),
+        (_Search((_hit(),)), _Metadata(None), _Access(), "document_missing"),
+        (_Search((_hit(),)), _BoomMetadata(None), _Access(), "metadata_unavailable"),
+        (_Search((_hit(),)), _Metadata(_version()), _BoomAccess(), "access_check_unavailable"),
+    ):
+        with pytest.raises(GovernedKnowledgeEvidenceHoldError, match=hold):
+            await _adapter(search=s, metadata=m, access=a).read(
+                query="latency", context=_context(), limit=5
+            )
+
+    hit, ctx, base_v = _hit(), _context(), _version()
+    pin = GovernedDocumentRevision(DOCUMENT_ID, VERSION_ID, "f" * 64)
+    other_col = base_v.access.model_copy(update={"collection_id": "other"})
+    other_ref = base_v.access.model_copy(update={"reference": "collection:other"})
+    naive_ret = base_v.retention.model_copy(update={"derived_expires_at": datetime(2026, 9, 5, 1)})
+    aware_ret = base_v.retention.model_copy(update={"derived_expires_at": NOW + timedelta(days=1)})
+    for updates, p, hold in (
+        ({"version_id": OTHER_VERSION_ID}, None, "document_revision_mismatch"),
+        ({"purposes": ()}, None, "document_purpose_mismatch"),
+        ({"access": other_col}, None, "document_collection_mismatch"),
+        ({"access": other_ref}, None, "document_unauthorized"),
+        ({}, pin, "document_revision_mismatch"),
+        ({"created_at": datetime(2026, 9, 4, 1)}, None, "document_created_at_invalid"),
+        ({"retention": naive_ret}, None, "document_expiry_invalid"),
+    ):
+        with pytest.raises(GovernedKnowledgeEvidenceHoldError, match=hold):
+            _validate_version(
+                version=base_v.model_copy(update=updates), hit=hit, context=ctx, pin=p
+            )
+    _validate_version(
+        version=base_v.model_copy(update={"retention": aware_ret}), hit=hit, context=ctx, pin=None
+    )
+
+
+async def test_adapter_dedupes_chunks_filters_pins_and_verifies_cloud_knowledge() -> None:
+    from dataclasses import replace
+
+    from fdai.shared.providers.document_ingestion import GovernedDocumentSearchResult
+    from fdai_service_contracts import cloud_knowledge as cloud
+    from fdai_service_contracts.cloud_knowledge_release import KnowledgeReleaseBinding
+
+    digest = cloud.content_digest(b"reference")
+    check = cloud.SourceCheckReceipt(
+        source_id="source-a",
+        source_url="https://example.com/reference",
+        checked_at=NOW - timedelta(minutes=5),
+        outcome="unchanged",
+        content_sha256=digest,
+        equivalence="body_hash",
+        collector_id="synthetic-collector",
+    )
+    net_app = cloud.Applicability(resource_type="network", service_generation="v1")
+    comp_app = cloud.Applicability(resource_type="compute", service_generation="v1")
+    cloud_ev = cloud.CloudSourceEvidence(
+        source_id="source-a",
+        source_url="https://example.com/reference",
+        source_sha256=digest,
+        normalized_sha256=digest,
+        collected_at=NOW - timedelta(hours=2),
+        source_updated_at=NOW - timedelta(hours=3),
+        check=check,
+        applicability=net_app,
+        policy=cloud.RefreshPolicy(),
+        license_ref="synthetic-license",
+    )
+    binding = KnowledgeReleaseBinding(
+        release_id="synthetic-release",
+        sequence=1,
+        manifest_digest=cloud.content_digest(b"manifest"),
+        registry_digest=cloud.content_digest(b"registry"),
+        package_created_at=NOW - timedelta(days=1),
+        imported_at=NOW - timedelta(hours=1),
+        admission_expires_at=NOW + timedelta(hours=1),
+        verified_key_id="synthetic-key",
+        sources=(cloud_ev,),
+    )
+    cloud_version = _version().model_copy(update={"cloud_knowledge": binding})
+    cloud_hit = replace(
+        _hit(), metadata={**_hit().metadata, "cloud_source": cloud_ev.model_dump_json()}
+    )
+    other_doc_id = UUID(int=99)
+    pin = GovernedDocumentRevision(DOCUMENT_ID, VERSION_ID, SOURCE_SHA)
+    pin_ctx = replace(_context(expected_revisions=(pin,)), cloud_applicability=net_app)
+
+    class _ApplicableSearch(_Search):
+        async def search_applicable_governed(
+            self, *args: object, **kwargs: object
+        ) -> GovernedDocumentSearchResult:
+            unpinned = replace(
+                _hit(),
+                doc_id=f"governed:{other_doc_id}:{VERSION_ID}",
+                chunk_id="unpinned",
+                metadata={**_hit().metadata, "document_id": str(other_doc_id)},
+            )
+            return GovernedDocumentSearchResult(
+                (cloud_hit, cloud_hit, unpinned), "gen-1", complete=True
+            )
+
+    class _NoProvenanceSearch(_ApplicableSearch):
+        async def search_applicable_governed(
+            self, *args: object, **kwargs: object
+        ) -> GovernedDocumentSearchResult:
+            return GovernedDocumentSearchResult((_hit(),), "gen-1", complete=True)
+
+    class _CloudRef:
+        def __init__(self, ev: cloud.CloudSourceEvidence, pending: bool = False) -> None:
+            self.ev, self.pending = ev, pending
+
+        async def resolve(self, *_args: object) -> tuple[cloud.CloudSourceEvidence, bool]:
+            return self.ev, self.pending
+
+    def _mk(search: _Search, ref: object = None) -> GovernedDocumentEvidenceReadAdapter:
+        return GovernedDocumentEvidenceReadAdapter(
+            search=search,
+            metadata=cast(DocumentMetadataStore, _Metadata(cloud_version)),
+            access=cast(DocumentAccessProvider, _Access()),
+            clock=lambda: NOW,
+            freshness_ceiling_seconds=3600,
+            cloud_reference=ref,  # type: ignore[arg-type]
+        )
+
+    for search, ctx, ref, hold in (
+        (_Search((cloud_hit,)), pin_ctx, None, "cloud_applicability_unavailable"),
+        (_Search((cloud_hit,)), _context(), None, "cloud_source_applicability_missing"),
+        (_ApplicableSearch(()), pin_ctx, None, "cloud_source_verifier_unavailable"),
+        (_NoProvenanceSearch(()), pin_ctx, _CloudRef(cloud_ev), "cloud_source_provenance_missing"),
+        (
+            _ApplicableSearch(()),
+            pin_ctx,
+            _CloudRef(cloud_ev.model_copy(update={"applicability": comp_app})),
+            "cloud_source_applicability_mismatch",
+        ),
+        (
+            _ApplicableSearch(()),
+            pin_ctx,
+            _CloudRef(cloud_ev, pending=True),
+            "cloud_source_refresh_required",
+        ),
+    ):
+        with pytest.raises(GovernedKnowledgeEvidenceHoldError, match=hold):
+            await _mk(search, ref).read(query="latency", context=ctx, limit=5)
+
+    valid_res = await _mk(_ApplicableSearch(()), _CloudRef(cloud_ev)).read(
+        query="latency", context=pin_ctx, limit=5
+    )
+    assert len(valid_res.bundle.documents) == 1

@@ -15,8 +15,14 @@ from fdai.core.conversation.result_handle_store import (
 )
 from fdai.core.conversation.semantic_reasoning_compiler import GoalStatus, compile_question_form
 from fdai.core.conversation.semantic_reasoning_form import MentionDomain
-from fdai.core.conversation.semantic_reasoning_handles import reference_anchors
-from fdai.core.conversation.semantic_stored_result_handles import bind_stored_references
+from fdai.core.conversation.semantic_reasoning_handles import (
+    ReferenceOutcome,
+    reference_anchors,
+)
+from fdai.core.conversation.semantic_stored_result_handles import (
+    StoredReferenceContext,
+    bind_stored_references,
+)
 from fdai.core.ontology_platform import ObjectSetService
 from fdai.core.ontology_platform.interfaces import compile_interfaces
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
@@ -528,30 +534,6 @@ async def test_a_failing_handle_store_never_withholds_a_verified_answer() -> Non
 
 
 async def test_an_anaphor_binds_every_stored_row_the_operator_saw() -> None:
-    manifest = production_manifest()
-    gateway = await fixture_gateway()
-    store = InMemoryResultHandleStore(
-        keys=StaticResultHandleKeyProvider(
-            current=ResultHandleKey("result-handle-key-v1", b"1" * 32)
-        ),
-        handle_ref_factory=lambda: "OpaqueHandleRef0123456789abcdefABCDEF",
-    )
-    row_keys = (_row_key("vm-1"), _row_key("aks-1"))
-    handle = ResultHandle.model_validate(
-        {
-            "deployment_scope_digest": manifest.release_digest,
-            "principal_digest": manifest.manifest_digest,
-            "conversation_id": "session-a",
-            "purpose": PURPOSE,
-            "manifest_digest": manifest.manifest_digest,
-            "rendered_order_digest": rendered_order_digest(row_keys),
-            "row_keys": row_keys,
-            "page": PageDescriptor(page_number=1, page_size=2),
-            "truncated": False,
-        },
-        context={"allowed_snapshot_fields": set()},
-    )
-    handle_ref = await store.put(handle, issued_at=NOW, expires_at=NOW + timedelta(minutes=15))
     utterance = "Only the running ones"
     admission = admitted(
         {
@@ -584,28 +566,177 @@ async def test_an_anaphor_binds_every_stored_row_the_operator_saw() -> None:
         },
         utterance,
     )
-
-    references = await bind_stored_references(
-        admission,
-        references=(handle_ref,),
-        store=store,
-        binding=ResultHandleBinding(
-            deployment_scope_digest=manifest.release_digest,
-            principal_digest=manifest.manifest_digest,
-            conversation_id="session-a",
-            purpose=PURPOSE,
-            manifest_digest=manifest.manifest_digest,
-            now=NOW + timedelta(minutes=1),
-        ),
-        gateway=gateway,
-        projection_request=ProjectionRequest(
-            caller_role=CeilingRole.READER,
-            declared_purposes=frozenset({PURPOSE}),
-        ),
-        purpose=PURPOSE,
-        as_of=NOW,
-    )
+    references, _ = await _stored_references(admission, ("vm-1", "aks-1"), await fixture_gateway())
 
     bound = references.binding("m1")  # type: ignore[union-attr]
     assert bound is not None and bound.bound
     assert bound.row_ids == ("vm-1", "aks-1")
+
+
+async def test_stored_reference_context_and_fallback_candidates_cover_edge_outcomes() -> None:
+    from fdai.core.conversation.semantic_reasoning_form import MentionForm
+    from fdai.core.conversation.semantic_stored_result_handles import _bind_one
+
+    manifest = production_manifest()
+    gateway = await fixture_gateway()
+    refs_produced = iter(tuple(f"OpaqueHandleRef0123456789abcdefABCD{i:02d}" for i in range(10)))
+    store = InMemoryResultHandleStore(
+        keys=StaticResultHandleKeyProvider(
+            current=ResultHandleKey("result-handle-key-v1", b"1" * 32)
+        ),
+        handle_ref_factory=lambda: next(refs_produced),
+    )
+    assert StoredReferenceContext(session_id="session-a", references=(), store=store).session_id
+    with pytest.raises(ValueError, match="session_id MUST be non-empty"):
+        StoredReferenceContext(session_id="   ", references=(), store=store)
+
+    utterance, form = _state_lookup_form()
+    multi_goal_form = {
+        **form,
+        "goals": [
+            form["goals"][0],  # type: ignore[index]
+            {**form["goals"][0], "id": "g2"},  # type: ignore[index]
+        ],
+    }
+    admission = admitted(multi_goal_form, utterance)
+    binding = ResultHandleBinding(
+        deployment_scope_digest=manifest.release_digest,
+        principal_digest=manifest.manifest_digest,
+        conversation_id="session-a",
+        purpose=PURPOSE,
+        manifest_digest=manifest.manifest_digest,
+        now=NOW + timedelta(minutes=1),
+    )
+    projection = ProjectionRequest(
+        caller_role=CeilingRole.READER, declared_purposes=frozenset({PURPOSE})
+    )
+
+    async def _bind(
+        adm: object, refs: tuple[object, ...], *, gw: object = gateway, as_of: object = NOW
+    ) -> object:
+        return await bind_stored_references(
+            adm,  # type: ignore[arg-type]
+            references=refs,  # type: ignore[arg-type]
+            store=store,
+            binding=binding,
+            gateway=gw,  # type: ignore[arg-type]
+            projection_request=projection,
+            purpose=PURPOSE,
+            as_of=as_of,  # type: ignore[arg-type]
+        )
+
+    assert await _bind(admission, ()) is None
+
+    def _make_handle(row_ids: tuple[str, ...], identities: tuple[str, ...] = ()) -> ResultHandle:
+        keys = tuple(_row_key(item) for item in row_ids)
+        return ResultHandle.model_validate(
+            {
+                "deployment_scope_digest": manifest.release_digest,
+                "principal_digest": manifest.manifest_digest,
+                "conversation_id": "session-a",
+                "purpose": PURPOSE,
+                "manifest_digest": manifest.manifest_digest,
+                "rendered_order_digest": rendered_order_digest(keys),
+                "row_keys": keys,
+                **({"row_identities": identities} if identities else {}),
+                "page": PageDescriptor(page_number=1, page_size=max(1, len(keys))),
+                "truncated": False,
+            },
+            context={"allowed_snapshot_fields": set()},
+        )
+
+    exp = NOW + timedelta(days=1)
+    ref_empty = await store.put(_make_handle(()), issued_at=NOW, expires_at=exp)
+    ref_unreadable = await store.put(
+        _make_handle(("deleted-vm",), ("deleted-vm",)), issued_at=NOW, expires_at=exp
+    )
+    ref_valid = await store.put(
+        _make_handle(("vm-1", "aks-1"), ("vm-1", "aks-1")), issued_at=NOW, expires_at=exp
+    )
+    ref_one_no_id = await store.put(_make_handle(("vm-1",)), issued_at=NOW, expires_at=exp)
+    ref_one_id = await store.put(_make_handle(("vm-1",), ("vm-1",)), issued_at=NOW, expires_at=exp)
+    ref_unknown = ref_valid.model_copy(
+        update={"handle_ref": "UnknownHandleRef0123456789abcdefABCD"}
+    )
+
+    non_ref_adm = admitted(
+        {
+            "mentions": [
+                {"id": "m1", "form": "name", "domain": "instance", "span": span(utterance, "one")},
+                {"id": "m2", "form": "value", "domain": "state", "span": span(utterance, "state")},
+            ],
+            "goals": [{**form["goals"][0], "subject_scope": "anchor"}],  # type: ignore[index]
+        },
+        utterance,
+    )
+    assert (await _bind(non_ref_adm, (ref_empty,))).bindings == ()  # type: ignore[union-attr]
+    assert (await _bind(admission, (ref_empty,))).binding("m1").outcome is ReferenceOutcome.EMPTY  # type: ignore[union-attr]
+    assert (await _bind(admission, (ref_unknown,))).binding("m1").outcome is (  # type: ignore[union-attr]
+        ReferenceOutcome.UNAVAILABLE
+    )
+    assert (await _bind(admission, (ref_empty, ref_unknown, ref_unreadable))).binding(
+        "m1"
+    ).outcome is ReferenceOutcome.EMPTY  # type: ignore[union-attr]
+    fallback_res = await _bind(
+        admission, (ref_empty, ref_unknown, ref_unreadable, ref_valid), as_of=lambda: NOW
+    )
+    assert fallback_res.binding("m1").row_ids == ("aks-1",)  # type: ignore[union-attr]
+
+    implicit_utt = "How many are there?"
+    implicit_adm = admitted(
+        {
+            "mentions": [],
+            "goals": [
+                {
+                    "id": "g1",
+                    "level": "instance",
+                    "operation": "count",
+                    "subject_scope": "prior_result",
+                    "cue": span(implicit_utt, "How many"),
+                    "confidence": 0.9,
+                }
+            ],
+        },
+        implicit_utt,
+    )
+    assert (await _bind(implicit_adm, (ref_one_no_id,))).binding(
+        "implicit:g1"
+    ).resource_type == "compute.vm"  # type: ignore[union-attr]
+
+    class _TruncatedGateway:
+        async def materialize(self, definition: object, *, projection_request: object) -> object:
+            real = await gateway.materialize(definition, projection_request=projection_request)  # type: ignore[arg-type]
+            return real.model_copy(
+                update={"receipt": real.receipt.model_copy(update={"truncated": True})}
+            )
+
+    for target_ref, gw_arg, as_of_arg in (
+        (ref_one_no_id, gateway, NOW + timedelta(hours=1)),
+        (ref_one_no_id, await _large_gateway(1001), NOW),
+        (ref_one_id, gateway, NOW + timedelta(hours=1)),
+        (ref_one_id, _TruncatedGateway(), NOW),
+    ):
+        res = await _bind(implicit_adm, (target_ref,), gw=gw_arg, as_of=as_of_arg)
+        assert res.binding("implicit:g1").outcome is ReferenceOutcome.UNAVAILABLE  # type: ignore[union-attr]
+
+    one_key = (_row_key("vm-1"),)
+    row_map: dict[str, tuple[str, str | None]] = {one_key[0].model_dump_json(): ("vm-1", "vm")}
+    for pos, expected_out in (
+        (0, ReferenceOutcome.OUT_OF_RANGE),
+        (5, ReferenceOutcome.OUT_OF_RANGE),
+        (-1, ReferenceOutcome.BOUND),
+    ):
+        assert (
+            _bind_one(
+                "m1",
+                MentionForm.ORDINAL,
+                pos,
+                handle_ref="h1",
+                row_keys=one_key,
+                truncated=False,
+                row_map=row_map,
+                fallback=ReferenceOutcome.BOUND,
+                source_generation=None,
+            ).outcome
+            is expected_out
+        )

@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 from fdai.core.mscp_profile.effect_verification import EffectVerificationReason
 from fdai.core.mscp_profile.failure_policy import (
+    MscpFailureDecision,
     MscpFailureDisposition,
     decide_mscp_failure,
 )
@@ -87,3 +88,46 @@ def test_success_reason_is_not_accepted_as_failure() -> None:
             EffectVerificationReason.WITHIN_ACCEPTABLE_RANGE,
             profile_mode=MscpProfileMode.SHADOW,
         )
+
+
+def test_failure_decision_validates_bounds_and_inputs() -> None:
+    with pytest.raises(ValueError, match="retries MUST be bounded"):
+        MscpFailureDecision(
+            reason=EffectVerificationReason.PREDICTION_UNAVAILABLE,
+            disposition=MscpFailureDisposition.HOLD_BEFORE_DISPATCH,
+            max_retry_attempts=2,
+            max_approval_requests=0,
+            demote_to_shadow=False,
+        )
+    with pytest.raises(ValueError, match="approval requests MUST be bounded"):
+        MscpFailureDecision(
+            reason=EffectVerificationReason.PREDICTION_UNAVAILABLE,
+            disposition=MscpFailureDisposition.HOLD_BEFORE_DISPATCH,
+            max_retry_attempts=0,
+            max_approval_requests=2,
+            demote_to_shadow=False,
+        )
+    with pytest.raises(ValueError, match="MUST NOT grant execution authority"):
+        MscpFailureDecision(
+            reason=EffectVerificationReason.PREDICTION_UNAVAILABLE,
+            disposition=MscpFailureDisposition.HOLD_BEFORE_DISPATCH,
+            max_retry_attempts=0,
+            max_approval_requests=0,
+            demote_to_shadow=False,
+            execution_authority=True,  # type: ignore[arg-type]
+        )
+
+    decision = decide_mscp_failure(
+        EffectVerificationReason.PREDICTION_UNAVAILABLE,
+        profile_mode=MscpProfileMode.SHADOW,
+    )
+    with pytest.raises(ValueError, match="attempts_used MUST be an integer"):
+        decision.retry_allowed(attempts_used=True)
+    with pytest.raises(ValueError, match="attempts_used MUST be non-negative"):
+        decision.retry_allowed(attempts_used=-1)
+    with pytest.raises(ValueError, match="requests_used MUST be an integer"):
+        decision.approval_allowed(requests_used=True)
+    with pytest.raises(ValueError, match="requests_used MUST be non-negative"):
+        decision.approval_allowed(requests_used=-1)
+    with pytest.raises(ValueError, match="unsupported MSCP failure reason"):
+        decide_mscp_failure("unknown_reason", profile_mode=MscpProfileMode.SHADOW)  # type: ignore[arg-type]

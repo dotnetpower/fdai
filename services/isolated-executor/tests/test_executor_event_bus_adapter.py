@@ -21,6 +21,8 @@ from fdai_executor_service.adapters.event_hubs_kafka import (
 from fdai_executor_service.runtime import IsolatedExecutorCommandConsumer
 from fdai_service_contracts.executor import IdentityToken
 
+_FIXED_NOW = datetime(2026, 9, 15, 12, 0, tzinfo=UTC)
+
 
 class _Identity:
     def __init__(self) -> None:
@@ -30,7 +32,7 @@ class _Identity:
         self.audiences.append(audience)
         return IdentityToken(
             token="event-token",
-            expires_at=datetime.now(tz=UTC) + timedelta(hours=1),
+            expires_at=_FIXED_NOW + timedelta(hours=1),
             audience=audience,
         )
 
@@ -376,3 +378,165 @@ def test_decode_redacts_invalid_payload_and_encoding_is_deterministic() -> None:
     decoded = _decode(b"secret-invalid-json", topic="executor.commands")
     assert decoded == {"_decode_error": True, "_raw_bytes": 19}
     assert "secret-invalid-json" not in str(decoded)
+    assert _decode(None, topic="executor.commands") == {}
+    assert _decode(b"[1, 2]", topic="executor.commands") == {
+        "_decode_error": True,
+        "_payload_type": "list",
+    }
+
+
+async def test_event_bus_config_and_transport_edge_cases(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai_executor_service.adapters.event_hubs_kafka import (
+        _iter_consumer,
+        _stop_after_failure,
+        _stop_consumer,
+        _token_refresh_delay,
+        _transport_options,
+    )
+
+    with pytest.raises(ValueError, match="cannot derive Event Hubs audience"):
+        _audience_from_bootstrap(":9093")
+
+    for kwargs, match in [
+        ({"bootstrap_servers": ""}, "bootstrap_servers MUST NOT be empty"),
+        ({"security_protocol": "SSL"}, "security_protocol MUST be"),
+        ({"auto_offset_reset": "none"}, "auto_offset_reset MUST be"),
+        ({"session_timeout_ms": 0}, "session_timeout_ms MUST be positive"),
+        ({"heartbeat_interval_ms": 0}, "heartbeat_interval_ms MUST be positive"),
+        ({"dlq_suffix": ""}, "dlq_suffix MUST NOT be empty"),
+        ({"connections_max_idle_ms": 240_000}, "connections_max_idle_ms MUST be below"),
+        ({"metadata_max_age_ms": 240_000}, "metadata_max_age_ms MUST be below"),
+        ({"retry_backoff_ms": 500}, "retry_backoff_ms MUST be at least"),
+        ({"token_refresh_margin_seconds": 0}, "token_refresh_margin_seconds MUST be positive"),
+        ({"token_refresh_jitter_seconds": 50.0}, "token refresh jitter MUST be below"),
+    ]:
+        with pytest.raises(ValueError, match=match):
+            EventHubsKafkaBusConfig(
+                **{"bootstrap_servers": "events.servicebus.windows.net:9093", **kwargs},  # type: ignore[arg-type]
+            )
+
+    with pytest.raises(ValueError, match="requires a workload identity"):
+        EventHubsKafkaBus(identity=None, config=_config())
+
+    with pytest.raises(ValueError, match="requires a token provider"):
+        _transport_options(config=_config(), token_provider=None)
+
+    provider = _EntraTokenProvider(_Identity(), "https://events.example/.default")
+    with pytest.raises(RuntimeError, match="did not record token expiry"):
+        _token_refresh_delay(token_provider=provider, group_id="g1", config=_config())
+
+    class _FailingStop:
+        async def stop(self) -> None:
+            raise RuntimeError("stop failed")
+
+    await _stop_after_failure(_FailingStop(), operation="test_op")
+
+    # Producer start failure and dead_letter failure
+    start_fail = True
+
+    class _FlakyProducer:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        async def start(self) -> None:
+            if start_fail:
+                raise RuntimeError("start boom")
+
+        async def stop(self) -> None:
+            return None
+
+        async def send_and_wait(self, *_args: object, **_kwargs: object) -> object:
+            raise RuntimeError("dlq boom")
+
+    monkeypatch.setattr(event_bus_module, "AIOKafkaProducer", _FlakyProducer)
+    bus = EventHubsKafkaBus(identity=_Identity(), config=_config())
+    await bus.close()
+    with pytest.raises(RuntimeError, match="start boom"):
+        await bus.assert_publish_ready()
+
+    start_fail = False
+    await bus.assert_publish_ready()
+    await bus.assert_publish_ready()
+    with pytest.raises(RuntimeError, match="dlq boom"):
+        await bus.dead_letter("executor.commands", "k", {}, "reason")
+    await bus._discard_failed_producer(object(), operation="noop")  # type: ignore[arg-type]
+
+    # Plaintext consumer iteration & _stop_consumer with _fetcher.close
+    fetcher_closed = False
+
+    class _PlainConsumer:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            self.calls = 0
+            self._fetcher = SimpleNamespace(close=self._close_fetcher)
+
+        async def _close_fetcher(self) -> None:
+            nonlocal fetcher_closed
+            fetcher_closed = True
+
+        async def start(self) -> None:
+            return None
+
+        async def stop(self) -> None:
+            return None
+
+        async def getone(self) -> object:
+            self.calls += 1
+            if self.calls == 1:
+                return SimpleNamespace(
+                    topic="executor.commands",
+                    key=None,
+                    value=b'{"x":1}',
+                    offset=1,
+                )
+            raise RuntimeError("done")
+
+        async def commit(self) -> None:
+            return None
+
+    monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _PlainConsumer)
+    plain_cfg = EventHubsKafkaBusConfig(
+        bootstrap_servers="127.0.0.1:19092", security_protocol="PLAINTEXT"
+    )
+    plain_it = _iter_consumer(
+        topic="executor.commands",
+        group_id="g1",
+        config=plain_cfg,
+        identity=None,
+        audience=None,
+        on_readiness=None,
+    )
+    env = await anext(plain_it)
+    assert env.key == "" and env.payload == {"x": 1}
+    with pytest.raises(RuntimeError, match="done"):
+        await anext(plain_it)
+    assert fetcher_closed is True
+
+    # SASL consumer token refresh timeout break
+    sasl_starts = 0
+
+    class _TimeoutSaslConsumer:
+        def __init__(self, *_args: object, **kwargs: object) -> None:
+            self.provider = kwargs["sasl_oauth_token_provider"]
+
+        async def start(self) -> None:
+            nonlocal sasl_starts
+            sasl_starts += 1
+            await self.provider.token()
+            self.provider.expires_at = datetime(2020, 1, 1, tzinfo=UTC)
+            if sasl_starts > 1:
+                raise RuntimeError("restarted after refresh")
+
+        async def stop(self) -> None:
+            return None
+
+        async def getone(self) -> object:
+            await asyncio.sleep(10)
+            return None
+
+    monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _TimeoutSaslConsumer)
+    sasl_it = bus.subscribe("executor.commands", "g1")
+    with pytest.raises(RuntimeError, match="restarted after refresh"):
+        await anext(sasl_it)
+    await _stop_consumer(SimpleNamespace(_fetcher=None, stop=lambda: asyncio.sleep(0)))  # type: ignore[arg-type]
