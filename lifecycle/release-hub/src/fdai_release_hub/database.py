@@ -52,6 +52,12 @@ catalog_metadata = Table(
     metadata,
     Column("created_at", Text, primary_key=True),
 )
+catalog_freshness = Table(
+    "catalog_freshness",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("ttl_seconds", Integer, nullable=False),
+)
 deployment_requests = Table(
     "deployment_requests",
     metadata,

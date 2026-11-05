@@ -59,6 +59,15 @@ describe("access token renewal", () => {
     expect(client.acquireTokenRedirect).not.toHaveBeenCalled();
   });
 
+  test("bounds the initial authentication configuration request", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    const { initializeAuth } = await import("./auth");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ profile: "local-development" }))));
+    expect(await initializeAuth({} as HTMLElement)).toBe(true);
+    expect(timeout).toHaveBeenCalledWith(10_000);
+    timeout.mockRestore();
+  });
+
   test("renews by redirect when the framed renewal times out", async () => {
     const { BrowserAuthError } = await import("@azure/msal-browser");
     client.acquireTokenSilent.mockRejectedValue(

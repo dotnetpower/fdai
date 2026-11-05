@@ -12,12 +12,20 @@ from sqlalchemy.engine import Connection
 
 from fdai_lifecycle_hub.errors import SchemaMigrationPendingError
 
-REVISION = 2
+REVISION = 3
 logger = logging.getLogger(__name__)
 
 
 def _revision(namespace: str) -> int:
     return 6 if namespace == "lifecycle_hub" else REVISION
+
+
+def _ensure_release_freshness(connection: Connection) -> None:
+    from fdai_release_hub.database import catalog_freshness
+
+    catalog_freshness.create(connection, checkfirst=True)
+    if connection.scalar(select(catalog_freshness.c.id).where(catalog_freshness.c.id == 1)) is None:
+        connection.execute(catalog_freshness.insert().values(id=1, ttl_seconds=24 * 3600))
 
 
 def migrate(
@@ -50,6 +58,8 @@ def migrate(
             initialize(connection)
             if namespace == "lifecycle_hub":
                 local_channels.metadata.create_all(connection)
+            else:
+                _ensure_release_freshness(connection)
             connection.execute(versions.insert().values(revision=_revision(namespace)))
             return
         if revision not in range(1, _revision(namespace) + 1):
@@ -65,6 +75,7 @@ def migrate(
             return
         if namespace == "release_hub":
             initialize(connection)
+            _ensure_release_freshness(connection)
             connection.execute(versions.update().values(revision=REVISION))
             return
         _upgrade_legacy(connection, versions, revision)

@@ -49,8 +49,12 @@ The explicit `POST /v1/catalog/renew` operation reuses the publication lock, cur
 check and attributed audit. It verifies existing signatures before writing and requires an
 advancing clock, reason and exact `renew <revision>` confirmation. It appends one catalog event
 without changing release bytes, signatures, channels, recalls or keys. The new revision and
-24-hour expiry change the export pin. Customers must independently approve that pin and
-explicitly import; this is not production signed freshness or automatic recovery.
+profile-specific expiry change the export pin: 72 hours for private local CLI publication and
+24 hours for remote development. Existing local exports keep their original 24-hour expiry and
+pin until the next attributed publication or renewal; merely upgrading the executable does not
+silently rewrite an export at the same revision. Customers must independently approve the new
+pin and explicitly import, or use the separately authorized automatic adoption flow. This is
+not production signed freshness or automatic recovery.
 
 Local export admission accepts at most 8 MiB, including JSON decoding. Each manifest still
 passes the existing manifest parser's own size and schema limits independently.
@@ -72,6 +76,89 @@ npm --prefix lifecycle/release-hub/ui run dev
 The API and UI bind only to `127.0.0.1`. The UI uses port `5291`, proxies the API on `8091`,
 and rejects cross-origin mutation requests. No production authentication or key management is
 implemented. The key is never returned by an API or accepted through a browser form.
+The shared Hub login bootstrap bounds the authentication-configuration request to
+10 seconds and displays an authentication error if the service does not respond.
+For design review, `/design-previews/edition` is the sole Release Hub preview
+(Control and Atelier have been retired). It presents the existing operating
+areas-Stencil builder, releases and comparison, channels, deployment requests,
+activity, and trust/recall-in a sample-only editorial workspace with selectable
+release nodes. Feature sections use the navigation label without extra editorial
+headlines or repeated preview disclaimers. The Stencil builder appears first, collapsed until opened; the
+release's example components are available only in the collapsed-by-default
+"구성 보기" detail of a right-side drawer, which opens on release-node or
+table selection and closes on Escape or its close button. The release canvas
+has no persistent detail card. The compact version comparison selects only the
+baseline version and places baseline and selected values in adjacent columns;
+it does not claim to show a real manifest diff. The release list uses consistent
+text sizing and unboxed version links while retaining keyboard access to the drawer.
+A separate `/design-previews/edition/installations`
+screen presents only example registered installations, separates recently
+reported versions from stale or missing reports, and explicitly leaves the number
+and versions of unregistered installations unknown. Its fixed report times are
+fictional; it does not monitor real installations, verify reported runtime effects,
+or infer deployment from a planned target. Navigation, filters, and review flows are local to
+the preview; no catalog data is read, and no register, publish, promote, recall,
+renew, or authentication action is performed there. Use the existing authenticated
+operating UI for those effects. The operational `/#/releases` graph and its
+authorization remain unchanged.
+
+The authenticated operating UI defaults to `/#/edition`. Unlike
+the design preview, it reads the existing catalog through the same authenticated
+app and uses the operational lineage graph for its connected version canvas.
+Node or list version links go directly to `/#/edition/releases/<version>`; there
+is no intermediate drawer. Its back link and browser Back return to the same
+highlighted release on the canvas. The sidebar has three destinations:
+**Release lineage** (`/#/edition`), **Deployment management** (`/#/channels`
+and `/#/deployment-requests`), and **Trust & activity** (`/#/trust` and
+`/#/activity`). Each combined destination has two scoped tabs rather than
+duplicating the global sidebar. The sidebar and top bars use neutral backgrounds;
+active navigation remains visible through text weight and a rule. Release
+lineage opens the existing authenticated
+Stencil Builder at `/#/edition/new`; original `/#/stencils` and `/#/releases`
+bookmarks remain available without appearing in the sidebar. The existing
+creation flow returns to the new release in Edition; changes from the Edition
+builder or detail return to the Edition detail, while catalog readback still
+determines whether their outcome is confirmed.
+Keyboard arrows move focus across detail nodes without submitting a promotion;
+clicking a stage node reveals its evidence or technical details. Only its
+explicit action button starts a one-click operation. The one-click create and
+promotion flows require a fresh catalog read, compare the attributed change
+after a separate readback, and report incomplete DEV publication separately
+from confirmed registration. Failed or uncertain actions disable further
+mutations until an operator refreshes the catalog and reviews activity; the
+builder remains available for read-only composition. Confirmation dialogs
+require typing the exact target instead of pre-filling it. Channel heads use
+the highest eligible SemVer, not the first channel member, and explicitly
+refreshing the catalog also reloads the deployment request list.
+The detail pre-check never marks label or soak observations as passed when
+independent measurements are unavailable; an operator-entered gate claim is
+not independent proof of health. The current promotion API still accepts
+client-supplied requirements and observations, so a trusted policy and
+observation source are required before treating those gates as verified.
+Trust labels count only verified signed Stencil releases; draft Stencils are
+not signed. The expiry warning updates when time passes without a refresh.
+Capability recall history links to Trust and appears in the activity for
+releases that declare the affected capability. Capability changes require a
+typed target and independent catalog event readback before reporting success.
+The Trust export button downloads the exact JSON response through the
+authenticated request path; it does not open a bare unauthenticated URL.
+The full-detail route shows the
+existing detailed stage/workload topology and action handlers with an Edition
+skin and natural-size, horizontally scrollable nodes; the original
+`/#/releases/<version>` remains available. Recorded channel
+membership is not proof of a passed gate or deployment effect, and a missing
+workload declaration is not replaced with fictional topology nodes.
+Edition detail uses unified, undivided node cards with editorial heading type,
+quiet layered shadows, deliberate spacing and plain stage labels instead of
+internal rule lines or colored fills. The detailed canvas shares the Edition
+overview's rounded frame and dotted warm background; status meaning gets only
+restrained text-color accents.
+Status text and guarded action buttons retain their meaning. Stencil composition, channel
+review, deployment request filtering/pagination, activity,
+trust and explicit catalog renewal retain their existing authenticated routes
+and action confirmation; only navigation and return destinations change.
+The separate installation-monitoring design preview is not an operating page:
+deployment requests do not establish active installation versions or enrollment.
 The state path must resolve outside the checkout, be a private directory with no group or other
 access, and contain a key created by `dev-init`. Serve ports must be between 1 and 65535.
 Register an existing `fdai.runtime-release.v3` manifest; registration validates metadata only.
@@ -96,6 +183,17 @@ recall actions require an operator-authored reason rather than a prefilled test 
 The Releases and Stencil Builder views also provide 1-click preset and custom Stencil release
 creation (`1-Click Create Release` / `1-Click Compose & Register Release`) that composes the
 manifest, registers the release, and signs it into `DEV` in one step without modal friction.
+Preset one-click generation rejects invalid or existing versions rather than
+silently switching to another version. Builder dependency previews do not
+overwrite explicit selections, and a source commit must be a real full SHA
+instead of a fabricated extension of a short prefix.
+Optional add-ons can be selected in the Builder; required and dependency-added
+ones stay locked while their prerequisites remain. Derived source commits are
+shown only after the compose response supplies their real digest. Malformed
+catalog or Stencil response structures produce explicit errors rather than
+being treated as usable operational data.
+The live Blueprint preview lists the privileged executor Azure role only when
+both the executor workload and its governed-execution add-on are selected.
 During Stencil composition, `registry_pipeline` inspects built local Docker images (or explicit
 `component_digests`), publishes canonical OCI Distribution v2 manifests served at
 `/v2/fdai/<component>/manifests/<reference>` and `/v1/registry/images`, and binds the verified

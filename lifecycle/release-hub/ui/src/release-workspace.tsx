@@ -6,6 +6,7 @@ import {
   type Action, type Catalog, type Release,
 } from "./api";
 import { ReleaseStageLineage } from "./release-lineage";
+import type { LineageNode } from "./release-lineage.model";
 
 const stages = ["DEV", "RELEASE_CANDIDATE", "RELEASE"] as const;
 
@@ -20,11 +21,11 @@ export function nextReleaseStep(release: Release, catalog: Catalog): "recall" | 
   return "review";
 }
 
-export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onLocaleChange, act, onQuickPromote, disabled, activity }: {
+export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onLocaleChange, act, onQuickPromote, disabled, activity, edition = false, backHref }: {
   release: Release; catalog: Catalog; locale?: "en" | "ko"; onLocaleChange?: (next: "en" | "ko") => void;
   act: (action: Action, release: Release) => void;
   onQuickPromote?: ((release: Release) => Promise<void> | void) | undefined;
-  disabled: boolean; activity: ComponentChildren;
+  disabled: boolean; activity: ComponentChildren; edition?: boolean; backHref?: string | undefined;
 }) {
   const [internalLocale, setInternalLocale] = useState<"en" | "ko">(navigator.language.startsWith("ko") ? "ko" : "en");
   const locale = externalLocale ?? internalLocale;
@@ -34,8 +35,11 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
   };
   const t = (en: string, ko: string) => locale === "ko" ? ko : en;
   const evidence = useRef<HTMLDetailsElement>(null);
-  const history = useRef<HTMLElement>(null);
+  const stencilDetails = useRef<HTMLDetailsElement>(null);
+  const technicalDetails = useRef<HTMLDetailsElement>(null);
+  const history = useRef<HTMLDetailsElement>(null);
   const [copiedDigest, setCopiedDigest] = useState(false);
+  const [copyError, setCopyError] = useState("");
   const manifest = useMemo(() => safeParseReleaseManifest(release.manifest), [release.manifest]);
   const stencil = useMemo(() => extractReleaseStencil(manifest), [manifest]);
   const declaredArtifacts = useMemo(() => artifacts(manifest), [manifest]);
@@ -62,20 +66,30 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
   );
   const status = release.state === "recalled" ? t("Recalled", "회수됨")
     : release.state === "draft" ? t("Draft / unsigned", "초안 / 서명 없음")
-    : release.channels.includes("RELEASE") ? t("Production RELEASE", "운영 RELEASE 배포 완료")
+    : release.channels.includes("RELEASE") ? t("In RELEASE channel", "RELEASE 채널 소속")
     : release.channels.includes("RELEASE_CANDIDATE") ? t("Staged in RC", "RC 카나리 승격 완료")
     : t("Development published", "개발용 발행 완료");
-  function reviewEvidence() {
-    if (evidence.current) {
-      evidence.current.open = true;
-      evidence.current.querySelector("summary")?.focus();
-      evidence.current.scrollIntoView({ block: "start" });
+  function reveal(target: HTMLDetailsElement | null) {
+    if (!target) return;
+    target.open = true;
+    target.querySelector("summary")?.focus();
+    target.scrollIntoView({ block: "start" });
+  }
+  function inspectStage(node: LineageNode) {
+    if (node.id === "initialize-stencil" && !stencil) {
+      location.hash = "/edition/new";
+    } else if (node.id === "initialize-stencil") {
+      reveal(stencilDetails.current);
+    } else if (node.id === "clone-codebase" || node.id.startsWith("workload-")) {
+      reveal(technicalDetails.current);
+    } else {
+      reveal(evidence.current);
     }
   }
-  return <div class="release-workspace" lang={locale}>
+  return <div class={`release-workspace${edition ? " rh-edition-workspace" : ""}`} lang={locale}>
     <div class="rh-argo-app-header">
       <div class="rh-argo-app-title">
-        <a href="#/releases" class="back">{t("<- Releases", "← 목록")}</a>
+        <a href={edition ? backHref ?? "#/edition" : "#/releases"} class="back">{edition ? t("<- Edition", "← Edition") : t("<- Releases", "← 목록")}</a>
         <h1>{releaseTitle(release, manifest)}</h1>
         <span class={`status ${release.state}`}>{status}</span>
         <span class="stencil-chip">{stage ?? "DRAFT"}</span>
@@ -86,7 +100,11 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
           </span>
         )}
         <span class="stencil-chip">
-          {release.signature ? t("ed25519 verified", "ed25519 검증됨") : t("Unsigned", "미서명")}
+          {release.signature_status === "development-key-verified"
+            ? t("ed25519 verified", "ed25519 검증됨")
+            : release.signature_status === "unsigned"
+              ? t("Unsigned", "미서명")
+              : t(`Signature: ${release.signature_status}`, `서명 상태: ${release.signature_status}`)}
         </span>
       </div>
       <div class="actions" style="margin-top: 0;">
@@ -102,10 +120,10 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
           <a class="next-link" href="#/trust">{t("Review catalog freshness", "카탈로그 유효 기간 검토")}</a>
         ) : (
           <>
-            <button class="chip-btn" disabled={disabled} onClick={() => {
+            <button class="chip-btn" disabled={disabled && step === "publish"} onClick={() => {
               if (step === "publish") act("publish", release);
-              else if (step === "review") reviewEvidence();
-              else { history.current?.focus(); history.current?.scrollIntoView({ block: "start" }); }
+              else if (step === "review") reveal(evidence.current);
+              else reveal(history.current);
             }}>{step === "publish" ? t("Review DEV publication", "DEV 발행 검토")
               : step === "review" ? t("Review promotion evidence", "승격 근거 검토")
               : t("Review recall activity", "회수 활동 검토")}</button>
@@ -129,10 +147,10 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
           ))}
         </div>
       </div>
-      <ReleaseStageLineage release={release} catalog={catalog} locale={locale} disabled={disabled} onAct={act} onQuickPromote={onQuickPromote} />
+      <ReleaseStageLineage release={release} catalog={catalog} locale={locale} disabled={disabled} preserveNodeSize={edition} edition={edition} onInspectNode={edition ? inspectStage : undefined} onAct={act} onQuickPromote={onQuickPromote} />
     </section>
     {stencil && (
-      <details class="release-disclosure">
+      <details ref={stencilDetails} class="release-disclosure">
         <summary>
           {t(
             `Stencil Blueprint & Console Menus (${stencil.stencil_id} · ${stencil.enabled_workloads.length} workloads · ${stencil.enabled_panel_ids.length} menus)`,
@@ -156,14 +174,22 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
             <button
               type="button"
               class="chip-btn"
-              onClick={() => {
-                void navigator.clipboard?.writeText(stencil.stencil_digest);
-                setCopiedDigest(true);
-                setTimeout(() => setCopiedDigest(false), 2000);
+              onClick={async () => {
+                setCopyError("");
+                try {
+                  if (!navigator.clipboard) throw new Error(t("Clipboard is unavailable.", "클립보드를 사용할 수 없습니다."));
+                  await navigator.clipboard.writeText(stencil.stencil_digest);
+                  setCopiedDigest(true);
+                  setTimeout(() => setCopiedDigest(false), 2000);
+                } catch (failure) {
+                  setCopiedDigest(false);
+                  setCopyError(failure instanceof Error ? failure.message : t("Could not copy digest.", "다이제스트를 복사하지 못했습니다."));
+                }
               }}
             >
               {copiedDigest ? t("Copied!", "복사됨!") : t("Copy digest", "다이제스트 복사")}
             </button>
+            {copyError && <span role="alert" class="error">{copyError}</span>}
           </dd>
           <dt>{t("Included workloads (+)", "포함된 컨테이너 (+)")}</dt>
           <dd>{stencil.enabled_workloads.join(", ")}</dd>
@@ -231,10 +257,14 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
           <h3>{t("Apollo Promotion Gate Pre-check", "Apollo 승격 게이트 사전 검증")}</h3>
           <ul class="apollo-diff-list">
             {apolloReadiness.gates.map((g) => (
-              <li key={g.id} class={g.passed ? "diff-keep" : "diff-drop"}>
-                <span class="diff-sign">{g.passed ? "✓" : "✕"}</span>
+              <li key={g.id} class={g.id === "stencil-labels" || g.id === "soak-window"
+                ? "" : g.passed ? "diff-keep" : "diff-drop"}>
+                <span class="diff-sign">{g.id === "stencil-labels" || g.id === "soak-window"
+                  ? "-" : g.passed ? "✓" : "✕"}</span>
                 <strong>{locale === "ko" ? g.label_ko : g.label}</strong>
-                <small>{locale === "ko" ? g.detail_ko : g.detail}</small>
+                <small>{g.id === "stencil-labels" || g.id === "soak-window"
+                  ? t("Independent gate observations unavailable", "독립적인 게이트 관찰 근거가 제공되지 않음")
+                  : locale === "ko" ? g.detail_ko : g.detail}</small>
               </li>
             ))}
           </ul>
@@ -249,7 +279,7 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
       )}
       <p>{t("Use the supported promotion pipeline for gated advancement. Advanced channel curation below is a separate manual operation, not verified promotion.", "검사가 적용되는 승격에는 지원되는 승격 파이프라인을 사용하세요. 아래 고급 채널 편집은 별도의 수동 작업이며 검증된 승격이 아닙니다.")}</p>
     </details>
-    <details class="release-disclosure">
+    <details ref={technicalDetails} class="release-disclosure">
       <summary>{t("Technical details and advanced operations", "기술 세부 정보 및 고급 작업")}</summary>
       <div class="actions">{actionsFor(release).filter((action) => action !== "publish").map((action) =>
         <button key={action} disabled={disabled} class={action === "recall" ? "danger" : ""} onClick={() => act(action, release)}>
@@ -282,7 +312,7 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
         <pre>{release.manifest}</pre><code class="digest">{release.signature || t("No signature", "서명 없음")}</code>
       </details>
     </details>
-    <details ref={history as unknown as { current: HTMLDetailsElement | null }} class="release-disclosure" tabIndex={-1}>
+    <details ref={history} class="release-disclosure" tabIndex={-1}>
       <summary>{t("Release activity", "릴리스 활동 이력")}</summary>
       <div lang="en">{activity}</div>
     </details>

@@ -6,6 +6,12 @@ import {
   type Catalog,
   type Release,
 } from "./api";
+import {
+  BADGE_HEIGHT, CARD_HEIGHT, CARD_WIDTH, COL_GAP, PAD_X, PAD_Y, ROW_GAP,
+} from "./release-lineage.geometry";
+export {
+  BADGE_HEIGHT, buildConnectorGeometry, CARD_HEIGHT, CARD_WIDTH, COL_GAP, PAD_X, PAD_Y, ROW_GAP,
+} from "./release-lineage.geometry";
 
 export type LineageNodeStatus = "complete" | "running" | "recalled" | "pending";
 
@@ -57,80 +63,6 @@ export type LineageGraph = {
   width: number;
   height: number;
 };
-
-export const CARD_WIDTH = 176;
-export const CARD_HEIGHT = 108;
-export const BADGE_HEIGHT = 24;
-export const COL_GAP = 28;
-export const ROW_GAP = 24;
-export const PAD_X = 10;
-export const PAD_Y = 12;
-
-export function buildConnectorGeometry(edge: {
-  startX: number;
-  startY: number;
-  endX: number;
-  endY: number;
-}): {
-  portCx: number;
-  portCy: number;
-  pathD: string;
-  arrowD: string;
-} {
-  const portCx = edge.startX + 3.5;
-  const portCy = edge.startY;
-  const lineStartX = portCx + 3.5;
-  const sy = edge.startY;
-  const arrowTipX = edge.endX - 2.5;
-  const ey = edge.endY;
-  const lineEndX = arrowTipX - 0.5;
-  const arrowD = `M ${arrowTipX - 6.5} ${ey - 4.2} L ${arrowTipX} ${ey} L ${arrowTipX - 6.5} ${ey + 4.2}`;
-
-  if (Math.abs(ey - sy) < 1) {
-    return {
-      portCx,
-      portCy,
-      pathD: `M ${lineStartX} ${sy} L ${lineEndX} ${ey}`,
-      arrowD,
-    };
-  }
-
-  const dir = ey > sy ? 1 : -1;
-  const horizontalSpan = Math.max(12, lineEndX - lineStartX);
-  const midX = Math.round(lineStartX + horizontalSpan * 0.44);
-  const r = Math.max(
-    0,
-    Math.min(
-      8,
-      Math.abs(ey - sy) / 2,
-      Math.max(0, Math.abs(midX - lineStartX) - 2),
-      Math.max(0, Math.abs(lineEndX - 7 - midX) - 2),
-    ),
-  );
-  if (r < 1) {
-    return {
-      portCx,
-      portCy,
-      pathD: `M ${lineStartX} ${sy} L ${midX} ${sy} L ${midX} ${ey} L ${lineEndX} ${ey}`,
-      arrowD,
-    };
-  }
-  const pathD = [
-    `M ${lineStartX} ${sy}`,
-    `L ${midX - r} ${sy}`,
-    `Q ${midX} ${sy} ${midX} ${sy + dir * r}`,
-    `L ${midX} ${ey - dir * r}`,
-    `Q ${midX} ${ey} ${midX + r} ${ey}`,
-    `L ${lineEndX} ${ey}`,
-  ].join(" ");
-
-  return {
-    portCx,
-    portCy,
-    pathD,
-    arrowD,
-  };
-}
 
 export function parseSemVerTuple(version: string): [number, number, number, string] {
   const withoutBuild = version.trim().replace(/^v/i, "").split("+", 1)[0] ?? "";
@@ -556,7 +488,7 @@ export function buildReleaseStagePipeline(
       titleKo: "1. 스텐실 구성",
       subtitle: `${stencilId} · ${st ? `${st.enabled_workloads.length}w/${st.enabled_panel_ids.length}m` : "full-stack"}`,
       icon: "init",
-      done: true,
+      done: st !== null,
       running: false,
       actionableHint: { en: "Open Stencil Builder", ko: "스텐실 빌더 열기" },
     },
@@ -574,7 +506,7 @@ export function buildReleaseStagePipeline(
       id: "build-sign-dev",
       title: "3. DEV Ring",
       titleKo: "3. DEV 서명·발행",
-      subtitle: `ed25519 · ${inDev ? "DEV verified" : "awaiting DEV sign"}`,
+      subtitle: `ed25519 · ${inDev ? "DEV member" : "awaiting DEV sign"}`,
       icon: "shield",
       done: inDev && !recalled,
       running: !recalled && release.state === "draft",
@@ -588,7 +520,7 @@ export function buildReleaseStagePipeline(
       id: "promote-rc-canary",
       title: "4. RC Canary",
       titleKo: "4. RC 카나리",
-      subtitle: `apollo-gate · ${inRc ? "RC verified" : capBlocked && inDev && !inRc ? `blocked (${blockedCaps[0]})` : "canary soak"}`,
+      subtitle: `apollo-gate · ${inRc ? "RC member" : capBlocked && inDev && !inRc ? `blocked (${blockedCaps[0]})` : "canary soak"}`,
       icon: "branch",
       done: inRc && !recalled,
       running: !recalled && !capBlocked && transition?.targetChannel === "RELEASE_CANDIDATE",
@@ -625,14 +557,14 @@ export function buildReleaseStagePipeline(
             : "pending";
     const badgeInfo =
       status === "complete"
-        ? { en: "Complete", ko: "Complete · 완료" }
+        ? idx < 2 ? { en: "Recorded", ko: "정보 있음" } : { en: "Channel recorded", ko: "소속 기록" }
         : status === "running"
-          ? { en: "Ready · Next Stage", ko: "승격 가능 · 다음 단계" }
+          ? { en: "Review next stage", ko: "다음 단계 검토" }
           : status === "recalled"
             ? spec.blocked && !recalled
               ? { en: "Blocked · Recall", ko: "기능 리콜 차단" }
               : { en: "Recalled", ko: "Recalled · 회수됨" }
-            : { en: "Pending", ko: "대기 중" };
+            : idx < 2 ? { en: "Not declared", ko: "선언 없음" } : { en: "No membership", ko: "소속 없음" };
     return {
       id: spec.id,
       title: spec.title,
@@ -692,12 +624,12 @@ export function buildReleaseTopologyGraph(
           digest:
             typeof info?.image_digest === "string"
               ? info.image_digest.replace(/^sha256:/, "").slice(0, 12)
-              : release.digest.slice(0, 12),
+              : null,
           kind: name === "pgvector" || name === "clamav" ? "sidecar" : "workload",
         }))
-      : (st?.enabled_workloads ?? ["core-control-plane", "operator-service"]).map((name) => ({
+      : (st?.enabled_workloads ?? []).map((name) => ({
           name,
-          digest: release.digest.slice(0, 12),
+          digest: null,
           kind: "workload",
         }));
 
@@ -746,14 +678,14 @@ export function buildReleaseTopologyGraph(
       id: nodeId,
       title: item.name,
       titleKo: item.name,
-      subtitle: `${item.kind} · sha256:${item.digest}`,
-      badgeText: `Synced · ${workloadStage}`,
-      badgeTextKo: `정상 · ${workloadStage}`,
+      subtitle: `${item.kind}${item.digest ? ` · sha256:${item.digest}` : " · digest not declared"}`,
+      badgeText: `Declared · ${workloadStage}`,
+      badgeTextKo: `선언됨 · ${workloadStage}`,
       status: workloadStatus,
       icon: item.kind === "sidecar" ? "shield" : "cloud",
       stencilId: base.nodes[0]?.stencilId ?? "standard-sre",
       stageLabel: item.kind.toUpperCase(),
-      commitShort: item.digest,
+      commitShort: item.digest ?? "",
       col,
       row: 1,
       actionableHint: null,

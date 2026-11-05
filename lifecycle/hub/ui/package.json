@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json",
     "preview": "vite preview",
     "test": "vitest run src",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "test:previews": "vitest run src/design-previews/model.test.ts src/router.test.ts src/auth.test.ts",
+    "test:previews:runtime": "playwright test --config playwright.previews.config.ts"
   },
   "dependencies": {
     "@azure/msal-browser": "4.25.0",

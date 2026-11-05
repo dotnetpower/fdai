@@ -1,0 +1,47 @@
+.dp-install-monitor.dp-page { padding-top: 26px; }
+.dp-install-monitor-heading { border-bottom: 1px solid var(--dp-rule); padding-bottom: 20px; }
+.dp-install-monitor-heading .dp-kicker { display: block; margin-bottom: 8px; }
+.dp-install-monitor-heading p { color: var(--dp-muted); margin-top: 10px; }
+.dp-install-monitor-nav { display: flex; gap: 24px; align-items: center; min-height: 52px; border-bottom: 1px solid var(--dp-rule); font-size: 13px; }
+.dp-install-monitor-nav a { min-height: 44px; display: inline-flex; align-items: center; text-decoration: none; }
+.dp-install-monitor-nav a:hover { text-decoration: underline; }
+.dp-install-monitor-nav [aria-current="page"] { color: var(--dp-ink); border-bottom: 2px solid var(--dp-accent); min-height: 52px; display: inline-flex; align-items: center; }
+.dp-install-monitor-boundary { margin-top: 24px; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 22px; background: var(--dp-surface); border: 1px solid var(--dp-rule); border-left: 3px solid var(--dp-accent); border-radius: 6px; }
+.dp-install-monitor-boundary strong { font-size: 14px; }
+.dp-install-monitor-boundary p { color: var(--dp-muted); font-size: 12px; margin-top: 2px; }
+.dp-install-monitor-boundary > span { flex: none; color: var(--dp-accent); font-size: 12px; }
+.dp-install-monitor-asof { margin: 22px 0 12px !important; color: var(--dp-muted); font-size: 12px; }
+.dp-install-monitor-metrics { margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.dp-install-monitor-metrics > div { background: var(--dp-surface); border: 1px solid var(--dp-rule); border-radius: 6px; padding: 14px 18px; }
+.dp-install-monitor-metrics dt { color: var(--dp-muted); font-size: 12px; }
+.dp-install-monitor-metrics dd { margin: 2px 0 0; font: 400 30px/1.2 var(--dp-display); }
+.dp-install-monitor-metrics small { display: block; margin-top: 3px; color: var(--dp-muted); font: 11px/1.4 var(--cs-font); }
+.dp-install-monitor-versions { margin-top: 20px; padding: 20px 24px; background: var(--dp-surface); border: 1px solid var(--dp-rule); border-radius: 6px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 24px; align-items: center; }
+.dp-install-monitor-versions h2, .dp-install-monitor-list h2 { font: 400 21px/1.3 var(--dp-display); }
+.dp-install-monitor-versions p, .dp-install-monitor-list-head p { color: var(--dp-muted); font-size: 12px; margin-top: 4px; }
+.dp-install-monitor-versions ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.dp-install-monitor-versions li { display: grid; grid-template-columns: 58px minmax(0, 1fr) 32px; align-items: center; gap: 10px; font-size: 12px; }
+.dp-install-monitor-versions li strong { text-align: right; white-space: nowrap; }
+.dp-install-monitor-bar { height: 6px; background: var(--dp-bg); border-radius: 9px; overflow: hidden; }
+.dp-install-monitor-bar span { display: block; height: 100%; background: var(--dp-accent); border-radius: inherit; }
+.dp-install-monitor-list { margin-top: 28px; }
+.dp-install-monitor-list-head { display: flex; justify-content: space-between; align-items: end; gap: 18px; flex-wrap: wrap; margin-bottom: 12px; }
+.dp-install-monitor-list .dp-toolbar { margin: 0; gap: 8px; }
+.dp-install-monitor-list .dp-toolbar label { min-width: 160px; font-size: 12px; gap: 3px; }
+.dp-install-monitor-list .dp-toolbar input { width: 220px; }
+.dp-install-monitor-list .dp-table caption { padding: 7px 16px; font-size: 12px; }
+.dp-install-monitor-list .dp-table td, .dp-install-monitor-list .dp-table th { padding: 9px 16px; font-size: 12px; }
+.dp-install-monitor-list .dp-table td small { color: var(--dp-muted); }
+.dp-install-monitor-list .dp-table td strong { white-space: nowrap; }
+.dp-install-monitor-status { display: inline-block; border: 1px solid var(--dp-rule); border-radius: 3px; padding: 2px 7px; white-space: nowrap; }
+.dp-install-monitor-status-recent { background: #e6eee7; color: #294c36; }
+.dp-install-monitor-status-stale { background: #eee6d8; color: #62471e; }
+.dp-install-monitor-status-no-report { background: #e7e9eb; color: #424d57; }
+.dp-install-monitor-footnote { margin-top: 18px !important; color: var(--dp-muted); font-size: 12px; }
+@media (max-width: 760px) {
+  .dp-install-monitor-boundary { align-items: flex-start; flex-direction: column; gap: 6px; }
+  .dp-install-monitor-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dp-install-monitor-versions { grid-template-columns: 1fr; gap: 12px; }
+  .dp-install-monitor-list-head .dp-toolbar { width: 100%; }
+  .dp-install-monitor-list .dp-table { min-width: 720px; }
+}

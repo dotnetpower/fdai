@@ -64,6 +64,7 @@ from fdai_release_hub.catalog_serialization import (
     CatalogError as CatalogError,
 )
 from fdai_release_hub.database import (
+    catalog_freshness,
     catalog_metadata,
     event_actors,
     events,
@@ -77,6 +78,8 @@ from fdai_release_hub.stencil_grants import (
 )
 
 CHANNELS = ("DEV", "RELEASE_CANDIDATE", "RELEASE")
+LEGACY_EXPORT_TTL = timedelta(hours=24)
+LOCAL_EXPORT_TTL = timedelta(hours=72)
 MAX_VERIFIED_MANIFEST_CACHE = 1024
 _TRAILING_REVISION = re.compile(rb',"revision":([0-9]+)\}\Z')
 
@@ -159,6 +162,7 @@ class ReleaseStore:
         clock: Callable[[], datetime] | None = None,
         initialize: bool = True,
         role_keys: CatalogRoleKeys | None = None,
+        local_freshness: bool = False,
     ) -> None:
         self.path = path
         self.key = key
@@ -167,6 +171,7 @@ class ReleaseStore:
         self._verified_lock = threading.Lock()
         self._verified_manifests: OrderedDict[tuple[str, str, str], str] = OrderedDict()
         self.clock = clock or (lambda: datetime.now(UTC))
+        self._desired_export_ttl = LOCAL_EXPORT_TTL if local_freshness else LEGACY_EXPORT_TTL
         self.engine = (
             create_engine(
                 f"sqlite:///{path}",
@@ -200,6 +205,13 @@ class ReleaseStore:
         with self.engine.connect() as db:
             if db.scalar(select(catalog_metadata.c.created_at)) is None:
                 raise ValueError("Release Hub catalog metadata is not initialized.")
+            if (
+                db.scalar(
+                    select(catalog_freshness.c.ttl_seconds).where(catalog_freshness.c.id == 1)
+                )
+                is None
+            ):
+                raise ValueError("Release Hub catalog freshness is not initialized.")
 
     def migrate(self) -> None:
         def initialize(connection: Connection) -> None:
@@ -207,6 +219,11 @@ class ReleaseStore:
             if connection.scalar(select(func.count()).select_from(catalog_metadata)) == 0:
                 connection.execute(
                     catalog_metadata.insert().values(created_at=self.clock().isoformat())
+                )
+                connection.execute(
+                    catalog_freshness.insert().values(
+                        id=1, ttl_seconds=int(self._desired_export_ttl.total_seconds())
+                    )
                 )
 
         migrate(self.engine, "release_hub", initialize)
@@ -249,6 +266,23 @@ class ReleaseStore:
             )
         )
         db.execute(event_actors.insert().values(revision=next_revision, actor=actor))
+        db.execute(
+            catalog_freshness.update()
+            .where(catalog_freshness.c.id == 1)
+            .values(ttl_seconds=int(self._desired_export_ttl.total_seconds()))
+        )
+
+    @staticmethod
+    def _export_expiry(db: Connection, updated_at: str) -> datetime:
+        seconds = db.scalar(
+            select(catalog_freshness.c.ttl_seconds).where(catalog_freshness.c.id == 1)
+        )
+        if seconds not in (
+            int(LEGACY_EXPORT_TTL.total_seconds()),
+            int(LOCAL_EXPORT_TTL.total_seconds()),
+        ):
+            raise CatalogError("Stored catalog freshness is invalid.", 503)
+        return datetime.fromisoformat(updated_at) + timedelta(seconds=seconds)
 
     def _verify_signature(self, manifest: str, signature: str | None) -> str:
         if not signature:
@@ -679,7 +713,7 @@ class ReleaseStore:
             dict(row)
             for row in db.execute(select(events).order_by(events.c.revision.desc())).mappings()
         ]
-        actors = dict(db.execute(select(event_actors)).tuples().all())
+        actors: dict[int, str] = dict(db.execute(select(event_actors)).tuples().all())
         for event_record in history:
             event_record["actor"] = actors.get(event_record["revision"], "legacy-unattributed")
         memberships = (
@@ -697,6 +731,7 @@ class ReleaseStore:
             if history
             else db.execute(select(catalog_metadata.c.created_at)).scalar_one()
         )
+        expires_at = self._export_expiry(db, updated_at)
         channel_names, channels_by_release, releases_by_channel = index_memberships(
             memberships, is_custom_channel=_is_custom_channel
         )
@@ -720,8 +755,8 @@ class ReleaseStore:
         return {
             "revision": history[0]["revision"] if history else 0,
             "updated_at": updated_at,
-            "expires_at": (datetime.fromisoformat(updated_at) + timedelta(hours=24)).isoformat(),
-            "expired": self.clock() >= datetime.fromisoformat(updated_at) + timedelta(hours=24),
+            "expires_at": expires_at.isoformat(),
+            "expired": self.clock() >= expires_at,
             "mode": "local-development",
             "key_id": self.key.key_id,
             "releases": records,
@@ -743,7 +778,7 @@ class ReleaseStore:
             )
             _, export_digest = self._export_locked(db, MAX_EXPORT_BYTES)
             revision, updated_at = catalog_position(db)
-            expires_at = (datetime.fromisoformat(updated_at) + timedelta(hours=24)).isoformat()
+            expires_at = self._export_expiry(db, updated_at).isoformat()
             writer = BoundedJson(maximum, CATALOG_VIEW_LIMIT_MESSAGE)
             writer.write(b'{"channels":')
             write_channels(db, writer, is_custom_channel=_is_custom_channel)
@@ -836,7 +871,8 @@ class ReleaseStore:
         min_remaining = min_remaining if min_remaining is not None else timedelta(hours=12)
         with self.engine.connect() as db:
             revision, updated_at = catalog_position(db)
-        remaining = datetime.fromisoformat(updated_at) + timedelta(hours=24) - self.clock()
+            expires_at = self._export_expiry(db, updated_at)
+        remaining = expires_at - self.clock()
         if remaining > min_remaining:
             return False
         try:
@@ -905,7 +941,7 @@ class ReleaseStore:
             export_only=True,
         )
         revision, updated_at = catalog_position(db)
-        expires_at = (datetime.fromisoformat(updated_at) + timedelta(hours=24)).isoformat()
+        expires_at = self._export_expiry(db, updated_at).isoformat()
         writer = BoundedJson(maximum, EXPORT_LIMIT_MESSAGE)
         writer.write(b'{"channels":')
         write_channels(db, writer, is_custom_channel=_is_custom_channel)

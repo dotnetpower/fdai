@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { requestDeploymentRequests, type DeploymentRequestPage } from "./api";
+import { latestEligibleChannelHead, requestDeploymentRequests, type DeploymentRequestPage, type Release } from "./api";
 import { nextRequestOffset } from "./deployment-requests";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
@@ -12,6 +12,99 @@ const record = {
 const page = { requests: [record], limit: 25, offset: 25, has_more: true };
 
 describe("operator deployment requests", () => {
+  it("chooses the highest eligible SemVer independent of membership order", () => {
+    const members = Object.freeze(["1.9.0", "1.10.0-rc.2", "1.10.0-rc.10", "1.10.0"]);
+    const states = new Map<string, Release["state"]>(members.map((id) => [id, "published"]));
+    expect(latestEligibleChannelHead(members, states)).toBe("1.10.0");
+    expect(latestEligibleChannelHead(["1.10.0-rc.2", "1.9.0", "1.10.0-rc.10"], states))
+      .toBe("1.10.0-rc.10");
+    expect(members).toEqual(["1.9.0", "1.10.0-rc.2", "1.10.0-rc.10", "1.10.0"]);
+  });
+  it("excludes recalled, missing, and draft channel members", () => {
+    const states = new Map<string, Release["state"]>([
+      ["2.0.0", "recalled"], ["1.10.0", "published"], ["1.9.0", "draft"],
+    ]);
+    expect(latestEligibleChannelHead(["missing", "2.0.0", "1.9.0", "1.10.0"], states)).toBe("1.10.0");
+    expect(latestEligibleChannelHead(["missing", "2.0.0", "1.9.0"], states)).toBeNull();
+    expect(latestEligibleChannelHead([], states)).toBeNull();
+  });
+  it("refetches once on an explicit catalog refresh without resetting the current page", async () => {
+    const state: unknown[] = [];
+    let cursor = 0;
+    let previousDeps: readonly unknown[] | undefined;
+    let cleanup: (() => void) | undefined;
+    const generation = { current: 0 };
+    vi.doMock("preact/hooks", () => ({
+      useMemo: (compute: () => unknown) => compute(),
+      useRef: () => generation,
+      useState: (initial: unknown) => {
+        const index = cursor++;
+        if (!(index in state)) state[index] = initial;
+        return [state[index], (next: unknown) => {
+          state[index] = typeof next === "function"
+            ? (next as (value: unknown) => unknown)(state[index]) : next;
+        }];
+      },
+      useEffect: (effect: () => void | (() => void), deps: readonly unknown[]) => {
+        if (!previousDeps || deps.some((value, index) => value !== previousDeps?.[index])) {
+          cleanup?.();
+          previousDeps = [...deps];
+          cleanup = effect() || undefined;
+        }
+      },
+    }));
+    vi.resetModules();
+    try {
+      const { DeploymentRequests } = await import("./deployment-requests");
+      const fetch = vi.fn(async (path: string) => ({
+        ok: true,
+        json: async () => ({
+          ...page,
+          offset: Number(new URL(path, "https://hub.example").searchParams.get("offset")),
+        }),
+      }));
+      vi.stubGlobal("fetch", fetch);
+      const render = (refreshGeneration?: number) => {
+        cursor = 0;
+        return DeploymentRequests(refreshGeneration === undefined ? {} : { refreshGeneration });
+      };
+      const findNext = (node: unknown): (() => void) | null => {
+        if (typeof node !== "object" || node === null) return null;
+        const props = (node as { props?: { children?: unknown; onClick?: () => void } }).props;
+        if (!props) return null;
+        if (props.children === "Next" && props.onClick) return props.onClick;
+        const children = Array.isArray(props.children) ? props.children : [props.children];
+        for (const child of children) {
+          const found = findNext(child);
+          if (found) return found;
+        }
+        return null;
+      };
+
+      render();
+      await vi.waitFor(() => expect(findNext(render())).not.toBeNull());
+      expect(fetch).toHaveBeenCalledTimes(1);
+      render(0);
+      expect(fetch).toHaveBeenCalledTimes(1);
+
+      const next = findNext(render());
+      expect(next).not.toBeNull();
+      next?.();
+      render();
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+      expect(fetch.mock.calls[1]?.[0]).toContain("offset=25");
+
+      render(1);
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(3));
+      expect(fetch.mock.calls[2]?.[0]).toContain("offset=25");
+      render(1);
+      expect(fetch).toHaveBeenCalledTimes(3);
+    } finally {
+      cleanup?.();
+      vi.doUnmock("preact/hooks");
+      vi.resetModules();
+    }
+  });
   it("follows has_more beyond the old offset ceiling and stops at the retained end", async () => {
     const later = { ...page, offset: 10000 } as DeploymentRequestPage;
     expect(nextRequestOffset(later)).toBe(10025);

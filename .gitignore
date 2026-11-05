@@ -159,6 +159,8 @@ activemq-data/
 .envrc
 .venv
 .fdai/
+/lifecycle/hub/ui/node_modules
+/lifecycle/release-hub/ui/node_modules
 .kube/
 /infra/fdai-dev-operations-gateway.zip
 /.improve/
