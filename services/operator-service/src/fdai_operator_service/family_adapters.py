@@ -93,6 +93,11 @@ from fdai_operator_service.workflow_catalog_projection import (
     rule_activation_history_payload,
     rule_activation_status_payload,
 )
+from fdai_operator_service.workflow_rule_inventory_projection import (
+    derive_rule_findings_payload,
+    enrich_rule_catalog_payload,
+    read_active_inventory_summary_by_type,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,7 +148,10 @@ class PostgresWorkflowAdapters:
                     operation=WorkflowOperation.RULE_LIST.value,
                 )
                 projection_key = "operator-projection:workflow:rule.list"
-                payload = _rule_catalog_payload(stored, request)
+                payload = enrich_rule_catalog_payload(
+                    _rule_catalog_payload(stored, request),
+                    await read_active_inventory_summary_by_type(self.store),
+                )
             elif request.operation is WorkflowOperation.RULE_FINDINGS_SUMMARY:
                 summary_key = "operator-projection:workflow:rule.findings-summary"
                 summary = await self.store.read_state(summary_key)
@@ -171,12 +179,17 @@ class PostgresWorkflowAdapters:
                 )
                 projection_key = "operator-projection:workflow:rule.list"
                 detail = _rule_catalog_payload(stored, request)
-                payload = {
-                    "rule_id": detail["id"],
-                    "origin": detail["origin"],
-                    "evaluated": False,
-                    "findings": [],
-                }
+                derived_findings = await derive_rule_findings_payload(self.store, detail)
+                payload = (
+                    derived_findings
+                    if derived_findings is not None
+                    else {
+                        "rule_id": detail["id"],
+                        "origin": detail["origin"],
+                        "evaluated": False,
+                        "findings": [],
+                    }
+                )
             elif request.operation is WorkflowOperation.RULE_ACTIVATION_STATUS:
                 pointer = await self.store.read_state("rule-activation:current")
                 if pointer is None:

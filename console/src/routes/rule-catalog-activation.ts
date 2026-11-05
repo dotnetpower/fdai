@@ -1,5 +1,24 @@
 import type { OperatorApiClient } from "../api";
 import { postGovernedJson } from "../governed-command";
+import type { ActivationState } from "./rule-catalog-types";
+
+export function isSeverityDefaultEnabled(severity: string | null | undefined): boolean {
+  const normalized = (severity ?? "").trim().toLowerCase();
+  return normalized === "critical" || normalized === "high";
+}
+
+export function isRuleEffectiveEnabled(
+  rule: { readonly id: string; readonly severity?: string | null | undefined },
+  activation: ActivationState,
+): boolean {
+  if (isSeverityDefaultEnabled(rule.severity)) {
+    return true;
+  }
+  if (activation.status === "ready") {
+    return activation.data.active_rule_ids.includes(rule.id);
+  }
+  return false;
+}
 
 export interface RuleActivationProposalReceipt {
   readonly accepted: true;

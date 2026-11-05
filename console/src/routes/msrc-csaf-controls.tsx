@@ -14,6 +14,8 @@ import { usePublishViewContext } from "../deck/context";
 import { SECURITY_AND_RULES_GLOSSARY, composeGlossary } from "../deck/glossary";
 import { getLocale } from "../i18n";
 import { currentRoute, navigate, pushRouteState, replaceRouteState } from "../router";
+import { ControlEnablementBadge, ControlEnablementSection } from "./control-enablement";
+import type { ControlEnablement } from "./control-enablement.model";
 import { displayValue, t } from "./i18n/governance";
 import {
   EMPTY_MSRC_CSAF_FILTERS,
@@ -79,6 +81,19 @@ const PRIORITY_PILL: Readonly<Record<CvePriorityTier, PillKind>> = {
 };
 
 const PAGE_SIZE = 50;
+
+function msrcCsafControlEnablement(severity: MsrcCsafControlRow["severity"]): ControlEnablement {
+  const enabled = severity === "critical" || severity === "high";
+  return {
+    severity,
+    default_enabled: enabled,
+    enabled,
+    source: "severity_default",
+    mode: "shadow",
+    execution_authority: false,
+    available: true,
+  };
+}
 
 export function MsrcCsafControlsRoute({ client }: { readonly client?: OperatorApiClient } = {}) {
   const initial = msrcCsafStateFromSearch(currentRoute().search);
@@ -318,6 +333,13 @@ export function MsrcCsafControlsRoute({ client }: { readonly client?: OperatorAp
             label={`${displayValue("severity", item.severity)} (${item.cvss_base_score.toFixed(1)})`}
           />
         ),
+      },
+      {
+        key: "enablement",
+        header: t("governance.rules.enablement.column"),
+        cellClass: "control-column-secondary",
+        headerClass: "control-column-secondary",
+        render: (item) => <ControlEnablementBadge value={msrcCsafControlEnablement(item.severity)} />,
       },
       {
         key: "exploit",
@@ -664,6 +686,10 @@ function MsrcCsafDrawer({
             <section id="framework-runtime" tabIndex={-1} class="stack-section">
               <h3>{t("governance.rules.wara.guidance.runtime")}</h3>
               <p class="muted">{msrcCsafDisplayTitle({ title: row.advisory_title }, locale)}</p>
+              <ControlEnablementSection
+                value={msrcCsafControlEnablement(row.severity)}
+                severitySource="source"
+              />
               <div class="pill-row">
                 <StatusPill
                   kind={PRIORITY_PILL[priorityTier]}

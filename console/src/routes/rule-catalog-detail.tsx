@@ -220,13 +220,14 @@ function RuleDetailContent({
       <h3 id="rule-runtime" tabIndex={-1}>{t("governance.rules.wara.guidance.runtime")}</h3>
       <RuleActivationPanel
         ruleId={data.id}
+        severity={data.severity}
         activation={activation}
         history={activationHistory}
         onRequest={onRequestActivation}
         onApprove={onApproveActivation}
       />
 
-      <AffectedResources findings={findings} />
+      <AffectedResources findings={findings} rule={data} />
 
       <ControlCitations citations={controlCitations} />
 
@@ -465,7 +466,20 @@ function MsrcCsafRuleCitations({ ruleId }: { readonly ruleId: string }) {
   );
 }
 
-function AffectedResources({ findings }: { readonly findings: FindingsState }) {
+function AffectedResources({
+  findings,
+  rule,
+}: {
+  readonly findings: FindingsState;
+  readonly rule: RuleDetailDto;
+}) {
+  const locale = getLocale();
+  const formattedTargetType = formatRuleResourceType(rule.resource_type);
+  const appliesToList = Array.isArray(rule.applies_to["resource_types"])
+    ? (rule.applies_to["resource_types"] as unknown[]).map((item) => String(item))
+    : [];
+  const targetTypes = Array.from(new Set([formattedTargetType, ...appliesToList.map(formatRuleResourceType)]));
+
   if (findings.status === "loading") {
     return (
       <DetailSection title={t("governance.rules.detail.affected")}>
@@ -485,6 +499,11 @@ function AffectedResources({ findings }: { readonly findings: FindingsState }) {
   if (!data.evaluated) {
     return (
       <DetailSection title={t("governance.rules.detail.affected")}>
+        <div class="pill-row">
+          {targetTypes.map((rt) => (
+            <code key={rt}>{rt}</code>
+          ))}
+        </div>
         <p class="muted footnote">{t("governance.rules.detail.inventoryUnavailable")}</p>
       </DetailSection>
     );
@@ -492,28 +511,92 @@ function AffectedResources({ findings }: { readonly findings: FindingsState }) {
   if (data.findings.length === 0) {
     return (
       <DetailSection title={t("governance.rules.detail.affected")}>
+        <div class="pill-row">
+          {targetTypes.map((rt) => (
+            <code key={rt}>{rt}</code>
+          ))}
+        </div>
         <p class="muted footnote">{t("governance.rules.detail.noViolations")}</p>
       </DetailSection>
     );
   }
 
+  const statusPillKind: Readonly<Record<string, "danger" | "warning" | "success" | "info" | "neutral">> = {
+    violated: "danger",
+    abstained: "warning",
+    compliant: "success",
+    observed: "info",
+  };
+  const statusLabel = (status: string | undefined): string => {
+    if (status === "violated") return locale === "ko" ? "위반" : "Violated";
+    if (status === "compliant") return locale === "ko" ? "준수" : "Compliant";
+    if (status === "abstained") return locale === "ko" ? "평가 보류" : "Abstained";
+    return locale === "ko" ? "인벤토리 관측됨" : "Observed in inventory";
+  };
+
   return (
     <DetailSection title={t("governance.rules.detail.affectedCount", { count: data.finding_count ?? data.findings.length })}>
-      <ul class="finding-list">
-        {data.findings.map((finding, index) => (
-          <li key={finding.resource_id + index} class="finding-item">
-            <div class="finding-head">
-              <span class="mono finding-res">{finding.resource_name ?? finding.resource_id}</span>
-              {finding.severity ? (
-                <StatusPill kind={SEVERITY_PILL[finding.severity] ?? "neutral"} label={displayValue("severity", finding.severity)} />
-              ) : null}
-            </div>
-            {finding.problem ? <p class="finding-problem">{finding.problem}</p> : null}
-            {finding.resource_name && finding.resource_name !== finding.resource_id ? (
-              <p class="muted footnote mono">{finding.resource_id}</p>
-            ) : null}
-          </li>
+      <div class="pill-row">
+        {(data.matched_resource_types ?? targetTypes).map((rt) => (
+          <code key={rt}>{rt}</code>
         ))}
+        {data.violated_count ? (
+          <StatusPill kind="danger" label={`${locale === "ko" ? "위반" : "Violated"} ${data.violated_count}`} />
+        ) : null}
+        {data.compliant_count ? (
+          <StatusPill kind="success" label={`${locale === "ko" ? "준수" : "Compliant"} ${data.compliant_count}`} />
+        ) : null}
+        {data.abstained_count ? (
+          <StatusPill kind="warning" label={`${locale === "ko" ? "보류" : "Abstained"} ${data.abstained_count}`} />
+        ) : null}
+        {data.observed_count ? (
+          <StatusPill kind="info" label={`${locale === "ko" ? "관측됨" : "Observed"} ${data.observed_count}`} />
+        ) : null}
+      </div>
+      <ul class="finding-list">
+        {data.findings.map((finding, index) => {
+          const instanceHref = routeHref("ontology", {
+            params: { tab: "instances", instance: finding.resource_id },
+          });
+          return (
+            <li key={finding.resource_id + index} class="finding-item">
+              <div class="finding-head">
+                <a class="mono finding-res" href={instanceHref}>
+                  {finding.resource_name ?? finding.resource_id}
+                </a>
+                <span class="pill-row">
+                  {finding.resource_type ? <code>{finding.resource_type}</code> : null}
+                  {finding.status ? (
+                    <StatusPill
+                      kind={statusPillKind[finding.status] ?? "neutral"}
+                      label={statusLabel(finding.status)}
+                    />
+                  ) : finding.severity ? (
+                    <StatusPill
+                      kind={SEVERITY_PILL[finding.severity] ?? "neutral"}
+                      label={displayValue("severity", finding.severity)}
+                    />
+                  ) : null}
+                </span>
+              </div>
+              {finding.resource_group || finding.location || finding.reason_code ? (
+                <p class="muted footnote">
+                  {[
+                    finding.resource_group ? `RG: ${finding.resource_group}` : null,
+                    finding.location ? `${locale === "ko" ? "리전" : "Region"}: ${finding.location}` : null,
+                    finding.reason_code ? `${locale === "ko" ? "사유" : "Reason"}: ${finding.reason_code}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              ) : null}
+              {finding.problem ? <p class="finding-problem">{finding.problem}</p> : null}
+              {finding.resource_name && finding.resource_name !== finding.resource_id ? (
+                <p class="muted footnote mono">{finding.resource_id}</p>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
     </DetailSection>
   );
