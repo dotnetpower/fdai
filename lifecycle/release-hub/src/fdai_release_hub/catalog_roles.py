@@ -36,7 +36,12 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from fdai_lifecycle_hub.catalog_integrity import release_digest
-from fdai_lifecycle_hub.catalog_trust import MetadataBundle, OnlineRoleKey, role_verifier
+from fdai_lifecycle_hub.catalog_trust import (
+    ManagedOnlineRoleKey,
+    MetadataBundle,
+    OnlineRoleKey,
+    role_verifier,
+)
 from fdai_release_hub.catalog_serialization import CatalogError
 from fdai_release_hub.role_tables import catalog_role_state, catalog_roots, role_metadata
 
@@ -48,18 +53,37 @@ NOT_INSTALLED = "Catalog roles are not installed."
 class CatalogRoleKeys:
     """The online keys and validity windows. Zero-trust defaults: short timestamp, long root."""
 
-    snapshot: OnlineRoleKey
-    timestamp: OnlineRoleKey
+    snapshot: OnlineRoleKey | ManagedOnlineRoleKey
+    timestamp: OnlineRoleKey | ManagedOnlineRoleKey
     timestamp_ttl: timedelta = timedelta(hours=24)
     snapshot_ttl: timedelta = timedelta(days=7)
 
     def __post_init__(self) -> None:
         if self.snapshot.key_id == self.timestamp.key_id:
             raise ValueError("Snapshot and timestamp keys MUST be different keys.")
+        if isinstance(self.snapshot, ManagedOnlineRoleKey) and self.snapshot.role != "snapshot":
+            raise ValueError("Snapshot role key must be bound to the 'snapshot' role.")
+        if isinstance(self.timestamp, ManagedOnlineRoleKey) and self.timestamp.role != "timestamp":
+            raise ValueError("Timestamp role key must be bound to the 'timestamp' role.")
+        if (
+            isinstance(self.snapshot, ManagedOnlineRoleKey)
+            and isinstance(self.timestamp, ManagedOnlineRoleKey)
+            and self.snapshot.key_vault_key_uri == self.timestamp.key_vault_key_uri
+        ):
+            raise ValueError("Managed snapshot and timestamp keys MUST use distinct key URIs.")
         if not timedelta(hours=1) <= self.timestamp_ttl <= timedelta(days=7):
             raise ValueError("The timestamp validity MUST be between one hour and seven days.")
         if not self.timestamp_ttl <= self.snapshot_ttl <= timedelta(days=60):
             raise ValueError("The snapshot validity MUST outlast the timestamp and stay bounded.")
+
+    @property
+    def uses_managed_custody(self) -> bool:
+        return (
+            isinstance(self.snapshot, ManagedOnlineRoleKey)
+            and isinstance(self.timestamp, ManagedOnlineRoleKey)
+            and not self.snapshot.exportable
+            and not self.timestamp.exportable
+        )
 
 
 @dataclass(frozen=True, slots=True)

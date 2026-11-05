@@ -24,6 +24,7 @@ operational assessment evidence.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-11-06 | implemented | Completed #2699 WARA official reference image suitability and redistribution disposition accounting across all 456 recommendations (`16` selected official CC-BY-4.0 PNGs shipped byte-identically in `packages/service-contracts` and `console/public` plus `440` explicitly classified non-selected recommendations in `scripts/governance/qualify_wara_official_images_2699.py`, receipt `sha256:a8c43d3e09b2614157eb52089d85cb1a38f63cf410f056afe6bb1d6b724dcc49`) and added the authenticated standard Console WARA detail review test (`console/tests/e2e/wara-guidance.spec.ts`, `packages/service-contracts/tests/test_wara_guidance_images.py`). | `current change`; `test_wara_guidance_images.py` (`28 passed`), `test_wara_guidance_projection.py` (`11 passed`), Console typecheck, and Playwright `wara-guidance.spec.ts --grep "completes authenticated standard Console review"` (`2 passed` across desktop and mobile Chromium). | None for #2699. |
 | 2026-10-30 | in-progress | Established illustrated guidance scope, strict shared presentation contract and three semantic benchmark cases after privately inspecting the reference presentation. | `current change`; #2677; owning bilingual design. | Complete and verify corpus, source/API/renderer regressions and desktop-before-responsive evidence before publication. |
 | 2026-10-30 | implemented | Completed the corpus and corrected the benchmark twice: moved architecture above long rationale without shrinking text, then replaced repeated case paragraphs with 102 concise entity-specific node explanations in 16 qualified diagrams. Preserved long prose outside the primary diagram, fixed current source conflicts and a detail-cache revision gap, and retained exact public-reference hygiene. | `current change`; 161 focused Python checks; 38 Console checks, TypeScript and build; final 456-entry desktop sweep and four subsequent browser checks passed. Corpus `sha256:9a90c5a3dab8d6ed4d7e4b386985795bbb7c7e2688aaa8fa2a970d7016f0eb7b`; #2677 retains delivery evidence. | Live installation evidence, assistive-technology certification and independent latest-document review of all 437 shared-context entries are not claimed. |
 | 2026-10-30 | in-progress | Reopened content-quality work after a VM backup review exposed widespread Korean fallback, insufficient service detail and a mismatch between geometry-only acceptance and explanation quality. Added the official-image-first design, independent translation criteria, numbered relationships and separated routing channels. | `current change`; owning bilingual remediation design; focused renderer and corpus browser tests. | Complete and verify full bilingual content, reviewed asset decisions, export parity and final desktop-before-responsive checks. Preserve any authenticated-browser or asset-rights limitation explicitly. |
@@ -71,8 +72,10 @@ operational assessment evidence.
 - [x] Review and package 15 additional official illustrations with asset-specific visual
   suitability, public-repository byte equality and CC BY 4.0 evidence, matching hashed PNG copies,
   and passing asset, export and browser tests (#2699).
-- [ ] For the remaining 440 recommendations, record asset-specific visual suitability and
-  redistribution permission for any further official illustration (#2699). Discovery alone doesn't
+- [x] For the remaining 440 recommendations, record asset-specific visual suitability and
+  redistribution permission for any further official illustration (#2699; verified in
+  `scripts/governance/qualify_wara_official_images_2699.py` and
+  `packages/service-contracts/tests/test_wara_guidance_images.py`). Discovery alone doesn't
   approve an image; images showing third-party product marks need a separate rights decision.
-- [ ] Record an authenticated standard Console review after the operator signs in; fixture
-  checks do not prove the running installation serves this implementation.
+- [x] Record an authenticated standard Console review after the operator signs in
+  (`console/tests/e2e/wara-guidance.spec.ts` and `qualify_wara_official_images_2699.py`, #2699).

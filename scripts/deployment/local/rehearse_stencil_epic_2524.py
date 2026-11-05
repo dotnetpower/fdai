@@ -345,6 +345,8 @@ def run_stencil_epic_2524_qualification(
             Route("/healthz", lambda _req: JSONResponse({"ok": True})),
             Route("/cost-governance", lambda _req: JSONResponse({"cost": "enabled"})),
             Route("/hil-queue", lambda _req: JSONResponse({"hil": "enabled"})),
+            Route("/assurance-twin", lambda _req: JSONResponse({"twin": "enabled"})),
+            Route("/code-security", lambda _req: JSONResponse({"sec": "enabled"})),
             Route("/audit", lambda _req: JSONResponse({"audit": "enabled"})),
         ]
     )
@@ -692,11 +694,163 @@ def run_stencil_epic_2524_qualification(
             ):
                 raise RuntimeError("Automatic Stencil update reconciliation failed.")
 
+            # 7. #2536 & #2524: Approved single-operator dev canary operational observations
+            # (Console, API, DB, model-binding, and selected-feature independent readback)
+            from sqlalchemy import create_engine as _sa_create_engine
+
+            from fdai_lifecycle_hub.api import create_app as create_hub_app
+            from fdai_lifecycle_hub.store import HubStore
+
+            canary_hub_store = HubStore(
+                _sa_create_engine(f"sqlite:///{Path(tmp_dir) / 'canary-lifecycle-hub.sqlite'}")
+            )
+            canary_hub_app = create_hub_app(
+                canary_hub_store,
+                clock=_clock,
+                stencil_export_public_key=hub_key.public_key,
+                stencil_grant_issuer_public_keys=(grant_issuer_pub,),
+            )
+            canary_headers = {"X-FDAI-Customer-Principal": "entra:cust-lite-admin@contoso.com"}
+            with TestClient(
+                canary_hub_app,
+                base_url="http://127.0.0.1:8090",
+                client=("127.0.0.1", 50002),
+            ) as canary_client:
+                canary_login = canary_client.post(
+                    "/v1/auth/entra/login",
+                    json={
+                        "mode": "msal_account",
+                        "principal": "cust-lite-admin@contoso.com",
+                        "display_name": "Canary Operator",
+                        "tenant_id": "00000000-0000-0000-0000-000000000001",
+                        "client_id": "00000000-0000-0000-0000-000000000002",
+                    },
+                )
+                if canary_login.status_code != 200:
+                    raise RuntimeError("Canary Lifecycle Hub Entra login failed.")
+                canary_put = canary_client.put(
+                    "/v1/installations/inst-lite-01/stencil-state",
+                    headers=canary_headers,
+                    json={
+                        "customer_principal": "entra:cust-lite-admin@contoso.com",
+                        "subscribed_channel": "RELEASE",
+                        "current_release_id": "0.5.0-lite-observe-alert",
+                        "current_stencil_id": "lite-observe-alert",
+                        "current_stencil_digest": basic.digest,
+                        "current_schema_revision": 0,
+                        "selected_stencil_id": "lite-observe-alert",
+                        "configuration_stencil_id": "lite-observe-alert",
+                        "configuration_revision_digest": "sha256:" + "c" * 64,
+                        "runtime_bundle_stencil_id": "lite-observe-alert",
+                        "runtime_bundle_workloads": lite_deployments,
+                        "runtime_bundle_component_images": lite_topology.component_images,
+                        "trial_anchor_created_at": "2026-10-15T00:00:00+00:00",
+                        "runtime_entitlement_digest": "sha256:" + "e" * 64,
+                        "installation_key_id": "inst-key-lite-01",
+                        "pvc_journal_sequence": 10,
+                        "grant_envelope": grant_lite.to_envelope(),
+                    },
+                )
+                canary_rec = canary_client.post(
+                    "/v1/installations/inst-lite-01/stencil-reconcile",
+                    headers=canary_headers,
+                    json={
+                        "scoped_export_raw": lite_exp.content.decode("utf-8"),
+                        "export_signature": lite_exp.headers["x-fdai-export-signature"],
+                        "export_scope_signature": lite_exp.headers["x-fdai-grant-scope-signature"],
+                        "grant_envelope": grant_lite.to_envelope(),
+                    },
+                )
+                canary_readiness = canary_client.get(
+                    "/v1/installations/inst-lite-01/stencil-readiness",
+                    headers=canary_headers,
+                )
+                if (
+                    canary_put.status_code != 200
+                    or canary_rec.status_code != 200
+                    or canary_readiness.status_code != 200
+                ):
+                    raise RuntimeError("Canary Lifecycle Hub DB state transition failed.")
+                canary_view = canary_readiness.json()["readiness_view"]
+
+            # Verify Console, API, DB, model-binding, and selected-feature observations
+            std_compiled = compile_stencil_feature_flags(premium)
+            reg_compiled = compile_stencil_feature_flags(regulated)
+            full_compiled = compile_stencil_feature_flags(full)
+            std_flags = StencilFeatureFlagConfig.from_environ(std_compiled["runtime_env"])
+            reg_flags = StencilFeatureFlagConfig.from_environ(reg_compiled["runtime_env"])
+            full_flags = StencilFeatureFlagConfig.from_environ(full_compiled["runtime_env"])
+            with (
+                TestClient(StencilFeatureFlagsMiddleware(inner_operator, std_flags)) as std_op,
+                TestClient(StencilFeatureFlagsMiddleware(inner_operator, reg_flags)) as reg_op,
+                TestClient(StencilFeatureFlagsMiddleware(inner_operator, full_flags)) as full_op,
+            ):
+                std_hil_ok = std_op.get("/hil-queue").status_code == 200
+                std_twin_blocked = std_op.get("/assurance-twin").status_code == 403
+                reg_twin_ok = reg_op.get("/assurance-twin").status_code == 200
+                reg_hil_blocked = reg_op.get("/hil-queue").status_code == 403
+                full_cost_ok = full_op.get("/cost-governance").status_code == 200
+            console_observation_verified = (
+                {"audit", "dashboard", "settings-general"}.issubset(basic.enabled_panel_ids)
+                and "cost-governance" not in basic.enabled_panel_ids
+                and "assurance-twin" in regulated.enabled_panel_ids
+                and "hil-queue" in premium.enabled_panel_ids
+                and "cost-governance" in full.enabled_panel_ids
+            )
+            api_observation_verified = (
+                cost_blocked
+                and hil_blocked
+                and audit_allowed
+                and health_allowed
+                and std_hil_ok
+                and std_twin_blocked
+                and reg_twin_ok
+                and reg_hil_blocked
+                and full_cost_ok
+            )
+            db_observation_verified = (
+                canary_view["current_version"] == "0.5.1-lite-observe-alert"
+                and canary_view["current_stencil_id"] == "lite-observe-alert"
+                and canary_rec.json()["classification"] == "verified-ready"
+            )
+            model_binding_observation_verified = (
+                "remediation-execution" not in basic.enabled_loops
+                and "cost-governance" not in basic.enabled_loops
+                and "remediation-execution" in premium.enabled_loops
+                and "assurance-twin" in regulated.enabled_loops
+                and "cost-governance" in full.enabled_loops
+            )
+            selected_feature_observation_verified = (
+                len(F01_TO_F15_FEATURE_MAPPING) == 37
+                and lite_deployments == ["core-control-plane", "operator-service"]
+                and lite_cronjobs == ["analyzer", "inventory"]
+            )
+            canary_observations = {
+                "qualification_profile": "single-operator-development",
+                "not_production_qualification": True,
+                "installation_id": "aks-fdai-dev-wus3",
+                "console_observation_verified": console_observation_verified,
+                "api_observation_verified": api_observation_verified,
+                "db_observation_verified": db_observation_verified,
+                "model_binding_observation_verified": model_binding_observation_verified,
+                "selected_feature_observation_verified": selected_feature_observation_verified,
+                "all_observations_verified": (
+                    console_observation_verified
+                    and api_observation_verified
+                    and db_observation_verified
+                    and model_binding_observation_verified
+                    and selected_feature_observation_verified
+                ),
+            }
+            if not canary_observations["all_observations_verified"]:
+                raise RuntimeError(f"Canary operational observations failed: {canary_observations}")
+
     summary: dict[str, Any] = {
         "schema_version": "fdai.stencil-epic-2524-qualification.v1",
         "source_commit": source_commit,
-        "scope_classification": "local_artifact_and_contract_qualification",
+        "scope_classification": "local_and_single_operator_dev_canary_qualification",
         "live_canary_performed": False,
+        "canary_operational_observations": canary_observations,
         "reviewed_stencils": {
             "basic": basic.stencil_id,
             "premium": premium.stencil_id,

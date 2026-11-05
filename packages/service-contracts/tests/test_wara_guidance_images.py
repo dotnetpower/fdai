@@ -393,3 +393,23 @@ def test_evidence_requests_are_limited_to_public_learn_and_repository_hosts() ->
         selection._get("https://example.com/image.png", 10)
     with pytest.raises(ValueError, match="limited to public"):
         selection._get("http://learn.microsoft.com/en-us/azure/x", 10)
+
+
+def test_wara_official_images_2699_complete_suitability_and_authenticated_review() -> None:
+    from scripts.governance.qualify_wara_official_images_2699 import (
+        qualify_wara_official_images_2699,
+    )
+
+    receipt = qualify_wara_official_images_2699()
+    assert receipt["execution_authority"] is False
+    assert all(receipt["criteria_verified"].values())
+    assert receipt["selected_official_image_count"] == 16
+    assert receipt["non_selected_recommendation_count"] == 440
+    assert (
+        sum(receipt["non_selected_disposition_breakdown"].values())
+        + receipt["selected_official_image_count"]
+        == 456
+    )
+    assert receipt["authenticated_console_review"]["authenticated"] is True
+    assert receipt["authenticated_console_review"]["official_image_details_verified"] == 16
+    assert receipt["qualification_digest"].startswith("sha256:")

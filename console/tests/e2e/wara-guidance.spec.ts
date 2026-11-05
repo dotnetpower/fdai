@@ -684,3 +684,38 @@ test("keeps complete long node explanations visible outside a steady primary fig
   await expect(explanation).toBeFocused();
   expect((await measure(page)).hero.figureHeight).toBeCloseTo(before.hero.figureHeight, 1);
 });
+
+test("completes authenticated standard Console review of the WARA detail view after operator sign-in (#2699)", async ({ page }) => {
+  const controls = waraCorpusControls();
+  const officialControl = controls.find((item) => Boolean(item.guidance?.reference_image))!;
+  const authoredOnlyControl = controls.find((item) => !item.guidance?.reference_image)!;
+  expect(officialControl.guidance?.reference_image).toBeDefined();
+  await page.route(/\/(?:api\/)?iam\/self(?:[/?]|$)/, (route) =>
+    route.fulfill({
+      json: {
+        authenticated: true,
+        principal_id: "00000000-0000-0000-0000-000000000001",
+        roles: ["Owner", "Approver"],
+      },
+    }),
+  );
+  await installFixture(page, [officialControl, authoredOnlyControl]);
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+  ] as const) {
+    await page.setViewportSize(viewport);
+    for (const locale of ["en", "ko"] as const) {
+      await page.goto(`/rules?view=controls&framework=azure-wara&locale=${locale}&recommendation=${officialControl.id}`);
+      const drawer = page.getByRole("dialog");
+      const image = officialControl.guidance!.reference_image!;
+      const officialFigure = drawer.locator(".wara-guidance-source-figure");
+      await expect(officialFigure.getByRole("img", { name: guidanceText(image.alt, locale), exact: true })).toBeVisible();
+      await expect(officialFigure).toContainText(guidanceText(image.caption, locale));
+      const supplement = drawer.locator(".wara-guidance-supplement");
+      await supplement.locator(":scope > summary").click();
+      await expect(supplement).toHaveAttribute("open");
+      expect((await measure(page)).crossings).toEqual([]);
+    }
+  }
+});
