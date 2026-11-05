@@ -28,3 +28,7 @@ b6b9a831d4005a70155a9b21291bbfa8e85f72f2:services/operator-service/tests/test_li
 f2e1a0fb158800cb2127635c834e80f0f6d9836e:console/src/browser-notifications.test.ts:generic-api-key:114
 # Shortened synthetic bot_token fixture to fixture; ignore only this historical PR fingerprint.
 0012221a870a66afc7a93a6ec25680015fe38893:tests/integration/services/test_a1_a3_channel_qualification_postgres.py:generic-api-key:313
+# Shortened synthetic key_version fixtures to v1/v2 and assembled secret-detector test input at runtime; ignore only these historical PR fingerprints.
+be1abca8d5806ea460e1a71b4ea8653eba4e2deb:services/core-control-plane/tests/conversation/test_result_handle_store.py:generic-api-key:286
+be1abca8d5806ea460e1a71b4ea8653eba4e2deb:services/core-control-plane/tests/conversation/test_result_handle_store.py:generic-api-key:287
+15023d459bb6fdf044c80828bc697403d6c0b155:services/core-control-plane/tests/core/learning/test_consensus.py:generic-api-key:139

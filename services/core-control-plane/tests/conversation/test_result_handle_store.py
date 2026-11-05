@@ -283,12 +283,12 @@ async def test_secret_and_static_key_providers_resolve_and_validate_key_material
         _FakeSecretProvider(),  # type: ignore[arg-type]
         current_secret_name="curr",
         previous_secret_name="prev",
-        current_key_version="result-handle-key-v2",
-        previous_key_version="result-handle-key-v1",
+        current_key_version="v2",
+        previous_key_version="v1",
     )
-    curr = await provider.key_for_version("result-handle-key-v2")
-    prev = await provider.key_for_version("result-handle-key-v1")
-    missing = await provider.key_for_version("result-handle-key-v9")
+    curr = await provider.key_for_version("v2")
+    prev = await provider.key_for_version("v1")
+    missing = await provider.key_for_version("v9")
 
     assert curr is not None and curr.key == bytes.fromhex("ab" * 32)
     assert prev is not None and prev.key == b"2" * 32

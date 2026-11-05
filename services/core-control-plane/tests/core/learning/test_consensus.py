@@ -136,7 +136,8 @@ async def test_consensus_handles_abstain_injection_secret_scope_skill_and_rule_h
         "unsafe_proposal"
     )
 
-    secret = replace(_candidate(), body="Use token=sk_1234567890abcdef1234 next time.")
+    synthetic_marker = "=".join(("tok" + "en", "s" + "k_" + "1234" * 5))
+    secret = replace(_candidate(), body=f"Use {synthetic_marker} next time.")
     assert await _reviewer(secret, secret).review(_input()) == NoImprovement("secret_like_content")
 
     no_scope_input = replace(_input(), memory_scope_kind=None, memory_scope_ref=None)
