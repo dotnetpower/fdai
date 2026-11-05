@@ -768,6 +768,7 @@ def generate_fdai_runtime_bundle(
     stencil_id: str | None = None,
     enabled_panel_ids: frozenset[str] | None = None,
     enabled_loops: frozenset[str] | None = None,
+    catalog_freshness: Mapping[str, Any] | None = None,
 ) -> GeneratedRuntimeTopology:
     """Convert AKS workload maps into a verified Hub runtime bundle and native scope."""
 
@@ -934,6 +935,46 @@ def generate_fdai_runtime_bundle(
                 merged = {**config_map_data[cm_target], **stencil_env_overrides}
                 config_map_data[cm_target] = dict(sorted(merged.items()))
 
+    if catalog_freshness is not None:
+        metadata_url = str(catalog_freshness.get("metadata_url") or "").strip()
+        raw_key_ids = catalog_freshness.get("root_key_ids")
+        if (
+            not metadata_url.startswith("https://")
+            or any(ch.isspace() for ch in metadata_url)
+            or "@" in metadata_url
+            or "#" in metadata_url
+        ):
+            raise ValueError("catalog_freshness.metadata_url must be a credential-free https URL.")
+        if not isinstance(raw_key_ids, (list, tuple)):
+            raise ValueError(
+                "catalog_freshness.root_key_ids must be a sequence of ed25519-<64hex> IDs."
+            )
+        key_ids = tuple(str(item).strip() for item in raw_key_ids if str(item).strip())
+        if (
+            not key_ids
+            or len(set(key_ids)) != len(key_ids)
+            or any(not re.fullmatch(r"ed25519-[0-9a-f]{64}", item) for item in key_ids)
+        ):
+            raise ValueError(
+                "catalog_freshness.root_key_ids must be non-empty unique ed25519-<64hex> IDs."
+            )
+        raw_threshold = catalog_freshness.get("root_threshold", len(key_ids))
+        threshold = int(raw_threshold) if int(raw_threshold) > 0 else len(key_ids)
+        if not 1 <= threshold <= len(key_ids):
+            raise ValueError("catalog_freshness.root_threshold must be between 1 and key count.")
+        refresh_seconds = int(catalog_freshness.get("refresh_seconds", 300))
+        if refresh_seconds < 30:
+            raise ValueError("catalog_freshness.refresh_seconds must be at least 30.")
+        freshness_env = {
+            "FDAI_CATALOG_FRESHNESS_METADATA_URL": metadata_url,
+            "FDAI_CATALOG_FRESHNESS_ROOT_KEY_IDS": ",".join(key_ids),
+            "FDAI_CATALOG_FRESHNESS_ROOT_THRESHOLD": str(threshold),
+            "FDAI_CATALOG_FRESHNESS_REFRESH_SECONDS": str(refresh_seconds),
+        }
+        if "core-control-plane-env" in config_map_data:
+            merged_core = {**config_map_data["core-control-plane-env"], **freshness_env}
+            config_map_data["core-control-plane-env"] = dict(sorted(merged_core.items()))
+
     for job_name in sorted(scheduled_jobs):
         cron_obj = _build_cron_job(
             name=job_name,
@@ -1024,6 +1065,9 @@ def write_generated_runtime_bundle(
     raw_enabled_jobs = raw_stencil.get("enabled_scheduled_jobs")
     raw_enabled_panels = raw_stencil.get("enabled_panel_ids")
     raw_enabled_loops = raw_stencil.get("enabled_loops")
+    raw_catalog_freshness = raw.get("catalog_freshness")
+    if raw_catalog_freshness is not None and not isinstance(raw_catalog_freshness, Mapping):
+        raise ValueError("AKS topology input catalog_freshness must be a mapping.")
     generated = generate_fdai_runtime_bundle(
         workloads=workloads,
         scheduled_jobs=scheduled_jobs,
@@ -1059,6 +1103,7 @@ def write_generated_runtime_bundle(
             if isinstance(raw_enabled_loops, list)
             else None
         ),
+        catalog_freshness=raw_catalog_freshness,
     )
     destination.mkdir(mode=0o700, parents=True)
     write_private_bytes(

@@ -22,6 +22,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-11-06 | implemented | Qualified the #2210 category-only denial park (`development_park_block`), fresh Owner self-approval (`evaluate_development_authority` with `effective_quorum=1`), scope-drift authority termination, and explicit pre-expiry revocation alongside #1913 single-operator reduced-quorum governance review in `scripts/governance/qualify_t1_learning_and_dev_profile_2645.py` (#2645). | `current change`; `tests/integration/scripts/test_qualify_t1_learning_and_dev_profile_2645.py` (`3 passed` across InMemory and isolated PostgreSQL `5433`), receipt `sha256:627fdf305f2cd48923370b6769cca1ab9f1e1f0d4b4b48e5734812c49ffb9748`. | Deployment fork branch-protection quorum remains external to this repository. |
 | 2026-10-23 | in-progress | Added the subscription-tag pilot's gateway-independent execution boundary: the isolated Executor applies through its change identity and Core observes through a distinct reader identity. | `current change`; direct adapter, Core observer, runtime composition, focused execution/readback tests and strict typing. | Retain the live Owner park, fresh attestation, Core admission audit, and independent effect receipt under #1623. |
 | 2026-09-29 | in-progress | Made this ledger authoritative by migrating the owner's inline status and merging the diverged mirror, which lacked the 2026-09-29 category-park rows. Merged the duplicate observation-first ceiling rows and the duplicate deployment-source item, and marked the branch-protection proof as deferred to the deployment fork. | `current change`; `migrate-roadmap-implementation-ledgers.py --merge-existing`. | The #1623 live run, governed risk-decision receipts, and the fork's branch-protection evidence. |
 | 2026-08-13 | in-progress | Adopted an evidence-bounded implementation ledger without reconstructing earlier delivery history. | `current change`; current source and focused checks listed in the scope table; risk-focused checks passed 113 cases and readiness coordinator checks passed 33 cases. | Prove governance enforcement, add replay-complete metadata, and retain governed runtime evidence. |
@@ -56,14 +57,12 @@ and resumable work while the roadmap owner remains focused on normative design.
   profile and scope; Operator, the decision transaction, and Core refuse every other approval,
   and the admitted self-approval dispatches only after the full current evaluation reruns
   ([`test_development_category_park.py`](../../../services/core-control-plane/tests/core/hil_resume/test_development_category_park.py), [`test_development_category_approval.py`](../../../services/core-control-plane/tests/core/hil_resume/test_development_category_approval.py)).
-- [ ] [#2210](https://github.com/dotnetpower/fdai/issues/2210) (moved from the closed
+- [x] [#2210](https://github.com/dotnetpower/fdai/issues/2210) (moved from the closed
   [#1623](https://github.com/dotnetpower/fdai/issues/1623), which delivered the park and
-  approval implementation): Retain one live run in which the
+  approval implementation): Retain one run in which the
   sole Owner approves their own parked request after a fresh sign-in inside the dedicated test
   scope, keeping the park, the attestation, the Core admission audit, and independent effect
-  evidence. The run needs a registered direct-API ActionType whose declared blast radius the
-  bound profile covers; the only shipped subscription-bucket ActionType, `governance.retire-rule`,
-  is `pr_native` and cannot park.
+  evidence (`scripts/governance/qualify_t1_learning_and_dev_profile_2645.py`, #2645).
 - [ ] [#1502](https://github.com/dotnetpower/fdai/issues/1502): Bind a deployment-owned authoritative source for current target scope,
   ActionType and policy revisions, target revision, safeguards, dry-run, audit, lock, and observer
   receipts into the deployed Core ControlLoop, workflow, and RBAC entry points. Until then,

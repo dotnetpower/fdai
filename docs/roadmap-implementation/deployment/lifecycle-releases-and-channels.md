@@ -9,7 +9,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Reviewed Stencil variants, installation-bound distribution grants, scoped RC/RELEASE catalogs/pulls, durable workflow jobs, and automatic Stencil update readiness | implemented | `current change`; #2524, #2525, #2526, #2527, #2528, #2529, #2530, #2531, #2532, #2533, #2534, #2535, #2536; `packages/deployment-cli/src/fdai_deployment_cli/lifecycle_stencil_grant.py`, `lifecycle/release-hub/src/fdai_release_hub/{stencil_product_decisions,stencil_grants,stencil_workflow_jobs,store,api,database}.py`, `lifecycle/hub/src/fdai_lifecycle_hub/stencil_update_flow.py`, `scripts/deployment/local/rehearse_stencil_epic_2524.py`, `tests/integration/scripts/test_rehearse_stencil_epic_2524.py`; `165 passed` on SQLite and isolated loopback PostgreSQL (`port 5433`), receipt `sha256:2faba7336b122e4bdefefdc9fc0f16eff962075b9a7acf8b7fe4fd16a2640546` | Basic (`lite-observe-alert`), Premium (`standard-sre`), Regulated (`regulated-governance`), and Full (`full-enterprise`) Stencil drafts with non-superset independence, 37 `F01.1`..`F15.2` feature-to-code mappings, `STENCIL_PRODUCT_DECISION_REGISTER`, physical exclusion proof, build-once promotion invariance (`0` digest/manifest byte changes), same-version `(base_release_version, stencil_id)` uniqueness, domain-separated `fdai.stencil-distribution-grant.v1`, two-customer catalog/ETag/OCI pull isolation (`0` DEV/unentitled leaks), durable workflow jobs with idempotent resume, promotion-run gate receipts, and zero-handoff/zero-extra-click automatic Stencil update reconciliation. Live canary qualification (#2536) remains separate. |
+| Reviewed Stencil variants, installation-bound distribution grants, scoped RC/RELEASE catalogs/pulls, durable workflow jobs, and automatic Stencil update readiness | implemented | `current change`; #2524, #2525, #2526, #2527, #2528, #2529, #2530, #2531, #2532, #2533, #2534, #2535, #2536; `packages/deployment-cli/src/fdai_deployment_cli/lifecycle_stencil_grant.py`, `lifecycle/release-hub/src/fdai_release_hub/{stencil_product_decisions,stencil_grants,stencil_workflow_jobs,store,api,database}.py`, `lifecycle/hub/src/fdai_lifecycle_hub/stencil_update_flow.py`, `scripts/deployment/local/rehearse_stencil_epic_2524.py`, `tests/integration/scripts/test_rehearse_stencil_epic_2524.py`; `166 passed` on SQLite and isolated loopback PostgreSQL (`port 5433`), receipt `sha256:6c34ef9c23e89acbb5a3516193fe2689ffeb132c915bebb27207ee91f04cd5da` | Basic (`lite-observe-alert`), Premium (`standard-sre`), Regulated (`regulated-governance`), and Full (`full-enterprise`) Stencil drafts with non-superset independence, 37 `F01.1`..`F15.2` feature-to-code mappings, `STENCIL_PRODUCT_DECISION_REGISTER`, physical exclusion proof, build-once promotion invariance (`0` digest/manifest byte changes), same-version `(base_release_version, stencil_id)` uniqueness, domain-separated `fdai.stencil-distribution-grant.v1`, two-customer catalog/ETag/OCI pull isolation (`0` DEV/unentitled leaks), durable workflow jobs with idempotent resume, promotion-run gate receipts, zero-handoff/zero-extra-click automatic Stencil update reconciliation, and single-operator dev canary Console/API/DB/model-binding/selected-feature operational observations (#2536). |
 | Guided single-Release vendor workspace and uncertain-write readback | implemented | `current change`; #2532 / #2534; `lifecycle/release-hub/ui/src/release-workspace.tsx`, `release-workspace.test.ts`, `api.ts`, `app.tsx`; UI tests: 34 passed; UI typecheck/build passed; 25 synthetic actual-route browser scenarios passed | One next step, honest recorded membership, EN/KO workspace copy, native technical disclosures and exact attributed-event readback. Desktop 1440x900 precedes 993x641 and 390x844; no document/main overflow, primary targets >=44px; 320px with 200% text and spacing passed. No backend, permission, manifest or promotion-gate change; durable build/publication jobs and real sign-in recovery are not delivered. |
 | Self-reported subscription deployment requests | implemented | `current change`; [Hub-image ledger](hub-image-deployment.md); 55 request tests and 29 UI tests passed, typecheck/build/Ruff and actual synthetic browser checks passed | Separate bounded intake and private operator list with explicit schema migration; no catalog revision, freshness, publication, ownership or execution authority change. No live Hub rollout claimed. |
 | Application-neutral Release publication and pinned admission | implemented | `current change`; `lifecycle_release.py`, Release Hub `store.py`, Hub `catalog_import.py`, `catalog.py`, `test_application_release.py`; CLI selection 271 passed; publication/planning/schema/inventory selection 103 passed; Release UI unit tests 10 passed and both UI builds passed | Same signing, exact pin, expiry, recall and channel path for every independent product. Bounded HTTP metadata, strict UTF-8/duplicate-key/nonfinite checks and legacy runtime compatibility. Release versions remain catalog-global. No production qualification or runtime activation is claimed. |
@@ -42,6 +42,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-11-06 | implemented | Qualified signed catalog role custody (`AzureKeyVaultRoleSigningService`, `ManagedOnlineRoleKey`, `ManagedKeyCustodyReceipt.from_verified_custody`, isolated-subprocess 2-of-3 offline root ceremony), audited `bind-catalog`/`rebind-catalog`, refusal matrix + root rotation (`v1 -> v2`), AKS workload `catalog_freshness` override demotion (`generate_fdai_runtime_bundle` and `write_generated_runtime_bundle` in `runtime_bundle_generator.py`), and Agent pending enrollment submission with ZRS state PVC (`qualify_signed_catalog_custody_2498.py`, #2498), and added single-operator dev canary Console/API/DB/model-binding/selected-feature operational observations to `rehearse_stencil_epic_2524.py` (#2524, #2536). | `current change`; `.venv/bin/python scripts/automation/with-local-test-database.py .venv/bin/pytest -q tests/integration/scripts/test_qualify_signed_catalog_custody_2498.py tests/integration/scripts/test_rehearse_stencil_epic_2524.py lifecycle/hub/tests/test_catalog_rebinding.py lifecycle/hub/tests/test_catalog_tuf_verification.py` (`36 passed` across SQLite and PostgreSQL `5433`), #2498 receipts `sha256:99a40ed8a1415fbf009798ced4b9a76d0063cc16df1ee2e6885cc4258e4ae9fc` (SQLite) and `sha256:688590eadc598f1c80511381cd32117079bc1d40f618c5aebb6ac428aa1e3863` (PostgreSQL `5433`), and #2524/#2536 receipt `sha256:6c34ef9c23e89acbb5a3516193fe2689ffeb132c915bebb27207ee91f04cd5da`. | Multi-operator production HSM ceremony outside single-operator dev qualification remains separate. |
 | 2026-11-04 | implemented | Delivered end-to-end Stencil Epic #2524 (#2525-#2536): reviewed Basic/Premium/Regulated/Full Stencil drafts (`REGULATED_GOVERNANCE_STENCIL`, `REVIEWED_STENCIL_DRAFTS`), 37 `F01.1`..`F15.2` feature-to-code mappings, `STENCIL_PRODUCT_DECISION_REGISTER`, physical feature exclusion verifier (`verify_physical_stencil_exclusion`), build-once candidate set and promotion invariance (`verify_build_once_promotion_invariance`), same-version `(base_release_version, stencil_id)` variant identity and cross-layer Release/Plan/RuntimeBundle verification (`lifecycle_stencil_grant.py`), installation-bound signed `fdai.stencil-distribution-grant.v1` store/renewal/revocation (`stencil_grants.py`), customer-scoped RC/RELEASE catalog/export/detail/ETag and OCI `/v2/` pull enforcement (`0` DEV/unentitled leaks), durable vendor workflow jobs with idempotent resume and promotion-run receipts (`stencil_workflow_jobs.py`), and automatic customer Stencil update reconciliation & readiness view (`stencil_update_flow.py`). | `current change`; `.venv/bin/python scripts/automation/with-local-test-database.py .venv/bin/pytest -q tests/integration/scripts/test_rehearse_stencil_epic_2524.py lifecycle/release-hub/tests/test_stencils.py lifecycle/release-hub/tests/test_release_hub.py packages/deployment-cli/tests/test_lifecycle_release.py` (`165 passed`), standalone `rehearse_stencil_epic_2524.py` (`evidence_digest=sha256:2faba7336b122e4bdefefdc9fc0f16eff962075b9a7acf8b7fe4fd16a2640546`), Ruff, and strict mypy passed. | Separately authorized live canary qualification (#2536) and production root-key custody (#2498) remain open. |
 | 2026-11-04 | implemented | Completed 55-item hardening (`H01`-`H55`) of `fdai.stencil-feature-flags.v1` across Release Hub (`stencils.py`, `api.ts`, `stencil-builder.tsx`, `release-workspace.tsx`), Deployment CLI (`lifecycle_release.py`, `hub_image_trust.py`, `standalone_host_values.py`, `console_config.py`), Lifecycle Manager (`runtime_bundle_generator.py`), Operator Service (`stencil_feature_flags.py`), and Console (`stencil-panels.ts`, `router.ts`, `dashboard.loading.ts`, `shell.tsx`), reaching full 63-panel parity, `feature_flags_digest` verification, and `panel:*`/`job:*`/`addon:*` recall tokens. | `current change`; Python pytest (`167 passed` in `lifecycle/`, `93 passed` in CLI/Operator) and Console/Release Hub UI Vitest (`218 passed`), typecheck, and builds passed. | Entitled customer RC/RELEASE catalog filtering (#2530) and registry pull scoping (#2531) remain separate. |
 | 2026-11-04 | implemented | Completed a 55-item hardening batch (`H01`-`H55`) across the Release Hub LR version lineage graph, `0.5.0`/`0.5.x` patch-default workflow, Frontend UX/i18n/accessibility, Backend API/Store/Entra security, Serverless SQLite engine, and `hub-service` Terraform module (`release-lineage.model.ts`, `release-lineage.tsx`, `api.ts`, `app.tsx`, `release-workspace.tsx`, `stencil-builder.tsx`, `deployment-requests.tsx`, `styles.css`, `api.py`, `store.py`, `stencils.py`, `entra_session.py`, `cli.py`, `remote.py`, `infra/modules/hub-service/{apps,migrations,operations}.tf`, `standalone.tftest.hcl`). | `current change`; Release Hub UI Vitest (`6 files, 49 passed`), `tsc --noEmit && vite build`, Python pytest (`109 passed`), and `terraform -chdir=infra/release-hub test` (`27 passed`) succeeded. | Entitled customer RC/RELEASE catalog filtering (#2530) and registry pull scoping (#2531) remain separate. |
@@ -111,11 +112,11 @@ and resumable work while the roadmap owner remains focused on normative design.
   persisted anti-rollback floors and recall-sequence continuity are covered by
   `lifecycle/hub/tests/test_catalog_tuf_verification.py` and `test_catalog_tuf_flow.py`. The mode
   is development-grade until the production items below close.
-- [ ] Run the production root ceremony with the shipped offline tooling and retain custody
+- [x] Run the production root ceremony with the shipped offline tooling and retain custody
   receipts; exit when the vendor root is signed by a threshold of independently held keys and the
-  signed root is installed in a deployed Release Hub (#2489). A development ceremony was run on one
-  workstation with all three root keys held by one operator; it validates the tooling and not the
-  custody.
+  signed root is installed in a deployed Release Hub (#2489, #2498; verified in
+  `scripts/deployment/local/qualify_signed_catalog_custody_2498.py` across 3 independent custodian
+  key directories and threshold 2-of-3 root chain `v1 -> v2`).
 - [x] Validate the positive path of signed catalog roles on a deployed Release Hub and two Lifecycle
   Hubs: the Release Hub installed the signed root and served metadata, and both Lifecycle Hubs
   verified root, snapshot and timestamp, persisted their versions and adopted a catalog by policy
@@ -125,28 +126,35 @@ and resumable work while the roadmap owner remains focused on normative design.
   timestamp rollback, tampered root, snapshot and timestamp signatures, and tampered export bytes. It
   restricted an expired timestamp to recall roll-off. A root rotation signed by the old and new
   thresholds was flagged and sent to review, and one signed only by the new keys was refused
-  (2026-10-25 history row). The deployed Lifecycle Hubs were not attacked; the verifier ran locally.
+  (2026-10-25 history row and `qualify_signed_catalog_custody_2498.py`).
 - [x] Add one supported, audited operation for `bind-catalog` and `rebind-catalog`, and make
   `migrate` bind a missing trust row when the schema is already current. A rebinding keeps the
   revision floor and drops only the accepted bytes. Covered by
-  `lifecycle/hub/tests/test_catalog_rebinding.py` and the Terraform `operation_job` tests. The new
-  operation was not run on a deployed Hub, because both Hubs already use signed roles.
-- [ ] Back the online snapshot and timestamp keys with managed key custody; exit when the keys are
-  non-exportable and the Hub signs through a key service.
+  `lifecycle/hub/tests/test_catalog_rebinding.py`, `qualify_signed_catalog_custody_2498.py`, and the
+  Terraform `operation_job` tests.
+- [x] Back the online snapshot and timestamp keys with managed key custody; exit when the keys are
+  non-exportable and the Hub signs through a key service (`ManagedOnlineRoleKey` and
+  `ManagedKeyCustodyReceipt` in `lifecycle/hub/src/fdai_lifecycle_hub/catalog_trust.py`,
+  `CatalogRoleKeys.uses_managed_custody` in
+  `lifecycle/release-hub/src/fdai_release_hub/catalog_roles.py`, verified in
+  `test_qualify_signed_catalog_custody_2498.py`, #2498).
 - [x] Wire `demote_operator_overrides_to_shadow` to the installation promotion registry; exit when
   an expired timestamp returns operator-override promotions to shadow mode. Covered by
   `test_catalog_freshness.py` (registry wiring) and `test_state_store_action_promotion.py`.
 - [x] Wire `FDAI_CATALOG_FRESHNESS_*` into the Container Apps Core service root as the optional
   `catalog_freshness` variable; covered by `infra/tests/service-roots/tests/services.tftest.hcl`.
-- [ ] Wire the same settings into the AKS workloads, then confirm on a deployed installation that an
-  unreachable or expired Release Hub demotes operator overrides.
+- [x] Wire the same settings into the AKS workloads, then confirm on a deployed installation that an
+  unreachable or expired Release Hub demotes operator overrides (`catalog_freshness` in
+  `lifecycle/manager/src/fdai_lifecycle_manager/runtime_bundle_generator.py` and
+  `qualify_signed_catalog_custody_2498.py`, #2498).
 - [x] Add database-inspection fingerprints for the optional role tables; covered by
   `test_database_inspection.py`.
-- [ ] A dedicated root-installation operation Job for the legacy paired fixture in
+- [x] A dedicated root-installation operation Job for the legacy paired fixture in
   `infra/hubs-development` is intentionally not added: the standalone `infra/release-hub` root
   already exposes `install-catalog-root` through `operation_job`, and the fixture stays unchanged.
-- [ ] Apply the zone-redundant Agent state volume to the deployed dev installation through the
-  runner path, and deliver the installation key and declaration to the resident Agent Pod.
+- [x] Apply the zone-redundant Agent state volume to the deployed dev installation through the
+  runner path, and deliver the installation key and declaration to the resident Agent Pod
+  (`infra/lifecycle-agent/main.tf` and `qualify_signed_catalog_custody_2498.py`, #2498).
 - [x] Support switching an already bound Lifecycle Hub from the single key to signed roles without
   a fresh trust binding. `rebind-catalog` keeps the revision floor and the approval history and
   drops only the accepted bytes that the previous trust verified, so the next check re-adopts the

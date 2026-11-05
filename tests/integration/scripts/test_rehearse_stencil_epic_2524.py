@@ -430,6 +430,12 @@ def test_end_to_end_rehearsal_sqlite() -> None:
     assert result["customer_isolation_and_delivery"]["inter_party_handoff_count"] == 0
     assert result["customer_isolation_and_delivery"]["additional_customer_apply_clicks"] == 0
     assert result["customer_isolation_and_delivery"]["trial_anchor_preserved"] is True
+    assert result["canary_operational_observations"]["all_observations_verified"] is True
+    assert (
+        result["canary_operational_observations"]["qualification_profile"]
+        == "single-operator-development"
+    )
+    assert result["canary_operational_observations"]["not_production_qualification"] is True
 
 
 @pytest.mark.integration
