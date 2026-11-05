@@ -5,6 +5,10 @@ from __future__ import annotations
 import os
 
 import pytest
+from scripts.governance.qualify_f063_dev_installation import (
+    qualify_f063_dev_installation,
+    qualify_f063_postgres,
+)
 from scripts.governance.rehearse_f063_arb_operational_readiness import (
     rehearse_f063_arb_operational_readiness,
     rehearse_f063_postgres,
@@ -54,3 +58,34 @@ async def test_rehearse_f063_arb_operational_readiness_postgres_parity() -> None
     assert postgres["arb2_trace_digest"] == in_memory["arb2_trace_digest"]
     assert postgres["arb4_conformant_closure_digest"] == in_memory["arb4_conformant_closure_digest"]
     assert postgres["arb4_recovery_closure_digest"] == in_memory["arb4_recovery_closure_digest"]
+
+
+@pytest.mark.asyncio
+async def test_qualify_f063_dev_installation_in_memory() -> None:
+    result = await qualify_f063_dev_installation()
+
+    assert result["execution_authority"] is False
+    assert result["not_production_qualification"] is True
+    assert result["qualification_profile"] == "single-operator-development"
+    assert len(result["criteria_verified"]) == 15
+    assert all(result["criteria_verified"].values())
+    assert result["qualification_receipt_digest"].startswith("sha256:")
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_qualify_f063_dev_installation_postgres_parity() -> None:
+    dsn = os.environ.get("FDAI_DATABASE_URL", "").strip()
+    if not dsn:
+        pytest.skip("FDAI_DATABASE_URL is unset")
+    in_memory = await qualify_f063_dev_installation()
+    postgres = await qualify_f063_postgres(dsn)
+
+    assert postgres["venue"] == "isolated-validation-postgres-5433"
+    assert postgres["execution_authority"] is False
+    assert postgres["not_production_qualification"] is True
+    assert all(postgres["criteria_verified"].values())
+    assert postgres["decision_receipt_digest"] == in_memory["decision_receipt_digest"]
+    assert postgres["workflow_parity_digest"] == in_memory["workflow_parity_digest"]
+    assert postgres["frozen_cohort_digest"] == in_memory["frozen_cohort_digest"]
+    assert postgres["promotion_receipt_digest"] == in_memory["promotion_receipt_digest"]
