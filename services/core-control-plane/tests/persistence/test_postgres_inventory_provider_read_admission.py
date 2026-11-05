@@ -31,6 +31,7 @@ from fdai.delivery.inventory_sync_cli_support import (
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
 from fdai.delivery.persistence.postgres_inventory_provider_read_admission import (
     DurableProviderReadAdmissionGate,
+    ProviderReadAdmissionError,
     ProviderReadAdmissionUnavailableError,
     ProviderReadBudgetExhaustedError,
     ProviderReadCooldownActiveError,
@@ -372,6 +373,84 @@ async def test_budget_limit_reuse_cancellation_stale_generation_and_unavailable_
     )
     with pytest.raises(ProviderReadAdmissionUnavailableError, match="OSError"):
         await broken_gate.acquire(request_id="req-x", idempotency_key="idem-x")
+
+    # 8. Concurrent in-flight request with identical idempotency_key coalesces when
+    # wait_for_cooldown=True, while conflicting idempotency_key fails closed.
+    coalesce_store = InMemoryStateStore()
+    coalesce_gate = DurableProviderReadAdmissionGate(
+        state_store=coalesce_store,
+        binding=_binding(source_name="arg", generation_id="gen-coalesce", generation_seq=1),
+        max_requests_per_generation=4,
+        clock=lambda: NOW,
+    )
+    first_in_flight = await coalesce_gate.acquire(
+        request_id="req-vnet",
+        idempotency_key="idem-vnet",
+        wait_for_cooldown=True,
+    )
+    assert not first_in_flight.reused
+    with pytest.raises(ValueError, match="conflicts with a different idempotency_key"):
+        await coalesce_gate.acquire(
+            request_id="req-vnet",
+            idempotency_key="idem-different",
+            wait_for_cooldown=True,
+        )
+
+    import hashlib
+
+    vnet_payload = b'{"data":[{"id":"vnet-1"}]}'
+    vnet_digest = f"sha256:{hashlib.sha256(vnet_payload).hexdigest()}"
+
+    async def _complete_exact() -> None:
+        await asyncio.sleep(0.01)
+        await coalesce_gate.complete(
+            request_id="req-vnet",
+            idempotency_key="idem-vnet",
+            response_digest=vnet_digest,
+            response_payload=vnet_payload,
+        )
+
+    _, coalesced = await asyncio.gather(
+        _complete_exact(),
+        coalesce_gate.acquire(
+            request_id="req-vnet",
+            idempotency_key="idem-vnet",
+            wait_for_cooldown=True,
+        ),
+    )
+    assert coalesced.reused is True
+    assert coalesced.reused_response_bytes == vnet_payload
+    assert coalesced.requests_admitted == 1
+    assert coalesced.requests_reused == 1
+
+    # 9. If an in-flight request is cancelled while a second caller is waiting on it,
+    # the waiting caller fails closed without consuming a second budget slot.
+    first_cancelled = await coalesce_gate.acquire(
+        request_id="req-cancel-race",
+        idempotency_key="idem-cancel-race",
+        wait_for_cooldown=True,
+    )
+    assert first_cancelled.requests_admitted == 2
+
+    async def _cancel_shortly() -> None:
+        await asyncio.sleep(0.01)
+        await coalesce_gate.record_ambiguous_or_cancelled(
+            request_id="req-cancel-race",
+            reason="cancelled",
+        )
+
+    with pytest.raises(ProviderReadAdmissionError, match="failed or was cancelled while in flight"):
+        await asyncio.gather(
+            _cancel_shortly(),
+            coalesce_gate.acquire(
+                request_id="req-cancel-race",
+                idempotency_key="idem-cancel-race",
+                wait_for_cooldown=True,
+            ),
+        )
+    snap_after_cancel = await coalesce_gate.snapshot_accounting()
+    assert snap_after_cancel["requests_admitted"] == 2
+    assert snap_after_cancel["ambiguous_or_cancelled_count"] == 1
 
 
 @pytest.mark.integration
