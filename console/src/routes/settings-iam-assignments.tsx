@@ -268,7 +268,7 @@ function AssignmentEditor({ client, auth, onCreated }: {
         <fieldset>
           <legend>{t("settings.iam.identity")}</legend>
           <div class="assignment-inline-search">
-            <input type="search" required minLength={2} maxLength={128} value={query} placeholder={t("settings.iam.assignmentSearch")} onInput={(event) => setQuery(event.currentTarget.value)} />
+            <input type="search" required minLength={2} maxLength={128} value={query} aria-label={t("settings.iam.assignmentSearch")} placeholder={t("settings.iam.assignmentSearch")} onInput={(event) => setQuery(event.currentTarget.value)} />
             <button type="button" class="secondary" disabled={busy || query.trim().length < 2} onClick={() => { void search(); }}>{t("settings.iam.search")}</button>
           </div>
           <div class="assignment-identity-results">

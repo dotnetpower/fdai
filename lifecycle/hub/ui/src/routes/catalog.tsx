@@ -116,7 +116,7 @@ export function CatalogPage() {
           "One configured HTTPS source, one request, no redirects, no polling.",
           "구성된 단일 HTTPS 원본에 대해 리디렉션이나 폴링 없이 단일 요청으로 가져옵니다.",
         )}</p>
-        <button class="btn" disabled={busy || !trust.approved_sha256}
+        <button type="button" class="btn" disabled={busy || !trust.approved_sha256}
           onClick={() => void act("/v1/catalog/import", {})}>{tr(locale, "Import approved catalog", "승인된 카탈로그 가져오기")}</button>
       </section>
       {trust.imported && trust.accepted_sha256 && <LocalChannelsPanel acceptedDigest={trust.accepted_sha256} />}
@@ -132,7 +132,7 @@ export function CatalogPage() {
         )}</p>
         <label>{tr(locale, "Installation ID", "설치 ID")} <input class="input" required value={installation}
           onInput={(e) => setInstallation(e.currentTarget.value)} /></label>
-        <button class="btn" disabled={busy || !trust.imported}>{tr(locale, "Compute Plan", "계획 계산")}</button>
+        <button type="submit" class="btn" disabled={busy || !trust.imported}>{tr(locale, "Compute Plan", "계획 계산")}</button>
       </form>
       {outcome && <p class="banner" role="status">{tr(locale, "Planner outcome:", "플래너 결과:")} {outcome}</p>}
     </>}

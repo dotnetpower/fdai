@@ -1,6 +1,7 @@
 import type { AuditItem } from "../types";
 import { StatusPill, type PillKind } from "../components/ui";
 import { routeHref } from "../router";
+import { consoleDateTimeLocale } from "../time-format";
 import {
   activityProvenanceCounts,
   auditProvenanceOf,
@@ -290,7 +291,11 @@ function timestamp(value: string): number {
 function clock(value: string): string {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return parsed.toLocaleTimeString(consoleDateTimeLocale(), {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 
 function title(value: string): string {
