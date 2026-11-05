@@ -904,7 +904,20 @@
       "recovery_drill": "Recovery drill record",
       "workload-evidence-owner": "Authoritative workload evidence owner",
       "exact-workload-and-resource-scope": "Exact workload and resource scope",
-      "workload-reliability-owner": "Workload reliability owner"
+      "workload-reliability-owner": "Workload reliability owner",
+      "governed-framework-evidence": "Governed framework evidence producer"
+    },
+    "cafOwner": {
+      "strategy-owner": "Cloud strategy owner (strategy-owner)",
+      "adoption-plan-owner": "Cloud adoption plan owner (adoption-plan-owner)",
+      "platform-owner": "Cloud platform owner (platform-owner)",
+      "adoption-delivery-owner": "Adoption delivery owner (adoption-delivery-owner)",
+      "governance-owner": "Cloud governance owner (governance-owner)",
+      "operations-owner": "Cloud operations owner (operations-owner)",
+      "security-owner": "Security governance owner (security-owner)",
+      "cost-owner": "FinOps cost owner (cost-owner)",
+      "identity-owner": "Identity and access owner (identity-owner)",
+      "network-owner": "Network architecture owner (network-owner)"
     },
     "status": {
       "selected": "Selected",

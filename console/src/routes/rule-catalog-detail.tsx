@@ -315,6 +315,13 @@ function RuleDetailContent({
           />
           <DetailRow label={t("governance.rules.detail.license")} value={data.provenance.license} />
           <DetailRow label={t("governance.rules.detail.redistribution")} value={displayValue("redistribution", data.provenance.redistribution)} />
+          <DetailRow label={t("governance.rules.detail.retrievedAt")} value={data.provenance.retrieved_at} mono />
+        </dl>
+      </DetailSection>
+
+      <details class="wara-technical">
+        <summary>{t("governance.rules.wara.guidance.technical")}</summary>
+        <dl class="detail-grid">
           <DetailRow
             label={t("governance.rules.detail.contentHash")}
             value={
@@ -325,9 +332,8 @@ function RuleDetailContent({
             }
           />
           <DetailRow label={t("governance.rules.detail.resolvedRef")} value={data.provenance.resolved_ref} mono />
-          <DetailRow label={t("governance.rules.detail.retrievedAt")} value={data.provenance.retrieved_at} mono />
         </dl>
-      </DetailSection>
+      </details>
     </div>
   );
 }
@@ -339,7 +345,9 @@ function RuleOverview({ data }: { readonly data: RuleDetailDto }) {
   return (
     <section class="rule-overview">
       <div class="rule-overview-head">
-        <h4 class="rule-overview-title">{data.id}</h4>
+        <h4 class="rule-overview-title">
+          {getLocale() === "ko" ? `평가 대상 속성 및 위험도 (${data.id})` : `Evaluated properties and risk (${data.id})`}
+        </h4>
         <p class={`risk-line risk-${data.severity}`}>
           {t(`governance.rules.severityRisk.${data.severity}`) === `governance.rules.severityRisk.${data.severity}`
             ? t("governance.rules.detail.severityFallback", { severity: data.severity })

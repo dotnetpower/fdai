@@ -320,7 +320,7 @@ function CafControlsBody({
       {
         key: "owner",
         header: t("governance.rules.caf.column.owner"),
-        render: (item) => <code>{item.owner_slot}</code>,
+        render: (item) => <code>{displayValue("cafOwner", item.owner_slot)}</code>,
       },
       {
         key: "state",
@@ -492,7 +492,7 @@ function CafDetailContent({ data, expanded, onExpand }: { readonly data: CafCont
         <DetailRow label={t("governance.rules.controls.column.applicability")} value={displayValue("controlStatus", data.applicability)} />
         <DetailRow label={t("governance.rules.controls.column.evaluation")} value={displayValue("controlEvaluation", data.evaluation_status)} />
         <DetailRow label={t("governance.rules.controls.column.satisfaction")} value={displayValue("controlStatus", data.satisfaction)} />
-        <DetailRow label={t("governance.rules.caf.detail.owner")} value={data.owner_slot} mono />
+        <DetailRow label={t("governance.rules.caf.detail.owner")} value={displayValue("cafOwner", data.owner_slot)} mono />
         <DetailRow label={t("governance.rules.caf.detail.cadence")} value={t("governance.rules.controls.detail.cadenceDays", { days: data.cadence_days })} />
         <DetailRow label={t("governance.rules.caf.detail.scope")} value={data.evaluation_scope ?? "-"} mono />
         <DetailRow label={t("governance.rules.caf.detail.evaluatedAt")} value={data.evaluated_at ?? "-"} mono />
@@ -528,7 +528,7 @@ function CafDetailContent({ data, expanded, onExpand }: { readonly data: CafCont
                 </span>
                 <code>{item.source_ref}</code>
               </div>
-              <span>{item.authoritative_producer ?? item.blocked_dependency}</span>
+              <span>{displayValue("waraEvidence", item.authoritative_producer ?? item.blocked_dependency ?? "-")}</span>
             </article>
           ))}
         </div>

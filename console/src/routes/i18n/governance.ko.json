@@ -904,7 +904,20 @@
       "recovery_drill": "복구 훈련 기록",
       "workload-evidence-owner": "워크로드 공식 근거 담당자",
       "exact-workload-and-resource-scope": "정확히 지정한 워크로드 및 리소스 범위",
-      "workload-reliability-owner": "워크로드 안정성 책임자"
+      "workload-reliability-owner": "워크로드 안정성 책임자",
+      "governed-framework-evidence": "통제된 프레임워크 근거 생성자"
+    },
+    "cafOwner": {
+      "strategy-owner": "클라우드 전략 책임자 (strategy-owner)",
+      "adoption-plan-owner": "클라우드 도입 계획 책임자 (adoption-plan-owner)",
+      "platform-owner": "클라우드 플랫폼 책임자 (platform-owner)",
+      "adoption-delivery-owner": "도입 실행 책임자 (adoption-delivery-owner)",
+      "governance-owner": "클라우드 거버넌스 책임자 (governance-owner)",
+      "operations-owner": "클라우드 운영 책임자 (operations-owner)",
+      "security-owner": "보안 거버넌스 책임자 (security-owner)",
+      "cost-owner": "FinOps 비용 책임자 (cost-owner)",
+      "identity-owner": "신원 및 접근 통제 책임자 (identity-owner)",
+      "network-owner": "네트워크 아키텍처 책임자 (network-owner)"
     },
     "status": {
       "selected": "선택됨",
