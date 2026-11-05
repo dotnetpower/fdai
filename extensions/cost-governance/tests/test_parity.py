@@ -301,3 +301,135 @@ def test_n_minus_one_python_facade_remains_deprecated_and_inert() -> None:
     assert legacy_cost_governance.FinOpsGuard is LegacyGuard
     assert legacy_cost_governance.COMPATIBILITY_STATUS == "deprecated-inert-parity-only"
     assert legacy_cost_governance.REMOVAL_REVIEW_GATE == "w7-operational-validation-complete"
+
+
+async def test_parity_record_and_harness_validation_errors() -> None:
+    legacy, package = await _records()
+    rec = legacy[0]
+
+    with pytest.raises(CostParityError, match="identity fields MUST be non-empty"):
+        CostParityRecord(
+            case_id="",
+            implementation=CostParityOwner.LEGACY,
+            decision="d",
+            reasons=(),
+            topic="t",
+            payload={},
+            audit_fields={},
+            ontology_lineage=rec.ontology_lineage,
+        )
+    with pytest.raises(CostParityError, match="SHA-256 identities"):
+        CostParityRecord(
+            case_id="c1",
+            implementation=CostParityOwner.LEGACY,
+            decision="d",
+            reasons=(),
+            topic="t",
+            payload={},
+            audit_fields={},
+            ontology_lineage={"ontology_release_digest": "bad"},
+        )
+    with pytest.raises(CostParityError, match="mechanism version"):
+        ApprovedParityDifference(
+            mechanism_version="2.0.0",
+            approval_id="a1",
+            case_id="c1",
+            field="payload",
+            legacy_value_digest=value_digest({}),
+            package_value_digest=value_digest({}),
+        )
+    with pytest.raises(CostParityError, match="approval identity is invalid"):
+        ApprovedParityDifference(
+            mechanism_version="1.0.0",
+            approval_id="",
+            case_id="c1",
+            field="payload",
+            legacy_value_digest=value_digest({}),
+            package_value_digest=value_digest({}),
+        )
+    with pytest.raises(CostParityError, match="SHA-256 digests"):
+        ApprovedParityDifference(
+            mechanism_version="1.0.0",
+            approval_id="a1",
+            case_id="c1",
+            field="payload",
+            legacy_value_digest="bad",
+            package_value_digest=value_digest({}),
+        )
+
+    harness = CostGovernanceParityHarness()
+    with pytest.raises(CostParityError, match="MUST be non-empty"):
+        harness.compare(
+            legacy=(),
+            package=package,
+            selected_owner=CostParityOwner.PACKAGE,
+            publisher_claims=(),
+        )
+    with pytest.raises(CostParityError, match="implementation owner is invalid"):
+        harness.compare(
+            legacy=package,
+            package=package,
+            selected_owner=CostParityOwner.PACKAGE,
+            publisher_claims=(),
+        )
+    with pytest.raises(CostParityError, match="duplicate parity case id"):
+        harness.compare(
+            legacy=(legacy[0], legacy[0]),
+            package=package,
+            selected_owner=CostParityOwner.PACKAGE,
+            publisher_claims=(),
+        )
+    with pytest.raises(CostParityError, match="case sets differ"):
+        harness.compare(
+            legacy=legacy[:-1],
+            package=package,
+            selected_owner=CostParityOwner.PACKAGE,
+            publisher_claims=(),
+        )
+
+    diff = ApprovedParityDifference(
+        mechanism_version="1.0.0",
+        approval_id="a1",
+        case_id=rec.case_id,
+        field="payload",
+        legacy_value_digest=value_digest(dict(rec.payload)),
+        package_value_digest=value_digest({"other": 1}),
+    )
+    with pytest.raises(CostParityError, match="approvals MUST be unique"):
+        harness.compare(
+            legacy=legacy,
+            package=package,
+            selected_owner=CostParityOwner.PACKAGE,
+            publisher_claims=(),
+            approved_differences=(diff, diff),
+        )
+    with pytest.raises(CostParityError, match="unused parity difference"):
+        harness.compare(
+            legacy=legacy,
+            package=package,
+            selected_owner=CostParityOwner.LEGACY,
+            publisher_claims=(CostParityOwner.LEGACY,),
+            approved_differences=(diff,),
+        )
+
+    changed_pkg = (
+        CostParityRecord(
+            case_id=package[0].case_id,
+            implementation=CostParityOwner.PACKAGE,
+            decision=package[0].decision,
+            reasons=package[0].reasons,
+            topic=package[0].topic,
+            payload={"changed": True},
+            audit_fields=package[0].audit_fields,
+            ontology_lineage=package[0].ontology_lineage,
+        ),
+        *package[1:],
+    )
+    with pytest.raises(CostParityError, match="digest mismatch"):
+        harness.compare(
+            legacy=legacy,
+            package=changed_pkg,
+            selected_owner=CostParityOwner.PACKAGE,
+            publisher_claims=(),
+            approved_differences=(diff,),
+        )

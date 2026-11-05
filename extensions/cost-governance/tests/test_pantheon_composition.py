@@ -593,3 +593,146 @@ def test_reinjection_rejects_unpinned_revision_and_time_reversal() -> None:
             decision_case_revision_digest="sha256:" + "d" * 64,
             reevaluated_at=_NOW - timedelta(seconds=1),
         )
+
+
+def test_pantheon_composition_validation_guards() -> None:
+    from dataclasses import replace
+
+    plan = _plan()
+    freshness = (
+        SourceFreshness(
+            source="cost-analytics",
+            observed_at=_NOW,
+            max_age_seconds=7200,
+        ),
+    )
+    for bad_plan, kw, match in (
+        (
+            replace(plan, disposition=OptimizationDisposition.KEEP),
+            {},
+            "eligible candidate",
+        ),
+        (
+            plan,
+            {"observed_at": datetime(2026, 9, 1)},
+            "timezone-aware",
+        ),
+        (
+            plan,
+            {"correlation_id": " "},
+            "correlation_id MUST be exact",
+        ),
+        (
+            plan,
+            {"cost_objective_id": " "},
+            "objective id MUST be exact",
+        ),
+        (
+            replace(plan, profile_digests=(_DIGEST,)),
+            {},
+            "lineage is incomplete",
+        ),
+        (
+            replace(
+                plan,
+                candidates=(
+                    plan.candidates[0],
+                    replace(plan.candidates[1], action_id=plan.candidates[0].action_id),
+                ),
+            ),
+            {},
+            "unique action ids",
+        ),
+        (
+            replace(plan, logical_target_lock=" "),
+            {},
+            "logical target lock",
+        ),
+        (
+            plan,
+            {"source_freshness": ()},
+            "MUST carry source freshness",
+        ),
+        (
+            plan,
+            {"evidence_refs": (" ",)},
+            "evidence refs MUST be bounded exact text",
+        ),
+    ):
+        call_kw = {
+            "correlation_id": "cost-optimization-example",
+            "observed_at": _NOW,
+            "cost_objective_id": "objective.cost",
+            "effects": _effects(),
+            "evidence_refs": ("cost-evidence:example",),
+            "source_freshness": freshness,
+            **kw,
+        }
+        with pytest.raises(ValueError, match=match):
+            compose_njord_optimization_candidate(bad_plan, **call_kw)  # type: ignore[arg-type]
+
+    original = compose_njord_optimization_candidate(
+        plan,
+        correlation_id="cost-optimization-example",
+        observed_at=_NOW,
+        cost_objective_id="objective.cost",
+        effects=_effects(),
+        evidence_refs=("cost-evidence:example",),
+        source_freshness=freshness,
+    )
+    request = build_optimization_clarification(
+        target_id="optimization-set:example",
+        target_revision_digest=_DIGEST,
+        missing_fact="workload_priority",
+        blocking_reason="priority_required",
+        eligible_roles=("Owner",),
+        response_shape=ClarificationResponseShape.BOOLEAN,
+        effective_scope="optimization-set:example",
+        created_at=_NOW - timedelta(minutes=2),
+        expires_at=_NOW + timedelta(hours=1),
+        reevaluation_key="reevaluate:optimization-set:example",
+        recovery_evidence_refs=("recovery:bounded",),
+    )
+    attestation = OptimizationClarificationAttestation(
+        request_id=request.request_id,
+        actor_id="operator-example",
+        actor_role="Owner",
+        response="true",
+        effective_scope=request.effective_scope,
+        recorded_at=_NOW - timedelta(minutes=1),
+        effective_until=_NOW + timedelta(minutes=30),
+    )
+    with pytest.raises(ValueError, match="timezone-aware"):
+        compose_njord_reinjection_candidate(
+            original,
+            request=request,
+            attestation=attestation,
+            decision_case_revision_digest="sha256:" + "d" * 64,
+            reevaluated_at=datetime(2026, 9, 1),
+        )
+    for cand_override, match in (
+        ({"resource_id": "other"}, "target does not match"),
+        ({"producer_principal": "Njord"}, "MUST NOT supply an agent principal"),
+        ({"kind": "other"}, "candidate kind is invalid"),
+        ({"evidence_refs": "bad"}, "evidence refs are invalid"),
+        ({"observed_at": 123}, "source time is invalid"),
+        ({"observed_at": "bad-iso"}, "source time is invalid"),
+        (
+            {
+                "evidence_refs": [
+                    *original["evidence_refs"],
+                    *(f"extra:{i}" for i in range(30)),
+                ]
+            },
+            "exceed the intake limit",
+        ),
+        ({"correlation_id": ""}, "correlation is invalid"),
+    ):
+        with pytest.raises(ValueError, match=match):
+            compose_njord_reinjection_candidate(
+                {**original, **cand_override},
+                request=request,
+                attestation=attestation,
+                decision_case_revision_digest="sha256:" + "d" * 64,
+                reevaluated_at=_NOW,
+            )

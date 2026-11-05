@@ -445,3 +445,209 @@ async def test_membership_attempt_audit_conforms_to_actual_executor_writer(fixtu
         assert entry["actor"] == "fdai_executor_service.effect_executor"
         assert entry.get("owner_agent") == "Thor"
         assert "producer_principal" not in entry
+
+
+async def test_entra_membership_client_and_human_access_executor_edge_cases(fixture):
+    from fdai_executor_service.adapters.entra_membership import MembershipPreflight
+    from fdai_executor_service.human_access import _receipt
+    from fdai_service_contracts.executor import (
+        DirectApiAuthenticationError,
+        DirectApiPermissionDeniedError,
+    )
+
+    f = fixture
+    plan = f.material.membership_plan()
+
+    with pytest.raises(ValueError, match="normalized immutable references"):
+        EntraMembershipClient(f.adapter.graph.http_client, f.identity, frozenset({"UPPER"}))
+
+    unlisted_client = EntraMembershipClient(
+        f.adapter.graph.http_client, f.identity, frozenset({"group:other"}), lambda: f.now["at"]
+    )
+    with pytest.raises(DirectApiPermissionDeniedError, match="not allowlisted"):
+        await unlisted_client.inspect(plan, guard=lambda: asyncio.sleep(0))
+
+    f.identity.get_token.return_value = IdentityToken(
+        "tok", f.now["at"] - timedelta(seconds=1), "https://graph.microsoft.com/.default"
+    )
+    with pytest.raises(DirectApiAuthenticationError, match="not current"):
+        await f.adapter.graph.inspect(plan, guard=lambda: asyncio.sleep(0))
+    f.identity.get_token.return_value = IdentityToken(
+        "tok", f.now["at"] + timedelta(minutes=10), "https://graph.microsoft.com/.default"
+    )
+
+    # Custom HTTP responses for EntraMembershipClient._read and inspect/dispatch
+    custom_resp = {"user": {"id": plan.subject_id, "accountEnabled": False}}
+
+    async def custom_graph(request):
+        if "/users/" in request.url.path:
+            val = custom_resp["user"]
+            return val if isinstance(val, httpx.Response) else httpx.Response(200, json=val)
+        if "/members/" in request.url.path and request.method == "GET":
+            return httpx.Response(200, json=custom_resp.get("member", {"id": plan.subject_id}))
+        if "/groups/" in request.url.path and request.method == "GET":
+            return httpx.Response(200, json=custom_resp["group"])
+        return httpx.Response(custom_resp.get("write_code", 200))
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(custom_graph)) as hc:
+        gclient = EntraMembershipClient(
+            hc, f.identity, frozenset({plan.group_id}), lambda: f.now["at"]
+        )
+        with pytest.raises(DirectApiPreconditionError, match="absent or ineligible"):
+            await gclient.inspect(plan, guard=lambda: asyncio.sleep(0))
+
+        custom_resp["user"] = httpx.Response(201, content=b"{}")
+        with pytest.raises(DirectApiPreconditionError, match="unexpected or oversized"):
+            await gclient.inspect(plan, guard=lambda: asyncio.sleep(0))
+
+        custom_resp["user"] = httpx.Response(200, content=b"not-json")
+        with pytest.raises(DirectApiPreconditionError, match="not valid JSON"):
+            await gclient.inspect(plan, guard=lambda: asyncio.sleep(0))
+
+        custom_resp["user"] = httpx.Response(200, json=["list"])
+        with pytest.raises(DirectApiPreconditionError, match="not an exact record"):
+            await gclient.inspect(plan, guard=lambda: asyncio.sleep(0))
+
+        custom_resp["user"] = {"id": plan.subject_id, "accountEnabled": True}
+        custom_resp["group"] = {
+            "id": plan.group_id,
+            "securityEnabled": False,
+            "groupTypes": [],
+            "isAssignableToRole": False,
+        }
+        with pytest.raises(DirectApiPreconditionError, match="classification is unavailable"):
+            await gclient.inspect(plan, guard=lambda: asyncio.sleep(0))
+
+        custom_resp["group"] = {
+            "id": plan.group_id,
+            "securityEnabled": True,
+            "groupTypes": ["DynamicMembership"],
+            "isAssignableToRole": False,
+        }
+        with pytest.raises(DirectApiPermissionDeniedError, match="dynamic or ambiguous"):
+            await gclient.inspect(plan, guard=lambda: asyncio.sleep(0))
+
+        custom_resp["group"] = {
+            "id": plan.group_id,
+            "securityEnabled": True,
+            "groupTypes": [],
+            "isAssignableToRole": False,
+        }
+        custom_resp["member"] = {"id": "other-person"}
+        with pytest.raises(DirectApiPreconditionError, match="differs from the exact"):
+            await gclient.inspect(plan, guard=lambda: asyncio.sleep(0))
+
+        preflight = MembershipPreflight(
+            plan.target_digest, False, f.now["at"] + timedelta(minutes=5), {}
+        )
+        with pytest.raises(DirectApiPreconditionError, match="preflight target changed"):
+            await gclient.dispatch(
+                plan,
+                replace(preflight, target_digest="wrong"),
+                guard=lambda: asyncio.sleep(0),
+            )
+        with pytest.raises(DirectApiPreconditionError, match="already satisfied"):
+            await gclient.dispatch(
+                plan,
+                replace(preflight, membership=True),
+                guard=lambda: asyncio.sleep(0),
+            )
+        with pytest.raises(DirectApiAuthenticationError, match="expired before mutation"):
+            await gclient.dispatch(
+                plan,
+                replace(preflight, token_expires_at=f.now["at"]),
+                guard=lambda: asyncio.sleep(0),
+            )
+        with pytest.raises(DirectApiError, match="exact acknowledgement"):
+            await gclient.dispatch(plan, preflight, guard=lambda: asyncio.sleep(0))
+
+    # IsolatedHumanAccessExecutor guard & helper branches
+    with pytest.raises(DirectApiPreconditionError, match="unsupported ActionType"):
+        await f.adapter.execute(replace(f.request, action_type_name="ops.start-vm"))
+    with pytest.raises(DirectApiPreconditionError, match="original command deadline"):
+        await f.adapter.execute(replace(f.request, metadata={}))
+    with pytest.raises(DirectApiPreconditionError, match="command deadline is invalid"):
+        await f.adapter.execute(replace(f.request, metadata={"command_deadline_at": "not-a-date"}))
+    with pytest.raises(DirectApiPreconditionError, match="expired or exceeds"):
+        await f.adapter.execute(
+            replace(
+                f.request,
+                metadata={
+                    "command_deadline_at": (f.now["at"] + timedelta(seconds=300)).isoformat()
+                },
+            )
+        )
+    with pytest.raises(DirectApiPreconditionError, match="lacks original Action digest"):
+        await f.adapter.execute(
+            replace(
+                f.request,
+                metadata={"command_deadline_at": (f.now["at"] + timedelta(seconds=60)).isoformat()},
+            )
+        )
+    f.source.material_for.return_value = None
+    with pytest.raises(DirectApiPreconditionError, match="material is unavailable"):
+        await f.adapter.execute(f.request)
+    f.source.material_for.return_value = f.material
+
+    assert await f.adapter.operation_status(replace(f.request, mode=Mode.SHADOW)) is None
+    with pytest.raises(DirectApiPreconditionError, match="acknowledgement is malformed"):
+        _receipt({"outcome": "unknown", "receipt_ref": None})
+
+    # Stored result conflict
+    from fdai_executor_service.human_access import _attempt_key
+
+    key = _attempt_key(f.request)
+    f.store.rows[key + ":result"] = {"action_digest": "wrong", "owned_mutation": True}
+    with pytest.raises(DirectApiPreconditionError, match="rebound to another material"):
+        await f.adapter.execute(f.request)
+    f.store.rows.clear()
+
+    # Clock jump backwards inside guard()
+    ticks = iter([f.now["at"], f.now["at"] - timedelta(seconds=5)])
+    jump_adapter = replace(f.adapter, clock=lambda: next(ticks))
+    with pytest.raises(DirectApiPreconditionError, match="clock continuity failed"):
+        await jump_adapter.execute(f.request)
+
+    # Race on intent write (claimed=False without result, then with result) & result write conflict
+    orig_write = f.store.write_state_with_audit_if_absent
+
+    async def fail_intent_claim(_k, _v, _a):
+        return False
+
+    f.store.write_state_with_audit_if_absent = fail_intent_claim
+    with pytest.raises(DirectApiPreconditionError, match="already reserved or unobserved"):
+        await f.adapter.execute(f.request)
+
+    async def race_result_write(k, v, a):
+        if k.endswith(":result"):
+            f.store.rows[k] = {**v, "receipt_ref": "other-ref"}
+            return False
+        return await orig_write(k, v, a)
+
+    f.store.rows.clear()
+    f.store.write_state_with_audit_if_absent = race_result_write
+    with pytest.raises(DirectApiPreconditionError, match="persistence conflicted"):
+        await f.adapter.execute(f.request)
+
+    # Race on intent claim where result already exists
+    valid_res = dict(f.store.rows[key + ":result"])
+    valid_res["receipt_ref"] = "human-access-dispatch:" + "1" * 64
+
+    async def race_intent_with_stored_result(k, _v, _a):
+        if k.endswith(":intent"):
+            f.store.rows[key + ":result"] = valid_res
+            return False
+        return False
+
+    f.store.rows.clear()
+    f.store.write_state_with_audit_if_absent = race_intent_with_stored_result
+    assert (await f.adapter.execute(f.request)).receipt_ref == valid_res["receipt_ref"]
+
+    # Inverse missing original mutation evidence in store
+    f.store.rows.clear()
+    f.store.write_state_with_audit_if_absent = orig_write
+    await f.adapter.execute(f.request)
+    _, inv_req = _reviewed_inverse(f)
+    f.store.rows.clear()
+    with pytest.raises(DirectApiPreconditionError, match="original mutation evidence is missing"):
+        await f.adapter.execute(inv_req)

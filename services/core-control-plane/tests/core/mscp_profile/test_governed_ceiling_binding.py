@@ -14,6 +14,7 @@ from fdai.core.mscp_profile.governed_ceiling_binding import (
     GovernedCeilingDecisionInput,
     GovernedMscpCeilingBinding,
     GovernedReadinessWindowReceipt,
+    normalize_decision_level,
 )
 from fdai.core.mscp_profile.profile_lifecycle import IndependentProfileReview, readiness_digest
 from fdai.core.mscp_profile.readiness import (
@@ -246,3 +247,124 @@ def test_rollback_to_shadow_and_deterministic_replay_by_pinned_revision() -> Non
 
     with pytest.raises(GovernedCeilingBindingError, match="unknown pinned_lifecycle_revision"):
         binding.replay(decision_input, pinned_lifecycle_revision=99)
+
+
+def test_governed_ceiling_binding_validation_and_history_edges() -> None:
+    with pytest.raises(GovernedCeilingBindingError, match="timezone-aware"):
+        GovernedMscpCeilingBinding(candidate=_CANDIDATE, registered_at=datetime(2026, 11, 1))
+    with pytest.raises(GovernedCeilingBindingError, match="bounded non-empty text"):
+        GovernedMscpCeilingBinding(candidate=_CANDIDATE, registered_at=_NOW, actor_id=" ")
+    with pytest.raises(GovernedCeilingBindingError, match="unsupported decision"):
+        normalize_decision_level("not-a-level")
+
+    report = _readiness_report()
+    other_cand = replace(_CANDIDATE, environment="staging")
+    valid_rec = _valid_receipt()
+
+    with pytest.raises(GovernedCeilingBindingError, match="non-negative integer"):
+        _valid_receipt(audit_failure_count=-1)
+    with pytest.raises(
+        GovernedCeilingBindingError,
+        match="executor_outcomes_unchanged MUST be a boolean",
+    ):
+        GovernedReadinessWindowReceipt(
+            candidate=_CANDIDATE,
+            readiness_report=report,
+            review=valid_rec.review,
+            approver_id="approver-bob",
+            executor_outcomes_unchanged="yes",  # type: ignore[arg-type]
+        )
+    with pytest.raises(GovernedCeilingBindingError, match="candidate does not match binding"):
+        GovernedReadinessWindowReceipt(
+            candidate=other_cand,
+            readiness_report=report,
+            review=valid_rec.review,
+            approver_id="approver-bob",
+        )
+    with pytest.raises(GovernedCeilingBindingError, match="does not approve"):
+        GovernedReadinessWindowReceipt(
+            candidate=_CANDIDATE,
+            readiness_report=report,
+            review=replace(valid_rec.review, approved=False),
+            approver_id="approver-bob",
+        )
+    with pytest.raises(GovernedCeilingBindingError, match="unchanged executor outcomes"):
+        GovernedReadinessWindowReceipt(
+            candidate=_CANDIDATE,
+            readiness_report=report,
+            review=valid_rec.review,
+            approver_id="approver-bob",
+            executor_outcomes_unchanged=False,
+        )
+
+    with pytest.raises(GovernedCeilingBindingError, match="approval_required MUST be a boolean"):
+        GovernedCeilingDecisionInput(
+            decision_id="dec-bad",
+            candidate=_CANDIDATE,
+            fdai_decision="execute",
+            mscp_ceiling="hold",
+            evaluated_at=_NOW,
+            approval_required="yes",  # type: ignore[arg-type]
+        )
+
+    binding = GovernedMscpCeilingBinding(candidate=_CANDIDATE, registered_at=_NOW)
+    assert binding.candidate == _CANDIDATE
+    with pytest.raises(GovernedCeilingBindingError, match="requires a verified"):
+        binding.activate(None, now=_NOW)  # type: ignore[arg-type]
+
+    other_report = replace(report, candidate=other_cand)
+    other_receipt = GovernedReadinessWindowReceipt(
+        candidate=other_cand,
+        readiness_report=other_report,
+        review=IndependentProfileReview(
+            review_id="rev-other",
+            reviewer_id="alice",
+            candidate=other_cand,
+            readiness_digest=readiness_digest(other_report),
+            reviewed_at=_NOW,
+            approved=True,
+        ),
+        approver_id="bob",
+    )
+    with pytest.raises(GovernedCeilingBindingError, match="does not match this governed binding"):
+        binding.activate(other_receipt, now=_NOW)
+
+    future_review_receipt = GovernedReadinessWindowReceipt(
+        candidate=_CANDIDATE,
+        readiness_report=report,
+        review=replace(valid_rec.review, reviewed_at=_NOW + timedelta(minutes=10)),
+        approver_id="bob",
+    )
+    with pytest.raises(GovernedCeilingBindingError, match="in the future"):
+        binding.activate(future_review_receipt, now=_NOW + timedelta(minutes=1))
+    with pytest.raises(GovernedCeilingBindingError, match="MUST NOT precede"):
+        binding.activate(
+            GovernedReadinessWindowReceipt(
+                candidate=_CANDIDATE,
+                readiness_report=report,
+                review=replace(valid_rec.review, reviewed_at=_NOW - timedelta(minutes=5)),
+                approver_id="bob",
+            ),
+            now=_NOW - timedelta(minutes=1),
+        )
+
+    binding.activate(valid_rec, now=_NOW + timedelta(minutes=5))
+    with pytest.raises(GovernedCeilingBindingError, match="rollback timestamp MUST NOT precede"):
+        binding.rollback("reason", "actor", _NOW + timedelta(minutes=1))
+    assert len(binding.history()) == 2
+
+    decision_input = GovernedCeilingDecisionInput(
+        decision_id="dec-ok",
+        candidate=_CANDIDATE,
+        fdai_decision="execute",
+        mscp_ceiling="hold",
+        evaluated_at=_NOW + timedelta(minutes=6),
+    )
+    res = binding.evaluate(decision_input)
+    assert res.to_audit_dict()["decision_id"] == "dec-ok"
+
+    with pytest.raises(
+        GovernedCeilingBindingError,
+        match="decision_input.candidate does not match",
+    ):
+        binding.evaluate(replace(decision_input, candidate=other_cand))

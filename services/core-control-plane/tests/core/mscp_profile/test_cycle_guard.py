@@ -83,7 +83,23 @@ def test_budget_type_is_frozen() -> None:
 def test_cycle_contracts_reject_invalid_limits_and_usage() -> None:
     with pytest.raises(ValueError, match="max_cycles"):
         CycleBudget(0, 1.0, 1.0, 0)
+    with pytest.raises(ValueError, match="max_elapsed_seconds"):
+        CycleBudget(1, 0.0, 1.0, 0)
+    with pytest.raises(ValueError, match="max_cost_units"):
+        CycleBudget(1, 1.0, 0.0, 0)
+    with pytest.raises(ValueError, match="max_rollbacks"):
+        CycleBudget(1, 1.0, 1.0, -1)
     with pytest.raises(ValueError, match="window_size"):
         OscillationPolicy(1, 1)
+    with pytest.raises(ValueError, match="max_sign_changes"):
+        OscillationPolicy(2, 2)
+    with pytest.raises(ValueError, match="cycles MUST be >= 0"):
+        CycleUsage(-1, 0.0, 0.0, 0)
+    with pytest.raises(ValueError, match="elapsed_seconds"):
+        CycleUsage(0, -1.0, 0.0, 0)
     with pytest.raises(ValueError, match="finite"):
         CycleUsage(0, 0.0, float("inf"), 0)
+    with pytest.raises(ValueError, match="rollbacks MUST be >= 0"):
+        CycleUsage(0, 0.0, 0.0, -1)
+    with pytest.raises(ValueError, match="correction_history"):
+        CycleUsage(0, 0.0, 0.0, 0, (float("nan"),))

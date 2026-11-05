@@ -84,3 +84,20 @@ def test_commented_bare_except_is_reported() -> None:
     )
 
     assert [finding.rule_id for finding in report.findings] == ["code.bare-except"]
+
+
+def test_patch_headers_and_no_newline_marker_are_ignored() -> None:
+    patch = (
+        "diff --git a/src/example.py b/src/example.py\n"
+        "--- a/src/example.py\n"
+        "+++ b/src/example.py\n"
+        "@@ -1,2 +1,3 @@\n"
+        "---keep\n"
+        "+++keep\n"
+        "+eval('1')\n"
+        "\\ No newline at end of file"
+    )
+    report = analyze_snapshot(_snapshot(patch), profile=ReviewProfile.CODE)
+
+    assert [finding.rule_id for finding in report.findings] == ["security.dynamic-code"]
+    assert report.findings[0].line == 3

@@ -12,7 +12,11 @@ from fdai.core.chaos.guard import (
     evaluate_impact_guard,
 )
 from fdai.core.chaos.harness import FaultInjectionHarness
-from fdai.core.chaos.injector import ShadowFaultInjector
+from fdai.core.chaos.injector import (
+    DetectionOnlyInjector,
+    NoSignalProbe,
+    ShadowFaultInjector,
+)
 from fdai.core.chaos.run_state import ChaosRunSnapshot, ChaosRunState, transition_chaos_run
 from fdai.core.impact_analysis import (
     ImpactEnvelopeRecord,
@@ -329,3 +333,110 @@ def test_tier_ceiling_and_mutation_scope_gate_chaos_enforcement(
 
     assert not decision.eligible
     assert reason in decision.reasons
+
+
+async def test_guard_injector_and_run_state_validation_edges() -> None:
+    with pytest.raises(ValueError, match="elapsed_seconds"):
+        _observation(elapsed_seconds=-1.0)
+    with pytest.raises(ValueError, match="resource ids"):
+        _observation(observed_resources=frozenset({" "}))
+    with pytest.raises(ValueError, match="signals"):
+        _observation(signals=frozenset({" "}))
+    with pytest.raises(ValueError, match="guard run id"):
+        evaluate_impact_guard(
+            run_id=" ",
+            envelope=_envelope(),
+            observation=_observation(),
+            now=_NOW,
+        )
+
+    missing_obj = evaluate_impact_guard(
+        run_id="run-1",
+        envelope=_envelope(),
+        observation=_observation(objective_values={}),
+        now=_NOW,
+    )
+    assert missing_obj is not None
+    assert missing_obj.reason is ChaosStopReason.TELEMETRY_INCOMPLETE
+
+    upper_env = ImpactEnvelopeRecord(
+        envelope_id="impact-upper",
+        decision_case_id="decision-1",
+        graph_revision="graph-1",
+        target_set_digest="targets",
+        affected_set_digest="affected",
+        direct_target_ids=("resource-a",),
+        affected_resource_ids=("resource-a",),
+        protected_objective_ids=("slo-a",),
+        max_affected_resources=1,
+        max_dependency_depth=1,
+        max_duration_seconds=60,
+        objective_bounds=(ObjectiveBound(metric="latency_ms", upper=100.0),),
+        required_signals=("pod_restart",),
+        forbidden_signals=(),
+        telemetry_requirements=TelemetryRequirements(
+            required_sources=("metrics",),
+            freshness_seconds=30,
+            cadence_seconds=5,
+        ),
+        uncertainty=0.1,
+        expires_at=_NOW + timedelta(hours=1),
+    )
+    upper_breach = evaluate_impact_guard(
+        run_id="run-1",
+        envelope=upper_env,
+        observation=_observation(objective_values={"latency_ms": 150.0}),
+        now=_NOW,
+    )
+    assert upper_breach is not None
+    assert upper_breach.reason is ChaosStopReason.OBJECTIVE_BOUND_EXCEEDED
+    assert (
+        evaluate_impact_guard(
+            run_id="run-1",
+            envelope=upper_env,
+            observation=_observation(objective_values={"latency_ms": 50.0}),
+            now=_NOW,
+        )
+        is None
+    )
+
+    with pytest.raises(ValueError, match="fault_type"):
+        ShadowFaultInjector(fault_type=" ")
+    with pytest.raises(ValueError, match="fault_type"):
+        DetectionOnlyInjector(fault_type=" ")
+    det_injector = DetectionOnlyInjector(fault_type="probe_only")
+    assert det_injector.fault_type == "probe_only"
+    with pytest.raises(RuntimeError, match="MUST NOT inject"):
+        await det_injector.inject(target="resource-a", params={})
+    with pytest.raises(RuntimeError, match="MUST NOT roll back"):
+        await det_injector.stop(target="resource-a")
+    assert await NoSignalProbe().observed(signal="pod_restart", targets=("resource-a",)) is False
+
+    snap = ChaosRunSnapshot(
+        run_id="run-1",
+        state=ChaosRunState.PLANNED,
+        revision=0,
+        updated_at=_NOW,
+        last_idempotency_key="created",
+    )
+    with pytest.raises(ValueError, match="idempotency key"):
+        transition_chaos_run(
+            snap,
+            target=ChaosRunState.IMPACT_CHECKED,
+            idempotency_key=" ",
+            at=_NOW,
+        )
+    with pytest.raises(ValueError, match="invalid chaos transition"):
+        transition_chaos_run(
+            snap,
+            target=ChaosRunState.RECOVERED,
+            idempotency_key="k1",
+            at=_NOW,
+        )
+    with pytest.raises(ValueError, match="monotonic"):
+        transition_chaos_run(
+            snap,
+            target=ChaosRunState.IMPACT_CHECKED,
+            idempotency_key="k2",
+            at=_NOW - timedelta(seconds=1),
+        )

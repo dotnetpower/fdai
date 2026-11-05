@@ -330,6 +330,7 @@ async def test_acceptance_effect_requires_later_signed_resource_and_order_succes
         "orders",
         "missing_context",
         "release_unknown",
+        "no_refs",
     ],
 )
 async def test_independent_acceptance_effect_reconciles_exact_atomic_closure(
@@ -371,7 +372,7 @@ async def test_independent_acceptance_effect_reconciles_exact_atomic_closure(
         action.model_dump_json(),
         "analyzer:example",
         "anomaly:example",
-        evidence_refs=("probe:before", "resource:before"),
+        evidence_refs=() if defect == "no_refs" else ("probe:before", "resource:before"),
     )
     await StoredAcceptanceDispatchMaterials(store).retain(material)
     closures = AcceptanceClosureStore(atomic, store, intent)
@@ -543,6 +544,10 @@ async def test_independent_acceptance_effect_reconciles_exact_atomic_closure(
         await observer.handle({**trigger, "correlation_id": "analyzer:other"})
     verified_event = await observer.handle(trigger)
     assert isinstance(verified_event, Mapping)
+    with pytest.raises(ValueError, match="evidence changed"):
+        await observer.resolve_incident({**verified_event, "correlation_id": "other"})
+    with pytest.raises(RuntimeError, match="resolver is unavailable"):
+        await AcceptanceEffectObserver(reconciler, None).resolve_incident(verified_event)
     assert await observer.resolve_incident(verified_event)
     digest = (await atomic.read(correlation.closure_key)).record_digest
     assert (await atomic.read(correlation.closure_key)).outcome.value == "resolved"
@@ -554,6 +559,18 @@ async def test_independent_acceptance_effect_reconciles_exact_atomic_closure(
     assert len(atomic.audit_entries) == 2
     historical = replace(reconciler, clock=lambda: NOW + timedelta(minutes=3))
     assert (await historical.reconcile(str(command.command_id))).record_digest == digest
+    obs_key = CLOSURE_PREFIX + "observation:" + str(verified_event["effect_verification_ref"])
+    saved_obs = dict(await store.read_state(obs_key) or {})
+    await store.write_state(obs_key, {**saved_obs, "observer_identity": "tampered"})
+    with pytest.raises(ValueError, match="lost its original"):
+        await reconciler.reconcile(str(command.command_id))
+    await store.write_state(obs_key, {**saved_obs, "recorded_at": "2026-09-17T00:00:01+00:00"})
+    with pytest.raises(ValueError, match="substituted"):
+        await reconciler.reconcile(str(command.command_id))
+    await store.write_state(obs_key, saved_obs)
+    await store.write_state("aks-commerce:acceptance-command:v1:" + str(action.action_id), {})
+    with pytest.raises(RuntimeError, match="command linkage"):
+        await observer.handle(trigger)
     assert len(atomic.audit_entries) == 2
     assert resolved_incidents == [
         {
@@ -611,3 +628,147 @@ async def test_acceptance_effect_holds_or_fails_without_complete_positive_proof(
     )
     assert result.status == ("not_recovered" if defect in {"orders_fail", "overscaled"} else "held")
     assert result.execution_authority is False
+
+
+async def test_effect_and_closure_validation_edges() -> None:
+    before = _projection(AksCommerceStatus.ORDER_BACKLOG, at=NOW, evidence_ref="ev:1")
+    after = _projection(
+        AksCommerceStatus.RECOVERED, at=NOW + timedelta(minutes=1), evidence_ref="ev:2"
+    )
+    with pytest.raises(ValueError, match="same service"):
+        verify_business_effect(
+            action_type="ops.scale-out",
+            target_ref="r",
+            action_run_ref="run:1",
+            before=before.model_copy(update={"service_id": "catalog-browse"}),
+            after=after,
+        )
+    with pytest.raises(ValueError, match="follow the pre-action"):
+        verify_business_effect(
+            action_type="ops.scale-out",
+            target_ref="r",
+            action_run_ref="run:1",
+            before=before,
+            after=after.model_copy(update={"observed_at": NOW}),
+        )
+    with pytest.raises(ValueError, match="degraded pre-action state"):
+        verify_business_effect(
+            action_type="ops.scale-out",
+            target_ref="r",
+            action_run_ref="run:1",
+            before=before.model_copy(update={"status": AksCommerceStatus.HEALTHY}),
+            after=after,
+        )
+    with pytest.raises(ValueError, match="complete observations"):
+        verify_business_effect(
+            action_type="ops.scale-out",
+            target_ref="r",
+            action_run_ref="run:1",
+            before=before.model_copy(update={"complete": False}),
+            after=after,
+        )
+
+    intent, evidence, expectation = _acceptance_inputs()
+    with pytest.raises(ValueError, match="bounded action and evidence references"):
+        replace(expectation, action_run_ref="")
+    with pytest.raises(ValueError, match="distinct pre-action observations"):
+        replace(expectation, before_evidence_refs=())
+    with pytest.raises(ValueError, match="expected replica count is invalid"):
+        replace(expectation, replica_count=0)
+    with pytest.raises(ValueError, match="application time must be timezone-aware"):
+        replace(expectation, applied_at=datetime(2026, 9, 17))
+
+    mismatch_res = await verify_order_acceptance_effect(
+        expectation=replace(expectation, target_ref="resource:other"),
+        intent=intent,
+        source=_Source(evidence),
+        verifier=_Verifier(),
+        clock=lambda: NOW,
+    )
+    assert mismatch_res.reason == "action_target_mismatch"
+
+    class _NoneSource:
+        async def observe(self, _intent: OrderAcceptanceIntent) -> None:
+            return None
+
+    unavail_res = await verify_order_acceptance_effect(
+        expectation=expectation,
+        intent=intent,
+        source=_NoneSource(),
+        verifier=_Verifier(),
+        clock=lambda: NOW,
+    )
+    assert unavail_res.reason == "observation_unavailable"
+
+    ticks = iter([NOW, intent.valid_until])
+    expired_during_res = await verify_order_acceptance_effect(
+        expectation=expectation,
+        intent=intent,
+        source=_Source(evidence),
+        verifier=_Verifier(),
+        clock=lambda: next(ticks),
+    )
+    assert expired_during_res.reason == "observation_expired_during_verification"
+
+    store = InMemoryStateStore()
+    reconciler = AcceptanceClosureReconciler(
+        _ClosureStore(),
+        store,
+        intent,
+        StoredOrderAcceptanceReceiptVerifier(
+            store=store,
+            intent=intent,
+            executor_identity="executor:example",
+            trust={
+                "example": AcceptanceTrustBinding(
+                    "issuer:example",
+                    "observer:example",
+                    Ed25519PrivateKey.generate().public_key(),
+                )
+            },
+            clock=lambda: NOW,
+        ),
+        lambda: NOW,
+    )
+    with pytest.raises(ValueError, match="canonical command id"):
+        await reconciler.reconcile(UUID(int=1).hex)
+
+    observer = AcceptanceEffectObserver(reconciler, None)
+    assert (
+        await observer.handle(
+            {
+                "resource_id": intent.resource_ref,
+                "action_type": "ops.scale-out",
+                "shadow_mode": False,
+                "state": "hil_pending",
+            }
+        )
+        is False
+    )
+    with pytest.raises(ValueError, match="original Action id"):
+        await observer.handle(
+            {
+                "resource_id": intent.resource_ref,
+                "action_type": "ops.scale-out",
+                "shadow_mode": False,
+                "state": "succeeded",
+                "producer_principal": "Thor",
+                "action_id": None,
+            }
+        )
+    assert await observer.resolve_incident({"event_type": "other"}) is False
+    with pytest.raises(ValueError, match="Heimdall evidence"):
+        await observer.resolve_incident(
+            {"event_type": "action.execution.effect_verified.v1", "producer_principal": "Thor"}
+        )
+    with pytest.raises(ValueError, match="requires an Action id"):
+        await observer.resolve_incident(
+            {
+                "event_type": "action.execution.effect_verified.v1",
+                "producer_principal": "Heimdall",
+                "schema_version": "1.0.0",
+                "action_type": "ops.scale-out",
+                "execution_authority": False,
+                "action_id": None,
+            }
+        )

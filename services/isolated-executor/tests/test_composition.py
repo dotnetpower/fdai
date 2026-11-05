@@ -178,3 +178,287 @@ def test_invalid_inline_ca_fails_before_identity_use(
     monkeypatch.setenv("FDAI_KUBERNETES_DIRECT_API_JSON", json.dumps(value))
     with pytest.raises(RuntimeError):
         _build_kubernetes_direct_api()
+
+
+async def test_composition_builders_and_human_access_binding(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from dataclasses import replace
+    from uuid import UUID
+
+    import httpx
+    from fdai_executor_service import composition
+    from fdai_executor_service.human_access_binding import (
+        HumanAccessDirectApiRouter,
+        human_access_role_groups,
+        require_human_access_identity,
+    )
+    from fdai_service_contracts.executor import (
+        DirectApiOutcome,
+        DirectApiReceipt,
+        DirectApiRequest,
+        Mode,
+    )
+
+    client = composition.new_http_client()
+    await client.aclose()
+
+    monkeypatch.delenv("FDAI_STATE_STORE_DSN", raising=False)
+    with pytest.raises(RuntimeError, match="FDAI_STATE_STORE_DSN MUST be configured"):
+        composition.build_audit_store()
+
+    monkeypatch.setenv("FDAI_STATE_STORE_DSN", "postgresql://example.invalid/fdai")
+    assert composition.build_audit_store() is not None
+    assert composition.build_idempotency_store() is not None
+    assert composition.build_safeguard_bundle_store() is not None
+    assert composition.build_resource_lock() is not None
+
+    monkeypatch.setenv("FDAI_RESOURCE_LOCK_TIMEOUT_MS", "not-an-int")
+    with pytest.raises(RuntimeError, match="MUST be an integer"):
+        composition.build_resource_lock()
+
+    monkeypatch.setenv("FDAI_RESOURCE_LOCK_TIMEOUT_MS", "-1")
+    with pytest.raises(RuntimeError, match="MUST be non-negative"):
+        composition.build_resource_lock()
+    monkeypatch.delenv("FDAI_RESOURCE_LOCK_TIMEOUT_MS", raising=False)
+
+    monkeypatch.delenv("FDAI_TEST_MI", raising=False)
+    async with httpx.AsyncClient() as http_client:
+        with pytest.raises(RuntimeError, match="MUST identify the dedicated workload identity"):
+            composition.build_workload_identity(
+                http_client, client_id_env="FDAI_TEST_MI", require_client_id=True
+            )
+        monkeypatch.setenv("FDAI_TEST_MI", "00000000-0000-0000-0000-000000000010")
+        monkeypatch.setenv("IDENTITY_ENDPOINT", "https://identity.example/token")
+        monkeypatch.setenv("IDENTITY_HEADER", "header-secret")
+        assert (
+            composition.build_workload_identity(
+                http_client, client_id_env="FDAI_TEST_MI", require_client_id=True
+            )
+            is not None
+        )
+
+        # Kubernetes validation errors for allowed_namespaces and text_fields
+        bad_ns = json.loads(_kubernetes_environment()["FDAI_KUBERNETES_DIRECT_API_JSON"])
+        bad_ns["allowed_namespaces"] = []
+        monkeypatch.setenv("FDAI_KUBERNETES_DIRECT_API_JSON", json.dumps(bad_ns))
+        with pytest.raises(RuntimeError, match="non-empty string array"):
+            _build_kubernetes_direct_api()
+
+        bad_txt = json.loads(_kubernetes_environment()["FDAI_KUBERNETES_DIRECT_API_JSON"])
+        bad_txt["cluster_ref"] = " leading-space "
+        monkeypatch.setenv("FDAI_KUBERNETES_DIRECT_API_JSON", json.dumps(bad_txt))
+        with pytest.raises(RuntimeError, match="non-empty strings"):
+            _build_kubernetes_direct_api()
+        monkeypatch.delenv("FDAI_KUBERNETES_DIRECT_API_JSON", raising=False)
+
+        # Gateway URL without audience
+        monkeypatch.setenv("FDAI_DEV_OPERATIONS_GATEWAY_URL", "https://gateway.example.com")
+        monkeypatch.delenv("FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE", raising=False)
+        with pytest.raises(RuntimeError, match="configured together"):
+            composition.build_direct_api_effect_executor(
+                audit_store=composition.build_audit_store(),
+                resource_lock=composition.build_resource_lock(),
+                idempotency=composition.build_idempotency_store(),
+                http_client=http_client,
+                identities={},
+            )
+
+        # No adapter configured
+        monkeypatch.delenv("FDAI_DEV_OPERATIONS_GATEWAY_URL", raising=False)
+        monkeypatch.delenv("AZURE_SUBSCRIPTION_ID", raising=False)
+        with pytest.raises(RuntimeError, match="requires a direct-API adapter"):
+            composition.build_direct_api_effect_executor(
+                audit_store=composition.build_audit_store(),
+                resource_lock=composition.build_resource_lock(),
+                idempotency=composition.build_idempotency_store(),
+                http_client=http_client,
+                identities={},
+            )
+
+        # Full composition with gateway, subscription_tag, kubernetes, and human_access
+        monkeypatch.setenv("FDAI_DEV_OPERATIONS_GATEWAY_URL", "https://gateway.example.com")
+        monkeypatch.setenv("FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE", "api://gateway")
+        monkeypatch.setenv("AZURE_SUBSCRIPTION_ID", "00000000-0000-0000-0000-000000000001")
+        monkeypatch.setenv(
+            "FDAI_KUBERNETES_DIRECT_API_JSON",
+            _kubernetes_environment()["FDAI_KUBERNETES_DIRECT_API_JSON"],
+        )
+        role_groups_raw = json.dumps(
+            {
+                "Owner": "00000000-0000-0000-0000-000000000101",
+                "Approver": "00000000-0000-0000-0000-000000000102",
+                "Contributor": "00000000-0000-0000-0000-000000000103",
+                "Reader": "00000000-0000-0000-0000-000000000104",
+            }
+        )
+        monkeypatch.setenv("FDAI_HUMAN_ACCESS_ROLE_GROUPS_JSON", role_groups_raw)
+        monkeypatch.setenv("FDAI_HUMAN_ACCESS_MI_CLIENT_ID", "00000000-0000-0000-0000-000000000099")
+        full_exec = composition.build_direct_api_effect_executor(
+            audit_store=composition.build_audit_store(),
+            resource_lock=composition.build_resource_lock(),
+            idempotency=composition.build_idempotency_store(),
+            http_client=http_client,
+            identities={"identity/change": _Identity()},
+        )
+        assert full_exec is not None
+
+    # human_access_binding tests
+    assert human_access_role_groups({}) is None
+    with pytest.raises(ValueError, match="distinct dedicated isolated workload identity"):
+        require_human_access_identity(
+            {
+                "FDAI_HUMAN_ACCESS_MI_CLIENT_ID": "same-id",
+                "FDAI_CHANGE_MI_CLIENT_ID": "SAME-ID",
+            }
+        )
+
+    class _Route:
+        def __init__(self, tag: str, *, with_status: bool = True) -> None:
+            self.tag = tag
+            if with_status:
+                self.operation_status = self._status  # type: ignore[method-assign]
+
+        async def execute(self, _req: DirectApiRequest) -> DirectApiReceipt:
+            return DirectApiReceipt(outcome=DirectApiOutcome.SUCCEEDED, receipt_ref=self.tag)
+
+        async def _status(self, _req: DirectApiRequest) -> DirectApiReceipt | None:
+            return DirectApiReceipt(
+                outcome=DirectApiOutcome.ALREADY_APPLIED, receipt_ref=f"{self.tag}:status"
+            )
+
+    req_ha = DirectApiRequest(
+        action_id=UUID(int=1),
+        idempotency_key="k1",
+        action_type_name="ops.apply-human-access",
+        rule_ids=("r1",),
+        resource_ref="res1",
+        arguments={},
+        labels=("enforce",),
+        mode=Mode.ENFORCE,
+    )
+    req_gw = replace(req_ha, action_type_name="ops.start-vm")
+    router = HumanAccessDirectApiRouter(_Route("ha"), _Route("gw"))  # type: ignore[arg-type]
+    assert (await router.execute(req_ha)).receipt_ref == "ha"
+    assert (await router.execute(req_gw)).receipt_ref == "gw"
+    assert (await router.operation_status(req_ha)).receipt_ref == "ha:status"  # type: ignore[union-attr]
+    assert (await router.operation_status(req_gw)).receipt_ref == "gw:status"  # type: ignore[union-attr]
+
+    router_no_gw_status = HumanAccessDirectApiRouter(
+        _Route("ha"),
+        _Route("gw", with_status=False),  # type: ignore[arg-type]
+    )
+    assert await router_no_gw_status.operation_status(req_gw) is None
+
+
+async def test_cli_runtime_config_supervisor_and_run_entrypoints(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import httpx
+    from fdai_executor_service import cli
+
+    base_env = {
+        "RUNTIME_ENV": "prod",
+        "FDAI_EXECUTION_VENUE": "deployed",
+        "FDAI_ISOLATED_EXECUTOR_DEPLOYED": "1",
+        "KAFKA_BOOTSTRAP_SERVERS": "events.example.invalid:9093",
+        "FDAI_STATE_STORE_DSN": "postgresql://example.invalid/fdai",
+        "FDAI_DATABASE_ROLE": "fdai_executor",
+        "FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID": "00000000-0000-0000-0000-000000000001",
+    }
+
+    for override, match in [
+        ({"FDAI_ISOLATED_EXECUTOR_DEPLOYED": "0"}, "MUST select the deployed"),
+        ({"FDAI_DATABASE_ROLE": "postgres"}, "MUST be fdai_executor"),
+        (
+            {
+                "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER": "1",
+                "FDAI_DEV_OPERATIONS_GATEWAY_URL": "https://gateway.example.com",
+            },
+            "configured together",
+        ),
+        (
+            {
+                "FDAI_EXECUTOR_COMMAND_TOPIC": "same",
+                "FDAI_EXECUTOR_RECEIPT_TOPIC": "same",
+            },
+            "topics MUST be distinct",
+        ),
+        ({"KAFKA_TOPIC_DLQ_SUFFIX": "   "}, "DLQ_SUFFIX MUST NOT be empty"),
+        ({"FDAI_ISOLATED_EXECUTOR_HEALTH_PORT": "bad"}, "MUST be an integer"),
+        ({"FDAI_ISOLATED_EXECUTOR_HEALTH_PORT": "70000"}, "between 1 and 65535"),
+        ({"FDAI_ISOLATED_EXECUTOR_INSTANCE_ID": "x" * 513}, "bounded and non-empty"),
+        ({"RUNTIME_ENV": ""}, "RUNTIME_ENV MUST be configured"),
+    ]:
+        with pytest.raises(RuntimeError, match=match):
+            cli.IsolatedExecutorRuntimeConfig.from_env({**base_env, **override})
+
+    cutover_env = {
+        **base_env,
+        "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER": "1",
+        "FDAI_DEV_OPERATIONS_GATEWAY_URL": "https://gateway.example.com",
+        "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE": "api://gateway",
+        "FDAI_CHANGE_MI_CLIENT_ID": "00000000-0000-0000-0000-000000000011",
+        "FDAI_RESILIENCE_MI_CLIENT_ID": "00000000-0000-0000-0000-000000000012",
+        "FDAI_FINOPS_MI_CLIENT_ID": "00000000-0000-0000-0000-000000000013",
+        "FDAI_HUMAN_ACCESS_MI_CLIENT_ID": "00000000-0000-0000-0000-000000000014",
+        "FDAI_HUMAN_ACCESS_ROLE_GROUPS_JSON": json.dumps(
+            {
+                "Owner": "00000000-0000-0000-0000-000000000101",
+                "Approver": "00000000-0000-0000-0000-000000000102",
+                "Contributor": "00000000-0000-0000-0000-000000000103",
+                "Reader": "00000000-0000-0000-0000-000000000104",
+            }
+        ),
+        "FDAI_ISOLATED_EXECUTOR_INSTANCE_ID": "explicit-instance",
+    }
+    for k, v in cutover_env.items():
+        monkeypatch.setenv(k, v)
+    monkeypatch.setenv("IDENTITY_ENDPOINT", "https://identity.example/token")
+    monkeypatch.setenv("IDENTITY_HEADER", "secret")
+
+    cutover_cfg = cli.IsolatedExecutorRuntimeConfig.from_env(cutover_env)
+    assert cutover_cfg.executor_instance_id == "explicit-instance"
+
+    shadow_cfg = cli.IsolatedExecutorRuntimeConfig.from_env(
+        {
+            "RUNTIME_ENV": "dev",
+            "FDAI_EXECUTION_VENUE": "local",
+            "KAFKA_BOOTSTRAP_SERVERS": "127.0.0.1:19092",
+            "FDAI_STATE_STORE_DSN": "postgresql://example.invalid/fdai",
+            "FDAI_DATABASE_ROLE": "fdai_executor",
+        }
+    )
+
+    async with httpx.AsyncClient() as http_client:
+        sup_shadow = cli.build_isolated_executor_supervisor(
+            config=shadow_cfg, http_client=http_client
+        )
+        sup_cutover = cli.build_isolated_executor_supervisor(
+            config=cutover_cfg, http_client=http_client
+        )
+        assert sup_shadow.ready is False
+        assert sup_cutover.ready is False
+        for check in sup_shadow._readiness_checks:
+            assert check() is False
+
+    class _FakeSupervisor:
+        async def run(self, *, stop: object) -> int:
+            assert stop is not None
+            return 0
+
+    monkeypatch.setattr(cli, "install_shutdown_signals", lambda: object())
+    monkeypatch.setattr(
+        cli, "build_isolated_executor_supervisor", lambda **_kwargs: _FakeSupervisor()
+    )
+    assert await cli._run() == 0
+
+    def fail_build(**_kwargs: object) -> None:
+        raise RuntimeError("build failed")
+
+    monkeypatch.setattr(cli, "build_isolated_executor_supervisor", fail_build)
+    with pytest.raises(RuntimeError, match="build failed"):
+        await cli._run()
+
+    monkeypatch.setattr(cli, "run_main", lambda fn: 0 if callable(fn) else 1)
+    assert cli.main() == 0

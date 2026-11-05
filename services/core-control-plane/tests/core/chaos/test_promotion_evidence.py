@@ -208,3 +208,141 @@ def test_duplicate_or_out_of_order_evidence_is_rejected() -> None:
         ledger.append(shadow)
     with pytest.raises(ScenarioPromotionError, match="from_state"):
         ledger.append(replace(shadow, evidence_id="other"))
+
+
+def test_promotion_evidence_validation_and_loader_edges(tmp_path) -> None:
+    with pytest.raises(ValueError, match="scenario_id"):
+        ScenarioEvidenceKey(" ", 1, _FINGERPRINT)
+    with pytest.raises(ValueError, match="scenario_version"):
+        ScenarioEvidenceKey("chaos.test.one", 0, _FINGERPRINT)
+    with pytest.raises(ValueError, match="catalog_fingerprint"):
+        ScenarioEvidenceKey("chaos.test.one", 1, "bad")
+
+    key = ScenarioEvidenceKey("chaos.test.one", 1, _FINGERPRINT)
+    base = _evidence(
+        "shadow",
+        ScenarioPromotionState.COLLECTED,
+        ScenarioPromotionState.SHADOW_VALIDATED,
+        actor="Saga",
+        key=key,
+    )
+    with pytest.raises(ValueError, match="evidence_id MUST be non-empty"):
+        replace(base, evidence_id=" ")
+    with pytest.raises(ValueError, match="timezone-aware"):
+        replace(base, observed_at=datetime(2026, 7, 17))
+    with pytest.raises(ValueError, match="detection_latency_ms"):
+        replace(base, detection_latency_ms=-1)
+    with pytest.raises(ValueError, match="latency_budget_ms"):
+        replace(base, latency_budget_ms=0)
+
+    raw_base = base.to_dict()
+    with pytest.raises(ScenarioPromotionError, match="schema_version"):
+        ScenarioPromotionEvidence.from_dict({**raw_base, "schema_version": 2})
+    for field, invalid_val in (
+        ("stop_condition_observed", "yes"),
+        ("detection_latency_ms", True),
+        ("approval_ref", 123),
+        ("regression_reasons", [123]),
+    ):
+        with pytest.raises(ScenarioPromotionError, match="malformed"):
+            ScenarioPromotionEvidence.from_dict({**raw_base, field: invalid_val})
+
+    minimal_raw = {
+        **raw_base,
+        "detection_latency_ms": None,
+        "latency_budget_ms": None,
+        "regression_reasons": None,
+    }
+    parsed_minimal = ScenarioPromotionEvidence.from_dict(minimal_raw)
+    assert parsed_minimal.detection_latency_ms is None
+    assert parsed_minimal.regression_reasons == ()
+
+    ledger = ScenarioPromotionLedger()
+    assert ledger.approval_ref_for(key) is None
+    with pytest.raises(ScenarioPromotionError, match="invalid promotion transition"):
+        ledger.append(
+            _evidence(
+                "skip",
+                ScenarioPromotionState.COLLECTED,
+                ScenarioPromotionState.ENFORCE_ELIGIBLE,
+                actor="Mimir",
+                key=key,
+            )
+        )
+    with pytest.raises(ScenarioPromotionError, match="latency measurement"):
+        ledger.append(replace(base, detection_latency_ms=None))
+
+    ledger.append(base)
+    with pytest.raises(ScenarioPromotionError, match="only Mimir may request"):
+        ledger.append(
+            _evidence(
+                "pending-bad",
+                ScenarioPromotionState.SHADOW_VALIDATED,
+                ScenarioPromotionState.APPROVAL_PENDING,
+                actor="Saga",
+                key=key,
+            )
+        )
+    ledger.append(
+        _evidence(
+            "pending",
+            ScenarioPromotionState.SHADOW_VALIDATED,
+            ScenarioPromotionState.APPROVAL_PENDING,
+            actor="Mimir",
+            key=key,
+        )
+    )
+    with pytest.raises(ScenarioPromotionError, match="only Mimir may mark"):
+        ledger.append(
+            replace(
+                _evidence(
+                    "approved-bad",
+                    ScenarioPromotionState.APPROVAL_PENDING,
+                    ScenarioPromotionState.ENFORCE_ELIGIBLE,
+                    actor="Saga",
+                    key=key,
+                ),
+                approval_ref="approval:1",
+                approval_principal="Var",
+            )
+        )
+    ledger.append(
+        replace(
+            _evidence(
+                "approved",
+                ScenarioPromotionState.APPROVAL_PENDING,
+                ScenarioPromotionState.ENFORCE_ELIGIBLE,
+                actor="Mimir",
+                key=key,
+            ),
+            approval_ref="approval:1",
+            approval_principal="Var",
+        )
+    )
+    with pytest.raises(ScenarioPromotionError, match="only Mimir may regress"):
+        ledger.append(
+            replace(
+                _evidence(
+                    "regressed-bad",
+                    ScenarioPromotionState.ENFORCE_ELIGIBLE,
+                    ScenarioPromotionState.REGRESSED,
+                    actor="Saga",
+                    key=key,
+                ),
+                regression_reasons=("rollback_failed",),
+            )
+        )
+
+    blank_path = tmp_path / "blank.jsonl"
+    blank_path.write_text("\n" + json.dumps(raw_base) + "\n\n", encoding="utf-8")
+    assert len(load_promotion_ledger(blank_path).records) == 1
+
+    bad_json_path = tmp_path / "bad.jsonl"
+    bad_json_path.write_text("{not-json\n", encoding="utf-8")
+    with pytest.raises(ScenarioPromotionError, match="not valid JSON"):
+        load_promotion_ledger(bad_json_path)
+
+    non_obj_path = tmp_path / "array.jsonl"
+    non_obj_path.write_text("[1, 2, 3]\n", encoding="utf-8")
+    with pytest.raises(ScenarioPromotionError, match="MUST be an object"):
+        load_promotion_ledger(non_obj_path)

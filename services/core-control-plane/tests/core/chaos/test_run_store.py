@@ -118,3 +118,39 @@ async def test_exclusive_transition_rejects_every_caller_that_did_not_apply_it()
         at=_NOW,
     )
     assert reconciled == winner
+
+
+async def test_run_store_validation_and_corruption_guards() -> None:
+    state = InMemoryStateStore()
+    store = ChaosRunStore(state_store=state)
+    with pytest.raises(ValueError, match="run_id and aware timestamp"):
+        await store.create(run_id=" ", at=_NOW)
+
+    created = await store.create(run_id="run-1", at=_NOW)
+    same = await store.transition(
+        created,
+        target=ChaosRunState.IMPACT_CHECKED,
+        idempotency_key=created.last_idempotency_key,
+        at=_NOW,
+    )
+    assert same is created
+
+    await state.write_state(
+        "chaos-run:bad-rev",
+        {
+            "run_id": "bad-rev",
+            "state": "planned",
+            "revision": True,
+            "updated_at": _NOW.isoformat(),
+            "last_idempotency_key": "k",
+        },
+    )
+    with pytest.raises(ChaosRunConflictError, match="malformed"):
+        await store.get("bad-rev")
+
+    class _LostCreateStore(InMemoryStateStore):
+        async def write_state_with_audit_if_absent(self, key, value, audit_entry) -> bool:  # type: ignore[no-untyped-def]
+            return False
+
+    with pytest.raises(ChaosRunConflictError, match="without readable state"):
+        await ChaosRunStore(state_store=_LostCreateStore()).create(run_id="lost", at=_NOW)

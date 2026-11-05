@@ -181,3 +181,34 @@ async def test_amount_hidden_policy_preserves_allowed_exact_identity() -> None:
     message = dependencies.messages[0]
     assert "private-resource" in message.body_markdown
     assert '"amount_' not in message.body_markdown
+
+
+@pytest.mark.asyncio
+async def test_missing_policy_or_missing_pseudonym_key_fails_closed() -> None:
+    dependencies = Dependencies()
+    dependencies.policy = None  # type: ignore[assignment]
+    producer = CostGovernanceNotificationProducer(
+        activation=dependencies,
+        disclosure=dependencies,
+        dispatcher=dependencies,
+    )
+    assert not await producer.dispatch(
+        destination_scope="governance",
+        correlation_id="cost-none-policy",
+        records=(_record(),),
+        now=NOW,
+    )
+
+    dependencies_no_key = Dependencies()
+    producer_no_key = CostGovernanceNotificationProducer(
+        activation=dependencies_no_key,
+        disclosure=dependencies_no_key,
+        dispatcher=dependencies_no_key,
+        pseudonym_key=None,
+    )
+    assert not await producer_no_key.dispatch(
+        destination_scope="governance",
+        correlation_id="cost-no-key",
+        records=(_record(),),
+        now=NOW,
+    )

@@ -119,3 +119,85 @@ async def test_disabled_activation_and_held_reinjection_publish_nothing() -> Non
     assert disabled_result.state is OptimizationPublicationState.HELD
     assert held_result.state is OptimizationPublicationState.HELD
     assert publisher.values == []
+
+
+async def test_optimization_runtime_package_id_and_publish_plan() -> None:
+    import pytest
+    from fdai.core.decision_case import ObjectiveEffect
+    from fdai.core.operational_context import SourceFreshness
+
+    from fdai_cost_governance.guard import (
+        FinOpsActionKind,
+        FinOpsCandidate,
+        FinOpsEnvironment,
+        ResourceContext,
+    )
+    from fdai_cost_governance.optimization import (
+        CoupledResourceOptimizationPlan,
+        OptimizationDisposition,
+    )
+
+    publisher = Publisher()
+    with pytest.raises(ValueError, match="package_id MUST be exact"):
+        CostOptimizationRuntime(
+            package_id=" ",
+            activation_reader=Activation(None),
+            publisher=publisher,
+        )
+
+    runtime = CostOptimizationRuntime(
+        package_id="cost-governance",
+        activation_reader=Activation(_activation(enabled=True)),
+        publisher=publisher,
+    )
+    plan = CoupledResourceOptimizationPlan(
+        disposition=OptimizationDisposition.CANDIDATE,
+        target_set_id="set-1",
+        target_revision_digest="sha256:" + "a" * 64,
+        candidates=(
+            FinOpsCandidate(
+                action_id="act-1",
+                kind=FinOpsActionKind.RIGHT_SIZE,
+                resource=ResourceContext("res-1", FinOpsEnvironment.DEV, current_capacity=4),
+                target_capacity=2,
+            ),
+            FinOpsCandidate(
+                action_id="act-2",
+                kind=FinOpsActionKind.RIGHT_SIZE,
+                resource=ResourceContext("res-2", FinOpsEnvironment.DEV, current_capacity=4),
+                target_capacity=2,
+            ),
+        ),
+        profile_digests=("sha256:" + "b" * 64, "sha256:" + "c" * 64),
+        causal_order=("res-1", "res-2"),
+        logical_target_lock="lock:set-1",
+        idempotency_key="idem:set-1",
+        reasons=(),
+    )
+    res = await runtime.publish_plan(
+        plan,
+        correlation_id="corr-1",
+        observed_at=NOW,
+        cost_objective_id="objective.cost",
+        effects=(
+            ObjectiveEffect(
+                objective_id="objective.cost",
+                expected_min=75.0,
+                expected_max=85.0,
+                utility=0.5,
+                confidence=0.9,
+                metric="monthly-cost",
+                observation_window_seconds=3600,
+            ),
+        ),
+        evidence_refs=("ev:1",),
+        source_freshness=(
+            SourceFreshness(
+                source="cost-analytics",
+                observed_at=NOW,
+                max_age_seconds=3600,
+            ),
+        ),
+    )
+    assert res.state is OptimizationPublicationState.PUBLISHED
+    assert len(publisher.values) == 1

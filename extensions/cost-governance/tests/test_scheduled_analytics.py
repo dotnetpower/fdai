@@ -14,11 +14,16 @@ from fdai_service_contracts import (
     CostEvidenceState,
 )
 
+import fdai_cost_governance.scheduled_analytics as scheduled_analytics
 from fdai_cost_governance.scheduled_analytics import (
     AnalyticsSourceError,
     AzureAnalyticsBatch,
     AzureScheduledAnalyticsSource,
     ScheduledAnalyticsResult,
+    _mapping_items,
+    _require_management_url,
+    _subscription_id,
+    _usage_item,
     run_scheduled_analytics,
 )
 from fdai_cost_governance.service import CostJobConfig
@@ -363,3 +368,367 @@ async def test_azure_source_stops_on_optional_source_rate_limit() -> None:
                 end_at=NOW,
                 deadline_at=NOW + timedelta(days=1),
             )
+
+
+@pytest.mark.asyncio
+async def test_azure_source_utilization_pagination_and_transport_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with pytest.raises(ValueError, match="subscriptions/<id>"):
+        _subscription_id("invalid-scope")
+    with pytest.raises(AnalyticsSourceError, match="invalid_next_link"):
+        _require_management_url("http://management.azure.com/bad")
+    with pytest.raises(AnalyticsSourceError, match="invalid_source_payload"):
+        _usage_item({"UsageDate": "20260916", "ServiceName": "Compute", "Currency": "USD"})
+    with pytest.raises(AnalyticsSourceError, match="invalid_source_payload"):
+        _usage_item(
+            {
+                "UsageDate": "bad-date",
+                "ServiceName": "Compute",
+                "Currency": "USD",
+                "Cost": 1,
+            }
+        )
+    assert _mapping_items("not-a-list") == []
+
+    async with httpx.AsyncClient() as empty_client:
+        expired_source = AzureScheduledAnalyticsSource(
+            client=empty_client,
+            credential=_Credential(),
+            clock=lambda: NOW,
+        )
+        with pytest.raises(AnalyticsSourceError, match="deadline_exceeded"):
+            await expired_source.collect(
+                scope_id="subscriptions/example",
+                start_at=NOW - timedelta(days=1),
+                end_at=NOW,
+                deadline_at=NOW,
+            )
+
+        class _TimeoutCred:
+            async def access_token(self, *, deadline_at: datetime) -> str:
+                raise TimeoutError
+
+        class _ErrorCred:
+            async def access_token(self, *, deadline_at: datetime) -> str:
+                raise RuntimeError("no cred")
+
+        for cred, expected in (
+            (_TimeoutCred(), "deadline_exceeded"),
+            (_ErrorCred(), "credential_unavailable"),
+        ):
+            src = AzureScheduledAnalyticsSource(
+                client=empty_client,
+                credential=cred,
+                clock=lambda: NOW,
+            )
+            with pytest.raises(AnalyticsSourceError, match=expected):
+                await src.collect(
+                    scope_id="subscriptions/example",
+                    start_at=NOW - timedelta(days=1),
+                    end_at=NOW,
+                    deadline_at=NOW + timedelta(minutes=1),
+                )
+
+    monkeypatch.setattr(scheduled_analytics, "_MAX_RECOMMENDATIONS", 1)
+
+    def partial_handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "Microsoft.CostManagement/query" in url:
+            if "page=2" not in url:
+                return httpx.Response(
+                    200,
+                    json={
+                        "properties": {
+                            "columns": [
+                                {"name": "ServiceName"},
+                                {"name": "Cost"},
+                                {"name": "UsageDate"},
+                                {"name": "Currency"},
+                            ],
+                            "rows": [["Compute", 2, 20260916, "USD"]],
+                            "nextLink": (
+                                "https://management.azure.com/subscriptions/example"
+                                "/providers/Microsoft.CostManagement/query?page=2"
+                            ),
+                        }
+                    },
+                )
+            return httpx.Response(
+                200,
+                json={
+                    "properties": {
+                        "columns": [
+                            {"name": "ServiceName"},
+                            {"name": "Cost"},
+                            {"name": "UsageDate"},
+                            {"name": "Currency"},
+                        ],
+                        "rows": [["Storage", 1, 20260916, "USD"]],
+                    }
+                },
+            )
+        if "Microsoft.Consumption/budgets" in url:
+            return httpx.Response(404, json={})
+        if "Microsoft.Advisor/recommendations" in url:
+            if "page=2" not in url:
+                return httpx.Response(
+                    200,
+                    json={
+                        "value": [
+                            {
+                                "id": "/rec/1",
+                                "properties": {
+                                    "impactedField": "Microsoft.ContainerService/managedClusters",
+                                    "resourceMetadata": {
+                                        "resourceId": "/subscriptions/example/clusters/c1"
+                                    },
+                                },
+                            },
+                            {
+                                "id": "/rec/2",
+                                "properties": {
+                                    "impactedField": "Microsoft.ContainerService/managedClusters",
+                                    "resourceMetadata": {
+                                        "resourceId": "/subscriptions/other/clusters/c2"
+                                    },
+                                },
+                            },
+                        ],
+                        "nextLink": (
+                            "https://management.azure.com/subscriptions/example"
+                            "/providers/Microsoft.Advisor/recommendations?page=2"
+                        ),
+                    },
+                )
+            return httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {
+                            "id": "/rec/3",
+                            "properties": {"impactedField": "Microsoft.Compute/disks"},
+                        }
+                    ]
+                },
+            )
+        if "microsoft.insights/metrics" in url:
+            return httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {
+                            "timeseries": [
+                                {"data": [{"average": 33.5}]},
+                            ]
+                        }
+                    ]
+                },
+            )
+        return httpx.Response(200, json={"value": []})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(partial_handler)) as client:
+        source = AzureScheduledAnalyticsSource(
+            client=client,
+            credential=_Credential(),
+            clock=lambda: NOW,
+        )
+        batch = await source.collect(
+            scope_id="subscriptions/example",
+            start_at=NOW - timedelta(days=1),
+            end_at=NOW,
+            deadline_at=NOW + timedelta(days=1),
+        )
+        assert "budgets_unavailable" in batch.limitations
+        assert "advisor_recommendation_limit" in batch.limitations
+        assert batch.utilization_by_resource["/subscriptions/example/clusters/c1"] == Decimal(
+            "33.50"
+        )
+
+        _, util_complete = await source._utilization(
+            subscription_id="example",
+            advisor_items=(
+                {
+                    "properties": {
+                        "impactedField": "Microsoft.ContainerService/managedClusters",
+                        "impactedValue": "/subscriptions/other/clusters/c2",
+                    }
+                },
+            ),
+            start_at=NOW - timedelta(days=1),
+            end_at=NOW,
+            token="tok",
+            deadline_at=NOW + timedelta(minutes=1),
+        )
+        assert util_complete is False
+
+        with pytest.raises(AnalyticsSourceError, match="deadline_exceeded"):
+            await source._get_json(
+                source="s",
+                url="https://management.azure.com/x",
+                params=None,
+                token="t",
+                deadline_at=NOW,
+            )
+        with pytest.raises(AnalyticsSourceError, match="deadline_exceeded"):
+            await source._post_json(
+                source="s",
+                url="https://management.azure.com/x",
+                payload={},
+                token="t",
+                deadline_at=NOW,
+            )
+
+    for status, body, expected_reason in (
+        (503, b"{}", "provider_unavailable"),
+        (500, b"{}", "source_unavailable"),
+        (200, b"{bad", "invalid_source_payload"),
+        (200, b"[]", "invalid_source_payload"),
+    ):
+        transport = httpx.MockTransport(lambda req, s=status, b=body: httpx.Response(s, content=b))
+        async with httpx.AsyncClient(transport=transport) as err_client:
+            err_src = AzureScheduledAnalyticsSource(
+                client=err_client,
+                credential=_Credential(),
+                clock=lambda: NOW,
+            )
+            with pytest.raises(AnalyticsSourceError, match=expected_reason):
+                await err_src._get_json(
+                    source="s",
+                    url="https://management.azure.com/x",
+                    params=None,
+                    token="t",
+                    deadline_at=NOW + timedelta(minutes=1),
+                )
+            with pytest.raises(AnalyticsSourceError, match=expected_reason):
+                await err_src._post_json(
+                    source="s",
+                    url="https://management.azure.com/x",
+                    payload={},
+                    token="t",
+                    deadline_at=NOW + timedelta(minutes=1),
+                )
+
+    def _raise_http(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("boom")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_raise_http)) as net_client:
+        net_src = AzureScheduledAnalyticsSource(
+            client=net_client,
+            credential=_Credential(),
+            clock=lambda: NOW,
+        )
+        with pytest.raises(AnalyticsSourceError, match="transport_error"):
+            await net_src._get_json(
+                source="s",
+                url="https://management.azure.com/x",
+                params=None,
+                token="t",
+                deadline_at=NOW + timedelta(minutes=1),
+            )
+        with pytest.raises(AnalyticsSourceError, match="transport_error"):
+            await net_src._post_json(
+                source="s",
+                url="https://management.azure.com/x",
+                payload={},
+                token="t",
+                deadline_at=NOW + timedelta(minutes=1),
+            )
+
+
+@pytest.mark.asyncio
+async def test_run_scheduled_analytics_failure_modes_and_publisher() -> None:
+    with pytest.raises(ValueError, match="days MUST be in"):
+        await run_scheduled_analytics(
+            config=_config(),
+            scope_id="subscriptions/example",
+            venue="local",
+            days=0,
+            source=_Source(),  # type: ignore[arg-type]
+            store=_Store(),
+        )
+
+    store_mismatch = _Store()
+    store_mismatch.activation = replace(
+        store_mismatch.activation,
+        ontology_release_id="other:release",
+    )
+    res_mismatch = await run_scheduled_analytics(
+        config=_config(),
+        scope_id="subscriptions/example",
+        venue="local",
+        days=1,
+        source=_Source(),  # type: ignore[arg-type]
+        store=store_mismatch,
+        clock=lambda: NOW,
+    )
+    assert res_mismatch.receipt.failure_reason == "activation_revision_mismatch"
+
+    class _ConflictStore(_Store):
+        async def append_cost_page(self, page: object, **_: object) -> bool:
+            return False
+
+    res_conflict = await run_scheduled_analytics(
+        config=_config(),
+        scope_id="subscriptions/example",
+        venue="local",
+        days=1,
+        source=_Source(),  # type: ignore[arg-type]
+        store=_ConflictStore(),
+        clock=lambda: NOW,
+    )
+    assert res_conflict.receipt.failure_reason == "observation_cursor_conflict"
+
+    publisher = _Publisher()
+    res_pub = await run_scheduled_analytics(
+        config=_config(),
+        scope_id="subscriptions/example",
+        venue="local",
+        days=1,
+        source=_Source(),  # type: ignore[arg-type]
+        store=_Store(),
+        publisher=publisher,
+        clock=lambda: NOW,
+    )
+    assert res_pub.published == 1
+
+    class _CursorFailStore(_Store):
+        async def advance_cost_analysis_cursor(self, **_: object) -> bool:
+            return False
+
+    res_pub_fail = await run_scheduled_analytics(
+        config=_config(),
+        scope_id="subscriptions/example",
+        venue="local",
+        days=1,
+        source=_Source(),  # type: ignore[arg-type]
+        store=_CursorFailStore(),
+        publisher=_Publisher(),
+        clock=lambda: NOW,
+    )
+    assert res_pub_fail.receipt.failure_reason == "analysis_publish_failed"
+
+    for raised_exc, expected_reason in (
+        (TimeoutError(), "deadline_exceeded"),
+        (ValueError("bad"), "invalid_source_payload"),
+        (RuntimeError("db"), "persistence_unavailable"),
+        (KeyError("missing"), "internal_error"),
+    ):
+
+        class _ErrSrc:
+            def __init__(self, err: Exception) -> None:
+                self._err = err
+
+            async def collect(self, **_: object) -> AzureAnalyticsBatch:
+                raise self._err
+
+        res_err = await run_scheduled_analytics(
+            config=_config(),
+            scope_id="subscriptions/example",
+            venue="local",
+            days=1,
+            source=_ErrSrc(raised_exc),  # type: ignore[arg-type]
+            store=_Store(),
+            clock=lambda: NOW,
+        )
+        assert res_err.receipt.failure_reason == expected_reason

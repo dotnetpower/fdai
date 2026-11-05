@@ -229,3 +229,102 @@ def test_package_loader_uses_only_importlib_resources() -> None:
         isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "Path"
         for node in ast.walk(tree)
     )
+
+
+def test_resource_loader_and_review_targets_error_branches(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import json
+
+    import fdai_cost_governance.resource_loader as resource_loader
+    import fdai_cost_governance.review_targets as review_targets
+    from fdai_cost_governance.resource_loader import (
+        CostGovernanceResourceError,
+        load_package_resources,
+        load_resource_bytes,
+        load_resource_manifest,
+    )
+    from fdai_cost_governance.review_targets import (
+        _references,
+        _thresholds,
+        _yaml_object,
+        load_cost_readiness_targets,
+    )
+
+    with pytest.raises(CostGovernanceResourceError, match="package-relative"):
+        load_resource_bytes("../manifest.json")
+    with pytest.raises(CostGovernanceResourceError, match="does not exist"):
+        load_resource_bytes("missing-file.json")
+
+    real_manifest = load_resource_manifest()
+    real_loader = resource_loader.load_resource_bytes
+    for bad_bytes, match in (
+        (b"{bad", "valid UTF-8 JSON"),
+        (b"[]", "JSON object"),
+        (
+            json.dumps({**real_manifest, "schema_version": "2.0.0"}).encode(),
+            "schema is unsupported",
+        ),
+        (
+            json.dumps({**real_manifest, "package_id": "other"}).encode(),
+            "package id is invalid",
+        ),
+        (
+            json.dumps({**real_manifest, "package_version": "9.9.9"}).encode(),
+            "package version is invalid",
+        ),
+        (
+            json.dumps({**real_manifest, "candidate_state": "active"}).encode(),
+            "remain inert",
+        ),
+        (
+            json.dumps({**real_manifest, "assets": "bad"}).encode(),
+            "assets must be an array",
+        ),
+    ):
+        monkeypatch.setattr(resource_loader, "load_resource_bytes", lambda p, b=bad_bytes: b)
+        with pytest.raises(CostGovernanceResourceError, match=match):
+            load_resource_manifest()
+
+    monkeypatch.setattr(resource_loader, "load_resource_bytes", real_loader)
+    for bad_assets, match in (
+        (["not-a-dict"], "entries must be objects"),
+        ([{"id": "a"}], "entry is invalid"),
+        ([real_manifest["assets"][0], real_manifest["assets"][0]], "must be unique"),
+        ([{**real_manifest["assets"][0], "sha256": "0" * 64}], "digest mismatch"),
+        (list(reversed(real_manifest["assets"])), "canonical id order"),
+    ):
+        monkeypatch.setattr(
+            resource_loader,
+            "load_resource_manifest",
+            lambda a=bad_assets: {**real_manifest, "assets": a},
+        )
+        with pytest.raises(CostGovernanceResourceError, match=match):
+            load_package_resources()
+
+    monkeypatch.setattr(
+        review_targets,
+        "load_resource_manifest",
+        lambda: {"assets": "bad"},
+    )
+    with pytest.raises(ValueError, match="manifest assets are invalid"):
+        load_cost_readiness_targets(REPO_ROOT / "rule-catalog")
+
+    monkeypatch.setattr(
+        review_targets,
+        "load_resource_manifest",
+        lambda: {"assets": []},
+    )
+    with pytest.raises(ValueError, match="MUST include actions and workflows"):
+        load_cost_readiness_targets(REPO_ROOT / "rule-catalog")
+
+    with pytest.raises(ValueError, match="references are invalid"):
+        _references({"references": "bad"})
+    with pytest.raises(ValueError, match="zero policy escapes"):
+        _thresholds({"promotion_gate": {"max_policy_escapes": 1}})
+    with pytest.raises(ValueError, match="promotion gate is invalid"):
+        _thresholds({"promotion_gate": {"max_policy_escapes": 0, "min_shadow_days": "bad"}})
+    with pytest.raises(ValueError, match="invalid YAML"):
+        _yaml_object(b"::::\n\t[", label="doc")
+    with pytest.raises(ValueError, match="MUST contain an object"):
+        _yaml_object(b"- a\n- b\n", label="doc")
