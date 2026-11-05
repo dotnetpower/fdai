@@ -105,7 +105,7 @@ function GithubWorkspace({ client, auth, dataMode }: PanelProps) {
       <span>{text("githubBoundary")}</span>
     </div>
     <nav class="knowledge-connector-actions" aria-label={text("connectorActions")}>
-      <button class="btn secondary" disabled={busy || view.status === "loading"} onClick={() => void refresh()}>{text("githubRefresh")}</button>
+      <button type="button" class="btn secondary" disabled={busy || view.status === "loading"} onClick={() => void refresh()}>{text("githubRefresh")}</button>
       <a href={routeHref("settings-integrations")}>{text("openIntegrationSettings")}</a>
       <a href={routeHref("code-security")}>{text("githubScanSettings")}</a>
     </nav>
@@ -137,7 +137,7 @@ function GithubWorkspace({ client, auth, dataMode }: PanelProps) {
                 <div><dt>{text("githubCommit")}</dt><dd><code>{row.knowledge_source.observed_commit}</code></dd></div>
                 <div><dt>{text("githubReadmeDigest")}</dt><dd><code>{row.knowledge_source.readme_digest}</code></dd></div>
               </dl>}
-              {owner && row.knowledge_source?.knowledge_read_enabled && <button class="btn secondary" disabled={busy || needsRefresh}
+              {owner && row.knowledge_source?.knowledge_read_enabled && <button type="button" class="btn secondary" disabled={busy || needsRefresh}
                 onClick={() => void submit({ action: "disconnect", repository_alias: row.repository_alias, expected_revision: row.revision })}>
                 {text("githubDisconnect")}
               </button>}

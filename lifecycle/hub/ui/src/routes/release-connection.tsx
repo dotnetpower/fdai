@@ -214,7 +214,7 @@ export function ReleaseConnectionPanel(
         </form>
       </details>}
     </>}
-    {!connection && error && <button class="btn" disabled={loading} onClick={() => void load()}>
+    {!connection && error && <button type="button" class="btn" disabled={loading} onClick={() => void load()}>
       {tr(locale, "Try again", "다시 시도")}
     </button>}
     {saved && <p role="status">{tr(locale,
