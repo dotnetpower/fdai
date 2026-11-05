@@ -71,6 +71,9 @@ class _Ticket:
         self.typed_only = False
         self.decision: str | None = None
         self.details: tuple[str, ...] = ()
+        self.observations: tuple[Any, ...] = (
+            SimpleNamespace(model="form-model", usage=None, trace_call={}),
+        )
         # What the closed ambiguity reader says about a question the judgment clarified.
         self.one_reading = False
         self.primary_read = False
@@ -80,7 +83,7 @@ class _Ticket:
 
     def outcome(self, *, manifest_digest: str, observations: list[Any]) -> Any:
         self.consumed = True
-        observations.append(SimpleNamespace(model="form-model", usage=None, trace_call={}))
+        observations.extend(self.observations)
         return self.result
 
     def outcome_over_clarification(self, *, manifest_digest: str, observations: list[Any]) -> Any:
@@ -92,9 +95,12 @@ class _Ticket:
         self.vetoed_plans.append(plan)
         return self.veto_result
 
-    def cancel(self) -> None:
+    def cancel(self, observations: list[Any] | None = None) -> None:
         if not self.consumed:
             self.cancelled = True
+        if observations is not None:
+            existing = {id(item) for item in observations}
+            observations.extend(item for item in self.observations if id(item) not in existing)
 
 
 class _Path:
@@ -607,6 +613,7 @@ def test_a_direct_response_cancels_the_supplied_speculative_ticket() -> None:
 
     assert outcome.disposition is SemanticPlanningDisposition.DIRECT_RESPONSE
     assert speculative.cancelled and not speculative.consumed
+    assert outcome.model_observations == speculative.observations
 
 
 def _speculating_service(path: _Path) -> SemanticPlanningService:

@@ -10,3 +10,6 @@ npm --prefix console exec -- tsc --noEmit -p console/tsconfig.tests.json
 npm --prefix console run build
 npm --prefix cli test
 npm --prefix cli run typecheck
+npm --prefix lifecycle/hub/ui run typecheck
+npm --prefix lifecycle/hub/ui test
+npm --prefix lifecycle/hub/ui run build
