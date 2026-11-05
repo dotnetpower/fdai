@@ -14,6 +14,7 @@ from fdai.core.tiers.t0_deterministic import (
     T0Engine,
     Verdict,
 )
+from fdai.core.tiers.t0_deterministic.models import RegoEvaluationReceipt
 from fdai.shared.contracts.models import (
     Category,
     CheckLogic,
@@ -314,3 +315,76 @@ def test_signal_type_is_currently_informational(signal_type: str | None) -> None
         signal_type=signal_type,
     )
     assert [f.rule_id for f in v.findings] == ["a.x"]
+
+
+def test_policy_result_and_engine_input_validation() -> None:
+    with pytest.raises(ValueError, match="PolicyResult requires boolean denied"):
+        PolicyResult(denied="yes", context={})  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="PolicyResult requires boolean denied"):
+        PolicyResult(denied=True, context="not-a-mapping")  # type: ignore[arg-type]
+
+    rule = _rule(rule_id="a.x", resource_type="compute.vm")
+    engine = _engine([rule], evaluator=_AlwaysAllow())
+    assert engine.index is not None
+    for bad_val in ("", "   ", "bad\x00id"):
+        with pytest.raises(ValueError, match="MUST be non-empty printable text"):
+            engine.evaluate(
+                event_id=bad_val,
+                signal_id="sig-1",
+                resource_id="rid-1",
+                resource_type="compute.vm",
+                resource_props={},
+            )
+
+
+def test_evaluator_generation_digests_and_receipt_propagation() -> None:
+    valid_gen = "sha256:" + "a" * 64
+    valid_cur = "sha256:" + "b" * 64
+    receipt = RegoEvaluationReceipt(
+        decision_path="fdai.rules.deny",
+        opa_version="0.68.0",
+        parser_id="rego-ast",
+        parser_version="1.0.0",
+        policy_source_digest=valid_gen,
+        normalized_semantic_digest=valid_gen,
+        input_evidence_digest=valid_cur,
+        denied=True,
+        result_digest=valid_cur,
+    )
+
+    class _DigestEvaluator:
+        def __init__(self, gen: object, cur: object = None, *, raise_os: bool = False) -> None:
+            self.generation_digest = gen
+            self._cur = cur
+            self._raise_os = raise_os
+
+        @property
+        def current_generation_digest(self) -> object:
+            if self._raise_os:
+                raise OSError("stat failed")
+            return self._cur
+
+        def evaluate(self, rule: Rule, resource_props: Mapping[str, Any]) -> PolicyResult:
+            del rule, resource_props
+            return PolicyResult(denied=True, context={"why": "rego"}, evaluation_receipt=receipt)
+
+    rule = _rule(rule_id="a.x", resource_type="compute.vm")
+    e_valid = _engine([rule], evaluator=_DigestEvaluator(valid_gen, valid_cur))
+    assert e_valid.evaluator_generation_digest == valid_gen
+    assert e_valid.current_evaluator_generation_digest == valid_cur
+    verdict = e_valid.evaluate(
+        event_id="evt-1",
+        signal_id="sig-1",
+        resource_id="rid-1",
+        resource_type="compute.vm",
+        resource_props={},
+    )
+    assert verdict.audit_hint is not None
+    assert verdict.audit_hint.evaluation_receipts == (receipt,)
+
+    e_invalid = _engine([rule], evaluator=_DigestEvaluator("sha256:bad", "sha256:" + "Z" * 64))
+    assert e_invalid.evaluator_generation_digest is None
+    assert e_invalid.current_evaluator_generation_digest is None
+
+    e_oserror = _engine([rule], evaluator=_DigestEvaluator(valid_gen, raise_os=True))
+    assert e_oserror.current_evaluator_generation_digest is None

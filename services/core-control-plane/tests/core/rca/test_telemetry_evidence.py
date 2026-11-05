@@ -159,3 +159,52 @@ def test_telemetry_validation_rejects_whitespace_uppercase_digest_and_non_dateti
         sha256_digest("digest", f"sha256:0_{'a' * 62}")
     with pytest.raises(ValueError, match="timezone-aware"):
         aware_datetime("cutoff", "not-a-datetime")  # type: ignore[arg-type]
+
+
+def test_telemetry_evidence_codec_roundtrip_and_validation_errors() -> None:
+    from fdai.core.rca.telemetry_evidence_codec import (
+        _timestamp,
+        telemetry_evidence_need_from_mapping,
+        telemetry_evidence_need_to_mapping,
+        telemetry_evidence_receipt_to_mapping,
+    )
+
+    need = build_telemetry_evidence_need(
+        incident_id="incident:one",
+        resource_ref="resource:one",
+        evidence_cutoff=_CUTOFF,
+        recipe=_recipe(),
+        max_query_count=2,
+        max_cost_units=20,
+        idempotency_key="incident:one:round:1",
+    )
+    mapped = telemetry_evidence_need_to_mapping(need)
+    assert telemetry_evidence_need_from_mapping(mapped) == need
+
+    receipt_mapped = telemetry_evidence_receipt_to_mapping(_receipt())
+    assert receipt_mapped["execution_authority"] is False
+    assert receipt_mapped["observed_until"] == "2026-09-16T12:00:00Z"
+
+    unavailable_mapped = telemetry_evidence_receipt_to_mapping(
+        _receipt(
+            disposition=TelemetryEvidenceDisposition.UNAVAILABLE,
+            observed_until=None,
+            route_count=0,
+            queried_route_count=0,
+            row_count=0,
+            fact_tokens=(),
+            complete=False,
+        )
+    )
+    assert unavailable_mapped["observed_until"] is None
+
+    with pytest.raises(ValueError, match="invalid shape"):
+        telemetry_evidence_need_from_mapping("not-a-dict")
+    with pytest.raises(ValueError, match="schema version"):
+        telemetry_evidence_need_from_mapping({**mapped, "schema_version": "9.9.9"})
+    with pytest.raises(ValueError, match="RFC 3339 string"):
+        telemetry_evidence_need_from_mapping({**mapped, "evidence_cutoff": 123})
+    with pytest.raises(ValueError, match="invalid typed value"):
+        telemetry_evidence_need_from_mapping({**mapped, "lookback": "invalid"})
+    with pytest.raises(ValueError, match="timezone-aware"):
+        _timestamp(datetime(2026, 9, 16, 12))

@@ -19,6 +19,8 @@ from fdai.core.executor.safeguard_pre_bundle import (
     safeguard_pre_bundle_commitment_from_mapping,
     safeguard_pre_bundle_commitment_to_mapping,
 )
+from fdai.core.executor.safeguard_proofs import LogicalTargetLockProof
+from fdai.core.executor.target_dispatch_fence import TargetDispatchFenceRecord
 from fdai.shared.contracts.models import (
     Action,
     ActionStopCondition,
@@ -30,6 +32,11 @@ from fdai.shared.contracts.models import (
     RollbackKind,
     RollbackRef,
     StopConditionKind,
+)
+from fdai_service_contracts.execution_safeguards import SafeguardProofBundle
+
+from tests.core.executor.test_safeguard_dispatch_checkpoint import (
+    _evidence_fixture,
 )
 
 _NOW = datetime(2026, 9, 11, 1, 0, tzinfo=UTC)
@@ -278,3 +285,126 @@ class TestDurableMapping:
 
         with pytest.raises(ValueError, match="commitment digest mismatched"):
             safeguard_pre_bundle_commitment_from_mapping(mapping)
+
+
+class TestBundlePersistenceContextValidation:
+    def test_context_rejects_invalid_venue_and_component_types(self) -> None:
+        _record, _reservation, _preparing, _prepared, context = _evidence_fixture()
+
+        with pytest.raises(ValueError, match="requires an exact execution venue"):
+            replace(context, execution_venue="core")  # type: ignore[arg-type]
+
+        with pytest.raises(ValueError, match="requires an exact action"):
+            replace(context, action="not-an-action")  # type: ignore[arg-type]
+
+    def test_validate_rejects_mismatched_fence_bundle_and_receipts(self) -> None:
+        record, _reservation, preparing, prepared, context = _evidence_fixture()
+        other_record, _, _, _, other_context = _evidence_fixture(action_name="other")
+
+        with pytest.raises(ValueError, match="requires a preparing fence"):
+            context.validate(preparing_fence=prepared, bundle=record.bundle)
+
+        with pytest.raises(ValueError, match="requires an exact bundle"):
+            context.validate(
+                preparing_fence=preparing,
+                bundle="not-a-bundle",  # type: ignore[arg-type]
+            )
+
+        late_commitment = SafeguardPreBundleCommitment.create(
+            action=context.action,
+            execution_path=context.safeguard_receipt.execution_path,
+            source_revision=context.pre_bundle_commitment.source_revision,
+            committed_at=context.reservation_receipt.record.reserved_at + timedelta(seconds=1),
+        )
+        with pytest.raises(ValueError, match="pre-bundle commitment followed reservation"):
+            replace(context, pre_bundle_commitment=late_commitment).validate(
+                preparing_fence=preparing,
+                bundle=record.bundle,
+            )
+
+        with pytest.raises(ValueError, match="reservation context mismatched fence"):
+            context.validate(
+                preparing_fence=preparing,
+                bundle=SafeguardProofBundle.create(
+                    action_id=UUID(int=99),
+                    execution_path=record.bundle.execution_path,
+                    execution_fingerprint=record.bundle.execution_fingerprint,
+                    source_revision=record.bundle.source_revision,
+                    recorded_at=record.bundle.recorded_at,
+                    proofs=record.bundle.proofs,
+                ),
+            )
+
+        with pytest.raises(ValueError, match="safeguard receipt context mismatched reservation"):
+            replace(
+                context,
+                safeguard_receipt=replace(context.safeguard_receipt, dry_run_receipt="forged"),
+            ).validate(preparing_fence=preparing, bundle=record.bundle)
+
+        with pytest.raises(ValueError, match="audit receipt changed reservation"):
+            replace(context, audit_append_receipt=other_context.audit_append_receipt).validate(
+                preparing_fence=preparing,
+                bundle=record.bundle,
+            )
+
+        with pytest.raises(ValueError, match="lock context mismatched acquisition"):
+            replace(context, lock_assessment=other_context.lock_assessment).validate(
+                preparing_fence=preparing,
+                bundle=record.bundle,
+            )
+
+        with pytest.raises(ValueError, match="operation receipt binding mismatched"):
+            replace(context, idempotency_proof=other_context.idempotency_proof).validate(
+                preparing_fence=preparing,
+                bundle=record.bundle,
+            )
+
+        bad_key_lock_proof = LogicalTargetLockProof.create(
+            action_digest=context.lock_proof.action_digest,
+            execution_path=context.lock_proof.execution_path,
+            execution_fingerprint=context.lock_proof.execution_fingerprint,
+            lock_key="other-lock",
+            source_revision=context.lock_proof.source_revision,
+            completed_at=context.lock_proof.completed_at,
+            operation_receipt_digest=context.lock_proof.operation_receipt_digest,
+        )
+        with pytest.raises(ValueError, match="statement semantics mismatched receipts"):
+            replace(context, lock_proof=bad_key_lock_proof).validate(
+                preparing_fence=preparing,
+                bundle=record.bundle,
+            )
+
+        bad_rev_lock_proof = LogicalTargetLockProof.create(
+            action_digest=context.lock_proof.action_digest,
+            execution_path=context.lock_proof.execution_path,
+            execution_fingerprint=context.lock_proof.execution_fingerprint,
+            lock_key=context.lock_proof.lock_key,
+            source_revision="commit:" + "c" * 40,
+            completed_at=context.lock_proof.completed_at,
+            operation_receipt_digest=context.lock_proof.operation_receipt_digest,
+        )
+        with pytest.raises(ValueError, match="statement context mismatched reservation"):
+            replace(context, lock_proof=bad_rev_lock_proof).validate(
+                preparing_fence=preparing,
+                bundle=record.bundle,
+            )
+
+        with pytest.raises(ValueError, match="operation proofs mismatched context"):
+            context.validate(
+                preparing_fence=preparing,
+                bundle=SafeguardProofBundle.create(
+                    action_id=record.bundle.action_id,
+                    execution_path=record.bundle.execution_path,
+                    execution_fingerprint=record.bundle.execution_fingerprint,
+                    source_revision=record.bundle.source_revision,
+                    recorded_at=record.bundle.recorded_at,
+                    proofs=other_record.bundle.proofs,
+                ),
+            )
+
+        future_preparing = TargetDispatchFenceRecord.create_preparing(
+            identity=preparing.identity,
+            changed_at=record.bundle.recorded_at + timedelta(seconds=1),
+        )
+        with pytest.raises(ValueError, match="chronology mismatched operation context"):
+            context.validate(preparing_fence=future_preparing, bundle=record.bundle)

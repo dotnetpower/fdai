@@ -10,6 +10,10 @@ from fdai.core.operational_learning.promotion_review import (
     ReviewedReplayPromotionEvidence,
     ReviewedReplayReceiptVerifier,
 )
+from fdai.core.operational_learning.review import (
+    CatalogReviewOutcome,
+    CatalogReviewPublicationReceipt,
+)
 from fdai.core.risk_gate.gate import (
     ActionPromotionRegistry,
     RiskDecisionOutcome,
@@ -514,3 +518,98 @@ def test_owner_review_changes_only_profile_scoped_registry() -> None:
     assert registry.development_mode_of(profile.digest, action.name) is Mode.SHADOW
     registry.demote_development(profile.digest, action.name)
     assert registry.development_mode_of(profile.digest, action.name) is Mode.SHADOW
+
+
+def test_catalog_review_publication_receipt_and_outcome_validation() -> None:
+    receipt = CatalogReviewPublicationReceipt(
+        package_digest=DIGEST,
+        review_ref="pr:fdai/catalog#42",
+        already_existed=False,
+        candidate_digest=DIGEST,
+        binding_digest=DIGEST,
+        observation_digest=DIGEST,
+        required_labels=("catalog:review", "tier:shadow"),
+        observed_labels=("catalog:review", "tier:shadow"),
+        head_sha=REVISION,
+        review_document_digest=DIGEST,
+    )
+    assert receipt.review_ref == "pr:fdai/catalog#42"
+
+    with pytest.raises(ValueError, match="package_digest MUST be lowercase SHA-256"):
+        CatalogReviewPublicationReceipt(
+            package_digest="invalid",
+            review_ref="pr:1",
+            already_existed=False,
+        )
+    with pytest.raises(ValueError, match="review_ref MUST be bounded printable ASCII"):
+        CatalogReviewPublicationReceipt(
+            package_digest=DIGEST,
+            review_ref=" bad ref ",
+            already_existed=False,
+        )
+    with pytest.raises(ValueError, match="already_existed MUST be boolean"):
+        CatalogReviewPublicationReceipt(
+            package_digest=DIGEST,
+            review_ref="pr:1",
+            already_existed="no",  # type: ignore[arg-type]
+        )
+    with pytest.raises(ValueError, match="verification digests MUST be SHA-256"):
+        CatalogReviewPublicationReceipt(
+            package_digest=DIGEST,
+            review_ref="pr:1",
+            already_existed=True,
+            candidate_digest="not-sha256",
+        )
+    with pytest.raises(ValueError, match="head_sha MUST be a full Git commit SHA"):
+        CatalogReviewPublicationReceipt(
+            package_digest=DIGEST,
+            review_ref="pr:1",
+            already_existed=True,
+            head_sha="short-sha",
+        )
+    with pytest.raises(ValueError, match="labels MUST be unique canonical labels"):
+        CatalogReviewPublicationReceipt(
+            package_digest=DIGEST,
+            review_ref="pr:1",
+            already_existed=True,
+            required_labels=("z-label", "a-label"),
+        )
+
+    outcome = CatalogReviewOutcome(
+        idempotency_key="idem-1",
+        correlation_id="corr-1",
+        candidate_digest=DIGEST,
+        package_digest=DIGEST,
+        outcome="published",
+        reason="draft_pr_opened",
+        review_ref="pr:fdai/catalog#42",
+    )
+    assert outcome.outcome == "published"
+
+    with pytest.raises(ValueError, match="trace identity MUST be non-empty"):
+        CatalogReviewOutcome(
+            idempotency_key="",
+            correlation_id="corr-1",
+            candidate_digest=None,
+            package_digest=None,
+            outcome="held",
+            reason="missing_evidence",
+        )
+    with pytest.raises(ValueError, match="outcome digests MUST be SHA-256"):
+        CatalogReviewOutcome(
+            idempotency_key="idem-1",
+            correlation_id="corr-1",
+            candidate_digest="bad-digest",
+            package_digest=None,
+            outcome="held",
+            reason="invalid_digest",
+        )
+    with pytest.raises(ValueError, match="outcome decision MUST be non-empty"):
+        CatalogReviewOutcome(
+            idempotency_key="idem-1",
+            correlation_id="corr-1",
+            candidate_digest=None,
+            package_digest=None,
+            outcome="",
+            reason="missing_outcome",
+        )

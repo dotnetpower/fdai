@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import pytest
 from fdai.core.operational_context import (
     OPERATING_INTENT_SOURCE_ADMISSION_KEY,
     OperatingIntentAdmission,
@@ -659,3 +660,114 @@ async def test_change_window_denies_an_admission_from_another_rollout_generation
     )
 
     assert await provider.is_active(target_ref="resource-1", at=now) is False
+
+
+async def test_ontology_precondition_providers_validate_limits_and_truncation() -> None:
+    store = _OntologyQueryStore(OntologyGraphSnapshot(truncated=True))
+    with pytest.raises(ValueError, match="query_limit MUST be positive"):
+        OntologyOpenActionEvidenceProvider(store, query_limit=0)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="query_limit MUST be positive"):
+        OntologyChangeWindowEvidenceProvider(store, query_limit=0)  # type: ignore[arg-type]
+
+    provider = OntologyChangeWindowEvidenceProvider(store)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="timezone-aware"):
+        await provider.is_active(target_ref="resource-1", at=datetime(2026, 8, 4, 12))
+    assert (
+        await provider.is_active(target_ref="resource-1", at=datetime(2026, 8, 4, 12, tzinfo=UTC))
+        is False
+    )
+
+
+async def test_ontology_open_actions_ignores_terminal_runs() -> None:
+    store = _OntologyQueryStore(
+        OntologyGraphSnapshot(
+            objects=(
+                _object_record(
+                    "ActionRun",
+                    "run-done",
+                    target_ref="resource-1",
+                    idempotency_key="other-key",
+                    status="SUCCEEDED",
+                ),
+            )
+        )
+    )
+
+    conflict = await OntologyOpenActionEvidenceProvider(store).has_conflict(  # type: ignore[arg-type]
+        target_ref="resource-1",
+        excluding_idempotency_key="retry-key",
+    )
+
+    assert conflict is False
+
+
+async def test_ontology_change_window_handles_status_range_kind_and_timestamp_types() -> None:
+    now = datetime(2026, 8, 4, 12, tzinfo=UTC)
+    naive = datetime(2026, 8, 4, 11)
+    store = _OntologyQueryStore(
+        OntologyGraphSnapshot(
+            objects=(
+                _object_record(
+                    "ChangeWindow",
+                    "w-draft",
+                    scope_ref="resource-1",
+                    status="draft",
+                    window_kind="allow",
+                    effective_from=now - timedelta(hours=1),
+                    effective_to=now + timedelta(hours=1),
+                ),
+                _object_record(
+                    "ChangeWindow",
+                    "w-naive-from",
+                    scope_ref="resource-1",
+                    status="active",
+                    window_kind="allow",
+                    effective_from=naive,
+                    effective_to=now + timedelta(hours=1),
+                ),
+                _object_record(
+                    "ChangeWindow",
+                    "w-non-str-to",
+                    scope_ref="resource-1",
+                    status="active",
+                    window_kind="allow",
+                    effective_from=now - timedelta(hours=1),
+                    effective_to=12345,
+                ),
+                _object_record(
+                    "ChangeWindow",
+                    "w-naive-iso",
+                    scope_ref="resource-1",
+                    status="active",
+                    window_kind="allow",
+                    effective_from="2026-08-04T11:00:00",
+                    effective_to=(now + timedelta(hours=1)).isoformat(),
+                ),
+                _object_record(
+                    "ChangeWindow",
+                    "w-expired-range",
+                    scope_ref="resource-1",
+                    status="active",
+                    window_kind="allow",
+                    effective_from=now - timedelta(hours=2),
+                    effective_to=now - timedelta(hours=1),
+                ),
+                _object_record(
+                    "ChangeWindow",
+                    "w-unknown-kind",
+                    scope_ref="resource-1",
+                    status="active",
+                    window_kind="advisory",
+                    effective_from=now - timedelta(hours=1),
+                    effective_to=now + timedelta(hours=1),
+                ),
+            )
+        )
+    )
+
+    active = await OntologyChangeWindowEvidenceProvider(store).is_active(  # type: ignore[arg-type]
+        target_ref="resource-1",
+        at=now,
+    )
+
+    assert active is False
