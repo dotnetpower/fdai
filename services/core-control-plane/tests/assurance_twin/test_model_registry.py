@@ -12,7 +12,10 @@ from fdai.core.assurance_twin import (
     EffectModelStatus,
     StateStoreEffectModelRegistry,
 )
-from fdai.core.assurance_twin.prediction_evidence import retain_prediction
+from fdai.core.assurance_twin.prediction_evidence import (
+    prediction_available,
+    retain_prediction,
+)
 from fdai.shared.contracts.models import EffectPredictionSnapshot, ResponseOutcome
 from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
@@ -173,3 +176,46 @@ async def test_registry_does_not_create_unregistered_challenger() -> None:
     assert result.accepted is False
     assert result.reason == "challenger_not_registered"
     assert tuple(store.audit_entries) == ()
+
+
+async def test_prediction_evidence_retention_and_availability_guards() -> None:
+    import pytest
+
+    store = InMemoryStateStore()
+    snapshot = _snapshot()
+
+    with pytest.raises(ValueError, match="retention time MUST follow prediction creation"):
+        await retain_prediction(store, snapshot, recorded_at=datetime(2026, 7, 30, 0, 0))
+    with pytest.raises(ValueError, match="retention time MUST follow prediction creation"):
+        await retain_prediction(store, snapshot, recorded_at=_NOW - timedelta(seconds=1))
+
+    assert await prediction_available(store, snapshot, observed_at=_NOW) is False
+
+    await retain_prediction(store, snapshot, recorded_at=_NOW)
+    await retain_prediction(store, snapshot, recorded_at=_NOW)
+    assert await prediction_available(store, snapshot, observed_at=_NOW) is True
+
+    conflicting = snapshot.model_copy(update={"point_prediction": 105.0})
+    with pytest.raises(ValueError, match="conflicts with its content identity"):
+        await retain_prediction(store, conflicting, recorded_at=_NOW)
+
+    snapshot_key = f"dynamic-effect-prediction:{snapshot.digest}"
+    valid_record = dict(await store.read_state(snapshot_key) or {})
+
+    await store.write_state(snapshot_key, {**valid_record, "schema_version": "2.0.0"})
+    with pytest.raises(ValueError, match="stored prediction evidence is invalid"):
+        await prediction_available(store, snapshot, observed_at=_NOW)
+
+    await store.write_state(snapshot_key, {**valid_record, "recorded_at": 123})
+    with pytest.raises(ValueError, match="stored prediction evidence time is invalid"):
+        await prediction_available(store, snapshot, observed_at=_NOW)
+
+    await store.write_state(
+        snapshot_key,
+        {**valid_record, "recorded_at": "2026-07-30T00:00:00"},
+    )
+    with pytest.raises(ValueError, match="MUST be timezone-aware"):
+        await prediction_available(store, snapshot, observed_at=_NOW)
+
+    store._state.pop(snapshot_key, None)
+    assert await prediction_available(store, snapshot, observed_at=_NOW) is False

@@ -406,6 +406,77 @@ def test_revision_rejects_tampered_approval_and_evidence_claims() -> None:
             ),
         )
 
+    evidence_doc = json.loads(revision.document_json)
+    evidence_doc["evidence"]["precedent_ref"] = "case:forged"
+    with pytest.raises(AuthorizationLifecycleError, match="evidence claims"):
+        replace(
+            revision,
+            document_json=json.dumps(
+                evidence_doc,
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+        )
+
+
+def test_revision_validates_single_operator_profile_and_rejects_tampered_metadata() -> None:
+    solo_auth = _authorization(
+        approval_profile="single-operator-production",
+        operator_principal="human:solo",
+        quorum_required=1,
+        approvals=[
+            {
+                "principal": "human:solo",
+                "roles": ["service_owner", "owner"],
+                "approved_at": "2026-08-29T05:00:00Z",
+            }
+        ],
+        responders={
+            "primary": "human:solo",
+            "backup": "human:solo",
+            "confirmed_at": "2026-08-29T05:00:00Z",
+        },
+    )
+    solo_rev_id = authorization_revision_id(
+        family_id="family:solo",
+        predecessor_revision_id=None,
+        issued_at=NOW,
+        authorization=solo_auth,
+    )
+    solo_rev = AuthorizationRevision.create(
+        family_id="family:solo",
+        predecessor_revision_id=None,
+        issued_at=NOW,
+        authorization=solo_auth,
+        approvals_digest="sha256:" + "a" * 64,
+        evidence_verification_bundle_digest="sha256:" + "b" * 64,
+        proof_subject_revision_id=solo_rev_id,
+    )
+    assert "single-operator-production" in solo_rev.terms_json
+    assert '"roles":["service_owner","owner"]' in solo_rev.document_json
+
+    with pytest.raises(AuthorizationLifecycleError, match="family_id mismatch"):
+        replace(solo_rev, family_id="family:other")
+    with pytest.raises(AuthorizationLifecycleError, match="predecessor mismatch"):
+        replace(solo_rev, predecessor_revision_id="sha256:" + "c" * 64)
+    with pytest.raises(AuthorizationLifecycleError, match="MUST contain canonical JSON"):
+        replace(solo_rev, terms_json="{bad-json")
+    with pytest.raises(AuthorizationLifecycleError, match="canonical JSON object"):
+        replace(solo_rev, terms_json="[]")
+
+    for field_name, tampered_value, match in (
+        ("authorization_revision", "sha256:" + "0" * 64, "document revision mismatch"),
+        ("status", "revoked", "MUST be active"),
+        ("service_ref", "service:tampered", "document terms mismatch"),
+    ):
+        tampered_doc = json.loads(solo_rev.document_json)
+        tampered_doc[field_name] = tampered_value
+        with pytest.raises(AuthorizationLifecycleError, match=match):
+            replace(
+                solo_rev,
+                document_json=json.dumps(tampered_doc, sort_keys=True, separators=(",", ":")),
+            )
+
 
 def test_unbounded_replay_and_reordered_or_partial_history_fail_closed() -> None:
     transitions: list[AuthorizationTransition] = []

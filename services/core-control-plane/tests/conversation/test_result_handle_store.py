@@ -14,6 +14,7 @@ from fdai.core.conversation.result_handle_store import (
     StaticResultHandleKeyProvider,
     reauthorize_result_handle_rows,
     rendered_order_digest,
+    result_handle_conversation_id,
 )
 from fdai_service_contracts.ontology_query import content_digest
 from fdai_service_contracts.reasoning_handles import (
@@ -252,5 +253,93 @@ def test_rendered_order_digest_matches_console_fixture_order() -> None:
 def test_result_handle_key_and_binding_validate_machine_tokens_and_non_empty_fields() -> None:
     with pytest.raises(ValueError, match="machine token"):
         ResultHandleKey("INVALID KEY!", b"a" * 32)
+    with pytest.raises(ValueError, match="32 bytes"):
+        ResultHandleKey("result-handle-key-v1", b"short")
     with pytest.raises(ValueError, match="binding fields MUST be non-empty"):
         _binding(purpose="   ")
+    with pytest.raises(ValueError, match="binding time MUST be timezone-aware"):
+        _binding(now=datetime(2026, 10, 1, 0, 0))
+    with pytest.raises(ValueError, match="session_id MUST be non-empty"):
+        result_handle_conversation_id("   ")
+
+
+@pytest.mark.asyncio
+async def test_secret_and_static_key_providers_resolve_and_validate_key_material() -> None:
+    import base64
+
+    from fdai.core.conversation.result_handle_store import SecretProviderResultHandleKeyProvider
+
+    secrets_map = {
+        "curr": "ab" * 32,
+        "prev": base64.b64encode(b"2" * 32).decode("ascii"),
+        "bad": "not-valid-base64!!!",
+    }
+
+    class _FakeSecretProvider:
+        async def get(self, name: str) -> str:
+            return secrets_map[name]
+
+    provider = SecretProviderResultHandleKeyProvider(
+        _FakeSecretProvider(),  # type: ignore[arg-type]
+        current_secret_name="curr",
+        previous_secret_name="prev",
+        current_key_version="result-handle-key-v2",
+        previous_key_version="result-handle-key-v1",
+    )
+    curr = await provider.key_for_version("result-handle-key-v2")
+    prev = await provider.key_for_version("result-handle-key-v1")
+    missing = await provider.key_for_version("result-handle-key-v9")
+
+    assert curr is not None and curr.key == bytes.fromhex("ab" * 32)
+    assert prev is not None and prev.key == b"2" * 32
+    assert missing is None
+
+    no_prev_provider = SecretProviderResultHandleKeyProvider(
+        _FakeSecretProvider(),  # type: ignore[arg-type]
+        current_secret_name="bad",
+    )
+    assert await no_prev_provider.key_for_version("result-handle-key-v9") is None
+    with pytest.raises(ValueError, match="not valid hex or base64"):
+        await no_prev_provider.current_key()
+
+    static_with_prev = StaticResultHandleKeyProvider(
+        current=_key("result-handle-key-v2", 2),
+        previous=_key("result-handle-key-v1", 1),
+    )
+    static_no_prev = StaticResultHandleKeyProvider(current=_key("result-handle-key-v2", 2))
+    assert await static_with_prev.key_for_version("result-handle-key-v9") is None
+    assert await static_no_prev.key_for_version("result-handle-key-v9") is None
+
+
+@pytest.mark.asyncio
+async def test_store_validates_timestamps_default_ref_factory_and_corrupted_envelopes() -> None:
+    store = InMemoryResultHandleStore(keys=StaticResultHandleKeyProvider(current=_key()))
+    naive = datetime(2026, 10, 1, 0, 0)
+    with pytest.raises(ValueError, match="issued_at MUST be timezone-aware"):
+        await store.put(_handle(), issued_at=naive, expires_at=NOW + timedelta(minutes=5))
+    with pytest.raises(ValueError, match="expires_at MUST be timezone-aware"):
+        await store.put(_handle(), issued_at=NOW, expires_at=naive)
+    with pytest.raises(ValueError, match="expires_at MUST be after issued_at"):
+        await store.put(_handle(), issued_at=NOW, expires_at=NOW)
+
+    ref = await store.put(_handle(), issued_at=NOW, expires_at=NOW + timedelta(minutes=15))
+    assert len(ref.handle_ref) >= 32
+
+    record = store._records[ref.handle_ref]
+    store._records[ref.handle_ref] = replace(
+        record, envelope={**record.envelope, "schema_version": "0.0"}
+    )
+    assert (
+        await store.get(ref, binding=_binding(), allowed_snapshot_fields={"name"})
+    ).status is ResultHandleGetStatus.UNAVAILABLE
+
+    store._records[ref.handle_ref] = replace(record, envelope={**record.envelope, "nonce": 123})
+    assert (
+        await store.get(ref, binding=_binding(), allowed_snapshot_fields={"name"})
+    ).status is ResultHandleGetStatus.UNAVAILABLE
+
+    store._records[ref.handle_ref] = record
+    store._keys = StaticResultHandleKeyProvider(current=_key("result-handle-key-v2", 2))
+    assert (
+        await store.get(ref, binding=_binding(), allowed_snapshot_fields={"name"})
+    ).status is ResultHandleGetStatus.UNAVAILABLE

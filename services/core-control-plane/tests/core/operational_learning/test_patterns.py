@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import json
 from dataclasses import replace
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 import pytest
@@ -24,6 +24,7 @@ from fdai.core.operational_learning.cohort_retention import (
     retain_cohort_case,
 )
 from fdai.core.operational_learning.legacy_suffix_retention import LegacyCaseSuffixRetention
+from fdai.core.operational_learning.patterns import valid_pattern_publication_envelope
 from fdai.shared.providers.case_history import CaseHistoryRevisionRecord
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from tests.core.case_history.test_operational_case import _case_input, _receipt
@@ -97,12 +98,18 @@ async def _retain_legacy(store: InMemoryStateStore, case: PatternCase) -> dict[s
     )
 
 
-def _deletion_record(
-    case: PatternCase,
-    *,
-    legal_hold: bool = False,
-) -> CaseHistoryRevisionRecord:
-    deletion_due_at = case.event_time_cutoff + timedelta(days=2)
+def _deletion_record(case: PatternCase, *, legal_hold: bool = False) -> CaseHistoryRevisionRecord:
+    due = case.event_time_cutoff + timedelta(days=2)
+    meta = (
+        ("action_type", case.action_type),
+        ("failure_fingerprint", case.failure_fingerprint),
+        ("fdai_revision", case.fdai_revision),
+        ("operational_outcome", case.outcome_class.value),
+        ("resource_type", case.resource_type),
+        ("scenario_set_version", case.scenario_set_version),
+        ("source_identity_digest", case.source_identity_digest),
+        ("source_kind", case.source_kind.value),
+    )
     return CaseHistoryRevisionRecord(
         case_id=case.case_id,
         revision=case.revision,
@@ -123,20 +130,11 @@ def _deletion_record(
         created_by_agent="Muninn",
         sealed_at=case.event_time_cutoff,
         retention_until=case.event_time_cutoff + timedelta(days=1),
-        deletion_due_at=deletion_due_at,
-        metadata=(
-            ("action_type", case.action_type),
-            ("failure_fingerprint", case.failure_fingerprint),
-            ("fdai_revision", case.fdai_revision),
-            ("operational_outcome", case.outcome_class.value),
-            ("resource_type", case.resource_type),
-            ("scenario_set_version", case.scenario_set_version),
-            ("source_identity_digest", case.source_identity_digest),
-            ("source_kind", case.source_kind.value),
-        ),
+        deletion_due_at=due,
+        metadata=meta,
         legal_hold=legal_hold,
         legal_hold_ref="hold-authority" if legal_hold else None,
-        deletion_started_at=deletion_due_at,
+        deletion_started_at=due,
         deletion_storage_refs=(f"case-history/{case.case_id}",),
     )
 
@@ -522,8 +520,8 @@ def test_compiler_requires_one_fingerprint_and_action_with_balanced_evidence() -
     rollback = _pattern_case("b", OperationalOutcomeClass.ROLLBACK)
     assert success is not None and rollback is not None
 
-    candidate = OperatingPatternCompiler().compile((success, rollback))
-
+    compiler = OperatingPatternCompiler()
+    candidate = compiler.compile((success, rollback))
     assert candidate is not None
     assert candidate.failure_fingerprint == success.failure_fingerprint
     assert dict(candidate.outcome_counts) == {"rollback": 1, "success": 1}
@@ -531,18 +529,8 @@ def test_compiler_requires_one_fingerprint_and_action_with_balanced_evidence() -
         success.immutable_case_ref,
         rollback.immutable_case_ref,
     )
-    assert (
-        OperatingPatternCompiler().compile(
-            (success, replace(rollback, action_type="ops.scale-out"))
-        )
-        is None
-    )
-    assert (
-        OperatingPatternCompiler().compile(
-            (success, replace(rollback, failure_fingerprint="f" * 64))
-        )
-        is None
-    )
+    assert compiler.compile((success, replace(rollback, action_type="ops.scale-out"))) is None
+    assert compiler.compile((success, replace(rollback, failure_fingerprint="f" * 64))) is None
 
 
 def test_success_without_explicit_rollback_result_is_not_reusable() -> None:
@@ -550,32 +538,17 @@ def test_success_without_explicit_rollback_result_is_not_reusable() -> None:
     receipts = []
     for receipt in case_input.receipts:
         if receipt.receipt_type is OperationalReceiptType.AUDIT:
-            receipts.append(
-                replace(
-                    receipt,
-                    facts=tuple(
-                        (key, "enforce" if key == "mode" else value) for key, value in receipt.facts
-                    ),
-                )
-            )
+            facts = tuple((k, "enforce" if k == "mode" else v) for k, v in receipt.facts)
+            receipts.append(replace(receipt, facts=facts))
         elif receipt.receipt_type is OperationalReceiptType.RESPONSE_OUTCOME:
-            receipts.append(
-                replace(
-                    receipt,
-                    facts=tuple(
-                        (key, value) for key, value in receipt.facts if key != "rollback_succeeded"
-                    ),
-                )
-            )
+            facts = tuple((k, v) for k, v in receipt.facts if k != "rollback_succeeded")
+            receipts.append(replace(receipt, facts=facts))
         else:
             receipts.append(receipt)
     case_input = replace(case_input, receipts=tuple(receipts))
     projection = compile_operational_case(case_input).projection(
-        case_id="case-missing-rollback",
-        case_revision=1,
-        manifest_digest="c" * 64,
+        case_id="case-missing-rollback", case_revision=1, manifest_digest="c" * 64
     )
-
     assert pattern_case_from_operational_case(case_input, projection) is None
 
 
@@ -598,3 +571,190 @@ def test_pattern_case_and_cohort_inputs_are_bounded() -> None:
     )
     with pytest.raises(ValueError, match="case limit"):
         OperatingPatternCompiler().compile(cases)
+
+
+def test_pattern_envelope_and_case_validation_branches() -> None:
+    success = _pattern_case("a", OperationalOutcomeClass.SUCCESS)
+    rollback = _pattern_case("b", OperationalOutcomeClass.ROLLBACK)
+    assert success is not None and rollback is not None
+    envelope = dict.fromkeys(
+        (
+            "producer_principal",
+            "kind",
+            "pattern_id",
+            "cohort_key",
+            "cohort_snapshot_ref",
+            "access_scope_digest",
+            "purpose",
+            "correlation_id",
+            "idempotency_key",
+        ),
+        "x",
+    ) | {"schema_version": "1.0.0"}
+    assert valid_pattern_publication_envelope(envelope) is True
+    assert valid_pattern_publication_envelope({**envelope, "envelope_schema_version": 1}) is True
+    assert not valid_pattern_publication_envelope({**envelope, "envelope_schema_version": True})
+    for bad in (
+        {"manifest_digest": "bad"},
+        {"resource_type": "BAD"},
+        {"reusable": False},
+        {"outcome_class": "other", "reusable": False, "negative": False},
+        {"fdai_revision": "bad"},
+        {"scenario_set_version": "BAD"},
+        {"event_time_cutoff": datetime(2026, 9, 26, 0, 0)},  # noqa: DTZ001
+        {"source_identity_digest": "bad"},
+        {"source_synthetic": "no"},
+        {"conflict_digests": ("bad",)},
+    ):
+        with pytest.raises(ValueError):
+            replace(success, **bad)  # type: ignore[arg-type]
+    raw = success.to_mapping()
+    assert PatternCase.from_mapping(raw) == success
+    with pytest.raises(ValueError, match="standard schema"):
+        PatternCase.from_mapping({})
+    for key, val in (
+        ("revision", True),
+        ("reusable", "yes"),
+        ("source_synthetic", "no"),
+        ("outcome_class", "unsupported"),
+        ("digest_evidence", "bad"),
+        ("digest_evidence", []),
+        ("digest_evidence", [1]),
+        ("case_id", ""),
+        ("event_time_cutoff", "2026-09-26T00:00:00"),
+        ("conflict_digests", "bad"),
+        ("conflict_digests", [1]),
+    ):
+        with pytest.raises(ValueError):
+            PatternCase.from_mapping({**raw, key: val})
+    compiler = OperatingPatternCompiler()
+    candidate = compiler.compile((success, rollback))
+    assert candidate is not None and candidate.to_rule_candidate_mapping()["proposed_by"] == "Norns"
+    dup = replace(rollback, case_id=success.case_id, manifest_digest=success.manifest_digest)
+    for bad_cohort in (
+        (success,),
+        (success, replace(rollback, fdai_revision="c" * 40)),
+        (success, replace(rollback, evidence_complete=False)),
+        (success, success),
+        (success, dup),
+    ):
+        assert compiler.compile(bad_cohort) is None
+    with pytest.raises(ValueError, match="review bounds"):
+        compiler.compile((success, rollback), max_case_age=timedelta(0))
+    many_ev = tuple(
+        replace(
+            success if i % 2 == 0 else rollback,
+            case_id=f"c-{i}",
+            manifest_digest=f"{i + 1:064x}",
+            digest_evidence=tuple(f"{i * 100 + j + 1:064x}" for j in range(60)),
+        )
+        for i in range(5)
+    )
+    with pytest.raises(ValueError, match="aggregate limit"):
+        compiler.compile(many_ev)
+    case_in = _case_input(outcome_class=OperationalOutcomeClass.SUCCESS)
+    proj = compile_operational_case(case_in).projection(
+        case_id="c-inc", case_revision=1, manifest_digest="d" * 64
+    )
+    with pytest.raises(ValueError, match="sealed input"):
+        pattern_case_from_operational_case(case_in, replace(proj, action_type="ops.other"))
+    object.__setattr__(case_in, "outcome_class", "other")
+    object.__setattr__(proj, "outcome_class", "other")
+    assert pattern_case_from_operational_case(case_in, proj) is None
+
+
+async def test_legacy_suffix_retention_error_and_edge_branches() -> None:
+    store = InMemoryStateStore()
+    deleted = _pattern_case("a", OperationalOutcomeClass.SUCCESS)
+    held = _pattern_case("b", OperationalOutcomeClass.ROLLBACK)
+    assert deleted is not None and held is not None
+    record, retention = _deletion_record(deleted), LegacyCaseSuffixRetention(store=store)
+    pred = dict(
+        kind="prediction",
+        outcome_label="true_positive",
+        detector_id="d",
+        detector_version="v1",
+        metric="cpu",
+        metadata=(),
+    )
+    await retention.purge(replace(record, **pred))  # type: ignore[arg-type]
+    cohort, ckey = await _retain_legacy(store, held), _cohort_key(deleted)
+    cursor_hash = hashlib.sha256(f"{ckey}:{record.case_id}".encode()).hexdigest()
+    cursor_key = f"case-history:legacy-suffix-scan:v1:{cursor_hash}"
+    await store.write_state(cursor_key, {"after": f"{ckey}:unknown:{'a' * 64}"})
+    with pytest.raises(ValueError, match="checkpoint is invalid"):
+        await retention._page(ckey, record)
+    retention._store._state.pop(cursor_key, None)
+    await store.write_state(f"{ckey}:other:1", {})
+    with pytest.raises(ValueError, match="unknown historical cohort suffix"):
+        await retention._page(ckey, record)
+    retention._store._state.pop(f"{ckey}:other:1", None)
+    no_keyset = LegacyCaseSuffixRetention(store=store)
+    no_keyset._keyset = None
+    with pytest.raises(RuntimeError, match="unavailable"):
+        await no_keyset._page(ckey, record)
+    digest = retention._digest(cohort["cases"])
+    skey, skey_ok = f"{ckey}:snapshot:{'a' * 64}", f"{ckey}:snapshot:{digest}"
+    pkey, ekey = f"{ckey}:pattern:{'b' * 64}", f"{ckey}:emitted:{digest}"
+    for fn, missing_key in (
+        (retention._snapshot, skey),
+        (retention._pattern, pkey),
+        (retention._emission, ekey),
+    ):
+        with pytest.raises(RuntimeError, match="disappeared"):
+            await fn(missing_key, record, ckey)
+    for bad_snap, msg in (
+        ({**cohort, "failure_fingerprint": "f" * 64}, "fingerprint conflict"),
+        (cohort, "digest conflict"),
+    ):
+        await store.write_state(skey, bad_snap)
+        with pytest.raises(ValueError, match=msg):
+            await retention._snapshot(skey, record, ckey)
+    await store.write_state(skey_ok, cohort)
+    await retention._snapshot(skey_ok, record, ckey)
+    base_pat = {
+        "schema_version": "1.0.0",
+        "pattern_id": "b" * 64,
+        "cohort_key": ckey,
+        "access_scope_digest": "a" * 64,
+        "purpose": "operational-learning",
+        "cases": [held.to_mapping()],
+    }
+    for patch, msg in (
+        ({"pattern_id": "wrong"}, "identity conflict"),
+        ({"deleted_case_ids": "bad"}, "deletion fences"),
+        ({"cases": [deleted.to_mapping()], "revision": True}, "Pattern revision"),
+    ):
+        await store.write_state(pkey, {**base_pat, **patch})
+        with pytest.raises(ValueError, match=msg):
+            await retention._pattern(pkey, record, ckey)
+    await store.write_state(pkey, base_pat)
+    await retention._pattern(pkey, record, ckey)
+    await retention._emission(ekey, record, ckey, optional=True)
+    await store.write_state(ekey, {"digest": "wrong", "revision": 1})
+    with pytest.raises(ValueError, match="marker identity"):
+        await retention._emission(ekey, record, ckey)
+    for key_to_write, val in (
+        (f"{ckey}:emitted:{'c' * 64}", {"digest": "c" * 64, "revision": 1}),
+        (ekey, {"digest": digest, "revision": 1}),
+    ):
+        await store.write_state(key_to_write, val)
+        await retention._emission(key_to_write, record, ckey)
+    await store.write_state(
+        skey_ok, {**cohort, "deleted_case_ids": [deleted.case_id], "retired": True}
+    )
+    await store.write_state(ekey, {"digest": digest, "revision": 1, "retired": True})
+    await retention._emission(ekey, record, ckey)
+    with pytest.raises(ValueError, match="row revision"):
+        await retention._replace(ekey, {"revision": -1}, {}, record)
+    with pytest.raises(RuntimeError, match="CAS or independent"):
+        await retention._replace(ekey, {"revision": 99}, {}, record)
+    for bad_cases in ([{}] * 101, ["bad"], [{"case": "bad"}]):
+        with pytest.raises(ValueError):
+            retention._remaining(bad_cases, "x")
+    with pytest.raises(ValueError, match="cohort key is invalid"):
+        retention._valid_suffix_key(f"{ckey}:snapshot:bad", ckey)
+    assert retention._valid_suffix_key(f"{ckey}:unknown:{'a' * 64}", ckey) is False
+    unclaimed = replace(record, deletion_started_at=None, deletion_storage_refs=())
+    with pytest.raises(PermissionError, match="source deletion claim"):
+        retention._audit(unclaimed, ekey, 1)

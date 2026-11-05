@@ -18,7 +18,21 @@ from fdai.core.conversation.semantic_reasoning_concepts import (
     ConceptSelectionReceipt,
     concept_catalogs,
 )
-from fdai.core.conversation.semantic_reasoning_form import MentionDomain
+from fdai.core.conversation.semantic_reasoning_form import (
+    FormMeasure,
+    FormRelation,
+    MeasureKind,
+    MentionDomain,
+)
+from fdai.core.conversation.semantic_reasoning_nodes import CompileContext
+from fdai.core.conversation.semantic_reasoning_property_reads import (
+    expected_anchor_id,
+    expected_anchor_type,
+    expected_property_fields,
+    property_field,
+    property_lookup,
+    readable_resource_properties,
+)
 from fdai.core.conversation.semantic_reasoning_verification import verify_goal_semantics
 from fdai.rule_catalog.schema.property_semantic import (
     EquivalentProviderPath,
@@ -670,3 +684,93 @@ def test_an_aggregate_group_redacts_sensitive_values_and_keeps_row_fields() -> N
     assert row["value"] == 3
     assert "nested" not in row
     assert "group" not in row
+
+
+def test_property_lookup_and_helpers_guard_invalid_goals_bindings_and_descriptors() -> None:
+    manifest = production_manifest()
+    admission = admitted(_form(), _UTTERANCE)
+    goal = admission.form.goals[0]
+
+    def _ctx(
+        concepts: ConceptSelectionReceipt | None = None,
+        anchors: AnchorBindingReceipt | None = None,
+    ) -> CompileContext:
+        return CompileContext(
+            manifest=manifest,
+            admission=admission,
+            concepts=concepts if concepts is not None else _concepts(),
+            purpose=PURPOSE,
+            evaluation_time=NOW,
+            default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+            anchors=anchors if anchors is not None else _anchors(),
+        )
+
+    assert property_lookup(goal.model_copy(update={"measure": None}), _ctx()).unsupported == (
+        "property_mention_required",
+    )
+    assert property_lookup(goal.model_copy(update={"subject": None}), _ctx()).unsupported == (
+        "anchor_missing",
+    )
+    wrong_domain = goal.model_copy(
+        update={"measure": FormMeasure(kind=MeasureKind.PROPERTY, mention="m1")}
+    )
+    assert property_lookup(wrong_domain, _ctx()).unsupported == (
+        "property_mention_domain:instance",
+    )
+    assert property_lookup(goal, _ctx(ConceptSelectionReceipt(()))).unsupported == (
+        "concept_unbound:m2",
+    )
+    assert property_lookup(goal, _ctx(_concepts(outcome=ConceptOutcome.AMBIGUOUS))).clarify == (
+        "concept_ambiguous",
+    )
+    assert property_lookup(
+        goal, _ctx(_concepts(outcome=ConceptOutcome.UNAVAILABLE))
+    ).unsupported == ("property_unreadable",)
+    assert len(property_lookup(goal, _ctx(_concepts(("Resource.location",)), _anchors(None))).specs)
+
+    readable = frozenset({"id", "name", "type"})
+    reads = manifest.property_reads
+    assert property_field("Resource.secret", reads, "sql-database", readable) == (
+        "property_unreadable"
+    )
+    assert property_field("unreviewed.prop", reads, "sql-database", readable) == (
+        "property_unreviewed"
+    )
+    assert property_field(_ZONE, reads, "sql-database", readable) == "property_unreadable"
+
+    for bad_goal, bad_concepts, bad_anchors in (
+        (goal.model_copy(update={"measure": None}), _concepts(), _anchors()),
+        (wrong_domain, _concepts(), _anchors()),
+        (goal, ConceptSelectionReceipt(()), _anchors()),
+        (goal.model_copy(update={"subject": None}), _concepts(), _anchors()),
+        (goal, _concepts(), AnchorBindingReceipt()),
+    ):
+        assert (
+            expected_property_fields(
+                bad_goal,
+                admission=admission,
+                concepts=bad_concepts,
+                anchors=bad_anchors,
+                reads=reads,
+                readable=readable,
+            )
+            is None
+        )
+
+    rel_goal = goal.model_copy(
+        update={"subject": None, "relation": FormRelation.model_construct(anchor="m1")}
+    )
+    assert expected_anchor_type(rel_goal, _anchors()) == "sql-database"
+    assert expected_anchor_id(rel_goal, _anchors()) == "sql-1"
+    no_sub = goal.model_copy(update={"subject": None})
+    assert expected_anchor_type(no_sub, _anchors()) is None
+    assert expected_anchor_id(no_sub, _anchors()) is None
+    assert (
+        expected_anchor_id(goal, AnchorBindingReceipt((AnchorBinding("m1", AnchorOutcome.ABSENT),)))
+        is None
+    )
+    assert readable_resource_properties(()) == frozenset()
+    assert (
+        readable_resource_properties([{"kind": "object", "name": "Resource", "properties": None}])
+        == frozenset()
+    )

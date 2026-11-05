@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from dataclasses import replace
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any
 
 import pytest
 from fdai.core.case_history import CaseHistoryMaterializer, CaseSourceRecord
@@ -51,55 +51,10 @@ from tests.core.measurement.test_operational_promotion import (
     _with_admission,
 )
 
-
-class _AdmissionChanges(TypedDict, total=False):
-    receipt_digest: str
-    verification_bundle_digest: str
-    evidence_digest: str
-    scope_digest: str
-    purpose_id: str
-    source_revision: str
-    verified_at: datetime
-    valid_until: datetime
-
-
-class _BindingChanges(TypedDict, total=False):
-    candidate_digest: str
-    package_digest: str
-    replay_first_digest: str
-    replay_second_digest: str
-    immutable_case_refs: tuple[str, ...]
-    access_scope_digest: str
-    purpose: str
-
-
-class _ReviewChanges(TypedDict, total=False):
-    action_type: str
-    action_type_version: str
-    action_type_digest: str
-    fdai_revision: str
-    scenario_set_version: str
-    promotion_policy_digest: str
-    candidate_digest: str
-    package_digest: str
-    replay_first_digest: str
-    replay_second_digest: str
-    review_ref: str
-    reviewer_principal: str
-    approved: bool
-
-
-class _ReceiptChanges(TypedDict, total=False):
-    reviewed_replay_binding: ReviewedReplayBinding | None
-    decision_evidence_receipt_digest: str | None
-    decision_evidence_verification_bundle_digest: str | None
-    action_type_version: str
-    sample_count: int
-    accuracy: float
-    policy_escapes: int
-    rollback_rate: float
-    ready: bool
-    gaps: tuple[str, ...]
+type _AdmissionChanges = dict[str, Any]
+type _BindingChanges = dict[str, Any]
+type _ReviewChanges = dict[str, Any]
+type _ReceiptChanges = dict[str, Any]
 
 
 class _Source:

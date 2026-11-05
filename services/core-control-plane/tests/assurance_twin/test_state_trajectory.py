@@ -12,11 +12,14 @@ from fdai.core.assurance_twin import (
     InvariantStatus,
     OperationalStateTrajectory,
     StateSlice,
+    StateStoreTrajectoryEpisodeLedger,
+    TrajectoryEpisodeConflictError,
     TrajectoryKind,
     TrajectoryOutcomeStatus,
     close_trajectory_outcome,
     evaluate_dynamic_invariants,
 )
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _NOW = datetime(2026, 8, 4, tzinfo=UTC)
 
@@ -226,3 +229,277 @@ def test_graph_or_inventory_revision_mismatch_is_unscorable() -> None:
 
     assert graph_mismatch.status is TrajectoryOutcomeStatus.UNSCORABLE
     assert inventory_mismatch.status is TrajectoryOutcomeStatus.UNSCORABLE
+
+
+async def test_trajectory_ledger_validates_configuration_and_recording_inputs() -> None:
+    store = InMemoryStateStore()
+    with pytest.raises(ValueError, match="max_retries MUST be >= 1"):
+        StateStoreTrajectoryEpisodeLedger(store, max_retries=0)
+    with pytest.raises(ValueError, match="max_retries MUST be >= 1"):
+        StateStoreTrajectoryEpisodeLedger(store, max_retries=True)
+
+    ledger = StateStoreTrajectoryEpisodeLedger(store)
+    predicted = _trajectory(TrajectoryKind.PREDICTED)
+    observed = _trajectory(TrajectoryKind.OBSERVED)
+
+    with pytest.raises(ValueError, match="MUST use predicted kind"):
+        await ledger.record_prediction(
+            observed,
+            challenger_model_refs=("model@1.0.0",),
+            recorded_by="Forseti",
+            recorded_at=_NOW,
+        )
+    with pytest.raises(ValueError, match="MUST be sorted, unique, and bounded"):
+        await ledger.record_prediction(
+            predicted,
+            challenger_model_refs=(),
+            recorded_by="Forseti",
+            recorded_at=_NOW,
+        )
+    with pytest.raises(ValueError, match="MUST be timezone-aware"):
+        await ledger.record_prediction(
+            predicted,
+            challenger_model_refs=("model@1.0.0",),
+            recorded_by="Forseti",
+            recorded_at=datetime(2026, 8, 4, 0, 0),
+        )
+    with pytest.raises(ValueError, match="recorded_by MUST be non-empty"):
+        await ledger.record_prediction(
+            predicted,
+            challenger_model_refs=("model@1.0.0",),
+            recorded_by=" ",
+            recorded_at=_NOW,
+        )
+    with pytest.raises(ValueError, match="open-episode limit"):
+        await ledger.list_open(limit=0)
+    with pytest.raises(ValueError, match="open-episode limit"):
+        await ledger.list_open(limit=True)
+
+
+async def test_trajectory_ledger_records_lists_and_closes_episodes_idempotently() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreTrajectoryEpisodeLedger(store)
+    predicted = _trajectory(TrajectoryKind.PREDICTED)
+    observed_mismatch = _trajectory(TrajectoryKind.OBSERVED, second_value=95.0)
+    closed_at = _NOW + timedelta(minutes=3)
+
+    assert (
+        await ledger.record_prediction(
+            predicted,
+            challenger_model_refs=("model@1.0.0",),
+            recorded_by="Forseti",
+            recorded_at=_NOW,
+        )
+        is True
+    )
+    assert (
+        await ledger.record_prediction(
+            predicted,
+            challenger_model_refs=("model@1.0.0",),
+            recorded_by="Forseti",
+            recorded_at=_NOW,
+        )
+        is False
+    )
+    with pytest.raises(TrajectoryEpisodeConflictError, match="prediction identity conflict"):
+        await ledger.record_prediction(
+            predicted,
+            challenger_model_refs=("other@1.0.0",),
+            recorded_by="Forseti",
+            recorded_at=_NOW,
+        )
+
+    open_episodes = await ledger.list_open()
+    assert len(open_episodes) == 1
+    assert open_episodes[0].predicted == predicted
+
+    with pytest.raises(ValueError, match="MUST follow the observation horizon"):
+        await ledger.close(
+            prediction_digest=predicted.digest,
+            observed=observed_mismatch,
+            recorded_at=_NOW + timedelta(minutes=1),
+        )
+    with pytest.raises(ValueError, match="prediction digest MUST be SHA-256"):
+        await ledger.close(
+            prediction_digest="bad-digest",
+            observed=observed_mismatch,
+            recorded_at=closed_at,
+        )
+    with pytest.raises(KeyError, match="episode was not found"):
+        await ledger.close(
+            prediction_digest="0" * 64,
+            observed=observed_mismatch,
+            recorded_at=closed_at,
+        )
+
+    first_close = await ledger.close(
+        prediction_digest=predicted.digest,
+        observed=observed_mismatch,
+        recorded_at=closed_at,
+    )
+    assert first_close.closed is True
+    assert first_close.duplicate is False
+    assert first_close.outcome.status is TrajectoryOutcomeStatus.MISMATCHED
+    assert await ledger.list_open() == ()
+
+    duplicate_close = await ledger.close(
+        prediction_digest=predicted.digest,
+        observed=observed_mismatch,
+        recorded_at=closed_at,
+    )
+    assert duplicate_close.closed is True
+    assert duplicate_close.duplicate is True
+    assert duplicate_close.outcome.mismatched_keys == first_close.outcome.mismatched_keys
+
+    with pytest.raises(TrajectoryEpisodeConflictError, match="closure observation conflict"):
+        await ledger.close(
+            prediction_digest=predicted.digest,
+            observed=_trajectory(TrajectoryKind.OBSERVED, second_value=80.0),
+            recorded_at=closed_at,
+        )
+
+
+async def test_trajectory_ledger_rejects_ineligible_closure_and_detects_conflicts() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreTrajectoryEpisodeLedger(store)
+    predicted = _trajectory(TrajectoryKind.PREDICTED)
+    closed_at = _NOW + timedelta(minutes=3)
+    await ledger.record_prediction(
+        predicted,
+        challenger_model_refs=("model@1.0.0",),
+        recorded_by="Forseti",
+        recorded_at=_NOW,
+    )
+
+    rejected = await ledger.close(
+        prediction_digest=predicted.digest,
+        observed=_trajectory(TrajectoryKind.OBSERVED, complete=False, truncated=True),
+        recorded_at=closed_at,
+    )
+    assert rejected.closed is False
+    assert rejected.duplicate is False
+    assert rejected.outcome.status is TrajectoryOutcomeStatus.INCOMPLETE
+
+    key = f"dynamic-trajectory-episode:{predicted.digest}"
+    raw_episode = dict(await store.read_state(key) or {})
+    tampered_predicted = {**dict(raw_episode["predicted"]), "base_snapshot_id": "tampered"}
+    await store.write_state(key, {**raw_episode, "predicted": tampered_predicted})
+    with pytest.raises(TrajectoryEpisodeConflictError, match="prediction identity mismatch"):
+        await ledger.close(
+            prediction_digest=predicted.digest,
+            observed=_trajectory(TrajectoryKind.OBSERVED),
+            recorded_at=closed_at,
+        )
+
+    class _AlwaysConflictStore(InMemoryStateStore):
+        async def compare_and_set_state_with_audit(
+            self,
+            state_key: str,
+            value: dict[str, object],
+            *,
+            expected_revision: int,
+            audit_entry: dict[str, object],
+        ) -> bool:
+            _ = (state_key, value, expected_revision, audit_entry)
+            return False
+
+    conflict_store = _AlwaysConflictStore()
+    conflict_ledger = StateStoreTrajectoryEpisodeLedger(conflict_store, max_retries=2)
+    await conflict_ledger.record_prediction(
+        predicted,
+        challenger_model_refs=("model@1.0.0",),
+        recorded_by="Forseti",
+        recorded_at=_NOW,
+    )
+    with pytest.raises(TrajectoryEpisodeConflictError, match="closure revision conflict"):
+        await conflict_ledger.close(
+            prediction_digest=predicted.digest,
+            observed=_trajectory(TrajectoryKind.OBSERVED),
+            recorded_at=closed_at,
+        )
+
+
+async def test_trajectory_ledger_rejects_corrupted_stored_payloads() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreTrajectoryEpisodeLedger(store)
+    predicted = _trajectory(TrajectoryKind.PREDICTED)
+    await ledger.record_prediction(
+        predicted,
+        challenger_model_refs=("model@1.0.0",),
+        recorded_by="Forseti",
+        recorded_at=_NOW,
+    )
+    key = f"dynamic-trajectory-episode:{predicted.digest}"
+    valid_raw = dict(await store.read_state(key) or {})
+    valid_predicted = dict(valid_raw["predicted"])
+    valid_slice = dict(valid_predicted["slices"][0])
+
+    await store.write_state(key, {**valid_raw, "predicted": "not-an-object"})
+    with pytest.raises(ValueError, match="MUST be an object"):
+        await ledger.list_open()
+
+    await store.write_state(
+        key,
+        {**valid_raw, "predicted": {**valid_predicted, "slices": "not-a-list"}},
+    )
+    with pytest.raises(ValueError, match="slices MUST be a list"):
+        await ledger.list_open()
+
+    await store.write_state(
+        key,
+        {
+            **valid_raw,
+            "predicted": {**valid_predicted, "slices": [{**valid_slice, "object_ref": ""}]},
+        },
+    )
+    with pytest.raises(ValueError, match="object_ref MUST be non-empty"):
+        await ledger.list_open()
+
+    await store.write_state(
+        key,
+        {
+            **valid_raw,
+            "predicted": {**valid_predicted, "slices": [{**valid_slice, "model_ref": ""}]},
+        },
+    )
+    with pytest.raises(ValueError, match="model_ref MUST be non-empty when present"):
+        await ledger.list_open()
+
+    await store.write_state(
+        key,
+        {**valid_raw, "challenger_model_refs": [123]},
+    )
+    with pytest.raises(ValueError, match="challenger_model_refs MUST be a string list"):
+        await ledger.list_open()
+
+    observed = _trajectory(TrajectoryKind.OBSERVED)
+    await store.write_state(key, valid_raw)
+    await ledger.close(
+        prediction_digest=predicted.digest,
+        observed=observed,
+        recorded_at=_NOW + timedelta(minutes=3),
+    )
+    closed_raw = dict(await store.read_state(key) or {})
+    closed_outcome = dict(closed_raw["outcome"])
+
+    await store.write_state(
+        key,
+        {**closed_raw, "outcome": {**closed_outcome, "mismatched_keys": "bad"}},
+    )
+    with pytest.raises(ValueError, match="mismatched_keys MUST be a list"):
+        await ledger.close(
+            prediction_digest=predicted.digest,
+            observed=observed,
+            recorded_at=_NOW + timedelta(minutes=3),
+        )
+
+    await store.write_state(
+        key,
+        {**closed_raw, "outcome": {**closed_outcome, "mismatched_keys": [["only-two", "items"]]}},
+    )
+    with pytest.raises(ValueError, match="mismatch key MUST contain three values"):
+        await ledger.close(
+            prediction_digest=predicted.digest,
+            observed=observed,
+            recorded_at=_NOW + timedelta(minutes=3),
+        )

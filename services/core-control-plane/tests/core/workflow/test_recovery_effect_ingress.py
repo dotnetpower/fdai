@@ -517,3 +517,217 @@ class TestUnboundIntakeStaysNamed:
             await store.read_state(recovery_effect_observation_key(attempt, _RECEIPT_DIGEST))
             is None
         )
+
+
+class TestRecoveryDispatchCoordinator:
+    async def test_claim_and_dispatch_lifecycle_edges(self) -> None:
+        from fdai.core.workflow.recovery_attempt import (
+            RecoveryDispatchOutcome,
+            RecoveryDispatchResult,
+        )
+        from fdai.core.workflow.recovery_coordinator_dispatch import (
+            RecoveryDispatchCoordinator,
+            _InFlightLease,
+        )
+        from fdai.core.workflow.recovery_coordinator_models import (
+            RecoveryClaimDispatchState,
+            RecoveryCoordinatorConfig,
+        )
+        from fdai.core.workflow.recovery_coordinator_records import claim_key
+        from fdai.core.workflow.recovery_coordinator_support import RecoveryEvidenceJournal
+        from fdai.shared.providers.process_runtime import ProcessSnapshot, ProcessStatus
+
+        store, attempt = await _bound()
+        cfg = RecoveryCoordinatorConfig(
+            executor_identity=_EXECUTOR,
+            source_revision=_SOURCE_REVISION,
+        )
+        now_box = [_NOW]
+        journal = RecoveryEvidenceJournal(audit_store=store, clock=lambda: now_box[0])
+        snap = ProcessSnapshot(
+            process_id=_PROCESS_ID,
+            workflow_ref="wf-1",
+            workflow_version="1.0.0",
+            status=ProcessStatus.WAITING,
+            current_step="s1",
+            target_resource_id=_TARGET,
+            started_at=_NOW,
+            updated_at=_NOW,
+            correlation_id="corr-1",
+        )
+
+        async def _dispatch(c: RecoveryDispatchCoordinator, cl: Any) -> RecoveryDispatchResult:
+            return await c.dispatch_once(
+                snapshot=snap,
+                attempt=attempt,
+                claim=cl,
+                safeguard_bundle_digest=_RECEIPT_DIGEST,
+                recovery_params=_PARAMS,
+            )
+
+        coord_none = RecoveryDispatchCoordinator(
+            audit_store=store, config=cfg, journal=journal, dispatcher=None
+        )
+        claim = await coord_none.claim_once(attempt=attempt, hold_revision=1)
+        assert claim is not None
+        assert await coord_none.claim_once(attempt=attempt, hold_revision=1) == claim
+        assert (await _dispatch(coord_none, claim)).outcome is RecoveryDispatchOutcome.NOT_INVOKED
+        assert await coord_none._reconcile(attempt=attempt, claim=claim) is None
+
+        class _StubDispatcher:
+            def __init__(self) -> None:
+                self.mode = "fail_dispatch"
+                self.reconcile_mode = "none"
+
+            async def dispatch_recovery(self, **_: Any) -> RecoveryDispatchResult:
+                if self.mode == "fail_dispatch":
+                    raise RuntimeError("network timeout")
+                return RecoveryDispatchResult.create(
+                    attempt_identity_digest=attempt.identity_digest,
+                    claim_digest=claim.claim_digest,
+                    outcome=RecoveryDispatchOutcome.DISPATCHED,
+                    provider_receipt_digest=_RECEIPT_DIGEST,
+                    recorded_at=now_box[0],
+                )
+
+            async def reconcile_recovery(self, **_: Any) -> RecoveryDispatchResult | None:
+                if self.reconcile_mode == "error":
+                    raise RuntimeError("reconcile down")
+                if self.reconcile_mode == "none":
+                    return None
+                return RecoveryDispatchResult.create(
+                    attempt_identity_digest=attempt.identity_digest,
+                    claim_digest=claim.claim_digest,
+                    outcome=RecoveryDispatchOutcome.DISPATCHED,
+                    provider_receipt_digest=_RECEIPT_DIGEST,
+                    recorded_at=now_box[0],
+                )
+
+        dispatcher = _StubDispatcher()
+        coord = RecoveryDispatchCoordinator(
+            audit_store=store, config=cfg, journal=journal, dispatcher=dispatcher
+        )
+        assert (await _dispatch(coord, claim)).outcome is RecoveryDispatchOutcome.IN_DOUBT
+
+        dispatcher.reconcile_mode = "error"
+        assert (await _dispatch(coord, claim)).outcome is RecoveryDispatchOutcome.IN_DOUBT
+
+        dispatcher.reconcile_mode = "dispatched"
+        assert (await _dispatch(coord, claim)).outcome is RecoveryDispatchOutcome.DISPATCHED
+        assert (await _dispatch(coord, claim)).outcome is RecoveryDispatchOutcome.DISPATCHED
+
+        claim2 = await coord.claim_once(attempt=attempt, hold_revision=2)
+        assert claim2 is not None
+        dispatcher.mode = "ok"
+        res_direct = await _dispatch(coord, claim2)
+        assert res_direct.outcome is RecoveryDispatchOutcome.DISPATCHED
+
+        claim3 = await coord.claim_once(attempt=attempt, hold_revision=3)
+        assert claim3 is not None
+        key3 = claim_key(attempt, 3)
+        rec3 = await store.read_state(key3)
+        assert rec3 is not None
+        await store.write_state(
+            key3,
+            {
+                **rec3,
+                "dispatch_state": RecoveryClaimDispatchState.IN_FLIGHT,
+                "in_flight_owner": "other-owner",
+                "in_flight_expires_at": (_NOW + timedelta(minutes=5)).isoformat(),
+                "revision": 2,
+            },
+        )
+        assert (await _dispatch(coord, claim3)).outcome is RecoveryDispatchOutcome.IN_DOUBT
+
+        now_box[0] = _NOW + timedelta(minutes=10)
+        dispatcher.reconcile_mode = "none"
+        assert (await _dispatch(coord, claim3)).outcome is RecoveryDispatchOutcome.IN_DOUBT
+
+        assert await coord._acquire_in_flight(key=key3, claim=claim3, stored=None) is None
+        assert (
+            await coord._acquire_in_flight(key=key3, claim=claim3, stored={"revision": "bad"})
+            is None
+        )
+        assert (
+            await coord._acquire_in_flight(
+                key=key3,
+                claim=claim3,
+                stored={"revision": 1, "dispatch_outcome": RecoveryDispatchOutcome.DISPATCHED},
+            )
+            is None
+        )
+        assert (
+            await coord._acquire_in_flight(
+                key=key3,
+                claim=claim3,
+                stored={"revision": 999, "dispatch_state": RecoveryClaimDispatchState.UNCLAIMED},
+            )
+            is not None
+        )
+
+        lease = _InFlightLease(owner="owner-x", took_over=False)
+        await coord._record_dispatch(
+            key="missing-key", claim=claim3, result=res_direct, lease=lease
+        )
+        await store.write_state("bad-rev-key", {"revision": "bad"})
+        await coord._record_dispatch(
+            key="bad-rev-key", claim=claim3, result=res_direct, lease=lease
+        )
+        await store.write_state(
+            "already-disp-key",
+            {
+                "revision": 1,
+                "dispatch_outcome": RecoveryDispatchOutcome.DISPATCHED,
+                "in_flight_owner": "other",
+            },
+        )
+        await coord._record_dispatch(
+            key="already-disp-key", claim=claim3, result=res_direct, lease=lease
+        )
+
+        class _RaceStore(InMemoryStateStore):
+            def __init__(self, populate_on_race: bool) -> None:
+                super().__init__(linearization_clock=lambda: _NOW)
+                self.populate_on_race = populate_on_race
+
+            async def write_state_with_audit_if_absent(
+                self, key: str, value: Mapping[str, Any], audit_entry: Mapping[str, Any]
+            ) -> bool:
+                if self.populate_on_race:
+                    await self.write_state(key, value)
+                return False
+
+            async def compare_and_set_state_with_audit(
+                self,
+                key: str,
+                value: Mapping[str, Any],
+                *,
+                expected_revision: int,
+                audit_entry: Mapping[str, Any],
+            ) -> bool:
+                return False
+
+        for pop in (False, True):
+            rstore = _RaceStore(populate_on_race=pop)
+            rcoord = RecoveryDispatchCoordinator(
+                audit_store=rstore,
+                config=cfg,
+                journal=RecoveryEvidenceJournal(audit_store=rstore, clock=lambda: _NOW),
+            )
+            rclaim = await rcoord.claim_once(attempt=attempt, hold_revision=4)
+            assert (rclaim is not None) is pop
+            if rclaim is not None:
+                assert (
+                    await rcoord._acquire_in_flight(
+                        key=claim_key(attempt, 4),
+                        claim=rclaim,
+                        stored={"revision": 1},
+                    )
+                    is None
+                )
+                await rcoord._record_dispatch(
+                    key=claim_key(attempt, 4),
+                    claim=rclaim,
+                    result=res_direct,
+                    lease=lease,
+                )
