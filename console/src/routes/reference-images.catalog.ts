@@ -999,6 +999,7 @@ export const FRAMEWORK_TITLES_BY_KEY: Readonly<Record<string, { readonly en: str
 };
 
 const CONTROL_IMAGE_BINDINGS: Readonly<Record<string, string>> = {
+  "azure-waf:RE:01": "avs-interconnect",
   "azure-waf:RE:02": "point-in-time-restore-diagram",
   "azure-waf:RE:03": "vmbackup-architecture",
   "azure-waf:RE:04": "geo-zone-redundant-storage",
@@ -1008,30 +1009,71 @@ const CONTROL_IMAGE_BINDINGS: Readonly<Record<string, string>> = {
   "azure-waf:RE:08": "scheduled-events-timeline",
   "azure-waf:RE:09": "vmbackup-architecture",
   "azure-waf:RE:10": "aks-monitor-data-v2",
+  "azure-waf:SE:01": "data-export-overview",
   "azure-waf:SE:02": "02-soft-delete",
+  "azure-waf:SE:03": "data-export-overview",
   "azure-waf:SE:04": "fastpath-vnet-peering",
   "azure-waf:SE:05": "backup-item-delete-flow",
   "azure-waf:SE:06": "front-door-overview",
+  "azure-waf:SE:07": "geo-zone-redundant-storage",
   "azure-waf:SE:08": "geo-zone-redundant-storage",
   "azure-waf:SE:09": "backup-item-delete-flow",
   "azure-waf:SE:10": "main-diagram",
+  "azure-waf:SE:11": "scheduled-events-timeline",
+  "azure-waf:SE:12": "aks-monitor-data-v2",
+  "azure-waf:CO:01": "data-export-overview",
+  "azure-waf:CO:02": "data-export-overview",
+  "azure-waf:CO:03": "aks-monitor-data-v2",
+  "azure-waf:CO:04": "data-export-overview",
+  "azure-waf:CO:05": "aks-node-pools",
+  "azure-waf:CO:06": "aks-node-pools",
+  "azure-waf:CO:07": "aks-node-pools",
+  "azure-waf:CO:08": "02-soft-delete",
+  "azure-waf:CO:09": "front-door-overview",
+  "azure-waf:CO:10": "geo-zone-redundant-storage",
+  "azure-waf:CO:11": "aks-monitor-data-v2",
+  "azure-waf:CO:12": "aks-node-pools",
+  "azure-waf:CO:13": "scheduled-events-timeline",
+  "azure-waf:CO:14": "avs-interconnect",
+  "azure-waf:OE:01": "data-export-overview",
   "azure-waf:OE:02": "02-soft-delete",
+  "azure-waf:OE:03": "02-soft-delete",
+  "azure-waf:OE:04": "02-soft-delete",
   "azure-waf:OE:05": "02-soft-delete",
+  "azure-waf:OE:06": "02-soft-delete",
   "azure-waf:OE:07": "network-watcher-capabilities",
+  "azure-waf:OE:08": "aks-monitor-data-v2",
   "azure-waf:OE:09": "scheduled-events-timeline",
+  "azure-waf:OE:10": "scheduled-events-timeline",
+  "azure-waf:OE:11": "appgatewayprobe",
+  "azure-waf:PE:01": "aks-monitor-data-v2",
+  "azure-waf:PE:02": "aks-node-pools",
   "azure-waf:PE:03": "appgatewayprobe",
+  "azure-waf:PE:04": "aks-monitor-data-v2",
   "azure-waf:PE:05": "aks-node-pools",
+  "azure-waf:PE:06": "appgatewayprobe",
   "azure-waf:PE:07": "front-door-overview",
+  "azure-waf:PE:08": "geo-zone-redundant-storage",
+  "azure-waf:PE:09": "appgatewayprobe",
+  "azure-waf:PE:10": "aks-node-pools",
+  "azure-waf:PE:11": "scheduled-events-timeline",
+  "azure-waf:PE:12": "aks-monitor-data-v2",
+  "azure-caf:strategy": "data-export-overview",
+  "azure-caf:plan": "scheduled-events-timeline",
   "azure-caf:ready": "avs-interconnect",
   "azure-caf:adopt": "aks-node-pools",
   "azure-caf:govern": "data-export-overview",
   "azure-caf:manage": "network-watcher-capabilities",
   "azure-caf:secure": "front-door-overview",
+  "azure-caf:landing-zone.billing-tenant": "data-export-overview",
+  "azure-caf:landing-zone.identity-access": "backup-item-delete-flow",
+  "azure-caf:landing-zone.resource-organization": "avs-interconnect",
   "azure-caf:landing-zone.network-connectivity": "fastpath-vnet-peering",
   "azure-caf:landing-zone.security": "front-door-overview",
   "azure-caf:landing-zone.management": "vmbackup-architecture",
   "azure-caf:landing-zone.governance": "data-export-overview",
   "azure-caf:landing-zone.platform-automation-devops": "02-soft-delete",
+  "azure-mcsb:NS-1": "fastpath-vnet-peering",
   "azure-mcsb:NS-2": "fastpath-vnet-peering",
   "azure-mcsb:NS-3": "fastpath-vnet-peering",
   "azure-mcsb:NS-4": "network-watcher-capabilities",
@@ -1040,9 +1082,14 @@ const CONTROL_IMAGE_BINDINGS: Readonly<Record<string, string>> = {
   "azure-mcsb:NS-7": "network-watcher-capabilities",
   "azure-mcsb:NS-8": "network-watcher-capabilities",
   "azure-mcsb:NS-9": "bfd-need",
+  "azure-mcsb:NS-10": "network-watcher-capabilities",
+  "azure-mcsb:DP-1": "data-export-overview",
+  "azure-mcsb:DP-2": "geo-zone-redundant-storage",
   "azure-mcsb:DP-3": "front-door-overview",
   "azure-mcsb:DP-4": "geo-zone-redundant-storage",
   "azure-mcsb:DP-5": "geo-zone-redundant-storage",
+  "azure-mcsb:DP-6": "backup-item-delete-flow",
+  "azure-mcsb:DP-7": "backup-item-delete-flow",
   "azure-mcsb:DP-8": "backup-item-delete-flow",
   "azure-mcsb:LT-1": "aks-monitor-data-v2",
   "azure-mcsb:LT-2": "data-export-overview",
@@ -1050,32 +1097,83 @@ const CONTROL_IMAGE_BINDINGS: Readonly<Record<string, string>> = {
   "azure-mcsb:LT-4": "main-diagram",
   "azure-mcsb:LT-5": "data-export-overview",
   "azure-mcsb:LT-6": "data-export-overview",
+  "azure-mcsb:LT-7": "scheduled-events-timeline",
+  "azure-mcsb:IR-1": "scheduled-events-timeline",
   "azure-mcsb:IR-2": "data-export-overview",
   "azure-mcsb:IR-3": "aks-monitor-data-v2",
   "azure-mcsb:IR-4": "aks-monitor-data-v2",
+  "azure-mcsb:IR-5": "aks-monitor-data-v2",
+  "azure-mcsb:IR-6": "scheduled-events-timeline",
+  "azure-mcsb:IR-7": "data-export-overview",
+  "azure-mcsb:PV-1": "02-soft-delete",
+  "azure-mcsb:PV-2": "data-export-overview",
   "azure-mcsb:PV-3": "aks-node-pools",
+  "azure-mcsb:PV-4": "aks-node-pools",
+  "azure-mcsb:PV-5": "aks-monitor-data-v2",
   "azure-mcsb:PV-6": "scheduled-events-timeline",
+  "azure-mcsb:PV-7": "scheduled-events-timeline",
   "azure-mcsb:BR-1": "vmbackup-architecture",
   "azure-mcsb:BR-2": "backup-item-delete-flow",
   "azure-mcsb:BR-3": "vmbackup-architecture",
   "azure-mcsb:BR-4": "point-in-time-restore-diagram",
+  "azure-mcsb:DS-1": "02-soft-delete",
   "azure-mcsb:DS-2": "02-soft-delete",
+  "azure-mcsb:DS-3": "02-soft-delete",
+  "azure-mcsb:DS-4": "02-soft-delete",
+  "azure-mcsb:DS-5": "02-soft-delete",
   "azure-mcsb:DS-6": "02-soft-delete",
+  "azure-mcsb:DS-7": "data-export-overview",
+  "mcsb-v2-preview:AI-1": "02-soft-delete",
   "mcsb-v2-preview:AI-2": "front-door-overview",
+  "mcsb-v2-preview:AI-3": "front-door-overview",
   "mcsb-v2-preview:AI-4": "fastpath-vnet-peering",
-  "mcsb-v2-preview:AI-6": "aks-monitor-data-v2"
+  "mcsb-v2-preview:AI-5": "scheduled-events-timeline",
+  "mcsb-v2-preview:AI-6": "aks-monitor-data-v2",
+  "mcsb-v2-preview:AI-7": "aks-monitor-data-v2"
+};
+
+const DOMAIN_FALLBACK_IMAGES: Readonly<Record<string, string>> = {
+  "RE": "vmbackup-architecture",
+  "SE": "front-door-overview",
+  "CO": "data-export-overview",
+  "OE": "02-soft-delete",
+  "PE": "aks-node-pools",
+  "NS": "fastpath-vnet-peering",
+  "IM": "backup-item-delete-flow",
+  "PA": "backup-item-delete-flow",
+  "DP": "geo-zone-redundant-storage",
+  "AM": "data-export-overview",
+  "LT": "aks-monitor-data-v2",
+  "IR": "aks-monitor-data-v2",
+  "PV": "scheduled-events-timeline",
+  "ES": "aks-monitor-data-v2",
+  "BR": "vmbackup-architecture",
+  "DS": "02-soft-delete",
+  "GS": "data-export-overview",
+  "AI": "front-door-overview",
 };
 
 const RULE_IMAGE_BINDINGS: Readonly<Record<string, string>> = {
+  "cache.zone-redundant": "geo-zone-redundant-storage",
+  "compute.vm-scale-set.zone-redundancy": "aks-node-pools",
+  "compute.vm.environment-tag.required": "vmbackup-architecture",
+  "compute.vm.managed-identity.assigned": "vmbackup-architecture",
+  "disk.snapshot-policy.required": "vmbackup-architecture",
   "kubernetes-node-pool.multi-zone": "aks-node-pools",
   "kubernetes-node-pool.auto-scaler-enabled": "aks-node-pools",
   "kubernetes-cluster.system-user-pool-separated": "aks-node-pools",
   "kubernetes-cluster.diagnostic-settings-required": "aks-monitor-data-v2",
   "kubernetes-cluster.audit-log-enabled": "aks-monitor-data-v2",
   "kubernetes-cluster.container-insights-enabled": "aks-monitor-data-v2",
+  "kubernetes-cluster.network-policy": "network-watcher-capabilities",
   "kubernetes-cluster.network-policy-configured": "network-watcher-capabilities",
+  "kubernetes-cluster.private-cluster": "fastpath-vnet-peering",
   "kubernetes-cluster.private-api-server": "fastpath-vnet-peering",
+  "kubernetes-cluster.rbac-enabled": "aks-monitor-data-v2",
   "kubernetes-cluster.authorized-ip-ranges-configured": "front-door-overview",
+  "llm-endpoint.t2-proposer-unavailable": "appgatewayprobe",
+  "managed-identity.role-assignment.no-privileged-subscription-scope": "backup-item-delete-flow",
+  "managed-identity.role-assignment.no-wildcard-action": "backup-item-delete-flow",
   "object-storage.blob-versioning-enabled": "point-in-time-restore-diagram",
   "object-storage.soft-delete.enabled": "point-in-time-restore-diagram",
   "object-storage.geo-redundant": "geo-zone-redundant-storage",
@@ -1086,19 +1184,40 @@ const RULE_IMAGE_BINDINGS: Readonly<Record<string, string>> = {
   "virtual-machine.backup-enabled": "vmbackup-architecture",
   "virtual-machine.availability-zone-configured": "aks-node-pools",
   "secret-store.soft-delete-enabled": "backup-item-delete-flow",
+  "secret-store.soft-delete.enabled": "backup-item-delete-flow",
   "secret-store.purge-protection.enabled": "backup-item-delete-flow",
   "secret-store.diagnostic-settings-required": "data-export-overview",
   "secret-store.public-network-access.disabled": "fastpath-vnet-peering",
   "virtual-network.ddos-protection-enabled": "front-door-overview",
+  "network.vnet.ddos-plan.required": "front-door-overview",
   "network-security-group.flow-logs-enabled": "network-watcher-capabilities",
+  "network.nsg.no-inbound-any-rdp": "network-watcher-capabilities",
+  "network.nsg.no-inbound-any-ssh": "network-watcher-capabilities",
   "network.nsg.no-internet-inbound-rdp": "network-watcher-capabilities",
   "network.nsg.no-internet-inbound-ssh": "network-watcher-capabilities",
+  "ops.change-summary": "scheduled-events-timeline",
+  "postgresql-server.diagnostic-settings-required": "data-export-overview",
+  "postgresql-server.encryption-at-rest": "geo-zone-redundant-storage",
+  "postgresql-server.high-availability": "aks-node-pools",
+  "postgresql-server.point-in-time-restore": "point-in-time-restore-diagram",
+  "postgresql-server.ssl-enforcement": "front-door-overview",
+  "resource-group.cost-center-tag.required": "data-export-overview",
+  "resource-group.environment-tag.required": "data-export-overview",
+  "resource-group.owner-tag.required": "data-export-overview",
+  "resource-group.role-assignment.owner-count-within-limit": "backup-item-delete-flow",
   "load-balancer.waf-enabled": "front-door-overview",
   "load-balancer.health-probe-configured": "appgatewayprobe",
   "relational-database.point-in-time-restore-retention": "point-in-time-restore-diagram",
   "relational-database.geo-redundant-backup-enabled": "vmbackup-architecture",
   "relational-database.diagnostic-settings-required": "data-export-overview",
   "relational-database.public-network-access.disabled": "fastpath-vnet-peering",
+  "sql-database.audit-enabled": "data-export-overview",
+  "sql-database.diagnostic-settings-required": "data-export-overview",
+  "sql-database.geo-redundant-backup": "geo-zone-redundant-storage",
+  "sql-database.tde-required": "geo-zone-redundant-storage",
+  "sql-database.zone-redundant": "aks-node-pools",
+  "subscription.role-assignment.no-guest-privileged": "backup-item-delete-flow",
+  "subscription.role-assignment.no-standing-privileged-access": "backup-item-delete-flow",
 };
 
 const RESOURCE_TYPE_IMAGE_BINDINGS: Readonly<Record<string, string>> = {
@@ -1112,16 +1231,35 @@ const RESOURCE_TYPE_IMAGE_BINDINGS: Readonly<Record<string, string>> = {
   "Microsoft.Storage/storageAccounts": "geo-zone-redundant-storage",
   "block-storage": "vmbackup-architecture",
   "block_storage": "vmbackup-architecture",
+  "disk": "vmbackup-architecture",
+  "cache": "geo-zone-redundant-storage",
+  "compute.vm": "vmbackup-architecture",
+  "compute.vm-extension": "vmbackup-architecture",
+  "compute.vm-scale-set": "aks-node-pools",
+  "compute.container-app": "aks-node-pools",
+  "compute.function": "appgatewayprobe",
+  "compute.web-app": "front-door-overview",
+  "compute.batch-account": "aks-node-pools",
+  "compute.desktop-host-pool": "vmbackup-architecture",
+  "compute.image-gallery": "02-soft-delete",
   "virtual-machine": "vmbackup-architecture",
   "virtual_machine": "vmbackup-architecture",
   "Microsoft.Compute/virtualMachines": "vmbackup-architecture",
   "secret-store": "backup-item-delete-flow",
   "secret_store": "backup-item-delete-flow",
   "Microsoft.KeyVault/vaults": "backup-item-delete-flow",
+  "backup-vault": "vmbackup-architecture",
   "container-registry": "02-soft-delete",
   "Microsoft.ContainerRegistry/registries": "02-soft-delete",
   "load-balancer": "appgatewayprobe",
   "load_balancer": "appgatewayprobe",
+  "network.application-gateway": "appgatewayprobe",
+  "network.cdn-profile": "front-door-overview",
+  "network.dns-zone": "fastpath-vnet-peering",
+  "network.nsg": "network-watcher-capabilities",
+  "network.vnet": "fastpath-vnet-peering",
+  "network.virtual-network-gateway": "bfd-need",
+  "api-gateway": "front-door-overview",
   "Microsoft.Network/applicationGateways": "appgatewayprobe",
   "Microsoft.Cdn/profiles": "front-door-overview",
   "Microsoft.Network/frontDoors": "front-door-overview",
@@ -1133,8 +1271,71 @@ const RESOURCE_TYPE_IMAGE_BINDINGS: Readonly<Record<string, string>> = {
   "Microsoft.Network/virtualNetworks": "fastpath-vnet-peering",
   "relational-database": "point-in-time-restore-diagram",
   "relational_database": "point-in-time-restore-diagram",
+  "sql-database": "point-in-time-restore-diagram",
+  "sql-server": "point-in-time-restore-diagram",
+  "sql-managed-instance": "point-in-time-restore-diagram",
+  "postgresql-server": "point-in-time-restore-diagram",
+  "nosql-database": "geo-zone-redundant-storage",
   "log-analytics-workspace": "data-export-overview",
+  "analytics.workspace": "data-export-overview",
+  "action-group": "data-export-overview",
+  "event-grid-topic": "data-export-overview",
+  "service-bus-namespace": "main-diagram",
+  "workflow.logic-app": "scheduled-events-timeline",
+  "automation-account": "scheduled-events-timeline",
+  "ai-project": "front-door-overview",
+  "llm-endpoint": "appgatewayprobe",
+  "ml-workspace": "aks-monitor-data-v2",
+  "bot-service": "front-door-overview",
+  "search-service": "geo-zone-redundant-storage",
+  "iot-hub": "main-diagram",
+  "managed-sre-agent": "aks-monitor-data-v2",
+  "managed-identity": "backup-item-delete-flow",
+  "authorization.role-assignment": "backup-item-delete-flow",
+  "directory.managed-domain": "backup-item-delete-flow",
+  "resource-group": "data-export-overview",
+  "subscription": "data-export-overview",
+  "ops": "scheduled-events-timeline",
+  "azure.resource": "data-export-overview",
+  "unmapped": "data-export-overview",
 };
+
+function inferResourceTypeImageKey(resourceType: string): string | undefined {
+  const lower = resourceType.toLowerCase();
+  if (lower.includes("kubernetes") || lower.includes("containerservice") || lower.includes("node-pool") || lower.includes("containerapp")) {
+    return lower.includes("control-plane") || lower.includes("monitor") ? "aks-monitor-data-v2" : "aks-node-pools";
+  }
+  if (lower.includes("containerregistry") || lower.includes("container-registry")) return "02-soft-delete";
+  if (lower.includes("storage") || lower.includes("datalake") || lower.includes("elasticsan") || lower.includes("cache") || lower.includes("redis")) {
+    return "geo-zone-redundant-storage";
+  }
+  if (lower.includes("sql") || lower.includes("dbfor") || lower.includes("postgres") || lower.includes("mysql") || lower.includes("mariadb") || lower.includes("cosmos") || lower.includes("database")) {
+    return "point-in-time-restore-diagram";
+  }
+  if (lower.includes("keyvault") || lower.includes("secret") || lower.includes("authorization") || lower.includes("identity") || lower.includes("aad") || lower.includes("attestation")) {
+    return "backup-item-delete-flow";
+  }
+  if (lower.includes("frontdoor") || lower.includes("cdn") || lower.includes("waf") || lower.includes("apimanagement") || lower.includes("web")) {
+    return "front-door-overview";
+  }
+  if (lower.includes("applicationgateway") || lower.includes("loadbalancer") || lower.includes("trafficmanager")) {
+    return "appgatewayprobe";
+  }
+  if (lower.includes("expressroute") || lower.includes("virtualnetworkgateway")) return "bfd-need";
+  if (lower.includes("networkwatcher") || lower.includes("networksecuritygroup") || lower.includes(".nsg")) {
+    return "network-watcher-capabilities";
+  }
+  if (lower.includes("network") || lower.includes("vnet") || lower.includes("privateendpoint") || lower.includes("dns")) {
+    return "fastpath-vnet-peering";
+  }
+  if (lower.includes("backup") || lower.includes("dataprotection") || lower.includes("recovery") || lower.includes("virtualmachine") || lower.includes("compute") || lower.includes("disk")) {
+    return "vmbackup-architecture";
+  }
+  if (lower.includes("monitor") || lower.includes("insights") || lower.includes("operationalinsights") || lower.includes("log") || lower.includes("eventhub") || lower.includes("eventgrid")) {
+    return "data-export-overview";
+  }
+  return "data-export-overview";
+}
 
 export function resolveControlReferenceImage(
   scope: "azure-waf" | "azure-caf" | "azure-mcsb" | "mcsb-v2-preview" | "msrc-csaf" | "rule",
@@ -1147,10 +1348,15 @@ export function resolveControlReferenceImage(
     const v1Mapped = CONTROL_IMAGE_BINDINGS[`azure-mcsb:${id}`];
     if (v1Mapped) return PACKAGED_REFERENCE_IMAGES[v1Mapped];
   }
+  if (scope === "azure-waf" || scope === "azure-mcsb" || scope === "mcsb-v2-preview") {
+    const prefix = id.split(/[:\-]/)[0] ?? "";
+    const domainFallback = DOMAIN_FALLBACK_IMAGES[prefix];
+    if (domainFallback) return PACKAGED_REFERENCE_IMAGES[domainFallback];
+  }
   const ruleBinding = RULE_IMAGE_BINDINGS[id];
   if (ruleBinding) return PACKAGED_REFERENCE_IMAGES[ruleBinding];
   if (resourceType) {
-    const rtBinding = RESOURCE_TYPE_IMAGE_BINDINGS[resourceType];
+    const rtBinding = RESOURCE_TYPE_IMAGE_BINDINGS[resourceType] ?? inferResourceTypeImageKey(resourceType);
     if (rtBinding) return PACKAGED_REFERENCE_IMAGES[rtBinding];
   }
   return undefined;

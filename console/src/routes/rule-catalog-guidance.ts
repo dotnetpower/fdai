@@ -696,24 +696,31 @@ const COLLECTED_POLICY_PHRASES_KO: readonly (readonly [RegExp, string])[] = [
 ];
 
 const COLLECTED_KUBE_BENCH_PHRASES_KO: readonly (readonly [RegExp, string])[] = [
-  [/anonymous-auth/i, "익명 인증 비활성화"],
-  [/authorization-mode/i, "인가 모드(RBAC/Node) 설정 준수"],
-  [/client-ca-file/i, "클라이언트 CA 인증서 설정 준수"],
-  [/audit-log/i, "감사 로그(Audit Log) 보존·경로 설정 준수"],
+  [/anonymous[- ]auth/i, "익명 인증 비활성화"],
+  [/authorization[- ]mode/i, "인가 모드(RBAC/Node) 설정 준수"],
+  [/client[- ]ca[- ]file/i, "클라이언트 CA 인증서 설정 준수"],
+  [/audit[- ]log/i, "감사 로그(Audit Log) 보존·경로 설정 준수"],
   [/profiling/i, "프로파일링 비활성화"],
-  [/read-only-port/i, "읽기 전용 포트 비활성화"],
-  [/protect-kernel-defaults/i, "커널 기본값 보호 활성화"],
-  [/kubelet-https/i, "Kubelet HTTPS 암호화 통신 강제"],
+  [/read[- ]only[- ]port/i, "읽기 전용 포트 비활성화"],
+  [/protect[- ]kernel[- ]defaults/i, "커널 기본값 보호 활성화"],
+  [/kubelet[- ]https/i, "Kubelet HTTPS 암호화 통신 강제"],
   [/file permissions/i, "파일 권한 설정 준수"],
   [/file ownership/i, "파일 소유권(root:root) 설정 준수"],
   [/admission control plugin/i, "어드미션 컨트롤 플러그인 활성화"],
   [/minimize the admission of/i, "컨테이너 고위험 권한 허용 최소화"],
-  [/encryption-provider-config/i, "etcd 비밀 데이터 저장 암호화 구성"],
-  [/tls-cert-file|tls-private-key-file|tls-cipher-suites/i, "TLS 인증서·암호 스위트 보안 설정"],
-  [/service-account/i, "서비스 계정(ServiceAccount) 토큰 보안 설정"],
+  [/encryption[- ]provider[- ]config|encryption providers/i, "etcd 비밀 데이터 저장 암호화 구성"],
+  [/tls[- ]cert[- ]file|tls[- ]private[- ]key[- ]file|tls[- ]cipher[- ]suites|cryptographic ciphers/i, "TLS 인증서·암호 스위트 보안 설정"],
+  [/service[- ]account/i, "서비스 계정(ServiceAccount) 토큰·키 보안 설정"],
   [/kubeconfig/i, "kubeconfig 설정 파일 권한·소유권 보안 준수"],
   [/etcd/i, "etcd 데이터 디렉터리·통신 보안 설정 준수"],
-  [/network-policy|cni/i, "클러스터 네트워크 정책(CNI) 격리 설정 준수"],
+  [/network[- ]policy|\bcni\b/i, "클러스터 네트워크 정책(CNI) 격리 설정 준수"],
+  [/insecure[- ]bind[- ]address|insecure[- ]port/i, "비보안 포트·바인드 주소 비활성화"],
+  [/secure[- ]port/i, "보안 포트(--secure-port) 활성화 설정 준수"],
+  [/token[- ]auth[- ]file|basic[- ]auth[- ]file/i, "정적 토큰·기본 인증 파일 사용 금지"],
+  [/request[- ]timeout/i, "API 요청 타임아웃 적정값 설정 준수"],
+  [/rotate[- ]certificates|kubelet[- ]client[- ]certificate/i, "Kubelet 인증서 보안 및 자동 순환 설정"],
+  [/pod[- ]max[- ]pids|terminated[- ]pod[- ]gc/i, "Pod 프로세스 상한 및 가비지 컬렉션 설정 준수"],
+  [/seccomp|default namespace/i, "워크로드 네임스페이스·Seccomp 격리 기준 준수"],
 ];
 
 /** Normalize malformed upstream parameter resource_type slugs into clean canonical names. */
@@ -737,13 +744,16 @@ export function ruleDisplayTitle(
   if (rule.id.startsWith("kube-bench.")) {
     const parts = rule.id.split(".");
     const ruleset = parts.slice(1, 3).join(".");
-    const slug = (parts[parts.length - 1] ?? "").replace(/-(?:automated|manual|m|a)$/, "").replace(/-/g, " ");
+    const rawSlug = parts[parts.length - 1] ?? "";
+    const slug = rawSlug
+      .replace(/-(?:a(?:uto(?:m(?:a(?:t(?:e(?:d)?)?)?)?)?)?|m(?:a(?:n(?:u(?:a(?:l)?)?)?)?)?)$/i, "")
+      .replace(/-/g, " ");
     for (const [pattern, koPhrase] of COLLECTED_KUBE_BENCH_PHRASES_KO) {
-      if (pattern.test(slug) || pattern.test(baseTitle)) {
-        return `CIS ${ruleset} Kubernetes ${koPhrase} (${slug || baseTitle})`;
+      if (pattern.test(rawSlug) || pattern.test(slug) || pattern.test(baseTitle)) {
+        return `CIS ${ruleset} Kubernetes ${koPhrase}`;
       }
     }
-    return `CIS ${ruleset} Kubernetes 보안 점검: ${slug || baseTitle}`;
+    return `CIS ${ruleset} Kubernetes 보안 구성 기준 점검`;
   }
   if (rule.id.startsWith("azure-builtin.")) {
     const lifecyclePrefix = /\bdeprecated\b/i.test(baseTitle)
@@ -753,10 +763,10 @@ export function ruleDisplayTitle(
         : "";
     for (const [pattern, koPhrase] of COLLECTED_POLICY_PHRASES_KO) {
       if (pattern.test(baseTitle)) {
-        return `[Azure Policy] ${lifecyclePrefix}${baseTitle} - ${koPhrase}`;
+        return `[Azure Policy] ${lifecyclePrefix}${koPhrase}`;
       }
     }
-    return `[Azure Policy] ${lifecyclePrefix}${baseTitle}`;
+    return `[Azure Policy] ${lifecyclePrefix}리소스 보안 및 거버넌스 정책 준수`;
   }
   return baseTitle;
 }

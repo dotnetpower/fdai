@@ -424,6 +424,7 @@ export function MsrcCsafControlsRoute({ client }: { readonly client?: OperatorAp
             label={t("governance.rules.msrcCsaf.filter.mappingState")}
             value={filters.mapping_state}
             counts={facet("by_mapping_state")}
+            displayGroup="cafRelationship"
             onChange={(value) => updateFilter({ mapping_state: value })}
           />
           <FacetSelect
@@ -650,10 +651,10 @@ function MsrcCsafDrawer({
               control={{
                 id: row.cve_id,
                 title: `${row.cve_id} - ${msrcCsafDisplayTitle(row, locale)}`,
-                description: row.advisory_title,
+                description: msrcCsafDisplayTitle({ title: row.advisory_title }, locale),
                 guidance,
                 source_url: row.source_url,
-                source_version: sourceRevision,
+                source_version: row.advisory_tracking_id,
               }}
               expanded={expanded}
               onExpand={() => setExpanded((value) => !value)}
@@ -662,7 +663,7 @@ function MsrcCsafDrawer({
 
             <section id="framework-runtime" tabIndex={-1} class="stack-section">
               <h3>{t("governance.rules.wara.guidance.runtime")}</h3>
-              <p class="muted">{row.advisory_title}</p>
+              <p class="muted">{msrcCsafDisplayTitle({ title: row.advisory_title }, locale)}</p>
               <div class="pill-row">
                 <StatusPill
                   kind={PRIORITY_PILL[priorityTier]}
@@ -704,7 +705,7 @@ function MsrcCsafDrawer({
               </div>
               <p>{t("governance.rules.msrcCsaf.detail.boundary")}</p>
               {cvssDimensions.length > 0 ? (
-                <div class="control-requirement-list" aria-label="CVSS v3.1 vector breakdown">
+                <div class="control-requirement-list" aria-label={locale === "ko" ? "CVSS v3.1 벡터 세부 분석" : "CVSS v3.1 vector breakdown"}>
                   {cvssDimensions.map((dim) => (
                     <div key={dim.code} class="control-requirement-row">
                       <div>
@@ -724,14 +725,13 @@ function MsrcCsafDrawer({
                 <DetailRow label={t("governance.rules.msrcCsaf.filter.year")} value={row.year} mono />
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.cweCategory")} value={guidanceText(cweCategory.label, locale)} />
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.riskScore")} value={`${row.risk_score.toFixed(1)} / 100`} mono />
-                <DetailRow label={t("governance.rules.msrcCsaf.detail.kevSla")} value={`${displayValue("msrcCsafSla", row.kev_sla_tier)} (${row.due_days}d)`} />
+                <DetailRow label={t("governance.rules.msrcCsaf.detail.kevSla")} value={`${displayValue("msrcCsafSla", row.kev_sla_tier)} (${locale === "ko" ? `${row.due_days}일` : `${row.due_days}d`})`} />
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.vexJustification")} value={displayValue("msrcCsafVex", row.vex_justification)} />
-                <DetailRow label={t("governance.rules.msrcCsaf.detail.sourceRevision")} value={sourceRevision} mono />
                 <DetailRow
                   label={t("governance.rules.msrcCsaf.detail.cvssVector")}
                   value={
                     row.cvss_temporal_score !== null
-                      ? `${row.cvss_vector} (temporal ${row.cvss_temporal_score.toFixed(1)})`
+                      ? `${row.cvss_vector} (${locale === "ko" ? `시간적 점수 ${row.cvss_temporal_score.toFixed(1)}` : `temporal ${row.cvss_temporal_score.toFixed(1)}`})`
                       : row.cvss_vector
                   }
                   mono
@@ -739,8 +739,6 @@ function MsrcCsafDrawer({
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.initialRelease")} value={row.initial_release_date} mono />
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.currentRelease")} value={row.current_release_date} mono />
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.signatureVerified")} value={displayValue("boolean", String(row.signature_verified))} />
-                <DetailRow label={t("governance.rules.msrcCsaf.detail.documentDigest")} value={row.document_digest} mono />
-                <DetailRow label={t("governance.rules.msrcCsaf.detail.crosswalkDigest")} value={crosswalkDigest} mono />
                 <dt>{t("governance.rules.msrcCsaf.detail.sourceUrl")}</dt>
                 <dd>
                   <a href={row.source_url} target="_blank" rel="noopener noreferrer">{row.source_url}</a>
@@ -814,13 +812,21 @@ function MsrcCsafDrawer({
                     <div key={`${rem.category}-${idx}`} class="control-requirement-row">
                       <div>
                         <strong>{displayValue("msrcRemediationCategory", rem.category)}</strong>
-                        <span>{rem.details}</span>
+                        <span>
+                          {locale === "ko"
+                            ? rem.fixed_version
+                              ? `공식 보안 업데이트 적용 (권장 패치 버전: >= ${rem.fixed_version})`
+                              : rem.workaround_property
+                                ? `임시 구성 완화 속성(${rem.workaround_property} = ${String(rem.workaround_expected_value)}) 강제 적용`
+                                : "Microsoft 공식 보안 권고에 따른 패치 또는 완화 조치 적용"
+                            : rem.details}
+                        </span>
                         {rem.fixed_version ? <code>fixed_version &gt;= {rem.fixed_version}</code> : null}
                         {rem.workaround_property ? (
                           <code>{rem.workaround_property} = {String(rem.workaround_expected_value)}</code>
                         ) : null}
                       </div>
-                      <StatusPill kind="neutral" label={rem.recommended_action_type ?? "manual"} />
+                      <StatusPill kind="neutral" label={rem.recommended_action_type ?? (locale === "ko" ? "수동 조치" : "manual")} />
                     </div>
                   ))}
                 </div>
@@ -829,17 +835,49 @@ function MsrcCsafDrawer({
 
             <DetailSection title={t("governance.rules.msrcCsaf.detail.safeguardSection")}>
               <dl class="detail-grid">
-                <DetailRow label={t("governance.rules.msrcCsaf.detail.stopCondition")} value={safeguardPlan.stop_condition} />
-                <DetailRow label={t("governance.rules.msrcCsaf.detail.rollbackPlan")} value={safeguardPlan.tested_rollback_plan} />
-                <DetailRow label={t("governance.rules.msrcCsaf.detail.blastRadius")} value={`${safeguardPlan.blast_radius_limit} (dry_run=${String(safeguardPlan.dry_run_required)})`} mono />
+                <DetailRow
+                  label={t("governance.rules.msrcCsaf.detail.stopCondition")}
+                  value={
+                    locale === "ko"
+                      ? `상태 프로브 실패, 오류율 1% 초과 또는 소스 리비전(${sourceRevision}) 불일치 시 즉시 중단`
+                      : safeguardPlan.stop_condition
+                  }
+                />
+                <DetailRow
+                  label={t("governance.rules.msrcCsaf.detail.rollbackPlan")}
+                  value={
+                    locale === "ko"
+                      ? `${row.cve_id} 업데이트(${row.version_window}) 적용 전 리소스 스냅샷 또는 고정 버전으로 즉시 복원`
+                      : safeguardPlan.tested_rollback_plan
+                  }
+                />
+                <DetailRow
+                  label={t("governance.rules.msrcCsaf.detail.blastRadius")}
+                  value={
+                    locale === "ko"
+                      ? `최대 ${safeguardPlan.blast_radius_limit}개 대상 제한 (사전 시뮬레이션 필수)`
+                      : `${safeguardPlan.blast_radius_limit} (dry_run=${String(safeguardPlan.dry_run_required)})`
+                  }
+                  mono={locale !== "ko"}
+                />
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.targetLock")} value={safeguardPlan.logical_target_lock} mono />
-                <DetailRow label={t("governance.rules.msrcCsaf.detail.idempotencyKey")} value={safeguardPlan.idempotency_key} mono />
                 <DetailRow
                   label={t("governance.rules.msrcCsaf.detail.twoPhaseAudit")}
-                  value={`two_phase_audit=${String(safeguardPlan.two_phase_audit_required)}, distinct_identities=${String(safeguardPlan.distinct_approver_executor_required)}, execution_authority=${String(safeguardPlan.execution_authority)}`}
-                  mono
+                  value={
+                    locale === "ko"
+                      ? "2단계 감사 원장 기록 · 승인자/실행기 신원 분리 필수 · 콘솔 실행 권한 없음(Shadow)"
+                      : `two_phase_audit=${String(safeguardPlan.two_phase_audit_required)}, distinct_identities=${String(safeguardPlan.distinct_approver_executor_required)}, execution_authority=${String(safeguardPlan.execution_authority)}`
+                  }
+                  mono={locale !== "ko"}
                 />
-                <DetailRow label={t("governance.rules.msrcCsaf.detail.effectVerification")} value={safeguardPlan.effect_verification_contract} />
+                <DetailRow
+                  label={t("governance.rules.msrcCsaf.detail.effectVerification")}
+                  value={
+                    locale === "ko"
+                      ? `조치 후 독립적인 인벤토리 세대를 재관측하여 ${row.primary_resource_type} 버전이 취약 구간(${row.version_window})을 벗어났는지 검증`
+                      : safeguardPlan.effect_verification_contract
+                  }
+                />
               </dl>
             </DetailSection>
 
@@ -847,23 +885,39 @@ function MsrcCsafDrawer({
               <dl class="detail-grid">
                 <DetailRow
                   label={t("governance.rules.msrcCsaf.detail.mdashPipeline")}
-                  value="prepare -> scan -> validate (auditor/debater/counterpoint) -> dedupe -> prove"
-                  mono
+                  value={
+                    locale === "ko"
+                      ? "사전 준비(Prepare) → 정밀 스캔(Scan) → 다중 검증(감사·토론·반론) → 중복 제거(Dedupe) → 증적 입증(Prove)"
+                      : "prepare -> scan -> validate (auditor/debater/counterpoint) -> dedupe -> prove"
+                  }
+                  mono={locale !== "ko"}
                 />
                 <DetailRow
                   label={t("governance.rules.msrcCsaf.detail.mdashLanguages")}
-                  value={`${evaluateMdashHarnessReadiness([row]).total_languages} languages (5 specialist + 9 generalist) · ${evaluateMdashHarnessReadiness([row]).specialized_auditors_count} specialized auditors · ${evaluateMdashHarnessReadiness([row]).proving_plugins_count} domain proving plugins`}
-                  mono
+                  value={
+                    locale === "ko"
+                      ? `${evaluateMdashHarnessReadiness([row]).total_languages}개 언어 지원 (특화 5 · 범용 9) · 전문 감사기 ${evaluateMdashHarnessReadiness([row]).specialized_auditors_count}개 · 도메인 검증 플러그인 ${evaluateMdashHarnessReadiness([row]).proving_plugins_count}개`
+                      : `${evaluateMdashHarnessReadiness([row]).total_languages} languages (5 specialist + 9 generalist) · ${evaluateMdashHarnessReadiness([row]).specialized_auditors_count} specialized auditors · ${evaluateMdashHarnessReadiness([row]).proving_plugins_count} domain proving plugins`
+                  }
+                  mono={locale !== "ko"}
                 />
                 <DetailRow
                   label={t("governance.rules.msrcCsaf.detail.mdashBenchmarks")}
-                  value="StorageDrive 21/21 TP (0 FP) · clfs.sys 96.4% · tcpip.sys 100.0% · CyberGym 88.45%"
-                  mono
+                  value={
+                    locale === "ko"
+                      ? "StorageDrive 21/21 정탐(오탐 0) · clfs.sys 96.4% · tcpip.sys 100.0% · CyberGym 88.45%"
+                      : "StorageDrive 21/21 TP (0 FP) · clfs.sys 96.4% · tcpip.sys 100.0% · CyberGym 88.45%"
+                  }
+                  mono={locale !== "ko"}
                 />
                 <DetailRow
                   label={t("governance.rules.msrcCsaf.detail.mdashCohort")}
-                  value={`cohort_match=${String(isMdashCohortCve(row.cve_id))} (16 CVEs: 10 kernel / 6 usermode) · regions=US,EU,UK,AUS,IND,CH,UAE(CLI-only)`}
-                  mono
+                  value={
+                    locale === "ko"
+                      ? `코호트 일치: ${displayValue("boolean", String(isMdashCohortCve(row.cve_id)))} (총 16개 CVE: 커널 10 / 유저모드 6) · 지원 리전: US, EU, UK, AUS, IND, CH, UAE(CLI 전용)`
+                      : `cohort_match=${String(isMdashCohortCve(row.cve_id))} (16 CVEs: 10 kernel / 6 usermode) · regions=US,EU,UK,AUS,IND,CH,UAE(CLI-only)`
+                  }
+                  mono={locale !== "ko"}
                 />
               </dl>
             </DetailSection>
@@ -872,16 +926,78 @@ function MsrcCsafDrawer({
               <dl class="detail-grid">
                 <DetailRow
                   label={t("governance.rules.msrcCsaf.detail.pantheonUtilization")}
-                  value={`${evaluatePantheonProactiveReadiness(row).agents_utilized_count}/${evaluatePantheonProactiveReadiness(row).total_pantheon_agents} (${evaluatePantheonProactiveReadiness(row).utilization_pct}%) · breach_prob=${evaluatePantheonProactiveReadiness(row).breach_probability.toFixed(2)} · lead_time=${evaluatePantheonProactiveReadiness(row).predicted_lead_time_hours}h`}
-                  mono
+                  value={
+                    locale === "ko"
+                      ? `에이전트 ${evaluatePantheonProactiveReadiness(row).agents_utilized_count}/${evaluatePantheonProactiveReadiness(row).total_pantheon_agents}명 (${evaluatePantheonProactiveReadiness(row).utilization_pct}%) · 침해 확률 ${evaluatePantheonProactiveReadiness(row).breach_probability.toFixed(2)} · 예상 리드타임 ${evaluatePantheonProactiveReadiness(row).predicted_lead_time_hours}시간`
+                      : `${evaluatePantheonProactiveReadiness(row).agents_utilized_count}/${evaluatePantheonProactiveReadiness(row).total_pantheon_agents} (${evaluatePantheonProactiveReadiness(row).utilization_pct}%) · breach_prob=${evaluatePantheonProactiveReadiness(row).breach_probability.toFixed(2)} · lead_time=${evaluatePantheonProactiveReadiness(row).predicted_lead_time_hours}h`
+                  }
+                  mono={locale !== "ko"}
                 />
-                <DetailRow label="Huginn + Heimdall" value="object.event + object.drift + object.forecast (msrc_csaf.proactive_risk_forecast)" mono />
-                <DetailRow label="Forseti + Odin" value={`object.verdict (hil, quorum=${evaluatePantheonProactiveReadiness(row).forseti_quorum_required}) + object.arbitration-decision (${evaluatePantheonProactiveReadiness(row).odin_rollout_strategy})`} mono />
-                <DetailRow label="Var + Thor + Vidar" value={`object.approval (distinct principal) + object.action-run (shadow dry-run) + object.rollback (RTO=${evaluatePantheonProactiveReadiness(row).vidar_rto_seconds}s)`} mono />
-                <DetailRow label="Loki + Freyr + Njord" value={`${evaluatePantheonProactiveReadiness(row).loki_chaos_scenario} · surge_headroom=${evaluatePantheonProactiveReadiness(row).freyr_surge_headroom_pct}% · FinOps ROI`} mono />
-                <DetailRow label="Norns + Mimir + Muninn + Saga + Bragi" value={`${evaluatePantheonProactiveReadiness(row).norns_skuld_candidate_id} · object.rule · object.context-index · object.audit-entry · object.turn`} mono />
+                <DetailRow
+                  label="Huginn + Heimdall"
+                  value={
+                    locale === "ko"
+                      ? "이벤트 정규화(object.event) + 버전 드리프트 탐지(object.drift) + 사전 위험 예측(object.forecast)"
+                      : "object.event + object.drift + object.forecast (msrc_csaf.proactive_risk_forecast)"
+                  }
+                  mono={locale !== "ko"}
+                />
+                <DetailRow
+                  label="Forseti + Odin"
+                  value={
+                    locale === "ko"
+                      ? `위험 게이트 판정(HIL, 정족수 ${evaluatePantheonProactiveReadiness(row).forseti_quorum_required}명) + 롤아웃 중재 결정(${evaluatePantheonProactiveReadiness(row).odin_rollout_strategy})`
+                      : `object.verdict (hil, quorum=${evaluatePantheonProactiveReadiness(row).forseti_quorum_required}) + object.arbitration-decision (${evaluatePantheonProactiveReadiness(row).odin_rollout_strategy})`
+                  }
+                  mono={locale !== "ko"}
+                />
+                <DetailRow
+                  label="Var + Thor + Vidar"
+                  value={
+                    locale === "ko"
+                      ? `인간 승인 검증(분리된 주체) + Shadow 사전 시뮬레이션(Dry-run) + 자동 롤백 대비(목표 RTO ${evaluatePantheonProactiveReadiness(row).vidar_rto_seconds}초)`
+                      : `object.approval (distinct principal) + object.action-run (shadow dry-run) + object.rollback (RTO=${evaluatePantheonProactiveReadiness(row).vidar_rto_seconds}s)`
+                  }
+                  mono={locale !== "ko"}
+                />
+                <DetailRow
+                  label="Loki + Freyr + Njord"
+                  value={
+                    locale === "ko"
+                      ? `카오스 복원력 시나리오(${evaluatePantheonProactiveReadiness(row).loki_chaos_scenario}) · 확장 여유율 ${evaluatePantheonProactiveReadiness(row).freyr_surge_headroom_pct}% · FinOps 비용 영향 평가`
+                      : `${evaluatePantheonProactiveReadiness(row).loki_chaos_scenario} · surge_headroom=${evaluatePantheonProactiveReadiness(row).freyr_surge_headroom_pct}% · FinOps ROI`
+                  }
+                  mono={locale !== "ko"}
+                />
+                <DetailRow
+                  label="Norns + Mimir + Muninn + Saga + Bragi"
+                  value={
+                    locale === "ko"
+                      ? `규칙 후보(${evaluatePantheonProactiveReadiness(row).norns_skuld_candidate_id}) · 규칙 카탈로그 · 컨텍스트 색인 · 불변 감사 원장 · 한국어/영어 내러티브`
+                      : `${evaluatePantheonProactiveReadiness(row).norns_skuld_candidate_id} · object.rule · object.context-index · object.audit-entry · object.turn`
+                  }
+                  mono={locale !== "ko"}
+                />
               </dl>
             </DetailSection>
+
+            <details class="wara-technical">
+              <summary>{t("governance.rules.wara.guidance.technical")}</summary>
+              <dl class="detail-grid">
+                <DetailRow label={t("governance.rules.msrcCsaf.detail.sourceRevision")} value={sourceRevision} mono />
+                <DetailRow
+                  label={t("governance.rules.msrcCsaf.detail.documentDigest")}
+                  value={<span class="pill-row"><code>{row.document_digest}</code><CopyButton text={row.document_digest} label={t("governance.common.copy")} /></span>}
+                  mono
+                />
+                <DetailRow
+                  label={t("governance.rules.msrcCsaf.detail.crosswalkDigest")}
+                  value={<span class="pill-row"><code>{crosswalkDigest}</code><CopyButton text={crosswalkDigest} label={t("governance.common.copy")} /></span>}
+                  mono
+                />
+                <DetailRow label={t("governance.rules.msrcCsaf.detail.idempotencyKey")} value={safeguardPlan.idempotency_key} mono />
+              </dl>
+            </details>
           </div>
         </div>
       </aside>

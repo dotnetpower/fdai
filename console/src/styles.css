@@ -14658,8 +14658,9 @@ td.mcsb-assessment-column .status-pill { max-width: 100%; white-space: normal; }
   color: var(--fg);
   overflow-wrap: anywhere;
 }
-@media (max-width: 1120px) {
-  .control-column-secondary { display: none; }
+@media (min-width: 761px) and (max-width: 1120px) {
+  .controls-catalog-view > :not(.wara-controls-view) .control-column-secondary,
+  .msrc-csaf-controls-view .control-column-secondary { display: none; }
 }
 @media (max-width: 760px) {
   .rule-facet-set { width: 100%; }

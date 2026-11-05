@@ -146,7 +146,9 @@ export function IllustratedGuidanceContent({ control, expanded, onExpand, prefix
         <section class="wara-guidance-sources" aria-label={t("governance.rules.wara.guidance.sources")}>
           <h3>{t("governance.rules.wara.guidance.sources")}</h3>
           <ul>{guidance.sources.map((source) => <li key={source.url}><a href={source.url} target="_blank" rel="noreferrer">{guidanceText(source.label, locale)}</a></li>)}</ul>
-          {control.source_version ? <p>{t("governance.rules.wara.detail.sourceVersion")}: <code>{control.source_version}</code></p> : null}
+          {control.source_version && !/^(?:sha256:[a-f0-9]{64}|[a-f0-9]{40})$/i.test(control.source_version)
+            ? <p>{t("governance.rules.wara.detail.sourceVersion")}: <code>{control.source_version}</code></p>
+            : null}
         </section>
       </div>
     </> : null}

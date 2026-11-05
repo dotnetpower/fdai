@@ -12,6 +12,7 @@ import { frameworkDisplayTitle, resolveControlReferenceImage } from "./reference
 import { ACTIVE_RULE_GUIDANCE_SPECS, buildRuleGuidance, formatRuleResourceType, ruleDisplayTitle } from "./rule-catalog-guidance";
 import type { RuleDetailDto } from "./rule-catalog-types";
 import { formatGuidanceMarkdownBrief } from "./wara-guidance";
+import { guidanceColumns } from "./wara-guidance-diagram";
 import { guidanceMissingKoreanFields } from "./wara-guidance.model";
 
 function sampleRuleDetail(overrides: Partial<RuleDetailDto> = {}): RuleDetailDto {
@@ -204,5 +205,18 @@ describe("rule, MCSB v2-preview, and MSRC CSAF illustrated guidance", () => {
     ).toContain("[미리 보기(Preview)]");
     expect(formatRuleResourceType("-current--resourcetype---")).toBe("azure.resource");
     expect(formatRuleResourceType("compute.vm-scale-set")).toBe("compute.vm-scale-set");
+    expect(guidanceColumns(guidance.diagram).map((col) => col.map((n) => n.id))).toEqual([
+      ["subject"],
+      ["configuration", "remediation"],
+      ["evidence"],
+      ["outcome"],
+    ]);
+    for (const ruleId of Object.keys(ACTIVE_RULE_GUIDANCE_SPECS)) {
+      const resourceType = ruleId.split(".")[0]!;
+      expect(resolveControlReferenceImage("rule", ruleId, resourceType)?.asset_id, ruleId).toContain("sha256-");
+    }
+    expect(msrcCsafDisplayTitle({ title: "AKS Node Image Elevation of Privilege" }, "ko")).toBe(
+      "AKS 노드 이미지 권한 상승(EoP) 취약점",
+    );
   });
 });

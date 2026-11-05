@@ -878,7 +878,27 @@
       "missing_exact_evaluator": "이 권고에 정확히 연결된 평가기가 없습니다.",
       "undeclared_resource_type": "리소스 유형에 대한 평가 연결이 선언되지 않았습니다.",
       "unsupported_join": "평가에 필요한 근거 간 연결을 지원하지 않습니다.",
-      "manual_evidence_fallback_available": "필요하면 수동으로 근거를 검토할 수 있습니다."
+      "manual_evidence_fallback_available": "필요하면 수동으로 근거를 검토할 수 있습니다.",
+      "manual_evidence_required": "수동 아키텍처 또는 운영 근거 검토가 필요합니다.",
+      "automatic_assessment_blocked_scope_requires_review": "적용 범위와 지원 요건이 검토될 때까지 자동 평가가 보류(차단)됩니다.",
+      "control_disabled": "현재 설치 프로필에서 이 컨트롤의 평가가 비활성화되어 있습니다."
+    },
+    "waraControl": {
+      "BusinessContinuity": "비즈니스 연속성 (Business Continuity)",
+      "DisasterRecovery": "재해 복구 (Disaster Recovery)",
+      "Governance": "거버넌스 (Governance)",
+      "HighAvailability": "고가용성 (High Availability)",
+      "MonitoringAndAlerting": "모니터링 및 경고 (Monitoring & Alerting)",
+      "OtherBestPractices": "기타 모범 사례 (Other Best Practices)",
+      "Personalized": "맞춤형 지침 (Personalized)",
+      "Scalability": "확장성 및 성능 (Scalability)",
+      "Security": "보안 (Security)",
+      "ServiceUpgradeAndRetirement": "서비스 업그레이드 및 단종 대비"
+    },
+    "waraImpact": {
+      "High": "심각 (High)",
+      "Medium": "보통 (Medium)",
+      "Low": "낮음 (Low)"
     },
     "waraEvidence": {
       "recovery_drill": "복구 훈련 기록",

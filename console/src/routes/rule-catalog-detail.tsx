@@ -273,18 +273,9 @@ function RuleDetailContent({
         {data.check_logic_body !== null ? (
           <pre class="mono code-block drawer-code">{data.check_logic_body}</pre>
         ) : (
-          <div class="stack">
-            <p class="muted footnote">
-              {t("governance.rules.detail.noCheckBody", { kind: displayValue("checkLogicKind", data.check_logic.kind) })}
-            </p>
-            {Object.keys(data.parameters).length > 0 ? (
-              <dl class="detail-grid">
-                {Object.entries(data.parameters).map(([key, val]) => (
-                  <DetailRow key={key} label={displayValue("ruleDetailKey", key)} value={String(val)} mono />
-                ))}
-              </dl>
-            ) : null}
-          </div>
+          <p class="muted footnote">
+            {t("governance.rules.detail.noCheckBody", { kind: displayValue("checkLogicKind", data.check_logic.kind) })}
+          </p>
         )}
       </DetailSection>
 
@@ -310,7 +301,7 @@ function RuleDetailContent({
             ))}
           </dl>
           <details class="rule-raw-parameters">
-            <summary class="muted small">JSON</summary>
+            <summary class="muted small">{locale === "ko" ? "원본 매개변수 JSON" : "Raw JSON"}</summary>
             <pre class="mono small entry-json">{JSON.stringify(data.parameters, null, 2)}</pre>
           </details>
         </DetailSection>

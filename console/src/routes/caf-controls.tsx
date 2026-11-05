@@ -478,7 +478,7 @@ function CafDrawer({
 function CafDetailContent({ data, expanded, onExpand }: { readonly data: CafControlDetail; readonly expanded: boolean; readonly onExpand: () => void }) {
   return (
     <div class="stack">
-      <FrameworkGuidanceContent guidance={data.guidance} controlId={data.control_id} title={data.title} description={data.description} expanded={expanded} onExpand={onExpand} unavailableReason={data.guidance_unavailable_reason} />
+      <FrameworkGuidanceContent guidance={data.guidance} controlId={data.control_id} title={frameworkDisplayTitle("azure-caf", data, getLocale())} description={data.description} expanded={expanded} onExpand={onExpand} unavailableReason={data.guidance_unavailable_reason} />
       <h3 id="framework-runtime" tabIndex={-1}>{t("governance.rules.wara.guidance.runtime")}</h3>
       <ControlEnablementSection value={data.enablement} severitySource={data.severity_source} />
       <ControlRemediationSection value={data.remediation} />

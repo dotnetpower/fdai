@@ -5,6 +5,7 @@ import { FrameworkGuidanceContent } from "./framework-guidance";
 import { fixtureFrameworkGuidance } from "./framework-guidance.fixture";
 import { ControlEnablementSection } from "./control-enablement";
 import { WaraGuidanceDiagram } from "./wara-guidance-diagram";
+import { WaraGuidanceReferenceImage } from "./wara-guidance-image";
 import { guidanceText } from "./wara-guidance.model";
 import { ControlRemediationSection } from "./control-remediation";
 
@@ -17,7 +18,7 @@ function inspect(tree: ComponentChildren) {
       else if (isValidElement(node)) {
         const element = node as VNode<Record<string, unknown>>;
         elements.push(element);
-        if (typeof element.type === "function" && element.type !== WaraGuidanceDiagram) {
+        if (typeof element.type === "function" && element.type !== WaraGuidanceDiagram && element.type !== WaraGuidanceReferenceImage) {
           visit((element.type as (props: Record<string, unknown>) => ComponentChildren)(element.props));
         } else visit(element.props.children as ComponentChildren);
       }

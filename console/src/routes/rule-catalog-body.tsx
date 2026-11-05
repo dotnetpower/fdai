@@ -216,7 +216,9 @@ export function RuleCatalogBody({
         header: t("governance.rules.column.rule"),
         render: (rule) => {
           const baseTitle = rule.title?.trim() || rule.id;
-          const displayTitle = getLocale() === "ko" && rule.title_ko?.trim() ? rule.title_ko.trim() : baseTitle;
+          const displayTitle = getLocale() === "ko"
+            ? (rule.title_ko?.trim() || (rule.origin === "collected" || !rule.title?.trim() ? ruleDisplayTitle(rule, "ko") : baseTitle))
+            : baseTitle;
           return (
             <span class="rule-table-identity" data-rule-key={`${rule.origin}:${rule.id}`}>
               {displayTitle === baseTitle ? (
