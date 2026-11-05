@@ -122,18 +122,62 @@ def test_scale_out_has_core_azure_and_isolated_kubernetes_support(
 def test_human_access_revoke_and_promotion_direct_source_recovery(
     manifest: dict[str, Any],
 ) -> None:
+    apply_action = manifest["actions"]["ops.apply-human-access@1.0.0"]
+    assert apply_action["bindings"] == {"core-human-access": "human-access-apply-shadow"}
+    apply_profile = manifest["support_profiles"]["human-access-apply-shadow"]
+    assert apply_profile["delivery_status"] == "shadow_only"
+    assert apply_profile["effect_observation"]["status"] == "source_only"
+    assert apply_profile["recovery"]["status"] == "wired"
+
     revoke = manifest["actions"]["ops.revoke-human-access@1.0.0"]
     assert revoke["bindings"] == {"core-human-access": "human-access-revoke-shadow"}
     revoke_profile = manifest["support_profiles"]["human-access-revoke-shadow"]
     assert revoke_profile["delivery_status"] == "shadow_only"
-    assert revoke_profile["recovery"]["status"] == "source_only"
+    assert revoke_profile["effect_observation"]["status"] == "source_only"
+    assert revoke_profile["recovery"]["status"] == "wired"
 
     promotion_profile = manifest["support_profiles"]["promotion-direct"]
-    assert promotion_profile["recovery"]["status"] == "source_only"
+    assert promotion_profile["effect_observation"]["status"] == "source_only"
+    assert promotion_profile["recovery"]["status"] == "wired"
 
     profiles = manifest["support_profiles"]
     assert not any(p["delivery_status"] == "blocked" for p in profiles.values())
     assert not any(p["recovery"]["status"] == "missing" for p in profiles.values())
+
+
+def test_gateway_tag_and_tool_profiles_reflect_source_and_wired_support(
+    manifest: dict[str, Any],
+) -> None:
+    sub_tag = manifest["actions"]["remediate.subscription-tag-add@1.0.0"]
+    assert sub_tag["bindings"] == {
+        "core-azure-gateway": "core-gateway-tag",
+        "isolated-azure-gateway": "isolated-gateway-tag",
+        "isolated-subscription-tag-direct-api": "isolated-subscription-tag",
+    }
+    res_tag = manifest["actions"]["remediate.tag-add@1.1.0"]
+    assert res_tag["bindings"] == {
+        "core-azure-gateway": "core-gateway-tag",
+        "isolated-azure-gateway": "isolated-gateway-tag",
+    }
+
+    for profile_id in ("core-gateway-tag", "isolated-gateway-tag"):
+        tag_profile = manifest["support_profiles"][profile_id]
+        assert tag_profile["delivery_status"] == "executable"
+        assert tag_profile["effect_observation"]["status"] == "conditional"
+        assert tag_profile["recovery"]["status"] == "declared_only"
+        assert tag_profile["evidence"]["level"] == "focused_tests"
+
+    chaos_profile = manifest["support_profiles"]["chaos-tool"]
+    assert chaos_profile["effect_observation"]["status"] == "wired"
+    assert chaos_profile["recovery"]["status"] == "wired"
+
+    investigation_profile = manifest["support_profiles"]["investigation-tool"]
+    assert investigation_profile["effect_observation"]["status"] == "source_only"
+    assert investigation_profile["recovery"] == {"status": "not_applicable", "refs": []}
+
+    vm_task_profile = manifest["support_profiles"]["vm-task-tool"]
+    assert vm_task_profile["effect_observation"]["status"] == "source_only"
+    assert vm_task_profile["recovery"]["status"] == "wired"
 
 
 def test_missing_catalog_action_fails_closed(

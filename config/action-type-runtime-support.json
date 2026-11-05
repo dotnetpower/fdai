@@ -400,6 +400,41 @@
         ]
       }
     },
+    "core-gateway-tag": {
+      "delivery_status": "executable",
+      "effect_observation": {
+        "status": "conditional",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/runtime/tag_effect.py",
+            "symbol": "build_default_tag_effect_bindings"
+          },
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/azure/gateway_tag_effect.py",
+            "symbol": "GatewayTagEffectVerifier"
+          }
+        ]
+      },
+      "recovery": {
+        "status": "declared_only",
+        "refs": [
+          {
+            "path": "docs/roadmap/decisioning/execution-model.md"
+          }
+        ]
+      },
+      "evidence": {
+        "level": "focused_tests",
+        "refs": [
+          {
+            "path": "services/core-control-plane/tests/delivery/azure/test_gateway_direct_api.py"
+          },
+          {
+            "path": "services/core-control-plane/tests/delivery/azure/test_gateway_tag_effect.py"
+          }
+        ]
+      }
+    },
     "core-start-vm": {
       "delivery_status": "executable",
       "effect_observation": {
@@ -508,6 +543,44 @@
         ]
       }
     },
+    "isolated-gateway-tag": {
+      "delivery_status": "executable",
+      "effect_observation": {
+        "status": "conditional",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/runtime/tag_effect.py",
+            "symbol": "build_default_tag_effect_bindings"
+          },
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/azure/gateway_tag_effect.py",
+            "symbol": "GatewayTagEffectVerifier"
+          }
+        ]
+      },
+      "recovery": {
+        "status": "declared_only",
+        "refs": [
+          {
+            "path": "docs/roadmap/decisioning/execution-model.md"
+          }
+        ]
+      },
+      "evidence": {
+        "level": "focused_tests",
+        "refs": [
+          {
+            "path": "packages/service-contracts/tests/test_executor_contract_sdk.py"
+          },
+          {
+            "path": "services/isolated-executor/tests/test_effect_safety.py"
+          },
+          {
+            "path": "services/core-control-plane/tests/delivery/azure/test_gateway_tag_effect.py"
+          }
+        ]
+      }
+    },
     "isolated-subscription-tag": {
       "delivery_status": "executable",
       "effect_observation": {
@@ -587,23 +660,36 @@
     "promotion-direct": {
       "delivery_status": "executable",
       "effect_observation": {
-        "status": "missing",
-        "refs": []
-      },
-      "recovery": {
         "status": "source_only",
         "refs": [
           {
             "path": "services/core-control-plane/src/fdai/delivery/promotion.py",
-            "symbol": "StateStorePromotionAttestationStore"
+            "symbol": "PersistedActionPromotionRegistry"
           },
           {
             "path": "services/core-control-plane/src/fdai/delivery/promotion_override.py",
-            "symbol": "OperatorOverridePromotionDirectApiExecutor"
+            "symbol": "OverridePromotionRegistry"
           },
           {
             "path": "services/core-control-plane/src/fdai/delivery/graph_model_promotion.py",
             "symbol": "GraphModelPromotionDirectApiExecutor"
+          }
+        ]
+      },
+      "recovery": {
+        "status": "wired",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/promotion.py",
+            "symbol": "PROMOTION_ACTION_TYPE"
+          },
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/promotion_override.py",
+            "symbol": "OVERRIDE_PROMOTION_ACTION_TYPE"
+          },
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/graph_model_promotion.py",
+            "symbol": "PROMOTE_EFFECT_MODEL_ACTION_TYPE"
           }
         ]
       },
@@ -645,14 +731,24 @@
     "human-access-apply-shadow": {
       "delivery_status": "shadow_only",
       "effect_observation": {
-        "status": "missing",
-        "refs": []
-      },
-      "recovery": {
         "status": "source_only",
         "refs": [
           {
-            "path": "services/core-control-plane/src/fdai/delivery/identity/direct_api.py"
+            "path": "services/core-control-plane/src/fdai/delivery/identity/direct_api.py",
+            "symbol": "HumanAccessDirectApiExecutor"
+          }
+        ]
+      },
+      "recovery": {
+        "status": "wired",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/identity/direct_api.py",
+            "symbol": "HUMAN_ACCESS_ACTIONS"
+          },
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/identity/direct_api.py",
+            "symbol": "HumanAccessDirectApiExecutor"
           }
         ]
       },
@@ -668,12 +764,21 @@
     "human-access-revoke-shadow": {
       "delivery_status": "shadow_only",
       "effect_observation": {
-        "status": "missing",
-        "refs": []
-      },
-      "recovery": {
         "status": "source_only",
         "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/identity/direct_api.py",
+            "symbol": "HumanAccessDirectApiExecutor"
+          }
+        ]
+      },
+      "recovery": {
+        "status": "wired",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/identity/direct_api.py",
+            "symbol": "HUMAN_ACCESS_ACTIONS"
+          },
           {
             "path": "services/core-control-plane/src/fdai/delivery/identity/direct_api.py",
             "symbol": "HumanAccessDirectApiExecutor"
@@ -750,14 +855,28 @@
     "chaos-tool": {
       "delivery_status": "executable",
       "effect_observation": {
-        "status": "missing",
-        "refs": []
-      },
-      "recovery": {
-        "status": "declared_only",
+        "status": "wired",
         "refs": [
           {
-            "path": "docs/roadmap/decisioning/execution-model.md"
+            "path": "services/core-control-plane/src/fdai/delivery/chaos/governed_records.py",
+            "symbol": "CHAOS_ACTION_TYPE"
+          },
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/chaos/governed_outcome.py",
+            "symbol": "GovernedChaosOutcome"
+          }
+        ]
+      },
+      "recovery": {
+        "status": "wired",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/chaos/governed_records.py",
+            "symbol": "CHAOS_ACTION_TYPE"
+          },
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/chaos/governed_closure.py",
+            "symbol": "GovernedChaosClosure"
           }
         ]
       },
@@ -773,16 +892,17 @@
     "investigation-tool": {
       "delivery_status": "executable",
       "effect_observation": {
-        "status": "missing",
-        "refs": []
-      },
-      "recovery": {
-        "status": "declared_only",
+        "status": "source_only",
         "refs": [
           {
-            "path": "docs/roadmap/decisioning/execution-model.md"
+            "path": "services/core-control-plane/src/fdai/delivery/investigation/tool.py",
+            "symbol": "InvestigationToolExecutor"
           }
         ]
+      },
+      "recovery": {
+        "status": "not_applicable",
+        "refs": []
       },
       "evidence": {
         "level": "focused_tests",
@@ -796,14 +916,24 @@
     "vm-task-tool": {
       "delivery_status": "executable",
       "effect_observation": {
-        "status": "missing",
-        "refs": []
-      },
-      "recovery": {
-        "status": "declared_only",
+        "status": "source_only",
         "refs": [
           {
-            "path": "docs/roadmap/decisioning/execution-model.md"
+            "path": "services/core-control-plane/src/fdai/delivery/vm_task/tool_executor.py",
+            "symbol": "VmPythonToolExecutor"
+          }
+        ]
+      },
+      "recovery": {
+        "status": "wired",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/vm_task/tool_executor.py",
+            "symbol": "_ACTION_TYPE"
+          },
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/vm_task/tool_executor.py",
+            "symbol": "VmPythonToolExecutor"
           }
         ]
       },
@@ -1132,16 +1262,16 @@
     },
     "remediate.subscription-tag-add@1.0.0": {
       "bindings": {
-        "core-azure-gateway": "core-gateway",
-        "isolated-azure-gateway": "isolated-gateway",
+        "core-azure-gateway": "core-gateway-tag",
+        "isolated-azure-gateway": "isolated-gateway-tag",
         "isolated-subscription-tag-direct-api": "isolated-subscription-tag"
       },
       "note": "Development-profile subscription tag support uses the isolated Executor change identity and a distinct Core reader. It requires exact logical scope, temporary tag-only RBAC, promotion, Owner approval, snapshot rollback, and independent effect verification."
     },
     "remediate.tag-add@1.1.0": {
       "bindings": {
-        "core-azure-gateway": "core-gateway",
-        "isolated-azure-gateway": "isolated-gateway"
+        "core-azure-gateway": "core-gateway-tag",
+        "isolated-azure-gateway": "isolated-gateway-tag"
       },
       "note": "Development gateway support is conditional on exact logical scope, tag-only RBAC, promotion, authorization, snapshot rollback, and reader-identity effect verification."
     },
