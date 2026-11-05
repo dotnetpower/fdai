@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 6d890875daa87d04f86cc694c33b58bcce8c4cc0
-translation_revised: 2026-11-04
+translation_source_sha: b7b86b071607cf4b5b36ddd7568741ca75128b4d
+translation_revised: 2026-11-06
 ---
 # FDAI Console 대화
 
@@ -22,6 +22,7 @@ translation_revised: 2026-11-04
 규칙 카탈로그의 규칙 열에는 출처 계층과 규칙 ID가 정확히 일치하는 상세 정보의 읽기 쉬운
 제목을 표시합니다. 제목이 없거나 공백뿐이면 규칙 ID를 표시합니다. 목록의 표시만 바꾸며
 상세 패널, 출처 정보, 다른 열, 필터링, 선택 동작과 정규 ID는 그대로 유지합니다.
+또한 규칙 및 컨트롤 화면은 실행 권한을 부여하지 않으면서 `critical`/`high` 심각도 기본 shadow 활성화 상태와 활성 스냅샷 기반의 읽기 전용 관련 인벤토리 리소스(`workflow_rule_inventory_projection.py`)를 함께 표시합니다.
 ID 및 액세스 검토 컨트롤은 서버가 검증한 principal을 사용해 제출 전에 자기 검토를 비활성화합니다. 다른 Owner는 추가 검토 메모 없이 요청을 결정할 수 있습니다. 원래 요청 사유, 검토자 신원, 결정 및 시각은 계속 감사 기록에 남으며 승인만으로 공급자를 변경하지 않습니다.
 Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](channels-and-notifications-ko.md)에 있고, 운영 화면과 요청은 [console-operations-ko.md](console-operations-ko.md)에 정의되며 SPA는 [project-structure.md § 콘솔/](../architecture/project-structure-ko.md#모듈-경계모듈-boundaries)에 있습니다. 근거 출처 이력, 스트림 복구, localization 및 아키텍처 지도 복원력은 [console-evidence-and-resilience-ko.md](console-evidence-and-resilience-ko.md)가 소유합니다. Login 초기화는 역할이 할당된 principal의 접근을 검증된 App 역할에서 도출하고 선택적 access-request 변환 결과를 요구하지 않으며, 역할이 없을 때 해당 변환 결과가 사용 불가이면 접근을 계속 차단합니다. 로컬 개발의 독립 서비스 어댑터는 모델 서술에만 Azure CLI를 사용할 수 있고 provider-read 또는 실행 권한은 없습니다. 온톨로지는 하나의 exact-release 레지스트리 변환 결과에서 검토된 의미 모델과 카탈로그 토폴로지를 제공합니다. 런타임 인스턴스는 보안 receipt를 기반으로 하는 별도의 목적 범위 컨텍스트 스냅샷에만 표시됩니다. 인스턴스 화면은 출처 후보 회계, 범위가 제한된 응답 수, 집중 그래프 항목, Inspector 전용 관계, IAM 전용 관계를 분리하여 레이아웃 생략이 프로바이더 근거 누락처럼 보이지 않게 합니다. Fleet 출처 행은 `(source, scope_digest)` 신원을 사용하고 각 불투명 범위 다이제스트를 표시하며 여러 클러스터 상태를 행 하나로 축약하지 않습니다. 화면이 보이는 동안 인증된 인벤토리 무효화 SSE 스트림을 사용하고 커밋된 watermark를 받으면 선택한 인스턴스를 즉시 다시 검증합니다. 교차 출처 재현은 범위가 제한된 `Last-Event-ID` 요청 헤더를 명시적으로 허용합니다. SSE를 사용할 수 없으면 단조 증가 시계를 기준으로 다음 15초 fallback 폴링까지 남은 시간을 표시하며 브라우저 복귀 시에도 즉시 다시 확인합니다. 새로고침 실패 시 마지막으로 검증된 응답을 유지하고 프로바이더 상태를 텍스트가 있는 의미 배지로 표시합니다. SSE와 폴링은 인벤토리 관측을 대체하거나 관계 완전성을 높이지 않습니다. 인시던트 주의 컨트롤은 마운트 중 제출하지 않으며, 명시적으로 클릭할 때마다 인시던트에 결속된 새 대화를 열고, 증적에 결속된 플래너 중단 시 모델 연결 또는 의미 런타임 복구 단계를 현지화해 표시합니다. 서버 검증 결과가 있으면 참조가 0개인 경우까지 그 근거 참조만 인용 출처로 사용하며, 검증 결과가 없을 때만 화면 맥락을 인용합니다.
 

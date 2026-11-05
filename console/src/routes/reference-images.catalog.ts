@@ -1300,39 +1300,27 @@ const RESOURCE_TYPE_IMAGE_BINDINGS: Readonly<Record<string, string>> = {
   "unmapped": "data-export-overview",
 };
 
-function inferResourceTypeImageKey(resourceType: string): string | undefined {
-  const lower = resourceType.toLowerCase();
-  if (lower.includes("kubernetes") || lower.includes("containerservice") || lower.includes("node-pool") || lower.includes("containerapp")) {
-    return lower.includes("control-plane") || lower.includes("monitor") ? "aks-monitor-data-v2" : "aks-node-pools";
-  }
-  if (lower.includes("containerregistry") || lower.includes("container-registry")) return "02-soft-delete";
-  if (lower.includes("storage") || lower.includes("datalake") || lower.includes("elasticsan") || lower.includes("cache") || lower.includes("redis")) {
-    return "geo-zone-redundant-storage";
-  }
-  if (lower.includes("sql") || lower.includes("dbfor") || lower.includes("postgres") || lower.includes("mysql") || lower.includes("mariadb") || lower.includes("cosmos") || lower.includes("database")) {
-    return "point-in-time-restore-diagram";
-  }
-  if (lower.includes("keyvault") || lower.includes("secret") || lower.includes("authorization") || lower.includes("identity") || lower.includes("aad") || lower.includes("attestation")) {
-    return "backup-item-delete-flow";
-  }
-  if (lower.includes("frontdoor") || lower.includes("cdn") || lower.includes("waf") || lower.includes("apimanagement") || lower.includes("web")) {
-    return "front-door-overview";
-  }
-  if (lower.includes("applicationgateway") || lower.includes("loadbalancer") || lower.includes("trafficmanager")) {
-    return "appgatewayprobe";
-  }
-  if (lower.includes("expressroute") || lower.includes("virtualnetworkgateway")) return "bfd-need";
-  if (lower.includes("networkwatcher") || lower.includes("networksecuritygroup") || lower.includes(".nsg")) {
-    return "network-watcher-capabilities";
-  }
-  if (lower.includes("network") || lower.includes("vnet") || lower.includes("privateendpoint") || lower.includes("dns")) {
-    return "fastpath-vnet-peering";
-  }
-  if (lower.includes("backup") || lower.includes("dataprotection") || lower.includes("recovery") || lower.includes("virtualmachine") || lower.includes("compute") || lower.includes("disk")) {
-    return "vmbackup-architecture";
-  }
-  if (lower.includes("monitor") || lower.includes("insights") || lower.includes("operationalinsights") || lower.includes("log") || lower.includes("eventhub") || lower.includes("eventgrid")) {
-    return "data-export-overview";
+const RESOURCE_TYPE_PATTERN_BINDINGS: readonly [RegExp, string][] = [
+  [/control-plane|kubernetes.*monitor/i, "aks-monitor-data-v2"],
+  [/kubernetes|containerservice|node-pool|containerapp/i, "aks-node-pools"],
+  [/containerregistry|container-registry/i, "02-soft-delete"],
+  [/storage|datalake|elasticsan|cache|redis/i, "geo-zone-redundant-storage"],
+  [/sql|dbfor|postgres|mysql|mariadb|cosmos|database/i, "point-in-time-restore-diagram"],
+  [/keyvault|secret|authorization|identity|aad|attestation/i, "backup-item-delete-flow"],
+  [/frontdoor|cdn|waf|apimanagement|web/i, "front-door-overview"],
+  [/applicationgateway|loadbalancer|trafficmanager/i, "appgatewayprobe"],
+  [/expressroute|virtualnetworkgateway/i, "bfd-need"],
+  [/networkwatcher|networksecuritygroup|\.nsg/i, "network-watcher-capabilities"],
+  [/network|vnet|privateendpoint|dns/i, "fastpath-vnet-peering"],
+  [/backup|dataprotection|recovery|virtualmachine|compute|disk/i, "vmbackup-architecture"],
+  [/monitor|insights|operationalinsights|log|eventhub|eventgrid/i, "data-export-overview"],
+];
+
+function inferResourceTypeImageKey(resourceType: string): string {
+  for (const [pattern, imageKey] of RESOURCE_TYPE_PATTERN_BINDINGS) {
+    if (pattern.test(resourceType)) {
+      return imageKey;
+    }
   }
   return "data-export-overview";
 }
