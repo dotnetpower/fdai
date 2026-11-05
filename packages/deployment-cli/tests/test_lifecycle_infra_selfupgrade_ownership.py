@@ -9,6 +9,13 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from fdai_deployment_cli.lifecycle_plan import (
+    LifecycleEffectEnvelope,
+    LifecyclePlan,
+    canonical_plan_payload,
+)
+
+# isort: split
 from fdai_deployment_cli.lifecycle_authorization import (
     exact_plan_digest_for,
     issue_lifecycle_authorization_receipt,
@@ -21,11 +28,6 @@ from fdai_deployment_cli.lifecycle_infrastructure_agent import (
 from fdai_deployment_cli.lifecycle_ownership_exclusion import (
     ProvenFoundationOwnershipRegistry,
     SignedFoundationOwnershipReceipt,
-)
-from fdai_deployment_cli.lifecycle_plan import (
-    LifecycleEffectEnvelope,
-    LifecyclePlan,
-    canonical_plan_payload,
 )
 from fdai_deployment_cli.lifecycle_self_upgrade import (
     DualSlotState,
@@ -280,3 +282,160 @@ def test_proven_foundation_ownership_registry_verifies_signed_receipts_and_exclu
     forged = replace(signed_receipt, signature=_key("other").sign(b"forged"))
     with pytest.raises(ValueError, match="foundation_ownership_signature_invalid"):
         ownership_registry.register_verified(forged, verify_signature=verify_foundation)
+    with pytest.raises(ValueError, match="foundation_ownership_signature_invalid"):
+        ownership_registry.register_verified(unsigned_receipt, verify_signature=verify_foundation)
+
+
+def test_infrastructure_agent_validation_and_rejection_branches() -> None:
+    with pytest.raises(ValueError, match="address and resource_id MUST NOT be empty"):
+        PlannedResourceChange(
+            address=" ",
+            resource_id="/subscriptions/sub/rg/res",
+            entity_id="platform",
+            region="korea-central",
+            actions=("create",),
+        )
+    with pytest.raises(ValueError, match="entity_id and region MUST NOT be empty"):
+        PlannedResourceChange(
+            address="azurerm_resource.main",
+            resource_id="/subscriptions/sub/rg/res",
+            entity_id=" ",
+            region="korea-central",
+            actions=("create",),
+        )
+    with pytest.raises(ValueError, match="actions MUST NOT be empty"):
+        PlannedResourceChange(
+            address="azurerm_resource.main",
+            resource_id="/subscriptions/sub/rg/res",
+            entity_id="platform",
+            region="korea-central",
+            actions=(),
+        )
+
+    valid_digest = "sha256:" + "a" * 64
+    with pytest.raises(ValueError, match="exact_plan_digest MUST be sha256"):
+        DestructiveChangeConfirmation(
+            exact_plan_digest="invalid",
+            confirmed_addresses=frozenset({"azurerm_resource.main"}),
+            operator="operator-alice",
+            reason="approved",
+            confirmed_at=NOW,
+        )
+    with pytest.raises(ValueError, match="confirmed_addresses MUST NOT be empty"):
+        DestructiveChangeConfirmation(
+            exact_plan_digest=valid_digest,
+            confirmed_addresses=frozenset({" "}),
+            operator="operator-alice",
+            reason="approved",
+            confirmed_at=NOW,
+        )
+    with pytest.raises(ValueError, match="operator and reason MUST NOT be empty"):
+        DestructiveChangeConfirmation(
+            exact_plan_digest=valid_digest,
+            confirmed_addresses=frozenset({"azurerm_resource.main"}),
+            operator=" ",
+            reason="approved",
+            confirmed_at=NOW,
+        )
+    with pytest.raises(ValueError, match="confirmed_at MUST include timezone information"):
+        DestructiveChangeConfirmation(
+            exact_plan_digest=valid_digest,
+            confirmed_addresses=frozenset({"azurerm_resource.main"}),
+            operator="operator-alice",
+            reason="approved",
+            confirmed_at=datetime(2026, 10, 22, 0, 0),
+        )
+
+    plan = _plan()
+    receipt = issue_lifecycle_authorization_receipt(
+        plan,
+        phase="infrastructure",
+        window_starts_at=NOW - timedelta(minutes=5),
+        window_ends_at=NOW + timedelta(minutes=30),
+        issued_at=NOW,
+    )
+    change = PlannedResourceChange(
+        address="azurerm_kubernetes_cluster.fdai",
+        resource_id="/subscriptions/sub/rg/aks",
+        entity_id="platform",
+        region="korea-central",
+        actions=("update",),
+    )
+    agent = InfrastructureAgent(_FakeCoordinator())
+
+    unauth = agent.execute_phase(
+        plan,
+        authorization_receipt=None,
+        planned_changes=(change,),
+        trusted_now=NOW,
+    )
+    assert unauth.outcome == "rejected"
+
+    out_of_envelope_entity = agent.execute_phase(
+        plan,
+        authorization_receipt=receipt,
+        planned_changes=(replace(change, entity_id="other-entity"),),
+        trusted_now=NOW,
+    )
+    assert (out_of_envelope_entity.outcome, out_of_envelope_entity.reason_code) == (
+        "rejected",
+        "change_exceeds_envelope",
+    )
+
+    out_of_envelope_region = agent.execute_phase(
+        plan,
+        authorization_receipt=receipt,
+        planned_changes=(replace(change, region="east-us"),),
+        trusted_now=NOW,
+    )
+    assert (out_of_envelope_region.outcome, out_of_envelope_region.reason_code) == (
+        "rejected",
+        "change_exceeds_envelope",
+    )
+
+    class _FailingCoordinator:
+        def claim_apply_and_verify(
+            self,
+            *,
+            plan_id: str,
+            exact_plan_digest: str,
+            authorization_receipt_digest: str,
+            changes: tuple[PlannedResourceChange, ...],
+        ) -> bool:
+            return False
+
+    failed_coord = InfrastructureAgent(_FailingCoordinator()).execute_phase(
+        plan,
+        authorization_receipt=receipt,
+        planned_changes=(change,),
+        trusted_now=NOW,
+    )
+    assert (failed_coord.outcome, failed_coord.reason_code) == (
+        "rejected",
+        "exact_plan_coordinator_failed",
+    )
+
+
+def test_foundation_ownership_receipt_field_validation() -> None:
+    valid_digest = "sha256:" + "a" * 64
+    with pytest.raises(ValueError, match="resource_ref MUST NOT be empty"):
+        SignedFoundationOwnershipReceipt(
+            resource_ref=" ",
+            foundation_receipt_digest=valid_digest,
+            terraform_state_digest=valid_digest,
+            signature=b"sig",
+        )
+    with pytest.raises(ValueError, match="foundation_receipt_digest MUST be sha256"):
+        SignedFoundationOwnershipReceipt(
+            resource_ref="resource:azure/rg/res",
+            foundation_receipt_digest="invalid",
+            terraform_state_digest=valid_digest,
+            signature=b"sig",
+        )
+    with pytest.raises(ValueError, match="terraform_state_digest MUST be sha256"):
+        SignedFoundationOwnershipReceipt(
+            resource_ref="resource:azure/rg/res",
+            foundation_receipt_digest=valid_digest,
+            terraform_state_digest="invalid",
+            signature=b"sig",
+        )

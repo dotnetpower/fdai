@@ -219,6 +219,58 @@ def test_transport_evidence_rejects_summary_tampering() -> None:
         InvestigationStrategyComparisonEvidence.from_mapping(mapping)
 
 
+def test_transport_evidence_round_trips_completed_and_held_comparisons() -> None:
+    completed = InvestigationStrategyComparisonEvidence.from_shadow(_comparison(improvement=True))
+    held = InvestigationStrategyComparisonEvidence.from_shadow(_held_comparison())
+
+    assert InvestigationStrategyComparisonEvidence.from_mapping(completed.to_mapping()) == completed
+    assert held.challenger_outcome is None
+    assert InvestigationStrategyComparisonEvidence.from_mapping(held.to_mapping()) == held
+
+
+def test_transport_evidence_validates_fields_and_invariants() -> None:
+    evidence = InvestigationStrategyComparisonEvidence.from_shadow(_comparison(improvement=True))
+
+    with pytest.raises(ValueError, match="MUST be non-empty and bounded"):
+        replace(evidence, comparison_id="")
+    with pytest.raises(ValueError, match="MUST be a SHA-256 digest"):
+        replace(evidence, active_strategy_digest="invalid-digest")
+    with pytest.raises(ValueError, match="requires distinct strategies"):
+        replace(evidence, challenger_strategy_digest=evidence.active_strategy_digest)
+    with pytest.raises(ValueError, match="disposition is invalid"):
+        replace(evidence, disposition="completed")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="challenger outcome is invalid"):
+        replace(evidence, challenger_outcome="improvement")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="agreement MUST be boolean"):
+        replace(evidence, agreement="yes")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="MUST NOT grant authority"):
+        replace(evidence, execution_authority=True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="MUST NOT grant authority"):
+        replace(evidence, promotion_authority=True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="MUST be canonical JSON"):
+        replace(evidence, comparison_material_json="{not-json")
+    with pytest.raises(ValueError, match="MUST be canonical JSON"):
+        replace(evidence, comparison_material_json="{ }\n")
+    with pytest.raises(ValueError, match="digest does not match its material"):
+        replace(evidence, comparison_digest=_OTHER_CHALLENGER)
+    with pytest.raises(ValueError, match="id does not match its digest"):
+        replace(evidence, comparison_id="discrimination-shadow-00000000000000000000000000000000")
+
+    mapping = evidence.to_mapping()
+    with pytest.raises(ValueError, match="fields do not match the contract"):
+        InvestigationStrategyComparisonEvidence.from_mapping({"comparison_id": "only-one"})
+
+    bad_bool = dict(mapping)
+    bad_bool["agreement"] = "not-a-bool"
+    with pytest.raises(ValueError, match="agreement MUST be boolean"):
+        InvestigationStrategyComparisonEvidence.from_mapping(bad_bool)
+
+    bad_authority = dict(mapping)
+    bad_authority["execution_authority"] = True
+    with pytest.raises(ValueError, match="execution_authority MUST be false"):
+        InvestigationStrategyComparisonEvidence.from_mapping(bad_authority)
+
+
 def test_compilation_result_digest_changes_with_exact_comparison_refs() -> None:
     improvement = _comparison(improvement=True)
     non_improvement = _comparison(improvement=False)

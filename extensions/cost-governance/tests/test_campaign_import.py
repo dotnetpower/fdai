@@ -9,10 +9,17 @@ import pytest
 from fdai.shared.providers.cost_governance_campaign import CostCampaignEpisode
 from fdai.shared.providers.cost_governance_lifecycle import CostRevisionPin
 
+import fdai_cost_governance.campaign_import as campaign_import
 from fdai_cost_governance.campaign_import import (
     CostCampaignImportConflictError,
     CostCampaignImportContext,
+    _boolean,
     _canonical_digest,
+    _integer,
+    _load_json,
+    _string_tuple,
+    _text,
+    _timestamp,
     import_cost_campaign_observations,
     load_cost_campaign_import_policy,
     load_cost_campaign_observation_batch,
@@ -301,3 +308,135 @@ async def test_import_rejects_out_of_window_observation(tmp_path: Path) -> None:
             allowed_target_ids=_TARGETS,
             store=_Store(),
         )
+
+
+async def test_campaign_import_validation_and_conflict_branches(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with pytest.raises(ValueError, match="workflow path is invalid"):
+        replace(_context(), source_workflow_path="bad.yml")
+    with pytest.raises(ValueError, match="run identity MUST be positive"):
+        replace(_context(), source_run_id=0)
+    with pytest.raises(ValueError, match="artifact name is invalid"):
+        replace(_context(), source_artifact_name="bad")
+    with pytest.raises(ValueError, match="timezone-aware"):
+        replace(_context(), imported_at=datetime(2026, 9, 12))
+
+    bad_pol = tmp_path / "bad_pol.json"
+    bad_pol.write_text("{}", encoding="utf-8")
+    with pytest.raises(ValueError, match="policy fields are invalid"):
+        load_cost_campaign_import_policy(bad_pol)
+
+    pol_doc = json.loads(_POLICY.read_text(encoding="utf-8"))
+    bad_wf_pol = tmp_path / "bad_wf.json"
+    bad_wf_pol.write_text(
+        json.dumps({**pol_doc, "allowed_exporter_workflow_paths": ["bad"]}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="workflow allowlist is invalid"):
+        load_cost_campaign_import_policy(bad_wf_pol)
+
+    for doc_override, match in (
+        ({"extra": 1}, "batch fields are invalid"),
+        ({"schema_version": "2.0.0"}, "schema_version MUST be 1.0.0"),
+        ({"campaign_id": "BAD_ID"}, "campaign_id is invalid"),
+        ({"observations": []}, "exceed the configured bound"),
+        ({"observations": [_observation(), _observation()]}, "episode ids MUST be unique"),
+    ):
+        base_doc = json.loads(_batch(tmp_path).read_text(encoding="utf-8"))
+        base_doc.pop("batch_digest")
+        base_doc.update(doc_override)
+        p = tmp_path / "custom_batch.json"
+        p.write_text(
+            json.dumps({**base_doc, "batch_digest": _canonical_digest(base_doc)}),
+            encoding="utf-8",
+        )
+        with pytest.raises(ValueError, match=match):
+            load_cost_campaign_observation_batch(p, maximum_episodes=10)
+
+    bad_digest_path = _batch(tmp_path)
+    bad_digest_doc = json.loads(bad_digest_path.read_text(encoding="utf-8"))
+    bad_digest_doc["batch_digest"] = f"sha256:{'0' * 64}"
+    bad_digest_path.write_text(json.dumps(bad_digest_doc), encoding="utf-8")
+    with pytest.raises(ValueError, match="batch digest does not match"):
+        load_cost_campaign_observation_batch(bad_digest_path, maximum_episodes=10)
+
+    policy = load_cost_campaign_import_policy(_POLICY)
+    valid_batch = load_cost_campaign_observation_batch(_batch(tmp_path), maximum_episodes=10)
+
+    with pytest.raises(ValueError, match="revision pin does not match"):
+        await import_cost_campaign_observations(
+            valid_batch,
+            revision_pin=replace(_pin(), activation_revision=99),
+            context=_context(),
+            policy=policy,
+            allowed_target_ids=_TARGETS,
+            store=_Store(),
+        )
+
+    with pytest.raises(ValueError, match="not package-owned"):
+        await import_cost_campaign_observations(
+            valid_batch,
+            revision_pin=_pin(),
+            context=_context(),
+            policy=policy,
+            allowed_target_ids=frozenset({"other.target"}),
+            store=_Store(),
+        )
+
+    class _RejectStore(_Store):
+        async def append_cost_campaign_episode(
+            self,
+            episode: CostCampaignEpisode,
+            *,
+            expected_revision: int,
+        ) -> bool:
+            return False
+
+    with pytest.raises(CostCampaignImportConflictError, match="append conflicted"):
+        await import_cost_campaign_observations(
+            valid_batch,
+            revision_pin=_pin(),
+            context=_context(),
+            policy=policy,
+            allowed_target_ids=_TARGETS,
+            store=_RejectStore(),
+        )
+
+    monkeypatch.setattr(campaign_import, "_MAX_CAMPAIGN_EPISODES", 0)
+    with pytest.raises(ValueError, match="retained episode bound"):
+        await import_cost_campaign_observations(
+            valid_batch,
+            revision_pin=_pin(),
+            context=_context(),
+            policy=policy,
+            allowed_target_ids=_TARGETS,
+            store=_Store(),
+        )
+
+    with pytest.raises(ValueError, match="unavailable or exceeds"):
+        _load_json(tmp_path / "missing.json", maximum_bytes=100, label="doc")
+    arr_path = tmp_path / "arr.json"
+    arr_path.write_text("[1]", encoding="utf-8")
+    with pytest.raises(ValueError, match="MUST contain an object"):
+        _load_json(arr_path, maximum_bytes=100, label="doc")
+    dup_path = tmp_path / "dup.json"
+    dup_path.write_text('{"a":1,"a":2}', encoding="utf-8")
+    with pytest.raises(ValueError, match="repeats key"):
+        _load_json(dup_path, maximum_bytes=100, label="doc")
+
+    with pytest.raises(ValueError, match="bounded non-empty ASCII"):
+        _text({"k": ""}, "k", 10)
+    with pytest.raises(ValueError, match="MUST be an integer"):
+        _integer({"k": True}, "k", 0, 10)
+    with pytest.raises(ValueError, match="MUST be a boolean"):
+        _boolean({"k": "yes"}, "k")
+    with pytest.raises(ValueError, match="bounded ASCII string array"):
+        _string_tuple([""], "refs")
+    with pytest.raises(ValueError, match="MUST be RFC3339"):
+        _timestamp(123)
+    with pytest.raises(ValueError, match="MUST be RFC3339"):
+        _timestamp("bad")
+    with pytest.raises(ValueError, match="MUST include a timezone"):
+        _timestamp("2026-09-12T00:00:00")

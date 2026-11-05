@@ -246,401 +246,140 @@ implementation states below.
 | 2026-10-26 | implemented | Fixed a Release Hub and Lifecycle Hub operator UI sign-in defect: once the Entra refresh token expired, MSAL's silent renewal fell back to a hidden iframe that the Hub's `frame-ancestors 'none'` policy blocks, so every management API call failed with `monitor_window_timeout` ("Catalog unavailable"). The shared UI auth module now renews by a top-level redirect on `monitor_window_timeout` or an interaction-required error, with a 60-second guard against redirect loops. The framing policy is unchanged. | `current change`; `lifecycle/hub/ui/src/auth.ts`, `lifecycle/hub/ui/src/auth.test.ts`; focused `vitest run src/auth.test.ts`: 4 passed; `tsc --noEmit` for both Hub UIs passed. | A live Entra sign-in against a deployed Hub is not yet recorded; the fix reaches a deployed Hub only after redeployment. |
 | 2026-11-01 | validated | Refined the local Bootstrap setup screen with operator account/permission verification disclosure, explicit `AKS` vs `ACA` (`runtime_platform`) and `database_placement` selection, compact connection/target summary in active and ready phases, 15-stage start/end/duration telemetry, and 10-round parallelization across preflight, RP inspection, Bastion SSH multiplexing, and ACR/Terraform execution. | `current change`; see [Bootstrap ledger](lifecycle-hub-bootstrap.md); 387 focused Python tests and 17 Playwright browser tests passed. | Post-install managed lifecycle enrollment remains separate. |
 | 2026-11-04 | validated | Made the Stencil API compose-and-release registration test use a relative clock; its fixed 2026-11-02 clock plus the 24 h signed-catalog TTL expired on 2026-11-03 12:00Z and the independent CLI trust verifier, which reads the real clock, rejected the catalog. No product behavior changed. | `current change`; `lifecycle/release-hub/tests/test_stencils.py` (5 passed). | None. |
+| 2026-11-05 | implemented | Added `lifecycle/hub/ui`'s `npm run typecheck`, `npm test`, and `npm run build` to the `operator-surfaces` CI job alongside locked dependency installation and npm cache wiring, routed `lifecycle/hub/ui/` edits to `operator-surfaces` in `resolve_test_scope.py`, and added `lifecycle` to the CI `contracts` job Ruff format and lint gates alongside the existing `pytest` and `mypy` coverage. | `current change`; `.github/workflows/ci.yml`, `scripts/quality/ci/run-operator-surfaces.sh`, `scripts/quality/ci/resolve_test_scope.py`, `tests/integration/scripts/test_resolve_test_scope.py`, and `tests/integration/scripts/test_check_ci_contracts.py` passed. | Separate live Hub and cluster operational items below remain open. |
+| 2026-11-05 | implemented | Expanded unit test coverage across `fdai_lifecycle_hub.{planning,entity}` and `fdai_deployment_cli.{lifecycle_infrastructure_agent,lifecycle_upgrade_bundle,lifecycle_configuration_package,lifecycle_ownership_exclusion}` to 100.00% branch coverage without changing Hub planning, entity enrollment, or lifecycle bundle verification behavior. | `current change`; `lifecycle/hub/tests/test_planning.py`, `lifecycle/hub/tests/test_suppressions.py`, `packages/deployment-cli/tests/test_lifecycle_infra_selfupgrade_ownership.py`, `packages/deployment-cli/tests/test_lifecycle_catalog_integrity_and_bundle.py`, `packages/deployment-cli/tests/test_lifecycle_configuration_package.py` (`106 passed`, 100.00% branch coverage). | Separate live Hub and cluster operational items below remain open. |
 
 ### Native first-creation validation
 
-Commands use the selected Python environment. Kubernetes and HTTP responses in these tests are
-synthetic; PostgreSQL runs only on the isolated loopback validation cluster through the repository
-wrapper. No remote database, model or Azure effect is exercised.
+Commands use the selected Python environment. Kubernetes and HTTP responses in these tests are synthetic; PostgreSQL runs only on the isolated loopback validation cluster through the repository wrapper. No remote database, model or Azure effect is exercised.
 
 ```bash
-python -m pytest -c pyproject.toml -q --no-cov \
-  packages/deployment-cli/tests/test_lifecycle_native.py \
-  lifecycle/agent/tests/test_native_scope.py \
-  lifecycle/agent/tests/test_native_first_install.py \
-  lifecycle/agent/tests/test_first_install.py \
-  lifecycle/agent/tests/test_kube.py \
-  lifecycle/agent/tests/test_cli.py \
-  lifecycle/agent/tests/test_application_release.py \
-  lifecycle/agent/tests/test_no_write.py \
-  lifecycle/hub/tests/test_native_ownership.py \
-  lifecycle/hub/tests/test_first_install.py \
-  lifecycle/hub/tests/test_local_channels.py \
-  lifecycle/hub/tests/test_remote_auth.py \
-  lifecycle/hub/tests/test_entity.py --tb=short
+python -m pytest -c pyproject.toml -q --no-cov packages/deployment-cli/tests/test_lifecycle_native.py lifecycle/agent/tests/test_native_scope.py lifecycle/agent/tests/test_native_first_install.py lifecycle/agent/tests/test_first_install.py lifecycle/agent/tests/test_kube.py lifecycle/agent/tests/test_cli.py lifecycle/agent/tests/test_application_release.py lifecycle/agent/tests/test_no_write.py lifecycle/hub/tests/test_native_ownership.py lifecycle/hub/tests/test_first_install.py lifecycle/hub/tests/test_local_channels.py lifecycle/hub/tests/test_remote_auth.py lifecycle/hub/tests/test_entity.py --tb=short
 ```
-
-Result: 188 passed, 14 database cases skipped without a bound database. These database cases
-are included in the separately passing command below.
-
+Result: 188 passed, 14 database cases skipped without a bound database. These database cases are included in the separately passing command below.
 ```bash
-python scripts/automation/with-local-test-database.py \
-  python -m pytest -c pyproject.toml -q --no-cov \
-  lifecycle/hub/tests/test_native_ownership.py \
-  lifecycle/hub/tests/test_first_install.py \
-  lifecycle/hub/tests/test_local_channels.py \
-  lifecycle/hub/tests/test_configuration_import_postgres.py --tb=short
+python scripts/automation/with-local-test-database.py python -m pytest -c pyproject.toml -q --no-cov lifecycle/hub/tests/test_native_ownership.py lifecycle/hub/tests/test_first_install.py lifecycle/hub/tests/test_local_channels.py lifecycle/hub/tests/test_configuration_import_postgres.py --tb=short
 ```
-
-Result: 70 passed. The validation container was returned to its original stopped state.
-The marker-only revision-5-to-6 transition preserves existing Entity/settings/audit records.
-Existing revision-1/2/3/4 tests also exercise the full explicit upgrade sequence.
-
+Result: 70 passed. The validation container was returned to its original stopped state. The marker-only revision-5-to-6 transition preserves existing Entity/settings/audit records. Existing revision-1/2/3/4 tests also exercise the full explicit upgrade sequence.
 ```bash
-MYPYPATH=lifecycle/agent/src:lifecycle/hub/src:packages/deployment-cli/src \
-  python -m mypy --strict lifecycle/agent/src lifecycle/hub/src \
-  packages/deployment-cli/src/fdai_deployment_cli/lifecycle_native.py
+MYPYPATH=lifecycle/agent/src:lifecycle/hub/src:packages/deployment-cli/src python -m mypy --strict lifecycle/agent/src lifecycle/hub/src packages/deployment-cli/src/fdai_deployment_cli/lifecycle_native.py
 ```
-
 Result: passed, 66 source files. Ruff check and format pass for the task-owned Python paths.
 
 ### Remaining work
 
-- [x] Implement and locally verify persisted Release Hub endpoint save/reset, loopback defaults,
-  explicit read failures and separation from catalog trust. Evidence: `current change`,
-  `lifecycle/hub/tests/test_release_connection.py` (32 passed) and the focused UI/browser checks above.
-- [ ] After redeploying the Hub, sign in with an expired-refresh-token browser session and record that
-  Release Hub reloads its catalog through the redirect renewal without `monitor_window_timeout`.
-- [ ] Run `fdai-lifecycle-agent enroll` from an actual installation Agent against an operating Hub with
-  a real workload identity, compare the key id out of band, approve, and read back the audited
-  `requested_via=agent`. Do not claim this from local tests.
-- [ ] Stamp `app.kubernetes.io/version` and `fdai.io/schema-revision` on the workloads the lifecycle
-  renderer and Terraform application stage create, so release-bearing Entities are observable
-  without a hand-labelled workload.
-- [ ] Provide a supported way to place the installation key and declaration on the Agent Pod's
-  private state path without making either a Terraform input.
-- [x] Implement private native-proof transport with exact Agent binding, enrolled signature,
-  immutable per-Entity submission, restart/retry and actual PostgreSQL concurrency coverage.
-  The focused 274-case command above also preserves operator-only acceptance and local CLI behavior.
-- [x] Activate the reviewed proof-handoff source under exact-source operational approval, then
-  verify actual workload-identity submission, separate trusted-host operator acceptance and
-  independently observed installation/update/failure recovery without exporting keys or proofs.
-
-- [x] Implement the prepared legacy-reader bridge and locally verify atomic preparation,
-  retained rows, read-only serving, native-write denial and explicit completion.
-
+- [x] Implement and locally verify persisted Release Hub endpoint save/reset, loopback defaults, explicit read failures and separation from catalog trust. Evidence: `current change`, `lifecycle/hub/tests/test_release_connection.py` (32 passed) and the focused UI/browser checks above.
+- [ ] After redeploying the Hub, sign in with an expired-refresh-token browser session and record that Release Hub reloads its catalog through the redirect renewal without `monitor_window_timeout`.
+- [ ] Run `fdai-lifecycle-agent enroll` from an actual installation Agent against an operating Hub with a real workload identity, compare the key id out of band, approve, and read back the audited `requested_via=agent`. Do not claim this from local tests.
+- [ ] Stamp `app.kubernetes.io/version` and `fdai.io/schema-revision` on the workloads the lifecycle renderer and Terraform application stage create, so release-bearing Entities are observable without a hand-labelled workload.
+- [ ] Provide a supported way to place the installation key and declaration on the Agent Pod's private state path without making either a Terraform input.
+- [x] Implement private native-proof transport with exact Agent binding, enrolled signature, immutable per-Entity submission, restart/retry and actual PostgreSQL concurrency coverage. The focused 274-case command above also preserves operator-only acceptance and local CLI behavior.
+- [x] Activate the reviewed proof-handoff source under exact-source operational approval, then verify actual workload-identity submission, separate trusted-host operator acceptance and independently observed installation/update/failure recovery without exporting keys or proofs.
+- [x] Implement the prepared legacy-reader bridge and locally verify atomic preparation, retained rows, read-only serving, native-write denial and explicit completion.
 Focused schema bridge command with the existing loopback validation profile:
-
 ```bash
-.venv/bin/python scripts/automation/with-local-test-database.py .venv/bin/python -m pytest -q --no-cov \
-  lifecycle/hub/tests/test_prepared_migration.py lifecycle/hub/tests/test_first_install.py \
-  lifecycle/hub/tests/test_standalone_remote.py lifecycle/hub/tests/test_native_ownership.py \
-  lifecycle/hub/tests/test_cli.py lifecycle/hub/tests/test_configuration_keys.py \
-  lifecycle/hub/tests/test_configuration_keys_postgres.py lifecycle/hub/tests/test_configuration_import.py \
-  lifecycle/hub/tests/test_configuration_import_postgres.py lifecycle/hub/tests/test_remote_catalog.py \
-  lifecycle/hub/tests/test_remote_bootstrap.py lifecycle/hub/tests/test_remote_auth.py \
-  lifecycle/tests/test_lifecycle_loop.py
+.venv/bin/python scripts/automation/with-local-test-database.py .venv/bin/python -m pytest -q --no-cov lifecycle/hub/tests/test_prepared_migration.py lifecycle/hub/tests/test_first_install.py lifecycle/hub/tests/test_standalone_remote.py lifecycle/hub/tests/test_native_ownership.py lifecycle/hub/tests/test_cli.py lifecycle/hub/tests/test_configuration_keys.py lifecycle/hub/tests/test_configuration_keys_postgres.py lifecycle/hub/tests/test_configuration_import.py lifecycle/hub/tests/test_configuration_import_postgres.py lifecycle/hub/tests/test_remote_catalog.py lifecycle/hub/tests/test_remote_bootstrap.py lifecycle/hub/tests/test_remote_auth.py lifecycle/tests/test_lifecycle_loop.py
 ```
-
-Result: **235 passed**, including real PostgreSQL on loopback port 5433 and 31 prepared-transition
-cases. This is source evidence, not a live deployment.
-
+Result: **235 passed**, including real PostgreSQL on loopback port 5433 and 31 prepared-transition cases. This is source evidence, not a live deployment.
 Expanded review regression command using the same loopback validation profile:
-
 ```bash
-.venv/bin/python scripts/automation/with-local-test-database.py .venv/bin/python -m pytest -q --no-cov \
-  lifecycle/hub/tests/test_prepared_concurrency.py lifecycle/hub/tests/test_database_inspection.py \
-  lifecycle/hub/tests/test_prepared_migration.py lifecycle/hub/tests/test_first_install.py \
-  lifecycle/hub/tests/test_standalone_remote.py lifecycle/hub/tests/test_native_ownership.py \
-  lifecycle/hub/tests/test_cli.py lifecycle/hub/tests/test_configuration_keys.py \
-  lifecycle/hub/tests/test_configuration_keys_postgres.py lifecycle/hub/tests/test_configuration_import.py \
-  lifecycle/hub/tests/test_configuration_import_postgres.py lifecycle/hub/tests/test_remote_catalog.py \
-  lifecycle/hub/tests/test_remote_bootstrap.py lifecycle/hub/tests/test_remote_auth.py \
-  lifecycle/hub/tests/test_execution_settings.py lifecycle/hub/tests/test_enrollment.py \
-  lifecycle/hub/tests/test_api.py lifecycle/hub/tests/test_suppressions.py lifecycle/hub/tests/test_store.py \
-  lifecycle/tests/test_lifecycle_loop.py --maxfail=3
+.venv/bin/python scripts/automation/with-local-test-database.py .venv/bin/python -m pytest -q --no-cov lifecycle/hub/tests/test_prepared_concurrency.py lifecycle/hub/tests/test_database_inspection.py lifecycle/hub/tests/test_prepared_migration.py lifecycle/hub/tests/test_first_install.py lifecycle/hub/tests/test_standalone_remote.py lifecycle/hub/tests/test_native_ownership.py lifecycle/hub/tests/test_cli.py lifecycle/hub/tests/test_configuration_keys.py lifecycle/hub/tests/test_configuration_keys_postgres.py lifecycle/hub/tests/test_configuration_import.py lifecycle/hub/tests/test_configuration_import_postgres.py lifecycle/hub/tests/test_remote_catalog.py lifecycle/hub/tests/test_remote_bootstrap.py lifecycle/hub/tests/test_remote_auth.py lifecycle/hub/tests/test_execution_settings.py lifecycle/hub/tests/test_enrollment.py lifecycle/hub/tests/test_api.py lifecycle/hub/tests/test_suppressions.py lifecycle/hub/tests/test_store.py lifecycle/tests/test_lifecycle_loop.py --maxfail=3
 ```
-
-Result: **475 passed, 1 skipped**. The skip is the SQLite variant of a PostgreSQL-only
-concurrent-row-lock test; the PostgreSQL variant passed. This is local source evidence only.
-
-- [ ] Under separate exact-source deployment approval, independently verify preparation without
-  moving the old reader floor, compatible-image readiness, drainage of old readers, explicit
-  completion to 6, strict schema verification and unchanged identity/authentication/catalog/ingress.
-
-- [x] Enforce per-Entity `EntitySettings.overrides` coverage and verify the complete #1824
-  constraint matrix (`maintenance` and `suppression` windows, `version` and `schema` ranges,
-  `artifact` availability, `override` coverage, `data residency`, and `recall` constraints) at the
-  Hub `plan_next` entry point (#2374).
-
+Result: **475 passed, 1 skipped**. The skip is the SQLite variant of a PostgreSQL-only concurrent-row-lock test; the PostgreSQL variant passed. This is local source evidence only.
+- [ ] Under separate exact-source deployment approval, independently verify preparation without moving the old reader floor, compatible-image readiness, drainage of old readers, explicit completion to 6, strict schema verification and unchanged identity/authentication/catalog/ingress.
+- [x] Enforce per-Entity `EntitySettings.overrides` coverage and verify the complete #1824 constraint matrix (`maintenance` and `suppression` windows, `version` and `schema` ranges, `artifact` availability, `override` coverage, `data residency`, and `recall` constraints) at the Hub `plan_next` entry point (#2374).
 Focused Hub constraint command:
-
 ```bash
 python3 scripts/automation/with-local-test-database.py .venv/bin/pytest -q -c pyproject.toml --no-cov lifecycle/hub/tests/test_planning.py lifecycle/hub/tests/test_enrollment.py lifecycle/hub/tests/test_first_install.py lifecycle/hub/tests/test_configuration_revision.py lifecycle/hub/tests/test_configuration_import.py lifecycle/hub/tests/test_configuration_import_postgres.py
 ```
-
 Result: **143 passed**.
-
-- [x] Record the existing #1951 signature/sequence/audience/revocation/envelope source delivery
-  with actual opt-in-apply refusal and fresh-process replay checks.
-
+- [x] Record the existing #1951 signature/sequence/audience/revocation/envelope source delivery with actual opt-in-apply refusal and fresh-process replay checks.
 Focused admission commands:
-
 ```bash
 .venv/bin/pytest -q -c pyproject.toml --no-cov lifecycle/agent/tests/test_admission_before_apply.py lifecycle/agent/tests/test_agent.py lifecycle/agent/tests/test_configuration_entrypoint.py lifecycle/agent/tests/test_apply.py
 .venv/bin/pytest -q -c pyproject.toml --no-cov lifecycle/agent/tests/test_staging.py lifecycle/agent/tests/test_configuration_process.py
 ```
-
-Results: **79 passed** and **10 passed**. The former invokes the real Agent with synthetic signed
-inputs and a FakeCluster; the latter includes new OS processes and retained local state.
-No live cloud/model call, actual installation, production key ceremony or physical fence was run.
-
-- [x] Implement the shared package and independent product bindings with focused parser,
-  publication, planner, Agent apply/rollback/replay, authenticated API, PostgreSQL and built-UI
-  evidence recorded above.
-- [x] Implement and locally verify native ownership of newly created workload objects without
-  adopting their parent namespace, fabricating Foundation/Terraform evidence or implicitly
-  expanding Agent permissions. Source and focused evidence are recorded above.
-- [x] Represent empty workloads and independent staged inventory, with real first-version selection,
-  signed Agent creation/replay, rollback to absence and legacy database preservation covered above.
-- [x] Activate a separately approved exact source, bind a real application and independently
-  observe installation, distinct update, recovery and durable-state preservation.
-
-- [x] Implement and locally check operator-only scheduling with UUID/CAS/audit, open-Plan refusal,
-  typed bounds, lazy UI, explicit uncertain-result recovery and PostgreSQL competing-write coverage;
-  the current-change evidence is recorded above.
-- [ ] Under exact-source activation approval, have a human save and reread actual execution
-  windows without changing ownership, placement, channel, keys or existing Plan authority.
-
-- [x] Connect role-separated public configuration keys to the existing authenticated enrollment
-  identity, independent approval, durable version/expiry/replay/CAS/audit and actual planning
-  consumer; #2333 focused source/PostgreSQL evidence is recorded above.
-
-- [x] Exercise full multi-Entity signed configuration consumption by the existing planner, retaining
-  managed-Entity, exact Release, signature, schema, history, recall and timing gates; #2331 source
-  evidence is recorded above.
-- [x] Implement authenticated atomic durable full-revision import with independent scope/change
-  approval, restart/exact retry, concurrent-fork rejection, ciphertext storage and default persisted
-  consumption; #2336 records source/API/isolated PostgreSQL evidence.
-- [ ] Record actual governed customer-key onboarding/rotation and independent readback in an
-  explicitly approved operational scope; source synthetic keys do not establish installation trust.
-- [x] Connect full signed revisions to the existing Agent protocol and native CLI with
-  installation-local decryption, per-Entity rendering and concrete CSI metadata adapter;
-  #2338 source evidence is recorded above, not an operational receipt.
-- [ ] Bind actual key/artifact delivery and Key Vault CSI sources, then retain independent
-  installation effect evidence; local mocked source tests are not operational qualification.
-
-- [ ] Under separate exact-source activation approval, deploy the read-only inventory and record
-  human confirmation of accepted Release metadata, configuration signature warning and safe
-  unavailable/empty states without catalog/auth/rollback changes.
-- [ ] Provide a supported remote installation bootstrap and signed enrollment export command,
-  then have a human follow the operator guide without task-local probes or AI-provided values.
-
-- [ ] Activate the signed-request UI only under exact-source deployment approval, then record
-  human confirmation of the bound installation's pending request and separate approval.
-
-- [ ] Under separately approved live authority, submit a genuine signed request for a bound
-  installation, verify the authenticated submitter in its audit and pending UI, then separately
-  approve it before accepting any Agent Plan/state/report effects. A genuine Agent submission ran:
-  a Job in the installation's cluster, using the Agent workload identity, left a pending request on a
-  deployed Lifecycle Hub whose audit record names the bound Agent identity and `requested_via` agent,
-  and whose key id matched the one derived independently from the public key. The pending UI and
-  the separate human acceptance are still open. The installation's resident Agent pod still cannot
-  schedule because its state disk is not zonal, and delivery of the installation key and declaration to a
-  resident Pod is not wired.
-
-- [x] Record focused authentication, CLI, staging, fresh-process persistence, replay and rollback
-  checks for the opt-in Agent preparation: 201 tests pass in the current change.
-- [x] Freeze/build the Agent image and validate real Entra, AKS, namespace denial,
-  persistent-volume remount and nginx install/update/recovery only after the exact cloud
-  source, target, cost and cleanup plan is approved (#2180).
-
-- [x] Implement the bounded source/restored database comparison with read-only/rollback,
-  real local privilege checks, row/sample limits and private receipt failure handling;
-  inspection tests pass (27) at `7f6dfdb6661dd2c1d7a851e04376921980f4c7b1`.
-- [ ] Seal separate private source/restored observation definitions and a retained private receipt
-  transfer path for the exact candidate; no ephemeral-Job-only receipt retention.
-- [ ] Under separate live authorization, record PITR comparison with writers excluded around the
-  restore point, native Entra-only/admin and private DNS readback, and temporary-resource absence.
-
-- [x] Verify standalone Lifecycle Hub migration, separate schema readback, bundled UI/API,
-  actual HTTPS readiness, unavailable management and a no-change provider plan on the initialized
-  Azure foundation, with the frozen-source evidence in [PR #2222](https://github.com/dotnetpower/fdai/pull/2222).
-
-- [x] Implement independent product roots, bounded app-owned bootstrap and native frozen-source
-  procedure, with focused mock/SQLite/browser evidence recorded above.
-- [x] Run the native candidate guard on synthetic files for both products, rejecting changed
-  source, inputs, plans, metadata, target observations, unknown images and ambiguous Job bindings;
-  verify literal product binding with a native built-in-provider Terraform saved plan.
-- [ ] With separate delivery authorization, produce a clean immutable source candidate and
-  publish the matching product image. The current dirty-checkout builds are local feedback only.
-- [x] Build each product for AMD64 from pinned base digests, run packaged-image checks, and
-  record local Buildx metadata/digests. The checks above use ARM-host AMD64 emulation and SQLite;
-  publishing a clean immutable candidate and remote identity acceptance remain separate work.
-- [x] Through the existing isolated PostgreSQL 5433 wrapper, pass all four standalone
-  PostgreSQL entrypoint cases with login/catalog omitted. Per-test schemas are removed and the
-  existing validation container is restored to its original stopped state.
-- [ ] Resolve the deferred anonymous management API policy before claiming that functionality.
-  Keep existing authorization intact. Independent preparation and separately approved UI/readiness
-  deployment are distinct from full management acceptance; a static shell isn't functional completion.
-- [x] Add a separate authenticated remote-development profile with explicit migration,
-  durable independent pin approval and bounded import, preserving local loopback behavior;
-  record focused API/PostgreSQL/planner, image and browser evidence in `infra/hubs-development/README.md`.
-- [x] Run fresh independent Release and Lifecycle Hub bootstrap, migration and activation with
-  own managed identities, databases and vaults; verify HTTPS health/readiness/UI and a second
-  zero-change plan for each product.
-- [ ] Complete the remaining two-Hub cloud acceptance sequence in
-  `infra/hubs-development/README.md`: real Entra sign-in, denied cross-vault/network access and
-  ACA revision/replica persistence. The fresh startup evidence above does not satisfy these exits.
-
-- [ ] Run real Operator install, update, failed update, and independently observed rollback with
-  immutable service images and preprovisioned Core, broker, identity/configuration, and database
-  dependencies in a dedicated local cluster. The local `operator-service-v1` tests don't satisfy
-  this exit criterion.
-
-- [x] Add a Hub service with its PostgreSQL schema, and record a passing focused test that computes a
-  Lifecycle Plan from a channel subscription, version range, configuration revision, and
-  constraints with no Azure credential in its environment, in
-  `lifecycle/hub/tests/test_no_azure_credentials.py` and `lifecycle/hub/tests/test_planning.py`.
-- [ ] Replace the Hub's `create_all` schema creation with versioned migrations, and authenticate
-  agent callers before the Hub API binds to anything other than loopback.
-- [x] Add installation enrollment, and record a test in which an unapproved registration receives
-  no Plan and an approved one starts with unmanaged Entities only, in
-  `lifecycle/hub/tests/test_enrollment.py` (#1950).
-- [ ] Add Entity revisions with `effective_from` and keep earlier settings retrievable with
-  versioned migrations, bind the enrollment proof to a Hub-issued challenge, authenticate
-  approvers, and allow re-enrollment after rejection before enrollment leaves loopback.
-- [x] Add the lifecycle agent, and record tests that prove it applies only signed Release images,
-  refuses a change outside the Plan envelope, and holds Kubernetes rights in FDAI namespaces only.
-- [x] Run the Hub-agent lifecycle loop end to end locally with one command, covering the admitted
-  dry run, the unsigned Release, another installation's Plan, the replayed sequence, and the closed
-  maintenance window, in `lifecycle/tests/test_lifecycle_loop.py` (#1952).
-- [ ] Record a passing `lifecycle/demo/demo.sh run --apply` on a local kind cluster in which 1.0.0
-  and 1.1.0 end `applied` and up to date, and 1.2.0 ends `rolled-back` with the Hub waiting on an
-  active `failure` suppression for `entity:core`.
-- [ ] Derive the reported-state digest from the snapshot content in both the Hub and the agent, so
-  that neither compares a value the installation supplies as-is.
-- [x] Add the infrastructure agent, and record a test in which the deletion or replacement of an
-  existing Azure resource is held for confirmation while an in-envelope change applies through the
-  existing exact-plan coordinator.
-- [x] Record pure constraint tests for maintenance and suppression windows, version ranges, schema
-  ranges, artifact availability, override coverage, data residency, and recall in
-  `packages/deployment-cli/tests/test_lifecycle_plan.py`; these tests exercise shadow-only local
-  evaluators and do not create a Hub, agent, apply path, or receipt.
-- [x] Record pure Plan admission tests that reject a stale sequence, a wrong audience, a revoked
-  Hub key, and an envelope wider than the locally derived maximum in
-  `packages/deployment-cli/tests/test_lifecycle_plan.py`; these tests use an injected fake
-  verifier and commit no key material.
-- [x] Record a test in which an automatic apply runs only under a local lifecycle authorization
-  receipt bound to the exact plan digest, and a later phase waits for the earlier phase receipt.
-- [x] Record dual-slot self-upgrade tests for both agents and a Target Hub, including rollback to
-  the old slot after a failed health check.
-- [x] Record a drift test in which a manual Deployment change produces a reconciliation Plan in the
-  next matching window.
-- [x] Record a command test in which a break-glass change is reconciled to the approved revision at
-  expiry and an authority-raising command is rejected.
-- [x] Record a risk-gate test that denies an operations-loop action targeting a resource with a
-  signed Foundation ownership receipt, and a test in which a manually tagged customer resource
-  doesn't become an FDAI-owned Entity.
-- [x] Publish a migration design that moves workload rendering from the Terraform application stage
-  to the lifecycle agent, with rollback, before any Hub-managed installation exists. Published in
-  the Workload rendering migration section of `docs/roadmap/deployment/hub-managed-lifecycle.md`
-  for #1946.
-- [x] Add the Release workload template and the lifecycle agent renderer, and record a render parity
-  test in which the Terraform workloads root and the agent produce equal objects for the full input
-  matrix, including protected CronJob template digests and external Service selectors that match the
-  rendered pod labels.
-- [x] Add the installation binding that the infrastructure agent writes from its Terraform outputs,
-  and record a test in which the renderer rejects an unknown key and any value source other than a
-  literal, a configuration key, or a binding key.
-- [x] Add the exact missing UAMIs/FICs, ServiceAccounts, environment ConfigMaps,
-  SecretProviderClasses, bootstrap Secrets and migration identity binding to the separate
-  prerequisite state, and retain focused Terraform, Checkov and topology-generator checks.
-- [x] Apply the exact prerequisite plan under separate authorization, independently read back its
-  Azure and Kubernetes resources, and regenerate the full topology without unresolved identity or
-  Kubernetes prerequisite entries (#2466, #2468, PRs #2500, #2503, #2504, #2518, #2550, #2551).
-- [x] Add the schema-expand migration Job on the Core image with its dedicated migration
-  ServiceAccount and managed identity, and record tests in which the Job runs the legacy migrations,
-  the ordered service-owned migrations, and the authoritative catalog materialization, and no
-  workload switches before the Job receipt exists (#2472, PRs #2478 `607e51b232` and #2487 `10370a151e`, 245 passed).
-- [x] Record a test in which a Hub-managed installation binds no Executor Kubernetes-effect role in
-  the FDAI namespace while Executor scale targets in other namespaces stay bound.
-- [x] Record a test in which the agent omits `spec.replicas` for a workload with a
-  HorizontalPodAutoscaler and maps replica overrides to the autoscaler bounds.
-- [x] Record a local Hub ownership marker at handoff, and record a test in which every deployment CLI
-  entry point that would plan the full workloads root, including the ordinary application stage,
-  refuses to run or uses the Hub variant.
-- [x] Classify every legacy and service-owned migration revision added after an installation's
-  enrollment baseline as expand or contract in the Release, and record tests in which the schema-expand Job rejects a dropping or renaming revision
-  and runs under one installation-wide migration lease across all three steps and its receipt.
-- [x] Record handoff tests for per-object adoption receipts with UID, resource version, and render
-  digest, forced conflicts only on Terraform-owned fields, resumption after interruption, and a
-  rollback that releases the agent's reconciliation lease before any `import` plan.
-- [x] Add an audited, fail-closed Agent CLI/API state transition from one installed legacy native
-  Entity to one Hub-accepted mixed native scope, including recovered-key proof, exact old/new
-  scope and reported-state binding, current development approval, live kind/name/UID inventory,
-  open-Plan/applying-journal denial, crash restoration, exact retry and permanent rollback record.
-- [x] Add an authenticated, audited recovery for the legacy native-transition millisecond and
-  full-precision state split. Require the immutable transition receipt and Hub completion audit,
-  exact scope/UID/execution identity, time-only difference no greater than one millisecond,
-  Agent-locked current-state-only rewrite, exact Hub readback, rollback backup, idempotent receipt,
-  restart/retry coverage and Plan hold release.
-- [x] Under separate live authorization, run that transition for the retained development Agent,
-  retain the exact atomic Hub completion receipt, independently read back its empty
-  `fdai-workloads` report, and retain the subsequent signed Plan's seven-adopted/nine-created and
-  rollback observations (#2181, #2466, #2468; Plan `installation-fdai-dev-wus3-00000022`, 5+2 adoption receipts, 16 healthy native manifests, and 7-object zero-change rollback import and forget-only release).
-- [ ] Record a test in which a Release that drops an external workload removes its external Service,
-  API Management route, role grants, and federated identity credential only in the infrastructure
-  cleanup phase, after workload absence readback.
-- [ ] Record a test in which one-shot catalog review and initial inventory Jobs and the workload
-  readiness contracts on the Hub path derive their expected values from the agent render receipt
-  instead of Terraform input.
-- [ ] Split the workloads root's Service resource into internal and external resources with `moved`
-  blocks, ship the Hub variant of the workloads root with `removed` blocks in the Release, and record
-  a zero-change plan for the split on every installation path.
-- [ ] Record a test in which the agent prunes objects that carry its ownership label but are absent
-  from the new render, and the infrastructure agent removes a dropped workload's federated identity
-  credential only after its pods are gone.
-- [ ] Assign Console static content publication to the infrastructure agent, and record a test in
-  which a Hub-managed upgrade publishes the Release's Console bundle.
-- [ ] Record a test in which the infrastructure agent grants the lifecycle agent's own Kubernetes
-  role and the lifecycle agent can't create or change any role binding.
-- [ ] Decide which component runs Trial activation, the initial inventory, and catalog review after
-  a Hub-managed workload phase, and record the decision in the Hub-Managed Lifecycle design.
-- [ ] Decide how the infrastructure agent keeps running with the execution host's optional daily
-  auto-shutdown, and which agent owns the in-cluster PostgreSQL namespace for `postgres-aks`.
-- [ ] Move database object ownership from the server administrator to a dedicated migration
-  database role, switch the migration identity to that role, and record a grant readback in which
-  the role holds only the privileges migrations need and no workload uses it.
-- [ ] After the MVP is validated, make the Terraform workloads root apply agent-rendered manifests,
-  and record that every installation path renders through one renderer before retiring the parity
-  test.
-- [x] Record an ownership handoff test in which shadow parity passes, a `removed` exact plan shows no
-  destroy or update, server-side apply adoption renders zero changes, and an `import` rollback plans
-  zero changes without recreating any running object (#2470, #2468, PR #2516 `e27fa682af`, and live 7-object handoff/rollback receipts).
-- [ ] Retain one governed connected-installation receipt and one offline Target Hub receipt that
-  show an automatic upgrade, independent readback, and a second zero-change plan.
-- [x] Add the Hub operator UI's installations list, installation detail, Plan detail, and
-  enrollment list and approval screens, backed by new read-only and approval Hub routes, and
-  record a passing focused `pytest` and `npm` check for each, in
-  `lifecycle/hub/tests/test_operator_api.py` and `lifecycle/hub/ui/` (#1945).
-- [x] Require the approval screen's "Accept enrollment" action to use an operator-typed key id
-  instead of resubmitting the pending request's own reported value, and stop rendering
-  `apply-started` as a success checkmark, in `lifecycle/hub/ui/src/routes/enrollments.tsx` and
-  `lifecycle/hub/ui/src/report-status.ts`.
-- [x] Add Microsoft Entra ID sign-in and direct operator-token verification before the explicit
-  remote-development listener opens; verify denied unauthenticated and cross-audience/service
-  requests in `lifecycle/hub/tests/test_remote_auth.py`. Live Entra and Agent transport acceptance
-  remain separate open work, not a completed production identity rollout.
-- [ ] Build the remaining `mocks/ui-lifecycle/` concept screens this round doesn't cover: vendor
-  Release, activity, channels, and fleet; a Plans list; Console version and policy tabs; customer
-  Git configuration; confirmations; commands; and Target Hub bundle import. Each needs its own
-  backing Hub API before it gets a sidebar entry; the sidebar stays a flat list of its real
-  screens in the meantime rather than previewing them as disabled placeholders.
-- [ ] Add `lifecycle/hub/ui`'s `npm run typecheck`, `npm test`, and `npm run build` to CI alongside
-  the Hub's `pytest`, `ruff`, and `mypy` gates.
-- [x] Replace the constraints panel's raw `snake_case` reason codes with the human-readable
-  sentences the Lifecycle Hub mocks (06) used, for every reason code the shared constraint
-  evaluator can return (`describeConstraintReason` in `lifecycle/hub/ui/src/constraint-status.ts`;
-  `lifecycle/hub/ui/src/components/constraint-results.tsx`).
-- [x] Record a decision on timestamp presentation: either render every Hub UI timestamp in the
-  browser's local time, including a declared maintenance window's `start`/`timezone`, or label
-  every timestamp with its origin zone, so an operator never has to silently reconcile two
-  implicit time bases (`formatTimestamp` in `lifecycle/hub/ui/src/format.ts` includes `timeZoneName: "short"` and optional origin zone label).
-- [x] Add a client-side format hint or inline validation to the enrollment approval form's
-  approver field, matching the server's accepted pattern, instead of surfacing a raw
-  `approval_invalid` reason code on submission (`isValidApprover` in
-  `lifecycle/hub/ui/src/routes/enrollments.tsx`).
-- [x] Add search or sort to the installations list once a Hub cell's enrolled installation count
-  makes the flat table hard to scan (`lifecycle/hub/ui/src/routes/installations.tsx` supports
-  filtering by installation ID and sorting by ID, channel, or update status).
+Results: **79 passed** and **10 passed**. The former invokes the real Agent with synthetic signed inputs and a FakeCluster; the latter includes new OS processes and retained local state. No live cloud/model call, actual installation, production key ceremony or physical fence was run.
+- [x] Implement the shared package and independent product bindings with focused parser, publication, planner, Agent apply/rollback/replay, authenticated API, PostgreSQL and built-UI evidence recorded above.
+- [x] Implement and locally verify native ownership of newly created workload objects without adopting their parent namespace, fabricating Foundation/Terraform evidence or implicitly expanding Agent permissions. Source and focused evidence are recorded above.
+- [x] Represent empty workloads and independent staged inventory, with real first-version selection, signed Agent creation/replay, rollback to absence and legacy database preservation covered above.
+- [x] Activate a separately approved exact source, bind a real application and independently observe installation, distinct update, recovery and durable-state preservation.
+- [x] Implement and locally check operator-only scheduling with UUID/CAS/audit, open-Plan refusal, typed bounds, lazy UI, explicit uncertain-result recovery and PostgreSQL competing-write coverage; the current-change evidence is recorded above.
+- [ ] Under exact-source activation approval, have a human save and reread actual execution windows without changing ownership, placement, channel, keys or existing Plan authority.
+- [x] Connect role-separated public configuration keys to the existing authenticated enrollment identity, independent approval, durable version/expiry/replay/CAS/audit and actual planning consumer; #2333 focused source/PostgreSQL evidence is recorded above.
+- [x] Exercise full multi-Entity signed configuration consumption by the existing planner, retaining managed-Entity, exact Release, signature, schema, history, recall and timing gates; #2331 source evidence is recorded above.
+- [x] Implement authenticated atomic durable full-revision import with independent scope/change approval, restart/exact retry, concurrent-fork rejection, ciphertext storage and default persisted consumption; #2336 records source/API/isolated PostgreSQL evidence.
+- [ ] Record actual governed customer-key onboarding/rotation and independent readback in an explicitly approved operational scope; source synthetic keys do not establish installation trust.
+- [x] Connect full signed revisions to the existing Agent protocol and native CLI with installation-local decryption, per-Entity rendering and concrete CSI metadata adapter; #2338 source evidence is recorded above, not an operational receipt.
+- [ ] Bind actual key/artifact delivery and Key Vault CSI sources, then retain independent installation effect evidence; local mocked source tests are not operational qualification.
+- [ ] Under separate exact-source activation approval, deploy the read-only inventory and record human confirmation of accepted Release metadata, configuration signature warning and safe unavailable/empty states without catalog/auth/rollback changes.
+- [ ] Provide a supported remote installation bootstrap and signed enrollment export command, then have a human follow the operator guide without task-local probes or AI-provided values.
+- [ ] Activate the signed-request UI only under exact-source deployment approval, then record human confirmation of the bound installation's pending request and separate approval.
+- [ ] Under separately approved live authority, submit a genuine signed request for a bound installation, verify the authenticated submitter in its audit and pending UI, then separately approve it before accepting any Agent Plan/state/report effects. A genuine Agent submission ran: a Job in the installation's cluster, using the Agent workload identity, left a pending request on a deployed Lifecycle Hub whose audit record names the bound Agent identity and `requested_via` agent, and whose key id matched the one derived independently from the public key. The pending UI and the separate human acceptance are still open. The installation's resident Agent pod still cannot schedule because its state disk is not zonal, and delivery of the installation key and declaration to a resident Pod is not wired.
+- [x] Record focused authentication, CLI, staging, fresh-process persistence, replay and rollback checks for the opt-in Agent preparation: 201 tests pass in the current change.
+- [x] Freeze/build the Agent image and validate real Entra, AKS, namespace denial, persistent-volume remount and nginx install/update/recovery only after the exact cloud source, target, cost and cleanup plan is approved (#2180).
+- [x] Implement the bounded source/restored database comparison with read-only/rollback, real local privilege checks, row/sample limits and private receipt failure handling; inspection tests pass (27) at `7f6dfdb6661dd2c1d7a851e04376921980f4c7b1`.
+- [ ] Seal separate private source/restored observation definitions and a retained private receipt transfer path for the exact candidate; no ephemeral-Job-only receipt retention.
+- [ ] Under separate live authorization, record PITR comparison with writers excluded around the restore point, native Entra-only/admin and private DNS readback, and temporary-resource absence.
+- [x] Verify standalone Lifecycle Hub migration, separate schema readback, bundled UI/API, actual HTTPS readiness, unavailable management and a no-change provider plan on the initialized Azure foundation, with the frozen-source evidence in [PR #2222](https://github.com/dotnetpower/fdai/pull/2222).
+- [x] Implement independent product roots, bounded app-owned bootstrap and native frozen-source procedure, with focused mock/SQLite/browser evidence recorded above.
+- [x] Run the native candidate guard on synthetic files for both products, rejecting changed source, inputs, plans, metadata, target observations, unknown images and ambiguous Job bindings; verify literal product binding with a native built-in-provider Terraform saved plan.
+- [ ] With separate delivery authorization, produce a clean immutable source candidate and publish the matching product image. The current dirty-checkout builds are local feedback only.
+- [x] Build each product for AMD64 from pinned base digests, run packaged-image checks, and record local Buildx metadata/digests. The checks above use ARM-host AMD64 emulation and SQLite; publishing a clean immutable candidate and remote identity acceptance remain separate work.
+- [x] Through the existing isolated PostgreSQL 5433 wrapper, pass all four standalone PostgreSQL entrypoint cases with login/catalog omitted. Per-test schemas are removed and the existing validation container is restored to its original stopped state.
+- [ ] Resolve the deferred anonymous management API policy before claiming that functionality. Keep existing authorization intact. Independent preparation and separately approved UI/readiness deployment are distinct from full management acceptance; a static shell isn't functional completion.
+- [x] Add a separate authenticated remote-development profile with explicit migration, durable independent pin approval and bounded import, preserving local loopback behavior; record focused API/PostgreSQL/planner, image and browser evidence in `infra/hubs-development/README.md`.
+- [x] Run fresh independent Release and Lifecycle Hub bootstrap, migration and activation with own managed identities, databases and vaults; verify HTTPS health/readiness/UI and a second zero-change plan for each product.
+- [ ] Complete the remaining two-Hub cloud acceptance sequence in `infra/hubs-development/README.md`: real Entra sign-in, denied cross-vault/network access and ACA revision/replica persistence. The fresh startup evidence above does not satisfy these exits.
+- [ ] Run real Operator install, update, failed update, and independently observed rollback with immutable service images and preprovisioned Core, broker, identity/configuration, and database dependencies in a dedicated local cluster. The local `operator-service-v1` tests don't satisfy this exit criterion.
+- [x] Add a Hub service with its PostgreSQL schema, and record a passing focused test that computes a Lifecycle Plan from a channel subscription, version range, configuration revision, and constraints with no Azure credential in its environment, in `lifecycle/hub/tests/test_no_azure_credentials.py` and `lifecycle/hub/tests/test_planning.py`.
+- [ ] Replace the Hub's `create_all` schema creation with versioned migrations, and authenticate agent callers before the Hub API binds to anything other than loopback.
+- [x] Add installation enrollment, and record a test in which an unapproved registration receives no Plan and an approved one starts with unmanaged Entities only, in `lifecycle/hub/tests/test_enrollment.py` (#1950).
+- [ ] Add Entity revisions with `effective_from` and keep earlier settings retrievable with versioned migrations, bind the enrollment proof to a Hub-issued challenge, authenticate approvers, and allow re-enrollment after rejection before enrollment leaves loopback.
+- [x] Add the lifecycle agent, and record tests that prove it applies only signed Release images, refuses a change outside the Plan envelope, and holds Kubernetes rights in FDAI namespaces only.
+- [x] Run the Hub-agent lifecycle loop end to end locally with one command, covering the admitted dry run, the unsigned Release, another installation's Plan, the replayed sequence, and the closed maintenance window, in `lifecycle/tests/test_lifecycle_loop.py` (#1952).
+- [ ] Record a passing `lifecycle/demo/demo.sh run --apply` on a local kind cluster in which 1.0.0 and 1.1.0 end `applied` and up to date, and 1.2.0 ends `rolled-back` with the Hub waiting on an active `failure` suppression for `entity:core`.
+- [ ] Derive the reported-state digest from the snapshot content in both the Hub and the agent, so that neither compares a value the installation supplies as-is.
+- [x] Add the infrastructure agent, and record a test in which the deletion or replacement of an existing Azure resource is held for confirmation while an in-envelope change applies through the existing exact-plan coordinator.
+- [x] Record pure constraint tests for maintenance and suppression windows, version ranges, schema ranges, artifact availability, override coverage, data residency, and recall in `packages/deployment-cli/tests/test_lifecycle_plan.py`; these tests exercise shadow-only local evaluators and do not create a Hub, agent, apply path, or receipt.
+- [x] Record pure Plan admission tests that reject a stale sequence, a wrong audience, a revoked Hub key, and an envelope wider than the locally derived maximum in `packages/deployment-cli/tests/test_lifecycle_plan.py`; these tests use an injected fake verifier and commit no key material.
+- [x] Record a test in which an automatic apply runs only under a local lifecycle authorization receipt bound to the exact plan digest, and a later phase waits for the earlier phase receipt.
+- [x] Record dual-slot self-upgrade tests for both agents and a Target Hub, including rollback to the old slot after a failed health check.
+- [x] Record a drift test in which a manual Deployment change produces a reconciliation Plan in the next matching window.
+- [x] Record a command test in which a break-glass change is reconciled to the approved revision at expiry and an authority-raising command is rejected.
+- [x] Record a risk-gate test that denies an operations-loop action targeting a resource with a signed Foundation ownership receipt, and a test in which a manually tagged customer resource doesn't become an FDAI-owned Entity.
+- [x] Publish a migration design that moves workload rendering from the Terraform application stage to the lifecycle agent, with rollback, before any Hub-managed installation exists. Published in the Workload rendering migration section of `docs/roadmap/deployment/hub-managed-lifecycle.md` for #1946.
+- [x] Add the Release workload template and the lifecycle agent renderer, and record a render parity test in which the Terraform workloads root and the agent produce equal objects for the full input matrix, including protected CronJob template digests and external Service selectors that match the rendered pod labels.
+- [x] Add the installation binding that the infrastructure agent writes from its Terraform outputs, and record a test in which the renderer rejects an unknown key and any value source other than a literal, a configuration key, or a binding key.
+- [x] Add the exact missing UAMIs/FICs, ServiceAccounts, environment ConfigMaps, SecretProviderClasses, bootstrap Secrets and migration identity binding to the separate prerequisite state, and retain focused Terraform, Checkov and topology-generator checks.
+- [x] Apply the exact prerequisite plan under separate authorization, independently read back its Azure and Kubernetes resources, and regenerate the full topology without unresolved identity or Kubernetes prerequisite entries (#2466, #2468, PRs #2500, #2503, #2504, #2518, #2550, #2551).
+- [x] Add the schema-expand migration Job on the Core image with its dedicated migration ServiceAccount and managed identity, and record tests in which the Job runs the legacy migrations, the ordered service-owned migrations, and the authoritative catalog materialization, and no workload switches before the Job receipt exists (#2472, PRs #2478 `607e51b232` and #2487 `10370a151e`, 245 passed).
+- [x] Record a test in which a Hub-managed installation binds no Executor Kubernetes-effect role in the FDAI namespace while Executor scale targets in other namespaces stay bound.
+- [x] Record a test in which the agent omits `spec.replicas` for a workload with a HorizontalPodAutoscaler and maps replica overrides to the autoscaler bounds.
+- [x] Record a local Hub ownership marker at handoff, and record a test in which every deployment CLI entry point that would plan the full workloads root, including the ordinary application stage, refuses to run or uses the Hub variant.
+- [x] Classify every legacy and service-owned migration revision added after an installation's enrollment baseline as expand or contract in the Release, and record tests in which the schema-expand Job rejects a dropping or renaming revision and runs under one installation-wide migration lease across all three steps and its receipt.
+- [x] Record handoff tests for per-object adoption receipts with UID, resource version, and render digest, forced conflicts only on Terraform-owned fields, resumption after interruption, and a rollback that releases the agent's reconciliation lease before any `import` plan.
+- [x] Add an audited, fail-closed Agent CLI/API state transition from one installed legacy native Entity to one Hub-accepted mixed native scope, including recovered-key proof, exact old/new scope and reported-state binding, current development approval, live kind/name/UID inventory, open-Plan/applying-journal denial, crash restoration, exact retry and permanent rollback record.
+- [x] Add an authenticated, audited recovery for the legacy native-transition millisecond and full-precision state split. Require the immutable transition receipt and Hub completion audit, exact scope/UID/execution identity, time-only difference no greater than one millisecond, Agent-locked current-state-only rewrite, exact Hub readback, rollback backup, idempotent receipt, restart/retry coverage and Plan hold release.
+- [x] Under separate live authorization, run that transition for the retained development Agent, retain the exact atomic Hub completion receipt, independently read back its empty `fdai-workloads` report, and retain the subsequent signed Plan's seven-adopted/nine-created and rollback observations (#2181, #2466, #2468; Plan `installation-fdai-dev-wus3-00000022`, 5+2 adoption receipts, 16 healthy native manifests, and 7-object zero-change rollback import and forget-only release).
+- [ ] Record a test in which a Release that drops an external workload removes its external Service, API Management route, role grants, and federated identity credential only in the infrastructure cleanup phase, after workload absence readback.
+- [ ] Record a test in which one-shot catalog review and initial inventory Jobs and the workload readiness contracts on the Hub path derive their expected values from the agent render receipt instead of Terraform input.
+- [ ] Split the workloads root's Service resource into internal and external resources with `moved` blocks, ship the Hub variant of the workloads root with `removed` blocks in the Release, and record a zero-change plan for the split on every installation path.
+- [ ] Record a test in which the agent prunes objects that carry its ownership label but are absent from the new render, and the infrastructure agent removes a dropped workload's federated identity credential only after its pods are gone.
+- [ ] Assign Console static content publication to the infrastructure agent, and record a test in which a Hub-managed upgrade publishes the Release's Console bundle.
+- [ ] Record a test in which the infrastructure agent grants the lifecycle agent's own Kubernetes role and the lifecycle agent can't create or change any role binding.
+- [ ] Decide which component runs Trial activation, the initial inventory, and catalog review after a Hub-managed workload phase, and record the decision in the Hub-Managed Lifecycle design.
+- [ ] Decide how the infrastructure agent keeps running with the execution host's optional daily auto-shutdown, and which agent owns the in-cluster PostgreSQL namespace for `postgres-aks`.
+- [ ] Move database object ownership from the server administrator to a dedicated migration database role, switch the migration identity to that role, and record a grant readback in which the role holds only the privileges migrations need and no workload uses it.
+- [ ] After the MVP is validated, make the Terraform workloads root apply agent-rendered manifests, and record that every installation path renders through one renderer before retiring the parity test.
+- [x] Record an ownership handoff test in which shadow parity passes, a `removed` exact plan shows no destroy or update, server-side apply adoption renders zero changes, and an `import` rollback plans zero changes without recreating any running object (#2470, #2468, PR #2516 `e27fa682af`, and live 7-object handoff/rollback receipts).
+- [ ] Retain one governed connected-installation receipt and one offline Target Hub receipt that show an automatic upgrade, independent readback, and a second zero-change plan.
+- [x] Add the Hub operator UI's installations list, installation detail, Plan detail, and enrollment list and approval screens, backed by new read-only and approval Hub routes, and record a passing focused `pytest` and `npm` check for each, in `lifecycle/hub/tests/test_operator_api.py` and `lifecycle/hub/ui/` (#1945).
+- [x] Require the approval screen's "Accept enrollment" action to use an operator-typed key id instead of resubmitting the pending request's own reported value, and stop rendering `apply-started` as a success checkmark, in `lifecycle/hub/ui/src/routes/enrollments.tsx` and `lifecycle/hub/ui/src/report-status.ts`.
+- [x] Add Microsoft Entra ID sign-in and direct operator-token verification before the explicit remote-development listener opens; verify denied unauthenticated and cross-audience/service requests in `lifecycle/hub/tests/test_remote_auth.py`. Live Entra and Agent transport acceptance remain separate open work, not a completed production identity rollout.
+- [ ] Build the remaining `mocks/ui-lifecycle/` concept screens this round doesn't cover: vendor Release, activity, channels, and fleet; a Plans list; Console version and policy tabs; customer Git configuration; confirmations; commands; and Target Hub bundle import. Each needs its own backing Hub API before it gets a sidebar entry; the sidebar stays a flat list of its real screens in the meantime rather than previewing them as disabled placeholders.
+- [x] Add `lifecycle/hub/ui`'s `npm run typecheck`, `npm test`, and `npm run build` to CI alongside the Hub's `pytest`, `ruff`, and `mypy` gates (`current change`; `.github/workflows/ci.yml`, `scripts/quality/ci/run-operator-surfaces.sh`, `scripts/quality/ci/resolve_test_scope.py`, and focused CI contract/scope tests in `tests/integration/scripts/test_resolve_test_scope.py` and `tests/integration/scripts/test_check_ci_contracts.py`).
+- [x] Replace the constraints panel's raw `snake_case` reason codes with the human-readable sentences the Lifecycle Hub mocks (06) used, for every reason code the shared constraint evaluator can return (`describeConstraintReason` in `lifecycle/hub/ui/src/constraint-status.ts`; `lifecycle/hub/ui/src/components/constraint-results.tsx`).
+- [x] Record a decision on timestamp presentation: either render every Hub UI timestamp in the browser's local time, including a declared maintenance window's `start`/`timezone`, or label every timestamp with its origin zone, so an operator never has to silently reconcile two implicit time bases (`formatTimestamp` in `lifecycle/hub/ui/src/format.ts` includes `timeZoneName: "short"` and optional origin zone label).
+- [x] Add a client-side format hint or inline validation to the enrollment approval form's approver field, matching the server's accepted pattern, instead of surfacing a raw `approval_invalid` reason code on submission (`isValidApprover` in `lifecycle/hub/ui/src/routes/enrollments.tsx`).
+- [x] Add search or sort to the installations list once a Hub cell's enrolled installation count makes the flat table hard to scan (`lifecycle/hub/ui/src/routes/installations.tsx` supports filtering by installation ID and sorting by ID, channel, or update status).

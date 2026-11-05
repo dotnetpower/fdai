@@ -263,3 +263,85 @@ async def test_forged_ready_projection_cannot_enter_the_durable_record() -> None
         await StateStoreMscpDecisionContext(state).record(forged)
     assert not state._state
     assert len(tuple(state.audit_entries)) == 0
+
+
+async def test_decision_context_and_store_validation_edges(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with pytest.raises(ValueError, match="registered"):
+        replace(_observation(DecisionSource.ONTOLOGY), source="unregistered")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="boolean"):
+        _observation(DecisionSource.ONTOLOGY, complete="yes")
+    with pytest.raises(ValueError, match="bounded text"):
+        _observation(DecisionSource.ONTOLOGY, decision_id=" ")
+    with pytest.raises(ValueError, match="unsupported"):
+        OwnerDecisionObservation.from_mapping({})
+
+    obs_map = _observation(DecisionSource.ONTOLOGY).to_mapping()
+    with pytest.raises(ValueError, match="integer"):
+        OwnerDecisionObservation.from_mapping({**obs_map, "revision": True})
+    with pytest.raises(ValueError, match="boolean"):
+        OwnerDecisionObservation.from_mapping({**obs_map, "complete": "yes"})
+
+    ctx = _context(*_all())
+    ctx_map = ctx.to_mapping()
+    with pytest.raises(ValueError, match="unsupported schema"):
+        MscpDecisionContext.from_mapping({**ctx_map, "schema_version": "9.9.9"})
+    with pytest.raises(ValueError, match="candidate is malformed"):
+        MscpDecisionContext.from_mapping({**ctx_map, "candidate": "bad"})
+    with pytest.raises(ValueError, match="observations are malformed"):
+        MscpDecisionContext.from_mapping({**ctx_map, "observations": "bad"})
+    with pytest.raises(ValueError, match="MUST be an object"):
+        MscpDecisionContext.from_mapping({**ctx_map, "observations": ["bad"]})
+    with pytest.raises(ValueError, match="MUST be text"):
+        MscpDecisionContext.from_mapping({**ctx_map, "unavailable": [123]})
+
+    with pytest.raises(ValueError, match="exceed their bound"):
+        project_decision_context(
+            candidate=_CANDIDATE,
+            decision_id="decision-one",
+            subject_digest=_SUBJECT,
+            cutoff=_NOW,
+            observations=_all() * 3,
+        )
+    with pytest.raises(ValueError, match="unavailable owner MUST be registered"):
+        project_decision_context(
+            candidate=_CANDIDATE,
+            decision_id="decision-one",
+            subject_digest=_SUBJECT,
+            cutoff=_NOW,
+            observations=_all(),
+            unavailable=("invalid",),  # type: ignore[arg-type]
+        )
+
+    none_readers = {source: _Reader(None) for source in DecisionSource}
+    none_ctx = await collect_decision_context(
+        candidate=_CANDIDATE,
+        decision_id="decision-one",
+        subject_digest=_SUBJECT,
+        cutoff=_NOW,
+        readers=none_readers,
+    )
+    assert none_ctx.disposition == "hold"
+
+    state = InMemoryStateStore()
+    store = StateStoreMscpDecisionContext(state)
+    with pytest.raises(KeyError, match="unavailable"):
+        await store.get(_CANDIDATE, "missing-decision")
+    with pytest.raises(ValueError, match="bounded text"):
+        await store.get(_CANDIDATE, " ")
+
+    await store.record(ctx)
+    key = next(iter(state._state))
+    other_ctx = _context(*_all(), decision_id="decision-two")
+    state._state[key] = other_ctx.to_mapping()
+    with pytest.raises(ValueError, match="identity does not match"):
+        await store.get(_CANDIDATE, "decision-one")
+
+    monkeypatch.setattr(
+        MscpDecisionContext,
+        "from_mapping",
+        classmethod(lambda _cls, _val: other_ctx),
+    )
+    with pytest.raises(ValueError, match="not a valid immutable projection"):
+        await store.record(ctx)

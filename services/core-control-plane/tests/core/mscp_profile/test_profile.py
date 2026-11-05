@@ -41,3 +41,18 @@ def test_profile_rejects_invalid_source_revision(revision: str) -> None:
             source_repository="https://github.com/dotnetpower/mscp",
             source_revision=revision,
         )
+
+
+def test_profile_rejects_blank_identifier_or_repository() -> None:
+    with pytest.raises(ValueError, match="profile_id"):
+        OperationalProfile(
+            profile_id=" ",
+            source_repository="https://github.com/dotnetpower/mscp",
+            source_revision="0" * 40,
+        )
+    with pytest.raises(ValueError, match="source_repository"):
+        OperationalProfile(
+            profile_id="mscp-operational-v1",
+            source_repository=" ",
+            source_revision="0" * 40,
+        )

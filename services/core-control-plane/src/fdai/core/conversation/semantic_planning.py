@@ -216,6 +216,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin, SemanticPlanningSp
             unbound_conversation=unbound_conversation,
             supplied_preflight_result=preflight_result,
             model_observations=model_observations,
+            speculative_ticket=speculative_ticket,
         )
         ticket: CompiledAnswerTicket | None = speculative_ticket
         typed_only = self._compiled_answers is not None and self._compiled_answers.typed_only

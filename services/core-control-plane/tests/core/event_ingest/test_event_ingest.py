@@ -166,6 +166,10 @@ def test_operator_proposal_normalizes_blank_resource_to_none(resource_id: str) -
         {"operator_initiated": "true"},
         {"params": None},
         {"initiator_principal": ""},
+        {"idempotency_key": ""},
+        {"action_type": ""},
+        {"incident_id": ""},
+        {"incident_id": "not-a-uuid"},
     ),
 )
 def test_malformed_operator_proposal_is_not_normalized(patch: dict[str, Any]) -> None:
@@ -247,3 +251,19 @@ def test_malformed_workflow_action_is_not_normalized(workflow_action: object) ->
 
     with pytest.raises(ContractValidationError):
         EventIngest(validator=_validator()).ingest(proposal)
+
+
+def test_operator_proposal_accepts_canonical_incident_id() -> None:
+    incident_id = "00000000-0000-0000-0000-000000000042"
+    proposal = {
+        "idempotency_key": "operator-1::incident-run",
+        "initiator_principal": "operator-1",
+        "operator_initiated": True,
+        "action_type": "tool.generate-report",
+        "event_type": "operator_request",
+        "params": {},
+        "incident_id": incident_id,
+    }
+    event = EventIngest(validator=_validator()).ingest(proposal)
+    assert event is not None
+    assert event.payload["incident"] == {"incident_id": incident_id}

@@ -19,12 +19,19 @@ from fdai.core.assurance_twin import (
     derive_predicted_change_set,
 )
 from fdai.core.assurance_twin.proposal_effects import require_assessed_effect
-from fdai.core.assurance_twin.typed_proposal import WHAT_IF_SOURCE_AUTHORITY
+from fdai.core.assurance_twin.typed_proposal import (
+    TYPED_PROPOSAL_EVIDENCE_KIND,
+    WHAT_IF_SOURCE_AUTHORITY,
+    TypedProposalAssessment,
+    typed_proposal_admissible,
+)
 from fdai.core.quality_gate.deterministic_evidence import (
     DeterministicEvidenceKind,
     expected_evidence_authority,
 )
-from fdai.shared.providers.projection import ResourceRef
+from fdai.shared.contracts.models import Mode
+from fdai.shared.providers.iac_review import IacReview
+from fdai.shared.providers.projection import Finding, ResourceRef
 
 _NOW = datetime(2026, 9, 28, 1, 0, tzinfo=UTC)
 _REVISION = "sha256:" + "a" * 64
@@ -405,3 +412,146 @@ def test_every_changed_leaf_needs_a_covering_rule_input(
         return
     with pytest.raises(ProposalReviewUnavailableError, match="effect_unassessed"):
         require_assessed_effect(change, ((_TARGET, declared),))
+
+
+def test_typed_proposal_and_what_if_validate_all_field_invariants() -> None:
+    proposal = _proposal()
+    assert proposal.parameters() == {"public_access": "disabled"}
+
+    with pytest.raises(ValueError, match="canonical JSON"):
+        TypedActionProposal.create(
+            action_type="ops.set-public-access",
+            action_type_version="1.0.0",
+            targets=(_TARGET,),
+            parameters={"bad": float("nan")},
+        )
+    with pytest.raises(ValueError, match="MAJOR.MINOR.PATCH"):
+        TypedActionProposal.create(
+            action_type="ops.set-public-access",
+            action_type_version="1.0",
+            targets=(_TARGET,),
+            parameters={},
+        )
+    with pytest.raises(ValueError, match="canonical byte bound"):
+        TypedActionProposal.create(
+            action_type="ops.set-public-access",
+            action_type_version="1.0.0",
+            targets=(_TARGET,),
+            parameters={"payload": "x" * 17_000},
+        )
+    with pytest.raises(ValueError, match="canonical JSON"):
+        replace(proposal, parameters_json="{not-json")
+
+    what_if = _what_if(proposal)
+    with pytest.raises(ValueError, match="proposal_digest MUST be a SHA-256"):
+        replace(what_if, proposal_digest="bad")
+    with pytest.raises(ValueError, match="status MUST be a WhatIfStatus"):
+        replace(what_if, status="passed")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="completeness flags MUST be booleans"):
+        replace(what_if, complete="yes")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="producer identity MUST be bounded"):
+        replace(what_if, source_authority=" ")
+    with pytest.raises(ValueError, match="timestamps MUST be timezone-aware"):
+        replace(what_if, observed_at=datetime(2026, 9, 28, 1, 0))
+    with pytest.raises(ValueError, match="expires_at MUST NOT precede observed_at"):
+        replace(what_if, expires_at=_NOW - timedelta(minutes=5))
+    with pytest.raises(ValueError, match="affected_targets MUST be bounded, unique, and ordered"):
+        replace(what_if, affected_targets=(_OTHER, _TARGET))
+    with pytest.raises(ValueError, match="evidence refs MUST be bounded and unique"):
+        replace(what_if, evidence_refs=("dup", "dup"))
+
+
+def test_typed_proposal_admissible_verifies_complete_readback_and_rejects_forgery() -> None:
+    proposal = _proposal()
+    what_if = _what_if(proposal)
+    effect = _effect()
+    change = derive_predicted_change_set(
+        proposal=proposal,
+        what_if=what_if,
+        effect=effect,
+        projection=_projection(),  # type: ignore[arg-type]
+        inventory_revision=_REVISION,
+        now=_NOW,
+    )
+    assessment = TypedProposalAssessment(
+        source_revision="rev-1",
+        proposal_ref=proposal.proposal_ref,
+        action_type=proposal.action_type,
+        action_type_version=proposal.action_type_version,
+        proposal_digest=proposal.proposal_digest,
+        parameters_digest=proposal.parameters_digest,
+        targets=proposal.targets,
+        what_if_digest=what_if.what_if_digest,
+        effect_digest=effect.effect_digest,
+        change_digest=change.change_digest,
+        inventory_revision=_REVISION,
+        evidence_refs=(
+            proposal.proposal_digest,
+            what_if.what_if_digest,
+            effect.effect_digest,
+            change.change_digest,
+        ),
+        complete=True,
+    )
+    review = IacReview(
+        pr_ref=proposal.proposal_ref,
+        review_key=proposal.proposal_ref,
+        findings=(
+            Finding(
+                rule_id="rule-1",
+                resource=_TARGET,
+                severity="high",
+                reason="checked",
+            ),
+        ),
+        verdict="clear",
+        mode=Mode.SHADOW,
+        generated_at=_NOW.isoformat(),
+        metadata={
+            "evidence_kind": TYPED_PROPOSAL_EVIDENCE_KIND,
+            "action_type": proposal.action_type,
+            "action_type_version": proposal.action_type_version,
+            "proposal_digest": proposal.proposal_digest,
+            "what_if_digest": what_if.what_if_digest,
+            "effect_digest": effect.effect_digest,
+            "change_digest": change.change_digest,
+            "inventory_revision": _REVISION,
+        },
+    )
+
+    assert (
+        typed_proposal_admissible(
+            assessment,
+            source_revision="rev-1",
+            inventory_revision=_REVISION,
+            review=review,
+        )
+        is True
+    )
+    assert (
+        typed_proposal_admissible(
+            "not-an-assessment",
+            source_revision="rev-1",
+            inventory_revision=_REVISION,
+            review=review,
+        )
+        is False
+    )
+    assert (
+        typed_proposal_admissible(
+            replace(assessment, action_type=None),  # type: ignore[arg-type]
+            source_revision="rev-1",
+            inventory_revision=_REVISION,
+            review=review,
+        )
+        is False
+    )
+    assert (
+        typed_proposal_admissible(
+            replace(assessment, complete=False),
+            source_revision="rev-1",
+            inventory_revision=_REVISION,
+            review=review,
+        )
+        is False
+    )

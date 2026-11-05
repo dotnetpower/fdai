@@ -474,11 +474,30 @@ async def _post_with_retry(
                     httpx.Response(200, content=receipt.reused_response_bytes),
                     receipt.reused_response_bytes,
                 )
-        await throttle_gate.wait()
-        await rate_limiter.acquire()
+        try:
+            await throttle_gate.wait()
+            await rate_limiter.acquire()
+        except asyncio.CancelledError:
+            if durable is not None:
+                await asyncio.shield(
+                    durable.record_ambiguous_or_cancelled(
+                        request_id=request_id,
+                        reason="cancelled",
+                    )
+                )
+            raise
         if headers is None:
             try:
                 token = await identity.get_token(audience)
+            except asyncio.CancelledError:
+                if durable is not None:
+                    await asyncio.shield(
+                        durable.record_ambiguous_or_cancelled(
+                            request_id=request_id,
+                            reason="cancelled",
+                        )
+                    )
+                raise
             except Exception as exc:  # noqa: BLE001 - identity boundary fails closed
                 if durable is not None:
                     await durable.record_ambiguous_or_cancelled(
@@ -513,9 +532,11 @@ async def _post_with_retry(
                 )
         except asyncio.CancelledError:
             if durable is not None:
-                await durable.record_ambiguous_or_cancelled(
-                    request_id=request_id,
-                    reason="cancelled",
+                await asyncio.shield(
+                    durable.record_ambiguous_or_cancelled(
+                        request_id=request_id,
+                        reason="cancelled",
+                    )
                 )
             raise
         except httpx.DecodingError:
@@ -542,25 +563,29 @@ async def _post_with_retry(
             )
             continue
 
-        await throttle_gate.observe(response.headers)
         retry_delay = _retry_after_seconds(response.headers.get("Retry-After"))
         if retry_delay is None:
             retry_delay = _quota_reset_seconds(response.headers)
         if durable is not None:
             if response.status_code < 400:
-                await durable.complete(
-                    request_id=request_id,
-                    idempotency_key=idempotency_key,
-                    response_digest=f"sha256:{hashlib.sha256(content).hexdigest()}",
-                    response_payload=content,
-                    retry_after_seconds=retry_delay,
+                await asyncio.shield(
+                    durable.complete(
+                        request_id=request_id,
+                        idempotency_key=idempotency_key,
+                        response_digest=f"sha256:{hashlib.sha256(content).hexdigest()}",
+                        response_payload=content,
+                        retry_after_seconds=retry_delay,
+                    )
                 )
             else:
-                await durable.record_ambiguous_or_cancelled(
-                    request_id=request_id,
-                    reason=f"http_{response.status_code}",
-                    retry_after_seconds=retry_delay,
+                await asyncio.shield(
+                    durable.record_ambiguous_or_cancelled(
+                        request_id=request_id,
+                        reason=f"http_{response.status_code}",
+                        retry_after_seconds=retry_delay,
+                    )
                 )
+        await throttle_gate.observe(response.headers)
         if response.status_code not in _RETRYABLE_STATUS_CODES or attempt + 1 >= max_attempts:
             return response, content
         if retry_delay is None:

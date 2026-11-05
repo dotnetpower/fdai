@@ -55,7 +55,7 @@ async def fetch_arm_json(
     bounded_headers["Accept-Encoding"] = BOUNDED_ACCEPT_ENCODING
     for attempt in range(max_attempts):
         delay = min(0.5 * (2**attempt), 30.0)
-        request_id = f"arm:{resource_type}:{url}:attempt-{attempt}"
+        request_id = f"arm:{resource_type}:attempt-{attempt}:{content_digest({'url': url})[7:23]}"
         idempotency_key = content_digest(
             {"attempt": attempt, "resource_type": resource_type, "url": url}
         )
@@ -177,9 +177,11 @@ async def fetch_arm_json(
                         return payload, len(content)
         except asyncio.CancelledError:
             if durable_gate is not None:
-                await durable_gate.record_ambiguous_or_cancelled(
-                    request_id=request_id,
-                    reason="cancelled",
+                await asyncio.shield(
+                    durable_gate.record_ambiguous_or_cancelled(
+                        request_id=request_id,
+                        reason="cancelled",
+                    )
                 )
             raise
         except (httpx.HTTPError, TimeoutError) as exc:

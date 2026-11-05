@@ -342,3 +342,152 @@ async def test_file_token_source_stays_compatible(tmp_path: Path) -> None:
     config = replace(_identity_config(), audience=None, token_path=token_path)
 
     assert await HttpxKubernetesApiTransport(config)._token() == "test-service-account"
+
+
+async def test_kubernetes_config_transport_executor_and_router_edge_cases(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from fdai_executor_service.adapters.kubernetes_direct_api import _operation
+    from fdai_service_contracts.executor import (
+        DirectApiError,
+        DirectApiPermissionDeniedError,
+    )
+
+    base_cfg = _identity_config()
+    for kwargs, match in [
+        ({"cluster_ref": ""}, "cluster_ref MUST be bounded"),
+        ({"allowed_namespaces": frozenset()}, "allowlist MUST contain 1 to 32"),
+        ({"allowed_namespaces": frozenset({"BAD_NS"})}, "invalid name"),
+        ({"timeout_seconds": 0.0}, "timeout MUST be in"),
+        ({"audience": "bad audience"}, "audience MUST be bounded"),
+    ]:
+        with pytest.raises(ValueError, match=match):
+            replace(base_cfg, **kwargs)  # type: ignore[arg-type]
+
+    no_ca = object.__new__(KubernetesDirectApiConfig)
+    object.__setattr__(no_ca, "ca_pem", None)
+    object.__setattr__(no_ca, "ca_path", None)
+    with pytest.raises(ValueError, match="CA source is unavailable"):
+        no_ca.tls_verification()
+
+    with pytest.raises(DirectApiAuthenticationError, match="workload identity is unavailable"):
+        await HttpxKubernetesApiTransport(base_cfg, identity=None)._token()
+
+    no_tok_cfg = object.__new__(KubernetesDirectApiConfig)
+    object.__setattr__(no_tok_cfg, "audience", None)
+    object.__setattr__(no_tok_cfg, "token_path", None)
+    with pytest.raises(DirectApiAuthenticationError, match="token file is unavailable"):
+        await HttpxKubernetesApiTransport(no_tok_cfg)._token()
+
+    missing_file_cfg = replace(base_cfg, audience=None, token_path=tmp_path / "missing")
+    with pytest.raises(DirectApiAuthenticationError, match="token file is unavailable"):
+        await HttpxKubernetesApiTransport(missing_file_cfg)._token()
+
+    now = datetime(2026, 9, 17, tzinfo=UTC)
+    valid_id = _Identity(IdentityToken("tok", now + timedelta(minutes=5), "api://kubernetes-test"))
+
+    def default_resp() -> httpx.Response:
+        return httpx.Response(200, json={})
+
+    resp_factory: Any = default_resp
+
+    class _FakeClient:
+        def __init__(self, **_kwargs: Any) -> None:
+            pass
+
+        async def __aenter__(self) -> "_FakeClient":
+            return self
+
+        async def __aexit__(self, *_args: Any) -> None:
+            return None
+
+        async def request(self, *_args: Any, **_kwargs: Any) -> httpx.Response:
+            res = resp_factory()
+            if isinstance(res, Exception):
+                raise res
+            return res
+
+    monkeypatch.setattr(
+        "fdai_executor_service.adapters.kubernetes_direct_api.httpx.AsyncClient", _FakeClient
+    )
+    http_tx = HttpxKubernetesApiTransport(base_cfg, identity=valid_id, clock=lambda: now)
+
+    for factory, exc_type, match in [
+        (lambda: httpx.TimeoutException("timeout"), DirectApiError, "timed out"),
+        (lambda: httpx.RequestError("conn"), DirectApiError, "request failed"),
+        (lambda: httpx.Response(200, content=b"x" * 262_145), DirectApiError, "exceeded its bound"),
+        (lambda: httpx.Response(200, content=b"not-json"), DirectApiError, "invalid JSON"),
+        (lambda: httpx.Response(200, json=["list"]), DirectApiError, "non-object body"),
+        (lambda: httpx.Response(401, json={}), DirectApiAuthenticationError, "rejected"),
+        (lambda: httpx.Response(403, json={}), DirectApiPermissionDeniedError, "denied"),
+        (lambda: httpx.Response(409, json={}), DirectApiPreconditionError, "precondition changed"),
+        (
+            lambda: httpx.Response(500, json={"reason": "boom"}),
+            DirectApiError,
+            "500:boom",
+        ),
+    ]:
+        resp_factory = factory
+        with pytest.raises(exc_type, match=match):
+            await http_tx.request(method="GET", path="/p", body={}, dry_run=True)
+
+    # Executor & _operation branches
+    tx = _Transport()
+    exec_inst = _executor(tx)
+    with pytest.raises(DirectApiPreconditionError, match="not registered"):
+        await exec_inst.execute(_request(action_type="ops.unknown"))
+
+    shadow_rec = await exec_inst.execute(_request(mode=Mode.SHADOW))
+    assert shadow_rec.receipt_ref.startswith("kubernetes-dry-run:")
+
+    rollback_rec = await exec_inst.execute(_request(action_type="ops.rollback-kubernetes-rollout"))
+    assert rollback_rec.outcome is DirectApiOutcome.SUCCEEDED
+
+    base_req = _request()
+    for arg_override, req_override, match in [
+        ({"target_resource_ref": "other"}, {}, "MUST match the action resource_ref"),
+        ({"cluster_ref": "other"}, {}, "does not match the bound cluster"),
+        ({"resource_name": "BAD_NAME"}, {}, "resource_name is invalid"),
+        ({"replica_count": 1001}, {}, "replica_count MUST be an integer"),
+        ({"target_kind": "Pod"}, {}, "scale requires target_kind=Deployment"),
+        (
+            {"target_kind": "Deployment"},
+            {"action_type_name": "ops.restart-service"},
+            "restart requires target_kind=Pod",
+        ),
+        (
+            {"target_kind": "Pod"},
+            {"action_type_name": "ops.rollback-kubernetes-rollout"},
+            "rollback requires target_kind=Deployment",
+        ),
+        (
+            {"container_images": {}},
+            {"action_type_name": "ops.rollback-kubernetes-rollout"},
+            "1 to 32 entries",
+        ),
+        ({}, {"action_type_name": "ops.unknown"}, "not registered"),
+    ]:
+        bad_req = replace(
+            base_req,
+            arguments={**base_req.arguments, **arg_override},
+            **req_override,  # type: ignore[arg-type]
+        )
+        with pytest.raises(DirectApiPreconditionError, match=match):
+            _operation(bad_req, exec_inst._config)
+
+    # Router branches
+    router_no_fb = KubernetesDirectApiRouter(exec_inst, None)
+    assert (await router_no_fb.execute(base_req)).outcome is DirectApiOutcome.SUCCEEDED
+    assert await router_no_fb.operation_status(base_req) is None
+    other_req = _request(action_type="ops.start-vm")
+    with pytest.raises(DirectApiPreconditionError, match="no isolated Executor adapter"):
+        await router_no_fb.execute(other_req)
+    assert await router_no_fb.operation_status(other_req) is None
+
+    class _StatusFb(_Fallback):
+        async def operation_status(self, _req: DirectApiRequest) -> DirectApiReceipt | None:
+            return DirectApiReceipt(outcome=DirectApiOutcome.ALREADY_APPLIED, receipt_ref="fb:st")
+
+    router_fb = KubernetesDirectApiRouter(exec_inst, _StatusFb())
+    st_rec = await router_fb.operation_status(other_req)
+    assert st_rec is not None and st_rec.receipt_ref == "fb:st"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 from typing import Any
 
 import pytest
@@ -14,11 +15,22 @@ from fdai.core.conversation.semantic_runtime_speculation import (
 
 
 class _Ticket:
-    def __init__(self) -> None:
+    def __init__(self, observations: tuple[Any, ...] = ()) -> None:
         self.cancelled = False
+        self.observations = observations
 
     def cancel(self) -> None:
         self.cancelled = True
+
+
+@dataclass(frozen=True)
+class _Planning:
+    model_observations: tuple[Any, ...]
+
+
+@dataclass(frozen=True)
+class _TurnResult:
+    planning: _Planning
 
 
 class _Planner:
@@ -125,3 +137,116 @@ def test_a_failed_speculative_start_falls_back_to_no_ticket() -> None:
         return await speculation.take("question")
 
     assert asyncio.run(scenario()) is None
+
+
+def test_an_unadopted_ticket_contributes_its_observations_to_a_direct_turn_result() -> None:
+    events: list[str] = []
+    preflight_obs = object()
+    speculative_obs = object()
+    planner = _Planner(events)
+    planner.ticket = _Ticket(observations=(speculative_obs,))
+
+    class _TurnRuntime:
+        def __init__(self) -> None:
+            self._planner = planner
+            self._purpose = "operations-review"
+
+        @speculative_form_start
+        async def handle(self, **_kwargs: Any) -> _TurnResult:
+            await asyncio.sleep(0.05)
+            return _TurnResult(planning=_Planning(model_observations=(preflight_obs,)))
+
+    result = asyncio.run(
+        _TurnRuntime().handle(
+            utterance="hello",
+            prior_turns=(),
+            principal=object(),
+            locale="ko",
+        )
+    )
+
+    assert planner.ticket.cancelled is True
+    assert result.planning.model_observations == (preflight_obs, speculative_obs)
+
+
+def test_a_slow_speculative_start_still_contributes_observations_when_cancelled() -> None:
+    import time
+
+    events: list[str] = []
+    preflight_obs = object()
+    speculative_obs = object()
+    planner = _Planner(events)
+    planner.ticket = _Ticket(observations=(speculative_obs,))
+
+    def slow_start(**arguments: Any) -> _Ticket:
+        time.sleep(0.05)
+        events.append("slow_form_start")
+        planner.arguments = arguments
+        return planner.ticket
+
+    planner.start_speculative_form = slow_start  # type: ignore[method-assign]
+
+    class _FastTurnRuntime:
+        def __init__(self) -> None:
+            self._planner = planner
+            self._purpose = "operations-review"
+
+        @speculative_form_start
+        async def handle(self, **_kwargs: Any) -> _TurnResult:
+            return _TurnResult(planning=_Planning(model_observations=(preflight_obs,)))
+
+    result = asyncio.run(
+        _FastTurnRuntime().handle(
+            utterance="hello",
+            prior_turns=(),
+            principal=object(),
+            locale="ko",
+        )
+    )
+
+    assert events == ["slow_form_start"]
+    assert planner.ticket.cancelled is True
+    assert result.planning.model_observations == (preflight_obs, speculative_obs)
+
+
+def test_cancelling_turn_during_slow_release_still_cancels_the_ticket() -> None:
+    import time
+
+    events: list[str] = []
+    planner = _Planner(events)
+
+    def slow_start(**arguments: Any) -> _Ticket:
+        time.sleep(0.06)
+        events.append("slow_form_start")
+        planner.arguments = arguments
+        return planner.ticket
+
+    planner.start_speculative_form = slow_start  # type: ignore[method-assign]
+
+    class _FastTurnRuntime:
+        def __init__(self) -> None:
+            self._planner = planner
+            self._purpose = "operations-review"
+
+        @speculative_form_start
+        async def handle(self, **_kwargs: Any) -> str:
+            return "done"
+
+    async def scenario() -> None:
+        turn_task = asyncio.create_task(
+            _FastTurnRuntime().handle(
+                utterance="hello",
+                prior_turns=(),
+                principal=object(),
+                locale="ko",
+            )
+        )
+        await asyncio.sleep(0.01)
+        turn_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await turn_task
+        await asyncio.sleep(0.08)
+
+    asyncio.run(scenario())
+    assert events == ["slow_form_start"]
+    assert planner.ticket.cancelled is True

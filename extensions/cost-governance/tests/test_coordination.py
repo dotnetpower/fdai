@@ -426,3 +426,190 @@ def test_package_coordination_has_no_agent_import_or_authority_operation() -> No
     assert ".execute(" not in source
     assert ".rollback(" not in source
     assert ".append_audit" not in source
+
+
+def test_coordination_additional_guards_and_branches() -> None:
+    from fdai_cost_governance.coordination import CostObservationModeLatch
+
+    latch = CostObservationModeLatch()
+    assert latch.observation_mode is False
+    assert latch.observe(saga_available=False, vidar_available=True) is True
+    assert latch.observation_mode is True
+
+    coord = DeterministicCostCoordinator()
+    unsafe_frame = replace(_frame(), selected_option_id="option-unsafe")
+    res_unsafe = coord.coordinate(
+        _request(frame=unsafe_frame, attempts=(), ceiling=CostAutonomyCeiling.APPROVAL)
+    )
+    assert res_unsafe.outcome is CostDecisionOutcome.APPROVAL
+
+    safe_unconfirmed = replace(_frame(), selected_option_id="option-safe")
+    res_unconf = coord.coordinate(
+        _request(
+            frame=safe_unconfirmed,
+            attempts=(),
+            ceiling=CostAutonomyCeiling.EXECUTION_ELIGIBLE,
+        )
+    )
+    assert res_unconf.outcome is CostDecisionOutcome.HOLD
+    assert res_unconf.reason == "safe_option_not_confirmed"
+
+    with pytest.raises(CostCoordinationError, match="requires available Var"):
+        coord.coordinate(
+            _request(
+                attempts=_attempts(target_ceiling=CostAutonomyCeiling.APPROVAL),
+                approval_granted=True,
+                approval_receipt=DIGEST_C,
+                dependencies=CostDependencySnapshot(
+                    saga_available=True,
+                    vidar_available=True,
+                    forseti_available=True,
+                    heimdall_available=True,
+                    var_available=False,
+                    observed_at=NOW,
+                ),
+            )
+        )
+
+    full_attempts = _attempts()
+    extra_attempt = replace(full_attempts[-1], hypothesis_id="hyp-extra")
+    with pytest.raises(CostCoordinationError, match="exceeds the fixed order"):
+        coord.coordinate(_request(attempts=(*full_attempts, extra_attempt)))
+
+    first_att = _attempts(through=CostRecoveryStep.REACQUIRE_CONTEXT)[0]
+    with pytest.raises(CostCoordinationError, match="input frame does not match"):
+        coord.coordinate(_request(attempts=(replace(first_att, input_frame_digest=DIGEST_C),)))
+
+    with pytest.raises(CostCoordinationError, match="event-time order"):
+        coord.coordinate(
+            _request(attempts=(replace(first_att, attempted_at=NOW - timedelta(minutes=1)),))
+        )
+
+    assert first_att.output_frame is not None
+    with pytest.raises(CostCoordinationError, match="evidence cutoff backward"):
+        coord.coordinate(
+            _request(
+                attempts=(
+                    replace(
+                        first_att,
+                        output_frame=replace(
+                            first_att.output_frame,
+                            evidence_cutoff=NOW - timedelta(minutes=5),
+                        ),
+                    ),
+                )
+            )
+        )
+    with pytest.raises(CostCoordinationError, match="fresh cutoff"):
+        coord.coordinate(
+            _request(
+                attempts=(
+                    replace(
+                        first_att,
+                        output_frame=replace(first_att.output_frame, evidence_cutoff=NOW),
+                    ),
+                )
+            )
+        )
+
+    extra_opt = replace(first_att.output_frame.options[0], option_id="option-new")
+    with pytest.raises(CostCoordinationError, match="introduce a new option"):
+        coord.coordinate(
+            _request(
+                attempts=(
+                    replace(
+                        first_att,
+                        output_frame=replace(
+                            first_att.output_frame,
+                            options=(*first_att.output_frame.options, extra_opt),
+                        ),
+                    ),
+                )
+            )
+        )
+
+    ind_attempts = list(_attempts(through=CostRecoveryStep.INDEPENDENT_SOURCE))
+    assert ind_attempts[0].output_frame is not None and ind_attempts[1].output_frame is not None
+    with pytest.raises(CostCoordinationError, match="MUST add evidence"):
+        coord.coordinate(
+            _request(
+                attempts=(
+                    ind_attempts[0],
+                    replace(
+                        ind_attempts[1],
+                        output_frame=replace(
+                            ind_attempts[1].output_frame,
+                            evidence_refs=ind_attempts[0].output_frame.evidence_refs,
+                        ),
+                    ),
+                )
+            )
+        )
+
+    rem_attempts = list(_attempts(through=CostRecoveryStep.REMOVE_UNSAFE_OPTIONS))
+    assert rem_attempts[1].output_frame is not None
+    with pytest.raises(CostCoordinationError, match="MUST remove unsafe options"):
+        coord.coordinate(
+            _request(
+                attempts=(
+                    *rem_attempts[:2],
+                    replace(rem_attempts[2], output_frame=rem_attempts[1].output_frame),
+                )
+            )
+        )
+
+    red_attempts = list(_attempts(through=CostRecoveryStep.REDUCE_SCOPE))
+    assert red_attempts[2].output_frame is not None and red_attempts[3].output_frame is not None
+    with pytest.raises(CostCoordinationError, match="reduce at least one dimension"):
+        coord.coordinate(
+            _request(
+                attempts=(
+                    *red_attempts[:3],
+                    replace(
+                        red_attempts[3],
+                        output_frame=replace(
+                            red_attempts[3].output_frame,
+                            scope=red_attempts[2].output_frame.scope,
+                        ),
+                    ),
+                )
+            )
+        )
+
+    sel_attempts = list(_attempts(through=CostRecoveryStep.SELECT_SAFE_OPTION))
+    assert sel_attempts[4].output_frame is not None
+    with pytest.raises(CostCoordinationError, match="MUST select a safe option"):
+        coord.coordinate(
+            _request(
+                attempts=(
+                    *sel_attempts[:4],
+                    replace(
+                        sel_attempts[4],
+                        output_frame=replace(sel_attempts[4].output_frame, selected_option_id=None),
+                    ),
+                )
+            )
+        )
+
+    non_success = next(
+        status
+        for status in CostRecoveryAttemptStatus
+        if status is not CostRecoveryAttemptStatus.SUCCESS
+    )
+    hold_attempts = list(_attempts(through=CostRecoveryStep.BOUNDED_HOLD))
+    failed_sel = replace(
+        hold_attempts[4],
+        status=non_success,
+        output_frame=None,
+    )
+    assert hold_attempts[3].output_frame is not None
+    failed_hold = replace(
+        hold_attempts[5],
+        input_frame_digest=hold_attempts[3].output_frame.digest,
+        status=non_success,
+        output_frame=None,
+    )
+    res_hold_branch = coord.coordinate(
+        _request(attempts=(*hold_attempts[:4], failed_sel, failed_hold))
+    )
+    assert res_hold_branch.outcome is CostDecisionOutcome.HOLD

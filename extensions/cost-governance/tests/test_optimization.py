@@ -424,3 +424,226 @@ def test_targeted_clarification_holds_conflict_or_expiry(
     assert result.disposition is ClarificationDisposition.HELD
     assert result.reason == reason
     assert result.accepted_value is None
+
+
+def test_optimization_validation_and_planner_branches() -> None:
+    from dataclasses import replace
+
+    base_prof = _profile("virtual-machine")
+    for prof_kwargs, match in (
+        ({"profile_id": " "}, "identity MUST be non-empty"),
+        ({"resource_types": frozenset({" "})}, "resource types MUST be non-empty"),
+        ({"required_metrics": frozenset({" bad "})}, "metrics MUST be exact"),
+        ({"minimum_samples": 0}, "evidence bounds MUST be positive"),
+        ({"minimum_capacity": 0}, "minimum_capacity MUST be positive"),
+    ):
+        with pytest.raises(ValueError, match=match):
+            replace(base_prof, **prof_kwargs)
+
+    base_ev = _evidence()
+    for ev_kwargs, match in (
+        ({"observed_at": datetime(2026, 9, 1)}, "timezone-aware"),
+        ({"sample_count": -1}, "non-negative"),
+        ({"proposed_capacity": -1}, "proposed_capacity MUST be non-negative"),
+        (
+            {"metrics": (("z", Decimal("1")), ("a", Decimal("1")))},
+            "unique and sorted",
+        ),
+        ({"metrics": ((" bad ", Decimal("1")),)}, "exact and finite"),
+        ({"incompatibilities": (" bad ",)}, "incompatibilities MUST be exact"),
+    ):
+        with pytest.raises(ValueError, match=match):
+            replace(base_ev, **ev_kwargs)
+
+    second_ev = replace(
+        base_ev,
+        resource=ResourceContext(
+            resource_id="resource-b",
+            environment=FinOpsEnvironment.DEV,
+            current_capacity=4,
+        ),
+    )
+    base_coupled = CoupledResourceOptimizationEvidence(
+        target_set_id="coupled-a",
+        target_revision_digest="sha256:" + "a" * 64,
+        resources=(base_ev, second_ev),
+        causal_order=("resource-a", "resource-b"),
+        membership_complete=True,
+        truncated=False,
+        rollback_tested=True,
+        logical_target_lock="lock:coupled-a",
+        idempotency_key="optimization:coupled-a:v1",
+    )
+    for c_kwargs, match in (
+        ({"target_set_id": " "}, "identity MUST be exact"),
+        ({"target_revision_digest": "bad"}, "SHA-256"),
+        ({"resources": (base_ev,)}, "between 2 and 20"),
+        ({"resources": (base_ev, base_ev)}, "resources MUST be unique"),
+        ({"causal_order": ("resource-a",)}, "cover each resource once"),
+        (
+            {"causal_order": ("resource-a", "resource-b", "resource-a")},
+            "causal order MUST be unique",
+        ),
+    ):
+        with pytest.raises(ValueError, match=match):
+            replace(base_coupled, **c_kwargs)
+
+    from fdai_cost_governance.optimization import OptimizationClarificationRequest
+
+    base_req = build_optimization_clarification(
+        target_id="resource-a",
+        target_revision_digest="sha256:" + "a" * 64,
+        missing_fact="workload_priority",
+        blocking_reason="workload_priority_unavailable",
+        eligible_roles=("ServiceOwner",),
+        response_shape=ClarificationResponseShape.CHOICE,
+        allowed_values=("critical", "non-critical"),
+        effective_scope="resource-a",
+        created_at=NOW,
+        expires_at=NOW + timedelta(hours=1),
+        reevaluation_key="decision-case-a:revision-1",
+        recovery_evidence_refs=("recovery:graph",),
+    )
+    for r_kwargs, match in (
+        ({"request_id": " "}, "identity MUST be exact"),
+        ({"created_at": datetime(2026, 9, 1)}, "timezone-aware"),
+        ({"expires_at": NOW}, "expiry MUST follow creation"),
+        ({"eligible_roles": ()}, "non-empty and exact"),
+        ({"eligible_roles": ("A", "A")}, "bounds MUST be unique"),
+        ({"allowed_values": (" bad ",)}, "allowed values MUST be exact"),
+        ({"allowed_values": ("a", "a")}, "allowed values MUST be unique"),
+        ({"allowed_values": ()}, "choice clarification MUST declare allowed values"),
+        (
+            {"response_shape": ClarificationResponseShape.BOOLEAN},
+            "non-choice clarification MUST NOT declare allowed values",
+        ),
+    ):
+        with pytest.raises(ValueError, match=match):
+            OptimizationClarificationRequest(
+                **{
+                    "request_id": base_req.request_id,
+                    "target_id": base_req.target_id,
+                    "target_revision_digest": base_req.target_revision_digest,
+                    "missing_fact": base_req.missing_fact,
+                    "blocking_reason": base_req.blocking_reason,
+                    "eligible_roles": base_req.eligible_roles,
+                    "response_shape": base_req.response_shape,
+                    "allowed_values": base_req.allowed_values,
+                    "effective_scope": base_req.effective_scope,
+                    "created_at": base_req.created_at,
+                    "expires_at": base_req.expires_at,
+                    "reevaluation_key": base_req.reevaluation_key,
+                    "recovery_evidence_refs": base_req.recovery_evidence_refs,
+                    **r_kwargs,
+                }
+            )
+
+    base_att = OptimizationClarificationAttestation(
+        request_id=base_req.request_id,
+        actor_id="operator-a",
+        actor_role="ServiceOwner",
+        response="non-critical",
+        effective_scope="resource-a",
+        recorded_at=NOW,
+        effective_until=NOW + timedelta(minutes=30),
+    )
+    for a_kwargs, match in (
+        ({"actor_id": " "}, "fields MUST be exact"),
+        ({"response": "x" * 513}, "too long"),
+        ({"recorded_at": datetime(2026, 9, 1)}, "timezone-aware"),
+        ({"effective_until": NOW - timedelta(seconds=1)}, "interval is invalid"),
+    ):
+        with pytest.raises(ValueError, match=match):
+            replace(base_att, **a_kwargs)
+
+    with pytest.raises(ValueError, match="timezone-aware"):
+        evaluate_optimization_attestation(base_req, base_att, now=datetime(2026, 9, 1))
+    assert (
+        evaluate_optimization_attestation(
+            base_req, replace(base_att, request_id="other"), now=NOW
+        ).reason
+        == "request_identity_mismatch"
+    )
+    assert (
+        evaluate_optimization_attestation(
+            base_req,
+            replace(base_att, recorded_at=NOW - timedelta(minutes=5)),
+            now=NOW,
+        ).reason
+        == "attestation_time_invalid"
+    )
+    assert (
+        evaluate_optimization_attestation(
+            base_req, replace(base_att, actor_role="Other"), now=NOW
+        ).reason
+        == "respondent_role_ineligible"
+    )
+    assert (
+        evaluate_optimization_attestation(
+            base_req, replace(base_att, effective_scope="other"), now=NOW
+        ).reason
+        == "attestation_scope_mismatch"
+    )
+    assert (
+        evaluate_optimization_attestation(
+            base_req, replace(base_att, response="bad"), now=NOW
+        ).reason
+        == "attestation_response_invalid"
+    )
+    bool_req = replace(
+        base_req,
+        response_shape=ClarificationResponseShape.BOOLEAN,
+        allowed_values=(),
+    )
+    assert (
+        evaluate_optimization_attestation(
+            bool_req, replace(base_att, response="maybe"), now=NOW
+        ).reason
+        == "attestation_response_invalid"
+    )
+
+    with pytest.raises(ValueError, match="at least one service family profile"):
+        ResourceOptimizationPlanner(profiles=())
+
+    planner = ResourceOptimizationPlanner(profiles=(replace(base_prof, minimum_capacity=2),))
+    assert planner.plan(replace(base_ev, sample_count=1), now=NOW).reasons == (
+        "sample_count_insufficient",
+    )
+    assert planner.plan(
+        replace(base_ev, incompatibilities=("incompatible_sku",)), now=NOW
+    ).reasons == ("incompatible_sku",)
+    assert planner.plan(replace(base_ev, headroom=Decimal("0.01")), now=NOW).reasons == (
+        "headroom_below_profile_floor",
+    )
+    assert planner.plan(replace(base_ev, proposed_capacity=None), now=NOW).reasons == (
+        "target_capacity_required",
+    )
+    assert planner.plan(replace(base_ev, proposed_capacity=4), now=NOW).reasons == (
+        "no_capacity_reduction",
+    )
+    assert planner.plan(replace(base_ev, proposed_capacity=1), now=NOW).reasons == (
+        "target_below_profile_floor",
+    )
+
+    sub_scoped = replace(base_coupled, subscription_scoped=True)
+    assert "subscription_scope_not_actionable" in planner.plan_coupled(sub_scoped, now=NOW).reasons
+
+    rev_coupled = replace(base_coupled, resources=(replace(base_ev, sample_count=1), second_ev))
+    assert (
+        planner.plan_coupled(rev_coupled, now=NOW).disposition
+        is OptimizationDisposition.REVIEW_REQUIRED
+    )
+
+    keep_ev1 = replace(base_ev, headroom=Decimal("0.01"))
+    keep_ev2 = replace(second_ev, headroom=Decimal("0.01"))
+    all_keep = planner.plan_coupled(
+        replace(base_coupled, resources=(keep_ev1, keep_ev2)),
+        now=NOW,
+    )
+    assert all_keep.disposition is OptimizationDisposition.KEEP
+
+    mixed_keep = planner.plan_coupled(
+        replace(base_coupled, resources=(keep_ev1, second_ev)),
+        now=NOW,
+    )
+    assert mixed_keep.reasons == ("coupled_members_do_not_share_one_eligible_outcome",)

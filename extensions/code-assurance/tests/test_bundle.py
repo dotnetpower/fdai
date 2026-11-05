@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import pytest
 from fdai.core.capability_catalog import (
@@ -18,9 +18,14 @@ from fdai_code_assurance.bundle import (
     PROVIDER_ID,
     build_code_assurance_bundle,
     build_code_assurance_extension,
+    install_code_assurance_capabilities,
 )
 from fdai_code_assurance.models import PullRequestFile, PullRequestSnapshot
-from fdai_code_assurance.provider import CODE_REVIEW_TOOL_ID, SECURITY_REVIEW_TOOL_ID
+from fdai_code_assurance.provider import (
+    CODE_REVIEW_TOOL_ID,
+    SECURITY_REVIEW_TOOL_ID,
+    CodeAssuranceProvider,
+)
 
 
 @dataclass
@@ -135,3 +140,86 @@ async def test_tool_schema_rejects_unexpected_arguments_before_provider_call() -
         )
 
     assert source.calls == []
+
+
+async def test_security_review_tool_and_provider_validation_guards(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _Source([])
+    runtime = _runtime(source)
+    executor = DefaultToolExecutor(
+        registry=StaticToolRegistry(runtime.reasoning_tools),
+        providers=runtime.tool_providers,
+        allow_shadow_dispatch=True,
+    )
+    sec_result = await executor.dispatch(
+        tool_id=SECURITY_REVIEW_TOOL_ID,
+        arguments={"repository": "example/project", "pull_number": 9},
+    )
+    assert sec_result.raw["profile"] == "security"
+
+    provider = CodeAssuranceProvider(source)
+    code_artifact = next(a for a in runtime.reasoning_tools if a.id == CODE_REVIEW_TOOL_ID)
+    with pytest.raises(ValueError, match="repository MUST be a non-empty string"):
+        await provider.call(artifact=code_artifact, arguments={"repository": "", "pull_number": 1})
+    with pytest.raises(ValueError, match="pull_number MUST be a positive integer"):
+        await provider.call(
+            artifact=code_artifact,
+            arguments={"repository": "example/project", "pull_number": True},
+        )
+    unknown_artifact = replace(code_artifact, id="code-assurance.unknown")
+    with pytest.raises(ValueError, match="unsupported code-assurance tool id"):
+        await provider.call(
+            artifact=unknown_artifact,
+            arguments={"repository": "example/project", "pull_number": 1},
+        )
+
+    installed_containers: list[object] = []
+    monkeypatch.setattr(
+        "fdai_code_assurance.bundle.install_capability_bundle",
+        lambda container, bundle: installed_containers.append((container, bundle)) or container,
+    )
+    sentinel = object()
+    assert install_code_assurance_capabilities(sentinel, source=source) is sentinel  # type: ignore[arg-type]
+    assert len(installed_containers) == 1
+
+
+def test_load_assets_rejects_member_or_tool_drift(monkeypatch: pytest.MonkeyPatch) -> None:
+    from fdai.core.skills import parse_skill_bundle_manifest as real_parse
+
+    bundle_bytes = load_code_assurance_assets().skill_bundle
+    parsed = real_parse(bundle_bytes)
+
+    class _DriftMembers:
+        manifest = type(
+            "_M",
+            (),
+            {
+                "members": (),
+                "required_tools": parsed.manifest.required_tools,
+            },
+        )()
+
+    monkeypatch.setattr(
+        "fdai_code_assurance.assets.parse_skill_bundle_manifest",
+        lambda _raw: _DriftMembers(),
+    )
+    with pytest.raises(ValueError, match="members do not match"):
+        load_code_assurance_assets()
+
+    class _DriftTools:
+        manifest = type(
+            "_M",
+            (),
+            {
+                "members": parsed.manifest.members,
+                "required_tools": ("other.tool",),
+            },
+        )()
+
+    monkeypatch.setattr(
+        "fdai_code_assurance.assets.parse_skill_bundle_manifest",
+        lambda _raw: _DriftTools(),
+    )
+    with pytest.raises(ValueError, match="tools do not match"):
+        load_code_assurance_assets()

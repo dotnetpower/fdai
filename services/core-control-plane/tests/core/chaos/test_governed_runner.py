@@ -6,9 +6,12 @@ from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import pytest
 from fdai.core.chaos import (
     ChaosEligibilityContext,
     ChaosRunState,
+    ChaosStopEvent,
+    ChaosStopReason,
     FaultInjectionHarness,
     FaultScenario,
     GovernedChaosRunner,
@@ -475,3 +478,229 @@ async def test_concurrent_duplicate_runs_never_inject_twice() -> None:
         assert all(isinstance(item, ChaosRunConflictError) for item in errors), errors
         claim_losses += sum(isinstance(item, ChaosRunClaimError) for item in errors)
     assert claim_losses > 0
+
+
+class _FailingInjector(ShadowFaultInjector):
+    def __init__(self, *, fail_inject: bool = False, fail_stop: bool = False) -> None:
+        super().__init__(fault_type="pod_kill")
+        self._fail_inject = fail_inject
+        self._fail_stop = fail_stop
+
+    async def inject(self, *, target: str, params: Mapping[str, str]) -> None:
+        if self._fail_inject:
+            raise RuntimeError("inject failed")
+        await super().inject(target=target, params=params)
+
+    async def stop(self, *, target: str) -> None:
+        if self._fail_stop:
+            raise RuntimeError("stop failed")
+        await super().stop(target=target)
+
+
+async def test_governed_runner_validation_abort_rollback_and_resume_edges() -> None:
+    runner = _runner(ShadowFaultInjector(fault_type="pod_kill"), _Dispatcher())
+    with pytest.raises(ValueError, match="run_id MUST be non-empty"):
+        await runner.run_enforce(
+            run_id=" ",
+            scenario=_scenario(),
+            eligibility_context=_eligibility(),
+            recovery_plan=_plan(),
+            impact_guard=_guard,
+        )
+    with pytest.raises(ValueError, match="guard_interval_seconds MUST be positive"):
+        await runner.run_enforce(
+            run_id="run-bad-interval",
+            scenario=_scenario(),
+            eligibility_context=_eligibility(),
+            recovery_plan=_plan(),
+            impact_guard=_guard,
+            guard_interval_seconds=0,
+        )
+
+    naive_runner = GovernedChaosRunner(
+        harness=FaultInjectionHarness(
+            injectors=(ShadowFaultInjector(fault_type="pod_kill"),),
+            probe=_Probe(),
+            sleeper=_sleeper,
+        ),
+        run_store=ChaosRunStore(state_store=InMemoryStateStore()),
+        recovery=PreauthorizedRecoveryController(dispatcher=_Dispatcher()),
+        evidence_collector=_EvidenceCollector(),
+        clock=lambda: datetime(2026, 7, 31),
+    )
+    with pytest.raises(RuntimeError, match="timezone-aware"):
+        await naive_runner.run_enforce(
+            run_id="run-naive",
+            scenario=_scenario(),
+            eligibility_context=_eligibility(),
+            recovery_plan=_plan(),
+            impact_guard=_guard,
+        )
+
+    denied_first = await runner.run_enforce(
+        run_id="run-terminal",
+        scenario=_scenario(),
+        eligibility_context=_eligibility(graph_complete=False),
+        recovery_plan=_plan(),
+        impact_guard=_guard,
+    )
+    assert denied_first.state.state is ChaosRunState.DENIED
+    denied_replay = await runner.run_enforce(
+        run_id="run-terminal",
+        scenario=_scenario(),
+        eligibility_context=_eligibility(),
+        recovery_plan=_plan(),
+        impact_guard=_guard,
+    )
+    assert denied_replay.state.state is ChaosRunState.DENIED
+    assert denied_replay.experiment is None
+
+    abort_res = await _runner(
+        ShadowFaultInjector(fault_type="other_fault"),
+        _Dispatcher(),
+    ).run_enforce(
+        run_id="run-inject-abort",
+        scenario=_scenario(),
+        eligibility_context=_eligibility(),
+        recovery_plan=_plan(),
+        impact_guard=_guard,
+    )
+    assert abort_res.state.state is ChaosRunState.FAILED
+    assert abort_res.recovery is None
+
+    rollback_fail_res = await _runner(
+        _FailingInjector(fail_stop=True),
+        _Dispatcher(),
+    ).run_enforce(
+        run_id="run-rollback-fail",
+        scenario=_scenario(),
+        eligibility_context=_eligibility(),
+        recovery_plan=_plan(),
+        impact_guard=_guard,
+    )
+    assert rollback_fail_res.state.state is ChaosRunState.FAILED
+    assert rollback_fail_res.recovery is None
+
+    async def _stop_guard(_elapsed: float) -> ChaosStopEvent:
+        return ChaosStopEvent(
+            run_id="run-guard-stop",
+            impact_envelope_id="impact-1",
+            reason=ChaosStopReason.FORBIDDEN_SIGNAL,
+            observed_resources=("resource-a",),
+            observed_signals=("security_event",),
+            occurred_at=_NOW,
+            detail="forbidden",
+        )
+
+    stopped_res = await _runner(
+        ShadowFaultInjector(fault_type="pod_kill"),
+        _Dispatcher(),
+    ).run_enforce(
+        run_id="run-guard-stop",
+        scenario=_scenario(),
+        eligibility_context=_eligibility(),
+        recovery_plan=_plan(),
+        impact_guard=_stop_guard,
+    )
+    assert stopped_res.state.state is ChaosRunState.RECOVERED
+
+    async def _cancelling_sleeper(_seconds: float) -> None:
+        raise asyncio.CancelledError
+
+    cancel_store = ChaosRunStore(state_store=InMemoryStateStore())
+    cancel_runner = GovernedChaosRunner(
+        harness=FaultInjectionHarness(
+            injectors=(ShadowFaultInjector(fault_type="pod_kill"),),
+            probe=_Probe(),
+            sleeper=_cancelling_sleeper,
+        ),
+        run_store=cancel_store,
+        recovery=PreauthorizedRecoveryController(dispatcher=_Dispatcher()),
+        evidence_collector=_EvidenceCollector(),
+        clock=lambda: _NOW,
+    )
+    with pytest.raises(asyncio.CancelledError):
+        await cancel_runner.run_enforce(
+            run_id="run-cancelled",
+            scenario=_scenario(),
+            eligibility_context=_eligibility(),
+            recovery_plan=_plan(),
+            impact_guard=_guard,
+        )
+    cancelled_state = await cancel_store.get("run-cancelled")
+    assert cancelled_state is not None and cancelled_state.state is ChaosRunState.RECOVERED
+
+    verifying_store = ChaosRunStore(state_store=InMemoryStateStore())
+    snap = await verifying_store.create(run_id="run-verifying-err", at=_NOW)
+    for st in (
+        ChaosRunState.IMPACT_CHECKED,
+        ChaosRunState.DRY_RUN_VERIFIED,
+        ChaosRunState.APPROVED,
+        ChaosRunState.INJECTING,
+        ChaosRunState.OBSERVING,
+        ChaosRunState.VERIFIED,
+        ChaosRunState.RECOVERING,
+        ChaosRunState.VERIFYING,
+    ):
+        snap = await verifying_store.transition(
+            snap,
+            target=st,
+            idempotency_key=f"run-verifying-err:{st.value}",
+            at=_NOW,
+        )
+    verifying_res = await GovernedChaosRunner(
+        harness=FaultInjectionHarness(
+            injectors=(ShadowFaultInjector(fault_type="pod_kill"),),
+            probe=_Probe(),
+            sleeper=_sleeper,
+        ),
+        run_store=verifying_store,
+        recovery=PreauthorizedRecoveryController(dispatcher=_Dispatcher()),
+        evidence_collector=_EvidenceCollector(raises=True),
+        clock=lambda: _NOW,
+    ).run_enforce(
+        run_id="run-verifying-err",
+        scenario=_scenario(),
+        eligibility_context=_eligibility(),
+        recovery_plan=_plan(),
+        impact_guard=_guard,
+    )
+    assert verifying_res.state.state is ChaosRunState.ESCALATED
+    assert verifying_res.verification is not None
+    assert verifying_res.verification.outcome is RecoveryVerificationOutcome.UNSCORABLE
+
+    recovering_store = ChaosRunStore(state_store=InMemoryStateStore())
+    rec_snap = await recovering_store.create(run_id="run-recovering", at=_NOW)
+    for st in (
+        ChaosRunState.IMPACT_CHECKED,
+        ChaosRunState.DRY_RUN_VERIFIED,
+        ChaosRunState.APPROVED,
+        ChaosRunState.INJECTING,
+        ChaosRunState.OBSERVING,
+        ChaosRunState.VERIFIED,
+        ChaosRunState.RECOVERING,
+    ):
+        rec_snap = await recovering_store.transition(
+            rec_snap,
+            target=st,
+            idempotency_key=f"run-recovering:{st.value}",
+            at=_NOW,
+        )
+    recovering_res = await GovernedChaosRunner(
+        harness=FaultInjectionHarness(
+            injectors=(ShadowFaultInjector(fault_type="pod_kill"),),
+            probe=_Probe(),
+            sleeper=_sleeper,
+        ),
+        run_store=recovering_store,
+        recovery=PreauthorizedRecoveryController(dispatcher=_Dispatcher()),
+        evidence_collector=_EvidenceCollector(),
+        clock=lambda: _NOW,
+    ).run_enforce(
+        run_id="run-recovering",
+        scenario=_scenario(),
+        eligibility_context=_eligibility(),
+        recovery_plan=_plan(),
+        impact_guard=_guard,
+    )
+    assert recovering_res.state.state is ChaosRunState.RECOVERED

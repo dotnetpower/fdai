@@ -27,6 +27,7 @@ from fdai.core.rca.temporal_causality import (
 )
 from fdai.shared.contracts.models import CausalEvidenceGrade, Event
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
+from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 
 _START = datetime(2026, 8, 1, tzinfo=UTC)
 _VALUES = (3, 8, 1, 7, 2, 9, 4, 6, 0, 5, 11, 3, 10, 2, 8, 1, 12, 4, 9, 0, 7, 5, 13, 2)
@@ -402,3 +403,199 @@ async def test_the_runtime_binds_the_exact_causal_admission_request() -> None:
     # quasi-experimental, so the revision remains evidence-only.
     assert analyzed.hypothesis.evidence_grade is CausalEvidenceGrade.PREDICTIVE_PRECEDENCE
     assert analyzed.action_mode is CausalActionMode.SHADOW
+
+
+def test_temporal_evidence_and_closure_observation_boundary_validations() -> None:
+    base = _evidence()
+    with_confounder = replace(base, confounder=_series("conf", (1.0, 2.0)))
+    assert with_confounder.confounder is not None
+
+    deep: dict[str, object] = {"leaf": 1}
+    for _ in range(12):
+        deep = {"nested": deep}
+    cyclic_dict: dict[str, object] = {}
+    cyclic_dict["self"] = cyclic_dict
+    cyclic_list: list[object] = []
+    cyclic_list.append(cyclic_list)
+
+    for changes, match in (
+        ({"topological_reachability": 1.5}, "topological_reachability MUST be in"),
+        ({"ambiguity": 0}, "ambiguity MUST be >= 1"),
+        ({"refutation_complete": "yes"}, "refutation_complete MUST be boolean"),
+        ({"feature_cutoff": datetime(2026, 8, 1)}, "cutoff MUST be timezone-aware"),
+        ({"cause_ref": ""}, "identity MUST be non-empty"),
+        ({"evidence_refs": ("",)}, "evidence_refs refs MUST be bounded"),
+        (
+            {
+                "endpoint_objects": tuple(
+                    OntologyObjectRecord(id=f"id:{i}", object_type="Service", properties={})
+                    for i in range(129)
+                )
+            },
+            "endpoint objects MUST be bounded",
+        ),
+        (
+            {"endpoint_objects": (OntologyObjectRecord("id:1", "Service", deep),)},
+            "too deeply nested",
+        ),
+        (
+            {
+                "endpoint_objects": (
+                    OntologyObjectRecord("id:1", "Service", {"blob": "x" * 600_000}),
+                )
+            },
+            "exceed their byte limit",
+        ),
+        (
+            {"endpoint_objects": (OntologyObjectRecord("id:1", "Service", cyclic_dict),)},
+            "contain a cycle",
+        ),
+        (
+            {
+                "endpoint_objects": (
+                    OntologyObjectRecord("id:1", "Service", {"items": cyclic_list}),
+                )
+            },
+            "contain a cycle",
+        ),
+    ):
+        with pytest.raises(ValueError, match=match):
+            replace(base, **changes)  # type: ignore[arg-type]
+
+
+async def test_closure_observation_and_coordinator_guard_branches() -> None:
+    projector = _Projector()
+    coordinator = _coordinator(_Provider(_evidence()), projector)
+    analyzed = await coordinator.analyze(event=_event(), incident_id="incident-1")
+    assert analyzed.hypothesis is not None
+    hyp = analyzed.hypothesis
+
+    deep: dict[str, object] = {"leaf": 1}
+    for _ in range(12):
+        deep = {"nested": deep}
+
+    valid_obs = CausalClosureObservation(
+        hypothesis=hyp,
+        finding_id="finding:latency",
+        outcome_ref="outcome:ok",
+        observed_at=_event().ingested_at,
+        expected_direction_matched=None,
+        telemetry_complete=True,
+        within_window=True,
+        affected_scope_safe=True,
+        intervention_approved=True,
+        independent_observer=True,
+        intervention_receipt_digest="a" * 64,
+        intervention_executed_at=datetime(2026, 8, 1, 22, tzinfo=UTC),
+        intervention_target_ref=hyp.cause_ref,
+        predicted_effect_ref=hyp.effect_ref,
+        prohibited_effects_absent=True,
+        intervention_action_ref="action:1",
+        intervention_resource_ref="resource:1",
+    )
+    for changes, match in (
+        ({"finding_id": ""}, "finding and outcome refs MUST be non-empty"),
+        ({"observed_at": datetime(2026, 8, 2)}, "observed_at MUST be timezone-aware"),
+        ({"telemetry_complete": "yes"}, "checks MUST be boolean"),
+        ({"expected_direction_matched": "yes"}, "direction result MUST be boolean"),
+        (
+            {
+                "intervention_executed_at": None,
+                "intervention_action_ref": None,
+                "intervention_resource_ref": None,
+            },
+            "supplied together",
+        ),
+        ({"intervention_receipt_digest": "bad"}, "MUST be SHA-256"),
+        ({"intervention_executed_at": datetime(2026, 8, 2)}, "execution time is invalid"),
+        ({"intervention_target_ref": ""}, "intervention refs MUST be non-empty"),
+        ({"intervention_action_ref": " "}, "action ref requires a bounded receipt"),
+        ({"intervention_resource_ref": " "}, "resource ref requires an exact bounded"),
+        (
+            {
+                "endpoint_objects": tuple(
+                    OntologyObjectRecord(id=f"id:{i}", object_type="Service", properties={})
+                    for i in range(129)
+                )
+            },
+            "endpoint count exceeds",
+        ),
+        (
+            {"endpoint_objects": (OntologyObjectRecord("id:1", "Service", deep),)},
+            "exceed their depth bound",
+        ),
+        (
+            {
+                "endpoint_objects": (
+                    OntologyObjectRecord("id:1", "Service", {"blob": "x" * 600_000}),
+                )
+            },
+            "exceed their byte bound",
+        ),
+    ):
+        with pytest.raises(ValueError, match=match):
+            replace(valid_obs, **changes)  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="method_version MUST be non-empty"):
+        CausalRuntimeCoordinator(
+            evidence_provider=None, analyzer=None, projector=projector, method_version=""
+        )
+    with pytest.raises(ValueError, match="MUST be bound together"):
+        CausalRuntimeCoordinator(
+            evidence_provider=_Provider(None),
+            analyzer=None,
+            projector=projector,
+            method_version="v1",
+        )
+
+    class _ClosureSource:
+        def __init__(self, items: object) -> None:
+            self.items = items
+
+        async def collect(self, *, event: Event, incident_id: str) -> Any:
+            return self.items
+
+    for bad_items, match in (
+        ([valid_obs], "at most 32 immutable observations"),
+        ((valid_obs, valid_obs), "changed incident, cutoff or outcome identity"),
+    ):
+        bad_coord = CausalRuntimeCoordinator(
+            evidence_provider=None,
+            analyzer=None,
+            projector=projector,
+            method_version="v1",
+            closure_source=_ClosureSource(bad_items),
+        )
+        with pytest.raises(ValueError, match=match):
+            await bad_coord.analyze(event=_event(), incident_id="incident-1")
+
+    close_only = CausalRuntimeCoordinator(
+        evidence_provider=None,
+        analyzer=None,
+        projector=projector,
+        method_version="v1",
+        closure_source=_ClosureSource((valid_obs,)),
+    )
+    closed_res = await close_only.analyze(event=_event(), incident_id="incident-1")
+    assert closed_res.outcome is CausalRuntimeOutcome.CLOSED
+    assert len(closed_res.closed_hypotheses) == 1
+
+    late_cutoff = replace(_evidence(), feature_cutoff=datetime(2026, 8, 3, tzinfo=UTC))
+    with pytest.raises(ValueError, match="MUST NOT follow event ingestion"):
+        await _coordinator(_Provider(late_cutoff), projector).analyze(
+            event=_event(), incident_id="incident-1"
+        )
+
+    short = _series("short", (1.0, 2.0))
+    no_claim_ev = replace(
+        _evidence(), cause=short, effect=short, feature_cutoff=short.samples[-1].timestamp
+    )
+    no_claim_res = await _coordinator(_Provider(no_claim_ev), projector).analyze(
+        event=_event(), incident_id="incident-1"
+    )
+    assert no_claim_res.outcome is CausalRuntimeOutcome.NO_CLAIM
+
+    broken = _coordinator(_Provider(_evidence()), projector)
+    broken._analyzer = None
+    with pytest.raises(RuntimeError, match="no bound analyzer"):
+        await broken.analyze(event=_event(), incident_id="incident-1")

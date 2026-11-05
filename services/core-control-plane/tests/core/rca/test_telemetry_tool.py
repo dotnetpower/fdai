@@ -276,3 +276,69 @@ async def test_tool_rejects_bool_capacity_and_preserves_inflight_for_second_wait
     gate.set()
     receipt = await second
     assert receipt.need_id == need.need_id
+
+
+@pytest.mark.asyncio
+async def test_tool_validates_schema_budget_eviction_and_idempotency_conflict() -> None:
+    tool = TelemetryEvidenceRecipeTool(provider=_Provider(), maximum_retained_receipts=1)
+    need = _need()
+    bad_need = _need()
+    object.__setattr__(bad_need, "expected_output_schema_digest", f"sha256:{'0' * 64}")
+
+    with pytest.raises(ValueError, match="output schema does not match"):
+        await tool.run(bad_need)
+
+    first = await tool.run(need)
+    second_need = build_telemetry_evidence_need(
+        incident_id="incident:two",
+        resource_ref="resource:one",
+        evidence_cutoff=_NOW,
+        recipe=DEFAULT_TELEMETRY_RECIPE_CATALOG.get("requests.failed", "1.0.0"),
+        max_query_count=4,
+        max_cost_units=100,
+        idempotency_key="incident:two:round:one",
+    )
+    second = await tool.run(second_need)
+    assert tool.receipt(first.receipt_digest) is None
+    assert tool.receipt(second.receipt_digest) == second
+
+    for attr, bad_val, match in (
+        ("resource_ref", "resource:other", "does not match the evidence need"),
+        ("queried_route_count", 5, "exceeded the query budget"),
+        ("actual_cost_units", 101, "exceeded the cost budget"),
+    ):
+        bad_receipt = await _Provider().gather(need)
+        object.__setattr__(bad_receipt, attr, bad_val)
+        with pytest.raises(ValueError, match=match):
+            TelemetryEvidenceRecipeTool._validate_receipt(need, bad_receipt)
+
+    base_receipt = await _Provider().gather(need)
+    alt_receipt = build_telemetry_evidence_receipt(
+        need=need,
+        observed_until=_NOW,
+        disposition=TelemetryEvidenceDisposition.COMPLETE,
+        route_count=1,
+        queried_route_count=1,
+        row_count=99,
+        latency_ms=1,
+        estimated_cost_units=10,
+        actual_cost_units=10,
+        fact_tokens=("mechanism:failed_requests", "signal_count_band:low"),
+        complete=True,
+        truncated=False,
+    )
+
+    class _MutatingProvider:
+        def __init__(self) -> None:
+            self.tool: TelemetryEvidenceRecipeTool | None = None
+
+        async def gather(self, target_need):
+            assert self.tool is not None
+            self.tool._receipts[target_need.need_id] = alt_receipt
+            return base_receipt
+
+    mutating = _MutatingProvider()
+    conflict_tool = TelemetryEvidenceRecipeTool(provider=mutating)
+    mutating.tool = conflict_tool
+    with pytest.raises(RuntimeError, match="changed an idempotent receipt"):
+        await conflict_tool.run(need)

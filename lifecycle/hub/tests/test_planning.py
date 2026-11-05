@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
 from fdai_deployment_cli.lifecycle_plan import (
     LifecycleCommand,
     SuppressionWindow,
@@ -13,7 +14,7 @@ from fdai_deployment_cli.lifecycle_plan import (
     required_artifact_digests,
 )
 from fdai_deployment_cli.lifecycle_promotion import BoundaryRegistryMirror
-from fdai_deployment_cli.runtime_release import RecallRecord
+from fdai_deployment_cli.runtime_release import ConfigurationSchema, RecallRecord
 
 from fdai_lifecycle_hub.catalog import ReleaseCatalog
 from fdai_lifecycle_hub.domain import (
@@ -668,3 +669,49 @@ def test_a_stale_catalog_timestamp_blocks_every_plan_except_recall_rolloff(
     assert isinstance(rolloff, Issued)
     assert rolloff.plan.plan_type == "recall-rolloff"
     assert rolloff.plan.target_release_id == "1.5.0"
+
+
+def test_candidate_guards_reject_entity_downgrade_product_mismatch_and_schema_mismatch(
+    installation: Installation, catalog: ReleaseCatalog, key: HubSigningKey, now: datetime
+) -> None:
+    managed = _all_managed(_with_settings(installation, version_range=">=1.4.0 <1.6.0"))
+    console_ahead = replace(managed.reported.entities["console"], release_id="1.6.0")
+    mixed = replace(
+        managed,
+        reported=replace(
+            managed.reported, entities={**managed.reported.entities, "console": console_ahead}
+        ),
+    )
+    downgrade_outcome = plan_next(mixed, now, catalog=catalog, key=key)
+    assert isinstance(downgrade_outcome, NoEligibleRelease)
+    assert [c.release_id for c in downgrade_outcome.checks] == ["1.6.0", "1.5.0"]
+    assert downgrade_outcome.checks[1].blocks[0].reason_code == "release_would_downgrade_entity"
+
+    product_outcome = plan_next(
+        _with_settings(installation, product="example-web"), now, catalog=catalog, key=key
+    )
+    assert isinstance(product_outcome, NoEligibleRelease)
+    assert product_outcome.checks[0].blocks[0].reason_code == "release_product_mismatch"
+
+    mismatched_schema = ConfigurationSchema(
+        release_version="1.6.0",
+        digest="sha256:" + "f" * 64,
+        _keys=canonical_bytes(installation.configuration.schema),
+    )
+    matching_schema = ConfigurationSchema(
+        release_version="1.5.0",
+        digest=canonical_digest(installation.configuration.schema),
+        _keys=canonical_bytes(installation.configuration.schema),
+    )
+    schema_catalog = replace(
+        catalog,
+        releases={
+            **catalog.releases,
+            "1.6.0": replace(catalog.releases["1.6.0"], configuration_schema=mismatched_schema),
+            "1.5.0": replace(catalog.releases["1.5.0"], configuration_schema=matching_schema),
+        },
+    )
+    schema_outcome = plan_next(installation, now, catalog=schema_catalog, key=key)
+    assert isinstance(schema_outcome, Issued)
+    assert schema_outcome.plan.target_release_id == "1.5.0"
+    assert schema_outcome.checks[0].blocks[0].reason_code == "release_configuration_schema_mismatch"
