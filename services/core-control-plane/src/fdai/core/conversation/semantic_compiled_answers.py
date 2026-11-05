@@ -141,6 +141,12 @@ class CompiledAnswerTicket:
         # Closed codes that say why a declined reading ended with its decision.
         self.details: tuple[str, ...] = ()
 
+    @property
+    def observations(self) -> tuple[ConversationModelObservation, ...]:
+        """Return the model-call observations recorded by this form path so far."""
+
+        return tuple(self._collector.observations)
+
     def outcome(
         self,
         *,
@@ -334,7 +340,7 @@ class CompiledAnswerTicket:
             self._deadline = min(self._deadline, self._clock())
             self._future.cancel()
 
-    def cancel(self) -> None:
+    def cancel(self, observations: MutableSequence[Any] | None = None) -> None:
         """Cancel an unconsumed path; the owner loop drains its provider calls."""
 
         if not self._settled:
@@ -342,6 +348,11 @@ class CompiledAnswerTicket:
             self._future.cancel()
             self.decision = "superseded"
             _log_completion("cancelled")
+        if observations is not None:
+            existing = {id(item) for item in observations}
+            observations.extend(
+                item for item in self._collector.observations if id(item) not in existing
+            )
 
 
 class CompiledAnswerPath:

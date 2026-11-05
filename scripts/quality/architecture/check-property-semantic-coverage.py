@@ -62,7 +62,7 @@ WRAP_WIDTH = 98
 BACKLOG_PREVIEW = 12
 
 # Reviewed references may only grow. Raise this floor in the same change that raises coverage.
-REVIEWED_REFERENCE_FLOOR = 62
+REVIEWED_REFERENCE_FLOOR = 63
 _PACKAGE_ARCHIVE = b"reviewed-fdai-cost-governance-coverage-wheel"
 _PACKAGE_HOST_REFERENCES = {
     "action:remediate.remove-orphan-resource",

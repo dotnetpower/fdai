@@ -25,8 +25,12 @@ def test_shipped_catalog_coverage_is_measured_and_documented() -> None:
     coverage, violations = module.measure(REPO_ROOT)
 
     assert violations == ()
+    assert module.REVIEWED_REFERENCE_FLOOR == 63
     assert coverage.reviewed_count >= module.REVIEWED_REFERENCE_FLOOR
+    assert coverage.reviewed_count == 63
     assert coverage.reviewed_count == coverage.evaluated_count
+    assert coverage.uncovered_count == 0
+    assert coverage.percent == "100.0"
     assert coverage.gaps == ()
     assert {
         "property.cache.hit_rate",

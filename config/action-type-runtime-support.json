@@ -447,13 +447,18 @@
     "core-scale-out": {
       "delivery_status": "executable",
       "effect_observation": {
-        "status": "conditional",
+        "status": "wired",
         "refs": [
           {
-            "path": "services/core-control-plane/src/fdai/composition/wire_azure_operational_evidence.py"
+            "path": "services/core-control-plane/src/fdai/runtime/observation_evidence.py",
+            "symbol": "_OBSERVED_ACTION_TYPES"
           },
           {
-            "path": "services/core-control-plane/src/fdai/delivery/azure/executed_action_observation.py"
+            "path": "services/core-control-plane/src/fdai/delivery/azure/executed_action_observation.py",
+            "symbol": "AzureScaleOutObservationCollector"
+          },
+          {
+            "path": "services/core-control-plane/src/fdai/composition/wire_azure_operational_evidence.py"
           }
         ]
       },
@@ -586,10 +591,19 @@
         "refs": []
       },
       "recovery": {
-        "status": "declared_only",
+        "status": "source_only",
         "refs": [
           {
-            "path": "docs/roadmap/decisioning/execution-model.md"
+            "path": "services/core-control-plane/src/fdai/delivery/promotion.py",
+            "symbol": "StateStorePromotionAttestationStore"
+          },
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/promotion_override.py",
+            "symbol": "OperatorOverridePromotionDirectApiExecutor"
+          },
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/graph_model_promotion.py",
+            "symbol": "GraphModelPromotionDirectApiExecutor"
           }
         ]
       },
@@ -651,15 +665,20 @@
         ]
       }
     },
-    "human-access-revoke-blocked": {
-      "delivery_status": "blocked",
+    "human-access-revoke-shadow": {
+      "delivery_status": "shadow_only",
       "effect_observation": {
         "status": "missing",
         "refs": []
       },
       "recovery": {
-        "status": "missing",
-        "refs": []
+        "status": "source_only",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/identity/direct_api.py",
+            "symbol": "HumanAccessDirectApiExecutor"
+          }
+        ]
       },
       "evidence": {
         "level": "focused_tests",
@@ -938,9 +957,9 @@
     },
     "ops.revoke-human-access@1.0.0": {
       "bindings": {
-        "core-human-access": "human-access-revoke-blocked"
+        "core-human-access": "human-access-revoke-shadow"
       },
-      "note": "The route exists, but the adapter rejects revocation until replacement coverage is reviewed."
+      "note": "The built-in adapter validates a shadow replacement-coverage revocation plan; enforce requires isolated dispatch and a separately reviewed promotion."
     },
     "ops.rotate-cert@1.0.0": {
       "bindings": {},

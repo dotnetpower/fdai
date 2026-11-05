@@ -43,6 +43,7 @@ class PreflightDirectResponseRouter:
         unbound_conversation: bool,
         supplied_preflight_result: ConversationPreflightResult | None,
         model_observations: list[SemanticJudgmentObservation],
+        speculative_ticket: Any = None,
     ) -> None:
         self._semantic_judgment = semantic_judgment
         self._utterance = utterance
@@ -51,6 +52,7 @@ class PreflightDirectResponseRouter:
         self._unbound_conversation = unbound_conversation
         self._supplied_preflight_result = supplied_preflight_result
         self._supplied_preflight_consumed = False
+        self._speculative_ticket = speculative_ticket
         self.model_observations = model_observations
         self.ran = False
         self.social_act = SocialAct.NONE
@@ -126,6 +128,15 @@ class PreflightDirectResponseRouter:
 
     def finish(self, outcome: SemanticPlanningOutcome) -> SemanticPlanningOutcome:
         """Stamp the recorded observations and social act onto a final outcome."""
+        if self._speculative_ticket is not None:
+            self._speculative_ticket.cancel()
+            existing = {id(item) for item in self.model_observations}
+            self.model_observations.extend(
+                item
+                for item in getattr(self._speculative_ticket, "observations", ())
+                if id(item) not in existing
+            )
+            self._speculative_ticket = None
         updated = outcome
         recorded_observations = tuple(self.model_observations)
         if recorded_observations and outcome.model_observations != recorded_observations:

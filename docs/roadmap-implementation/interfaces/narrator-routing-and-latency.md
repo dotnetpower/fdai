@@ -44,6 +44,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-11-05 | implemented | Recorded provider calls from cancelled unadopted speculative form-path tickets in the turn's `model_observations` across `CompiledAnswerTicket.cancel`, `PreflightDirectResponseRouter.finish`, and `speculative_form_start` without changing routing or execution authority. | `current change`; `semantic_compiled_answers.py`, `semantic_planning_preflight_router.py`, `semantic_planning.py`, `semantic_runtime_speculation.py`; `test_semantic_compiled_planning.py` and `test_semantic_runtime_speculation.py`. | Governed proposal-only reconciler and live browser/deployment receipts remain open below. |
 | 2026-11-03 | implemented | Removed optional provider catalog discovery from Models configuration/prefetch/save readback through an explicit summary view; retained separate bounded catalog loading and read-view-scoped client caches. Corrected the documented provider-reader cache lifetime to the implemented 60 seconds. | `current change`; #2893; Operator catalog/IAM tests (85), Models unit tests (52), production Models browser scenarios and authenticated summary HTTP 200 observations passed. | API/page load observations do not measure inference or whole-turn latency; actual model access, failover and billed probes remain separate. |
 | 2026-11-01 | implemented | Expanded `DEFAULT_SECURITY_BEHAVIOR_SPECS` to 15 security contracts, wired `grounded_behavior_code_artifacts` into `local_narrator.py` and `semantic_turn_presentation.py`, and added `citationsForAdvisoryResponse` in Console `backend-context.ts`, `backend-stream.ts`, and `backend.ts` (`W13`-`W42`). | `current change`; `test_behavior_knowledge_resolver.py`, `test_local_narrator.py`, `backend-context.test.ts` (`54 Python passed`, `94 Console passed`). | Governed local and deployed timing/failover receipts remain open. |
 | 2026-11-01 | implemented | Wired `resolve_narrator_behavior_grounding` into `narrator_payloads.py` and `LocalAzureNarratorAdapters.open` (`local_narrator.py`) over the 10 built-in `DEFAULT_SECURITY_BEHAVIOR_SPECS`, and added `_console_security_posture` plus 20-fact `snapshotCitations` to Console `backend-context.ts` (`G01`-`G36`). | `current change`; `test_local_narrator.py`, `test_behavior_knowledge_resolver.py`, `backend-context.test.ts` (`101 Python passed`, `92 Console passed`). | Governed local and deployed timing/failover receipts remain open. |
@@ -134,8 +135,10 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [ ] Fix the question-form reading that types a name fragment as a value
   (`anchor_form_unsupported:value`), which held two or three of five Korean list turns in each
   2026-10-06 variant, through the typed form contract rather than a lexical rule.
-- [ ] Record the provider calls of a speculative ticket that a direct response cancels in the turn's
-  call accounting; today only adopted tickets contribute observations.
+- [x] Record the provider calls of a speculative ticket that a direct response cancels in the turn's
+  call accounting (`semantic_compiled_answers.py`, `semantic_planning_preflight_router.py`,
+  `semantic_runtime_speculation.py`, `test_semantic_compiled_planning.py`,
+  `test_semantic_runtime_speculation.py`).
 - [x] Complete the mock-only chat and inline prompt scenarios in the three focused Playwright files above; production adoption remains outside this change.
 - [x] Implement and focused-test independent text and vision candidate probes, separate rolling latency and TTFT windows, bounded refresh, failover, and unavailable behavior.
 - [x] Bind a periodic refresh owner with validated interval, failure isolation, duplicate-start suppression, and shutdown cleanup.

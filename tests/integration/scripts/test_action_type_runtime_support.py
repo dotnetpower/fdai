@@ -107,6 +107,7 @@ def test_scale_out_has_core_azure_and_isolated_kubernetes_support(
         "isolated-kubernetes-direct-api",
     }
     assert "isolated-azure-gateway" not in claim["bindings"]
+    assert manifest["support_profiles"]["core-scale-out"]["effect_observation"]["status"] == "wired"
     binding = manifest["bindings"]["isolated-kubernetes-direct-api"]
     profile = manifest["support_profiles"]["isolated-kubernetes"]
     assert binding["runtime_surface"] == "isolated_executor"
@@ -116,6 +117,23 @@ def test_scale_out_has_core_azure_and_isolated_kubernetes_support(
     }
     assert profile["effect_observation"]["status"] == "conditional"
     assert profile["evidence"]["level"] == "focused_tests"
+
+
+def test_human_access_revoke_and_promotion_direct_source_recovery(
+    manifest: dict[str, Any],
+) -> None:
+    revoke = manifest["actions"]["ops.revoke-human-access@1.0.0"]
+    assert revoke["bindings"] == {"core-human-access": "human-access-revoke-shadow"}
+    revoke_profile = manifest["support_profiles"]["human-access-revoke-shadow"]
+    assert revoke_profile["delivery_status"] == "shadow_only"
+    assert revoke_profile["recovery"]["status"] == "source_only"
+
+    promotion_profile = manifest["support_profiles"]["promotion-direct"]
+    assert promotion_profile["recovery"]["status"] == "source_only"
+
+    profiles = manifest["support_profiles"]
+    assert not any(p["delivery_status"] == "blocked" for p in profiles.values())
+    assert not any(p["recovery"]["status"] == "missing" for p in profiles.values())
 
 
 def test_missing_catalog_action_fails_closed(
