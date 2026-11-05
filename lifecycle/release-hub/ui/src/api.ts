@@ -1,4 +1,5 @@
 import { authenticatedFetch } from "../../../hub/ui/src/auth";
+import { compareSemVer } from "./release-lineage.model";
 
 export type Release = {
   id: string; label: string; manifest: string; digest: string; signed_payload_sha256: string; signature: string | null;
@@ -47,7 +48,18 @@ export function catalogRecovery(failure: unknown): string {
   if (failure instanceof CatalogRequestError) {
     if (failure.status === 401) return "Session expired. Sign in again, then refresh the catalog before another action.";
     if (failure.status === 403) return "Operator access denied. Ask the Hub owner to review your existing access; do not expand permissions.";
-    if (failure.status === 409) return "Catalog state changed or a server guard blocked the request. Refresh and review the release activity.";
+    if (failure.status === 409) {
+      const code = /^Promotion stage blocked \((promotion_[a-z_]+)\)\.$/.exec(failure.message)?.[1];
+      const cause: Record<string, string> = {
+        promotion_labels_missing: "Required promotion labels are missing.",
+        promotion_canary_unhealthy: "Healthy canary observations are insufficient.",
+        promotion_soak_incomplete: "The required observation window is incomplete.",
+        promotion_stage_timed_out: "The promotion stage timed out.",
+      };
+      return code && cause[code]
+        ? `${cause[code]} Refresh and review the release activity before another action.`
+        : "Catalog state changed or a server guard blocked the request. Refresh and review the release activity.";
+    }
     if (failure.status === 429) return "Too many requests in flight. Wait briefly and refresh the catalog before retrying.";
     if (failure.status === 503) return "Hub configuration or service readiness is unavailable. Ask the Hub owner to inspect readiness.";
     return `The Hub rejected the request (${failure.status}). Review the input and current catalog before another action.`;
@@ -62,7 +74,9 @@ export function catalogRecovery(failure: unknown): string {
   return "The Hub response is unavailable or invalid. Refresh the catalog and inspect the current state before another action.";
 }
 
-export function catalogChangeObserved(catalog: Catalog, action: Action, id: string, change: Change): boolean {
+export function catalogChangeObserved(
+  catalog: Catalog, action: Action | "recall_capability" | "lift_capability", id: string, change: Change,
+): boolean {
   const expectedAction = action === "promote" ? "contribute" : action;
   const expectedChannel = action === "contribute"
     ? change.channel
@@ -216,10 +230,7 @@ export function activeCapabilityRecalls(events: readonly Event[]): string[] {
   return [...active].sort();
 }
 
-export function blockedReleaseCapabilities(
-  manifest: ReleaseManifest,
-  events: readonly Event[],
-): string[] {
+export function releaseCapabilityIds(manifest: ReleaseManifest): Set<string> {
   const declared = new Set<string>(
     manifest.capability_maximums && typeof manifest.capability_maximums === "object"
       ? Object.keys(manifest.capability_maximums)
@@ -235,6 +246,14 @@ export function blockedReleaseCapabilities(
       declared.add(`addon:${a}`);
     }
   }
+  return declared;
+}
+
+export function blockedReleaseCapabilities(
+  manifest: ReleaseManifest,
+  events: readonly Event[],
+): string[] {
+  const declared = releaseCapabilityIds(manifest);
   if (declared.size === 0) return [];
   const recalled = new Set(activeCapabilityRecalls(events));
   return [...declared].filter((cap) => recalled.has(cap)).sort();
@@ -557,6 +576,41 @@ export type StencilComposeResult = {
   release_manifest: Record<string, unknown>;
 };
 
+function validStencilDefinition(value: unknown): value is StencilDefinitionRecord {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const stencil = value as Record<string, unknown>;
+  return typeof stencil.schema_version === "string"
+    && typeof stencil.stencil_id === "string"
+    && typeof stencil.title === "string"
+    && typeof stencil.title_ko === "string"
+    && typeof stencil.description === "string"
+    && typeof stencil.description_ko === "string"
+    && typeof stencil.topology_profile === "string"
+    && stencil.authority_granted === false
+    && ["enabled_workloads", "enabled_panel_ids", "enabled_scheduled_jobs", "enabled_loops", "enabled_addons"]
+      .every((field) => Array.isArray(stencil[field]) && (stencil[field] as unknown[]).every((item) => typeof item === "string"));
+}
+
+function validStencilFootprint(value: unknown): value is StencilFootprint {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const footprint = value as Record<string, unknown>;
+  const featureFlags = footprint.feature_flags;
+  return typeof footprint.stencil_digest === "string"
+    && typeof footprint.azure_rbac_posture === "string"
+    && typeof footprint.console_build_command === "string"
+    && typeof footprint.includes_clamav_sidecar === "boolean"
+    && ["workload_count", "total_workloads", "enabled_panel_count", "total_panel_count"]
+      .every((field) => typeof footprint[field] === "number" && Number.isFinite(footprint[field]))
+    && ["omitted_workloads", "required_azure_roles"]
+      .every((field) => Array.isArray(footprint[field]) && (footprint[field] as unknown[]).every((item) => typeof item === "string"))
+    && (footprint.release_labels === undefined
+      || (Array.isArray(footprint.release_labels) && footprint.release_labels.every((item) => typeof item === "string")))
+    && (featureFlags === undefined || (typeof featureFlags === "object" && featureFlags !== null
+      && "enforcement_mode" in featureFlags && typeof featureFlags.enforcement_mode === "string"
+      && "disabled_panel_ids" in featureFlags && Array.isArray(featureFlags.disabled_panel_ids)
+      && "disabled_loops" in featureFlags && Array.isArray(featureFlags.disabled_loops)));
+}
+
 export async function requestStencilCatalog(): Promise<StencilCatalogResponse> {
   const response = await authenticatedFetch("/v1/stencils", {
     cache: "no-store",
@@ -566,11 +620,37 @@ export async function requestStencilCatalog(): Promise<StencilCatalogResponse> {
     throw new Error(`Stencil catalog unavailable (${response.status}).`);
   }
   const raw: unknown = await response.json();
-  if (
-    typeof raw !== "object" ||
-    raw === null ||
-    !Array.isArray((raw as StencilCatalogResponse).presets) ||
-    !Array.isArray((raw as StencilCatalogResponse).panels)
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    throw new Error("Invalid Stencil catalog payload.");
+  }
+  const data = raw as Record<string, unknown>;
+  if (!Array.isArray(data.presets)
+    || !data.presets.every((item: unknown) =>
+      typeof item === "object" && item !== null && "stencil" in item
+      && validStencilDefinition(item.stencil) && "footprint" in item && validStencilFootprint(item.footprint))
+    || !Array.isArray(data.panels)
+    || !data.panels.every((item: unknown) => {
+      if (typeof item !== "object" || item === null || Array.isArray(item)) return false;
+      const panel = item as Record<string, unknown>;
+      return typeof panel.id === "string" && typeof panel.group === "string"
+        && typeof panel.label === "string" && typeof panel.label_ko === "string"
+        && typeof panel.locked === "boolean"
+        && ["required_workloads", "required_loops", "required_addons", "feature_ids"]
+          .every((field) => Array.isArray(panel[field]) && (panel[field] as unknown[]).every((value) => typeof value === "string"));
+    })
+    || !["workloads", "locked_workloads", "scheduled_jobs", "locked_scheduled_jobs", "loops", "locked_loops",
+      "addons", "locked_addons", "locked_panels"]
+      .every((field) => Array.isArray(data[field]) && (data[field] as unknown[]).every((item) => typeof item === "string"))
+    || !["workloads_catalog", "scheduled_jobs_catalog", "loops_catalog"].every((field) =>
+      data[field] === undefined || (Array.isArray(data[field]) && data[field].every((item: unknown) =>
+        typeof item === "object" && item !== null
+        && "id" in item && typeof item.id === "string"
+        && "label" in item && typeof item.label === "string"
+        && "label_ko" in item && typeof item.label_ko === "string"
+        && "summary" in item && typeof item.summary === "string"
+        && "summary_ko" in item && typeof item.summary_ko === "string"
+        && "agents" in item && Array.isArray(item.agents)
+        && "locked" in item && typeof item.locked === "boolean")))
   ) {
     throw new Error("Invalid Stencil catalog payload.");
   }
@@ -587,12 +667,19 @@ export async function requestStencilCompose(
     body: JSON.stringify(payload),
     signal: AbortSignal.timeout(10_000),
   });
-  const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+  const raw: unknown = await response.json().catch(() => ({}));
+  const body = typeof raw === "object" && raw !== null && !Array.isArray(raw)
+    ? raw as Record<string, unknown> : {};
   if (!response.ok) {
     const message = typeof body.error === "string" && body.error.trim()
       ? body.error
       : `Stencil composition failed (${response.status}).`;
     throw new Error(message);
+  }
+  if (!validStencilDefinition(body.stencil) || !validStencilFootprint(body.footprint)
+    || typeof body.release_manifest !== "object" || body.release_manifest === null
+    || Array.isArray(body.release_manifest)) {
+    throw new Error("Invalid Stencil composition payload.");
   }
   return body as StencilComposeResult;
 }
@@ -671,7 +758,13 @@ export async function requestEntraLogout(): Promise<EntraSessionStatus> {
     cache: "no-store",
     signal: AbortSignal.timeout(5_000),
   });
-  return (await response.json()) as EntraSessionStatus;
+  if (!response.ok) throw new CatalogRequestError("Entra ID sign-out was rejected.", response.status);
+  const result: unknown = await response.json();
+  if (typeof result !== "object" || result === null || !("authenticated" in result)
+    || result.authenticated !== false || !("session" in result) || result.session !== null) {
+    throw new Error("Entra ID sign-out was not confirmed.");
+  }
+  return result as EntraSessionStatus;
 }
 
 export function parseReleaseManifest(manifest: string): ReleaseManifest {
@@ -732,16 +825,50 @@ export function schemaCompatibility(manifest: ReleaseManifest, locale: "en" | "k
 }
 
 function parseCatalog(value: unknown): Catalog {
-  if (typeof value !== "object" || value === null) throw new Error("Release Hub returned an invalid catalog.");
-  const candidate = value as Record<string, unknown>;
+  const record = (item: unknown): item is Record<string, unknown> =>
+    typeof item === "object" && item !== null && !Array.isArray(item);
+  const date = (item: unknown): item is string =>
+    typeof item === "string" && item.trim().length > 0 && Number.isFinite(Date.parse(item));
+  const strings = (item: unknown): item is string[] =>
+    Array.isArray(item) && item.every((entry) => typeof entry === "string");
+  if (!record(value)) throw new Error("Release Hub returned an invalid catalog.");
+  const candidate = value;
   if (
     typeof candidate.revision !== "number"
     || !Number.isSafeInteger(candidate.revision)
     || candidate.revision < 0
+    || !date(candidate.updated_at)
+    || !date(candidate.expires_at)
+    || typeof candidate.expired !== "boolean"
+    || typeof candidate.key_id !== "string"
+    || typeof candidate.mode !== "string"
+    || (candidate.export_sha256 !== undefined && typeof candidate.export_sha256 !== "string")
     || !Array.isArray(candidate.releases)
+    || !candidate.releases.every((release: unknown) =>
+      record(release)
+      && typeof release.id === "string"
+      && typeof release.label === "string"
+      && typeof release.manifest === "string"
+      && typeof release.digest === "string"
+      && typeof release.signed_payload_sha256 === "string"
+      && (release.signature === null || typeof release.signature === "string")
+      && typeof release.signature_status === "string"
+      && (release.state === "draft" || release.state === "published" || release.state === "recalled")
+      && strings(release.channels)
+      && (release.published_at === null || date(release.published_at))
+      && (release.recalled_at === null || date(release.recalled_at)))
     || !Array.isArray(candidate.events)
-    || typeof candidate.channels !== "object"
-    || candidate.channels === null
+    || !candidate.events.every((event: unknown) =>
+      record(event)
+      && Number.isSafeInteger(event.revision)
+      && typeof event.release_id === "string"
+      && typeof event.action === "string"
+      && typeof event.reason === "string"
+      && (event.channel === null || typeof event.channel === "string")
+      && date(event.occurred_at)
+      && (event.actor === undefined || typeof event.actor === "string"))
+    || !record(candidate.channels)
+    || !Object.values(candidate.channels).every(strings)
   ) {
     throw new Error("Release Hub returned an invalid catalog.");
   }
@@ -772,6 +899,18 @@ export async function requestCatalog(path = "/v1/catalog", body?: Change): Promi
   return parseCatalog(result);
 }
 
+export async function requestCatalogExport(): Promise<Blob> {
+  const response = await authenticatedFetch("/v1/catalog/export", {
+    cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!response.ok) throw new CatalogRequestError("Catalog export unavailable.", response.status);
+  if (!response.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
+    throw new Error("Catalog export returned an unexpected content type.");
+  }
+  return response.blob();
+}
+
 export function actionsFor(release: Release): Action[] {
   if (release.state === "recalled") return [];
   return release.state === "draft" ? ["publish"] : ["contribute", "recall"];
@@ -779,6 +918,21 @@ export function actionsFor(release: Release): Action[] {
 
 export function releaseStateIndex(releases: Release[]): ReadonlyMap<string, Release["state"]> {
   return new Map(releases.map((release) => [release.id, release.state]));
+}
+
+export function latestEligibleChannelHead(
+  members: readonly string[],
+  states: ReadonlyMap<string, Release["state"]>,
+): string | null {
+  let head: string | null = null;
+  for (const id of members) {
+    if (states.get(id) !== "published") continue;
+    if (head === null || compareSemVer(id, head) > 0 ||
+      (compareSemVer(id, head) === 0 && id.localeCompare(head) > 0)) {
+      head = id;
+    }
+  }
+  return head;
 }
 
 export function isCustomChannel(value: string): boolean {

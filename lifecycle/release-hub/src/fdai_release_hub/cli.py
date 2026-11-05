@@ -89,7 +89,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             snapshot=OnlineRoleKey(load_private_key(snapshot_key)),
             timestamp=OnlineRoleKey(load_private_key(timestamp_key)),
         )
-    store = ReleaseStore(sqlite_file, key, role_keys=role_keys)
+    store = ReleaseStore(sqlite_file, key, role_keys=role_keys, local_freshness=True)
     if sqlite_file.is_file():
         sqlite_file.chmod(0o600)
     if args.command == "install-root":

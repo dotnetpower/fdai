@@ -10,6 +10,7 @@ import {
   buildConnectorGeometry,
   buildReleaseLineageGraph,
   buildReleaseStagePipeline,
+  buildReleaseTopologyGraph,
   compareSemVer,
   computeLineageSummary,
   nextSuggestedSemVer,
@@ -186,6 +187,26 @@ describe("release lineage LR graph", () => {
     expect(stageGraph.nodes[2]!.status).toBe("complete");
     expect(stageGraph.nodes[3]!.status).toBe("complete");
     expect(stageGraph.nodes[4]!.status).toBe("running");
+    expect(stageGraph.nodes[2]!.badgeTextKo).toBe("소속 기록");
+    expect(stageGraph.nodes[3]!.subtitle).toContain("RC member");
+    expect(stageGraph.nodes[4]!.badgeTextKo).toBe("다음 단계 검토");
+  });
+
+  it("shows only manifest-declared workloads and never treats channel membership as runtime health", () => {
+    const recorded = makeRelease("1.10.0", { channels: ["DEV", "RELEASE"] });
+    const catalog: Catalog = {
+      revision: 4, updated_at: "2026-11-03T00:00:00Z", expires_at: "2026-11-04T00:00:00Z",
+      expired: false, key_id: "dev", mode: "local-development", releases: [recorded],
+      channels: { DEV: [recorded.id], RELEASE_CANDIDATE: [], RELEASE: [recorded.id] }, events: [],
+    };
+    const declared = buildReleaseTopologyGraph(recorded, catalog).nodes.filter((node) => node.id.startsWith("workload-"));
+    expect(declared.map((node) => node.title)).toEqual(["core-control-plane", "operator-service"]);
+    expect(declared.every((node) => node.badgeTextKo === "선언됨 · RELEASE"
+      && node.subtitle.includes("digest not declared"))).toBe(true);
+
+    const withoutDeclaration = { ...recorded, manifest: "{}" };
+    expect(buildReleaseTopologyGraph(withoutDeclaration, catalog).nodes).toHaveLength(5);
+    expect(buildReleaseStagePipeline(withoutDeclaration, catalog).nodes[0]?.status).toBe("pending");
   });
 
   it("draws horizontal and smoothstep orthogonal connectors that enter arrowheads horizontally", () => {

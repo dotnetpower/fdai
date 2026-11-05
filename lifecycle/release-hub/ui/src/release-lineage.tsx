@@ -97,9 +97,11 @@ function LineageCanvas({
   filterTrack,
   disabled,
   onSelectNode,
+  onFocusNode,
   onNodePrimaryAction,
   nodeActionLabel,
   idPrefix,
+  preserveNodeSize = false,
 }: {
   graph: LineageGraph;
   locale: "en" | "ko";
@@ -107,9 +109,11 @@ function LineageCanvas({
   filterTrack?: string | null | undefined;
   disabled?: boolean | undefined;
   onSelectNode?: ((node: LineageNode) => void) | undefined;
+  onFocusNode?: ((node: LineageNode) => void) | undefined;
   onNodePrimaryAction?: ((node: LineageNode) => void) | undefined;
   nodeActionLabel?: ((node: LineageNode) => string | null) | undefined;
   idPrefix: string;
+  preserveNodeSize?: boolean | undefined;
 }) {
   void idPrefix;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -122,7 +126,7 @@ function LineageCanvas({
     if (target) {
       target.focus();
       const node = graph.nodes[clamped];
-      if (node) onSelectNode?.(node);
+      if (node) onFocusNode?.(node);
     }
   }
 
@@ -135,7 +139,7 @@ function LineageCanvas({
     >
       <svg
         class="rh-lineage-canvas-svg"
-        width={graph.nodes.every((n) => n.col <= 4) ? "100%" : graph.width}
+        width={preserveNodeSize || graph.nodes.some((n) => n.col > 4) ? graph.width : "100%"}
         height={graph.height}
         viewBox={`0 0 ${graph.width} ${graph.height}`}
         preserveAspectRatio="xMinYMid meet"
@@ -211,7 +215,7 @@ function LineageCanvas({
                   class={`rh-lineage-card status-${node.status} ${node.id === "__building_draft__" ? "is-running" : ""} ${isSelected ? "is-selected" : ""} ${hintLabel || inlineBtnLabel ? "is-actionable" : ""}`}
                   onClick={() => onSelectNode?.(node)}
                   onKeyDown={(e) => {
-                    if (!onSelectNode) return;
+                    if (!onSelectNode || e.target !== e.currentTarget) return;
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
                       onSelectNode(node);
@@ -254,12 +258,12 @@ function LineageCanvas({
                       <span class={`rh-node-state-pill status-${node.status}`}>
                         {node.id.startsWith("workload-")
                           ? locale === "ko"
-                            ? "✓ OCI 이미지 바인딩됨"
-                            : "✓ OCI Digest Bound"
+                            ? "매니페스트에 선언됨"
+                            : "Declared in manifest"
                           : node.status === "complete"
                             ? locale === "ko"
-                              ? "✓ 단계 완료"
-                              : "✓ Completed"
+                              ? node.id === "initialize-stencil" || node.id === "clone-codebase" ? "정보 있음" : "채널 기록됨"
+                              : node.id === "initialize-stencil" || node.id === "clone-codebase" ? "Recorded" : "In channel"
                             : node.status === "recalled"
                               ? locale === "ko"
                                 ? "✕ 회수/차단"
@@ -396,6 +400,7 @@ export function ReleaseLineageSection({
         onSelectNode={(node) => {
           setSelectedNodeId(node.id);
         }}
+        onFocusNode={(node) => setSelectedNodeId(node.id)}
         nodeActionLabel={(node) => {
           if (!node.release) return null;
           if (node.release.state === "draft") {
@@ -482,6 +487,9 @@ export function ReleaseStageLineage({
   disabled,
   onAct,
   onQuickPromote,
+  onInspectNode,
+  preserveNodeSize = false,
+  edition = false,
 }: {
   release: Release;
   catalog: Catalog;
@@ -489,6 +497,9 @@ export function ReleaseStageLineage({
   disabled?: boolean | undefined;
   onAct?: ((action: Action, release: Release) => void) | undefined;
   onQuickPromote?: ((release: Release) => Promise<void> | void) | undefined;
+  onInspectNode?: ((node: LineageNode) => void) | undefined;
+  preserveNodeSize?: boolean | undefined;
+  edition?: boolean | undefined;
 }) {
   const t = (en: string, ko: string) => (locale === "ko" ? ko : en);
   const stageGraph = useMemo(
@@ -496,30 +507,50 @@ export function ReleaseStageLineage({
     [release, catalog],
   );
   const transition = nextPromotionTransition(release);
+  const detailRoute = edition
+    ? `/edition/releases/${encodeURIComponent(release.id)}`
+    : `/releases/${encodeURIComponent(release.id)}`;
 
-  function triggerStageNode(node: LineageNode) {
+  function inspectStageNode(node: LineageNode) {
+    if (edition && onInspectNode) {
+      onInspectNode(node);
+      return;
+    }
     if (disabled) return;
     if (node.id === "initialize-stencil") {
-      location.hash = "/stencils";
+      location.hash = edition ? "/edition/new" : "/stencils";
     } else if (node.id === "clone-codebase") {
-      location.hash = `/releases/${release.id}`;
+      location.hash = detailRoute;
     } else if (node.id === "build-sign-dev" && release.state === "draft" && onAct) {
       onAct("publish", release);
     } else if (
       node.id === "promote-rc-canary" &&
       transition?.targetChannel === "RELEASE_CANDIDATE"
     ) {
-      if (onQuickPromote) void onQuickPromote(release);
-      else if (onAct) onAct("promote", release);
+      if (onAct) onAct("promote", release);
     } else if (
       node.id === "release-production" &&
       transition?.targetChannel === "RELEASE"
     ) {
+      if (onAct) onAct("promote", release);
+    } else {
+      location.hash = detailRoute;
+    }
+  }
+
+  function executeStageNode(node: LineageNode) {
+    if (disabled) return;
+    if (node.id === "build-sign-dev" && release.state === "draft" && onAct) {
+      onAct("publish", release);
+      return;
+    }
+    if ((node.id === "promote-rc-canary" && transition?.targetChannel === "RELEASE_CANDIDATE")
+      || (node.id === "release-production" && transition?.targetChannel === "RELEASE")) {
       if (onQuickPromote) void onQuickPromote(release);
       else if (onAct) onAct("promote", release);
-    } else {
-      location.hash = `/releases/${release.id}`;
+      return;
     }
+    inspectStageNode(node);
   }
 
   return (
@@ -528,8 +559,9 @@ export function ReleaseStageLineage({
         graph={stageGraph}
         locale={locale}
         disabled={disabled}
+        preserveNodeSize={preserveNodeSize}
         idPrefix={`stage-${release.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`}
-        onSelectNode={triggerStageNode}
+        onSelectNode={inspectStageNode}
         nodeActionLabel={(node) => {
           if (node.id === "build-sign-dev" && release.state === "draft") {
             return t("Sign DEV ->", "DEV 서명·발행 ->");
@@ -542,7 +574,7 @@ export function ReleaseStageLineage({
           }
           return null;
         }}
-        onNodePrimaryAction={triggerStageNode}
+        onNodePrimaryAction={executeStageNode}
       />
     </div>
   );

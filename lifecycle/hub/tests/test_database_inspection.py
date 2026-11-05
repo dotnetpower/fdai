@@ -212,7 +212,7 @@ def test_empty_product_and_same_state_compare_in_readonly_transaction(database, 
     before = inspect(engine).get_table_names()
     baseline = check.observe(engine, kind, "source")
     assert baseline.revision == (2 if kind == "target" else 1)
-    assert sum(table.rows for table in baseline.tables.values()) == 1
+    assert sum(table.rows for table in baseline.tables.values()) == (2 if kind == "release" else 1)
     assert states and all(value == "on" for value in states)
     alternate = create_engine(
         engine.url.set(host="localhost" if engine.url.host != "localhost" else "127.0.0.1"),
@@ -263,7 +263,7 @@ def test_empty_database_or_wrong_revision_fails_without_mutation(database, revis
     if revision is not None:
         initialize(engine, "release")
         with engine.begin() as connection:
-            connection.execute(text("UPDATE release_hub_schema_revision SET revision = 3"))
+            connection.execute(text("UPDATE release_hub_schema_revision SET revision = 4"))
     before = inspect(engine).get_table_names()
     with pytest.raises(check.InspectionError, match="schema_revision_mismatch"):
         check.observe(engine, "release", "source")
@@ -325,7 +325,7 @@ def test_row_bound_and_multiple_revision_rows_fail(database):
         check.observe(engine, "release", "source")
     with engine.begin() as connection:
         connection.execute(text("TRUNCATE metadata"))
-        connection.execute(text("INSERT INTO release_hub_schema_revision VALUES (3)"))
+        connection.execute(text("INSERT INTO release_hub_schema_revision VALUES (4)"))
     with pytest.raises(check.InspectionError, match="schema_revision_row_count_mismatch"):
         check.observe(engine, "release", "source")
 

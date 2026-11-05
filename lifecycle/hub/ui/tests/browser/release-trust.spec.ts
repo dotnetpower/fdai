@@ -118,6 +118,10 @@ test("1-click release creation composes, registers, and signs 0.5.0 into DEV wit
             },
           }],
           panels: [],
+          workloads: ["core-control-plane", "operator-service"],
+          scheduled_jobs: ["analyzer", "inventory"],
+          loops: ["anomaly-analyzer", "inventory-reconciliation", "notification-dispatch", "saga-audit"],
+          addons: ["notifications", "read-only-console"],
           locked_panels: ["dashboard"],
           locked_workloads: ["core-control-plane", "operator-service"],
           locked_scheduled_jobs: ["analyzer", "inventory"],
@@ -197,6 +201,11 @@ test("1-click release creation composes, registers, and signs 0.5.0 into DEV wit
           published_at: null,
           recalled_at: null,
         }],
+        events: [{
+          revision: 1, release_id: "0.5.0", action: "register",
+          reason: "Register reviewed Stencil release manifest", channel: null,
+          occurred_at: "2026-11-04T00:00:30Z",
+        }],
       };
       return route.fulfill({ json: currentCatalog });
     }
@@ -218,6 +227,14 @@ test("1-click release creation composes, registers, and signs 0.5.0 into DEV wit
           recalled_at: null,
         }],
         channels: { DEV: ["0.5.0"], RELEASE_CANDIDATE: [], RELEASE: [] },
+        events: [
+          {
+            revision: 2, release_id: "0.5.0", action: "publish",
+            reason: "Sign manifest with development key and publish to DEV ring", channel: null,
+            occurred_at: "2026-11-04T00:01:00Z",
+          },
+          ...currentCatalog.events,
+        ],
       };
       return route.fulfill({ json: currentCatalog });
     }
@@ -232,7 +249,7 @@ test("1-click release creation composes, registers, and signs 0.5.0 into DEV wit
   await page.goto("https://hub.test/#/releases");
   await expect(page.getByRole("button", { name: "1-Click Create Release (0.5.0)" })).toBeVisible();
   await page.getByRole("button", { name: "1-Click Create Release (0.5.0)" }).click();
-  await expect(page.getByRole("status")).toContainText("1-Click release created: Release 0.5.0");
+  await expect(page.locator("p.success[role='status']")).toContainText("1-Click release created: Release 0.5.0");
   await expect(page.getByText("1 releases", { exact: true })).toBeVisible();
   expect(writes).toEqual([
     "/v1/stencils/compose",

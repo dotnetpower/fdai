@@ -18,7 +18,7 @@ from fdai_lifecycle_hub.migrations import migrate
 from fdai_lifecycle_hub.remote_auth import RemoteAuth
 from fdai_lifecycle_hub.signing import HubSigningKey
 from fdai_release_hub.api import create_app
-from fdai_release_hub.database import deployment_requests, metadata
+from fdai_release_hub.database import catalog_freshness, deployment_requests, metadata
 from fdai_release_hub.store import Change, ReleaseStore
 
 NOW = datetime(2026, 10, 25, 12, tzinfo=UTC)
@@ -415,7 +415,7 @@ def test_existing_v1_requires_explicit_transactional_upgrade(tmp_path):
     upgraded.migrate()
     ReleaseStore(engine, key, initialize=False)
     with engine.connect() as db:
-        assert db.scalar(text("SELECT revision FROM release_hub_schema_revision")) == 2
+        assert db.scalar(text("SELECT revision FROM release_hub_schema_revision")) == 3
         assert db.execute(select(deployment_requests)).all() == []
 
 
@@ -433,11 +433,26 @@ def test_v1_upgrade_preserves_existing_catalog_and_reader_floor(store):
     assert reopened.export() == before
     assert reopened.snapshot() == before_snapshot
     with store.connect() as db:
-        db.execute(text("UPDATE release_hub_schema_revision SET revision = 3"))
+        db.execute(text("UPDATE release_hub_schema_revision SET revision = 4"))
     with pytest.raises(ValueError, match="migrate before serving"):
         ReleaseStore(store.engine, store.key, initialize=False)
     with pytest.raises(ValueError, match="compatible migration"):
         store.migrate()
+
+
+@pytest.mark.parametrize("store", ["sqlite", "postgres"], indirect=True)
+def test_v2_upgrade_preserves_signed_export_until_next_publication(store):
+    before_snapshot = store.snapshot()
+    before_export = store.export()
+    with store.connect() as db:
+        catalog_freshness.drop(db)
+        db.execute(text("UPDATE release_hub_schema_revision SET revision = 2"))
+    with pytest.raises(ValueError, match="migrate before serving"):
+        ReleaseStore(store.engine, store.key, initialize=False)
+    store.migrate()
+    reopened = ReleaseStore(store.engine, store.key, initialize=False, clock=lambda: NOW)
+    assert reopened.snapshot() == before_snapshot
+    assert reopened.export() == before_export
 
 
 def test_public_intake_and_private_operator_listing(store, monkeypatch):

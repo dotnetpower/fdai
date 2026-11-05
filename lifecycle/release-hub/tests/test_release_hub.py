@@ -27,6 +27,7 @@ from fdai_release_hub.catalog_serialization import (
     write_channels,
 )
 from fdai_release_hub.cli import main
+from fdai_release_hub.database import catalog_freshness
 from fdai_release_hub.store import (
     CapabilityChange,
     CatalogConfirmation,
@@ -892,10 +893,73 @@ def test_storage_failure_is_explicit_503(client: TestClient, store: ReleaseStore
     assert response.json()["error"] == "Local storage is unavailable."
 
 
+def test_local_cli_serves_new_catalog_with_72_hour_freshness(tmp_path: Path, monkeypatch) -> None:
+    state = tmp_path / "local-release-hub"
+    ui = tmp_path / "empty-ui"
+    ui.mkdir()
+    assert main(["dev-init", str(state)]) == 0
+    servers = []
+    monkeypatch.setattr("uvicorn.run", lambda app, **kwargs: servers.append(app))
+    assert main(["serve", str(state), "--ui", str(ui)]) == 0
+    with TestClient(
+        servers[0], base_url="http://127.0.0.1:8091", client=("127.0.0.1", 50001)
+    ) as browser:
+        response = browser.get("/v1/catalog")
+    assert response.status_code == 200
+    catalog = response.json()
+    assert datetime.fromisoformat(catalog["expires_at"]) - datetime.fromisoformat(
+        catalog["updated_at"]
+    ) == timedelta(hours=72)
+
+
 def test_expired_state_is_visible(store: ReleaseStore) -> None:
     publish(store)
     store.clock = lambda: NOW + timedelta(days=2)
     assert store.snapshot()["expired"]
+
+
+def test_new_local_catalog_uses_72_hours_without_changing_remote_default(tmp_path: Path) -> None:
+    key = HubSigningKey(Ed25519PrivateKey.generate(), 1)
+    local = ReleaseStore(tmp_path / "local.db", key, clock=lambda: NOW, local_freshness=True)
+    remote = ReleaseStore(tmp_path / "remote.db", key, clock=lambda: NOW)
+    assert local.snapshot()["expires_at"] == (NOW + timedelta(hours=72)).isoformat()
+    assert remote.snapshot()["expires_at"] == (NOW + timedelta(hours=24)).isoformat()
+    publish(local)
+    export = json.loads(local.export()[0])
+    assert export["expires_at"] == local.snapshot()["expires_at"]
+    view = json.loads(local.catalog_view(MAX_CATALOG_VIEW_BYTES))
+    assert view["expires_at"] == export["expires_at"]
+    assert view["export_sha256"] == local.export()[1]
+
+
+def test_local_freshness_upgrade_preserves_existing_pin_until_a_new_revision(
+    store: ReleaseStore,
+) -> None:
+    publish(store)
+    original_snapshot = store.snapshot()
+    original_export = store.export()
+    with store.connect() as db:
+        catalog_freshness.drop(db)
+        db.exec_driver_sql("UPDATE release_hub_schema_revision SET revision = 2")
+    local = ReleaseStore(store.path, store.key, clock=lambda: NOW, local_freshness=True)
+    assert local.snapshot() == original_snapshot
+    assert local.export() == original_export
+    later = NOW + timedelta(days=2)
+    local.clock = lambda: later
+    local.renew(
+        CatalogConfirmation(
+            revision=original_snapshot["revision"],
+            confirmation=f"renew {original_snapshot['revision']}",
+            reason="Reviewed development catalog freshness",
+        )
+    )
+    renewed = local.snapshot()
+    assert renewed["revision"] == original_snapshot["revision"] + 1
+    assert renewed["expires_at"] == (later + timedelta(hours=72)).isoformat()
+    assert local.export()[1] != original_export[1]
+    reopened = ReleaseStore(store.path, store.key, clock=lambda: later)
+    assert reopened.export() == local.export()
+    assert reopened.snapshot() == renewed
 
 
 def test_expired_renewal_preserves_content_and_requires_new_customer_pin(

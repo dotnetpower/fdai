@@ -155,7 +155,7 @@ async function acquireAccessToken(
 
 /** Access tokens stay in MSAL's session cache, never URLs, local configuration, or UI output. */
 export async function initializeAuth(root: HTMLElement): Promise<boolean> {
-  const response = await fetch("/auth/config", { cache: "no-store" });
+  const response = await fetch("/auth/config", { cache: "no-store", signal: AbortSignal.timeout(10_000) });
   if (!response.ok) throw new Error("Authentication configuration unavailable.");
   const config: unknown = await response.json();
   if (typeof config !== "object" || config === null || !("profile" in config)) {

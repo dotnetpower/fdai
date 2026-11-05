@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { isInitialCatalog, requestCatalog, type Action, type Catalog } from "./api";
-import { isConfirmationDisabled } from "./app";
+import { confirmedReturnRoute, currentPromotionTransition, isConfirmationDisabled, quickCreateReturnRoute, releaseNavGroup } from "./app";
 
 const validConfirmation = {
   action: "renew" as Action,
@@ -23,6 +23,53 @@ const catalog = (): Catalog => ({
   releases: [],
   channels: {},
   events: [],
+});
+
+describe("grouped navigation with retained legacy routes", () => {
+  it("maps existing bookmarks and Edition detail routes to three navigation groups", () => {
+    for (const route of ["/edition", "/edition/new", "/edition/releases/0.5.2", "/edition/selected/0.5.2", "/stencils", "/releases", "/releases/0.5.2"]) {
+      expect(releaseNavGroup(route)).toBe("/edition");
+    }
+    expect(releaseNavGroup("/channels")).toBe("/channels");
+    expect(releaseNavGroup("/deployment-requests")).toBe("/channels");
+    expect(releaseNavGroup("/trust")).toBe("/trust");
+    expect(releaseNavGroup("/activity")).toBe("/trust");
+    expect(releaseNavGroup("/unknown")).toBeNull();
+  });
+
+  describe("one-click promotion freshness", () => {
+    const release: Catalog["releases"][number] = {
+      id: "1.0.0", label: "Candidate", manifest: "{}", digest: "a".repeat(64),
+      signed_payload_sha256: "b".repeat(64), signature: "signed",
+      signature_status: "development-key-verified", state: "published",
+      channels: ["DEV"], published_at: "2026-10-24T10:00:00Z", recalled_at: null,
+    };
+
+    it("uses the current stage only when it matches the stage shown to the operator", () => {
+      expect(currentPromotionTransition(release, { ...catalog(), releases: [release] })).toEqual({
+        sourceChannel: "DEV", targetChannel: "RELEASE_CANDIDATE",
+      });
+    });
+
+    it("rejects a changed, recalled, or missing release rather than promoting the next stage", () => {
+      for (const releases of [
+        [{ ...release, channels: ["DEV", "RELEASE_CANDIDATE"] }],
+        [{ ...release, state: "recalled" as const }],
+        [],
+      ]) {
+        expect(() => currentPromotionTransition(release, { ...catalog(), releases })).toThrow(/Release stage changed/);
+      }
+    });
+  });
+
+  it("returns successful create and confirmed changes to their originating workflow", () => {
+    expect(quickCreateReturnRoute("/edition/new", "0.5.3")).toBe("/edition/selected/0.5.3");
+    expect(quickCreateReturnRoute("/stencils", "0.5.3")).toBe("/releases");
+    expect(confirmedReturnRoute("/edition/new", "0.5.3", "register")).toBe("/edition/releases/0.5.3");
+    expect(confirmedReturnRoute("/edition/releases/0.5.2", "0.5.2", "promote")).toBe("/edition/releases/0.5.2");
+    expect(confirmedReturnRoute("/releases/0.5.2", "0.5.2", "publish")).toBe("/releases/0.5.2");
+    expect(confirmedReturnRoute("/trust", "", "renew")).toBe("/trust");
+  });
 });
 
 afterEach(() => {
