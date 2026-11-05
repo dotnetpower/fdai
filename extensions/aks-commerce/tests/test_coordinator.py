@@ -1,6 +1,7 @@
 from collections.abc import Callable, Mapping
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -38,8 +39,15 @@ from fdai_aks_commerce.acceptance import (
     OrderAcceptanceEvidence,
     OrderAcceptanceIntent,
     OrderAcceptanceProbe,
+    _timestamp,
     evaluate_order_acceptance,
 )
+from fdai_aks_commerce.acceptance_action import (
+    ACCEPTANCE_SIGNAL,
+    AcceptanceAnomalyActionSource,
+    AcceptanceGuardedExecutor,
+)
+from fdai_aks_commerce.acceptance_preflight import AcceptancePreflightSimulator
 
 NOW = datetime(2026, 9, 17, tzinfo=UTC)
 TARGET = "resource:example-product-api"
@@ -549,3 +557,176 @@ def test_resource_refresh_does_not_retime_the_same_failed_orders() -> None:
 
     assert first.observed_at == later.observed_at
     assert first.evidence_digest != later.evidence_digest
+
+
+async def test_coordinator_and_analyzer_input_guards() -> None:
+    source = _Source(_frame())
+    store = InMemoryStateStore()
+    with pytest.raises(ValueError, match="retention must be in"):
+        AksCommerceCoordinator(source=source, store=store, retain_newest=0)
+    coord = AksCommerceCoordinator(source=source, store=store)
+    with pytest.raises(ValueError, match="resource kind must be bounded"):
+        AksCommerceAnalyzer(
+            coordinator=coord,
+            resource_kind=" ",
+            service_by_resource={TARGET: "catalog-browse"},
+            severity=Severity.HIGH,
+        )
+    with pytest.raises(ValueError, match="supported target bindings"):
+        AksCommerceAnalyzer(
+            coordinator=coord,
+            resource_kind="kubernetes.deployment",
+            service_by_resource={},
+            severity=Severity.HIGH,
+        )
+    with pytest.raises(TypeError, match="severity must be a Severity"):
+        AksCommerceAnalyzer(
+            coordinator=coord,
+            resource_kind="kubernetes.deployment",
+            service_by_resource={TARGET: "catalog-browse"},
+            severity="high",  # type: ignore[arg-type]
+        )
+    with pytest.raises(ValueError, match="max age must be in"):
+        AksCommerceAnalyzer(
+            coordinator=coord,
+            resource_kind="kubernetes.deployment",
+            service_by_resource={TARGET: "catalog-browse"},
+            severity=Severity.HIGH,
+            max_age_seconds=0,
+        )
+    analyzer = _analyzer(source)
+    with pytest.raises(ValueError, match="window must be in"):
+        await analyzer.analyze(resource_ref=TARGET, window_seconds=0)
+    naive_analyzer = _analyzer(source, clock=lambda: datetime(2026, 9, 17))
+    with pytest.raises(ValueError, match="clock must be timezone-aware"):
+        await naive_analyzer.analyze(resource_ref=TARGET, window_seconds=30)
+
+
+async def test_order_acceptance_intent_analyzer_guard_and_preflight_branches() -> None:
+    intent = _acceptance_intent()
+    with pytest.raises(ValueError, match="bounded exact references"):
+        replace(intent, policy_ref=" ")
+    with pytest.raises(ValueError, match="timezone-aware bounds"):
+        replace(intent, valid_from=datetime(2026, 9, 17))
+    with pytest.raises(ValueError, match="within two hours"):
+        replace(intent, valid_until=intent.valid_from)
+    with pytest.raises(ValueError, match="threshold is outside"):
+        replace(intent, minimum_replicas=0)
+    with pytest.raises(ValueError, match="exact DNS labels"):
+        replace(intent, namespace="Invalid_DNS")
+    with pytest.raises(ValueError, match="immutable Deployment UID"):
+        replace(intent, deployment_uid="-bad-uid")
+    with pytest.raises(TypeError, match="unsupported value"):
+        _timestamp("not-a-datetime")
+
+    evidence = _acceptance_evidence()
+    with pytest.raises(ValueError, match="current bounded window"):
+        evaluate_order_acceptance(intent, evidence, now=datetime(2026, 9, 17), window_seconds=30)
+    with pytest.raises(ValueError, match="exceed the probe bound"):
+        evaluate_order_acceptance(
+            intent,
+            replace(evidence, probes=evidence.probes * 6),
+            now=NOW,
+            window_seconds=30,
+        )
+    assert evaluate_order_acceptance(
+        intent, replace(evidence, desired_replicas=None), now=NOW, window_seconds=30
+    ).evidence_gaps == ("resource_state_unknown",)
+    assert evaluate_order_acceptance(
+        intent, replace(evidence, resource_version=""), now=NOW, window_seconds=30
+    ).evidence_gaps == ("resource_version_unknown",)
+    assert evaluate_order_acceptance(
+        intent, replace(evidence, verification_ref=""), now=NOW, window_seconds=30
+    ).evidence_gaps == ("evidence_reference_invalid",)
+
+    source = _AcceptanceSource()
+    verifier = _AcceptanceVerifier("unused")
+    with pytest.raises(ValueError, match="typed severity and resource kind"):
+        OrderAcceptanceAnalyzer(
+            intent=intent,
+            source=source,
+            verifier=verifier,
+            resource_kind="",
+            severity=Severity.HIGH,
+        )
+    analyzer = _acceptance_analyzer(source, verifier)
+    with pytest.raises(ValueError, match="target is not configured"):
+        await analyzer.assess(resource_ref="resource:other", window_seconds=30)
+
+    class _NoneSource:
+        async def observe(self, _intent: OrderAcceptanceIntent) -> None:
+            return None
+
+    none_analyzer = OrderAcceptanceAnalyzer(
+        intent=intent,
+        source=_NoneSource(),
+        verifier=verifier,
+        resource_kind="kubernetes.deployment",
+        severity=Severity.HIGH,
+        clock=lambda: NOW,
+    )
+    with pytest.raises(ValueError, match="observation is unavailable"):
+        await none_analyzer.assess(resource_ref=TARGET, window_seconds=30)
+
+    accepting_evidence = replace(
+        evidence,
+        desired_replicas=1,
+        ready_replicas=1,
+        ready_endpoints=1,
+        probes=tuple(replace(p, accepted=True) for p in evidence.probes),
+    )
+    source.evidence = accepting_evidence
+    verifier.digest = evaluate_order_acceptance(
+        intent, accepting_evidence, now=NOW, window_seconds=30
+    ).evidence_digest
+    assert await analyzer.analyze(resource_ref=TARGET, window_seconds=30) == ()
+
+    action_source = AcceptanceAnomalyActionSource(intent=intent, analyzer=analyzer)
+    assert await action_source.resolve(event_type=ACCEPTANCE_SIGNAL, resource_ref=TARGET) is None
+    guard = AcceptanceGuardedExecutor(
+        source=action_source,
+        execute=lambda _ctx: _return_true(),
+        clock=lambda: NOW,
+    )
+    with pytest.raises(ValueError, match="existing Thor ActionRun"):
+        await guard({})
+    assert await guard({"run": SimpleNamespace(resource_id="resource:other")}) is True
+    with pytest.raises(ValueError, match="exact configured ActionRun target"):
+        guard.bind({})
+
+    class _PassGuard:
+        def bind(self, _context: dict[str, Any]) -> Callable[[], Any]:
+            return _return_none
+
+    sim_missing_id = AcceptancePreflightSimulator(
+        guard=_PassGuard(),  # type: ignore[arg-type]
+        read_material=lambda _id: _return_none(),
+        check_authority=lambda _act, _ctx: _return_none(),
+    )
+    res_no_id = await sim_missing_id.simulate(SimpleNamespace(action_id=None))  # type: ignore[arg-type]
+    assert res_no_id.reason == "missing_action_id"
+    res_no_mat = await sim_missing_id.simulate(SimpleNamespace(action_id="act-1"))  # type: ignore[arg-type]
+    assert res_no_mat.reason == "material_unavailable"
+
+    async def _deny_auth(_act: Any, _ctx: Any) -> None:
+        raise PermissionError("denied")
+
+    sim_denied = AcceptancePreflightSimulator(
+        guard=_PassGuard(),  # type: ignore[arg-type]
+        read_material=lambda _id: _return_dummy_material(),
+        check_authority=_deny_auth,
+    )
+    res_denied = await sim_denied.simulate(SimpleNamespace(action_id="act-1"))  # type: ignore[arg-type]
+    assert res_denied.reason == "authority_unavailable"
+
+
+async def _return_true() -> bool:
+    return True
+
+
+async def _return_none() -> None:
+    return None
+
+
+async def _return_dummy_material() -> Any:
+    return SimpleNamespace(action=lambda: "dummy")

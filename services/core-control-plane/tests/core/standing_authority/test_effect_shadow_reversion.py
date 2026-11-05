@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -23,10 +24,12 @@ from fdai.core.ontology_platform.reconciliation_contracts import (
 from fdai.core.standing_authority.effect_shadow_reversion import (
     EffectEvidenceDisposition,
     EffectVerificationFinding,
+    ShadowReversionPlan,
     ShadowReversionTransition,
     build_effect_verification_finding,
     plan_effect_shadow_reversion,
 )
+from fdai.core.standing_authority.lifecycle_codec import AuthorizationLifecycleError
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 from tests.delivery.azure.vm_power_state_fixtures import (
     CREATED_AT,
@@ -216,6 +219,125 @@ async def test_finding_factory_binds_exact_reconciliation_outcome() -> None:
             candidate_id="sha256:" + "b" * 64,
             fencing_generation=4,
             outcome=outcome,
+        )
+    with pytest.raises(AuthorizationLifecycleError, match="outcome timestamps"):
+        build_effect_verification_finding(
+            action_type=artifacts.action_type,
+            plan=artifacts.plan,
+            source_revision_id="a" * 40,
+            candidate_id="sha256:" + "b" * 64,
+            fencing_generation=4,
+            outcome=outcome,
+            evaluated_at=NOW,
+        )
+
+
+def test_finding_factory_builds_pending_and_missing_observations_and_validates_action_plan() -> (
+    None
+):
+    artifacts, _action = vm_start_fixture()
+    pending = build_effect_verification_finding(
+        action_type=artifacts.action_type,
+        plan=artifacts.plan,
+        source_revision_id="a" * 40,
+        candidate_id="sha256:" + "b" * 64,
+        fencing_generation=2,
+        evaluated_at=NOW,
+        deadline=DEADLINE,
+        correlation_id="correlation:pending",
+    )
+    missing = build_effect_verification_finding(
+        action_type=artifacts.action_type,
+        plan=artifacts.plan,
+        source_revision_id="a" * 40,
+        candidate_id="sha256:" + "b" * 64,
+        fencing_generation=2,
+        evaluated_at=DEADLINE,
+        deadline=DEADLINE,
+        correlation_id="correlation:missing",
+    )
+    assert pending.reason_code == "observation_pending"
+    assert missing.reason_code == "observation_missing"
+
+    wrong_action = artifacts.action_type.model_copy(update={"name": "ops.stop-vm"})
+    with pytest.raises(AuthorizationLifecycleError, match="ops.start-vm@1.0.0"):
+        build_effect_verification_finding(
+            action_type=wrong_action,
+            plan=artifacts.plan,
+            source_revision_id="a" * 40,
+            candidate_id="sha256:" + "b" * 64,
+            fencing_generation=1,
+            evaluated_at=NOW,
+            deadline=DEADLINE,
+            correlation_id="correlation:wrong-action",
+        )
+
+    empty_targets_plan = artifacts.plan.model_copy(update={"targets": ()})
+    with pytest.raises(AuthorizationLifecycleError, match="one exact ops.start-vm target"):
+        build_effect_verification_finding(
+            action_type=artifacts.action_type,
+            plan=empty_targets_plan,
+            source_revision_id="a" * 40,
+            candidate_id="sha256:" + "b" * 64,
+            fencing_generation=1,
+            evaluated_at=NOW,
+            deadline=DEADLINE,
+            correlation_id="correlation:empty-targets",
+        )
+
+
+def test_finding_and_plan_reject_invalid_invariants() -> None:
+    matched = _finding(status=ReconciliationStatus.MATCHED, reason_code="effects_matched")
+    pending = _finding(status=None, reason_code="observation_pending")
+
+    for invalid_changes, match in (
+        ({"action_type_name": "ops.other"}, "ops.start-vm@1.0.0"),
+        ({"action_type_digest": "sha256:" + "d" * 64}, "unqualified SHA-256"),
+        ({"source_revision_id": "not-a-sha"}, "immutable revision"),
+        ({"fencing_generation": 0}, "fencing_generation MUST be positive"),
+        ({"reason_code": "Invalid-Reason"}, "reason_code MUST be canonical"),
+        (
+            {"reconciliation_status": ReconciliationStatus.MATCHED, "observation_id": None},
+            "observation and reconciliation ids",
+        ),
+        (
+            {"reconciliation_status": ReconciliationStatus.MATCHED, "reason_code": "wrong_reason"},
+            "does not match reconciliation status",
+        ),
+        (
+            {"reconciliation_status": ReconciliationStatus.TIMED_OUT, "reason_code": "late_eval"},
+            "timed_out reason",
+        ),
+    ):
+        with pytest.raises(AuthorizationLifecycleError, match=match):
+            replace(matched, **invalid_changes)
+
+    with pytest.raises(AuthorizationLifecycleError, match="MUST NOT carry outcome identities"):
+        replace(pending, observation_id="effect-observation:" + "a" * 64)
+    with pytest.raises(AuthorizationLifecycleError, match="does not match its deadline"):
+        replace(pending, reason_code="observation_missing")
+
+    with pytest.raises(AuthorizationLifecycleError, match="only pending or matched"):
+        ShadowReversionPlan(
+            finding_id=matched.finding_id,
+            disposition=EffectEvidenceDisposition.FAILED,
+            required_transition=ShadowReversionTransition.NONE,
+            reason_code="effects_mismatched",
+        )
+    with pytest.raises(AuthorizationLifecycleError, match="MUST NOT require shadow reversion"):
+        ShadowReversionPlan(
+            finding_id=matched.finding_id,
+            disposition=EffectEvidenceDisposition.MATCHED,
+            required_transition=ShadowReversionTransition.RETURN_TO_SHADOW,
+            reason_code="effects_matched",
+        )
+    with pytest.raises(AuthorizationLifecycleError, match="proposal-only and no-authority"):
+        ShadowReversionPlan(
+            finding_id=matched.finding_id,
+            disposition=EffectEvidenceDisposition.MATCHED,
+            required_transition=ShadowReversionTransition.NONE,
+            reason_code="effects_matched",
+            grants_authority=True,  # type: ignore[arg-type]
         )
 
 

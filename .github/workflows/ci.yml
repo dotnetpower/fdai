@@ -453,12 +453,16 @@ jobs:
           cache-dependency-path: |
             console/package-lock.json
             cli/package-lock.json
+            lifecycle/hub/ui/package-lock.json
 
       - name: Install locked console dependencies
         run: npm --prefix console ci --no-audit --no-fund
 
       - name: Install locked CLI dependencies
         run: npm --prefix cli ci --no-audit --no-fund
+
+      - name: Install locked Lifecycle Hub UI dependencies
+        run: npm --prefix lifecycle/hub/ui ci --no-audit --no-fund
 
       - name: Test, typecheck, and build operator surfaces
         run: bash scripts/quality/ci/run-operator-surfaces.sh
@@ -497,8 +501,8 @@ jobs:
       - name: Run Python lint and static contracts
         if: needs.changes.outputs.python == 'true'
         run: |
-          uv run ruff format --check services packages tests extensions/code-assurance
-          uv run ruff check services packages tests extensions/code-assurance
+          uv run ruff format --check services packages tests extensions/code-assurance lifecycle
+          uv run ruff check services packages tests extensions/code-assurance lifecycle
           uv run mypy
           uv run python scripts/quality/documentation/check-action-runbooks.py
           uv run python scripts/quality/repository/check-reference-only-sources.py

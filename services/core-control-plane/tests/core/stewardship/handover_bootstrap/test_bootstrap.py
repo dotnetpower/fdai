@@ -231,3 +231,51 @@ async def test_handover_bootstrap_hardening_rounds_h017_to_h025() -> None:
     base_map = load_stewardship_from_mapping(base_raw, environ={})
     candidate_text = render_candidate_yaml(draft, base=base_map)
     assert load_stewardship_from_mapping(yaml.safe_load(candidate_text), environ={}).version == 1
+
+    # Contract validation, serialization, and v2 candidate YAML
+    from fdai.core.stewardship.handover_bootstrap.contract import StewardMapDraft
+
+    titled_doc = HandoverDocument(
+        doc_id="d1", kind=DocumentKind.RACI, text="x", title="  My Title  "
+    )
+    assert titled_doc.title == "My Title"
+    with pytest.raises(ValueError, match="StewardKind"):
+        PersonRef("Jane", kind="invalid")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="version MUST be 1 or 2"):
+        StewardMapDraft(version=3, outcome=DraftOutcome.ABSTAINED)
+    with pytest.raises(ValueError, match="outcome MUST be a DraftOutcome"):
+        StewardMapDraft(version=1, outcome="invalid")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="outcome MUST match"):
+        StewardMapDraft(version=1, outcome=DraftOutcome.DRAFTED, mappings=())
+
+    draft_dict = seeded_draft.to_dict()
+    assert draft_dict["outcome"] == "drafted" and len(draft_dict["mappings"]) >= 1
+
+    abstained_mapping = replace(seeded_draft.mappings[0], confidence=0.2)
+    rich_draft = replace(seeded_draft, abstained=(abstained_mapping,))
+    base_v2_raw = yaml.safe_load(render_draft_yaml(seeded_draft))
+    base_v2_raw["stewardship"]["version"] = 2
+    base_v2_raw["stewardship"]["channels"] = {_JANE_OID: "teams-channel-1"}
+    for idx, ag in enumerate(base_v2_raw["stewardship"]["agents"].values()):
+        if ag.get("stewards"):
+            ag["stewards"][0]["duty"] = "primary"
+            ag["stewards"].append(
+                {
+                    "kind": "user",
+                    "id": f"00000000-0000-0000-0000-0000000009{idx:02d}",
+                    "responsibility": "accountable",
+                    "duty": "backup",
+                }
+            )
+            ag["stewards"].append(
+                {
+                    "kind": "user",
+                    "id": f"00000000-0000-0000-0000-0000000008{idx:02d}",
+                    "responsibility": "informed",
+                }
+            )
+    base_v2_map = load_stewardship_from_mapping(base_v2_raw, environ={})
+    v2_candidate_text = render_candidate_yaml(rich_draft, base=base_v2_map)
+    assert "teams-channel-1" in v2_candidate_text
+    assert "below-floor:" in v2_candidate_text
+    assert load_stewardship_from_mapping(yaml.safe_load(v2_candidate_text), environ={}).version == 2

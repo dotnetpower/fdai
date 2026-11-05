@@ -1,5 +1,6 @@
 import { useState } from "preact/hooks";
 import { ErrorState, LoadingState, StatusPill } from "../components/ui";
+import { formatConsoleTimestamp } from "../time-format";
 import { displayValue, t } from "./i18n/governance";
 import {
   isRuleEffectiveEnabled,
@@ -237,6 +238,5 @@ function ActivationHistory({ history }: { readonly history: ActivationHistorySta
 }
 
 function formatTimestamp(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return formatConsoleTimestamp(value);
 }

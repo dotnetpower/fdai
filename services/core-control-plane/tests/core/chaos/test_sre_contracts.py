@@ -18,6 +18,7 @@ from fdai.core.chaos.promotion_guard import (
     ChaosPromotionObservation,
 )
 from fdai.core.chaos.sre_contracts import (
+    SreScenarioContract,
     sre_scenario_contracts,
     validate_sre_scenario_contracts,
 )
@@ -213,3 +214,133 @@ def test_regression_rejects_unpromoted_action_without_partial_demotion() -> None
 
     assert ledger.is_enforce_eligible(_KEY)
     assert actions.mode_of("ops.scale-out") is Mode.ENFORCE
+
+
+def test_sre_contract_and_promotion_guard_validation_edges(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with pytest.raises(ValueError, match="MUST be non-empty"):
+        SreScenarioContract(
+            scenario_id="",
+            title="t",
+            fault=False,
+            signals=("sig",),
+            causal_mechanism="m",
+            chaos_scenario_id=None,
+            recovery_probes=(),
+            recovery_action_types=(),
+        )
+    with pytest.raises(ValueError, match="MUST be a boolean"):
+        SreScenarioContract(
+            scenario_id="S1",
+            title="t",
+            fault="yes",  # type: ignore[arg-type]
+            signals=("sig",),
+            causal_mechanism="m",
+            chaos_scenario_id=None,
+            recovery_probes=(),
+            recovery_action_types=(),
+        )
+    with pytest.raises(ValueError, match="signals MUST be non-empty"):
+        SreScenarioContract(
+            scenario_id="S1",
+            title="t",
+            fault=False,
+            signals=(" ",),
+            causal_mechanism="m",
+            chaos_scenario_id=None,
+            recovery_probes=(),
+            recovery_action_types=(),
+        )
+
+    base = list(sre_scenario_contracts())
+    monkeypatch.setattr(
+        "fdai.core.chaos.sre_contracts.sre_scenario_contracts",
+        lambda: tuple(base[:-1]),
+    )
+    with pytest.raises(ValueError, match="exactly S1-S14"):
+        validate_sre_scenario_contracts()
+
+    for idx, replacement, match in (
+        (0, replace(base[0], signals=("unknown.signal",)), "unknown signal"),
+        (0, replace(base[0], chaos_scenario_id="unknown-chaos"), "unknown chaos scenario"),
+        (0, replace(base[0], recovery_probes=()), "complete recovery verification"),
+        (0, replace(base[0], recovery_action_types=()), "lacks a recovery action"),
+        (12, replace(base[12], chaos_scenario_id="aks-pod-kill"), "non-fault"),
+    ):
+        modified = list(base)
+        modified[idx] = replacement
+        monkeypatch.setattr(
+            "fdai.core.chaos.sre_contracts.sre_scenario_contracts",
+            lambda m=tuple(modified): m,
+        )
+        with pytest.raises(ValueError, match=match):
+            validate_sre_scenario_contracts()
+
+    with pytest.raises(ValueError, match="timezone-aware"):
+        ChaosPromotionObservation(
+            observed_at=datetime(2026, 7, 31),
+            audit_ref="audit:1",
+            runner_version="runner/1",
+            containment_compliant=True,
+            recovery_within_objective=True,
+            telemetry_complete=True,
+            stop_observed=True,
+            rollback_succeeded=True,
+        )
+    with pytest.raises(ValueError, match="MUST be non-empty"):
+        ChaosPromotionObservation(
+            observed_at=_NOW,
+            audit_ref=" ",
+            runner_version="runner/1",
+            containment_compliant=True,
+            recovery_within_objective=True,
+            telemetry_complete=True,
+            stop_observed=True,
+            rollback_succeeded=True,
+        )
+    with pytest.raises(ValueError, match="policy_escapes"):
+        ChaosPromotionObservation(
+            observed_at=_NOW,
+            audit_ref="audit:1",
+            runner_version="runner/1",
+            containment_compliant=True,
+            recovery_within_objective=True,
+            telemetry_complete=True,
+            stop_observed=True,
+            rollback_succeeded=True,
+            policy_escapes=-1,
+        )
+
+    obs = ChaosPromotionObservation(
+        observed_at=_NOW,
+        audit_ref="audit:1",
+        runner_version="runner/1",
+        containment_compliant=True,
+        recovery_within_objective=True,
+        telemetry_complete=False,
+        stop_observed=True,
+        rollback_succeeded=True,
+    )
+    assert obs.regression_reasons() == ("telemetry_incomplete",)
+
+    unpromoted_guard = ChaosPromotionGuard(
+        scenario_ledger=ScenarioPromotionLedger(),
+        action_registry=_promoted_action_registry(),
+    )
+    assert unpromoted_guard.observe(
+        key=_KEY,
+        action_type_names=("ops.scale-out",),
+        observation=obs,
+    ) == ("telemetry_incomplete",)
+
+    promoted_guard = ChaosPromotionGuard(
+        scenario_ledger=_promoted_ledger(),
+        action_registry=_promoted_action_registry(),
+    )
+    with pytest.raises(ValueError, match="non-empty ActionType"):
+        promoted_guard.observe(
+            key=_KEY,
+            action_type_names=(),
+            observation=obs,
+        )

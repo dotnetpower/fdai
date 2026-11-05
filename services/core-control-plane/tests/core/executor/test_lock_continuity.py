@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 from fdai.core.executor.lock_continuity import (
@@ -14,6 +14,7 @@ from fdai.core.executor.lock_continuity import (
     OwnershipContinuityReceipt,
     OwnershipContinuityStrategy,
     SinkCommitState,
+    _normalize_digest_value,
 )
 from fdai.shared.providers.resource_lock import (
     LiveLockOwnershipAssessment,
@@ -286,3 +287,133 @@ def test_continuity_receipt_is_deterministic_and_no_authority() -> None:
     assert first == second
     assert first.execution_authority is False
     assert first.effect_verified is False
+
+
+def test_policy_validation_and_subclass_guards() -> None:
+    policy = _policy()
+    with pytest.raises(TypeError, match="does not support subclasses"):
+
+        class _SubPolicy(EffectSinkContinuityPolicy):
+            pass
+
+        _SubPolicy.create(
+            sink_id="example-sink",
+            sink_version="1.0.0",
+            strategy=OwnershipContinuityStrategy.FENCED_IDEMPOTENT,
+            sink_fencing=True,
+            stable_sink_idempotency=True,
+        )
+
+    with pytest.raises(ValueError, match="unsupported effect sink continuity policy schema"):
+        replace(policy, schema_version="2.0.0")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="MUST NOT grant authority"):
+        replace(policy, execution_authority=True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="MUST be bounded"):
+        replace(policy, sink_id="   ")
+    with pytest.raises(ValueError, match="strategy is invalid"):
+        replace(policy, strategy="invalid")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="capabilities MUST be boolean"):
+        replace(policy, sink_fencing="yes")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="MUST be SHA-256"):
+        replace(policy, policy_digest="bad-digest")
+    with pytest.raises(ValueError, match="policy digest mismatched"):
+        replace(policy, policy_digest="sha256:" + "0" * 64)
+
+
+def test_receipt_validation_and_terminal_axis_guards() -> None:
+    continuity = _continuity(
+        authoritative_status_digest=_DIGEST,
+        independent_effect_state=IndependentEffectState.VERIFIED,
+        independent_effect_receipt_digest=_DIGEST,
+    )
+    acquisition, assessment = _lock_evidence()
+    other_acq, _ = _lock_evidence(session=True)
+
+    with pytest.raises(TypeError, match="does not support subclasses"):
+
+        class _SubReceipt(OwnershipContinuityReceipt):
+            pass
+
+        _SubReceipt.create(
+            policy=_policy(),
+            acquisition_receipt=acquisition,
+            final_ownership_assessment=assessment,
+            dispatch_state=DispatchState.ACCEPTED,
+            sink_commit_state=SinkCommitState.COMMITTED,
+            independent_effect_state=IndependentEffectState.PENDING,
+            release_state=LockReleaseState.RELEASED,
+            authoritative_status_digest=None,
+            independent_effect_receipt_digest=None,
+            ownership_observed_at=_NOW,
+            recorded_at=_NOW,
+        )
+
+    with pytest.raises(ValueError, match="unsupported ownership continuity receipt schema"):
+        replace(continuity, schema_version="2.0.0")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="MUST NOT grant authority"):
+        replace(continuity, execution_authority=True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="exact sink policy"):
+        replace(continuity, policy="bad")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="exact acquisition receipt"):
+        replace(continuity, acquisition_receipt="bad")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="exact ownership assessment"):
+        replace(continuity, final_ownership_assessment="bad")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="does not bind the acquisition"):
+        replace(continuity, acquisition_receipt=other_acq)
+    with pytest.raises(ValueError, match="dispatch state is invalid"):
+        replace(continuity, dispatch_state="bad")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="cannot follow recording"):
+        replace(continuity, ownership_observed_at=_NOW + timedelta(seconds=2))
+    with pytest.raises(ValueError, match="quarantine flag MUST be boolean"):
+        replace(continuity, quarantine_required="no")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="quarantine flag mismatched"):
+        replace(continuity, quarantine_required=True)
+    with pytest.raises(ValueError, match="MUST include a timezone"):
+        OwnershipContinuityReceipt.create(
+            policy=_policy(),
+            acquisition_receipt=acquisition,
+            final_ownership_assessment=assessment,
+            dispatch_state=DispatchState.ACCEPTED,
+            sink_commit_state=SinkCommitState.COMMITTED,
+            independent_effect_state=IndependentEffectState.PENDING,
+            release_state=LockReleaseState.RELEASED,
+            authoritative_status_digest=None,
+            independent_effect_receipt_digest=None,
+            ownership_observed_at=datetime(2026, 9, 10, 7, 0),
+            recorded_at=_NOW,
+        )
+    with pytest.raises(ValueError, match="normalized to UTC"):
+        replace(
+            continuity,
+            recorded_at=datetime(2026, 9, 10, 8, 0, tzinfo=timezone(timedelta(hours=1))),
+        )
+    with pytest.raises(ValueError, match="authoritative non-commit"):
+        _continuity(
+            dispatch_state=DispatchState.NOT_ACCEPTED,
+            sink_commit_state=SinkCommitState.UNKNOWN,
+            authoritative_status_digest=_DIGEST,
+        )
+    with pytest.raises(ValueError, match="cannot retain a not-started sink state"):
+        _continuity(
+            dispatch_state=DispatchState.ATTEMPTED,
+            sink_commit_state=SinkCommitState.NOT_STARTED,
+        )
+    with pytest.raises(ValueError, match="sink commit requires accepted dispatch"):
+        _continuity(
+            dispatch_state=DispatchState.ATTEMPTED,
+            sink_commit_state=SinkCommitState.COMMITTED,
+        )
+    with pytest.raises(ValueError, match="sink non-commit requires authoritative status"):
+        _continuity(
+            dispatch_state=DispatchState.ATTEMPTED,
+            sink_commit_state=SinkCommitState.NOT_COMMITTED,
+            authoritative_status_digest=None,
+        )
+    with pytest.raises(ValueError, match="cannot carry a decision receipt"):
+        _continuity(
+            independent_effect_state=IndependentEffectState.PENDING,
+            independent_effect_receipt_digest=_DIGEST,
+        )
+
+    normalized = _normalize_digest_value((continuity, [_policy()]))
+    assert isinstance(normalized, list)

@@ -62,9 +62,13 @@ successful Azure deployment.
 
 ## Explicit development catalog renewal
 
-A development export expires 24 hours after its latest publication event. Reading the catalog,
-refreshing a screen or downloading the same export does not renew it. An unchanged release set
-still needs a reviewed freshness publication; don't manufacture a channel or recall change.
+A remote development export expires 24 hours after its latest publication event. A private local
+CLI export uses 72 hours for newly initialized catalogs and for revisions published after the
+local freshness policy takes effect. An existing export keeps its original 24-hour expiry and
+digest until the next attributed publication or explicit renewal; changing the software alone
+never changes bytes at the same revision. Reading the catalog, refreshing a screen or downloading
+the same export does not renew it. An unchanged release set still needs a reviewed freshness
+publication; don't manufacture a channel or recall change.
 
 `POST /v1/catalog/renew` requires the existing vendor operator identity, current catalog revision,
 nonblank reason and exact confirmation `renew <revision>`. The same publication lock and revision
@@ -74,8 +78,9 @@ clock to advance. An invalid signature, stale revision, wrong confirmation or cl
 leaves publication state unchanged.
 
 Renewal appends an attributed `renew` event targeting `catalog`. It advances the revision and
-24-hour expiry, changing the export digest without changing manifests, signatures, channels,
-recalls or the signing key. Customer Hubs retain their old accepted bytes until either an
+applies the serving profile's expiry (24 hours remote, 72 hours private local), changing the
+export digest without changing manifests, signatures, channels, recalls or the signing key.
+Customer Hubs retain their old accepted bytes until either an
 operator independently approves the new exact pin and explicitly imports it, or
 [automatic adoption](#automatic-catalog-adoption) verifies the signature and the policy allows it.
 Renewal never imports, plans or applies an installation change and does not replace production

@@ -7,6 +7,7 @@ never a mutation, never a guess.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -26,10 +27,22 @@ from fdai.core.assurance_twin import (
     build_baseline_projection,
     execute_query,
 )
+from fdai.core.assurance_twin.chat import (
+    ChatMessage,
+    ChatRole,
+    ChatSession,
+    ChatSessionStore,
+    GroundingRequiredError,
+    InMemoryChatSessionStore,
+    append_assistant_abstain,
+    append_assistant_answer,
+    append_user_question,
+)
 from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
     load_resource_type_registry_from_mapping,
 )
+from fdai.shared.contracts.models import CeilingRole
 from fdai.shared.providers.projection import ResourceRef
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -387,3 +400,145 @@ def test_pipeline_abstain_never_touches_projection(
         _ref("object-storage", "c"),
         _ref("compute.vm", "vm1"),
     }
+
+
+# ---------------------------------------------------------------------------
+# Chat session primitives and grounding invariants.
+# ---------------------------------------------------------------------------
+
+_CHAT_TIME = datetime(2026, 8, 3, 12, 0, tzinfo=UTC)
+
+
+def _chat_session() -> ChatSession:
+    return ChatSession(
+        session_id="sess-1",
+        caller_id="operator-1",
+        caller_role=CeilingRole.CONTRIBUTOR,
+        declared_purposes=frozenset({"resilience", "audit"}),
+        correlation_id="corr-1",
+        created_at=_CHAT_TIME,
+    )
+
+
+class TestChatSessionPrimitives:
+    def test_new_validates_and_strips_identifiers(self) -> None:
+        session = ChatSession.new(
+            session_id="  sess-1  ",
+            caller_id="  operator-1  ",
+            caller_role=CeilingRole.READER,
+            declared_purposes=frozenset({"audit"}),
+            correlation_id="  corr-1  ",
+        )
+        assert session.session_id == "sess-1"
+        assert session.caller_id == "operator-1"
+        assert session.correlation_id == "corr-1"
+        assert session.messages == ()
+
+    @pytest.mark.parametrize(
+        ("session_id", "caller_id", "correlation_id"),
+        [
+            ("   ", "operator-1", "corr-1"),
+            ("sess-1", "   ", "corr-1"),
+            ("sess-1", "operator-1", "   "),
+        ],
+    )
+    def test_new_rejects_blank_identifiers(
+        self, session_id: str, caller_id: str, correlation_id: str
+    ) -> None:
+        with pytest.raises(ValueError, match="requires non-empty"):
+            ChatSession.new(
+                session_id=session_id,
+                caller_id=caller_id,
+                caller_role=CeilingRole.READER,
+                declared_purposes=frozenset(),
+                correlation_id=correlation_id,
+            )
+
+    def test_append_turns_and_serialize_session(self) -> None:
+        base = _chat_session()
+        with_question = append_user_question(
+            base,
+            text="Which object-storage resources are public?",
+            at=_CHAT_TIME,
+        )
+        with_answer = append_assistant_answer(
+            with_question,
+            text="Resource a has public_access=true.",
+            grounding=["  Resource[type=object-storage].props.public_access  "],
+            at=_CHAT_TIME,
+        )
+        with_abstain = append_assistant_abstain(
+            with_answer,
+            reason="semantic model unavailable",
+            at=_CHAT_TIME,
+        )
+
+        assert base.messages == ()
+        assert len(with_abstain.messages) == 3
+        assert with_abstain.messages[0] == ChatMessage(
+            role=ChatRole.USER,
+            text="Which object-storage resources are public?",
+            at=_CHAT_TIME,
+        )
+        assert with_abstain.messages[1].grounding == (
+            "Resource[type=object-storage].props.public_access",
+        )
+        assert with_abstain.messages[2].abstain_reason == "semantic model unavailable"
+        assert with_abstain.as_json() == {
+            "session_id": "sess-1",
+            "caller_id": "operator-1",
+            "caller_role": CeilingRole.CONTRIBUTOR.value,
+            "declared_purposes": ["audit", "resilience"],
+            "correlation_id": "corr-1",
+            "created_at": _CHAT_TIME.isoformat(),
+            "messages": [
+                {
+                    "role": "user",
+                    "text": "Which object-storage resources are public?",
+                    "at": _CHAT_TIME.isoformat(),
+                    "grounding": [],
+                    "abstain_reason": None,
+                },
+                {
+                    "role": "assistant",
+                    "text": "Resource a has public_access=true.",
+                    "at": _CHAT_TIME.isoformat(),
+                    "grounding": ["Resource[type=object-storage].props.public_access"],
+                    "abstain_reason": None,
+                },
+                {
+                    "role": "assistant",
+                    "text": "",
+                    "at": _CHAT_TIME.isoformat(),
+                    "grounding": [],
+                    "abstain_reason": "semantic model unavailable",
+                },
+            ],
+        }
+
+    @pytest.mark.parametrize("grounding", [(), ("",), ("   ",), (123,)])
+    def test_append_assistant_answer_requires_non_empty_grounding(
+        self, grounding: tuple[Any, ...]
+    ) -> None:
+        with pytest.raises(GroundingRequiredError, match="at least one ontology query path"):
+            append_assistant_answer(
+                _chat_session(),
+                text="Ungrounded answer",
+                grounding=grounding,
+                at=_CHAT_TIME,
+            )
+
+    def test_append_abstain_and_user_question_reject_blank_text(self) -> None:
+        session = _chat_session()
+        with pytest.raises(ValueError, match="non-empty reason"):
+            append_assistant_abstain(session, reason="   ", at=_CHAT_TIME)
+        with pytest.raises(ValueError, match="user question MUST be non-empty"):
+            append_user_question(session, text="   ", at=_CHAT_TIME)
+
+    async def test_in_memory_chat_session_store_round_trip(self) -> None:
+        store = InMemoryChatSessionStore()
+        assert isinstance(store, ChatSessionStore)
+        assert await store.load("sess-1") is None
+        session = append_user_question(_chat_session(), text="status?", at=_CHAT_TIME)
+        await store.save(session)
+        assert await store.load("sess-1") == session

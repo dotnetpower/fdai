@@ -6,12 +6,30 @@ import asyncio
 
 import pytest
 from fdai.core.quality_gate import (
+    CrossCheckProposal,
+    EscalationLadderConfig,
+    HashedRuleEmbeddingIndex,
     QualityCandidate,
     QualityDecision,
     QualityGate,
     QualityGateConfig,
     QualityOutcome,
+    RagGroundingSource,
+    RuleBasedVerifier,
+    quality_decision_audit_fields,
 )
+from fdai.core.quality_gate.critic import (
+    CriticObjection,
+    CriticOutput,
+    CriticSeverity,
+    CriticStance,
+)
+from fdai.core.quality_gate.debate import (
+    DebateOrchestrator,
+    DebateOrchestratorConfig,
+)
+from fdai.core.quality_gate.debate_router import DebateRouterConfig
+from fdai.core.quality_gate.judge import JudgeDecision, JudgeOutput
 from fdai.core.quality_gate.testing import (
     InMemoryGroundingSource,
     MatchTypeCrossCheckModel,
@@ -83,9 +101,7 @@ def _matching_models() -> tuple[MatchTypeCrossCheckModel, MatchTypeCrossCheckMod
     )
 
 
-# ---------------------------------------------------------------------------
-# Construction guards
-# ---------------------------------------------------------------------------
+# --- Construction guards ---
 
 
 def test_out_of_range_confidence_threshold_is_rejected() -> None:
@@ -153,9 +169,7 @@ def test_missing_declared_model_ids_are_rejected() -> None:
         )
 
 
-# ---------------------------------------------------------------------------
-# Happy path
-# ---------------------------------------------------------------------------
+# --- Happy path ---
 
 
 @pytest.mark.asyncio
@@ -183,7 +197,6 @@ async def test_prompt_evidence_is_optional_on_votes_and_serialized_when_present(
         SkillReplayRecord,
         SkillSelectionStatus,
     )
-    from fdai.core.quality_gate import CrossCheckProposal, quality_decision_audit_fields
 
     composed = ComposedPrompt(
         system_text="evidence prompt",
@@ -192,10 +205,7 @@ async def test_prompt_evidence_is_optional_on_votes_and_serialized_when_present(
         ablation_profile=PromptAblationProfileName.TOOLS,
         ablated_layers=(
             AblatedLayerRef(
-                id="tool-manifest",
-                version=1,
-                layer=PromptLayer.TOOL,
-                reason="profile_layer",
+                id="tool-manifest", version=1, layer=PromptLayer.TOOL, reason="profile_layer"
             ),
         ),
         skill_records=(
@@ -231,7 +241,6 @@ async def test_prompt_evidence_is_optional_on_votes_and_serialized_when_present(
         cross_check_models=(_EvidenceModel(), MatchTypeCrossCheckModel()),
         grounding=_grounding(),
     )
-
     decision = await gate.evaluate(_candidate())
     fields = quality_decision_audit_fields(decision)
 
@@ -241,26 +250,19 @@ async def test_prompt_evidence_is_optional_on_votes_and_serialized_when_present(
     assert evidence_fields["system_text_sha256"] == replay.system_text_sha256
     assert evidence_fields["ablation_profile"] == "tools"
     assert evidence_fields["ablated_layers"] == [
-        {
-            "id": "tool-manifest",
-            "version": 1,
-            "layer": "tool",
-            "reason": "profile_layer",
-        }
+        {"id": "tool-manifest", "version": 1, "layer": "tool", "reason": "profile_layer"}
     ]
     assert evidence_fields["skill_records"][0]["body_sha256"] == "b" * 64
     assert "prompt_replay_manifest" not in fields["model_votes"][1]
 
 
-# ---------------------------------------------------------------------------
-# Verifier paths
-# ---------------------------------------------------------------------------
+# --- Verifier and Grounding paths ---
 
 
 @pytest.mark.asyncio
 async def test_verifier_deny_short_circuits() -> None:
     gate = QualityGate(
-        verifier=StaticVerifier(outcome=False),  # explicit deny
+        verifier=StaticVerifier(outcome=False),
         cross_check_models=_matching_models(),
         grounding=_grounding(),
     )
@@ -272,19 +274,13 @@ async def test_verifier_deny_short_circuits() -> None:
 @pytest.mark.asyncio
 async def test_verifier_abstain_is_recorded_but_not_fatal_alone() -> None:
     gate = QualityGate(
-        verifier=StaticVerifier(outcome=None),  # abstain
+        verifier=StaticVerifier(outcome=None),
         cross_check_models=_matching_models(),
         grounding=_grounding(),
     )
     decision = await gate.evaluate(_candidate())
-    # Abstain alone shifts outcome to ABSTAIN (a reason is recorded).
     assert decision.outcome is QualityOutcome.ABSTAIN
     assert "verifier_abstained" in decision.reasons
-
-
-# ---------------------------------------------------------------------------
-# Grounding paths
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -324,19 +320,14 @@ async def test_grounding_disabled_does_not_require_citations() -> None:
     assert decision.outcome is QualityOutcome.ELIGIBLE
 
 
-# ---------------------------------------------------------------------------
-# Cross-check paths
-# ---------------------------------------------------------------------------
+# --- Cross-check paths ---
 
 
 @pytest.mark.asyncio
 async def test_cross_check_disagreement_below_quorum_becomes_disagree() -> None:
     gate = QualityGate(
         verifier=StaticVerifier(outcome=True),
-        cross_check_models=(
-            MatchTypeCrossCheckModel(),
-            MismatchCrossCheckModel(),
-        ),
+        cross_check_models=(MatchTypeCrossCheckModel(), MismatchCrossCheckModel()),
         grounding=_grounding(),
         config=QualityGateConfig(require_cross_check_quorum=2),
     )
@@ -368,7 +359,6 @@ async def test_cross_check_failure_cancels_and_drains_sibling_models() -> None:
 
     with pytest.raises(RuntimeError, match="cross-check unavailable"):
         await cross_check_candidate(_candidate(), (_FailingModel(), _BlockingModel()))
-
     assert sibling_cancelled.is_set()
 
 
@@ -402,17 +392,13 @@ async def test_cross_check_parameter_disagreement_below_quorum_disagrees() -> No
         grounding=_grounding(),
         config=QualityGateConfig(require_cross_check_quorum=2),
     )
-
     decision = await gate.evaluate(_candidate())
-
     assert decision.outcome is QualityOutcome.DISAGREE
     assert decision.model_votes[1].agreed is False
 
 
 @pytest.mark.asyncio
 async def test_cross_check_exception_fails_closed_to_disagree() -> None:
-    """A cross-check model failure must fail closed, never crash the gate."""
-
     class _RaisingModel:
         model_id = "raising"
 
@@ -426,16 +412,11 @@ async def test_cross_check_exception_fails_closed_to_disagree() -> None:
         config=QualityGateConfig(require_cross_check_quorum=1),
     )
     decision = await gate.evaluate(_candidate())
-    # The gate MUST NOT propagate the exception; the failure is treated as
-    # zero agreement (below quorum) so the disagreement path governs the
-    # outcome instead of failing open into an eligible result.
     assert decision.outcome is QualityOutcome.DISAGREE
     assert any("cross_check_failed:RuntimeError" in r for r in decision.reasons)
 
 
-# ---------------------------------------------------------------------------
-# Escalation ladder (shadow observation)
-# ---------------------------------------------------------------------------
+# --- Escalation ladder (shadow observation) ---
 
 
 def _disagree_gate(**kw: object) -> QualityGate:
@@ -450,29 +431,21 @@ def _disagree_gate(**kw: object) -> QualityGate:
 
 @pytest.mark.asyncio
 async def test_escalation_shadow_records_escalate_on_disagreement() -> None:
-    from fdai.core.quality_gate import EscalationLadderConfig
-
     gate = _disagree_gate(
-        escalation_ladder_config=EscalationLadderConfig(),
-        escalated_available=True,
+        escalation_ladder_config=EscalationLadderConfig(), escalated_available=True
     )
     decision = await gate.evaluate(_candidate(), ontology_improvement_attempts=10)
-    # Outcome is UNCHANGED by the shadow ladder - still a disagreement.
     assert decision.outcome is QualityOutcome.DISAGREE
     assert decision.escalation_route == "escalate"
     assert decision.escalation_reason == "cross_check_disagreement"
     assert decision.escalation_metadata["ontology_improvement_attempts"] == "10"
-    # Shadow MUST NOT leak into reasons (that would flip the outcome).
     assert not any(r.startswith("escalation") for r in decision.reasons)
 
 
 @pytest.mark.asyncio
 async def test_escalation_shadow_fail_closed_when_model_unavailable() -> None:
-    from fdai.core.quality_gate import EscalationLadderConfig
-
     gate = _disagree_gate(
-        escalation_ladder_config=EscalationLadderConfig(),
-        escalated_available=False,
+        escalation_ladder_config=EscalationLadderConfig(), escalated_available=False
     )
     decision = await gate.evaluate(_candidate())
     assert decision.escalation_route == "stop"
@@ -481,14 +454,10 @@ async def test_escalation_shadow_fail_closed_when_model_unavailable() -> None:
 
 @pytest.mark.asyncio
 async def test_escalation_shadow_waits_for_ontology_budget() -> None:
-    from fdai.core.quality_gate import EscalationLadderConfig
-
     gate = _disagree_gate(
-        escalation_ladder_config=EscalationLadderConfig(),
-        escalated_available=True,
+        escalation_ladder_config=EscalationLadderConfig(), escalated_available=True
     )
     decision = await gate.evaluate(_candidate())
-
     assert decision.outcome is QualityOutcome.DISAGREE
     assert decision.escalation_route == "stop"
     assert decision.escalation_reason == "ontology_improvement_budget_remaining"
@@ -508,8 +477,6 @@ async def test_escalation_not_recorded_when_ladder_not_wired() -> None:
 
 @pytest.mark.asyncio
 async def test_escalation_audit_fields_present_only_when_wired() -> None:
-    from fdai.core.quality_gate import EscalationLadderConfig, quality_decision_audit_fields
-
     wired = _disagree_gate(
         escalation_ladder_config=EscalationLadderConfig(), escalated_available=True
     )
@@ -521,20 +488,13 @@ async def test_escalation_audit_fields_present_only_when_wired() -> None:
         "ontology_improvement_attempts": "10",
         "minimum_ontology_improvement_attempts": "10",
     }
-
     unwired = _disagree_gate()
     d2 = await unwired.evaluate(_candidate())
-    fields2 = quality_decision_audit_fields(d2)
-    assert "escalation_route" not in fields2
+    assert "escalation_route" not in quality_decision_audit_fields(d2)
 
 
 @pytest.mark.asyncio
 async def test_escalation_low_self_consistency_trigger_on_agreement() -> None:
-    """Both models AGREE, but the proposer is unstable (low action_stability
-    from the composition cascade): the ladder escalates on the secondary
-    trigger, and the decision records the stability it read."""
-    from fdai.core.quality_gate import EscalationLadderConfig
-
     gate = QualityGate(
         verifier=StaticVerifier(outcome=True),
         cross_check_models=_matching_models(),
@@ -547,7 +507,6 @@ async def test_escalation_low_self_consistency_trigger_on_agreement() -> None:
         confidence={"retrieval": 0.9, "verifier_margin": 0.9, "action_stability": 0.4}
     )
     decision = await gate.evaluate(candidate, ontology_improvement_attempts=10)
-    # Agreement -> not a disagreement outcome; shadow escalation does not flip it.
     assert decision.outcome is QualityOutcome.ELIGIBLE
     assert decision.self_consistency == 0.4
     assert decision.escalation_route == "escalate"
@@ -556,8 +515,6 @@ async def test_escalation_low_self_consistency_trigger_on_agreement() -> None:
 
 @pytest.mark.asyncio
 async def test_escalation_high_self_consistency_does_not_trigger() -> None:
-    from fdai.core.quality_gate import EscalationLadderConfig
-
     gate = QualityGate(
         verifier=StaticVerifier(outcome=True),
         cross_check_models=_matching_models(),
@@ -575,9 +532,7 @@ async def test_escalation_high_self_consistency_does_not_trigger() -> None:
     assert decision.escalation_reason == "default_stop"
 
 
-# ---------------------------------------------------------------------------
-# Confidence threshold
-# ---------------------------------------------------------------------------
+# --- Confidence threshold and Immutability ---
 
 
 @pytest.mark.asyncio
@@ -618,7 +573,6 @@ def test_candidate_aggregate_fails_closed_on_non_numeric_signals() -> None:
 
 
 def test_candidate_aggregate_fails_closed_on_bool_values() -> None:
-    """A bool is malformed confidence evidence, so the whole aggregate is 0."""
     candidate = QualityCandidate(
         action_type="a",
         target_resource_ref="r",
@@ -640,11 +594,6 @@ def test_candidate_aggregate_bool_only_returns_zero() -> None:
     assert candidate.aggregate_confidence == 0.0
 
 
-# ---------------------------------------------------------------------------
-# Immutability
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_quality_decision_is_immutable() -> None:
     gate = QualityGate(
@@ -658,27 +607,13 @@ async def test_quality_decision_is_immutable() -> None:
         decision.outcome = QualityOutcome.DENY  # type: ignore[misc]
 
 
-# ---------------------------------------------------------------------------
-# Wave 4.5 delta-2b: debate escalation on cross-check disagreement
-# ---------------------------------------------------------------------------
+# --- Wave 4.5 delta-2b: debate escalation on cross-check disagreement ---
 
 
 class _StubCritic:
-    """Deterministic Critic stub for QualityGate integration tests.
-
-    Returns AGREE by default so the Judge sees no objection to
-    contradict itself with; the specific stance can be tweaked by the
-    caller when they need to exercise a different orchestrator branch.
-    """
+    """Deterministic Critic stub for QualityGate integration tests."""
 
     def __init__(self, stance: str = "agree") -> None:
-        from fdai.core.quality_gate.critic import (
-            CriticObjection,
-            CriticOutput,
-            CriticSeverity,
-            CriticStance,
-        )
-
         if stance == "agree":
             self._output = CriticOutput(stance=CriticStance.AGREE)
         elif stance == "abort":
@@ -703,8 +638,6 @@ class _StubJudge:
     """Deterministic Judge stub. Default: ACCEPT (grounded)."""
 
     def __init__(self, decision: str = "accept") -> None:
-        from fdai.core.quality_gate.judge import JudgeDecision, JudgeOutput
-
         if decision == "accept":
             self._output = JudgeOutput(
                 decision=JudgeDecision.ACCEPT,
@@ -724,11 +657,6 @@ class _StubJudge:
 
 
 def _build_debate(critic_stance: str = "agree", judge_decision: str = "accept"):
-    from fdai.core.quality_gate.debate import (
-        DebateOrchestrator,
-        DebateOrchestratorConfig,
-    )
-
     return DebateOrchestrator(
         critic=_StubCritic(critic_stance),  # type: ignore[arg-type]
         judge=_StubJudge(judge_decision),  # type: ignore[arg-type]
@@ -749,8 +677,6 @@ def test_gate_rejects_half_wired_debate_orchestrator_missing_router() -> None:
 
 
 def test_gate_rejects_half_wired_router_config_missing_orchestrator() -> None:
-    from fdai.core.quality_gate.debate_router import DebateRouterConfig
-
     with pytest.raises(ValueError, match="together"):
         QualityGate(
             verifier=StaticVerifier(outcome=True),
@@ -764,22 +690,12 @@ def test_gate_rejects_half_wired_router_config_missing_orchestrator() -> None:
 
 @pytest.mark.asyncio
 async def test_debate_proceed_keeps_disagreement_for_human_review() -> None:
-    from fdai.core.quality_gate.debate_router import DebateRouterConfig
-
-    gate = QualityGate(
-        verifier=StaticVerifier(outcome=True),
-        cross_check_models=(
-            MatchTypeCrossCheckModel(),
-            MismatchCrossCheckModel(),
-        ),
-        grounding=_grounding(),
-        config=QualityGateConfig(require_cross_check_quorum=2),
+    gate = _disagree_gate(
         debate_orchestrator=_build_debate("agree", "accept"),
         debate_router_config=DebateRouterConfig(),
     )
     decision = await gate.evaluate(_candidate())
     assert decision.outcome is QualityOutcome.DISAGREE
-    # Debate enriches the audit but cannot override mixed-model disagreement.
     assert any("cross_check_below_quorum" in r for r in decision.reasons)
     assert any("debate_route:debate:cross_check_disagreement" in r for r in decision.reasons)
     assert any("debate_outcome:proceed:judge accepted" in r for r in decision.reasons)
@@ -787,17 +703,8 @@ async def test_debate_proceed_keeps_disagreement_for_human_review() -> None:
 
 @pytest.mark.asyncio
 async def test_debate_abort_keeps_disagreement_outcome() -> None:
-    from fdai.core.quality_gate.debate_router import DebateRouterConfig
-
-    gate = QualityGate(
-        verifier=StaticVerifier(outcome=True),
-        cross_check_models=(
-            MatchTypeCrossCheckModel(),
-            MismatchCrossCheckModel(),
-        ),
-        grounding=_grounding(),
-        config=QualityGateConfig(require_cross_check_quorum=2),
-        debate_orchestrator=_build_debate("abort", "accept"),  # critic aborts
+    gate = _disagree_gate(
+        debate_orchestrator=_build_debate("abort", "accept"),
         debate_router_config=DebateRouterConfig(),
     )
     decision = await gate.evaluate(_candidate())
@@ -807,47 +714,26 @@ async def test_debate_abort_keeps_disagreement_outcome() -> None:
 
 @pytest.mark.asyncio
 async def test_debate_router_skip_leaves_outcome_as_disagree() -> None:
-    """When the router turns off debate (killswitch), disagreement
-    stays DISAGREE; no orchestrator call is recorded."""
-
-    from fdai.core.quality_gate.debate_router import DebateRouterConfig
-
-    gate = QualityGate(
-        verifier=StaticVerifier(outcome=True),
-        cross_check_models=(
-            MatchTypeCrossCheckModel(),
-            MismatchCrossCheckModel(),
-        ),
-        grounding=_grounding(),
-        config=QualityGateConfig(require_cross_check_quorum=2),
+    gate = _disagree_gate(
         debate_orchestrator=_build_debate(),
         debate_router_config=DebateRouterConfig(enabled=False),
     )
     decision = await gate.evaluate(_candidate())
     assert decision.outcome is QualityOutcome.DISAGREE
     assert any("debate_route:skip:disabled" in r for r in decision.reasons)
-    # No debate_outcome reason - the orchestrator was never called.
     assert not any(r.startswith("debate_outcome:") for r in decision.reasons)
 
 
 @pytest.mark.asyncio
 async def test_debate_proceed_with_other_soft_issue_stays_disagree() -> None:
-    """Quorum disagreement remains authoritative even with low confidence."""
-
-    from fdai.core.quality_gate.debate_router import DebateRouterConfig
-
     gate = QualityGate(
         verifier=StaticVerifier(outcome=True),
-        cross_check_models=(
-            MatchTypeCrossCheckModel(),
-            MismatchCrossCheckModel(),
-        ),
+        cross_check_models=(MatchTypeCrossCheckModel(), MismatchCrossCheckModel()),
         grounding=_grounding(),
         config=QualityGateConfig(require_cross_check_quorum=2, confidence_threshold=0.99),
         debate_orchestrator=_build_debate("agree", "accept"),
         debate_router_config=DebateRouterConfig(),
     )
-    # Low-confidence candidate.
     decision = await gate.evaluate(
         _candidate(confidence={"retrieval": 0.1, "verifier_margin": 0.1})
     )
@@ -858,19 +744,36 @@ async def test_debate_proceed_with_other_soft_issue_stays_disagree() -> None:
 
 @pytest.mark.asyncio
 async def test_debate_judge_escalate_hil_keeps_disagreement() -> None:
-    from fdai.core.quality_gate.debate_router import DebateRouterConfig
-
-    gate = QualityGate(
-        verifier=StaticVerifier(outcome=True),
-        cross_check_models=(
-            MatchTypeCrossCheckModel(),
-            MismatchCrossCheckModel(),
-        ),
-        grounding=_grounding(),
-        config=QualityGateConfig(require_cross_check_quorum=2),
+    gate = _disagree_gate(
         debate_orchestrator=_build_debate("agree", "escalate_hil"),
         debate_router_config=DebateRouterConfig(),
     )
     decision = await gate.evaluate(_candidate())
     assert decision.outcome is QualityOutcome.DISAGREE
     assert any("debate_outcome:abort:judge escalated" in r for r in decision.reasons)
+
+
+@pytest.mark.asyncio
+async def test_rag_grounding_and_rule_based_verifier_integration() -> None:
+    rules = {"r.known": _rule("r.known")}
+    verifier = RuleBasedVerifier(
+        rules_by_id=rules, target_resource_type_lookup={"rid-1": "object-storage"}
+    )
+    index = HashedRuleEmbeddingIndex(dim=32)
+    gate = QualityGate(
+        verifier=verifier,
+        cross_check_models=_matching_models(),
+        grounding=RagGroundingSource(rules=rules, embedding_index=index, threshold=0.2),
+    )
+    assert (await gate.evaluate(_candidate())).outcome is QualityOutcome.ELIGIBLE
+
+    strict_gate = QualityGate(
+        verifier=verifier,
+        cross_check_models=_matching_models(),
+        grounding=RagGroundingSource(rules=rules, embedding_index=index, threshold=0.99),
+    )
+    ungrounded = await strict_gate.evaluate(
+        _candidate(action_type="remediate.tag-add", cited=("r.known",))
+    )
+    assert ungrounded.outcome is QualityOutcome.ABSTAIN
+    assert "ungrounded_citation:r.known" in ungrounded.reasons

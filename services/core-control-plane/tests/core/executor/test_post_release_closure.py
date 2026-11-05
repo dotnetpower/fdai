@@ -30,15 +30,23 @@ from fdai.core.executor.post_release_closure_plan import (
     build_initial_post_release_closure,
     build_reconciled_post_release_closure,
 )
+from fdai.core.executor.post_release_closure_store import (
+    PostReleaseClosureStoreReceipt,
+    PostReleaseClosureWriteDecision,
+)
 from fdai.core.executor.safeguard_dispatch_checkpoint import (
     AuthoritativeSinkState,
     ContinuityUnprovenReason,
     DispatchTransportState,
     PreReleaseOwnershipCheckpoint,
     SafeguardDispatchEvidenceRecord,
+    SafeguardDispatchEvidenceState,
     SafeguardDispatchObservation,
     record_dispatch_observation,
     record_pre_release_checkpoint,
+)
+from fdai.core.executor.safeguard_dispatch_start import (
+    SafeguardDispatchStartCheckpoint,
 )
 from fdai.core.executor.safeguard_lifecycle_preparation import _closure_proves_applied
 from fdai.core.executor.target_dispatch_fence import (
@@ -506,3 +514,134 @@ def test_codec_rejects_extra_fields() -> None:
 
     with pytest.raises(ValueError, match="fields are invalid"):
         post_release_closure_from_mapping(mapping)
+
+
+def test_closure_store_receipt_validates_schema_authority_chronology_and_digest() -> None:
+    plan = _initial_plan(sink_state=AuthoritativeSinkState.COMMITTED)
+    closed_at = plan.record.closed_at
+    receipt = PostReleaseClosureStoreReceipt.create(
+        decision=PostReleaseClosureWriteDecision.APPLIED,
+        record=plan.record,
+        persisted_at=closed_at,
+        read_back_at=closed_at,
+        store_receipt_digest=_DIGEST,
+    )
+    assert receipt.execution_authority is False
+    assert receipt.effect_verified is False
+
+    class _SubReceipt(PostReleaseClosureStoreReceipt):
+        pass
+
+    with pytest.raises(TypeError, match="does not support subclasses"):
+        _SubReceipt.create(
+            decision=PostReleaseClosureWriteDecision.APPLIED,
+            record=plan.record,
+            persisted_at=closed_at,
+            read_back_at=closed_at,
+            store_receipt_digest=_DIGEST,
+        )
+
+    with pytest.raises(ValueError, match="unsupported post-release closure store receipt schema"):
+        replace(receipt, schema_version="2.0.0")  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="MUST NOT grant authority"):
+        replace(receipt, execution_authority=True)  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="write decision is invalid"):
+        replace(receipt, decision="applied")  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="requires exact record"):
+        replace(receipt, record="not-a-record")  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="chronology is invalid"):
+        replace(receipt, persisted_at=closed_at - timedelta(seconds=1))
+
+    with pytest.raises(ValueError, match="chronology is invalid"):
+        replace(receipt, read_back_at=closed_at - timedelta(seconds=1))
+
+    with pytest.raises(ValueError, match="receipt digest mismatched"):
+        replace(receipt, receipt_digest="sha256:" + "0" * 64)
+
+
+def test_dispatch_start_checkpoint_and_validation_reject_invalid_shapes() -> None:
+    bundle, _reservation, _preparing, prepared, context = _evidence_fixture()
+    started, persistence_receipt = _dispatch_started_record(
+        bundle,
+        prepared_fence=prepared,
+        context=context,
+        at=_NOW,
+    )
+    checkpoint = started.dispatch_start_checkpoint
+    assert checkpoint is not None
+
+    class _SubStart(SafeguardDispatchStartCheckpoint):
+        pass
+
+    with pytest.raises(TypeError, match="does not support subclasses"):
+        _SubStart.create(
+            bundle_persistence_receipt=persistence_receipt,
+            in_flight_reservation_receipt=checkpoint.in_flight_reservation_receipt,
+            prepared_fence=checkpoint.prepared_fence,
+            in_flight_fence=checkpoint.in_flight_fence,
+            dispatch_started_at=_NOW,
+        )
+
+    with pytest.raises(ValueError, match="requires authoritative bundle persistence"):
+        SafeguardDispatchStartCheckpoint.create(
+            bundle_persistence_receipt="not-a-receipt",  # type: ignore[arg-type]
+            in_flight_reservation_receipt=checkpoint.in_flight_reservation_receipt,
+            prepared_fence=checkpoint.prepared_fence,
+            in_flight_fence=checkpoint.in_flight_fence,
+            dispatch_started_at=_NOW,
+        )
+
+    with pytest.raises(ValueError, match="unsupported safeguard dispatch-start checkpoint schema"):
+        replace(checkpoint, schema_version="2.0.0")  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="MUST NOT grant authority"):
+        replace(checkpoint, execution_authority=True)  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="bundle revision MUST be positive"):
+        replace(checkpoint, bundle_record_revision=0)
+
+    with pytest.raises(ValueError, match="reservation receipt is invalid"):
+        replace(checkpoint, in_flight_reservation_receipt="bad")  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="prepared fence is invalid"):
+        replace(checkpoint, prepared_fence="bad")  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="in-flight fence is invalid"):
+        replace(checkpoint, in_flight_fence="bad")  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="checkpoint digest mismatched"):
+        replace(checkpoint, checkpoint_digest="sha256:" + "0" * 64)
+
+    pre_release_current, _ = _pre_release(sink_state=AuthoritativeSinkState.COMMITTED)
+    current_cp = pre_release_current.pre_release_checkpoint
+    assert current_cp is not None
+    with pytest.raises(ValueError, match="current pre-release checkpoint shape is invalid"):
+        replace(current_cp, assessment_digest=None)
+
+    pre_release_unproven, _ = _pre_release(
+        sink_state=AuthoritativeSinkState.COMMITTED,
+        continuity_proven=False,
+    )
+    unproven_cp = pre_release_unproven.pre_release_checkpoint
+    assert unproven_cp is not None
+    with pytest.raises(ValueError, match="continuity-unproven checkpoint requires a reason"):
+        replace(unproven_cp, unproven_reason=None)
+
+    with pytest.raises(ValueError, match="bundle-persisted dispatch evidence shape is invalid"):
+        replace(bundle, dispatch_start_checkpoint=checkpoint)
+
+    with pytest.raises(ValueError, match="dispatch-started evidence shape is invalid"):
+        replace(started, dispatch_start_checkpoint=None)
+
+    with pytest.raises(ValueError, match="dispatch-observed evidence shape is invalid"):
+        replace(
+            pre_release_current,
+            state=SafeguardDispatchEvidenceState.DISPATCH_OBSERVED,
+        )
+
+    with pytest.raises(ValueError, match="pre-release dispatch evidence shape is invalid"):
+        replace(pre_release_current, pre_release_checkpoint=None)

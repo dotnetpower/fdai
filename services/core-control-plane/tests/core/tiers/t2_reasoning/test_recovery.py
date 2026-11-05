@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import datetime
 
+import pytest
 from fdai.core.metering.budget import InMemoryBudgetLedger, ModelBudget
 from fdai.core.quality_gate.gate import QualityCandidate
 from fdai.core.tiers.t2_reasoning.recovery import (
@@ -247,3 +249,53 @@ async def test_failover_abstention_is_terminal_but_not_recovered() -> None:
     assert recorder.receipts[-1].status == "abstained"
     assert recorder.receipts[-1].terminal is True
     assert recorder.receipts[-1].recovered is False
+
+
+async def test_route_ref_validation_and_binding_guards() -> None:
+    candidate = _StaticProposer(result=_candidate())
+    for bad_ref in ("", "UPPERCASE", "bad space", "a" * 65):
+        with pytest.raises(
+            ValueError, match="T2 proposer route refs MUST be bounded lowercase identifiers"
+        ):
+            BoundedFailoverT2Proposer(candidates=((bad_ref, candidate),))
+
+    proposer = BoundedFailoverT2Proposer(
+        candidates=(("primary", candidate), ("secondary", candidate))
+    )
+    with pytest.raises(
+        RuntimeError, match="bounded T2 failover requires the T2Tier attempt budget"
+    ):
+        await proposer.propose(context=_context())
+
+    recorder = _Recorder()
+    proposer.bind_observer(recorder)
+    proposer.bind_observer(recorder)
+    with pytest.raises(RuntimeError, match="T2 recovery observer is already bound"):
+        proposer.bind_observer(_Recorder())
+
+    selector = _Selector(preferred="unknown-route")
+    proposer.bind_route_selector(selector)
+    proposer.bind_route_selector(selector)
+    with pytest.raises(RuntimeError, match="T2 proposer route selector is already bound"):
+        proposer.bind_route_selector(_Selector())
+
+    ledger = InMemoryBudgetLedger(ModelBudget(max_calls_per_correlation=1, max_calls_total=1))
+    result = await proposer.propose_with_budget(
+        context=_context(),
+        reserve_attempt=lambda: ledger.reserve("event", calls=1, cost_microusd=0),
+    )
+    assert result == _candidate()
+    assert recorder.receipts[-1].route_ref == "primary"
+
+    naive_proposer = BoundedFailoverT2Proposer(
+        candidates=(("primary", candidate),),
+        observer=_Recorder(),
+        clock=lambda: datetime(2026, 7, 31, 0, 0, 0),
+    )
+    with pytest.raises(ValueError, match="T2 recovery receipt clock MUST be timezone-aware"):
+        await naive_proposer.propose_with_budget(
+            context=_context(),
+            reserve_attempt=lambda: InMemoryBudgetLedger(
+                ModelBudget(max_calls_per_correlation=1, max_calls_total=1)
+            ).reserve("event", calls=1, cost_microusd=0),
+        )

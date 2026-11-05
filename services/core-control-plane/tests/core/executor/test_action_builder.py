@@ -582,3 +582,163 @@ def test_operator_action_idempotency_key_stays_within_vm_request_bound() -> None
     action, _rule = builder.build_from_operator_request(event=event)
 
     assert len(action.idempotency_key) <= 200
+
+
+def test_candidate_and_learned_action_error_branches() -> None:
+    action_type = _shipped_action_types()["remediate.tag-add"]
+    builder = ActionBuilder(
+        action_types_by_name={action_type.name: action_type},  # type: ignore[attr-defined]
+        clock=lambda: datetime(2026, 7, 5, 8, 0, tzinfo=UTC),
+    )
+
+    for action_name, rules, params, match in (
+        ("unknown.action", ("r1",), {}, "is not registered"),
+        ("remediate.tag-add", (), {}, "MUST cite at least one catalog rule"),
+        ("remediate.tag-add", ("r1",), "not-a-dict", "params MUST be an object"),
+    ):
+        with pytest.raises(ActionBuildError, match=match):
+            builder.build_from_candidate(
+                event=_event(),
+                candidate=QualityCandidate(
+                    action_type=action_name,
+                    target_resource_ref="rid-1",
+                    target_resource_type="object-storage",
+                    params=params,  # type: ignore[arg-type]
+                    cited_rule_ids=rules,
+                ),
+            )
+
+    for action_name, target_ref, match in (
+        ("unknown.action", "rid-1", "is not registered"),
+        ("remediate.tag-add", "", "target_resource_ref MUST be non-empty"),
+    ):
+        with pytest.raises(ActionBuildError, match=match):
+            builder.build_from_learned_action(
+                event=_event(),
+                learned=LearnedAction(
+                    signature="sig",
+                    rule_id="r1",
+                    action_type=action_name,
+                    params={},
+                    incident_id="inc-1",
+                    success_rate=0.99,
+                    reuse_count=10,
+                ),
+                target_resource_ref=target_ref,
+            )
+
+
+def test_operator_request_and_workflow_validation_branches() -> None:
+    vm_type = _shipped_action_types()["tool.run-python-on-vm"]
+    no_schema_type = vm_type.model_copy(  # type: ignore[attr-defined]
+        update={"name": "custom.no-schema", "argument_schema": None, "blast_radius": None}
+    )
+    builder = ActionBuilder(
+        action_types_by_name={
+            vm_type.name: vm_type,  # type: ignore[attr-defined]
+            "custom.no-schema": no_schema_type,
+        }
+    )
+
+    base = _operator_event()
+    with pytest.raises(ActionBuildError, match="no normalized operator_request"):
+        builder.build_from_operator_request(event=base.model_copy(update={"payload": {}}))
+    with pytest.raises(ActionBuildError, match="resource_ref MUST be non-empty"):
+        builder.build_from_operator_request(event=base.model_copy(update={"resource_ref": None}))
+
+    for op_req, match in (
+        ({"action_type": "", "initiator_principal": "op", "params": {}}, "action_type MUST"),
+        (
+            {"action_type": vm_type.name, "initiator_principal": "", "params": {}},  # type: ignore[attr-defined]
+            "initiator_",
+        ),
+        (
+            {"action_type": vm_type.name, "initiator_principal": "op", "params": "bad"},  # type: ignore[attr-defined]
+            "params MUST",
+        ),
+        ({"action_type": "unknown", "initiator_principal": "op", "params": {}}, "is unknown"),
+        (
+            {"action_type": "custom.no-schema", "initiator_principal": "op", "params": {"k": "v"}},
+            "has no argument_schema; params MUST be empty",
+        ),
+    ):
+        with pytest.raises(ActionBuildError, match=match):
+            builder.build_from_operator_request(
+                event=base.model_copy(update={"payload": {"operator_request": op_req}})
+            )
+
+    ok_no_schema, rule = builder.build_from_operator_request(
+        event=base.model_copy(
+            update={
+                "payload": {
+                    "operator_request": {
+                        "action_type": "custom.no-schema",
+                        "initiator_principal": "op",
+                        "params": {},
+                    },
+                    "resource": {"resource_type": "compute.vm"},
+                }
+            }
+        )
+    )
+    assert ok_no_schema.blast_radius.count == 1
+    assert rule.resource_type == "compute.vm"
+
+    with pytest.raises(ActionBuildError, match="workflow_action is malformed"):
+        builder.build_from_operator_request(
+            event=_operator_event(workflow_action={"process_id": ""})
+        )
+    with pytest.raises(ActionBuildError, match="proposal_ref MUST match"):
+        builder.build_from_operator_request(
+            event=_operator_event(
+                workflow_action={
+                    "process_id": "p1",
+                    "step_id": "s1",
+                    "proposal_ref": "wrong-ref",
+                }
+            )
+        )
+
+
+def test_readiness_remediation_remaining_validation_branches() -> None:
+    action_type = _shipped_action_types()["remediate.tag-add"]
+    release = build_ontology_release(action_types=(action_type,))  # type: ignore[arg-type]
+    builder = ActionBuilder(  # type: ignore[attr-defined]
+        action_types_by_name={action_type.name: action_type},
+        ontology_release=release,
+        rules_by_id=_readiness_rules(action_type.name),
+    )
+    event = _readiness_remediation_event(target_revision=release.digest)
+
+    with pytest.raises(ActionBuildError, match="MUST remain in shadow mode"):
+        builder.build_from_readiness_remediation(
+            event=event.model_copy(update={"mode": Mode.ENFORCE})
+        )
+    with pytest.raises(ActionBuildError, match="request is malformed"):
+        builder.build_from_readiness_remediation(
+            event=event.model_copy(update={"payload": {"readiness_remediation_request": "bad"}})
+        )
+    with pytest.raises(ActionBuildError, match="target does not match"):
+        builder.build_from_readiness_remediation(
+            event=event.model_copy(update={"resource_ref": "resource:other"})
+        )
+    no_release_builder = ActionBuilder(
+        action_types_by_name={action_type.name: action_type}  # type: ignore[attr-defined]
+    )
+    with pytest.raises(ActionBuildError, match="requires an active ontology release"):
+        no_release_builder.build_from_readiness_remediation(event=event)
+
+    empty_builder = ActionBuilder(action_types_by_name={}, ontology_release=release)
+    with pytest.raises(ActionBuildError, match="is unknown"):
+        empty_builder.build_from_readiness_remediation(event=event)
+
+    with_resource = event.model_copy(
+        update={
+            "payload": {
+                **event.payload,
+                "resource": {"resource_type": "storage.account"},
+            }
+        }
+    )
+    _action, rule = builder.build_from_readiness_remediation(event=with_resource)
+    assert rule.resource_type == "storage.account"

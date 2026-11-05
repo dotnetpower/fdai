@@ -186,3 +186,143 @@ async def test_graph_registry_rejects_update_when_challenger_partition_is_trunca
 
     assert result.accepted is False
     assert result.reason == "challenger_registry_truncated"
+
+
+def test_graph_learning_observation_validates_bounds_and_timestamps() -> None:
+    model = _model(EffectModelStatus.CHALLENGER)
+    base = _observation(model)
+
+    with pytest.raises(ValueError, match="model_ref MUST be bounded"):
+        replace(base, model_ref="")
+    with pytest.raises(ValueError, match="slice identity MUST be non-empty"):
+        replace(base, object_ref=" ")
+    with pytest.raises(ValueError, match="trajectory digests MUST be SHA-256"):
+        replace(base, prediction_digest="bad")
+    with pytest.raises(ValueError, match="values MUST be finite"):
+        replace(base, observed_value=float("nan"))
+    with pytest.raises(ValueError, match="timestamps MUST be timezone-aware"):
+        replace(base, observed_at=datetime(2026, 8, 4, 0, 1))
+    with pytest.raises(ValueError, match="observation MUST NOT follow recording"):
+        replace(
+            base,
+            observed_at=_NOW + timedelta(minutes=3),
+            recorded_at=_NOW + timedelta(minutes=2),
+        )
+    with pytest.raises(ValueError, match="evidence_refs MUST be non-empty"):
+        replace(base, evidence_refs=())
+
+
+def test_update_graph_challenger_rejects_mismatch_duplicate_cutoff_and_overflow() -> None:
+    model = _model(EffectModelStatus.CHALLENGER)
+    obs = _observation(model)
+
+    mismatch = update_graph_challenger(model, replace(obs, model_ref="other@1.0.0:r1"))
+    assert mismatch.accepted is False
+    assert mismatch.reason == "observation_model_mismatch"
+
+    first = update_graph_challenger(model, obs)
+    duplicate = update_graph_challenger(first.model, obs)
+    assert duplicate.accepted is False
+    assert duplicate.reason == "observation_already_applied"
+
+    stale_cutoff = update_graph_challenger(
+        model,
+        replace(obs, observed_at=_NOW - timedelta(minutes=1), recorded_at=_NOW),
+    )
+    assert stale_cutoff.accepted is False
+    assert stale_cutoff.reason == "observation_not_after_learning_cutoff"
+
+    overflow = update_graph_challenger(
+        model,
+        replace(obs, predicted_value=-1e308, observed_value=1e308),
+    )
+    assert overflow.accepted is False
+    assert overflow.reason == "observation_arithmetic_non_finite"
+
+
+async def test_graph_registry_validates_limits_registration_and_cas_outcomes() -> None:
+    with pytest.raises(ValueError, match="limits MUST be positive"):
+        StateStoreGraphEffectModelRegistry(InMemoryStateStore(), max_models=0)
+
+    store = InMemoryStateStore()
+    registry = StateStoreGraphEffectModelRegistry(store, max_retries=2)
+    challenger = _model(EffectModelStatus.CHALLENGER)
+    with pytest.raises(ValueError, match="registered_by MUST be non-empty"):
+        await registry.register(challenger, registered_by="")
+    assert await registry.register(challenger, registered_by="Mimir") is True
+
+    rejected = await registry.update_from_observation(
+        replace(_observation(challenger), complete=False)
+    )
+    assert rejected.accepted is False
+    assert rejected.reason == "observation_incomplete"
+    assert rejected.model_ref == challenger.ref
+
+    class _ConflictStore(InMemoryStateStore):
+        def __init__(self, *, disappear: bool) -> None:
+            super().__init__()
+            self._disappear = disappear
+
+        async def compare_and_set_state_with_audit(
+            self,
+            key: str,
+            value: dict[str, object],
+            *,
+            expected_revision: int,
+            audit_entry: dict[str, object],
+        ) -> bool:
+            _ = (value, expected_revision, audit_entry)
+            if self._disappear:
+                self._state.pop(key, None)
+            return False
+
+    disappearing_store = _ConflictStore(disappear=True)
+    disappearing_registry = StateStoreGraphEffectModelRegistry(disappearing_store, max_retries=2)
+    assert await disappearing_registry.register(challenger, registered_by="Mimir") is True
+    disappeared = await disappearing_registry.update_from_observation(_observation(challenger))
+    assert disappeared.accepted is False
+    assert disappeared.reason == "challenger_disappeared"
+
+    conflict_store = _ConflictStore(disappear=False)
+    conflict_registry = StateStoreGraphEffectModelRegistry(conflict_store, max_retries=2)
+    assert await conflict_registry.register(challenger, registered_by="Mimir") is True
+    conflict = await conflict_registry.update_from_observation(_observation(challenger))
+    assert conflict.accepted is False
+    assert conflict.reason == "revision_conflict"
+
+
+async def test_graph_registry_rejects_corrupted_stored_records() -> None:
+    store = InMemoryStateStore()
+    registry = StateStoreGraphEffectModelRegistry(store)
+    model = _model(EffectModelStatus.ACTIVE)
+    assert await registry.register(model, registered_by="Mimir") is True
+    key = next(iter(store._state))
+    valid_raw = dict(store._state[key])
+
+    await store.write_state(key, {**valid_raw, "link_path": "not-a-list"})
+    with pytest.raises(ValueError, match="link_path MUST be a string list"):
+        await registry.list_models(
+            status=EffectModelStatus.ACTIVE,
+            trigger_refs=(model.trigger_ref,),
+        )
+
+    await store.write_state(key, {**valid_raw, "applied_observation_digests": [123]})
+    with pytest.raises(ValueError, match="observation digests MUST be a string list"):
+        await registry.list_models(
+            status=EffectModelStatus.ACTIVE,
+            trigger_refs=(model.trigger_ref,),
+        )
+
+    await store.write_state(key, {**valid_raw, "model_id": ""})
+    with pytest.raises(ValueError, match="model_id MUST be non-empty"):
+        await registry.list_models(
+            status=EffectModelStatus.ACTIVE,
+            trigger_refs=(model.trigger_ref,),
+        )
+
+    await store.write_state(key, {**valid_raw, "learned_through": "2026-08-04T00:00:00"})
+    with pytest.raises(ValueError, match="learned_through MUST be timezone-aware"):
+        await registry.list_models(
+            status=EffectModelStatus.ACTIVE,
+            trigger_refs=(model.trigger_ref,),
+        )

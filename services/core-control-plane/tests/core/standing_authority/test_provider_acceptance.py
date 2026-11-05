@@ -24,6 +24,7 @@ from fdai.core.standing_authority.provider_acceptance import (
     ProviderAcceptanceState,
     ProviderNonAcceptanceEvidenceKind,
     ProviderSubmissionResult,
+    _payload_digest,
     acceptance_effect_status,
     complete_provider_acceptance,
     prepare_provider_acceptance,
@@ -91,34 +92,26 @@ class _Store:
         self.substitute_terminal_state: ProviderAcceptanceState | None = None
 
     async def acquire_prepared(
-        self,
-        record: ProviderAcceptanceRecord,
+        self, record: ProviderAcceptanceRecord
     ) -> ProviderAcceptanceAcquireResult:
         async with self.lock:
             if self.fail_acquire:
                 raise OSError("simulated preparation failure")
             if self.substitute_identity is not None:
                 record = prepare_provider_acceptance(
-                    self.substitute_identity,
-                    prepared_at=record.state_changed_at,
+                    self.substitute_identity, prepared_at=record.state_changed_at
                 )
             key = record.identity.target_fence_digest
             existing = self.records.get(key)
             if existing is not None:
                 return ProviderAcceptanceAcquireResult(
                     candidate_identity=record.identity,
-                    decision=classify_provider_acceptance(
-                        existing,
-                        record.identity,
-                    ),
+                    decision=classify_provider_acceptance(existing, record.identity),
                     observed_record=existing,
                     permit=None,
                 )
             stored = (
-                prepare_provider_acceptance(
-                    record.identity,
-                    prepared_at=self.stamped_prepared_at,
-                )
+                prepare_provider_acceptance(record.identity, prepared_at=self.stamped_prepared_at)
                 if self.stamped_prepared_at is not None
                 else record
             )
@@ -152,51 +145,36 @@ class _Store:
                 replacement_result = (
                     _result(
                         ProviderAcceptanceState.NOT_ACCEPTED,
-                        kind=(
-                            ProviderNonAcceptanceEvidenceKind.PROVIDER_REJECTED_BEFORE_ACCEPTANCE
-                        ),
+                        kind=ProviderNonAcceptanceEvidenceKind.PROVIDER_REJECTED_BEFORE_ACCEPTANCE,
                     )
                     if self.substitute_terminal_state is ProviderAcceptanceState.NOT_ACCEPTED
                     else _result(self.substitute_terminal_state)
                 )
                 record = complete_provider_acceptance(
-                    existing,
-                    result=replacement_result,
-                    completed_at=record.state_changed_at,
+                    existing, result=replacement_result, completed_at=record.state_changed_at
                 )
             validate_provider_acceptance_transition(existing, record)
             self.records[key] = record
             return ProviderAcceptanceTransitionReceipt.create(
-                prior_record_digest=prior_record_digest,
-                record=record,
+                prior_record_digest=prior_record_digest, record=record
             )
 
-    async def read(
-        self,
-        target_fence_digest: str,
-    ) -> ProviderAcceptanceRecord | None:
-        if self.fail_readback:
-            return None
-        return self.records.get(target_fence_digest)
+    async def read(self, target_fence_digest: str) -> ProviderAcceptanceRecord | None:
+        return None if self.fail_readback else self.records.get(target_fence_digest)
 
 
 class _LeaseStore:
     def __init__(
-        self,
-        result: ProviderCommitFenceResult | None = None,
-        *,
-        fail: bool = False,
+        self, result: ProviderCommitFenceResult | None = None, *, fail: bool = False
     ) -> None:
         self.result = result or ProviderCommitFenceResult(
-            allowed=True,
-            outcome=LeaseOutcome.ACQUIRED,
+            allowed=True, outcome=LeaseOutcome.ACQUIRED
         )
         self.fail = fail
         self.requests: list[ProviderCommitFenceRequest] = []
 
     async def check_commit_fence(
-        self,
-        request: ProviderCommitFenceRequest,
+        self, request: ProviderCommitFenceRequest
     ) -> ProviderCommitFenceResult:
         self.requests.append(request)
         if self.fail:
@@ -268,20 +246,12 @@ async def test_acceptance_submission_is_one_shot_and_duplicate_safe() -> None:
     coordinator, store, lease_store = _coordinator()
     submitter = _Submitter()
     identity = _identity()
-
     first = await coordinator.submit_once(
-        identity=identity,
-        submitter=submitter,
-        prepared_at=NOW,
-        completed_at=NOW,
+        identity=identity, submitter=submitter, prepared_at=NOW, completed_at=NOW
     )
     duplicate = await coordinator.submit_once(
-        identity=identity,
-        submitter=submitter,
-        prepared_at=NOW,
-        completed_at=NOW,
+        identity=identity, submitter=submitter, prepared_at=NOW, completed_at=NOW
     )
-
     assert first.submitted is True
     assert first.record.state is ProviderAcceptanceState.ACCEPTED
     assert duplicate.decision is ProviderAcceptanceAcquireDecision.DUPLICATE_SAME
@@ -300,25 +270,18 @@ async def test_concurrent_callers_produce_exactly_one_submission() -> None:
     identity = _identity()
     first = asyncio.create_task(
         coordinator.submit_once(
-            identity=identity,
-            submitter=submitter,
-            prepared_at=NOW,
-            completed_at=NOW,
+            identity=identity, submitter=submitter, prepared_at=NOW, completed_at=NOW
         )
     )
     await submitter.started.wait()
     second = asyncio.create_task(
         coordinator.submit_once(
-            identity=identity,
-            submitter=submitter,
-            prepared_at=NOW,
-            completed_at=NOW,
+            identity=identity, submitter=submitter, prepared_at=NOW, completed_at=NOW
         )
     )
     await asyncio.sleep(0)
     submitter.release.set()
     first_result, second_result = await asyncio.gather(first, second)
-
     assert len(submitter.calls) == 1
     assert {first_result.submitted, second_result.submitted} == {True, False}
 
@@ -326,12 +289,8 @@ async def test_concurrent_callers_produce_exactly_one_submission() -> None:
 async def test_different_identity_on_same_target_is_blocked() -> None:
     coordinator, _store, _lease_store = _coordinator()
     submitter = _Submitter()
-
     await coordinator.submit_once(
-        identity=_identity(),
-        submitter=submitter,
-        prepared_at=NOW,
-        completed_at=NOW,
+        identity=_identity(), submitter=submitter, prepared_at=NOW, completed_at=NOW
     )
     blocked = await coordinator.submit_once(
         identity=_identity(provider_body_digest="sha256:" + "5" * 64),
@@ -339,7 +298,6 @@ async def test_different_identity_on_same_target_is_blocked() -> None:
         prepared_at=NOW,
         completed_at=NOW,
     )
-
     assert blocked.decision is ProviderAcceptanceAcquireDecision.BLOCKED
     assert blocked.submitted is False
     assert len(submitter.calls) == 1
@@ -349,27 +307,17 @@ async def test_different_identity_on_same_target_is_blocked() -> None:
     "lease_store",
     [
         _LeaseStore(
-            ProviderCommitFenceResult(
-                allowed=False,
-                outcome=LeaseOutcome.STALE_GENERATION,
-            )
+            ProviderCommitFenceResult(allowed=False, outcome=LeaseOutcome.STALE_GENERATION)
         ),
         _LeaseStore(fail=True),
     ],
 )
-async def test_pre_submit_fence_failure_never_invokes_provider(
-    lease_store: _LeaseStore,
-) -> None:
+async def test_pre_submit_fence_failure_never_invokes_provider(lease_store: _LeaseStore) -> None:
     coordinator, _store, _ = _coordinator(lease_store=lease_store)
     submitter = _Submitter()
-
     attempt = await coordinator.submit_once(
-        identity=_identity(),
-        submitter=submitter,
-        prepared_at=NOW,
-        completed_at=NOW,
+        identity=_identity(), submitter=submitter, prepared_at=NOW, completed_at=NOW
     )
-
     assert attempt.submitted is False
     assert attempt.record.state is ProviderAcceptanceState.NOT_ACCEPTED
     assert submitter.calls == []
@@ -378,14 +326,12 @@ async def test_pre_submit_fence_failure_never_invokes_provider(
 async def test_expired_lease_denies_before_store_or_provider_access() -> None:
     coordinator, _store, lease_store = _coordinator()
     submitter = _Submitter()
-
     attempt = await coordinator.submit_once(
         identity=_identity(lease_valid_until=NOW),
         submitter=submitter,
         prepared_at=NOW,
         completed_at=NOW,
     )
-
     assert attempt.record.state is ProviderAcceptanceState.NOT_ACCEPTED
     assert attempt.submitted is False
     assert lease_store.requests == []
@@ -397,7 +343,7 @@ async def test_expired_lease_denies_before_store_or_provider_access() -> None:
     [
         _result(
             ProviderAcceptanceState.NOT_ACCEPTED,
-            kind=(ProviderNonAcceptanceEvidenceKind.PROVIDER_REJECTED_BEFORE_ACCEPTANCE),
+            kind=ProviderNonAcceptanceEvidenceKind.PROVIDER_REJECTED_BEFORE_ACCEPTANCE,
         ),
         _result(
             ProviderAcceptanceState.UNKNOWN,
@@ -410,14 +356,9 @@ async def test_provider_terminal_results_are_recorded_without_effect_success(
 ) -> None:
     coordinator, _store, _lease_store = _coordinator()
     submitter = _Submitter(result=result)
-
     attempt = await coordinator.submit_once(
-        identity=_identity(),
-        submitter=submitter,
-        prepared_at=NOW,
-        completed_at=NOW,
+        identity=_identity(), submitter=submitter, prepared_at=NOW, completed_at=NOW
     )
-
     assert attempt.submitted is True
     assert attempt.record.state is result.state
     assert attempt.record.result == result
@@ -431,7 +372,6 @@ async def test_submitter_cannot_forge_local_non_acceptance() -> None:
         ProviderAcceptanceState.NOT_ACCEPTED,
         kind=ProviderNonAcceptanceEvidenceKind.LOCAL_FENCE_DENIED,
     )
-
     with pytest.raises(AuthorizationLifecycleError, match="provider non-acceptance"):
         await coordinator.submit_once(
             identity=identity,
@@ -439,8 +379,7 @@ async def test_submitter_cannot_forge_local_non_acceptance() -> None:
             prepared_at=NOW,
             completed_at=NOW,
         )
-
-    assert store.records[identity.target_fence_digest].state is (ProviderAcceptanceState.UNKNOWN)
+    assert store.records[identity.target_fence_digest].state is ProviderAcceptanceState.UNKNOWN
 
 
 @pytest.mark.parametrize(
@@ -452,20 +391,14 @@ async def test_submitter_cannot_forge_local_non_acceptance() -> None:
     ],
 )
 async def test_submission_failure_is_persisted_unknown_before_reraise(
-    error: BaseException,
-    reason: ProviderAcceptanceAmbiguityReason,
+    error: BaseException, reason: ProviderAcceptanceAmbiguityReason
 ) -> None:
     coordinator, store, _lease_store = _coordinator()
     identity = _identity()
-
     with pytest.raises(type(error)):
         await coordinator.submit_once(
-            identity=identity,
-            submitter=_Submitter(error=error),
-            prepared_at=NOW,
-            completed_at=NOW,
+            identity=identity, submitter=_Submitter(error=error), prepared_at=NOW, completed_at=NOW
         )
-
     record = store.records[identity.target_fence_digest]
     assert record.state is ProviderAcceptanceState.UNKNOWN
     assert record.result is not None
@@ -480,22 +413,14 @@ async def test_terminal_persist_failure_leaves_prepared_record_blocking() -> Non
     coordinator, _store, _lease_store = _coordinator(store=store)
     identity = _identity()
     submitter = _Submitter()
-
     with pytest.raises(ProviderAcceptancePersistenceError):
         await coordinator.submit_once(
-            identity=identity,
-            submitter=submitter,
-            prepared_at=NOW,
-            completed_at=NOW,
+            identity=identity, submitter=submitter, prepared_at=NOW, completed_at=NOW
         )
-
     assert len(submitter.calls) == 1
-    assert store.records[identity.target_fence_digest].state is (ProviderAcceptanceState.PREPARED)
+    assert store.records[identity.target_fence_digest].state is ProviderAcceptanceState.PREPARED
     duplicate = await coordinator.submit_once(
-        identity=identity,
-        submitter=submitter,
-        prepared_at=NOW,
-        completed_at=NOW,
+        identity=identity, submitter=submitter, prepared_at=NOW, completed_at=NOW
     )
     assert duplicate.submitted is False
     assert len(submitter.calls) == 1
@@ -506,15 +431,10 @@ async def test_prepare_readback_failure_denies_submit() -> None:
     store.fail_readback = True
     coordinator, _store, _lease_store = _coordinator(store=store)
     submitter = _Submitter()
-
     with pytest.raises(ProviderAcceptancePersistenceError, match="readback"):
         await coordinator.submit_once(
-            identity=_identity(),
-            submitter=submitter,
-            prepared_at=NOW,
-            completed_at=NOW,
+            identity=_identity(), submitter=submitter, prepared_at=NOW, completed_at=NOW
         )
-
     assert submitter.calls == []
     assert next(iter(store.records.values())).state is ProviderAcceptanceState.PREPARED
 
@@ -523,14 +443,9 @@ async def test_store_stamped_prepared_record_is_the_cas_predecessor() -> None:
     store = _Store()
     store.stamped_prepared_at = NOW + timedelta(seconds=1)
     coordinator, _store, _lease_store = _coordinator(store=store)
-
     attempt = await coordinator.submit_once(
-        identity=_identity(),
-        submitter=_Submitter(),
-        prepared_at=NOW,
-        completed_at=NOW,
+        identity=_identity(), submitter=_Submitter(), prepared_at=NOW, completed_at=NOW
     )
-
     assert attempt.record.state is ProviderAcceptanceState.ACCEPTED
     assert attempt.record.prior_record_digest is not None
     assert attempt.transition_receipt is not None
@@ -543,15 +458,10 @@ async def test_store_identity_substitution_is_rejected_before_submit() -> None:
     store.substitute_identity = _identity(provider_body_digest="sha256:" + "5" * 64)
     coordinator, _store, _lease_store = _coordinator(store=store)
     submitter = _Submitter()
-
     with pytest.raises(ProviderAcceptancePersistenceError, match="substituted"):
         await coordinator.submit_once(
-            identity=_identity(),
-            submitter=submitter,
-            prepared_at=NOW,
-            completed_at=NOW,
+            identity=_identity(), submitter=submitter, prepared_at=NOW, completed_at=NOW
         )
-
     assert submitter.calls == []
 
 
@@ -560,15 +470,10 @@ async def test_terminal_state_substitution_is_rejected_after_submit() -> None:
     store.substitute_terminal_state = ProviderAcceptanceState.NOT_ACCEPTED
     coordinator, _store, _lease_store = _coordinator(store=store)
     submitter = _Submitter()
-
     with pytest.raises(ProviderAcceptancePersistenceError, match="readback mismatched"):
         await coordinator.submit_once(
-            identity=_identity(),
-            submitter=submitter,
-            prepared_at=NOW,
-            completed_at=NOW,
+            identity=_identity(), submitter=submitter, prepared_at=NOW, completed_at=NOW
         )
-
     assert len(submitter.calls) == 1
 
 
@@ -577,15 +482,10 @@ async def test_prepare_failure_denies_submit_without_fabricating_state() -> None
     store.fail_acquire = True
     coordinator, _store, _lease_store = _coordinator(store=store)
     submitter = _Submitter()
-
     with pytest.raises(OSError, match="preparation failure"):
         await coordinator.submit_once(
-            identity=_identity(),
-            submitter=submitter,
-            prepared_at=NOW,
-            completed_at=NOW,
+            identity=_identity(), submitter=submitter, prepared_at=NOW, completed_at=NOW
         )
-
     assert submitter.calls == []
     assert store.records == {}
 
@@ -596,50 +496,33 @@ async def test_callback_reentrancy_fails_closed_and_quarantines_outer_attempt() 
 
     class _ReentrantSubmitter:
         async def submit(
-            self,
-            *,
-            identity: ProviderAcceptanceIdentity,
-            permit: ProviderSubmissionPermit,
+            self, *, identity: ProviderAcceptanceIdentity, permit: ProviderSubmissionPermit
         ) -> ProviderSubmissionResult:
             del permit
-            return (
-                await coordinator.submit_once(
-                    identity=identity,
-                    submitter=self,
-                    prepared_at=NOW,
-                    completed_at=NOW,
-                )
-            ).record.result or _result(ProviderAcceptanceState.ACCEPTED)
+            attempt = await coordinator.submit_once(
+                identity=identity, submitter=self, prepared_at=NOW, completed_at=NOW
+            )
+            return attempt.record.result or _result(ProviderAcceptanceState.ACCEPTED)
 
     with pytest.raises(ProviderAcceptanceReentrancyError):
         await coordinator.submit_once(
-            identity=identity,
-            submitter=_ReentrantSubmitter(),
-            prepared_at=NOW,
-            completed_at=NOW,
+            identity=identity, submitter=_ReentrantSubmitter(), prepared_at=NOW, completed_at=NOW
         )
-
-    assert store.records[identity.target_fence_digest].state is (ProviderAcceptanceState.UNKNOWN)
+    assert store.records[identity.target_fence_digest].state is ProviderAcceptanceState.UNKNOWN
 
 
 def test_orphan_prepared_moves_only_to_unknown() -> None:
     prepared = prepare_provider_acceptance(_identity(), prepared_at=NOW)
     unknown = quarantine_orphaned_provider_acceptance(
-        prepared,
-        quarantined_at=NOW,
-        evidence_digest="sha256:" + "6" * 64,
+        prepared, quarantined_at=NOW, evidence_digest="sha256:" + "6" * 64
     )
-
     validate_provider_acceptance_transition(prepared, unknown)
     assert unknown.state is ProviderAcceptanceState.UNKNOWN
     assert acceptance_effect_status(prepared) is EffectStatus.UNKNOWN
     assert acceptance_effect_status(unknown) is EffectStatus.UNKNOWN
-
     with pytest.raises(AuthorizationLifecycleError, match="initial prepared"):
         complete_provider_acceptance(
-            unknown,
-            result=_result(ProviderAcceptanceState.ACCEPTED),
-            completed_at=NOW,
+            unknown, result=_result(ProviderAcceptanceState.ACCEPTED), completed_at=NOW
         )
 
 
@@ -648,21 +531,19 @@ def test_terminal_record_rejects_forged_result_subclass() -> None:
         pass
 
     forged = object.__new__(_ForgedResult)
-    object.__setattr__(forged, "state", ProviderAcceptanceState.ACCEPTED)
-    object.__setattr__(forged, "evidence_digest", "sha256:" + "8" * 64)
-    object.__setattr__(forged, "non_acceptance_kind", None)
-    object.__setattr__(forged, "ambiguity_reason", None)
-    object.__setattr__(forged, "effect_verified", True)
-    object.__setattr__(forged, "execution_authority", True)
-    object.__setattr__(forged, "result_digest", "sha256:" + "9" * 64)
+    for key, val in (
+        ("state", ProviderAcceptanceState.ACCEPTED),
+        ("evidence_digest", "sha256:" + "8" * 64),
+        ("non_acceptance_kind", None),
+        ("ambiguity_reason", None),
+        ("effect_verified", True),
+        ("execution_authority", True),
+        ("result_digest", "sha256:" + "9" * 64),
+    ):
+        object.__setattr__(forged, key, val)
     prepared = prepare_provider_acceptance(_identity(), prepared_at=NOW)
-
     with pytest.raises(AuthorizationLifecycleError, match="exact submission result"):
-        complete_provider_acceptance(
-            prepared,
-            result=forged,
-            completed_at=NOW,
-        )
+        complete_provider_acceptance(prepared, result=forged, completed_at=NOW)
 
 
 def test_every_existing_state_blocks_resubmission() -> None:
@@ -670,15 +551,13 @@ def test_every_existing_state_blocks_resubmission() -> None:
     records = (
         prepared,
         complete_provider_acceptance(
-            prepared,
-            result=_result(ProviderAcceptanceState.ACCEPTED),
-            completed_at=NOW,
+            prepared, result=_result(ProviderAcceptanceState.ACCEPTED), completed_at=NOW
         ),
         complete_provider_acceptance(
             prepared,
             result=_result(
                 ProviderAcceptanceState.NOT_ACCEPTED,
-                kind=(ProviderNonAcceptanceEvidenceKind.PROVIDER_REJECTED_BEFORE_ACCEPTANCE),
+                kind=ProviderNonAcceptanceEvidenceKind.PROVIDER_REJECTED_BEFORE_ACCEPTANCE,
             ),
             completed_at=NOW,
         ),
@@ -691,7 +570,6 @@ def test_every_existing_state_blocks_resubmission() -> None:
             completed_at=NOW,
         ),
     )
-
     assert set(ProviderAcceptanceState) == {record.state for record in records}
     assert all(provider_submission_blocked(record) for record in records)
     assert provider_submission_blocked(None) is False
@@ -713,33 +591,111 @@ def test_non_acceptance_and_unknown_require_closed_evidence_shapes() -> None:
             ProviderAcceptanceState.ACCEPTED,
             kind=ProviderNonAcceptanceEvidenceKind.LOCAL_FENCE_DENIED,
         )
+    with pytest.raises(AuthorizationLifecycleError, match="MUST be terminal"):
+        _result(ProviderAcceptanceState.PREPARED)
+    accepted_res = _result(ProviderAcceptanceState.ACCEPTED)
+    with pytest.raises(AuthorizationLifecycleError, match="MUST NOT claim authority"):
+        replace(accepted_res, effect_verified=True)  # type: ignore[arg-type]
+    with pytest.raises(AuthorizationLifecycleError, match="result digest mismatch"):
+        replace(accepted_res, result_digest="sha256:" + "0" * 64)
 
 
 def test_identity_is_content_addressed_and_client_id_is_generation_bound() -> None:
     first = _identity()
     replay = _identity()
     next_generation = _identity(acceptance_generation=2)
-
     assert first == replay
     assert first.identity_digest == replay.identity_digest
     assert first.client_request_id == replay.client_request_id
     assert first.client_request_id != next_generation.client_request_id
     assert first.production_eligible is False
 
-    with pytest.raises(AuthorizationLifecycleError, match="digest mismatch"):
-        replace(first, identity_digest="sha256:" + "0" * 64)
+    for invalid_changes, match in (
+        ({"identity_digest": "sha256:" + "0" * 64}, "digest mismatch"),
+        ({"schema_version": "2.0.0"}, "unsupported provider acceptance identity"),
+        ({"provider_method": "PUT"}, "POST only"),
+        ({"source_revision_id": "invalid"}, "source revision MUST be immutable"),
+        ({"fencing_generation": 0}, "fencing_generation MUST be positive"),
+        ({"client_request_id": "not-a-uuid"}, "canonical UUID"),
+        ({"client_request_id": "0" * 32}, "canonical UUID"),
+        ({"execution_authority": True}, "no-authority and ineligible"),
+    ):
+        with pytest.raises(AuthorizationLifecycleError, match=match):
+            replace(first, **invalid_changes)  # type: ignore[arg-type]
 
 
-def test_permit_requires_initial_prepared_record() -> None:
-    prepared = prepare_provider_acceptance(_identity(), prepared_at=NOW)
+def test_record_store_and_digest_invariants_fail_closed() -> None:
+    identity = _identity()
+    prepared = prepare_provider_acceptance(identity, prepared_at=NOW)
     accepted = complete_provider_acceptance(
-        prepared,
-        result=_result(ProviderAcceptanceState.ACCEPTED),
-        completed_at=NOW,
+        prepared, result=_result(ProviderAcceptanceState.ACCEPTED), completed_at=NOW
     )
+    for changes, match in (
+        ({"schema_version": "2.0.0"}, "unsupported provider acceptance record"),
+        ({"identity": "bad"}, "exact identity"),
+        ({"state": "prepared"}, "state is invalid"),
+        ({"revision": 0}, "revision MUST be positive"),
+        ({"prior_record_digest": DIGESTS["a"]}, "initial provider acceptance record"),
+        ({"execution_authority": True}, "no-authority and ineligible"),
+        ({"record_digest": "sha256:" + "0" * 64}, "record digest mismatch"),
+    ):
+        with pytest.raises(AuthorizationLifecycleError, match=match):
+            replace(prepared, **changes)  # type: ignore[arg-type]
 
+    with pytest.raises(AuthorizationLifecycleError, match="transition MUST be terminal"):
+        replace(accepted, result=None)
+    with pytest.raises(AuthorizationLifecycleError, match="state MUST match"):
+        replace(accepted, state=ProviderAcceptanceState.UNKNOWN)
+    mutated_res = _result(ProviderAcceptanceState.ACCEPTED)
+    object.__setattr__(mutated_res, "effect_verified", True)
+    with pytest.raises(AuthorizationLifecycleError, match="result MUST remain no-authority"):
+        replace(accepted, result=mutated_res)
+    with pytest.raises(AuthorizationLifecycleError, match="not monotonic"):
+        validate_provider_acceptance_transition(prepared, prepared)
+    assert _payload_digest({"items": [NOW]}, "test", digest_field="d").startswith("sha256:")
+    with pytest.raises(TypeError, match="dataclass or mapping"):
+        _payload_digest("invalid", "test", digest_field="d")
+
+    permit = ProviderSubmissionPermit.create(prepared)
     with pytest.raises(AuthorizationLifecycleError, match="initial prepared"):
         ProviderSubmissionPermit.create(accepted)
+    with pytest.raises(AuthorizationLifecycleError, match="unsupported provider submission permit"):
+        replace(permit, schema_version="2.0.0")  # type: ignore[arg-type]
+    with pytest.raises(AuthorizationLifecycleError, match="no-authority and ineligible"):
+        replace(permit, execution_authority=True)  # type: ignore[arg-type]
+    with pytest.raises(AuthorizationLifecycleError, match="permit digest mismatch"):
+        replace(permit, permit_digest="sha256:" + "0" * 64)
+
+    with pytest.raises(AuthorizationLifecycleError, match="requires the exact prepared record"):
+        ProviderAcceptanceAcquireResult(
+            candidate_identity=identity,
+            decision=ProviderAcceptanceAcquireDecision.PERMITTED,
+            observed_record=prepared,
+            permit=None,
+        )
+    with pytest.raises(AuthorizationLifecycleError, match="MUST NOT issue a permit"):
+        ProviderAcceptanceAcquireResult(
+            candidate_identity=identity,
+            decision=ProviderAcceptanceAcquireDecision.DUPLICATE_SAME,
+            observed_record=prepared,
+            permit=permit,
+        )
+    with pytest.raises(AuthorizationLifecycleError, match="decision mismatched candidate"):
+        ProviderAcceptanceAcquireResult(
+            candidate_identity=identity,
+            decision=ProviderAcceptanceAcquireDecision.BLOCKED,
+            observed_record=prepared,
+            permit=None,
+        )
+    receipt = ProviderAcceptanceTransitionReceipt.create(
+        prior_record_digest=prepared.record_digest, record=accepted
+    )
+    with pytest.raises(AuthorizationLifecycleError, match="receipt is inconsistent"):
+        replace(receipt, execution_authority=True)  # type: ignore[arg-type]
+    with pytest.raises(AuthorizationLifecycleError, match="receipt digest mismatch"):
+        replace(receipt, receipt_digest="sha256:" + "0" * 64)
+    with pytest.raises(AuthorizationLifecycleError, match="target fence mismatch"):
+        classify_provider_acceptance(prepared, _identity(target_fence_digest=DIGESTS["b"]))
 
 
 def test_coordinator_rejects_non_process_local_store() -> None:

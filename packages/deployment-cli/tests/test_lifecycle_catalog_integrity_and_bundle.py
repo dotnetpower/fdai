@@ -21,7 +21,9 @@ from fdai_service_contracts.catalog_integrity import (
 from fdai_deployment_cli.lifecycle_plan import SignatureVerifier
 from fdai_deployment_cli.lifecycle_upgrade_bundle import (
     SignedConfigurationTransferItem,
+    SignedUpgradeBundle,
     build_signed_upgrade_bundle,
+    compute_upgrade_bundle_checksums,
     verify_and_import_upgrade_bundle,
 )
 
@@ -252,6 +254,81 @@ def test_upgrade_bundle_target_hub_import_rejects_bad_signature_checksum_mismatc
     with pytest.raises(ValueError, match="upgrade_bundle_configuration_package_unsigned"):
         verify_and_import_upgrade_bundle(
             unsigned_config_bundle,
+            verify_vendor_signature=verify_vendor,
+            verify_configuration_signature=verify_customer,
+        )
+
+    # 4. Field validation, lineage mismatch, layer digest mismatch, and bad config signature.
+    with pytest.raises(ValueError, match="package_id MUST NOT be empty"):
+        SignedConfigurationTransferItem(package_id=" ", payload=b"data", signature=b"sig")
+    with pytest.raises(ValueError, match="payload MUST NOT be empty"):
+        SignedConfigurationTransferItem(package_id="cfg-1", payload=b"", signature=b"sig")
+    with pytest.raises(ValueError, match="bundle_id MUST NOT be empty"):
+        SignedUpgradeBundle(
+            bundle_id=" ",
+            extends_bundle_id=None,
+            catalog_export_bytes=b"catalog",
+        )
+    with pytest.raises(ValueError, match="catalog_export_bytes MUST NOT be empty"):
+        SignedUpgradeBundle(
+            bundle_id="bundle-empty",
+            extends_bundle_id=None,
+            catalog_export_bytes=b"",
+        )
+    with pytest.raises(ValueError, match="image_layers keys MUST be sha256"):
+        SignedUpgradeBundle(
+            bundle_id="bundle-bad-layer",
+            extends_bundle_id=None,
+            catalog_export_bytes=b"catalog",
+            image_layers={"not-a-digest": b"bytes"},
+        )
+    with pytest.raises(ValueError, match="image_layers keys MUST be sha256"):
+        compute_upgrade_bundle_checksums(
+            catalog_export_bytes=b"catalog",
+            image_layers={"not-a-digest": b"bytes"},
+        )
+
+    with pytest.raises(ValueError, match="upgrade_bundle_lineage_mismatch"):
+        verify_and_import_upgrade_bundle(
+            bundle,
+            verify_vendor_signature=verify_vendor,
+            verify_configuration_signature=verify_customer,
+            expected_previous_bundle_id="bundle-9999",
+        )
+
+    wrong_digest_key = "sha256:" + "0" * 64
+    mismatched_layer_bundle = build_signed_upgrade_bundle(
+        bundle_id="bundle-layer-mismatch",
+        extends_bundle_id=None,
+        catalog_export_bytes=b'{"releases":{"1.6.0":{}}}',
+        image_layers={wrong_digest_key: layer_bytes},
+        sign_checksums=vendor_key.sign,
+    )
+    with pytest.raises(ValueError, match="upgrade_bundle_checksum_mismatch"):
+        verify_and_import_upgrade_bundle(
+            mismatched_layer_bundle,
+            verify_vendor_signature=verify_vendor,
+        )
+
+    with pytest.raises(ValueError, match="upgrade_bundle_configuration_package_signature_invalid"):
+        verify_and_import_upgrade_bundle(
+            bundle,
+            verify_vendor_signature=verify_vendor,
+            verify_configuration_signature=None,
+        )
+    bad_config_sig_bundle = replace(
+        bundle,
+        configuration_packages=(
+            SignedConfigurationTransferItem(
+                package_id="cfg-bad-sig",
+                payload=config_payload,
+                signature=vendor_key.sign(b"wrong"),
+            ),
+        ),
+    )
+    with pytest.raises(ValueError, match="upgrade_bundle_configuration_package_signature_invalid"):
+        verify_and_import_upgrade_bundle(
+            bad_config_sig_bundle,
             verify_vendor_signature=verify_vendor,
             verify_configuration_signature=verify_customer,
         )

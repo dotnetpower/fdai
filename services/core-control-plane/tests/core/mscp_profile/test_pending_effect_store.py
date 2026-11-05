@@ -16,6 +16,7 @@ from fdai.core.mscp_profile.effect_verification import (
 from fdai.core.mscp_profile.pending_effect_store import (
     PendingEffectConflictError,
     PendingEffectOwnershipError,
+    PendingEffectRecord,
     PendingEffectStaleRevisionError,
     PendingEffectStatus,
     StateStorePendingEffectStore,
@@ -253,3 +254,118 @@ async def test_pending_version_one_record_replays_without_inventing_verification
     assert replay.status is PendingEffectStatus.PENDING
     assert replay.verification_status is None
     assert replay.verification_reason is None
+
+
+async def test_pending_effect_record_and_store_validation_edges() -> None:
+    state = InMemoryStateStore()
+    store = StateStorePendingEffectStore(state)
+    reg = await _register(store)
+
+    with pytest.raises(ValueError, match="bounded non-empty text"):
+        replace(reg, action_type=" ")
+    with pytest.raises(ValueError, match="revisions MUST be non-negative"):
+        replace(reg, revision=0)
+    with pytest.raises(ValueError, match="MUST be a SHA-256 digest"):
+        replace(reg, effect_digest="bad")
+    with pytest.raises(ValueError, match="does not match immutable content"):
+        replace(reg, effect_digest="sha256:" + "0" * 64)
+    with pytest.raises(ValueError, match="MUST NOT carry ownership"):
+        replace(reg, owner_id="owner-1")
+    with pytest.raises(ValueError, match="MUST NOT carry verification"):
+        replace(reg, verification_status=EffectVerificationStatus.VERIFIED)
+    with pytest.raises(ValueError, match="requires one active owner lease"):
+        replace(reg, status=PendingEffectStatus.CLAIMED)
+    with pytest.raises(ValueError, match="claimed effect MUST NOT carry verification"):
+        replace(
+            reg,
+            status=PendingEffectStatus.CLAIMED,
+            owner_id="owner-1",
+            lease_until=_NOW + timedelta(minutes=1),
+            verification_status=EffectVerificationStatus.VERIFIED,
+        )
+    with pytest.raises(ValueError, match="requires retained ownership and completion"):
+        replace(reg, status=PendingEffectStatus.COMPLETED)
+    with pytest.raises(ValueError, match="remain inside its owner lease"):
+        replace(
+            reg,
+            status=PendingEffectStatus.COMPLETED,
+            owner_id="owner-1",
+            lease_until=_NOW + timedelta(minutes=1),
+            completed_at=_NOW + timedelta(minutes=2),
+            verification_status=EffectVerificationStatus.VERIFIED,
+            verification_reason=EffectVerificationReason.WITHIN_ACCEPTABLE_RANGE,
+        )
+    with pytest.raises(ValueError, match="requires one verification result"):
+        replace(
+            reg,
+            status=PendingEffectStatus.COMPLETED,
+            owner_id="owner-1",
+            lease_until=_NOW + timedelta(minutes=1),
+            completed_at=_NOW + timedelta(seconds=30),
+        )
+
+    raw = reg.to_mapping()
+    for field, bad_val, match in (
+        ("action_type", "", "MUST be non-empty text"),
+        ("owner_id", 123, "MUST be text or null"),
+        ("acceptable_min", True, "MUST be numeric"),
+        ("revision", True, "MUST be an integer"),
+        ("verification_status", 123, "MUST be text or null"),
+    ):
+        with pytest.raises(ValueError, match=match):
+            PendingEffectRecord.from_mapping({**raw, field: bad_val})
+
+    with pytest.raises(KeyError):
+        await store.get("missing-prediction")
+    with pytest.raises(ValueError, match="prediction_id MUST be non-empty"):
+        await store.get(" ")
+    with pytest.raises(ValueError, match="limit MUST be between"):
+        await store.list_ready(now=_NOW, limit=0)
+    with pytest.raises(ValueError, match="owner_id MUST be bounded"):
+        await store.claim(
+            reg.expected.prediction_id,
+            owner_id=" ",
+            expected_revision=reg.revision,
+            now=_NOW,
+            lease_until=_NOW + timedelta(minutes=1),
+        )
+    with pytest.raises(ValueError, match="timezone-aware"):
+        await store.claim(
+            reg.expected.prediction_id,
+            owner_id="owner-1",
+            expected_revision=reg.revision,
+            now=datetime(2026, 8, 29),
+            lease_until=_NOW + timedelta(minutes=1),
+        )
+    with pytest.raises(ValueError, match="lease_until MUST be later"):
+        await store.claim(
+            reg.expected.prediction_id,
+            owner_id="owner-1",
+            expected_revision=reg.revision,
+            now=_NOW,
+            lease_until=_NOW,
+        )
+
+    claimed = await store.claim(
+        reg.expected.prediction_id,
+        owner_id="owner-1",
+        expected_revision=reg.revision,
+        now=_NOW,
+        lease_until=_NOW + timedelta(minutes=1),
+    )
+    completed = await store.complete(
+        reg.expected.prediction_id,
+        owner_id="owner-1",
+        owner_generation=claimed.owner_generation,
+        expected_revision=claimed.revision,
+        completed_at=_NOW + timedelta(seconds=30),
+        result=_VERIFIED,
+    )
+    with pytest.raises(PendingEffectOwnershipError, match="completed effect cannot be claimed"):
+        await store.claim(
+            reg.expected.prediction_id,
+            owner_id="owner-2",
+            expected_revision=completed.revision,
+            now=_NOW + timedelta(minutes=2),
+            lease_until=_NOW + timedelta(minutes=3),
+        )

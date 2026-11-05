@@ -8,19 +8,26 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 
-from fdai_deployment_cli.contracts import canonical_bytes
+from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
 from fdai_deployment_cli.lifecycle_configuration import (
     ConfigurationValidationError,
     resolve_configuration_layers,
+)
+from fdai_deployment_cli.lifecycle_configuration_entities import (
+    EntityConfigurationInput,
+    InstallationConfigurationInput,
 )
 from fdai_deployment_cli.lifecycle_configuration_package import (
     ConfigurationHistoryBinding,
     ConfigurationPackageInput,
     SignedConfigurationPackage,
     build_configuration_package,
+    build_installation_configuration_package,
     decrypt_configuration_identifiers,
-    verify_configuration_package,
+    decrypt_installation_configuration_identifiers,
     verify_configuration_history,
+    verify_configuration_package,
+    verify_installation_configuration_package,
 )
 from fdai_deployment_cli.lifecycle_configuration_sealing import (
     encryption_key_digest,
@@ -616,3 +623,139 @@ def test_decryption_checks_plaintext_keys_and_content_digest(
             configuration_schema=source.configuration_schema,
             sealed_keys=source.sealed_keys,
         )
+
+
+def test_history_bounds_and_verify_configuration_history_branches(
+    source: ConfigurationPackageInput,
+    signing_key: Ed25519PrivateKey,
+    installation_key: X25519PrivateKey,
+) -> None:
+    first = _build(source, signing_key, installation_key)
+    recipient_digest = encryption_key_digest(installation_key.public_key())
+    binding = ConfigurationHistoryBinding(signing_key.public_key(), recipient_digest)
+
+    verify_configuration_history((), bindings=())
+    verify_configuration_history((first,), bindings=(binding,))
+
+    with pytest.raises(ValueError, match="history exceeds its bound"):
+        verify_configuration_package(
+            first,
+            configuration_key=signing_key.public_key(),
+            installation_key_digest=recipient_digest,
+            configuration_schema=source.configuration_schema,
+            sealed_keys=source.sealed_keys,
+            history=(first,) * 257,
+        )
+    with pytest.raises(ValueError, match="bindings are incomplete"):
+        verify_configuration_package(
+            first,
+            configuration_key=signing_key.public_key(),
+            installation_key_digest=recipient_digest,
+            configuration_schema=source.configuration_schema,
+            sealed_keys=source.sealed_keys,
+            history=(first,),
+            history_bindings=(),
+        )
+
+
+def test_installation_configuration_package_build_verify_decrypt_and_rejections(
+    source: ConfigurationPackageInput,
+    signing_key: Ed25519PrivateKey,
+    installation_key: X25519PrivateKey,
+) -> None:
+    entity_id, other_entity_id, release_digest = "1" * 64, "2" * 64, "d" * 64
+    recipient_digest = encryption_key_digest(installation_key.public_key())
+    entity_ids = frozenset({entity_id})
+
+    install_source = InstallationConfigurationInput(
+        revision_id=source.revision_id,
+        release_version=source.release_version,
+        release_digest=release_digest,
+        configuration_schema=source.configuration_schema,
+        environment_config=source.environment_config,
+        sealed_values={"tenant_id": source.sealed_values["tenant_id"]},
+        sealed_keys=source.sealed_keys,
+        entities=(
+            EntityConfigurationInput(
+                entity_id=entity_id,
+                entity_overrides=source.entity_overrides,
+                sealed_values={"endpoint": source.sealed_values["endpoint"]},
+            ),
+        ),
+    )
+
+    def verify_install(
+        candidate: SignedConfigurationPackage, version: str = source.release_version
+    ):
+        return verify_installation_configuration_package(
+            candidate,
+            configuration_key=signing_key.public_key(),
+            installation_key_digest=recipient_digest,
+            configuration_schema=source.configuration_schema,
+            sealed_keys=source.sealed_keys,
+            entity_ids=entity_ids,
+            release_version=version,
+            release_digest=release_digest,
+        )
+
+    def decrypt_install(candidate: SignedConfigurationPackage, eid: str = entity_id):
+        return decrypt_installation_configuration_identifiers(
+            candidate,
+            entity_id=eid,
+            configuration_key=signing_key.public_key(),
+            installation_key=installation_key,
+            configuration_schema=source.configuration_schema,
+            sealed_keys=source.sealed_keys,
+            entity_ids=entity_ids,
+            release_version=source.release_version,
+            release_digest=release_digest,
+        )
+
+    with pytest.raises(ValueError, match="Release manifest digest is invalid"):
+        build_installation_configuration_package(
+            replace(install_source, release_digest="invalid"),
+            entity_ids=entity_ids,
+            signing_key=signing_key,
+            installation_key=installation_key.public_key(),
+        )
+
+    pkg = build_installation_configuration_package(
+        install_source,
+        entity_ids=entity_ids,
+        signing_key=signing_key,
+        installation_key=installation_key.public_key(),
+    )
+
+    with pytest.raises(ValueError, match="single-Entity reader cannot consume"):
+        _verify(pkg, source, signing_key, installation_key)
+    with pytest.raises(ValueError, match="Release manifest digest is invalid"):
+        verify_install(_resign(pkg, signing_key, release_digest="invalid"))
+    with pytest.raises(ValueError, match="installation configuration format or Release"):
+        verify_install(pkg, version="9.9.9")
+
+    assert verify_install(pkg).entities[entity_id].values["replicas"] == 4
+    assert decrypt_install(pkg) == source.sealed_values
+
+    with pytest.raises(ValueError, match="requested Entity is not selected"):
+        decrypt_install(pkg, eid=other_entity_id)
+
+    doc = json.loads(pkg.payload)
+    doc.pop("sealed")
+    bad_sealed: dict[str, object] = {entity_id: {"unexpected": "value"}}
+    doc["input_digest"] = canonical_digest(
+        {
+            "configuration": doc["configuration"],
+            "release_version": doc["release_version"],
+            "sealed_values": bad_sealed,
+            "installation_key_digest": doc["installation_key_digest"],
+            "sealed_keys": doc["sealed_keys"],
+            "release_digest": doc["release_digest"],
+        }
+    )
+    doc["sealed"] = seal_identifiers(
+        bad_sealed, installation_key.public_key(), context=canonical_bytes(doc)
+    )
+    bad_payload = canonical_bytes(doc)
+    bad_pkg = SignedConfigurationPackage(bad_payload, signing_key.sign(bad_payload))
+    with pytest.raises(ValueError, match="sealed Entity identifier coverage does not match"):
+        decrypt_install(bad_pkg)

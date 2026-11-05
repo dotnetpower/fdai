@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Mapping
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Any, cast
@@ -27,9 +28,15 @@ from fdai.core.operational_learning.patterns import (
     pattern_case_from_operational_case,
 )
 from fdai.core.tiers.t1_lightweight.retained_pattern_bindings import (
+    FINAL_QUALIFICATION_PURPOSE,
     BoundRetainedPatternAction,
     BoundRetainedPatternRequest,
+    RetainedPatternQualification,
     RetainedReuseStatistics,
+)
+from fdai.core.tiers.t1_lightweight.retained_pattern_lease import (
+    LeaseGuard,
+    RetainedPatternLeaseEvidence,
 )
 from fdai.core.tiers.t1_lightweight.retained_patterns import (
     RetainedPatternRequest,
@@ -54,6 +61,7 @@ from fdai.shared.contracts.models import (
 )
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from fdai_service_contracts.ontology_query import content_digest
 
 from tests.core.case_history.test_operational_case import T0, _case_input, _receipt
 
@@ -176,15 +184,9 @@ async def _retained(*, positives: int = 2) -> _Harness:
             )
             for receipt in raw.receipts
         )
-        raw = replace(
-            raw,
-            case_identity_digest=f"{index + 1:x}" * 64,
-            receipts=receipts,
-        )
+        raw = replace(raw, case_identity_digest=f"{index + 1:x}" * 64, receipts=receipts)
         sealed = await materializer.seal_operational_case(
-            raw,
-            retention_until=T0 + timedelta(days=30),
-            deletion_due_at=T0 + timedelta(days=60),
+            raw, retention_until=T0 + timedelta(days=30), deletion_due_at=T0 + timedelta(days=60)
         )
         pattern_case = pattern_case_from_operational_case(raw, sealed.projection)
         assert pattern_case is not None
@@ -192,10 +194,7 @@ async def _retained(*, positives: int = 2) -> _Harness:
     compiled = OperatingPatternCompiler().compile(cases, reviewed_at=NOW)
     assert compiled is not None
     projections = CaseHistoryProjectionStore(
-        store=durable,
-        materializer=materializer,
-        access_scope_digest="f" * 64,
-        clock=lambda: NOW,
+        store=durable, materializer=materializer, access_scope_digest="f" * 64, clock=lambda: NOW
     )
     assert await projections.write_state_if_absent(
         f"cohort:pattern:{compiled.pattern_id}",
@@ -211,56 +210,36 @@ async def _retained(*, positives: int = 2) -> _Harness:
             "promotion_authority": False,
         },
     )
-    request = RetainedPatternRequest(
-        context=FunctionInvocationContext(
-            caller_agent="Bragi",
-            principal_ref="example-operator",
-            principal_scope_digest="sha256:" + "f" * 64,
-            authentication_receipt_ref="sha256:" + "e" * 64,
-            authentication_request_ref="example-request",
-            purposes=("operations-review",),
-        ),
-        access_scope_digest="f" * 64,
-        purpose="operational-learning",
-        failure_fingerprint=cases[0].failure_fingerprint,
+    c0, scope = cases[0], "f" * 64
+    f_ctx = FunctionInvocationContext(
+        caller_agent="Bragi",
+        principal_ref="example-operator",
+        principal_scope_digest="sha256:" + scope,
+        authentication_receipt_ref="sha256:" + "e" * 64,
+        authentication_request_ref="example-request",
+        purposes=("operations-review",),
     )
+    request = RetainedPatternRequest(f_ctx, scope, "operational-learning", c0.failure_fingerprint)
+    c_args = (c0.immutable_case_ref, c0.failure_fingerprint, c0.resource_type, c0.action_type)
     context = OperationalCaseContext(
-        case_ref=cases[0].immutable_case_ref,
-        failure_fingerprint=request.failure_fingerprint,
-        resource_type=cases[0].resource_type,
-        action_type=cases[0].action_type,
-        required_topology_role="serves",
-        graph_digest="b" * 64,
-        owner_digest="c" * 64,
-        evidence_cutoff=T0,
-        access_scope_digest=request.access_scope_digest,
-        purpose=request.purpose,
+        *c_args, "serves", "b" * 64, "c" * 64, T0, scope, request.purpose
     )
-    # Explicit fixture reuse observations; these are NOT the cohort's 2+/1- counts.
-    action = LearnedAction(
-        signature=compiled.pattern_id,
-        rule_id="learned.operational.example",
-        action_type=compiled.action_type,
-        params={"count": 2},
-        incident_id=cases[0].case_id,
-        success_rate=0.95,
-        reuse_count=20,
-        operational_case=context,
-    )
+    a_args = (compiled.pattern_id, "learned.operational.example", compiled.action_type)
+    action = LearnedAction(*a_args, {"count": 2}, c0.case_id, 0.95, 20, context)
+    p = {"count": {"type": "integer"}}
+    gate = PromotionGate(min_shadow_days=1, min_samples=1, min_accuracy=1.0, max_policy_escapes=0)
     registered = OntologyActionType(
         schema_version="1.0.0",
         name=action.action_type,
         version="1.0.0",
         operation=Operation.SCALE,
         rollback_contract=RollbackKind.STATE_FORWARD_ONLY,
-        promotion_gate=PromotionGate(
-            min_shadow_days=1, min_samples=1, min_accuracy=1.0, max_policy_escapes=0
-        ),
+        promotion_gate=gate,
         argument_schema={
             "type": "object",
             "additionalProperties": False,
             "required": ["count"],
-            "properties": {"count": {"type": "integer"}},
+            "properties": p,
         },
     )
     admission = _ReadAdmission()
@@ -271,30 +250,12 @@ async def _retained(*, positives: int = 2) -> _Harness:
         source_revision="a" * 40,
         clock=lambda: NOW,
     )
-    harness = _Harness(
-        None,  # type: ignore[arg-type]
-        materializer,
-        metadata,
-        artifacts,
-        durable,
-        query,
-        admission,
-        request,
-        action,
-        tuple(cases),
-        {action.action_type: registered},
-    )
-    harness.statistics = RetainedReuseStatistics(
-        action_signature=action.signature,
-        case_ref=context.case_ref,
-        access_scope_digest=request.access_scope_digest,
-        source_revision=context.graph_digest,
-        evidence_ref="9" * 64,
-        verified_successes=19,
-        technical_failures=1,
-        observed_at=T0 + timedelta(seconds=2),
-        valid_until=T0 + timedelta(minutes=5),
-    )
+    h_args = (None, materializer, metadata, artifacts, durable, query, admission)
+    reg = {action.action_type: registered}
+    harness = _Harness(*h_args, request, action, tuple(cases), reg)  # type: ignore[arg-type]
+    s_args = (action.signature, context.case_ref, scope, context.graph_digest, "9" * 64, 19, 1)
+    t_obs, t_exp = T0 + timedelta(seconds=2), T0 + timedelta(minutes=5)
+    harness.statistics = RetainedReuseStatistics(*s_args, t_obs, t_exp)
     harness.restart()
     return harness
 
@@ -309,23 +270,18 @@ async def test_retained_source_enters_next_comparison_and_restarts_without_copyi
     for _ in range(2):
         result = await harness.tier().evaluate(event=_event())
         comparison = result.retained_pattern_comparison
-        assert comparison is not None
-        assert result.outcome is T1Outcome.ABSTAIN
-        assert result.reason == "no_neighbour_found"
-        assert result.best_match is None
-        assert comparison.challenger_match is None
+        assert comparison is not None and result.outcome is T1Outcome.ABSTAIN
+        assert result.reason == "no_neighbour_found" and result.best_match is None
+        assert comparison.challenger_match is None and not comparison.candidates
         assert comparison.stop_reason == "retained_pattern_qualification_unavailable"
-        assert not comparison.candidates
         assert comparison.audit_mapping()["operationally_proven"] is False
         assert comparison.audit_mapping()["execution_authority"] is False
         assert "params" not in str(comparison.audit_mapping())
         row = await _audit(result)
         persisted = row["t1_retained_pattern_comparison"]
         assert persisted["schema_version"] == "1.0.0"
-        assert persisted["actual_selection_changed"] is False
-        assert persisted["operationally_proven"] is False
-        assert persisted["statistics_refs"] == []
-        assert persisted["candidates"] == []
+        assert not persisted["actual_selection_changed"] and not persisted["operationally_proven"]
+        assert persisted["statistics_refs"] == [] and persisted["candidates"] == []
         assert persisted["challenger"]["match_identity_digest"] is None
         assert row["t1_outcome"] == "abstain" and row["t1_best_match"] is None
         assert all("params" not in candidate for candidate in persisted["candidates"])
@@ -403,14 +359,15 @@ async def test_source_drift_deletion_and_scope_abstain(mutation: str) -> None:
     harness.restart()
     result = await harness.tier().evaluate(event=_event())
     assert result.retained_pattern_comparison is not None
-    assert result.retained_pattern_comparison.challenger_match is None
-    assert harness.calls == 0
+    assert result.retained_pattern_comparison.challenger_match is None and harness.calls == 0
 
 
 @pytest.mark.parametrize(
     ("change", "reason"),
     [
         ({"params": {}}, "retained_pattern_arguments_invalid"),
+        ({"params": ["not-a-mapping"]}, "retained_pattern_arguments_invalid"),
+        ({"params": {"count": "x" * 70000}}, "retained_pattern_arguments_invalid"),
         ({"operational_case": None}, "retained_pattern_context_mismatch"),
         ({"reuse_count": 0}, "retained_pattern_reuse_statistics_unavailable"),
     ],
@@ -425,11 +382,9 @@ async def test_missing_action_grounding_is_explicit(change: dict[str, Any], reas
 
 async def test_one_positive_one_negative_is_not_proven_even_with_resolver_statistics() -> None:
     harness = await _retained(positives=1)
-    result = await harness.tier().evaluate(event=_event())
-    comparison = result.retained_pattern_comparison
-    assert comparison is not None
+    comparison = (await harness.tier().evaluate(event=_event())).retained_pattern_comparison
+    assert comparison is not None and comparison.challenger_match is None
     assert comparison.stop_reason == "retained_pattern_insufficient_positive_cases"
-    assert comparison.challenger_match is None
     assert comparison.audit_mapping()["operationally_proven"] is False
 
 
@@ -444,8 +399,7 @@ async def test_registration_and_independent_admissions_are_required(missing: str
     result = await harness.tier(verifier=verifier).evaluate(event=_event())
     comparison = result.retained_pattern_comparison
     assert comparison is not None and comparison.challenger_match is None
-    assert comparison.stop_reason is not None
-    assert result.reason == "no_neighbour_found"
+    assert comparison.stop_reason is not None and result.reason == "no_neighbour_found"
 
 
 async def test_negative_member_deleted_during_current_verification_clears_candidates() -> None:
@@ -460,10 +414,10 @@ async def test_negative_member_deleted_during_current_verification_clears_candid
             await harness.artifacts.delete(record.storage_ref)
             return await super().verify(**values)  # type: ignore[no-untyped-call]
 
-    result = await harness.tier(verifier=_DeleteDuring()).evaluate(event=_event())
-    comparison = result.retained_pattern_comparison
-    assert comparison is not None
-    assert comparison.stop_reason == "retained_pattern_source_changed"
+    comparison = (
+        await harness.tier(verifier=_DeleteDuring()).evaluate(event=_event())
+    ).retained_pattern_comparison
+    assert comparison is not None and comparison.stop_reason == "retained_pattern_source_changed"
     assert not comparison.candidates and comparison.challenger_match is None
 
 
@@ -478,8 +432,7 @@ async def test_baseline_provider_failure_never_uses_retained_source(
             raise failure("provider failed")
 
     result = await harness.tier(library=_Failing(())).evaluate(event=_event())
-    assert result.reason == f"t1_provider_error:{failure.__name__}"
-    assert harness.calls == 0
+    assert result.reason == f"t1_provider_error:{failure.__name__}" and harness.calls == 0
     assert result.retained_pattern_comparison is not None
     assert result.retained_pattern_comparison.stop_reason == "baseline_comparison_stopped"
 
@@ -487,7 +440,6 @@ async def test_baseline_provider_failure_never_uses_retained_source(
 async def test_source_timeout_preserves_completed_baseline_and_existing_comparison() -> None:
     harness = await _retained()
     library = _Library((SimilarityMatch(replace(harness.action, operational_case=None), 0.99),))
-    # Use a non-operational baseline so its legacy checks are complete before source I/O.
     library.matches = (
         replace(library.matches[0], action=replace(library.matches[0].action, rule_id="baseline")),
     )
@@ -499,8 +451,7 @@ async def test_source_timeout_preserves_completed_baseline_and_existing_comparis
 
     harness.source._request_source = blocked
     result = await harness.tier(library=library, timeout=0.02).evaluate(event=_event())
-    assert _actual(result) == baseline
-    assert result.eligibility_comparison is not None
+    assert _actual(result) == baseline and result.eligibility_comparison is not None
     assert result.eligibility_comparison.challenger_match is library.matches[0]
     assert result.retained_pattern_comparison is not None
     assert result.retained_pattern_comparison.stop_reason == "t1_deadline_exceeded"
@@ -517,7 +468,20 @@ async def test_caller_cancellation_propagates_from_intake() -> None:
         await harness.tier().evaluate(event=_event())
 
 
-@pytest.mark.parametrize("response", [{}, {"patterns": [None]}, None])
+@pytest.mark.parametrize(
+    "response",
+    [
+        {},
+        {"patterns": [None]},
+        None,
+        {
+            "patterns": [{}],
+            "unavailable": False,
+            "truncated": False,
+            "execution_authority": False,
+        },
+    ],
+)
 async def test_malformed_query_is_bounded_and_does_not_change_baseline(response: Any) -> None:
     harness = await _retained()
 
@@ -558,17 +522,16 @@ async def test_concrete_server_bindings_are_event_and_pattern_scoped() -> None:
     result = await harness.tier().evaluate(event=_event())
     assert result.retained_pattern_comparison is not None
     assert result.retained_pattern_comparison.challenger_match is None
-    assert result.retained_pattern_comparison.stop_reason == (
-        "retained_pattern_qualification_unavailable"
+    assert (
+        result.retained_pattern_comparison.stop_reason
+        == "retained_pattern_qualification_unavailable"
     )
     changed_event = _event().model_copy(update={"event_id": _event().event_id.__class__(int=2)})
     assert await request(changed_event) is None
     assert await bound.resolve(_event(), {"pattern_id": "0" * 64}) is None
     assert await bound.read_statistics(changed_event, bound.match) is None
-    assert (
-        await replace(bound, statistics_provider=None).read_statistics(_event(), bound.match)
-        is None
-    )
+    no_prov = replace(bound, statistics_provider=None)
+    assert await no_prov.read_statistics(_event(), bound.match) is None
     assert await bound.read_statistics(_event(), bound.match) is harness.statistics
     harness.statistics = None
     assert await bound.read_statistics(_event(), bound.match) is None
@@ -587,13 +550,10 @@ async def test_independent_measured_statistics_are_required(change: str) -> None
     elif change == "scope":
         harness.statistics = replace(harness.statistics, access_scope_digest="e" * 64)
     else:
-        # Refusal and rollback cohort controls never increase the technical denominator.
         harness.action = replace(harness.action, success_rate=2 / 3, reuse_count=3)
-    result = await harness.tier().evaluate(event=_event())
-    comparison = result.retained_pattern_comparison
-    assert comparison is not None
+    comparison = (await harness.tier().evaluate(event=_event())).retained_pattern_comparison
+    assert comparison is not None and comparison.challenger_match is None
     assert comparison.stop_reason == "retained_pattern_statistics_unavailable"
-    assert comparison.challenger_match is None
 
 
 async def test_negative_case_cannot_be_the_reusable_action_origin() -> None:
@@ -607,11 +567,9 @@ async def test_negative_case_cannot_be_the_reusable_action_origin() -> None:
             harness.action.operational_case, case_ref=negative.immutable_case_ref
         ),
     )
-    result = await harness.tier().evaluate(event=_event())
-    comparison = result.retained_pattern_comparison
-    assert comparison is not None
+    comparison = (await harness.tier().evaluate(event=_event())).retained_pattern_comparison
+    assert comparison is not None and comparison.challenger_match is None
     assert comparison.stop_reason == "retained_pattern_positive_case_required"
-    assert comparison.challenger_match is None
 
 
 @pytest.mark.parametrize("failure_stage", ["request", "resolver", "statistics"])
@@ -631,9 +589,8 @@ async def test_optional_provider_failures_are_typed_without_provider_text(
         harness.source._statistics_source = failed
     result = await harness.tier().evaluate(event=_event())
     comparison = result.retained_pattern_comparison
-    assert comparison is not None
+    assert comparison is not None and not comparison.candidates
     assert comparison.stop_reason == "retained_pattern_error:PermissionError"
-    assert not comparison.candidates
     assert "private" not in str((await _audit(result))["t1_retained_pattern_comparison"])
 
 
@@ -654,8 +611,9 @@ async def test_withdrawn_source_or_admission_cannot_survive_final_read(withdrawa
 
     result = await harness.tier(verifier=_Withdraw()).evaluate(event=_event())
     comparison = result.retained_pattern_comparison
-    assert comparison is not None
-    assert not comparison.candidates and comparison.challenger_match is None
+    assert (
+        comparison is not None and not comparison.candidates and comparison.challenger_match is None
+    )
     assert comparison.stop_reason in (
         "retained_pattern_error:PermissionError",
         "retained_pattern_evidence_changed",
@@ -668,11 +626,9 @@ async def test_baseline_policy_denial_cannot_be_bypassed_by_the_isolated_source(
     result = await harness.tier(library=library, verifier=_Verifier(policy_allowed=False)).evaluate(
         event=_event()
     )
-    assert result.outcome is T1Outcome.ABSTAIN
-    assert "current_policy_denied" in result.reasons
-    assert result.retained_pattern_comparison is not None
+    assert result.outcome is T1Outcome.ABSTAIN and "current_policy_denied" in result.reasons
+    assert result.retained_pattern_comparison is not None and harness.calls == 0
     assert result.retained_pattern_comparison.stop_reason == "baseline_comparison_stopped"
-    assert harness.calls == 0
 
 
 async def test_baseline_timeout_does_not_start_any_optional_intake() -> None:
@@ -686,22 +642,24 @@ async def test_baseline_timeout_does_not_start_any_optional_intake() -> None:
         result = await harness.tier(compare=compare, library=_Blocked(()), timeout=0.01).evaluate(
             event=_event()
         )
-        assert result.reason == "t1_deadline_exceeded"
-        assert result.retained_pattern_comparison is None
+        assert (
+            result.reason == "t1_deadline_exceeded" and result.retained_pattern_comparison is None
+        )
     assert harness.calls == 0
 
 
 async def test_registered_argument_schema_never_resolves_remote_references() -> None:
     harness = await _retained()
     registered = harness.registry[harness.action.action_type]
-    harness.registry[registered.name] = registered.model_copy(
-        update={"argument_schema": {"$ref": "https://example.com/action-schema"}}
-    )
-    result = await harness.tier().evaluate(event=_event())
-    comparison = result.retained_pattern_comparison
-    assert comparison is not None
-    assert comparison.challenger_match is None
-    assert comparison.stop_reason == "retained_pattern_argument_schema_unavailable"
+    for schema in ({"$ref": "https://example.com/action-schema"}, None):
+        harness.registry[registered.name] = registered.model_copy(
+            update={"argument_schema": schema}
+        )
+        comparison = (await harness.tier().evaluate(event=_event())).retained_pattern_comparison
+        assert (
+            comparison is not None
+            and comparison.stop_reason == "retained_pattern_argument_schema_unavailable"
+        )
 
 
 async def test_measurement_expiry_during_final_authorized_read_clears_eligibility() -> None:
@@ -716,8 +674,100 @@ async def test_measurement_expiry_during_final_authorized_read_clears_eligibilit
         return harness.statistics
 
     harness.source._statistics_source = statistics
-    result = await harness.tier().evaluate(event=_event())
-    comparison = result.retained_pattern_comparison
-    assert comparison is not None
-    assert comparison.stop_reason == "retained_pattern_evidence_changed"
+    comparison = (await harness.tier().evaluate(event=_event())).retained_pattern_comparison
+    assert comparison is not None and comparison.stop_reason == "retained_pattern_evidence_changed"
     assert not comparison.candidates and comparison.challenger_match is None
+
+
+def _lease_for(
+    bound: RetainedPatternQualification, *, active: bool = True
+) -> RetainedPatternLeaseEvidence:
+    val = bound.descriptor
+    read, reuse = val["read"], val["reuse"]
+    args, principal = read["arguments"], read["principal"]
+    raw_reuse = dict(reuse["admission"])
+    raw_reuse["verified_at"] = datetime.fromisoformat(raw_reuse["verified_at"])
+    raw_reuse["valid_until"] = datetime.fromisoformat(raw_reuse["valid_until"])
+    scope = {
+        "principal_scope": principal["principal_scope_digest"],
+        "case_scope": args["access_scope_digest"],
+        "purpose": args["purpose"],
+    }
+    ev_dig = content_digest({"arguments": args, "principal": principal})
+    adm_args = ("sha256:" + "a" * 64, "sha256:" + "b" * 64, ev_dig, content_digest(scope))
+    read_adm = DecisionEvidenceAdmission(
+        *adm_args, "case-history-read", read["source_revision"], T0, T0 + timedelta(days=1)
+    )
+    l_args = (bound.evidence_digest, bound.scope_digest, "sha256:" + "d" * 64)
+    return RetainedPatternLeaseEvidence(
+        *l_args,
+        T0 + timedelta(minutes=10),
+        read_adm,
+        DecisionEvidenceAdmission(**raw_reuse),
+        LeaseGuard(active=active),
+    )
+
+
+class _LeasedStub:
+    def __init__(self, mode: str, harness: _Harness) -> None:
+        self._mode, self._harness = mode, harness
+
+    @asynccontextmanager
+    async def lease(self, req: RetainedPatternQualification) -> AsyncIterator[Any]:
+        if self._mode == "lease_stale":
+            self._harness.now = T0 + timedelta(minutes=6)
+        yield (
+            None
+            if self._mode == "lease_none"
+            else _lease_for(req, active=self._mode != "lease_inactive")
+        )
+
+
+class _FinalStub:
+    def __init__(self, mode: str) -> None:
+        self._mode = mode
+
+    async def qualify(self, req: RetainedPatternQualification) -> Any:
+        if self._mode == "final_none":
+            return None
+        purpose = "wrong" if self._mode == "final_bad_purpose" else FINAL_QUALIFICATION_PURPOSE
+        exp = T0 + timedelta(seconds=1) if self._mode == "final_expired" else T0 + timedelta(days=1)
+        f_args = ("sha256:" + "a" * 64, "sha256:" + "b" * 64, req.evidence_digest, req.scope_digest)
+        return DecisionEvidenceAdmission(*f_args, purpose, req.evidence_digest, T0, exp)
+
+
+@pytest.mark.parametrize(
+    "mode",
+    (
+        "lease_ok lease_none lease_inactive lease_stale final_ok final_none "
+        "final_expired final_bad_purpose no_request bad_request no_materializer "
+        "no_match bad_match bad_score"
+    ).split(),
+)
+async def test_leased_and_final_qualifiers_and_boundary_guards(mode: str) -> None:
+    harness = await _retained()
+    with pytest.raises(ValueError):
+        RetainedPatternRequest(harness.request.context, "bad", "purpose", "f" * 64)
+    src = harness.source
+    if mode.startswith("lease"):
+        src._leased_qualifier = _LeasedStub(mode, harness)
+    elif mode.startswith("final"):
+        src._final_qualifier = _FinalStub(mode)
+    elif mode in ("no_request", "bad_request"):
+        res = None if mode == "no_request" else cast(Any, "bad")
+        src._request_source = lambda _e: asyncio.sleep(0, result=res)
+    elif mode == "no_materializer":
+        src._materializer = lambda: None
+    else:
+        res_m = (
+            None
+            if mode == "no_match"
+            else (cast(Any, "bad") if mode == "bad_match" else SimilarityMatch(harness.action, 2.0))
+        )
+        src._resolve = lambda _e, _s: asyncio.sleep(0, result=res_m)
+    comp = (await harness.tier().evaluate(event=_event())).retained_pattern_comparison
+    assert comp is not None
+    if mode in ("lease_ok", "final_ok"):
+        assert comp.challenger_match is not None and comp.audit_mapping()["eligible_count"] == 1
+    else:
+        assert comp.challenger_match is None and comp.stop_reason is not None

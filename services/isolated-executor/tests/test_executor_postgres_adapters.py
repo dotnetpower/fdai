@@ -447,3 +447,210 @@ def test_state_hash_chain_is_canonical_and_ordered() -> None:
     second = _next_hash(first, {"seq": 2})
     assert first != second
     assert second != _next_hash("0" * 64, {"seq": 2})
+
+
+async def test_postgres_adapters_remaining_branches(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai_executor_service.adapters.postgres_state import (
+        _audit_event_id,
+        _decode_receipt_outbox_record,
+        _json_object,
+    )
+
+    for fn, match in [
+        (lambda: PostgresIdempotencyStore(config=PostgresIdempotencyStoreConfig(dsn="")), "dsn"),
+        (
+            lambda: PostgresIdempotencyStore(
+                config=PostgresIdempotencyStoreConfig(dsn="postgresql://x", connect_timeout_s=0)
+            ),
+            "connect_timeout_s",
+        ),
+        (
+            lambda: PostgresAdvisoryResourceLock(config=PostgresAdvisoryResourceLockConfig(dsn="")),
+            "dsn",
+        ),
+        (
+            lambda: PostgresAdvisoryResourceLock(
+                config=PostgresAdvisoryResourceLockConfig(dsn="postgresql://x", connect_timeout_s=0)
+            ),
+            "connect_timeout_s",
+        ),
+        (
+            lambda: PostgresStateStore(
+                config=PostgresStateStoreConfig(dsn="postgresql://x", statement_timeout_ms=0)
+            ),
+            "statement_timeout_ms",
+        ),
+        (
+            lambda: PostgresStateStore(
+                config=PostgresStateStoreConfig(dsn="postgresql://x", connect_timeout_s=0)
+            ),
+            "connect_timeout_s",
+        ),
+    ]:
+        with pytest.raises(ValueError, match=match):
+            fn()  # type: ignore[no-untyped-call]
+
+    # PostgresIdempotencyStore.seen & assert_schema happy path
+    idem_conn = _Connection(
+        rows=[
+            None,
+            None,
+            None,
+            {"result": {"outcome": "dispatched"}},
+            None,
+            {"result": "not-a-dict"},
+            None,
+            {"database_role": "fdai_executor", "ready": True},
+            [
+                {"column_name": "idempotency_key"},
+                {"column_name": "result"},
+                {"column_name": "recorded_at"},
+            ],
+            [{"attname": "idempotency_key"}],
+        ]
+    )
+
+    async def connect_idem(*_args: object, **_kwargs: object) -> _Connection:
+        return idem_conn
+
+    monkeypatch.setattr(psycopg.AsyncConnection, "connect", connect_idem)
+    idem_store = PostgresIdempotencyStore(
+        config=PostgresIdempotencyStoreConfig(dsn="postgresql://example")
+    )
+    assert await idem_store.seen("k1") is None
+    assert await idem_store.seen("k2") == {"outcome": "dispatched"}
+    with pytest.raises(ValueError, match="not a JSON object"):
+        await idem_store.seen("k3")
+    await idem_store.assert_schema()
+
+    # PostgresAdvisoryResourceLock with lock_timeout_ms=0 and unlock failure
+    class _UnlockFailConn(_Connection):
+        async def execute(self, sql: str, params: Any = None) -> _Cursor:
+            self.calls.append((sql, params))
+            if "pg_advisory_unlock" in sql:
+                raise RuntimeError("unlock failed")
+            return _Cursor(None)
+
+    unlock_conn = _UnlockFailConn()
+
+    async def connect_lock(*_args: object, **_kwargs: object) -> _Connection:
+        return unlock_conn
+
+    monkeypatch.setattr(psycopg.AsyncConnection, "connect", connect_lock)
+    zero_lock = PostgresAdvisoryResourceLock(
+        config=PostgresAdvisoryResourceLockConfig(dsn="postgresql://example", lock_timeout_ms=0)
+    )
+    async with zero_lock.acquire("resource:zero"):
+        pass
+
+    # PostgresStateStore remaining branches
+    state_conn = _Connection(
+        rows=[
+            # 1. assert_schema missing columns
+            None,
+            {"database_role": "fdai_executor", "ready": True},
+            [{"table_name": "state_kv", "column_name": "key"}],
+            [{"attname": "receipt_id"}],
+            # 2. assert_schema happy path
+            None,
+            {"database_role": "fdai_executor", "ready": True},
+            [
+                {"table_name": "state_kv", "column_name": "key"},
+                {"table_name": "state_kv", "column_name": "value"},
+                {"table_name": "audit_log", "column_name": "seq"},
+                {"table_name": "audit_log", "column_name": "event_id"},
+                {"table_name": "audit_log", "column_name": "entry"},
+                {"table_name": "audit_log", "column_name": "previous_hash"},
+                {"table_name": "audit_log", "column_name": "entry_hash"},
+                {"table_name": "executor_receipt_outbox", "column_name": "receipt_id"},
+                {"table_name": "executor_receipt_outbox", "column_name": "partition_key"},
+                {"table_name": "executor_receipt_outbox", "column_name": "payload"},
+                {"table_name": "executor_receipt_outbox", "column_name": "created_at"},
+                {"table_name": "executor_receipt_outbox", "column_name": "published_at"},
+                {"table_name": "executor_receipt_outbox", "column_name": "attempt_count"},
+                {"table_name": "executor_receipt_outbox", "column_name": "next_attempt_at"},
+            ],
+            [{"attname": "receipt_id"}],
+            # 3. read_state found
+            None,
+            {"value": '{"a": 1}'},
+            # 4. write_state_with_audit_if_absent conflict (returns False)
+            None,
+            None,
+            # 5. read_committed_receipt miss
+            None,
+            None,
+            None,
+            # 6. read_committed_receipt legacy command_id mismatch
+            None,
+            None,
+            {"payload": {"command_id": "other"}},
+            # 7. claim_receipts empty
+            None,
+            [],
+            # 8. mark_receipt_published
+            None,
+            None,
+        ]
+    )
+
+    async def connect_state(*_args: object, **_kwargs: object) -> _Connection:
+        return state_conn
+
+    monkeypatch.setattr(psycopg.AsyncConnection, "connect", connect_state)
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn="postgresql://example"))
+
+    with pytest.raises(RuntimeError, match="schema is missing or incompatible"):
+        await store.assert_schema()
+    await store.assert_schema()
+
+    assert await store.read_state("isolated-executor:k1") == {"a": 1}
+    assert (
+        await store.write_state_with_audit_if_absent(
+            "isolated-executor:k1",
+            {"a": 1},
+            {"kind": "isolated_executor.shadow_terminal", "mode": "shadow"},
+        )
+        is False
+    )
+
+    with pytest.raises(ValueError, match="command id MUST NOT be empty"):
+        await store.read_committed_receipt("")
+    assert await store.read_committed_receipt("cmd-miss") is None
+    with pytest.raises(RuntimeError, match="command id mismatched"):
+        await store.read_committed_receipt("cmd-1")
+
+    with pytest.raises(ValueError, match="limit MUST be in"):
+        await store.claim_receipts(limit=0)
+    assert await store.claim_receipts(limit=5) == ()
+    await store.mark_receipt_published(uuid4())
+
+    with pytest.raises(ValueError, match="mode MUST be"):
+        await store.append_audit_entry(
+            {"kind": "isolated_executor.shadow_terminal", "mode": "invalid"}
+        )
+
+    # Rowcount conflicts in commit_receipt and legacy backfill
+    state_conn.rowcount = 0
+    with pytest.raises(RuntimeError, match="different terminal receipt"):
+        await store.commit_receipt(uuid4(), "pk", {"a": 1}, command_id="c1", command_offset=1)
+
+    state_conn.rows = [None, None, {"payload": {"command_id": "c1"}}]
+    with pytest.raises(RuntimeError, match="backfill conflicted"):
+        await store.read_committed_receipt("c1")
+
+    # Helper functions
+    assert _audit_event_id({"event_id": str(uuid4())})
+    assert _audit_event_id({"event_id": "not-a-uuid", "idempotency_key": "k"})
+    with pytest.raises(RuntimeError, match="not a JSON object"):
+        _json_object(123, record_name="test")
+    with pytest.raises(RuntimeError, match="envelope is malformed"):
+        _decode_receipt_outbox_record({"receipt": "bad", "telemetry": {}})
+    with pytest.raises(RuntimeError, match="command id is missing"):
+        _decode_receipt_outbox_record({"receipt": {}, "telemetry": {"command_id": ""}})
+    with pytest.raises(RuntimeError, match="command offset is malformed"):
+        _decode_receipt_outbox_record(
+            {"receipt": {}, "telemetry": {"command_id": "c1", "command_offset": True}}
+        )

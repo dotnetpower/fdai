@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import {
   extractReleaseStencil,
   parseReleaseManifest,
   requestStencilCatalog,
   requestStencilCompose,
   type Release,
+  type ReleaseStencilMetadata,
   type RuntimeAxisDescriptorRecord,
   type StencilCatalogResponse,
   type StencilComposeResult,
@@ -39,28 +40,6 @@ const STENCIL_ID_RE = /^[a-z][a-z0-9-]{0,62}$/;
 const SEMVER_RE = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 const COMMIT_SHA_RE = /^[0-9a-f]{40}$/;
 
-export function normalizeShortCommitSeed(seed: string): string {
-  const cleaned = seed.trim().toLowerCase();
-  if (COMMIT_SHA_RE.test(cleaned)) return cleaned;
-  // Deterministic 40-hex expansion from short Git SHA or tag/seed string using FNV-1a blocks
-  let h0 = 0x811c9dc5;
-  let h1 = 0x01000193;
-  let h2 = 0x9e3779b9;
-  let h3 = 0x85ebca6b;
-  let h4 = 0xc2b2ae35;
-  for (let i = 0; i < cleaned.length; i++) {
-    const c = cleaned.charCodeAt(i);
-    h0 = Math.imul(h0 ^ c, 0x01000193) >>> 0;
-    h1 = Math.imul(h1 ^ (c + i), 0x85ebca6b) >>> 0;
-    h2 = Math.imul(h2 ^ (c * 31), 0xc2b2ae35) >>> 0;
-    h3 = Math.imul(h3 ^ (c ^ 0x5a), 0x27d4eb2f) >>> 0;
-    h4 = Math.imul(h4 ^ (c + 0x9e), 0x165667b1) >>> 0;
-  }
-  const hexPrefix = cleaned.replace(/[^0-9a-f]/g, "");
-  const digestTail = [h0, h1, h2, h3, h4].map((n) => n.toString(16).padStart(8, "0")).join("");
-  return (hexPrefix + digestTail).slice(0, 40);
-}
-
 export function isValidStencilBuilderInput(input: {
   stencilId: string;
   releaseVersion: string;
@@ -73,6 +52,82 @@ export function isValidStencilBuilderInput(input: {
     SEMVER_RE.test(input.releaseVersion.trim()) &&
     (commitToken === "auto" || commitToken === "derived" || COMMIT_SHA_RE.test(commitToken))
   );
+}
+
+export function resolvedDerivedSourceCommit(
+  composed: Pick<StencilComposeResult, "release_manifest"> | null,
+): string | null {
+  const source = composed?.release_manifest.source_commit;
+  return typeof source === "string" && COMMIT_SHA_RE.test(source) ? source : null;
+}
+
+type ReleaseDraft = Pick<Release, "id" | "label" | "manifest">;
+
+export async function dispatchBuilderRelease(
+  draft: ReleaseDraft,
+  mutationsDisabled: () => boolean,
+  onPrepareRelease: (draft: ReleaseDraft) => void,
+  onQuickCreateRelease?: (draft: ReleaseDraft) => Promise<void> | void,
+): Promise<boolean> {
+  if (mutationsDisabled()) return false;
+  if (onQuickCreateRelease) await onQuickCreateRelease(draft);
+  else onPrepareRelease(draft);
+  return true;
+}
+
+export function canQuickCreatePresetVersion(
+  version: string,
+  existingReleases: readonly Pick<Release, "id">[],
+): boolean {
+  const candidate = version.trim();
+  return candidate.length <= 64 &&
+    SEMVER_RE.test(candidate) &&
+    !existingReleases.some((release) => release.id === candidate);
+}
+
+export function toggleRequestedItem(
+  selected: readonly string[],
+  value: string,
+  locked: readonly string[],
+): string[] {
+  if (locked.includes(value)) return [...selected];
+  return selected.includes(value)
+    ? selected.filter((item) => item !== value)
+    : [...selected, value].sort();
+}
+
+export function restoreRegisteredStencil(
+  release: Release,
+  catalog: StencilCatalogResponse,
+): {
+  stencil: ReleaseStencilMetadata;
+  panels: string[];
+  workloads: string[];
+  loops: string[];
+  jobs: string[];
+  addons: string[];
+  sourceMode: string;
+  sourceCommit: string;
+  customCommitInput: string;
+} | null {
+  const stencil = extractReleaseStencil(release);
+  if (!stencil) return null;
+  const manifest = parseReleaseManifest(release.manifest);
+  const source = typeof manifest.source_commit === "string"
+    ? manifest.source_commit.trim().toLowerCase()
+    : "";
+  const inherited = COMMIT_SHA_RE.test(source);
+  return {
+    stencil,
+    panels: [...stencil.enabled_panel_ids],
+    workloads: [...stencil.enabled_workloads],
+    loops: [...(stencil.enabled_loops ?? catalog.locked_loops)],
+    jobs: [...(stencil.enabled_scheduled_jobs ?? catalog.locked_scheduled_jobs)],
+    addons: [...(stencil.feature_flags?.enabled_addons ?? catalog.locked_addons)],
+    sourceMode: inherited ? `release:${release.id}` : catalog.detected_source_commit ? "auto" : "derived",
+    sourceCommit: inherited ? source : catalog.detected_source_commit ? "auto" : "derived",
+    customCommitInput: inherited ? source : catalog.detected_source_commit ?? "",
+  };
 }
 
 export function groupPanelsByDomain(
@@ -110,6 +165,7 @@ export interface LiveApolloBlueprint {
   readonly releaseLabels: string[];
   readonly workloadReasons: Readonly<Record<string, string[]>>;
   readonly loopReasons: Readonly<Record<string, string[]>>;
+  readonly addonReasons: Readonly<Record<string, string[]>>;
   readonly panelFeatureFlags: Readonly<Record<string, boolean>>;
   readonly loopFeatureFlags: Readonly<Record<string, boolean>>;
   readonly workloadFeatureFlags: Readonly<Record<string, boolean>>;
@@ -117,6 +173,17 @@ export interface LiveApolloBlueprint {
   readonly addonFeatureFlags: Readonly<Record<string, boolean>>;
   readonly runtimeEnvFlags: Readonly<Record<string, string>>;
   readonly consoleBuildCommand: string;
+}
+
+export function isAddonSelectionLocked(
+  addon: string,
+  catalog: Pick<StencilCatalogResponse, "locked_addons">,
+  blueprint: Pick<LiveApolloBlueprint, "effectiveAddons" | "addonReasons">,
+  autoResolve: boolean,
+): boolean {
+  return catalog.locked_addons.includes(addon) ||
+    (autoResolve && blueprint.effectiveAddons.includes(addon) &&
+      (blueprint.addonReasons[addon] ?? []).some((reason) => reason !== "locked-core"));
 }
 
 export function computeLiveApolloBlueprint(
@@ -140,8 +207,13 @@ export function computeLiveApolloBlueprint(
 
   const workloadReasons: Record<string, string[]> = {};
   const loopReasons: Record<string, string[]> = {};
+  const addonReasons: Record<string, string[]> = {};
+  const addAddonReason = (id: string, reason: string) => {
+    addonReasons[id] = [...new Set([...(addonReasons[id] ?? []), reason])];
+  };
   for (const w of catalog.locked_workloads) workloadReasons[w] = ["locked-core"];
   for (const l of catalog.locked_loops) loopReasons[l] = ["locked-core"];
+  for (const a of catalog.locked_addons) addAddonReason(a, "locked-core");
 
   const panelById = new Map(catalog.panels.map((p) => [p.id, p]));
   if (
@@ -167,6 +239,7 @@ export function computeLiveApolloBlueprint(
     }
     for (const reqA of desc.required_addons) {
       if (options.autoResolve) addonSet.add(reqA);
+      addAddonReason(reqA, `menu:${panelId}`);
     }
   }
 
@@ -182,6 +255,10 @@ export function computeLiveApolloBlueprint(
       loopSet.add("document-ingestion");
     }
     if (loopSet.has("remediation-execution") || workloadSet.has("isolated-executor")) {
+      for (const addon of ["enterprise-identity-governance", "governed-execution"]) {
+        if (loopSet.has("remediation-execution")) addAddonReason(addon, "loop:remediation-execution");
+        if (workloadSet.has("isolated-executor")) addAddonReason(addon, "workload:isolated-executor");
+      }
       workloadSet.add("isolated-executor");
       loopSet.add("remediation-execution");
       addonSet.add("enterprise-identity-governance");
@@ -190,9 +267,6 @@ export function computeLiveApolloBlueprint(
     if (jobSet.has("cost-collector") || loopSet.has("cost-governance")) {
       loopSet.add("cost-governance");
       jobSet.add("cost-collector");
-    }
-    if (addonSet.has("governed-execution") || addonSet.has("policy-administration")) {
-      addonSet.add("enterprise-identity-governance");
     }
     if (loopSet.has("document-ingestion")) {
       effectiveTopologyProfile = "full-enterprise";
@@ -203,6 +277,12 @@ export function computeLiveApolloBlueprint(
         loopSet.has("remediation-execution"))
     ) {
       effectiveTopologyProfile = "standard-sre";
+    }
+  }
+  for (const addon of ["governed-execution", "policy-administration"]) {
+    if (addonSet.has(addon)) {
+      addAddonReason("enterprise-identity-governance", `addon:${addon}`);
+      if (options.autoResolve) addonSet.add("enterprise-identity-governance");
     }
   }
 
@@ -247,7 +327,9 @@ export function computeLiveApolloBlueprint(
   const rbacPosture = includesExecutor ? "governed-execution" : "read-only-observation";
   const requiredAzureRoles = ["Reader", "Monitoring Reader", "Log Analytics Reader"];
   if (loopSet.has("cost-governance")) requiredAzureRoles.push("Cost Management Reader");
-  if (includesExecutor) requiredAzureRoles.push("Scoped Executor Action Role");
+  if (includesExecutor && addonSet.has("governed-execution")) {
+    requiredAzureRoles.push("Scoped Executor Action Role (privileged mutation)");
+  }
 
   const cleanId = options.stencilId.trim() || "custom-stencil";
   const releaseLabels = [
@@ -295,6 +377,7 @@ export function computeLiveApolloBlueprint(
     releaseLabels,
     workloadReasons,
     loopReasons,
+    addonReasons,
     panelFeatureFlags,
     loopFeatureFlags,
     workloadFeatureFlags,
@@ -311,12 +394,14 @@ export function StencilBuilder({
   existingReleases = [],
   onPrepareRelease,
   onQuickCreateRelease,
+  mutationsDisabled = false,
 }: {
   locale?: "en" | "ko";
   onLocaleChange?: (next: "en" | "ko") => void;
   existingReleases?: readonly Release[];
   onPrepareRelease: (draft: { id: string; label: string; manifest: string }) => void;
   onQuickCreateRelease?: (draft: { id: string; label: string; manifest: string }) => Promise<void> | void;
+  mutationsDisabled?: boolean;
 }) {
   const [internalLocale, setInternalLocale] = useState<"en" | "ko">(
     navigator.language.startsWith("ko") ? "ko" : "en",
@@ -361,6 +446,9 @@ export function StencilBuilder({
   const [composed, setComposed] = useState<StencilComposeResult | null>(null);
   const [menuQuery, setMenuQuery] = useState("");
   const [showSelectedOnly, setShowSelectedOnly] = useState(false);
+  const mutationsDisabledRef = useRef(mutationsDisabled);
+  mutationsDisabledRef.current = mutationsDisabled;
+  const releaseMutationsDisabled = () => mutationsDisabledRef.current;
 
   useEffect(() => {
     if (!versionEdited) {
@@ -483,11 +571,13 @@ export function StencilBuilder({
     locked: boolean,
     reasons: readonly string[],
     onToggle: () => void,
+    dependencyLocked = false,
   ) {
-    const linkedMenus = reasons.filter((r) => r.startsWith("menu:")).map((r) => r.slice(5));
+    const linkedReasons = reasons.filter((r) => r !== "locked-core")
+      .map((r) => r.startsWith("menu:") ? r.slice(5) : r);
     return (
       <label key={id} class={`stencil-axis-card ${checked ? "is-on" : ""}`}>
-        <input type="checkbox" checked={checked} disabled={locked} onChange={onToggle} />
+        <input type="checkbox" checked={checked} disabled={locked || dependencyLocked} onChange={onToggle} />
         <div class="stencil-axis-body">
           <div class="stencil-axis-head">
             <strong>{meta ? (locale === "ko" ? meta.label_ko : meta.label) : id}</strong>
@@ -495,12 +585,12 @@ export function StencilBuilder({
               {locked && (
                 <span class="stencil-pill locked">{t("Locked core", "필수 코어")}</span>
               )}
-              {!locked && linkedMenus.length > 0 && (
+              {!locked && linkedReasons.length > 0 && (
                 <span
                   class="stencil-pill linked"
-                  title={`Required by: ${linkedMenus.join(", ")}`}
+                  title={`Required by: ${linkedReasons.join(", ")}`}
                 >
-                  {t(`Linked: ${linkedMenus.slice(0, 2).join(", ")}`, `연동됨: ${linkedMenus.slice(0, 2).join(", ")}`)}
+                  {t(`Required: ${linkedReasons.slice(0, 2).join(", ")}`, `필수 의존: ${linkedReasons.slice(0, 2).join(", ")}`)}
                 </span>
               )}
             </span>
@@ -526,11 +616,7 @@ export function StencilBuilder({
   function toggleItem(list: string[], value: string, locked: string[], setter: (next: string[]) => void) {
     if (locked.includes(value)) return;
     setComposed(null);
-    if (list.includes(value)) {
-      setter(list.filter((item) => item !== value));
-    } else {
-      setter([...list, value].sort());
-    }
+    setter(toggleRequestedItem(list, value, locked));
   }
 
   function toggleGroupPanels(groupPanels: StencilPanelDescriptor[], enableAll: boolean) {
@@ -552,10 +638,11 @@ export function StencilBuilder({
     releaseVersion,
     sourceCommit,
   });
+  const quickPresetVersionValid = canQuickCreatePresetVersion(releaseVersion, existingReleases);
 
   async function runCompose(event?: SubmitEvent, openRegisterAfter = false, quickCreate = false) {
     event?.preventDefault();
-    if (composing || !validInputs) return;
+    if (composing || !validInputs || (openRegisterAfter && releaseMutationsDisabled())) return;
     setComposing(true);
     setError("");
     try {
@@ -576,7 +663,8 @@ export function StencilBuilder({
         source_commit: sourceCommit.trim(),
       });
       setComposed(result);
-      applyPreset(result.stencil);
+      // The response contains dependency-closed selections. Keep the operator's
+      // explicit choices so removing a menu can remove its implicit dependencies.
       const effectiveVersion =
         typeof result.release_manifest?.release_version === "string" &&
         result.release_manifest.release_version.trim()
@@ -588,11 +676,10 @@ export function StencilBuilder({
         label: `${result.stencil.stencil_id} (${result.footprint.enabled_panel_count} menus, ${result.footprint.workload_count} workloads)`,
         manifest: JSON.stringify(result.release_manifest, null, 2),
       };
-      if (quickCreate && onQuickCreateRelease) {
-        await onQuickCreateRelease(draft);
-      } else if (openRegisterAfter) {
-        onPrepareRelease(draft);
-      }
+      if (openRegisterAfter) await dispatchBuilderRelease(
+        draft, releaseMutationsDisabled, onPrepareRelease,
+        quickCreate ? onQuickCreateRelease : undefined,
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Stencil composition failed.");
     } finally {
@@ -601,13 +688,11 @@ export function StencilBuilder({
   }
 
   async function runQuickPresetRelease(preset: StencilDefinitionRecord) {
-    if (composing) return;
+    if (composing || !quickPresetVersionValid || releaseMutationsDisabled()) return;
     setComposing(true);
     setError("");
     try {
-      const targetVer = SEMVER_RE.test(releaseVersion.trim())
-        ? releaseVersion.trim()
-        : nextSuggestedSemVer(existingReleases, "patch");
+      const targetVer = releaseVersion.trim();
       const result = await requestStencilCompose({
         stencil_id: preset.stencil_id,
         title: preset.title,
@@ -625,17 +710,13 @@ export function StencilBuilder({
         source_commit: sourceCommit.trim() || "auto",
       });
       setComposed(result);
-      applyPreset(result.stencil);
+      applyPreset(preset);
       const draft = {
         id: targetVer,
         label: `${result.stencil.stencil_id} (${result.footprint.enabled_panel_count} menus, ${result.footprint.workload_count} workloads)`,
         manifest: JSON.stringify(result.release_manifest, null, 2),
       };
-      if (onQuickCreateRelease) {
-        await onQuickCreateRelease(draft);
-      } else {
-        onPrepareRelease(draft);
-      }
+      await dispatchBuilderRelease(draft, releaseMutationsDisabled, onPrepareRelease, onQuickCreateRelease);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Stencil composition failed.");
     } finally {
@@ -650,13 +731,13 @@ export function StencilBuilder({
           <p class="eyebrow">{t("Build-time feature & menu composition", "빌드 타임 기능 및 메뉴 구성")}</p>
           <h1>{t("Stencils & Custom Build", "Stencil 및 커스텀 메뉴 빌드")}</h1>
         </div>
-        <label style="display: inline-flex; align-items: center; gap: 8px; font-size: var(--cs-type-compact-size); color: var(--cs-text-soft);">
+        {!externalLocale && <label style="display: inline-flex; align-items: center; gap: 8px; font-size: var(--cs-type-compact-size); color: var(--cs-text-soft);">
           {t("Builder language", "빌더 언어")}{" "}
           <select value={locale} onChange={(e) => setLocale(e.currentTarget.value as "en" | "ko")}>
             <option value="en">English</option>
             <option value="ko">한국어</option>
           </select>
-        </label>
+        </label>}
       </div>
 
       {loading && <p role="status" class="empty">{t("Loading Stencil catalog...", "Stencil 카탈로그 불러오는 중...")}</p>}
@@ -698,7 +779,7 @@ export function StencilBuilder({
                       <button
                         type="button"
                         class="primary"
-                        disabled={composing}
+                        disabled={composing || mutationsDisabled || !quickPresetVersionValid}
                         onClick={() => void runQuickPresetRelease(preset)}
                       >
                         {t(
@@ -736,14 +817,20 @@ export function StencilBuilder({
                       key={r.id}
                       type="button"
                       onClick={() => {
-                        setStencilId(st.stencil_id);
-                        if (st.title) setTitle(st.title);
-                        if (st.title_ko) setTitleKo(st.title_ko);
-                        setTopologyProfile(st.topology_profile);
-                        setSelectedWorkloads([...st.enabled_workloads]);
-                        setSelectedPanels([...st.enabled_panel_ids]);
-                        if (st.enabled_loops) setSelectedLoops([...st.enabled_loops]);
-                        if (st.enabled_scheduled_jobs) setSelectedJobs([...st.enabled_scheduled_jobs]);
+                        const restored = restoreRegisteredStencil(r, catalog);
+                        if (!restored) return;
+                        setStencilId(restored.stencil.stencil_id);
+                        if (restored.stencil.title) setTitle(restored.stencil.title);
+                        if (restored.stencil.title_ko) setTitleKo(restored.stencil.title_ko);
+                        setTopologyProfile(restored.stencil.topology_profile);
+                        setSelectedWorkloads(restored.workloads);
+                        setSelectedPanels(restored.panels);
+                        setSelectedLoops(restored.loops);
+                        setSelectedJobs(restored.jobs);
+                        setSelectedAddons(restored.addons);
+                        setSourceMode(restored.sourceMode);
+                        setSourceCommit(restored.sourceCommit);
+                        setCustomCommitInput(restored.customCommitInput);
                         setComposed(null);
                       }}
                     >
@@ -895,8 +982,7 @@ export function StencilBuilder({
                             setCustomCommitInput(found.commit);
                           }
                         } else if (mode === "custom") {
-                          const initial = catalog.detected_source_commit
-                            || normalizeShortCommitSeed(`${stencilId}:${releaseVersion}`);
+                          const initial = catalog.detected_source_commit ?? "";
                           const nextCustom = COMMIT_SHA_RE.test(customCommitInput)
                             ? customCommitInput
                             : initial;
@@ -929,8 +1015,8 @@ export function StencilBuilder({
                       ))}
                       <option value="custom">
                         {t(
-                          "Custom commit SHA / short SHA input...",
-                          "직접 입력 (외부 CI 커밋 SHA 또는 짧은 SHA)...",
+                          "Custom full 40-hex commit SHA...",
+                          "직접 입력 (전체 40자 커밋 SHA)...",
                         )}
                       </option>
                     </select>
@@ -952,7 +1038,7 @@ export function StencilBuilder({
                           {sourceMode === "auto" && catalog.detected_source_commit
                             ? catalog.detected_source_commit
                             : sourceMode === "derived"
-                              ? normalizeShortCommitSeed(`${stencilId}:${releaseVersion}:${liveBlueprint.effectivePanels.join(",")}`)
+                              ? resolvedDerivedSourceCommit(composed) ?? t("Resolved by server at compose time", "구성 시 서버에서 확정")
                               : sourceCommit}
                         </code>
                       </div>
@@ -961,8 +1047,8 @@ export function StencilBuilder({
                         <input
                           required
                           placeholder={t(
-                            "Paste 40-hex SHA or short SHA / tag and click Expand",
-                            "40자 SHA 또는 짧은 SHA(7~12자)·태그 입력 후 변환 클릭",
+                            "Paste the real full 40-hex commit SHA",
+                            "실제 전체 40자 커밋 SHA를 입력하세요",
                           )}
                           value={customCommitInput}
                           onInput={(e) => {
@@ -972,21 +1058,12 @@ export function StencilBuilder({
                             setComposed(null);
                           }}
                         />
+                        {customCommitInput && !COMMIT_SHA_RE.test(customCommitInput) && (
+                          <small class="warning" role="status">
+                            {t("A real full 40-hex commit SHA is required; short SHAs and tags cannot be expanded here.", "실제 전체 40자 커밋 SHA가 필요합니다. 짧은 SHA와 태그는 여기서 확장할 수 없습니다.")}
+                          </small>
+                        )}
                         <div class="stencil-sha-actions">
-                          {!COMMIT_SHA_RE.test(customCommitInput.trim().toLowerCase()) &&
-                            customCommitInput.trim().length > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const expanded = normalizeShortCommitSeed(customCommitInput);
-                                  setCustomCommitInput(expanded);
-                                  setSourceCommit(expanded);
-                                  setComposed(null);
-                                }}
-                              >
-                                {t("Expand short SHA to 40-hex", "짧은 SHA를 40자 SHA로 변환")}
-                              </button>
-                            )}
                           {catalog.detected_source_commit && (
                             <button
                               type="button"
@@ -1040,8 +1117,8 @@ export function StencilBuilder({
                 </summary>
                 <p>
                   {t(
-                    "The 15-agent pantheon runs in-process inside core-control-plane. Resource change detection, anomaly detection, notifications, and Saga audit remain locked on.",
-                    "15-에이전트 판테온은 core-control-plane 단일 컨테이너 내부에서 동작합니다. 리소스 변경 감지, 장애 감지, 알림 발송, 해시 체인 감사는 안전 코어로 항상 활성화됩니다.",
+                    "The 15-agent pantheon runs in-process inside core-control-plane. Resource change detection, anomaly detection, notifications, and Saga audit remain locked on. Optional add-ons can be chosen below; required add-ons stay linked until their dependency is removed.",
+                    "15-에이전트 판테온은 core-control-plane 단일 컨테이너 내부에서 동작합니다. 리소스 변경 감지, 장애 감지, 알림 발송, 해시 체인 감사는 안전 코어로 항상 활성화됩니다. 선택적 부가 기능은 아래에서 고를 수 있으며 필수 의존 기능은 원인을 제거할 때까지 연동됩니다.",
                   )}
                 </p>
                 <div class="stencil-axis-sections">
@@ -1104,6 +1181,22 @@ export function StencilBuilder({
                               catalog.locked_scheduled_jobs,
                               setSelectedJobs,
                             ),
+                        ),
+                      )}
+                    </div>
+                  </div>
+                  <div class="stencil-axis-section">
+                    <h3>{t(`Add-ons (${liveBlueprint.effectiveAddons.length}/${catalog.addons.length})`, `부가 기능 (${liveBlueprint.effectiveAddons.length}/${catalog.addons.length})`)}</h3>
+                    <div class="stencil-axis-grid">
+                      {catalog.addons.map((addon) =>
+                        renderAxisCard(
+                          addon,
+                          undefined,
+                          liveBlueprint.effectiveAddons.includes(addon),
+                          catalog.locked_addons.includes(addon),
+                          liveBlueprint.addonReasons[addon] ?? [],
+                          () => toggleItem(selectedAddons, addon, catalog.locked_addons, setSelectedAddons),
+                          isAddonSelectionLocked(addon, catalog, liveBlueprint, autoResolve),
                         ),
                       )}
                     </div>
@@ -1294,7 +1387,7 @@ export function StencilBuilder({
                   <button
                     type="button"
                     class="primary"
-                    disabled={composing || !validInputs}
+                    disabled={composing || mutationsDisabled || !validInputs}
                     onClick={() => void runCompose(undefined, true, true)}
                   >
                     {composing
@@ -1408,13 +1501,13 @@ export function StencilBuilder({
                   <button
                     type="button"
                     class="primary"
-                    disabled={composing}
+                    disabled={composing || mutationsDisabled}
                     onClick={() =>
-                      void onQuickCreateRelease({
+                      void dispatchBuilderRelease({
                         id: releaseVersion.trim(),
                         label: `${composed.stencil.stencil_id} (${composed.footprint.enabled_panel_count} menus, ${composed.footprint.workload_count} workloads)`,
                         manifest: JSON.stringify(composed.release_manifest, null, 2),
-                      })
+                      }, releaseMutationsDisabled, onPrepareRelease, onQuickCreateRelease)
                     }
                   >
                     {t(
@@ -1426,12 +1519,13 @@ export function StencilBuilder({
                 <button
                   type="button"
                   class={onQuickCreateRelease ? "" : "primary"}
+                  disabled={composing || mutationsDisabled}
                   onClick={() =>
-                    onPrepareRelease({
+                    void dispatchBuilderRelease({
                       id: releaseVersion.trim(),
                       label: `${composed.stencil.stencil_id} (${composed.footprint.enabled_panel_count} menus, ${composed.footprint.workload_count} workloads)`,
                       manifest: JSON.stringify(composed.release_manifest, null, 2),
-                    })
+                    }, releaseMutationsDisabled, onPrepareRelease)
                   }
                 >
                   {t(

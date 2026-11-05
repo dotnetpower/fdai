@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import {
   extractReleaseStencil,
+  latestEligibleChannelHead,
+  releaseStateIndex,
   requestDeploymentRequests,
   type Catalog,
   type DeploymentRequestPage,
 } from "./api";
+import { editionReleasePath } from "./operational-edition";
 
 const SUBSCRIPTION = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const LIMIT = 25;
@@ -13,14 +16,16 @@ export function nextRequestOffset(page: DeploymentRequestPage): number | null {
   return page.has_more ? page.offset + page.limit : null;
 }
 
-export function DeploymentRequests({ catalog, locale = "en" }: { catalog?: Catalog | null; locale?: "en" | "ko" }) {
+export function DeploymentRequests({ catalog, locale = "en", refreshGeneration = 0 }: {
+  catalog?: Catalog | null; locale?: "en" | "ko"; refreshGeneration?: number;
+}) {
   const t = (en: string, ko: string) => (locale === "ko" ? ko : en);
   const stencilByRelease = useMemo(
     () => new Map((catalog?.releases ?? []).map((r) => [r.id, extractReleaseStencil(r)] as const)),
     [catalog],
   );
-  const releaseById = useMemo(
-    () => new Map((catalog?.releases ?? []).map((r) => [r.id, r] as const)),
+  const releaseStates = useMemo(
+    () => releaseStateIndex(catalog?.releases ?? []),
     [catalog],
   );
   const [draft, setDraft] = useState("");
@@ -42,7 +47,7 @@ export function DeploymentRequests({ catalog, locale = "en" }: { catalog?: Catal
       if (generation.current === current) setLoading(false);
     });
     return () => { generation.current++; };
-  }, [filter, offset, refresh]);
+  }, [filter, offset, refresh, refreshGeneration]);
   return <>
     <div class="page-head"><div><p class="eyebrow">{t("Clone deployment intake", "구독별 설치 요청 관제")}</p><h1>{t("Deployment requests", "구독 배포 요청 현황")}</h1>
       <p>{t("Subscriptions that self-reported a deployment request, newest first.", "각 Azure 구독에서 보고된 배포 요청 내역과 요청된 릴리스의 Stencil 에디션·최신 정합성을 확인합니다.")}</p></div>
@@ -71,12 +76,8 @@ export function DeploymentRequests({ catalog, locale = "en" }: { catalog?: Catal
               <th scope="col">{t("Release / channel", "요청 릴리스 / 채널 / 에디션")}</th><th scope="col">{t("Region", "리전")}</th><th scope="col">{t("Request evidence", "상세 증적")}</th></tr></thead>
             <tbody>{page.requests.map((record) => {
               const st = stencilByRelease.get(record.release_id);
-              const rel = releaseById.get(record.release_id);
-              const chanMembers = (catalog?.channels[record.channel] ?? []).filter(
-                (id) => releaseById.get(id)?.state !== "recalled",
-              );
-              const chanHead = chanMembers[0] ?? null;
-              const fleetStatus = rel?.state === "recalled"
+              const chanHead = latestEligibleChannelHead(catalog?.channels[record.channel] ?? [], releaseStates);
+              const fleetStatus = releaseStates.get(record.release_id) === "recalled"
                 ? t("Recalled release", "회수된 릴리스")
                 : chanHead === record.release_id
                   ? t("Latest channel head", "채널 최신 버전")
@@ -87,7 +88,7 @@ export function DeploymentRequests({ catalog, locale = "en" }: { catalog?: Catal
               <td><time dateTime={record.recorded_at}>{new Date(record.recorded_at).toISOString().replace("T", " ").replace("Z", "")}</time>
                 <small>{t("Requested / self-reported", "요청됨 / 자체 보고")}</small></td>
               <td><code>{record.subscription_id}</code><small>{t("Ownership unverified", "소유권 미검증")}</small></td>
-              <td><a href={`#/releases/${encodeURIComponent(record.release_id)}`}>{record.release_id}</a><small>{record.channel}</small>{st && <span class="stencil-chip">stencil:{st.stencil_id} · {st.azure_rbac_posture}</span>}{fleetStatus && <span class="stencil-chip">{fleetStatus}</span>}</td>
+              <td><a href={editionReleasePath(record.release_id)}>{record.release_id}</a><small>{record.channel}</small>{st && <span class="stencil-chip">stencil:{st.stencil_id} · {st.azure_rbac_posture}</span>}{fleetStatus && <span class="stencil-chip">{fleetStatus}</span>}</td>
               <td>{record.region}</td>
               <td><details><summary>{t("Metadata", "상세 메타데이터")}</summary><dl>
                 <dt>{t("Request id", "요청 ID")}</dt><dd><code class="digest">{record.request_id}</code></dd>

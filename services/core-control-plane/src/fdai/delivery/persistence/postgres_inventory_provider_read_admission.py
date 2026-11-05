@@ -41,7 +41,7 @@ _SOURCE_NAME_RE = re.compile(r"^[a-z][a-z0-9_-]{1,63}$")
 _STATE_KEY_PREFIX = "inventory-provider-read-admission:v1:"
 _GENERATION_KEY_PREFIX = "inventory-provider-read-generation:v1:"
 _MAX_CAS_ATTEMPTS = 16
-_MAX_RETAINED_RESPONSE_BYTES = 262_144
+_MAX_RETAINED_RESPONSE_BYTES = 4_194_304
 
 
 async def resolve_or_allocate_collection_generation(
@@ -61,7 +61,8 @@ async def resolve_or_allocate_collection_generation(
 
     if not scope_ref.strip():
         raise ValueError("scope_ref MUST be non-empty")
-    key = f"{_GENERATION_KEY_PREFIX}{scope_ref.strip()}"
+    scope_digest = content_digest({"scope_ref": scope_ref.strip()})
+    key = f"{_GENERATION_KEY_PREFIX}{scope_digest[7:39]}"
     requested_unfinished = (unfinished_generation_id or "").strip() or None
     normalized_active_snapshot = (current_active_snapshot_id or "").strip() or None
     for _ in range(_MAX_CAS_ATTEMPTS):
@@ -73,7 +74,7 @@ async def resolve_or_allocate_collection_generation(
                 "active_generation_seq": 1,
                 "baseline_active_snapshot_id": normalized_active_snapshot,
                 "revision": 1,
-                "scope_ref": scope_ref.strip(),
+                "scope_ref_digest": scope_digest,
                 "status": "in_progress",
             }
             if await state_store.write_state_if_absent(key, initial):
@@ -100,7 +101,7 @@ async def resolve_or_allocate_collection_generation(
             "active_generation_seq": next_seq,
             "baseline_active_snapshot_id": normalized_active_snapshot,
             "revision": expected_rev + 1,
-            "scope_ref": scope_ref.strip(),
+            "scope_ref_digest": scope_digest,
             "status": "in_progress",
         }
         if await state_store.compare_and_set_state(
@@ -131,7 +132,8 @@ async def complete_collection_generation(
         or terminal_status not in {"completed", "failed"}
     ):
         raise ValueError("complete_collection_generation requires valid scope, generation, status")
-    key = f"{_GENERATION_KEY_PREFIX}{scope_ref.strip()}"
+    scope_digest = content_digest({"scope_ref": scope_ref.strip()})
+    key = f"{_GENERATION_KEY_PREFIX}{scope_digest[7:39]}"
     for _ in range(_MAX_CAS_ATTEMPTS):
         existing = await state_store.read_state(key)
         if existing is None:
@@ -424,7 +426,7 @@ class DurableProviderReadAdmissionGate:
             if delay > 0:
                 await self.defer(delay, now=at)
 
-    async def wait(self, *, now: datetime | None = None) -> None:
+    async def wait(self, *, now: datetime | None = None) -> datetime:
         """Wait until any durable provider cooldown has elapsed."""
 
         while True:
@@ -433,11 +435,11 @@ class DurableProviderReadAdmissionGate:
             aligned = self._validate_and_align_generation(current, now=at, allow_advance=True)
             raw_deadline = aligned.get("cooldown_not_before")
             if not isinstance(raw_deadline, str) or not raw_deadline:
-                return
+                return at
             deadline = _aware_utc(datetime.fromisoformat(raw_deadline))
             remaining = (deadline - at).total_seconds()
             if remaining <= 0:
-                return
+                return at
             await self._sleep(remaining)
             if now is not None:
                 now = at + timedelta(seconds=remaining)
@@ -454,116 +456,163 @@ class DurableProviderReadAdmissionGate:
 
         if not request_id.strip() or not idempotency_key.strip():
             raise ValueError("request_id and idempotency_key MUST be non-empty")
-        if wait_for_cooldown:
-            await self.wait(now=now)
-        at = _aware_utc(now or self._clock())
-        key = self._binding.state_key
-        async with self._local_lock:
-            for _ in range(_MAX_CAS_ATTEMPTS):
-                current = await self._read_or_initialize(at)
-                aligned = self._validate_and_align_generation(current, now=at, allow_advance=True)
-                expected_rev = int(current.get("revision", 1))
+        in_flight_waited = 0.0
+        seen_in_flight = False
+        current_now = now
+        while True:
+            if wait_for_cooldown:
+                at = await self.wait(now=current_now)
+                if current_now is not None:
+                    current_now = at
+            else:
+                at = _aware_utc(current_now or self._clock())
+            key = self._binding.state_key
+            wait_for_in_flight = False
+            wait_for_cooldown_race = False
+            async with self._local_lock:
+                for _ in range(_MAX_CAS_ATTEMPTS):
+                    current = await self._read_or_initialize(at)
+                    aligned = self._validate_and_align_generation(
+                        current, now=at, allow_advance=True
+                    )
+                    expected_rev = int(current.get("revision", 1))
 
-                raw_deadline = aligned.get("cooldown_not_before")
-                if isinstance(raw_deadline, str) and raw_deadline:
-                    deadline = _aware_utc(datetime.fromisoformat(raw_deadline))
-                    if at < deadline:
-                        raise ProviderReadCooldownActiveError(
-                            f"provider-read cooldown active until {deadline.isoformat()}",
-                            retry_not_before=deadline,
-                        )
+                    raw_deadline = aligned.get("cooldown_not_before")
+                    if isinstance(raw_deadline, str) and raw_deadline:
+                        deadline = _aware_utc(datetime.fromisoformat(raw_deadline))
+                        if at < deadline:
+                            if not wait_for_cooldown:
+                                raise ProviderReadCooldownActiveError(
+                                    f"provider-read cooldown active until {deadline.isoformat()}",
+                                    retry_not_before=deadline,
+                                )
+                            wait_for_cooldown_race = True
+                            break
 
-                completed = dict(aligned.get("completed_requests") or {})
-                if request_id in completed:
-                    entry = completed[request_id]
-                    if (
-                        not isinstance(entry, Mapping)
-                        or entry.get("idempotency_key") != idempotency_key
-                    ):
-                        raise ValueError(
-                            f"provider-read request_id {request_id!r} conflicts with a different "
-                            "idempotency_key"
-                        )
-                    reused_digest = str(entry.get("response_digest") or "")
-                    reused_bytes: bytes | None = None
-                    raw_body = entry.get("response_utf8")
-                    if isinstance(raw_body, str):
-                        encoded = raw_body.encode("utf-8")
-                        actual_digest = f"sha256:{hashlib.sha256(encoded).hexdigest()}"
-                        if actual_digest != reused_digest:
-                            raise ProviderReadAdmissionUnavailableError(
-                                "retained provider-read response body failed digest verification"
+                    completed = dict(aligned.get("completed_requests") or {})
+                    if request_id in completed:
+                        entry = completed[request_id]
+                        if (
+                            not isinstance(entry, Mapping)
+                            or entry.get("idempotency_key") != idempotency_key
+                        ):
+                            raise ValueError(
+                                f"provider-read request_id {request_id!r} conflicts with a "
+                                "different idempotency_key"
                             )
-                        reused_bytes = encoded
-                    aligned["requests_reused"] = int(aligned.get("requests_reused", 0)) + 1
+                        reused_digest = str(entry.get("response_digest") or "")
+                        reused_bytes: bytes | None = None
+                        raw_body = entry.get("response_utf8")
+                        if isinstance(raw_body, str):
+                            encoded = raw_body.encode("utf-8")
+                            actual_digest = f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+                            if actual_digest != reused_digest:
+                                raise ProviderReadAdmissionUnavailableError(
+                                    "retained provider-read response body failed digest check"
+                                )
+                            reused_bytes = encoded
+                        aligned["requests_reused"] = int(aligned.get("requests_reused", 0)) + 1
+                        aligned["revision"] = expected_rev + 1
+                        aligned["updated_at"] = at.isoformat()
+                        swapped = await self._cas(key, aligned, expected_revision=expected_rev)
+                        if not swapped:
+                            continue
+                        return ProviderReadAdmissionReceipt(
+                            source_name=self._binding.source_name,
+                            generation_id=self._binding.generation_id,
+                            generation_seq=self._binding.generation_seq,
+                            request_id=request_id,
+                            idempotency_key=idempotency_key,
+                            reused=True,
+                            reused_response_digest=reused_digest,
+                            requests_admitted=int(aligned["requests_admitted"]),
+                            requests_reused=int(aligned["requests_reused"]),
+                            requests_held=int(aligned["requests_held"]),
+                            ambiguous_or_cancelled_count=int(
+                                aligned["ambiguous_or_cancelled_count"]
+                            ),
+                            max_requests_per_generation=int(aligned["max_requests_per_generation"]),
+                            reused_response_bytes=reused_bytes,
+                        )
+
+                    in_flight = dict(aligned.get("in_flight_requests") or {})
+                    if request_id in in_flight:
+                        flight_entry = in_flight[request_id]
+                        if (
+                            not isinstance(flight_entry, Mapping)
+                            or flight_entry.get("idempotency_key") != idempotency_key
+                        ):
+                            raise ValueError(
+                                f"provider-read request_id {request_id!r} conflicts with a "
+                                "different idempotency_key"
+                            )
+                        if not wait_for_cooldown or in_flight_waited >= self._max_defer_seconds:
+                            raise ProviderReadAdmissionError(
+                                f"provider-read request_id {request_id!r} is already in flight"
+                            )
+                        seen_in_flight = True
+                        wait_for_in_flight = True
+                        break
+                    if seen_in_flight:
+                        raise ProviderReadAdmissionError(
+                            f"provider-read request_id {request_id!r} failed or was cancelled "
+                            "while in flight"
+                        )
+
+                    admitted = int(aligned.get("requests_admitted", 0))
+                    max_requests = int(
+                        aligned.get("max_requests_per_generation", self._max_requests)
+                    )
+                    if admitted >= max_requests:
+                        aligned["requests_held"] = int(aligned.get("requests_held", 0)) + 1
+                        aligned["revision"] = expected_rev + 1
+                        aligned["updated_at"] = at.isoformat()
+                        swapped = await self._cas(key, aligned, expected_revision=expected_rev)
+                        if not swapped:
+                            continue
+                        raise ProviderReadBudgetExhaustedError(
+                            f"provider-read budget exhausted for {self._binding.source_name!r} "
+                            f"({admitted}/{max_requests})"
+                        )
+
+                    in_flight[request_id] = {
+                        "admitted_at": at.isoformat(),
+                        "idempotency_key": idempotency_key,
+                    }
+                    aligned["in_flight_requests"] = in_flight
+                    aligned["requests_admitted"] = admitted + 1
                     aligned["revision"] = expected_rev + 1
                     aligned["updated_at"] = at.isoformat()
                     swapped = await self._cas(key, aligned, expected_revision=expected_rev)
-                    if not swapped:
-                        continue
-                    return ProviderReadAdmissionReceipt(
-                        source_name=self._binding.source_name,
-                        generation_id=self._binding.generation_id,
-                        generation_seq=self._binding.generation_seq,
-                        request_id=request_id,
-                        idempotency_key=idempotency_key,
-                        reused=True,
-                        reused_response_digest=reused_digest,
-                        requests_admitted=int(aligned["requests_admitted"]),
-                        requests_reused=int(aligned["requests_reused"]),
-                        requests_held=int(aligned["requests_held"]),
-                        ambiguous_or_cancelled_count=int(aligned["ambiguous_or_cancelled_count"]),
-                        max_requests_per_generation=int(aligned["max_requests_per_generation"]),
-                        reused_response_bytes=reused_bytes,
-                    )
-
-                in_flight = dict(aligned.get("in_flight_requests") or {})
-                if request_id in in_flight:
-                    raise ProviderReadAdmissionError(
-                        f"provider-read request_id {request_id!r} is already in flight"
-                    )
-
-                admitted = int(aligned.get("requests_admitted", 0))
-                max_requests = int(aligned.get("max_requests_per_generation", self._max_requests))
-                if admitted >= max_requests:
-                    aligned["requests_held"] = int(aligned.get("requests_held", 0)) + 1
-                    aligned["revision"] = expected_rev + 1
-                    aligned["updated_at"] = at.isoformat()
-                    swapped = await self._cas(key, aligned, expected_revision=expected_rev)
-                    if not swapped:
-                        continue
-                    raise ProviderReadBudgetExhaustedError(
-                        f"provider-read budget exhausted for {self._binding.source_name!r} "
-                        f"({admitted}/{max_requests})"
-                    )
-
-                in_flight[request_id] = {
-                    "admitted_at": at.isoformat(),
-                    "idempotency_key": idempotency_key,
-                }
-                aligned["in_flight_requests"] = in_flight
-                aligned["requests_admitted"] = admitted + 1
-                aligned["revision"] = expected_rev + 1
-                aligned["updated_at"] = at.isoformat()
-                swapped = await self._cas(key, aligned, expected_revision=expected_rev)
-                if swapped:
-                    return ProviderReadAdmissionReceipt(
-                        source_name=self._binding.source_name,
-                        generation_id=self._binding.generation_id,
-                        generation_seq=self._binding.generation_seq,
-                        request_id=request_id,
-                        idempotency_key=idempotency_key,
-                        reused=False,
-                        reused_response_digest=None,
-                        requests_admitted=int(aligned["requests_admitted"]),
-                        requests_reused=int(aligned["requests_reused"]),
-                        requests_held=int(aligned["requests_held"]),
-                        ambiguous_or_cancelled_count=int(aligned["ambiguous_or_cancelled_count"]),
-                        max_requests_per_generation=max_requests,
-                    )
-        raise ProviderReadAdmissionUnavailableError(
-            "provider-read admission CAS contention exceeded maximum attempts"
-        )
+                    if swapped:
+                        return ProviderReadAdmissionReceipt(
+                            source_name=self._binding.source_name,
+                            generation_id=self._binding.generation_id,
+                            generation_seq=self._binding.generation_seq,
+                            request_id=request_id,
+                            idempotency_key=idempotency_key,
+                            reused=False,
+                            reused_response_digest=None,
+                            requests_admitted=int(aligned["requests_admitted"]),
+                            requests_reused=int(aligned["requests_reused"]),
+                            requests_held=int(aligned["requests_held"]),
+                            ambiguous_or_cancelled_count=int(
+                                aligned["ambiguous_or_cancelled_count"]
+                            ),
+                            max_requests_per_generation=max_requests,
+                        )
+            if wait_for_cooldown_race:
+                continue
+            if wait_for_in_flight:
+                step = min(0.05, max(0.001, self._max_defer_seconds - in_flight_waited))
+                await self._sleep(step)
+                in_flight_waited += step
+                if current_now is not None:
+                    current_now = at + timedelta(seconds=step)
+                continue
+            raise ProviderReadAdmissionUnavailableError(
+                "provider-read admission CAS contention exceeded maximum attempts"
+            )
 
     async def complete(
         self,

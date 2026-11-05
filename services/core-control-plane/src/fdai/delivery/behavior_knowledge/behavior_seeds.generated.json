@@ -399,7 +399,7 @@
         "What checks does a T2 proposal pass?",
         "T2 제안은 어떤 검증을 통과해야 하나요?"
       ],
-      "source_manifest_hash": "f54ba8282215495fe8988648ab98007e70a00d8e414bc3233ad55609f8376bc7",
+      "source_manifest_hash": "210f74f6819ad14d3f7d9d93c9b77b68c4eb6478e63394ccda2f78ea8e8fafcf",
       "sources": [
         {
           "authority_role": "implementation",
@@ -412,18 +412,18 @@
         },
         {
           "authority_role": "verification",
-          "blob_sha": "3ff657ec3aa4b88910acd0b4e93cef592f3e83ba",
-          "line_end": 312,
-          "line_start": 304,
+          "blob_sha": "0c89f2cc526a38f5dacb8566c98bda25517b4d76",
+          "line_end": 308,
+          "line_start": 300,
           "path": "services/core-control-plane/tests/core/quality_gate/test_gate.py",
           "source_kind": "test",
           "symbol": "test_no_grounded_citation_when_require_grounding_true"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "3ff657ec3aa4b88910acd0b4e93cef592f3e83ba",
-          "line_end": 345,
-          "line_start": 333,
+          "blob_sha": "0c89f2cc526a38f5dacb8566c98bda25517b4d76",
+          "line_end": 336,
+          "line_start": 327,
           "path": "services/core-control-plane/tests/core/quality_gate/test_gate.py",
           "source_kind": "test",
           "symbol": "test_cross_check_disagreement_below_quorum_becomes_disagree"
@@ -768,7 +768,7 @@
         "What happens to duplicate events?",
         "중복 이벤트는 어떻게 처리하나요?"
       ],
-      "source_manifest_hash": "b3bb0a5b55d21dbd0f486d803037286b3fca7fb5081eba1735db89e3e0fc77a7",
+      "source_manifest_hash": "8dbbdfd19dfab1c237efdc5b1f94733030eb679c82fea61dc920d4465ed00a5a",
       "sources": [
         {
           "authority_role": "implementation",
@@ -781,7 +781,7 @@
         },
         {
           "authority_role": "verification",
-          "blob_sha": "b109b0080e2426a9397011854630fceb912bc928",
+          "blob_sha": "3eb42728f8f7971c09552b5c842b231d8aa0558b",
           "line_end": 44,
           "line_start": 40,
           "path": "services/core-control-plane/tests/core/event_ingest/test_event_ingest.py",

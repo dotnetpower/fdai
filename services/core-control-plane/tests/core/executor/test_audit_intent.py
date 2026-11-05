@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 from fdai.core.executor.audit_intent import (
@@ -11,6 +11,8 @@ from fdai.core.executor.audit_intent import (
     AuditIntentAppendReceipt,
     AuditIntentAppendResult,
     PreEffectAuditIntent,
+    _normalize_digest_value,
+    audit_intent_to_mapping,
 )
 from fdai.core.executor.idempotency_reservation import (
     IdempotencyReservationIdentity,
@@ -215,3 +217,109 @@ def test_append_receipt_rejects_partial_or_late_readback() -> None:
 def test_audit_intent_and_append_replay_are_deterministic() -> None:
     assert _intent() == _intent()
     assert _append_receipt() == _append_receipt()
+
+
+def test_pre_effect_audit_intent_validation_and_subclass_guards() -> None:
+    intent = _intent()
+    with pytest.raises(TypeError, match="does not support subclasses"):
+
+        class _SubIntent(PreEffectAuditIntent):
+            pass
+
+        _SubIntent.create(
+            reservation_receipt=_reservation_receipt(),
+            actor="fdai.core.executor",
+            created_at=_NOW + timedelta(seconds=1),
+        )
+
+    with pytest.raises(ValueError, match="unsupported pre-effect audit intent schema"):
+        replace(intent, schema_version="2.0.0")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="MUST NOT grant authority"):
+        replace(intent, execution_authority=True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="MUST NOT grant authority"):
+        replace(intent, effect_verified=True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="exact reservation receipt"):
+        replace(intent, reservation_receipt="invalid")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="actor MUST be canonical and bounded"):
+        replace(intent, actor=" leading-space")
+    with pytest.raises(ValueError, match="phase MUST be pre_effect"):
+        replace(intent, audit_phase="post_effect")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="normalized to UTC"):
+        replace(
+            intent,
+            created_at=datetime(2026, 9, 10, 10, 0, tzinfo=timezone(timedelta(hours=1))),
+        )
+    with pytest.raises(ValueError, match="MUST include a timezone"):
+        PreEffectAuditIntent.create(
+            reservation_receipt=_reservation_receipt(),
+            actor="fdai.core.executor",
+            created_at=datetime(2026, 9, 10, 9, 0),
+        )
+    with pytest.raises(ValueError, match="MUST be SHA-256"):
+        replace(intent, intent_digest="not-a-digest")
+    with pytest.raises(ValueError, match="digest mismatched"):
+        replace(intent, intent_digest="sha256:" + "f" * 64)
+
+
+def test_append_receipt_and_result_validation_guards() -> None:
+    receipt = _append_receipt()
+    with pytest.raises(TypeError, match="does not support subclasses"):
+
+        class _SubReceipt(AuditIntentAppendReceipt):
+            pass
+
+        _SubReceipt.create(
+            intent=_intent(),
+            persisted_intent_digest=_intent().intent_digest,
+            store_receipt_digest="sha256:" + "6" * 64,
+            persisted_at=_NOW + timedelta(seconds=2),
+            read_back_at=_NOW + timedelta(seconds=3),
+        )
+
+    with pytest.raises(ValueError, match="unsupported audit intent append receipt schema"):
+        replace(receipt, schema_version="2.0.0")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="MUST NOT grant authority"):
+        replace(receipt, execution_authority=True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="exact intent"):
+        replace(receipt, intent="not-an-intent")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="decision is invalid"):
+        AuditIntentAppendResult(
+            candidate_intent_digest=receipt.intent.intent_digest,
+            decision="invalid",  # type: ignore[arg-type]
+            observed_intent_digest=receipt.intent.intent_digest,
+            receipt=receipt,
+        )
+    with pytest.raises(ValueError, match="MUST NOT contain success evidence"):
+        AuditIntentAppendResult(
+            candidate_intent_digest=receipt.intent.intent_digest,
+            decision=AuditIntentAppendDecision.CONFLICT,
+            observed_intent_digest=receipt.intent.intent_digest,
+            receipt=None,
+        )
+    with pytest.raises(ValueError, match="MUST NOT contain success evidence"):
+        AuditIntentAppendResult(
+            candidate_intent_digest=receipt.intent.intent_digest,
+            decision=AuditIntentAppendDecision.CONFLICT,
+            observed_intent_digest=_DIGEST,
+            receipt=receipt,
+        )
+
+
+def test_audit_intent_to_mapping_and_normalizer(monkeypatch: pytest.MonkeyPatch) -> None:
+    intent = _intent()
+    mapping = audit_intent_to_mapping(intent)
+    assert mapping["intent_digest"] == intent.intent_digest
+    assert mapping["actor"] == "fdai.core.executor"
+
+    nested = _normalize_digest_value((intent, [AuditIntentAppendDecision.APPENDED]))
+    assert isinstance(nested, list)
+
+    with pytest.raises(ValueError, match="requires an exact intent"):
+        audit_intent_to_mapping("not-an-intent")  # type: ignore[arg-type]
+
+    monkeypatch.setattr(
+        "fdai.core.executor.audit_intent._normalize_digest_value",
+        lambda _value: "not-a-dict",
+    )
+    with pytest.raises(ValueError, match="not an object"):
+        audit_intent_to_mapping(intent)

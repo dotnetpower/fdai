@@ -38,7 +38,7 @@ _TAG_TARGET = (
 
 
 def _future_epoch(seconds: int = 3600) -> int:
-    return int((datetime.now(tz=UTC) + timedelta(seconds=seconds)).timestamp())
+    return int((datetime(2099, 1, 1, tzinfo=UTC) + timedelta(seconds=seconds)).timestamp())
 
 
 async def test_managed_identity_coalesces_concurrent_audience_requests() -> None:
@@ -152,7 +152,7 @@ class _Identity:
         self.audiences.append(audience)
         return IdentityToken(
             token=self.token,
-            expires_at=datetime.now(tz=UTC) + timedelta(hours=1),
+            expires_at=datetime(2099, 1, 1, tzinfo=UTC) + timedelta(hours=1),
             audience=audience,
         )
 
@@ -545,3 +545,183 @@ async def test_gateway_rejects_decoy_target_before_status_or_plan() -> None:
             await executor.execute(request)
 
     assert calls == 0
+
+
+async def test_gateway_and_workload_identity_remaining_branches() -> None:
+    from fdai_executor_service.adapters.gateway_direct_api import _safety, _validated_body
+    from fdai_executor_service.adapters.workload_identity import (
+        ManagedIdentityConfigurationError,
+        _audience_to_resource,
+    )
+    from fdai_service_contracts.executor import DirectApiError, DirectApiPromotionError
+
+    # Workload identity config & validation branches
+    async with httpx.AsyncClient() as client:
+        for cfg_kwargs, match in [
+            ({"endpoint": "relative-url", "header": "h"}, "MUST be an absolute URL"),
+            ({"endpoint": "https://id.example", "header": ""}, "IDENTITY_HEADER MUST NOT be empty"),
+            (
+                {"endpoint": "https://id.example", "header": "h", "timeout_seconds": 0},
+                "timeout_seconds MUST be > 0",
+            ),
+            (
+                {
+                    "endpoint": "",
+                    "header": "",
+                    "federated_tenant_id": "bad",
+                    "client_id": "bad",
+                    "federated_token_file": "/abs/path",
+                },
+                "valid tenant and client identifiers",
+            ),
+            (
+                {
+                    "endpoint": "https://id.example",
+                    "header": "",
+                    "federated_tenant_id": "00000000-0000-0000-0000-000000000001",
+                    "client_id": "00000000-0000-0000-0000-000000000002",
+                    "federated_token_file": "relative/path",
+                },
+                "one absolute projected token path",
+            ),
+        ]:
+            with pytest.raises(ManagedIdentityConfigurationError, match=match):
+                ManagedIdentityWorkloadIdentity(
+                    http_client=client,
+                    config=ManagedIdentityWorkloadIdentityConfig(**cfg_kwargs),  # type: ignore[arg-type]
+                )
+        with pytest.raises(ManagedIdentityConfigurationError, match="IDENTITY_ENDPOINT"):
+            ManagedIdentityWorkloadIdentity.from_env(http_client=client, env={})
+
+    list_tx = httpx.MockTransport(lambda _req: httpx.Response(200, json=["not-a-dict"]))
+    async with httpx.AsyncClient(transport=list_tx) as client:
+        mi = ManagedIdentityWorkloadIdentity(
+            http_client=client,
+            config=ManagedIdentityWorkloadIdentityConfig(
+                endpoint="https://id.example/token", header="h"
+            ),
+        )
+        with pytest.raises(RuntimeError, match="unrecognized body"):
+            await mi.get_token("https://management.azure.com/.default")
+    assert _audience_to_resource("https://example/.default") == "https://example"
+
+    # Gateway config validation
+    for gw_kwargs, match in [
+        ({"audience": ""}, "audience MUST be bounded"),
+        ({"timeout_seconds": 0.0}, "timeout_seconds MUST be in"),
+        ({"poll_interval_seconds": -1.0}, "poll_interval_seconds MUST be in"),
+        ({"max_poll_attempts": 0}, "max_poll_attempts MUST be in"),
+    ]:
+        with pytest.raises(ValueError, match=match):
+            AzureGatewayDirectApiConfig(
+                base_url="https://gateway.example.com",
+                audience=gw_kwargs.get("audience", "aud"),  # type: ignore[arg-type]
+                **{k: v for k, v in gw_kwargs.items() if k != "audience"},  # type: ignore[arg-type]
+            )
+
+    async with httpx.AsyncClient() as client:
+        with pytest.raises(ValueError, match="registered identity refs"):
+            AzureGatewayDirectApiExecutor(
+                config=_gateway_config(), identities={}, http_client=client
+            )
+        gw_exec = AzureGatewayDirectApiExecutor(
+            config=_gateway_config(),
+            identities={"identity/resilience": _Identity("t")},
+            http_client=client,
+        )
+        assert await gw_exec.operation_status(_request(Mode.SHADOW)) is None
+        with pytest.raises(DirectApiPromotionError, match="explicit enforce label"):
+            await gw_exec.execute(replace(_request(Mode.ENFORCE), labels=()))
+
+    with pytest.raises(DirectApiPreconditionError, match="safety metadata is missing"):
+        _safety(replace(_request(Mode.ENFORCE), metadata={}))
+    with pytest.raises(DirectApiPreconditionError, match="max_resources must be an integer"):
+        _safety(
+            replace(
+                _request(Mode.ENFORCE),
+                metadata={**_request(Mode.ENFORCE).metadata, "max_resources": "bad"},
+            )
+        )
+    with pytest.raises(DirectApiError, match="operation did not match"):
+        _validated_body({"operation_id": "other", "status": "ok"}, expected_operation="exp")
+    with pytest.raises(DirectApiError, match="status was missing"):
+        _validated_body({"operation_id": "exp", "status": 123}, expected_operation="exp")
+
+    # Gateway polling, status recovery, and HTTP error branches
+    seq: list[httpx.Response | Exception] = []
+
+    def seq_handler(req: httpx.Request) -> httpx.Response:
+        item = seq.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+    def r_op(op: str, status: str, **extra: object) -> httpx.Response:
+        return httpx.Response(200, json={"operation_id": op, "status": status, **extra})
+
+    poll_cfg = AzureGatewayDirectApiConfig(
+        base_url="https://gateway.example.com",
+        audience="gateway-audience",
+        poll_interval_seconds=0.001,
+        max_poll_attempts=2,
+    )
+    st_op = "azure.operation.status"
+    pl_op = "azure.operation.plan"
+    vm_op = "azure.compute.vm.start"
+    not_found = httpx.Response(404, json={"status": "failed", "code": "idempotency_not_found"})
+    plan_ok = r_op(pl_op, "succeeded", result={"dry_run_receipt": "dr-1"})
+    submitted = r_op(vm_op, "submitted")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(seq_handler)) as client:
+        gw = AzureGatewayDirectApiExecutor(
+            config=poll_cfg,
+            identities={"identity/resilience": _Identity("t")},
+            http_client=client,
+        )
+        seq.extend([r_op(st_op, "running"), r_op(st_op, "succeeded")])
+        replayed = await gw.execute(_request(Mode.ENFORCE))
+        assert replayed.outcome is DirectApiOutcome.ALREADY_APPLIED
+
+        seq.append(r_op(st_op, "failed"))
+        assert (await gw.execute(_request(Mode.ENFORCE))).outcome is DirectApiOutcome.FAILED
+
+        for bad_seq, mode, match in [
+            ([r_op(st_op, "weird")], Mode.ENFORCE, "not recognized"),
+            ([r_op(pl_op, "failed")], Mode.SHADOW, "plan did not succeed"),
+            ([r_op(pl_op, "succeeded", result={})], Mode.SHADOW, "omitted dry_run_receipt"),
+            ([not_found, plan_ok, submitted, r_op(st_op, "weird")], Mode.ENFORCE, "not recognized"),
+        ]:
+            seq.extend(bad_seq)
+            with pytest.raises(DirectApiError, match=match):
+                await gw.execute(_request(mode))
+
+        for fail_seq in [
+            [not_found, plan_ok, r_op(vm_op, "queued")],
+            [not_found, plan_ok, submitted, r_op(st_op, "failed")],
+            [not_found, plan_ok, submitted, r_op(st_op, "running"), r_op(st_op, "running")],
+        ]:
+            seq.extend(fail_seq)
+            assert (await gw.execute(_request(Mode.ENFORCE))).outcome is DirectApiOutcome.FAILED
+
+        for err_item, exc_type, match in [
+            (httpx.ConnectError("boom"), DirectApiError, "request failed"),
+            (httpx.Response(200, content=b"not-json"), DirectApiError, "not JSON"),
+            (httpx.Response(200, json=["list"]), DirectApiError, "not an object"),
+            (httpx.Response(409, json={}), DirectApiPreconditionError, "precondition failed"),
+            (httpx.Response(500, json={}), DirectApiError, "returned HTTP 500"),
+        ]:
+            seq.append(err_item)
+            with pytest.raises(exc_type, match=match):
+                await gw.execute(_request(Mode.SHADOW))
+
+        class _FailingId:
+            async def get_token(self, _aud: str) -> IdentityToken:
+                raise RuntimeError("id fail")
+
+        gw_fail_id = AzureGatewayDirectApiExecutor(
+            config=poll_cfg,
+            identities={"identity/resilience": _FailingId()},
+            http_client=client,
+        )
+        with pytest.raises(DirectApiAuthenticationError, match="acquisition failed"):
+            await gw_fail_id.execute(_request(Mode.SHADOW))

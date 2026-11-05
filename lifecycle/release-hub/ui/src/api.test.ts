@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { actionsFor, artifacts, isCustomChannel, parseReleaseManifest, releaseStateIndex, releaseTitle, requestCatalog, schemaCompatibility, type Release } from "./api";
+import { actionsFor, artifacts, catalogChangeObserved, catalogRecovery, CatalogRequestError, isCustomChannel, parseReleaseManifest, releaseStateIndex, releaseTitle, requestCatalog, requestCatalogExport, requestEntraLogout, requestStencilCatalog, requestStencilCompose, schemaCompatibility, type Catalog, type Release, type StencilComposePayload } from "./api";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 describe("release action boundaries", () => {
@@ -90,6 +90,60 @@ describe("release action boundaries", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 409, json: async () => ({ error: "Catalog changed." }) }));
     await expect(requestCatalog()).rejects.toThrow("Catalog changed.");
   });
+  it("does not claim sign-out succeeded on a rejected or still-authenticated response", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false, status: 503, json: async () => ({ error: "Not ready" }),
+    }));
+    await expect(requestEntraLogout()).rejects.toThrow("sign-out was rejected");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true, status: 200, json: async () => ({ authenticated: true, session: { principal: "operator" } }),
+    }));
+    await expect(requestEntraLogout()).rejects.toThrow("not confirmed");
+  });
+  it("downloads exact export bytes through the authenticated fetch path", async () => {
+    const raw = '{"revision":4,"snapshot":"exact bytes"}\n';
+    const fetch = vi.fn().mockResolvedValue(new Response(raw, {
+      status: 200, headers: { "Content-Type": "application/json" },
+    }));
+    vi.stubGlobal("fetch", fetch);
+    expect(await (await requestCatalogExport()).text()).toBe(raw);
+    expect(fetch).toHaveBeenCalledWith("/v1/catalog/export", expect.objectContaining({ cache: "no-store" }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("denied", { status: 401 })));
+    await expect(requestCatalogExport()).rejects.toThrow("export unavailable");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("<html>sign in</html>", { status: 200 })));
+    await expect(requestCatalogExport()).rejects.toThrow("unexpected content type");
+  });
+  it("rejects incomplete Stencil catalog and compose responses before using nested fields", async () => {
+    const payload: StencilComposePayload = {
+      stencil_id: "lite-observe-alert", title: "Lite", title_ko: "경량",
+      description: "", description_ko: "", topology_profile: "lite-observe-alert",
+      requested_panel_ids: [], requested_workloads: [], requested_scheduled_jobs: [],
+      requested_loops: [], requested_addons: [], auto_resolve_dependencies: true,
+      release_version: "1.0.0", source_commit: "auto",
+    };
+    const fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ presets: [], panels: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ stencil: {}, footprint: {}, release_manifest: {} }) });
+    vi.stubGlobal("fetch", fetch);
+    await expect(requestStencilCatalog()).rejects.toThrow("Invalid Stencil catalog payload");
+    await expect(requestStencilCompose(payload)).rejects.toThrow("Invalid Stencil composition payload");
+  });
+  it("preserves a specific promotion rejection while advising a fresh review", () => {
+    expect(catalogRecovery(new CatalogRequestError("Promotion stage blocked (promotion_canary_unhealthy).", 409)))
+      .toContain("Healthy canary observations are insufficient");
+  });
+  it("attributes a capability recall only to its matching readback event", () => {
+    const change = { revision: 3, confirmation: "isolated-executor", reason: "Defect found" };
+    const readBack: Catalog = {
+      ...catalog(4), events: [{
+        revision: 4, release_id: "isolated-executor", action: "recall_capability",
+        reason: "Defect found", channel: null, occurred_at: "2026-10-15T13:00:00Z",
+      }],
+    };
+    expect(catalogChangeObserved(readBack, "recall_capability", "isolated-executor", change)).toBe(true);
+    expect(catalogChangeObserved(readBack, "lift_capability", "isolated-executor", change)).toBe(false);
+    expect(catalogChangeObserved(readBack, "recall_capability", "other", change)).toBe(false);
+  });
   it("uses a stable status error when a failed response is not JSON", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
       ok: false,
@@ -107,6 +161,22 @@ describe("release action boundaries", () => {
       ok: true, status: 200, json: async () => ({ revision: 3 }),
     }));
     await expect(requestCatalog()).rejects.toThrow("invalid catalog");
+  });
+  it("rejects malformed catalog dates, channel members, releases, and events before rendering", async () => {
+    const invalidCatalogs = [
+      { ...catalog(), expires_at: "invalid" },
+      { ...catalog(), channels: { DEV: null } },
+      { ...catalog(), releases: [{ id: "1.0.0" }] },
+      { ...catalog(), events: [{ revision: 1, action: "publish" }] },
+    ];
+    const fetch = vi.fn().mockImplementation((_path: string) => Promise.resolve({
+      ok: true, status: 200, json: async () => invalidCatalogs.shift(),
+    }));
+    vi.stubGlobal("fetch", fetch);
+    for (let index = 0; index < 4; index += 1) {
+      await expect(requestCatalog()).rejects.toThrow("invalid catalog");
+    }
+    expect(fetch).toHaveBeenCalledTimes(4);
   });
   it("reports invalid JSON separately from a valid catalog", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
