@@ -3,6 +3,8 @@
   "compilerOptions": {
     "paths": {
       "@azure/msal-browser": ["./node_modules/@azure/msal-browser"],
+      "preact": ["./node_modules/preact"],
+      "preact/*": ["./node_modules/preact/*"],
       "react": ["./node_modules/preact/compat/"],
       "react-dom": ["./node_modules/preact/compat/"]
     }

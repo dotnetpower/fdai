@@ -454,6 +454,7 @@ jobs:
             console/package-lock.json
             cli/package-lock.json
             lifecycle/hub/ui/package-lock.json
+            lifecycle/release-hub/ui/package-lock.json
 
       - name: Install locked console dependencies
         run: npm --prefix console ci --no-audit --no-fund
@@ -463,6 +464,9 @@ jobs:
 
       - name: Install locked Lifecycle Hub UI dependencies
         run: npm --prefix lifecycle/hub/ui ci --no-audit --no-fund
+
+      - name: Install locked Release Hub UI dependencies
+        run: npm --prefix lifecycle/release-hub/ui ci --no-audit --no-fund
 
       - name: Test, typecheck, and build operator surfaces
         run: bash scripts/quality/ci/run-operator-surfaces.sh
@@ -1233,6 +1237,19 @@ jobs:
           terraform -chdir=ci-runner-controller init -backend=false -input=false -lockfile=readonly
           terraform -chdir=ci-runner-controller validate
           terraform -chdir=ci-runner-controller test
+
+      - name: terraform validate and test (Hub roots, mocked providers)
+        run: |
+          set -euo pipefail
+          for hub_root in release-hub lifecycle-hub; do
+            lock_arguments=()
+            if [[ -f "$hub_root/.terraform.lock.hcl" ]]; then
+              lock_arguments=(-lockfile=readonly)
+            fi
+            terraform -chdir="$hub_root" init -backend=false -input=false "${lock_arguments[@]}"
+            terraform -chdir="$hub_root" validate
+            terraform -chdir="$hub_root" test
+          done
 
       - name: Install Terraform security scanners
         working-directory: .
