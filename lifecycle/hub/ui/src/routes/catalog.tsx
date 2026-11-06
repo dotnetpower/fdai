@@ -82,6 +82,17 @@ export function CatalogPage() {
     {error && <p class="banner fail" role="alert">{error}</p>}
     {trustAvailable === true && !trust && !error && <section class="skeleton" role="status" aria-busy="true" aria-label={tr(locale, "Loading catalog trust", "카탈로그 신뢰 설정 불러오는 중")} />}
     {trust && <>
+      {trust.mode === "tuf-catalog-roles" && trust.imported && (
+        <div class="banner ok" role="status">
+          <strong>
+            ✓ {tr(
+              locale,
+              `TUF signed role catalog verified and active (Revision ${trust.minimum_revision})`,
+              `TUF 서명 역할 기반 카탈로그 검증 및 동기화 완료 (개정 번호 ${trust.minimum_revision})`,
+            )}
+          </strong>
+        </div>
+      )}
       <dl class="catalog-trust">
         <dt>{tr(locale, "Accepted revision floor", "수락된 최소 개정 번호")}</dt><dd>{trust.minimum_revision}</dd>
         <dt>{tr(locale, "Accepted digest", "수락된 다이제스트")}</dt><dd style={{ overflowWrap: "anywhere" }}>{trust.accepted_sha256 ?? tr(locale, "No catalog imported", "가져온 카탈로그 없음")}</dd>
