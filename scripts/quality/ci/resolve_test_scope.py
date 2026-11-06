@@ -67,6 +67,7 @@ _OPERATOR_PREFIXES = (
     "cli/",
     "eval/",
     "lifecycle/hub/ui/",
+    "lifecycle/release-hub/ui/",
     "ui/",
     "mocks/ui/",
     "packages/",

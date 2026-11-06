@@ -13,3 +13,6 @@ npm --prefix cli run typecheck
 npm --prefix lifecycle/hub/ui run typecheck
 npm --prefix lifecycle/hub/ui test
 npm --prefix lifecycle/hub/ui run build
+npm --prefix lifecycle/release-hub/ui run typecheck
+npm --prefix lifecycle/release-hub/ui test
+npm --prefix lifecycle/release-hub/ui run build
