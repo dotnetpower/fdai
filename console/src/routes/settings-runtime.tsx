@@ -364,6 +364,14 @@ function runtimeSettingText(key: string, part: "label" | "hint"): string {
     return settingsIntegrationsText(part === "label"
       ? "resultHandles.label" : "resultHandles.hint");
   }
+  if (key === "logging.app_insights.llm_tracing.enabled") {
+    return settingsIntegrationsText(part === "label"
+      ? "appInsightsLlmTracing.label" : "appInsightsLlmTracing.hint");
+  }
+  if (key === "logging.app_insights.llm_prompt_capture.enabled") {
+    return settingsIntegrationsText(part === "label"
+      ? "appInsightsLlmPromptCapture.label" : "appInsightsLlmPromptCapture.hint");
+  }
   return t(`settings.runtimePolicies.fields.${key}.${part}`);
 }
 
