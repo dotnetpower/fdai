@@ -2077,6 +2077,20 @@
           "level": {
             "label": "Runtime log level",
             "hint": "Minimum Python log severity after the runtime restarts."
+          },
+          "app_insights": {
+            "llm_tracing": {
+              "enabled": {
+                "label": "Application Insights LLM call tracing",
+                "hint": "Export LLM call spans, latency, model identity, and token usage to Application Insights when APPLICATIONINSIGHTS_CONNECTION_STRING is configured. Changes apply without a restart."
+              }
+            },
+            "llm_prompt_capture": {
+              "enabled": {
+                "label": "Application Insights LLM prompt and response logging",
+                "hint": "Include redacted, bounded prompt and response messages on LLM spans and logs exported to Application Insights. Enabling this also exports the enclosing LLM call span without a restart."
+              }
+            }
           }
         },
         "conversation": {

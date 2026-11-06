@@ -51,7 +51,11 @@ from fdai.core.tools import ToolExecutor, ToolRegistry
 from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.gateway_evidence import record_gateway_route_evidence
 from fdai.delivery.azure.llm.latency_routed_cross_check import ModelHealthTransitionSink
-from fdai.delivery.azure.llm.model_trace import prepare_model_messages
+from fdai.delivery.azure.llm.model_trace import (
+    complete_model_trace,
+    prepare_model_messages,
+    start_model_trace,
+)
 from fdai.delivery.azure.llm.provider_observations import (
     ProviderInvocationObservation,
     ProviderInvocationObservations,
@@ -339,6 +343,7 @@ class AzureOpenAICrossCheckModel:
                     raise RuntimeError("cross-check request exceeds its prompt profile budget")
                 if token is None:
                     token = await self._identity.get_token(self._target.auth_audience)
+                trace_start = start_model_trace(prepared_messages)
                 response = await self._post_provider(
                     request.url,
                     params=request.params,
@@ -371,6 +376,22 @@ class AzureOpenAICrossCheckModel:
                     if observation is not None:
                         observation.result = False
                     raise
+                raw_usage = envelope.get("usage") if isinstance(envelope, Mapping) else None
+                raw_content = message.get("content")
+                trace_kind = self._capability_id or "t2-cross-check"
+                complete_model_trace(
+                    trace_start,
+                    call_id=f"{trace_kind}-{iteration + 1}",
+                    kind=trace_kind,
+                    model=self._config.deployment,
+                    response_content=(
+                        raw_content
+                        if isinstance(raw_content, str)
+                        else json.dumps(message.get("tool_calls") or [], sort_keys=True)
+                    ),
+                    usage=raw_usage if isinstance(raw_usage, Mapping) else None,
+                    usage_scope="control_plane",
+                )
 
                 tool_calls = message.get("tool_calls") or []
                 if tool_calls:

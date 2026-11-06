@@ -19,7 +19,11 @@ from fdai.core.learning import (
 )
 from fdai.core.operator_memory import MemoryCategory, ScopeKind
 from fdai.core.prompts import PromptReplayManifest, estimate_chat_request_tokens
-from fdai.delivery.azure.llm.model_trace import prepare_model_messages
+from fdai.delivery.azure.llm.model_trace import (
+    complete_model_trace,
+    prepare_model_messages,
+    start_model_trace,
+)
 from fdai.delivery.azure.llm.request_target import (
     COGNITIVE_SERVICES_SCOPE,
     ModelRequestTarget,
@@ -137,6 +141,7 @@ class AzureOpenAIPostTurnModel:
         }
         if request.model_body_field is not None:
             body["model"] = request.model_body_field
+        trace_start = start_model_trace(messages)
         try:
             response = await self._http.post(
                 request.url,
@@ -157,7 +162,20 @@ class AzureOpenAIPostTurnModel:
             call_kind="post-turn-review",
             usage=usage if isinstance(usage, Mapping) else None,
         )
-        return _parse_response(response)
+        parsed_proposal = _parse_response(response)
+        choices = envelope.get("choices") if isinstance(envelope, Mapping) else None
+        first_msg = choices[0].get("message") if isinstance(choices, list) and choices else None
+        raw_content = first_msg.get("content") if isinstance(first_msg, Mapping) else ""
+        complete_model_trace(
+            trace_start,
+            call_id="post-turn-review-1",
+            kind="post-turn-review",
+            model=self._config.deployment,
+            response_content=raw_content if isinstance(raw_content, str) else "",
+            usage=usage if isinstance(usage, Mapping) else None,
+            usage_scope="control_plane",
+        )
+        return parsed_proposal
 
 
 def _review_prompt(review_input: PostTurnReviewInput) -> str:

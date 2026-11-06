@@ -19,7 +19,11 @@ from fdai.core.web_search import (
     WebSnippet,
     is_web_host_allowed,
 )
-from fdai.delivery.azure.llm.model_trace import prepare_model_messages
+from fdai.delivery.azure.llm.model_trace import (
+    complete_model_trace,
+    prepare_model_messages,
+    start_model_trace,
+)
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.rule_catalog.schema.model_endpoint import ModelApiStyle, ModelRouteKind
 from fdai.shared.providers.workload_identity import WorkloadIdentity
@@ -99,6 +103,7 @@ class AzureResponsesWebSearchProvider(WebSearchProvider):
             },
             {"role": "user", "content": query.text},
         ]
+        prepared_input = list(prepare_model_messages(messages, boundary="responses-input").messages)
         body: dict[str, Any] = {
             "model": self._config.target.deployment,
             "tools": [
@@ -111,8 +116,9 @@ class AzureResponsesWebSearchProvider(WebSearchProvider):
             "tool_choice": "required",
             "include": ["web_search_call.action.sources"],
             "max_output_tokens": self._config.max_output_tokens,
-            "input": list(prepare_model_messages(messages, boundary="responses-input").messages),
+            "input": prepared_input,
         }
+        trace_start = start_model_trace(prepared_input)
         timeout = max(0.1, min(self._config.timeout_seconds, query.budget_ms / 1_000))
         try:
             response = await self._http.post(
@@ -135,12 +141,23 @@ class AzureResponsesWebSearchProvider(WebSearchProvider):
             raise AzureResponsesWebSearchError("invalid_response") from exc
         if not isinstance(envelope, Mapping):
             raise AzureResponsesWebSearchError("invalid_response")
-        return _result_from_envelope(
+        result = _result_from_envelope(
             envelope,
             query=query,
             max_results=self._config.max_results,
             fetched_at=self._now(),
         )
+        raw_usage = envelope.get("usage") if isinstance(envelope, Mapping) else None
+        complete_model_trace(
+            trace_start,
+            call_id="web-search-1",
+            kind="web-search",
+            model=self._config.target.deployment,
+            response_content="\n".join(snippet.text for snippet in result.snippets),
+            usage=raw_usage if isinstance(raw_usage, Mapping) else None,
+            usage_scope="control_plane",
+        )
+        return result
 
 
 def _result_from_envelope(

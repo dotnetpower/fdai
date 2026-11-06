@@ -162,6 +162,11 @@ class PhoenixMeteringSink:
         Message text is attached only when content capture was enabled; the trace is already
         redacted and bounded before it reaches this method.
         """
+        if (
+            trace.get("usage_scope", "operator_chat") != "operator_chat"
+            and not self._capture_content
+        ):
+            return
         timing = model_trace_timing(trace)
         span = self._tracer.start_span(
             f"llm.{trace.get('kind', 'unknown')}",

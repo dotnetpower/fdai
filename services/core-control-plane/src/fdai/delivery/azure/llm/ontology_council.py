@@ -20,7 +20,11 @@ from fdai.core.prompts import (
 )
 from fdai.delivery.azure.llm.gateway_evidence import record_gateway_route_evidence
 from fdai.delivery.azure.llm.latency_routed_cross_check import ModelHealthTransitionSink
-from fdai.delivery.azure.llm.model_trace import prepare_model_messages
+from fdai.delivery.azure.llm.model_trace import (
+    complete_model_trace,
+    prepare_model_messages,
+    start_model_trace,
+)
 from fdai.delivery.azure.llm.ontology_council_parser import parse_council_vote
 from fdai.delivery.azure.llm.ontology_council_serialization import (
     encode_council_request,
@@ -187,8 +191,9 @@ class AzureOpenAIOntologyCouncilModel:
                 "content": serialize_council_user_content(packet, dispute),
             },
         ]
+        prepared_messages = list(prepare_model_messages(messages).messages)
         body: dict[str, object] = {
-            "messages": list(prepare_model_messages(messages).messages),
+            "messages": prepared_messages,
             "max_completion_tokens": self._config.max_completion_tokens,
             "response_format": {
                 "type": "json_schema",
@@ -235,6 +240,7 @@ class AzureOpenAIOntologyCouncilModel:
 
         response: httpx.Response | None = None
         usage = TokenUsage.zero()
+        trace_start = start_model_trace(prepared_messages)
         try:
             try:
                 response = await self._http.post(
@@ -273,6 +279,16 @@ class AzureOpenAIOntologyCouncilModel:
                     "ontology council gateway route evidence is invalid"
                 ) from None
             content = _complete_content(envelope)
+            raw_usage = envelope.get("usage") if isinstance(envelope, dict) else None
+            complete_model_trace(
+                trace_start,
+                call_id=f"{self._model_role}-{'revise' if dispute is not None else 'blind'}",
+                kind=self._config.capability_id,
+                model=self._config.deployment,
+                response_content=content,
+                usage=raw_usage if isinstance(raw_usage, dict) else None,
+                usage_scope="control_plane",
+            )
             try:
                 return parse_council_vote(
                     content,
