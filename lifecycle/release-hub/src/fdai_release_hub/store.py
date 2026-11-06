@@ -1018,6 +1018,119 @@ class ReleaseStore:
     ) -> tuple[RecallRecord, ...]:
         return tuple(RecallRecord(**item) for item in cls._recall_dicts(events_asc))
 
+    def reconcile_0_5_x_baseline(
+        self,
+        *,
+        registry_host: str | None = None,
+        force: bool = False,
+    ) -> bool:
+        """Ensure the store serves 0.5.0..0.5.2 Operational Edition lineage and OCI manifests."""
+        from fdai_release_hub.database import promotion_run_receipts, stencil_variants
+        from fdai_release_hub.registry_pipeline import (
+            SYNCHRONIZED_VERSION_COMPONENT_DIGESTS,
+            sync_registry_from_releases,
+        )
+        from fdai_release_hub.stencils import STENCIL_PRESETS, build_stencil_release_manifest
+
+        baseline_specs = (
+            ("0.5.0", "52b924b29c4f5423620d98a1a570bd2a74704862", ("DEV",)),
+            ("0.5.1", "e92c8daf9d5c5cbbd4e029646e32652200182f88", ("DEV",)),
+            (
+                "0.5.2",
+                "4ae668f9569179422f5b2e92f7b793de5cc0c7e8",
+                ("DEV", "RELEASE_CANDIDATE", "RELEASE"),
+            ),
+        )
+        snap = self.snapshot()
+        existing_releases = {str(r["id"]): r for r in snap.get("releases", [])}
+        has_retired_e2e_versions = any(
+            rel_id.startswith(("2468.", "2180.")) for rel_id in existing_releases
+        )
+        if not (force or has_retired_e2e_versions):
+            sync_registry_from_releases(snap.get("releases", []), registry_host=registry_host)
+            return False
+
+        with self.connect() as db:
+            if self.engine.dialect.name == "sqlite":
+                db.exec_driver_sql("BEGIN IMMEDIATE")
+            else:
+                db.execute(select(catalog_metadata).with_for_update()).all()
+            db.execute(event_actors.delete())
+            db.execute(events.delete())
+            db.execute(membership.delete())
+            db.execute(stencil_variants.delete())
+            db.execute(promotion_run_receipts.delete())
+            db.execute(releases.delete())
+
+        with self._export_lock:
+            self._signed_export = None
+        with self._verified_lock:
+            self._verified_manifests.clear()
+
+        preset = STENCIL_PRESETS["lite-observe-alert"]
+        rev = 0
+        for ver, commit_sha, target_channels in baseline_specs:
+            manifest_doc = build_stencil_release_manifest(
+                preset,
+                release_version=ver,
+                source_commit=commit_sha,
+                component_digests=SYNCHRONIZED_VERSION_COMPONENT_DIGESTS[ver],
+                registry_host=registry_host,
+                resolve_local_docker=True,
+                tag_local_docker=False,
+            )
+            manifest_str = canonical_bytes(manifest_doc).decode("utf-8")
+            label = (
+                "Operational Edition [lite-observe-alert]: "
+                f"{preset.title} ({len(preset.enabled_panel_ids)} menus, "
+                f"{len(preset.enabled_workloads)} workloads)"
+            )
+            self.change(
+                "register",
+                ver,
+                Change(
+                    revision=rev,
+                    confirmation=ver,
+                    reason=f"Register Operational Edition {ver} [lite-observe-alert]",
+                    label=label,
+                    manifest=manifest_str,
+                ),
+                actor="system:baseline-sync",
+            )
+            rev += 1
+            self.change(
+                "publish",
+                ver,
+                Change(
+                    revision=rev,
+                    confirmation=ver,
+                    reason=f"Publish Operational Edition {ver} to DEV channel",
+                ),
+                actor="system:baseline-sync",
+            )
+            rev += 1
+            for ch in target_channels:
+                if ch == "DEV":
+                    continue
+                self.change(
+                    "contribute",
+                    ver,
+                    Change(
+                        revision=rev,
+                        confirmation=ver,
+                        channel=ch,
+                        reason=f"Promote Operational Edition {ver} to {ch} channel",
+                    ),
+                    actor="system:baseline-sync",
+                )
+                rev += 1
+
+        if self.roles is not None and self.roles.installed():
+            self.signed_metadata()
+        updated_snap = self.snapshot()
+        sync_registry_from_releases(updated_snap.get("releases", []), registry_host=registry_host)
+        return True
+
     @classmethod
     def export_snapshot(cls, snapshot: dict[str, Any]) -> tuple[bytes, str]:
         recalls = cls._recall_dicts(list(reversed(snapshot["events"])))

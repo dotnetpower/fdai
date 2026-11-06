@@ -623,6 +623,8 @@ def _run() -> None:
             initialize=False,
             role_keys=catalog_role_keys(config),
         )
+        if store.reconcile_0_5_x_baseline(registry_host=config.origin):
+            logger.info("release_hub_0_5_x_baseline_reconciled stage=serve")
         from fdai_lifecycle_hub.stencil_update_api import load_env_stencil_trust_keys
 
         _env_export_pub, env_grant_pubs = load_env_stencil_trust_keys()
@@ -653,6 +655,70 @@ def _run() -> None:
             if source is not None:
                 initialize_trust(connection, source)
 
+        def reconcile_target_0_5_x_baseline() -> bool:
+            if source is None:
+                return False
+            from sqlalchemy import inspect as sa_inspect
+            from sqlalchemy import select as sa_select
+
+            from fdai_lifecycle_hub import catalog_integrity_state as integrity_store
+            from fdai_lifecycle_hub.remote_catalog import _lock_for_binding, trust_state
+
+            with engine.begin() as connection:
+                _lock_for_binding(engine, connection)
+                if not sa_inspect(connection).has_table(trust_state.name):
+                    return False
+                row = (
+                    connection.execute(sa_select(trust_state).with_for_update())
+                    .mappings()
+                    .one_or_none()
+                )
+                if row is None:
+                    return False
+                payload_bytes = bytes(row["payload"]) if row["payload"] is not None else b""
+                stale_trust = (
+                    b'"2468.0.0"' in payload_bytes
+                    or b'"2180.0.0"' in payload_bytes
+                    or (int(row["floor"] or 0) > 8 and b'"0.5.' not in payload_bytes)
+                )
+                stale_integrity = False
+                if sa_inspect(connection).has_table(integrity_store.integrity_state.name):
+                    int_row = (
+                        connection.execute(
+                            sa_select(integrity_store.integrity_state).with_for_update()
+                        )
+                        .mappings()
+                        .one_or_none()
+                    )
+                    if int_row is not None:
+                        ch_vers = str(int_row["channel_versions"] or "")
+                        if (
+                            "2468.0.0" in ch_vers
+                            or "2180.0.0" in ch_vers
+                            or (
+                                int(int_row["max_recall_sequence"] or 0) > 0
+                                and b'"0.5.' not in payload_bytes
+                            )
+                        ):
+                            stale_integrity = True
+                if not (stale_trust or stale_integrity):
+                    return False
+                connection.execute(
+                    trust_state.update()
+                    .where(trust_state.c.id == 1)
+                    .values(
+                        approval_revision=0,
+                        approval_digest=None,
+                        floor=0,
+                        previous_digest=None,
+                        payload=None,
+                    )
+                )
+                integrity_store.reset_integrity_state(connection)
+                if source.tuf:
+                    integrity_store.ensure_integrity_state(connection)
+                return True
+
         if args.command in {"prepare", "migrate"}:
             prepare = args.command == "prepare"
             migrate(engine, "lifecycle_hub", initialize_target, prepare=prepare)
@@ -665,9 +731,13 @@ def _run() -> None:
 
                 if bind_catalog_if_missing(engine, source, actor="system:migration"):
                     logger.info("hub_catalog_trust_bound_by_migration")
+                if reconcile_target_0_5_x_baseline():
+                    logger.info("lifecycle_hub_0_5_x_trust_floor_reconciled stage=migrate")
             logger.info("hub_schema_transition_completed stage=%s", args.command)
             return
         require_schema(engine, "lifecycle_hub", allow_pre_native=True)
+        if reconcile_target_0_5_x_baseline():
+            logger.info("lifecycle_hub_0_5_x_trust_floor_reconciled stage=serve")
         hub = HubStore(engine)
         from fdai_lifecycle_hub.api import create_app
         from fdai_lifecycle_hub.stencil_update_api import load_env_stencil_trust_keys

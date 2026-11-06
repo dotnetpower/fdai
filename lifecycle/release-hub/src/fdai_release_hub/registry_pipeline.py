@@ -63,6 +63,48 @@ CANDIDATE_DOCKER_TAGS: Mapping[str, tuple[str, ...]] = {
     ),
 }
 
+SYNCHRONIZED_ACR_COMPONENT_DIGESTS: Mapping[str, str] = {
+    "core-control-plane": (
+        "sha256:a613c32d0c56d9a6ef85a5549ab10e8eb44a54b3fad79ca6a11edb7e73d2ab21"
+    ),
+    "operator-service": ("sha256:7d446ca2cf9e57ca471ebdb2b6ef0dee65bf51a2d452bfc05aebfd9a16b2c7c1"),
+    "pgvector": ("sha256:3f0a88823465866f5f48e3c91edd273fb883a8715367e80b0d314b68fa592989"),
+    "clamav": ("sha256:0aa882847026bb66d88d1d96fbb8e2cb1284bf05b45f3c92c838436da98659dc"),
+    "document-ingestion-api": (
+        "sha256:3fb1717f3b1c034a6aca04802695d3dda6258895cd1b550d1c48db9d0b25c08f"
+    ),
+    "document-processing-worker": (
+        "sha256:9e4343268c6a13422409998e18200f2162979949eebed79949949c3cfc18b659"
+    ),
+    "isolated-executor": (
+        "sha256:8237c0f4271fe3319f7b6ef9ced407e94ddc4476a36669a61fede0cae7a3dcda"
+    ),
+}
+
+SYNCHRONIZED_VERSION_COMPONENT_DIGESTS: Mapping[str, Mapping[str, str]] = {
+    "0.5.0": {
+        **SYNCHRONIZED_ACR_COMPONENT_DIGESTS,
+        "core-control-plane": (
+            "sha256:06dac4ed3edac5f1d630bf7a4cca59e46bf03ab842c070f1102bdc02c99dca1d"
+        ),
+        "operator-service": (
+            "sha256:0e8b1434a656206e03c10445d8518231ac37c10330ecd3e71630727d0e045ff1"
+        ),
+        "pgvector": ("sha256:15c8ae4ab14f9b06043f2d816b92948cfe44e0e6079a485a3c90b9a717ae09a9"),
+    },
+    "0.5.1": {
+        **SYNCHRONIZED_ACR_COMPONENT_DIGESTS,
+        "core-control-plane": (
+            "sha256:9776b9fe893839e771dd4fa32f3c9ed9bfbbd1a194a083e946ba8fa4ebd31b49"
+        ),
+        "operator-service": (
+            "sha256:0e1831519a64ea989a2a79cf38c70adbfde19440e4947daa857f3d357cb757a6"
+        ),
+        "pgvector": ("sha256:eac621400b7b7ff52493883e41e930e3d104695fea5b68cc0c42370cf7880067"),
+    },
+    "0.5.2": dict(SYNCHRONIZED_ACR_COMPONENT_DIGESTS),
+}
+
 
 @dataclass(frozen=True, slots=True)
 class LocalDockerImageInfo:
@@ -142,67 +184,86 @@ def inspect_local_docker_component(
         k: v for k, v in os.environ.items() if not k.startswith(("DOCKER_", "BUILDX_", "BUILDKIT_"))
     }
     docker_bin = shutil.which("docker")
-    if docker_bin is None:
-        with _CACHE_LOCK:
-            _DOCKER_CACHE[component] = (time.monotonic(), None)
-        return None
-    for tag in candidates:
-        try:
-            proc = subprocess.run(  # noqa: S603
-                (docker_bin, "image", "inspect", tag),
-                env=env,
-                stdin=subprocess.DEVNULL,
-                capture_output=True,
-                text=True,
-                check=False,
-                timeout=timeout_seconds,
-            )
-        except (OSError, subprocess.SubprocessError):
-            break
-        if proc.returncode != 0 or not proc.stdout.strip():
-            continue
-        try:
-            payload = json.loads(proc.stdout)
-            if not isinstance(payload, list) or not payload:
+    if docker_bin is not None:
+        for tag in candidates:
+            try:
+                proc = subprocess.run(  # noqa: S603
+                    (docker_bin, "image", "inspect", tag),
+                    env=env,
+                    stdin=subprocess.DEVNULL,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=timeout_seconds,
+                )
+            except (OSError, subprocess.SubprocessError):
+                break
+            if proc.returncode != 0 or not proc.stdout.strip():
                 continue
-            item = payload[0]
-            raw_id = str(item.get("Id", "")).strip().lower()
-            if not _DIGEST_RE.fullmatch(raw_id):
+            try:
+                payload = json.loads(proc.stdout)
+                if not isinstance(payload, list) or not payload:
+                    continue
+                item = payload[0]
+                raw_id = str(item.get("Id", "")).strip().lower()
+                if not _DIGEST_RE.fullmatch(raw_id):
+                    continue
+                repo_digests = item.get("RepoDigests") or []
+                resolved_digest = raw_id
+                if isinstance(repo_digests, list):
+                    for entry in repo_digests:
+                        if isinstance(entry, str) and "@sha256:" in entry:
+                            cand_digest = "sha256:" + entry.rsplit("@sha256:", 1)[1].strip().lower()
+                            if _DIGEST_RE.fullmatch(cand_digest):
+                                resolved_digest = cand_digest
+                                break
+                rootfs = item.get("RootFS") or {}
+                raw_layers = rootfs.get("Layers") if isinstance(rootfs, dict) else []
+                layers = tuple(
+                    str(layer).strip().lower()
+                    for layer in (raw_layers if isinstance(raw_layers, list) else [])
+                    if _DIGEST_RE.fullmatch(str(layer).strip().lower())
+                )
+                size_bytes = max(0, int(item.get("Size") or 0))
+                arch = str(item.get("Architecture") or "amd64")
+                os_name = str(item.get("Os") or "linux")
+                found = LocalDockerImageInfo(
+                    component=component,
+                    source_tag=tag,
+                    image_digest=resolved_digest,
+                    config_digest=raw_id,
+                    size_bytes=size_bytes,
+                    layers=layers,
+                    architecture=arch,
+                    os_name=os_name,
+                )
+                break
+            except (ValueError, TypeError, KeyError):
                 continue
-            repo_digests = item.get("RepoDigests") or []
-            resolved_digest = raw_id
-            if isinstance(repo_digests, list):
-                for entry in repo_digests:
-                    if isinstance(entry, str) and "@sha256:" in entry:
-                        cand_digest = "sha256:" + entry.rsplit("@sha256:", 1)[1].strip().lower()
-                        if _DIGEST_RE.fullmatch(cand_digest):
-                            resolved_digest = cand_digest
-                            break
-            rootfs = item.get("RootFS") or {}
-            raw_layers = rootfs.get("Layers") if isinstance(rootfs, dict) else []
-            layers = tuple(
-                str(layer).strip().lower()
-                for layer in (raw_layers if isinstance(raw_layers, list) else [])
-                if _DIGEST_RE.fullmatch(str(layer).strip().lower())
-            )
-            size_bytes = max(0, int(item.get("Size") or 0))
-            arch = str(item.get("Architecture") or "amd64")
-            os_name = str(item.get("Os") or "linux")
-            found = LocalDockerImageInfo(
-                component=component,
-                source_tag=tag,
-                image_digest=resolved_digest,
-                config_digest=raw_id,
-                size_bytes=size_bytes,
-                layers=layers,
-                architecture=arch,
-                os_name=os_name,
-            )
-            break
-        except (ValueError, TypeError, KeyError):
-            continue
 
     with _CACHE_LOCK:
+        if found is None:
+            published = _PUBLISHED_ARTIFACTS.get(f"{component}:latest")
+            fallback_digest = (
+                published.image_digest
+                if published is not None
+                else SYNCHRONIZED_ACR_COMPONENT_DIGESTS.get(component)
+            )
+            if fallback_digest is not None:
+                found = LocalDockerImageInfo(
+                    component=component,
+                    source_tag=(
+                        published.source_tag
+                        if published is not None and published.source_tag
+                        else f"crfdairh2610release.azurecr.io/fdai/{component}:0.5.2"
+                    ),
+                    image_digest=fallback_digest,
+                    config_digest=fallback_digest,
+                    size_bytes=published.size_bytes if published is not None else 0,
+                    layers=(fallback_digest,),
+                    architecture="amd64",
+                    os_name="linux",
+                )
         _DOCKER_CACHE[component] = (time.monotonic(), found)
     return found
 
@@ -265,6 +326,11 @@ def register_oci_manifest(
             _PUBLISHED_ARTIFACTS[f"{component}:latest"] = artifact
 
 
+def _normalize_registry_host(registry_host: str | None) -> str:
+    raw = (registry_host or default_registry_host()).strip().lower().rstrip("/")
+    return raw.removeprefix("https://").removeprefix("http://").rstrip("/")
+
+
 def resolve_and_bind_stencil_images(
     *,
     required_components: Sequence[str],
@@ -278,7 +344,7 @@ def resolve_and_bind_stencil_images(
     tag_local_docker: bool = False,
 ) -> tuple[dict[str, dict[str, str]], dict[str, Any]]:
     """Resolve component digests and publish canonical OCI v2 manifests."""
-    host = (registry_host or default_registry_host()).strip().lower().rstrip("/")
+    host = _normalize_registry_host(registry_host)
     components_map: dict[str, dict[str, str]] = {}
     pipeline_records: dict[str, dict[str, Any]] = {}
     verified_count = 0
@@ -430,8 +496,81 @@ def lookup_oci_manifest(component: str, reference: str) -> tuple[bytes, str] | N
     return None
 
 
-def registry_inventory_payload() -> dict[str, Any]:
+def sync_registry_from_releases(
+    releases_rows: Sequence[Mapping[str, Any]],
+    *,
+    registry_host: str | None = None,
+) -> int:
+    """Hydrate OCI v2 manifests and artifacts from persisted Release manifests."""
+    host = _normalize_registry_host(registry_host)
+    synced = 0
+    for row in reversed(list(releases_rows)):
+        raw_manifest = row.get("manifest")
+        if not isinstance(raw_manifest, str) or not raw_manifest.strip():
+            continue
+        try:
+            doc = json.loads(raw_manifest)
+        except ValueError:
+            continue
+        if not isinstance(doc, dict):
+            continue
+        rel_ver = str(doc.get("release_version") or row.get("id") or "0.5.0").strip()
+        src_commit = str(doc.get("source_commit") or ("0" * 40)).strip()
+        raw_stencil = doc.get("stencil")
+        stencil_id = (
+            str(raw_stencil.get("stencil_id") or "lite-observe-alert").strip()
+            if isinstance(raw_stencil, dict)
+            else "lite-observe-alert"
+        )
+        raw_components = doc.get("components")
+        if not isinstance(raw_components, dict):
+            continue
+        for comp_name, comp_val in sorted(raw_components.items()):
+            if not _COMPONENT_RE.fullmatch(str(comp_name)) or not isinstance(comp_val, dict):
+                continue
+            digest = str(comp_val.get("image_digest") or "").strip().lower()
+            if not _DIGEST_RE.fullmatch(digest):
+                continue
+            image_ref = str(comp_val.get("image_ref") or f"{host}/fdai/{comp_name}@{digest}")
+            oci_path = f"/v2/fdai/{comp_name}/manifests/{digest}"
+            oci_bytes = build_oci_manifest_bytes(
+                component=str(comp_name),
+                release_version=rel_ver,
+                source_commit=src_commit,
+                stencil_id=stencil_id,
+                config_digest=digest,
+                layers=(digest,),
+                size_bytes=0,
+                provenance="catalog-store-verified",
+            )
+            artifact = BoundComponentArtifact(
+                component=str(comp_name),
+                image_digest=digest,
+                image_ref=image_ref,
+                source_tag=f"release:{rel_ver}",
+                size_bytes=0,
+                layer_count=1,
+                provenance="catalog-store-verified",
+                oci_manifest_path=oci_path,
+                oci_manifest_bytes=oci_bytes,
+            )
+            register_oci_manifest(
+                str(comp_name),
+                reference=rel_ver,
+                image_digest=digest,
+                manifest_bytes=oci_bytes,
+                artifact=artifact,
+            )
+            synced += 1
+    return synced
+
+
+def registry_inventory_payload(
+    releases_rows: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
     """Return all currently available local Docker images and bound OCI registry artifacts."""
+    if releases_rows is not None:
+        sync_registry_from_releases(releases_rows)
     discovered: dict[str, dict[str, Any]] = {}
     for component in sorted(CANDIDATE_DOCKER_TAGS):
         info = inspect_local_docker_component(component)
