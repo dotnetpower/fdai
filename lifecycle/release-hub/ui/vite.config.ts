@@ -9,13 +9,13 @@ const fromNodeModules = (subpath: string): string =>
 export default defineConfig({
   plugins: [preact()],
   resolve: {
-    alias: {
-      "@azure/msal-browser": fromNodeModules("@azure/msal-browser"),
-      "preact/jsx-runtime": fromNodeModules("preact/jsx-runtime"),
-      "preact/hooks": fromNodeModules("preact/hooks"),
-      "preact/compat": fromNodeModules("preact/compat"),
-      preact: fromNodeModules("preact"),
-    },
+    alias: [
+      { find: "@azure/msal-browser", replacement: fromNodeModules("@azure/msal-browser") },
+      { find: /^preact\/jsx-(?:dev-)?runtime$/, replacement: fromNodeModules("preact/jsx-runtime") },
+      { find: "preact/hooks", replacement: fromNodeModules("preact/hooks") },
+      { find: "preact/compat", replacement: fromNodeModules("preact/compat") },
+      { find: /^preact$/, replacement: fromNodeModules("preact") },
+    ],
     dedupe: ["@azure/msal-browser", "preact"],
   },
   publicDir: "../../hub/ui/public",
