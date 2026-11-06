@@ -22,7 +22,11 @@ from fdai.core.tiers.t2_reasoning import T2ProposalContext
 from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.gateway_evidence import record_gateway_route_evidence
 from fdai.delivery.azure.llm.latency_routed_cross_check import ModelHealthTransitionSink
-from fdai.delivery.azure.llm.model_trace import prepare_model_messages
+from fdai.delivery.azure.llm.model_trace import (
+    complete_model_trace,
+    prepare_model_messages,
+    start_model_trace,
+)
 from fdai.delivery.azure.llm.request_target import (
     COGNITIVE_SERVICES_SCOPE,
     ModelRequestTarget,
@@ -143,6 +147,7 @@ class AzureOpenAIProposer:
                 > manifest.request_token_budget
             ):
                 raise RuntimeError("proposer request exceeds profile budget")
+        trace_start = start_model_trace(body["messages"])
         token = await self._identity.get_token(self._target.auth_audience)
         response = await self._http.post(
             request.url,
@@ -166,7 +171,21 @@ class AzureOpenAIProposer:
             usage = extract_usage(envelope)
             if usage is not None:
                 await self._metering.emit_safe(usage)
-        return _parse_candidate(envelope, context)
+        candidate = _parse_candidate(envelope, context)
+        raw_usage = envelope.get("usage") if isinstance(envelope, Mapping) else None
+        choices = envelope.get("choices") if isinstance(envelope, Mapping) else None
+        first_msg = choices[0].get("message") if isinstance(choices, list) and choices else None
+        raw_content = first_msg.get("content") if isinstance(first_msg, Mapping) else ""
+        complete_model_trace(
+            trace_start,
+            call_id="t2-proposer-1",
+            kind="t2-proposer",
+            model=self._config.deployment,
+            response_content=raw_content if isinstance(raw_content, str) else "",
+            usage=raw_usage if isinstance(raw_usage, Mapping) else None,
+            usage_scope="control_plane",
+        )
+        return candidate
 
 
 def _build_user_prompt(context: T2ProposalContext) -> str:

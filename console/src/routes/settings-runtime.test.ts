@@ -115,6 +115,34 @@ const payload = {
       available: true,
       unavailable_reason: null,
     },
+    {
+      key: "logging.app_insights.llm_tracing.enabled",
+      group: "diagnostics",
+      value_type: "boolean",
+      environment_value: false,
+      override_value: true,
+      effective_value: true,
+      minimum: null,
+      maximum: null,
+      options: [],
+      restart_required: false,
+      available: true,
+      unavailable_reason: null,
+    },
+    {
+      key: "logging.app_insights.llm_prompt_capture.enabled",
+      group: "diagnostics",
+      value_type: "boolean",
+      environment_value: false,
+      override_value: true,
+      effective_value: true,
+      minimum: null,
+      maximum: null,
+      options: [],
+      restart_required: false,
+      available: true,
+      unavailable_reason: null,
+    },
   ],
 };
 
@@ -144,6 +172,8 @@ describe("runtime settings model", () => {
       "conversation.answer_continuity.enabled": true,
       "conversation.t2_escalation.aggressive_enabled": true,
       "conversation.prompt_ablation.profile": "TOOLS",
+      "logging.app_insights.llm_tracing.enabled": true,
+      "logging.app_insights.llm_prompt_capture.enabled": true,
     });
   });
 

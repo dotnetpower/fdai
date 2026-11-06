@@ -26,6 +26,7 @@ _LOGGER = logging.getLogger(__name__)
 
 ModelTraceObserver = Callable[[Mapping[str, object]], None]
 _OBSERVERS: list[ModelTraceObserver] = []
+_RESET_HOOKS: list[Callable[[], None]] = []
 
 
 def register_model_trace_observer(observer: ModelTraceObserver) -> None:
@@ -38,9 +39,17 @@ def register_model_trace_observer(observer: ModelTraceObserver) -> None:
         _OBSERVERS.append(observer)
 
 
+def register_model_trace_reset_hook(hook: Callable[[], None]) -> None:
+    """Register a state-reset callback invoked by :func:`clear_model_trace_observers`."""
+    if hook not in _RESET_HOOKS:
+        _RESET_HOOKS.append(hook)
+
+
 def clear_model_trace_observers() -> None:
     """Remove every observer; intended for composition teardown and tests."""
     _OBSERVERS.clear()
+    for hook in tuple(_RESET_HOOKS):
+        hook()
 
 
 def _notify_observers(trace: Mapping[str, object]) -> None:
@@ -139,6 +148,7 @@ def complete_model_trace(
     model: str,
     response_content: str,
     usage: Mapping[str, Any] | None,
+    usage_scope: Literal["operator_chat", "control_plane"] = "operator_chat",
 ) -> dict[str, object]:
     """Return one Console-compatible redacted model-call trace."""
     redacted, response_redactions = _redact(response_content, max_chars=_MAX_RESPONSE_CHARS)
@@ -163,6 +173,8 @@ def complete_model_trace(
             {"rule": rule, "replacements": count} for rule, count in sorted(redactions.items())
         ],
     }
+    if usage_scope != "operator_chat":
+        trace["usage_scope"] = usage_scope
     _notify_observers(trace)
     return trace
 
@@ -435,9 +447,11 @@ __all__ = [
     "bounded_usage",
     "clear_model_trace_observers",
     "complete_model_trace",
+    "content_free_model_trace",
     "observed_usage",
     "prepare_embedding_input",
     "prepare_model_messages",
     "register_model_trace_observer",
+    "register_model_trace_reset_hook",
     "start_model_trace",
 ]

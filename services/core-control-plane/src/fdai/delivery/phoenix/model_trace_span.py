@@ -46,7 +46,7 @@ def model_trace_attributes(
         "llm.model_name": str(trace.get("model", "unknown")),
         "fdai.call_kind": kind,
         "fdai.call_id": str(trace.get("call_id", "")),
-        "fdai.usage_scope": "operator_chat",
+        "fdai.usage_scope": str(trace.get("usage_scope", "operator_chat")),
         "fdai.status": str(trace.get("status", "unknown")),
     }
     if correlation_id:

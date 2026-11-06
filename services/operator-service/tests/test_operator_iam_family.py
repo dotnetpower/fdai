@@ -190,6 +190,34 @@ class _RuntimeSettingsStore:
                     "unavailable_reason": None,
                 },
                 {
+                    "key": "logging.app_insights.llm_tracing.enabled",
+                    "group": "diagnostics",
+                    "value_type": "boolean",
+                    "environment_value": False,
+                    "override_value": None,
+                    "effective_value": False,
+                    "minimum": None,
+                    "maximum": None,
+                    "options": [],
+                    "restart_required": False,
+                    "available": True,
+                    "unavailable_reason": None,
+                },
+                {
+                    "key": "logging.app_insights.llm_prompt_capture.enabled",
+                    "group": "diagnostics",
+                    "value_type": "boolean",
+                    "environment_value": False,
+                    "override_value": None,
+                    "effective_value": False,
+                    "minimum": None,
+                    "maximum": None,
+                    "options": [],
+                    "restart_required": False,
+                    "available": True,
+                    "unavailable_reason": None,
+                },
+                {
                     "key": "analyzer.budget_seconds",
                     "group": "analysis",
                     "value_type": "number",
@@ -630,6 +658,8 @@ async def test_postgres_runtime_settings_toggle_updates_core_policy_and_projecti
                 "conversation.answer_continuity.enabled": True,
                 "conversation.t2_escalation.aggressive_enabled": False,
                 "conversation.prompt_ablation.profile": "TOOLS",
+                "logging.app_insights.llm_tracing.enabled": True,
+                "logging.app_insights.llm_prompt_capture.enabled": True,
             },
             expected_revision=0,
         )
@@ -642,10 +672,14 @@ async def test_postgres_runtime_settings_toggle_updates_core_policy_and_projecti
     assert settings["conversation.answer_continuity.enabled"]["effective_value"] is True
     assert settings["conversation.t2_escalation.aggressive_enabled"]["effective_value"] is False
     assert settings["conversation.prompt_ablation.profile"]["effective_value"] == "TOOLS"
+    assert settings["logging.app_insights.llm_tracing.enabled"]["effective_value"] is True
+    assert settings["logging.app_insights.llm_prompt_capture.enabled"]["effective_value"] is True
     assert store.state["runtime-settings:policy"]["overrides"] == {
         "conversation.answer_continuity.enabled": True,
         "conversation.t2_escalation.aggressive_enabled": False,
         "conversation.prompt_ablation.profile": "TOOLS",
+        "logging.app_insights.llm_tracing.enabled": True,
+        "logging.app_insights.llm_prompt_capture.enabled": True,
     }
     assert store.proposals[0]["operation"] == "runtime-settings.update"
 

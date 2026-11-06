@@ -27,7 +27,11 @@ from fdai.core.prompts import (
     estimate_serialized_request_tokens,
 )
 from fdai.delivery.azure.llm.completion_body import completion_body_params
-from fdai.delivery.azure.llm.model_trace import prepare_model_messages
+from fdai.delivery.azure.llm.model_trace import (
+    complete_model_trace,
+    prepare_model_messages,
+    start_model_trace,
+)
 from fdai.delivery.azure.llm.request_target import (
     COGNITIVE_SERVICES_SCOPE,
     ModelRequestTarget,
@@ -188,6 +192,7 @@ class AzureConversationAssuranceEvaluator:
             )
         token = await self._identity.get_token(self._target.auth_audience)
         usage: TokenUsage | None = None
+        trace_start = start_model_trace(body["messages"])
         try:
             try:
                 response = await self._http.post(
@@ -213,11 +218,22 @@ class AzureConversationAssuranceEvaluator:
                 extracted = extract_usage(envelope)
                 if extracted is not None:
                     usage = extracted
-                confidence, scores = _parse_evaluation(_message_content(envelope))
+                raw_content = _message_content(envelope)
+                confidence, scores = _parse_evaluation(raw_content)
             except (KeyError, TypeError, ValueError, RuntimeError) as exc:
                 raise ConversationAssuranceInvalidResponseError(
                     "conversation assurance provider response is invalid"
                 ) from exc
+            raw_usage = envelope.get("usage") if isinstance(envelope, Mapping) else None
+            complete_model_trace(
+                trace_start,
+                call_id=f"conversation-assurance-{self.model_identity}",
+                kind="conversation-assurance",
+                model=self._config.deployment,
+                response_content=raw_content,
+                usage=raw_usage if isinstance(raw_usage, Mapping) else None,
+                usage_scope="control_plane",
+            )
             measured_usage = usage or TokenUsage.zero()
             return EvaluatorOutput(
                 model_identity=self.model_identity,

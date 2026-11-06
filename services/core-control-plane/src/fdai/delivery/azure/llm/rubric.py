@@ -49,7 +49,11 @@ from fdai.core.metering.emitter import MeteringEmitter
 from fdai.core.metering.usage import TokenUsage
 from fdai.core.quality_gate.gate import QualityCandidate
 from fdai.core.quality_gate.rubric import RubricCriterion, RubricOutput, RubricScore
-from fdai.delivery.azure.llm.model_trace import prepare_model_messages
+from fdai.delivery.azure.llm.model_trace import (
+    complete_model_trace,
+    prepare_model_messages,
+    start_model_trace,
+)
 from fdai.delivery.azure.llm.usage import extract_usage
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -175,6 +179,7 @@ class AzureOpenAIRubricEvaluator:
             "response_format": {"type": "json_object"},
         }
         body["messages"] = list(prepare_model_messages(body["messages"]).messages)
+        trace_start = start_model_trace(body["messages"])
         # Metering is emitted in ``finally`` so spent tokens are recorded on
         # EVERY exit path - success, a provider error, or a malformed answer
         # that routes to HIL. ``emit_safe`` never raises, so the finally
@@ -198,7 +203,18 @@ class AzureOpenAIRubricEvaluator:
             if call_usage is not None:
                 total_usage = total_usage + call_usage
             message = _extract_message(envelope)
-            return self._parse_rubric_output(message.get("content"))
+            raw_content = message.get("content")
+            raw_usage = envelope.get("usage") if isinstance(envelope, Mapping) else None
+            complete_model_trace(
+                trace_start,
+                call_id="t2-rubric-1",
+                kind="t2-rubric",
+                model=self._config.deployment,
+                response_content=raw_content if isinstance(raw_content, str) else "",
+                usage=raw_usage if isinstance(raw_usage, Mapping) else None,
+                usage_scope="control_plane",
+            )
+            return self._parse_rubric_output(raw_content)
         finally:
             if self._metering is not None:
                 await self._metering.emit_safe(total_usage)

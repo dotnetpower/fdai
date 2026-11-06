@@ -279,6 +279,20 @@ RUNTIME_SETTING_SPECS: tuple[RuntimeSettingSpec, ...] = (
         restart_required=True,
     ),
     RuntimeSettingSpec(
+        "logging.app_insights.llm_tracing.enabled",
+        "FDAI_APPINSIGHTS_LLM_TRACING_ENABLED",
+        "diagnostics",
+        "boolean",
+        False,
+    ),
+    RuntimeSettingSpec(
+        "logging.app_insights.llm_prompt_capture.enabled",
+        "FDAI_APPINSIGHTS_LLM_CAPTURE_CONTENT",
+        "diagnostics",
+        "boolean",
+        False,
+    ),
+    RuntimeSettingSpec(
         "conversation.answer_continuity.enabled",
         "FDAI_ANSWER_CONTINUITY_ENABLED",
         "conversation",
@@ -337,8 +351,12 @@ class RuntimeSettingsService:
 
     async def effective_values_with_revision(self) -> tuple[dict[str, object], int]:
         """Read effective values and their durable revision from the same record."""
+        from fdai.delivery.phoenix.app_insights_sink import apply_app_insights_llm_settings
+
         record = await self._record()
-        return self._effective_values(dict(record["overrides"])), record["revision"]
+        effective = self._effective_values(dict(record["overrides"]))
+        apply_app_insights_llm_settings(effective, env=self.env)
+        return effective, record["revision"]
 
     def environment_values(self) -> dict[str, object]:
         """Return validated startup values without durable overrides."""
@@ -475,7 +493,7 @@ class RuntimeSettingsService:
                 overrides.pop(key, None)
             else:
                 overrides[key] = spec.validate(value)
-        self._effective_values(overrides)
+        effective = self._effective_values(overrides)
         updated_at = datetime.now(tz=UTC).isoformat()
         record = {
             "revision": expected_revision + 1,
@@ -501,6 +519,9 @@ class RuntimeSettingsService:
         )
         if not updated:
             raise RuntimeSettingsConflictError("runtime settings revision mismatch")
+        from fdai.delivery.phoenix.app_insights_sink import apply_app_insights_llm_settings
+
+        apply_app_insights_llm_settings(effective, env=self.env)
 
     async def _record(self) -> dict[str, Any]:
         if self.store is None:

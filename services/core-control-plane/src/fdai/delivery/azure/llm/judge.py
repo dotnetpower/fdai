@@ -28,7 +28,11 @@ from fdai.core.quality_gate.judge import (
     JudgeDecision,
     JudgeOutput,
 )
-from fdai.delivery.azure.llm.model_trace import prepare_model_messages
+from fdai.delivery.azure.llm.model_trace import (
+    complete_model_trace,
+    prepare_model_messages,
+    start_model_trace,
+)
 from fdai.delivery.azure.llm.request_target import (
     COGNITIVE_SERVICES_SCOPE,
     ModelRequestTarget,
@@ -144,6 +148,7 @@ class AzureOpenAIJudgeModel:
         body["messages"] = list(prepare_model_messages(body["messages"]).messages)
         if request.model_body_field is not None:
             body["model"] = request.model_body_field
+        trace_start = start_model_trace(body["messages"])
         response = await self._http.post(
             request.url,
             params=request.params,
@@ -157,7 +162,18 @@ class AzureOpenAIJudgeModel:
         response.raise_for_status()
         envelope = response.json()
         message = _extract_message(envelope)
-        return _parse_judge_output(message.get("content"))
+        raw_content = message.get("content")
+        raw_usage = envelope.get("usage") if isinstance(envelope, Mapping) else None
+        complete_model_trace(
+            trace_start,
+            call_id="t1-judge-1",
+            kind="t1-judge",
+            model=self._config.deployment,
+            response_content=raw_content if isinstance(raw_content, str) else "",
+            usage=raw_usage if isinstance(raw_usage, Mapping) else None,
+            usage_scope="control_plane",
+        )
+        return _parse_judge_output(raw_content)
 
 
 # ---------------------------------------------------------------------------

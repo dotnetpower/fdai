@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -34,7 +34,11 @@ from fdai.core.prompts import (
 )
 from fdai.core.rca import Citation
 from fdai.delivery.azure.llm.completion_body import completion_body_params
-from fdai.delivery.azure.llm.model_trace import prepare_model_messages
+from fdai.delivery.azure.llm.model_trace import (
+    complete_model_trace,
+    prepare_model_messages,
+    start_model_trace,
+)
 from fdai.delivery.azure.llm.request_target import (
     COGNITIVE_SERVICES_SCOPE,
     ModelRequestTarget,
@@ -161,6 +165,7 @@ class AzureOpenAIRcaModel:
                 > manifest.request_token_budget
             ):
                 raise RuntimeError("RCA request exceeds profile budget")
+        trace_start = start_model_trace(body["messages"])
         token = await self._identity.get_token(self._target.auth_audience)
         response = await self._http.post(
             request.url,
@@ -178,7 +183,18 @@ class AzureOpenAIRcaModel:
             usage = extract_usage(envelope)
             if usage is not None:
                 await self._metering.emit_safe(usage)
-        return _extract_content(envelope)
+        content = _extract_content(envelope)
+        raw_usage = envelope.get("usage") if isinstance(envelope, Mapping) else None
+        complete_model_trace(
+            trace_start,
+            call_id="t2-rca-1",
+            kind="t2-rca",
+            model=self._config.deployment,
+            response_content=content,
+            usage=raw_usage if isinstance(raw_usage, Mapping) else None,
+            usage_scope="control_plane",
+        )
+        return content
 
 
 def _build_user_prompt(incident_summary: str, candidate_citations: Sequence[Citation]) -> str:

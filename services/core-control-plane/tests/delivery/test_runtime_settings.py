@@ -327,6 +327,46 @@ async def test_aggressive_t2_defaults_off_and_updates_without_restart() -> None:
     ] is True
 
 
+async def test_app_insights_llm_tracing_and_prompt_capture_apply_without_restart() -> None:
+    from fdai.delivery.phoenix.app_insights_sink import (
+        current_app_insights_llm_config,
+        reset_app_insights_llm_settings,
+    )
+
+    reset_app_insights_llm_settings()
+    try:
+        service = RuntimeSettingsService(
+            store=InMemoryStateStore(),
+            env={
+                "APPLICATIONINSIGHTS_CONNECTION_STRING": (
+                    "InstrumentationKey=00000000-0000-0000-0000-000000000000"
+                )
+            },
+        )
+        initial = await service.projection(can_manage=True)
+        tracing_setting = _setting(initial, "logging.app_insights.llm_tracing.enabled")
+        capture_setting = _setting(initial, "logging.app_insights.llm_prompt_capture.enabled")
+
+        assert tracing_setting["effective_value"] is False
+        assert tracing_setting["restart_required"] is False
+        assert capture_setting["effective_value"] is False
+        assert capture_setting["restart_required"] is False
+
+        await service.update(
+            actor_id="owner-1",
+            changes={"logging.app_insights.llm_prompt_capture.enabled": True},
+            expected_revision=0,
+        )
+        updated = await service.effective_values()
+        active_config = current_app_insights_llm_config()
+
+        assert updated["logging.app_insights.llm_prompt_capture.enabled"] is True
+        assert active_config.capture_content is True
+        assert active_config.active is True
+    finally:
+        reset_app_insights_llm_settings()
+
+
 async def test_prompt_ablation_rejects_unreviewed_profile() -> None:
     service = RuntimeSettingsService(store=InMemoryStateStore(), env={})
 
