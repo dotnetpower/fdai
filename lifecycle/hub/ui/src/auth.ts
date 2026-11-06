@@ -49,8 +49,11 @@ export function subscribeEntraSession(listener: () => void): () => void {
 }
 
 export async function refreshEntraSession(): Promise<EntraSessionStatus | null> {
+  if (currentEntraSession?.session?.auth_method === "entra-msal-pkce") {
+    return currentEntraSession;
+  }
   try {
-    const response = await authenticatedFetch("/auth/session", {
+    const response = await authenticatedFetch("/v1/auth/session", {
       cache: "no-store",
       signal: AbortSignal.timeout(5_000),
     });
@@ -231,6 +234,25 @@ export async function initializeAuth(root: HTMLElement): Promise<boolean> {
     return false;
   }
   client.setActiveAccount(account);
+  const principal = (account as { username?: string; localAccountId?: string; homeAccountId?: string }).username
+    || (account as { localAccountId?: string }).localAccountId
+    || account.homeAccountId;
+  if (principal) {
+    const displayName = (account as { name?: string }).name || principal;
+    const tenantId = (account as { tenantId?: string }).tenantId || "";
+    setEntraSession({
+      authenticated: true,
+      actor: principal,
+      session: {
+        principal,
+        display_name: displayName,
+        tenant_id: tenantId,
+        auth_method: "entra-msal-pkce",
+        signed_in_at: new Date().toISOString(),
+      },
+      detected_accounts: [],
+    });
+  }
   authorization = () => acquireAccessToken(client, account, scopes);
   return true;
 }

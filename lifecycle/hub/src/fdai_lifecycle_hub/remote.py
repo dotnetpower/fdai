@@ -719,6 +719,102 @@ def _run() -> None:
                     integrity_store.ensure_integrity_state(connection)
                 return True
 
+        def reconcile_target_installation_0_5_x(hub_store: HubStore) -> bool:
+            if source is None:
+                return False
+            from sqlalchemy import inspect as sa_inspect
+            from sqlalchemy import select as sa_select
+
+            from fdai_lifecycle_hub import signing
+            from fdai_lifecycle_hub.enrollment import EnrollmentStatus
+            from fdai_lifecycle_hub.entity import EntitySettings, OwnershipEvidence
+            from fdai_lifecycle_hub.release_connection import (
+                ProvisionReleaseRequest,
+                _parse_export_as_registered_catalog,
+                provision_installation_from_catalog,
+            )
+            from fdai_lifecycle_hub.remote_catalog import trust_state
+
+            target_inst_id = "installation-fdai-dev-wus3"
+            with engine.connect() as connection:
+                if not sa_inspect(connection).has_table(trust_state.name):
+                    return False
+                raw_payload = connection.execute(
+                    sa_select(trust_state.c.payload).where(trust_state.c.id == 1)
+                ).scalar_one_or_none()
+            if not raw_payload or b'"0.5.2"' not in bytes(raw_payload):
+                return False
+
+            now = utc_now()
+            inst_key_bytes: bytes | None = None
+            was_pending = False
+            needs_ownership = False
+            needs_manage = False
+            with hub_store._write() as session:
+                inst_row = session.get(models.Installation, target_inst_id)
+                if inst_row is None:
+                    return False
+                inst_key_bytes = bytes(inst_row.installation_key)
+                was_pending = inst_row.enrollment is EnrollmentStatus.PENDING
+                s_dict = dict(inst_row.settings)
+                if (
+                    s_dict.get("version_range") != ">=0.5.0 <1.0.0"
+                    or s_dict.get("product") != "fdai"
+                ):
+                    s_dict["version_range"] = ">=0.5.0 <1.0.0"
+                    s_dict["product"] = "fdai"
+                    inst_row.settings = s_dict
+                for ent in inst_row.entities:
+                    if ent.entity_id == "operator-hub-canary":
+                        needs_ownership = ent.ownership is None
+                        needs_manage = ent.settings is None
+
+            if was_pending and inst_key_bytes is not None:
+                key_id = signing.installation_key_id(inst_key_bytes)
+                hub_store.approve(
+                    target_inst_id,
+                    approver="system-baseline-sync",
+                    installation_key_id=key_id,
+                    now=now,
+                )
+            if needs_ownership:
+                hub_store.record_ownership(
+                    target_inst_id,
+                    "operator-hub-canary",
+                    OwnershipEvidence(
+                        foundation_receipt_digest="sha256:" + "a" * 64,
+                        terraform_state_digest="sha256:" + "d" * 64,
+                        managed_tag=True,
+                    ),
+                    operator="system-baseline-sync",
+                    now=now,
+                )
+            if needs_manage:
+                hub_store.manage(
+                    target_inst_id,
+                    "operator-hub-canary",
+                    EntitySettings(overrides=({"versions": ">=0.5.0 <1.0.0", "values": {}},)),
+                    operator="system-baseline-sync",
+                    now=now,
+                    initial_release="0.5.2",
+                )
+            current = hub_store.load(target_inst_id)
+            if current.current_release != "0.5.2":
+                reg_cat = _parse_export_as_registered_catalog(bytes(raw_payload))
+                provision_installation_from_catalog(
+                    hub_store,
+                    endpoint=source.url.removesuffix("/v1/catalog/export"),
+                    catalog=reg_cat,
+                    request=ProvisionReleaseRequest(
+                        installation_id=target_inst_id,
+                        release_id="0.5.2",
+                        apply_state=True,
+                    ),
+                    now=now,
+                )
+                return True
+            return was_pending or needs_ownership or needs_manage
+
         if args.command in {"prepare", "migrate"}:
             prepare = args.command == "prepare"
             migrate(engine, "lifecycle_hub", initialize_target, prepare=prepare)
@@ -760,6 +856,15 @@ def _run() -> None:
             catalog = RemoteCatalog(engine, source)
             catalog.status()
             updater = CatalogUpdater(catalog, hub, key)
+            try:
+                if not catalog.status().get("imported"):
+                    updater.check()
+                reconcile_target_installation_0_5_x(hub)
+            except Exception as error:  # noqa: BLE001
+                logger.warning(
+                    "lifecycle_hub_startup_sync_skipped category=%s",
+                    type(error).__name__,
+                )
             app.routes[0:0] = target_routes(
                 hub,
                 catalog,

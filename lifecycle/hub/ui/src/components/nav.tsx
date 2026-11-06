@@ -71,7 +71,7 @@ const UNBUILT_SURFACES = [
 
 export function Nav({ route }: { route: Route }) {
   const [locale, setLocale] = useHubLocale();
-  const [showAdvanced, setShowAdvanced] = useState(() => isAdvancedCatalogRoute(route));
+  const [showAdvanced, setShowAdvanced] = useState(true);
   const [showBoundaries, setShowBoundaries] = useState(false);
   const entraStatus = useEntraSession();
   const [entraDialogOpen, setEntraDialogOpen] = useState(false);
