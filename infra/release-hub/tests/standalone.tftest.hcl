@@ -229,6 +229,7 @@ run "defaults_preserve_older_runtime_config" {
   assert {
     condition = (
       !contains(keys(output.deployment.runtime_config.auth), "public_catalog_export") &&
+      !contains(keys(output.deployment.runtime_config.auth), "development_recovery") &&
       !contains(keys(output.deployment.runtime_config), "timestamp_renewal_check_seconds")
     )
     error_message = "Default settings must not add keys that older Hub images reject."

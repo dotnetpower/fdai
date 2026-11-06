@@ -33,6 +33,7 @@ RUN --mount=from=hub-npm-cache,target=/seed-cache \
     else npm --prefix lifecycle/release-hub/ui ci; fi
 COPY lifecycle/hub/ui/src/auth.ts lifecycle/hub/ui/src/auth.ts
 COPY lifecycle/hub/ui/src/auth.css lifecycle/hub/ui/src/auth.css
+COPY lifecycle/hub/ui/src/design-previews lifecycle/hub/ui/src/design-previews
 COPY lifecycle/hub/ui/tsconfig.json lifecycle/hub/ui/tsconfig.json
 COPY lifecycle/hub/ui/public lifecycle/hub/ui/public
 COPY lifecycle/release-hub/ui lifecycle/release-hub/ui

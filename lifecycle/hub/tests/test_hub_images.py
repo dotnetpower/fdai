@@ -37,6 +37,7 @@ def test_independent_image_build_inputs():
     assert "release-hub" not in lifecycle_ui
     assert "npm --prefix lifecycle/hub/ui" not in release_ui
     assert "lifecycle/hub/ui/src/auth.css" in release_ui
+    assert "lifecycle/hub/ui/src/design-previews" in release_ui
     assert "lifecycle/hub/ui/tsconfig.json" in release_ui
     assert "lifecycle/hub/ui/public" in release_ui
     assert "FROM --platform=$BUILDPLATFORM ${NODE_IMAGE} AS ui-base" in dockerfile

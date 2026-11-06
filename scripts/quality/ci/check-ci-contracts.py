@@ -26,6 +26,8 @@ REQUIRED_TRACKED_PATHS = (
     "scripts/lib/framework-surface.txt",
     "console/package-lock.json",
     "cli/package-lock.json",
+    "lifecycle/hub/ui/package-lock.json",
+    "lifecycle/release-hub/ui/package-lock.json",
 )
 SHARED_RUNNERS = (
     "scripts/quality/ci/run-python-tests.sh",
