@@ -44,6 +44,7 @@ from fdai_release_hub.registry_pipeline import (
     lookup_oci_manifest,
     register_oci_manifest,
     registry_inventory_payload,
+    sync_registry_from_releases,
 )
 from fdai_release_hub.stencil_grants import (
     resolve_scoped_customer_artifact_pull,
@@ -87,6 +88,16 @@ def create_app(
 
     def _resolve_actor(request: Request) -> str:
         return request.state.operator if remote_auth else entra_sessions.current_actor
+
+    def _sync_store_registry() -> None:
+        try:
+            snap = store.snapshot()
+            sync_registry_from_releases(
+                snap.get("releases", []),
+                registry_host=remote_origin,
+            )
+        except (CatalogError, SQLAlchemyError, ValueError):
+            pass
 
     async def catalog(request: Request) -> Response:
         try:
@@ -322,6 +333,7 @@ def create_app(
         return JSONResponse(record, status_code=201 if created else 200)
 
     async def stencils_catalog(request: Request) -> Response:
+        await run_in_threadpool(_sync_store_registry)
         return JSONResponse(await run_in_threadpool(stencil_catalog_payload))
 
     async def stencils_compose(request: Request) -> Response:
@@ -424,6 +436,7 @@ def create_app(
         return JSONResponse({"status": "ready"})
 
     async def registry_images(request: Request) -> Response:
+        await run_in_threadpool(_sync_store_registry)
         return JSONResponse(await run_in_threadpool(registry_inventory_payload))
 
     async def oci_v2_base(request: Request) -> Response:
@@ -556,6 +569,9 @@ def create_app(
                     headers={"Docker-Distribution-Api-Version": "registry/2.0"},
                 )
         found = await run_in_threadpool(lookup_oci_manifest, component, reference)
+        if found is None:
+            await run_in_threadpool(_sync_store_registry)
+            found = await run_in_threadpool(lookup_oci_manifest, component, reference)
         if found is None:
             return JSONResponse(
                 {

@@ -234,6 +234,7 @@ def test_stencil_api_compose_and_release_registration_roundtrip(
             "auto_resolve_dependencies": True,
             "release_version": "1.7.0",
             "source_commit": "b" * 40,
+            "tag_local_docker": False,
         },
     )
     assert compose_resp.status_code == 200
@@ -307,6 +308,7 @@ def test_stencil_api_compose_and_release_registration_roundtrip(
             ],
             "release_version": "1.7.1",
             "source_commit": "auto",
+            "tag_local_docker": False,
         },
     ).json()
     client.post(
@@ -654,3 +656,57 @@ def test_oci_v2_registry_pipeline_and_real_digest_binding(
     assert pushed_digest.startswith("sha256:")
     assert client.get(f"/v2/fdai/operator-service/manifests/{pushed_digest}").status_code == 200
     assert client.get("/v2/fdai/unknown-comp/manifests/sha256:" + "0" * 64).status_code == 404
+
+
+def test_reconcile_0_5_x_baseline_replaces_retired_e2e_versions_and_hydrates_oci(
+    store: ReleaseStore,
+    client: TestClient,
+) -> None:
+    from fdai_release_hub.registry_pipeline import SYNCHRONIZED_VERSION_COMPONENT_DIGESTS
+
+    # Register a retired historical high-version test release (2468.0.0)
+    legacy_manifest = build_stencil_release_manifest(
+        STENCIL_PRESETS["lite-observe-alert"],
+        release_version="2468.0.0",
+        source_commit="a" * 40,
+    )
+    client.post(
+        "/v1/releases/2468.0.0/register",
+        json={
+            "revision": 0,
+            "confirmation": "2468.0.0",
+            "reason": "Historical e2e test release",
+            "label": "legacy-e2e",
+            "manifest": json.dumps(legacy_manifest),
+        },
+    )
+    assert [r["id"] for r in store.snapshot()["releases"]] == ["2468.0.0"]
+
+    reconciled = store.reconcile_0_5_x_baseline(registry_host="https://hub.msfdai.com")
+    assert reconciled is True
+    snap = store.snapshot()
+    assert [r["id"] for r in snap["releases"]] == ["0.5.2", "0.5.1", "0.5.0"]
+    assert snap["revision"] == 8
+    assert snap["channels"]["DEV"] == ["0.5.0", "0.5.1", "0.5.2"]
+    assert snap["channels"]["RELEASE_CANDIDATE"] == ["0.5.2"]
+    assert snap["channels"]["RELEASE"] == ["0.5.2"]
+
+    # Idempotent on subsequent call when 2468.* is gone
+    assert store.reconcile_0_5_x_baseline(registry_host="https://hub.msfdai.com") is False
+
+    # OCI v2 manifest and registry inventory for 0.5.2 core-control-plane are hydrated
+    from fdai_release_hub.registry_pipeline import lookup_oci_manifest
+
+    expected_core_digest = SYNCHRONIZED_VERSION_COMPONENT_DIGESTS["0.5.2"]["core-control-plane"]
+    found = lookup_oci_manifest("core-control-plane", expected_core_digest)
+    assert found is not None
+    assert found[1] == expected_core_digest
+    inv_resp = client.get("/v1/registry/images")
+    assert inv_resp.status_code == 200
+    core_052_items = [
+        item
+        for item in inv_resp.json()["published_artifacts"]
+        if item["component"] == "core-control-plane"
+        and item["image_digest"] == expected_core_digest
+    ]
+    assert len(core_052_items) >= 1

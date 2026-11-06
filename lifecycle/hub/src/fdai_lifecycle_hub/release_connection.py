@@ -283,6 +283,55 @@ def _extract_release_detail(release: RegisteredRelease) -> dict[str, object] | N
     }
 
 
+def _parse_export_as_registered_catalog(raw: bytes) -> RegisteredCatalog:
+    try:
+        doc = json.loads(raw)
+    except ValueError as error:
+        raise EndpointError(502, "release_hub_catalog_invalid") from error
+    if not isinstance(doc, dict) or not isinstance(doc.get("revision"), int):
+        raise EndpointError(502, "release_hub_catalog_invalid")
+    raw_channels = doc.get("channels")
+    channels_map = raw_channels if isinstance(raw_channels, dict) else {}
+    raw_recalls = doc.get("recalls")
+    recalled_ids = {
+        str(item.get("target"))
+        for item in (raw_recalls if isinstance(raw_recalls, list) else [])
+        if isinstance(item, dict)
+        and item.get("scope") == "release"
+        and item.get("action") == "recall"
+    }
+    raw_releases = doc.get("releases")
+    releases_dict = raw_releases if isinstance(raw_releases, dict) else {}
+    entries: list[RegisteredRelease] = []
+    for rel_id in sorted(releases_dict, reverse=True):
+        item = releases_dict[rel_id]
+        if not isinstance(item, dict):
+            continue
+        rel_channels = sorted(
+            str(ch)
+            for ch, target in channels_map.items()
+            if target == rel_id or (isinstance(target, list) and rel_id in target)
+        )
+        manifest_str = item.get("manifest") if isinstance(item.get("manifest"), str) else None
+        state: Literal["draft", "published", "recalled"] = (
+            "recalled" if rel_id in recalled_ids else "published"
+        )
+        entries.append(
+            RegisteredRelease(
+                id=str(rel_id),
+                state=state,
+                channels=rel_channels,
+                manifest=manifest_str,
+            )
+        )
+    return RegisteredCatalog(
+        revision=int(doc["revision"]),
+        mode="remote-export",
+        expired=False,
+        releases=entries,
+    )
+
+
 async def _fetch_registered_catalog(endpoint: str) -> RegisteredCatalog:
     try:
         async with asyncio.timeout(PREVIEW_TIMEOUT_SECONDS):
@@ -290,14 +339,30 @@ async def _fetch_registered_catalog(endpoint: str) -> RegisteredCatalog:
                 timeout=PREVIEW_TIMEOUT_SECONDS, follow_redirects=False, trust_env=False
             ) as client:
                 async with client.stream("GET", endpoint + "/v1/catalog") as response:
-                    if response.status_code != 200:
-                        raise EndpointError(503, "release_hub_catalog_unavailable")
-                    raw = bytearray()
-                    async for chunk in response.aiter_bytes():
-                        if len(raw) + len(chunk) > MAX_PREVIEW_BYTES:
-                            raise EndpointError(502, "release_hub_catalog_too_large")
-                        raw.extend(chunk)
-        return RegisteredCatalog.model_validate_json(raw)
+                    status_code = response.status_code
+                    has_location = "location" in response.headers
+                    if status_code == 200:
+                        raw = bytearray()
+                        async for chunk in response.aiter_bytes():
+                            if len(raw) + len(chunk) > MAX_PREVIEW_BYTES:
+                                raise EndpointError(502, "release_hub_catalog_too_large")
+                            raw.extend(chunk)
+                        return RegisteredCatalog.model_validate_json(raw)
+                if (
+                    endpoint.startswith("https://")
+                    and status_code in (401, 403)
+                    and not has_location
+                ):
+                    async with client.stream("GET", endpoint + "/v1/catalog/export") as export_resp:
+                        if export_resp.status_code != 200:
+                            raise EndpointError(503, "release_hub_catalog_unavailable")
+                        export_raw = bytearray()
+                        async for chunk in export_resp.aiter_bytes():
+                            if len(export_raw) + len(chunk) > MAX_PREVIEW_BYTES:
+                                raise EndpointError(502, "release_hub_catalog_too_large")
+                            export_raw.extend(chunk)
+                    return _parse_export_as_registered_catalog(bytes(export_raw))
+                raise EndpointError(503, "release_hub_catalog_unavailable")
     except (TimeoutError, httpx.HTTPError) as error:
         raise EndpointError(503, "release_hub_catalog_unavailable") from error
     except ValidationError as error:
