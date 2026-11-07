@@ -1,4 +1,3 @@
-import { resolveControlReferenceImage } from "./reference-images.catalog";
 import type { RuleDetailDto, RuleDto } from "./rule-catalog-types";
 import type { GuidanceNode, GuidancePresentation, GuidanceText } from "./wara-guidance.model";
 
@@ -853,32 +852,52 @@ export function buildRuleGuidance(data: RuleDetailDto): GuidancePresentation {
     ? expDetails["trigger_signals"]
     : "resource.configuration.observed";
 
+  const nodeBefore = activeSpec
+    ? before
+    : text(
+        `${displayResourceType.slice(0, 32)} violates ${data.severity}-severity check (${data.check_logic.reference.slice(-48)}).`,
+        `${displayResourceType.slice(0, 32)} 구성이 ${data.severity} 심각도 검사(${data.check_logic.reference.slice(-40)})를 위반합니다.`,
+      );
+  const nodeAfter = activeSpec
+    ? after
+    : text(
+        `Bring ${displayResourceType.slice(0, 32)} into compliance via ${data.remediates.slice(0, 48)}.`,
+        `${data.remediates.slice(0, 44)} 조치로 ${displayResourceType.slice(0, 28)} 구성을 준수 상태로 전환합니다.`,
+      );
+  const nodeVerify = activeSpec
+    ? verify
+    : text(
+        `Re-evaluate ${data.check_logic.reference.slice(-48)} on the next complete inventory generation.`,
+        `다음 완전한 인벤토리 세대에서 ${data.check_logic.reference.slice(-40)} 검사를 재평가합니다.`,
+      );
+  const nodeRemediation = text(
+    `Evaluates ${evaluatedProps.slice(0, 44)}; proposes ${data.remediates.slice(0, 40)} via risk and HIL gates.`,
+    `${evaluatedProps.slice(0, 40)} 속성을 평가하고 위험·승인 게이트를 거쳐 ${data.remediates.slice(0, 36)} 교정을 제안합니다.`,
+  );
+
   const nodes: readonly GuidanceNode[] = [
     {
       id: "subject",
       label: text(`Target resource (${displayResourceType})`, `평가 대상 리소스 (${displayResourceType})`),
-      detail: before,
+      detail: nodeBefore,
       role: "subject",
     },
     {
       id: "configuration",
       label: text("Compliant configuration target", "준수 목표 구성 (After)"),
-      detail: after,
+      detail: nodeAfter,
       role: "configuration",
     },
     {
       id: "evidence",
       label: text(`T0 check (${data.check_logic.kind})`, `T0 결정론적 검사 (${data.check_logic.kind})`),
-      detail: verify,
+      detail: nodeVerify,
       role: "evidence",
     },
     {
       id: "remediation",
       label: text(`Governed action (${data.remediates})`, `교정 ActionType (${data.remediates})`),
-      detail: text(
-        `Evaluates ${evaluatedProps} on signal ${triggerSignals}; proposes ${data.remediates} (${data.remediation.template_ref}) through the risk and approval gates.`,
-        `신호(${triggerSignals}) 수신 시 ${evaluatedProps} 속성을 평가하며, 위험 게이트와 승인 절차를 거쳐 ${data.remediates}(${data.remediation.template_ref}) 교정을 제안합니다.`,
-      ),
+      detail: nodeRemediation,
       role: "dependency",
     },
     {
@@ -889,7 +908,6 @@ export function buildRuleGuidance(data: RuleDetailDto): GuidancePresentation {
     },
   ];
 
-  const referenceImage = resolveControlReferenceImage("rule", data.id, displayResourceType);
   const sourceUrl = data.provenance.source_url?.startsWith("https://")
     ? data.provenance.source_url
     : "https://learn.microsoft.com/en-us/azure/governance/policy/overview";
@@ -979,7 +997,6 @@ export function buildRuleGuidance(data: RuleDetailDto): GuidancePresentation {
           : "선별된 활성(Active) 규칙이라 하더라도 실제 리소스 변경 조치는 연결된 ActionType의 Shadow/Enforce 모드 및 안전 게이트 통제를 받습니다.",
       ),
     ],
-    ...(referenceImage ? { reference_image: referenceImage } : {}),
     diagram: {
       id: `rule.${data.id.replace(/[^a-zA-Z0-9_.-]/g, "-")}`,
       kind: `rule-${data.category}-flow`,
