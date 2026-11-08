@@ -8,7 +8,7 @@ import {
   parseCvssVector,
   summarizeAttackSurface,
 } from "./msrc-csaf-guidance";
-import { frameworkDisplayTitle, resolveControlReferenceImage } from "./reference-images.catalog";
+import { PACKAGED_REFERENCE_IMAGES, frameworkDisplayTitle, resolveControlReferenceImage, resolveMcsbControlAuthoredGuidance } from "./reference-images.catalog";
 import { ACTIVE_RULE_GUIDANCE_SPECS, buildRuleGuidance, formatRuleResourceType, ruleDisplayTitle } from "./rule-catalog-guidance";
 import type { RuleDetailDto } from "./rule-catalog-types";
 import { formatGuidanceMarkdownBrief } from "./wara-guidance";
@@ -73,7 +73,7 @@ describe("rule, MCSB v2-preview, and MSRC CSAF illustrated guidance", () => {
     expect(guidanceMissingKoreanFields(guidance)).toBe(0);
     expect(guidance.diagram.nodes).toHaveLength(5);
     expect(guidance.diagram.edges).toHaveLength(5);
-    expect(guidance.reference_image?.asset_id).toContain("sha256-");
+    expect(guidance.reference_image).toBeUndefined();
   });
 
   test("synthesizes bilingual titles and diagrams for collected kube_bench and azure_policy rules", () => {
@@ -122,6 +122,19 @@ describe("rule, MCSB v2-preview, and MSRC CSAF illustrated guidance", () => {
     expect(guidanceMissingKoreanFields(guidance)).toBe(0);
     expect(guidance.diagram.kind).toBe("mcsb-v2-ai-security");
     expect(guidance.diagram.nodes).toHaveLength(5);
+    expect(guidance.reference_image).toBeUndefined();
+    const authored = resolveMcsbControlAuthoredGuidance("IM-3")!;
+    const identityGuidance = buildMcsbV2Guidance({
+      ...aiControl, control_id: "IM-3", domain: "IM", title: "Manage application identities",
+      rule_ids: ["identity.managed-identity"],
+    });
+    expect(identityGuidance.rationale.en).toContain(authored.mechanism.en);
+    expect(identityGuidance.rationale.ko).toContain(authored.mechanism.ko);
+    expect(identityGuidance.configuration.before[0]).toEqual(authored.before);
+    expect(identityGuidance.configuration.after[0]).toEqual(authored.after);
+    expect(identityGuidance.verification_steps[0]).toEqual(authored.verify);
+    expect(identityGuidance.configuration.after[1]!.en).toContain("identity.managed-identity");
+    expect(identityGuidance.reference_image).toBeUndefined();
   });
 
   test("builds MSRC CSAF 2.0 bilingual titles, CVSS vector breakdowns, and Pantheon defense diagrams", () => {
@@ -134,12 +147,20 @@ describe("rule, MCSB v2-preview, and MSRC CSAF illustrated guidance", () => {
     expect(guidanceMissingKoreanFields(guidance)).toBe(0);
     expect(guidance.diagram.kind).toBe("msrc-csaf-defense-flow");
     expect(guidance.diagram.nodes).toHaveLength(5);
+    expect(guidance.reference_image).toBeUndefined();
   });
 
-  test("resolves official Learn reference images and preserves synthetic test titles", () => {
-    expect(resolveControlReferenceImage("azure-waf", "RE:09")?.asset_id).toContain("sha256-");
-    expect(resolveControlReferenceImage("azure-caf", "landing-zone.network-connectivity")?.asset_id).toContain("sha256-");
-    expect(resolveControlReferenceImage("azure-mcsb", "NS-6")?.asset_id).toContain("sha256-");
+  test("limits packaged reference images to WARA and preserves synthetic test titles", () => {
+    const image = PACKAGED_REFERENCE_IMAGES["vmbackup-architecture"]!;
+    expect(resolveControlReferenceImage("azure-wara", "vmbackup-architecture")).toBe(image);
+    expect(resolveControlReferenceImage("azure-wara", image.asset_id)).toBe(image);
+    expect(resolveControlReferenceImage("azure-wara", "unreviewed-image")).toBeUndefined();
+    for (const scope of ["azure-waf", "azure-caf", "azure-mcsb", "mcsb-v2-preview", "msrc-csaf", "rule"] as const) {
+      expect(resolveControlReferenceImage(scope, "vmbackup-architecture"), scope).toBeUndefined();
+    }
+    expect(resolveControlReferenceImage("azure-waf", "RE:09")).toBeUndefined();
+    expect(resolveControlReferenceImage("azure-caf", "landing-zone.network-connectivity")).toBeUndefined();
+    expect(resolveControlReferenceImage("azure-mcsb", "NS-6")).toBeUndefined();
     expect(
       frameworkDisplayTitle("azure-waf", { control_id: "RE:01", title: "Source control title" }, "ko"),
     ).toBe("Source control title");
@@ -213,7 +234,7 @@ describe("rule, MCSB v2-preview, and MSRC CSAF illustrated guidance", () => {
     ]);
     for (const ruleId of Object.keys(ACTIVE_RULE_GUIDANCE_SPECS)) {
       const resourceType = ruleId.split(".")[0]!;
-      expect(resolveControlReferenceImage("rule", ruleId, resourceType)?.asset_id, ruleId).toContain("sha256-");
+      expect(resolveControlReferenceImage("rule", ruleId, resourceType), ruleId).toBeUndefined();
     }
     expect(msrcCsafDisplayTitle({ title: "AKS Node Image Elevation of Privilege" }, "ko")).toBe(
       "AKS 노드 이미지 권한 상승(EoP) 취약점",

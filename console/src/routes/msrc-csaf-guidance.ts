@@ -1,5 +1,4 @@
 import type { MsrcCsafControlRow } from "./msrc-csaf-controls.model";
-import { resolveControlReferenceImage } from "./reference-images.catalog";
 import type { GuidanceNode, GuidancePresentation, GuidanceText } from "./wara-guidance.model";
 
 function text(en: string, ko: string): GuidanceText {
@@ -416,40 +415,67 @@ export function buildMsrcCsafGuidance(
     `Heimdall이 취약점 드리프트(msrc_csaf.vulnerability_drift)를 감지하고 Forseti가 HIL/Shadow 판정을 내리면 Saga가 감사 원장에 기록하며 Norns가 ${row.disposition === "new_rule_candidate" ? `불활성 규칙 후보(msrc-csaf.${row.cve_id.toLowerCase()})를 추출` : "기존 규칙 매핑을 유지"}합니다.`,
   );
 
+  const nodeBefore = text(
+    `${row.cve_id} (${cwe.cweId}, CVSS ${row.cvss_base_score.toFixed(1)}) window: ${row.version_window.slice(0, 60)}`,
+    `${row.cve_id}(${cwe.cweId}, CVSS ${row.cvss_base_score.toFixed(1)}) 취약 구간: ${row.version_window.slice(0, 48)}`,
+  );
+  const nodeAfter = text(
+    vendorFix?.fixed_version
+      ? `Upgrade to fixed version >= ${vendorFix.fixed_version.slice(0, 48)}`
+      : row.workaround_property
+        ? `Enforce ${row.workaround_property.slice(0, 40)} = ${String(row.workaround_expected_value).slice(0, 20)}`
+        : `Apply MSRC security update (${row.advisory_tracking_id})`,
+    vendorFix?.fixed_version
+      ? `패치 완료 버전(>= ${vendorFix.fixed_version.slice(0, 44)}) 이상 업그레이드`
+      : row.workaround_property
+        ? `완화 속성(${row.workaround_property.slice(0, 36)}=${String(row.workaround_expected_value).slice(0, 16)}) 강제`
+        : `MSRC 공식 보안 업데이트(${row.advisory_tracking_id}) 적용`,
+  );
+  const nodeVerify = text(
+    `Verify ${row.primary_resource_type.slice(0, 36)} version & CSAF signature (${row.advisory_tracking_id})`,
+    `${row.primary_resource_type.slice(0, 36)} 버전 및 CSAF 서명(${row.advisory_tracking_id}) 대조 검증`,
+  );
+  const nodePantheon = text(
+    `Heimdall drift -> Forseti HIL/Shadow -> Saga audit (${row.disposition})`,
+    `Heimdall 드리프트 -> Forseti HIL/Shadow -> Saga 감사 (${row.disposition})`,
+  );
+  const nodeOutcome = text(
+    `Close ${row.cve_id} exposure on ${row.primary_resource_type.slice(0, 36)} (SLA ${row.due_days}d)`,
+    `${row.primary_resource_type.slice(0, 36)}의 ${row.cve_id} 노출 해소 (권장 기한 ${row.due_days}일)`,
+  );
+
   const nodes: readonly GuidanceNode[] = [
     {
       id: "subject",
       label: text(`Vulnerable target (${row.primary_resource_type})`, `취약 대상 리소스 (${row.primary_resource_type})`),
-      detail: before,
+      detail: nodeBefore,
       role: "subject",
     },
     {
       id: "configuration",
       label: text("MSRC patch and workaround control", "MSRC 보안 패치 및 임시 완화 구성"),
-      detail: after,
+      detail: nodeAfter,
       role: "configuration",
     },
     {
       id: "evidence",
       label: text("CSAF signature and inventory check", "CSAF 서명 및 인벤토리 버전 검증"),
-      detail: verify,
+      detail: nodeVerify,
       role: "evidence",
     },
     {
       id: "pantheon",
       label: text("Pantheon drift and HIL governance", "판테온 드리프트 탐지 및 HIL 거버넌스"),
-      detail: pantheonDetail,
+      detail: nodePantheon,
       role: "dependency",
     },
     {
       id: "outcome",
       label: text("Verified exposure closure", "노출 해소 및 안전 검증 완료"),
-      detail: benefits,
+      detail: nodeOutcome,
       role: "outcome",
     },
   ];
-
-  const referenceImage = resolveControlReferenceImage("msrc-csaf", row.cve_id, row.primary_resource_type);
 
   return {
     title,
@@ -525,7 +551,6 @@ export function buildMsrcCsafGuidance(
           : "임시 네트워크·구성 완화는 즉각적인 위험을 줄여주지만 공식 보안 업데이트 적용을 대체하지 않습니다.",
       ),
     ],
-    ...(referenceImage ? { reference_image: referenceImage } : {}),
     diagram: {
       id: `msrc-csaf.${row.cve_id.toLowerCase()}`,
       kind: "msrc-csaf-defense-flow",

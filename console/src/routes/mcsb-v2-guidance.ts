@@ -1,5 +1,5 @@
 import type { McsbControl, McsbControlDetail } from "./mcsb-controls.model";
-import { FRAMEWORK_TITLES_BY_KEY, resolveControlReferenceImage } from "./reference-images.catalog";
+import { FRAMEWORK_TITLES_BY_KEY, resolveMcsbControlAuthoredGuidance } from "./reference-images.catalog";
 import type { GuidanceNode, GuidancePresentation, GuidanceText } from "./wara-guidance.model";
 
 function text(en: string, ko: string): GuidanceText {
@@ -69,7 +69,7 @@ const AI_CONTROLS: Readonly<Record<string, AiControlAuthored>> = {
       "입력 프롬프트(RAG 검색 문서 조각 포함)와 출력 응답 모두에 Azure AI Content Safety 정책과 프롬프트 실드를 강제 적용합니다.",
     ),
     verify: text(
-      "Test representative jailbreak, indirect injection, and policy-violating inputs against the endpoint and confirm deterministic block receipts.",
+      "Test jailbreak, indirect injection, and policy-violating inputs and confirm deterministic block receipts.",
       "대표적인 탈옥, 간접 프롬프트 인젝션, 정책 위반 입력을 시험하여 차단 응답과 감사 증적이 기록되는지 확인합니다.",
     ),
     caution: text(
@@ -123,8 +123,8 @@ const AI_CONTROLS: Readonly<Record<string, AiControlAuthored>> = {
       "AI 에이전트가 구독 전체의 기여자 권한을 직접 보유하거나 검증되지 않은 자유 형식 인자로 셸/API 도구를 호출합니다.",
     ),
     after: text(
-      "Restrict agent tools to read-only projections by default and route any state-changing proposal through typed ActionType schemas and separate executor identity.",
-      "에이전트 도구를 기본적으로 읽기 전용 프로젝션으로 제한하고 상태 변경 제안은 타입이 지정된 ActionType 스키마와 분리된 실행기 신원을 거치도록 구성합니다.",
+      "Restrict agent tools to read-only projections and route state changes through typed ActionType schemas and separate executors.",
+      "에이전트 도구를 읽기 전용 프로젝션으로 제한하고 상태 변경은 타입화된 ActionType 스키마와 분리된 실행기로 전달합니다.",
     ),
     verify: text(
       "Audit every registered agent tool, its Managed Identity RBAC scope, and schema validation rejection on out-of-scope parameters.",
@@ -185,8 +185,8 @@ const AI_CONTROLS: Readonly<Record<string, AiControlAuthored>> = {
       "구조화된 에이전트 실행 궤적, 안전 필터 판정 결과, 토큰·지연 메트릭을 변경 불가능한 감사 로그 및 SIEM 탐지 규칙으로 스트리밍합니다.",
     ),
     verify: text(
-      "Trigger a synthetic safety-filter block and tool-call rejection and confirm correlated telemetry and alert generation in the monitoring workspace.",
-      "안전 필터 차단 및 도구 호출 거부 테스트 이벤트를 발생시켜 모니터링 워크스페이스에 상관관계가 부여된 로그와 경보가 생성되는지 확인합니다.",
+      "Trigger a synthetic safety-filter block and tool rejection and confirm correlated alerts in the monitoring workspace.",
+      "안전 필터 차단 및 도구 호출 거부 테스트를 발생시켜 모니터링 워크스페이스에 상관 로그와 경보가 생성되는지 확인합니다.",
     ),
     caution: text(
       "Diagnostic logs must redact secrets, credentials, and raw customer PII before storage in shared observability workspaces.",
@@ -210,8 +210,8 @@ const AI_CONTROLS: Readonly<Record<string, AiControlAuthored>> = {
       "적대적 평가 데이터셋이나 회귀 검증 게이트 없이 프롬프트와 모델 버전이 운영 환경에 바로 배포됩니다.",
     ),
     after: text(
-      "Run automated and human-led AI red-teaming suites across jailbreak, indirect RAG injection, and cross-scope leakage scenarios on every change.",
-      "프롬프트·모델·RAG 파이프라인 변경 시마다 탈옥, 간접 RAG 인젝션, 범위 간 정보 유출 시나리오를 포함한 AI 레드팀 평가 스위트를 실행합니다.",
+      "Run automated and human-led AI red-teaming suites for jailbreak, indirect RAG injection, and cross-scope leakage on each change.",
+      "프롬프트·모델·RAG 변경 시마다 탈옥, 간접 RAG 인젝션, 범위 간 정보 유출을 포함한 AI 레드팀 평가 스위트를 실행합니다.",
     ),
     verify: text(
       "Review red-team evaluation receipts, failure reproduction records, and verified mitigations before promoting a model or prompt revision.",
@@ -253,11 +253,11 @@ const MCSB_DOMAIN_PROFILES: Readonly<Record<string, {
     nameEn: "Network Security",
     nameKo: "네트워크 보안",
     configLabel: text("Zero-trust segmentation and edge firewall", "제로 트러스트 분할 및 경계 방화벽 구성"),
-    mechLabel: text("Private Link, NSG, WAF and DDoS boundary", "Private Link·NSG·WAF·DDoS 방어 경계"),
-    evLabel: text("Flow logs and route table verification", "흐름 로그 및 라우팅·방화벽 규칙 검증"),
+    mechLabel: text("Private Link, NSG, WAF and DDoS boundary", "Private Link, NSG, WAF, DDoS 방어 경계"),
+    evLabel: text("Flow logs and route table verification", "흐름 로그 및 라우팅, 방화벽 규칙 검증"),
     mechanism: text(
-      "Network security controls isolate workload tiers, block unauthorized public ingress/egress, and inspect traffic at defined perimeter boundaries.",
-      "네트워크 보안 통제는 워크로드 계층을 격리하고 비인가 공용 인바운드·아웃바운드를 차단하며 지정된 경계에서 트래픽을 심층 검사합니다.",
+      "Network security controls isolate workload tiers, block unauthorized public access, and inspect perimeter traffic.",
+      "네트워크 보안 통제는 워크로드 계층을 격리하고 비인가 공용 접근을 차단하며 지정된 경계에서 트래픽을 검사합니다.",
     ),
   },
   IM: {
@@ -268,8 +268,8 @@ const MCSB_DOMAIN_PROFILES: Readonly<Record<string, {
     mechLabel: text("Conditional Access and phishing-resistant MFA", "조건부 액세스 및 피싱 저항성 MFA 경계"),
     evLabel: text("Sign-in logs and credential hygiene check", "로그인 감사 로그 및 자격 증명 상태 검증"),
     mechanism: text(
-      "Centralized identity governance replaces static secrets with short-lived federated tokens, strong authentication, and conditional access evaluation.",
-      "중앙 집중식 신원 거버넌스는 정적 비밀값을 단기 연합 토큰, 강력한 다중 인증(MFA), 조건부 액세스 정책 평가로 대체합니다.",
+      "Centralized identity governance replaces static secrets with federated tokens, strong MFA, and conditional access.",
+      "중앙 집중식 신원 거버넌스는 정적 비밀값을 단기 연합 토큰, 강력한 다중 인증(MFA), 조건부 액세스로 대체합니다.",
     ),
   },
   PA: {
@@ -288,8 +288,8 @@ const MCSB_DOMAIN_PROFILES: Readonly<Record<string, {
     kind: "mcsb-v2-data-protection",
     nameEn: "Data Protection",
     nameKo: "데이터 보호",
-    configLabel: text("Data classification, TLS and at-rest encryption", "데이터 분류·전송 암호화(TLS)·저장 암호화"),
-    mechLabel: text("Key Vault CMK and certificate lifecycle boundary", "Key Vault 고객 관리형 키(CMK)·인증서 경계"),
+    configLabel: text("Data classification, TLS and at-rest encryption", "데이터 분류, 전송 암호화(TLS), 저장 암호화"),
+    mechLabel: text("Key Vault CMK and certificate lifecycle boundary", "Key Vault 고객 관리형 키(CMK) 및 인증서 경계"),
     evLabel: text("Encryption state and key custody audit", "암호화 설정 및 키 보관소 접근 감사"),
     mechanism: text(
       "Data protection controls safeguard sensitive information across discovery, transit, storage, and cryptographic key lifecycle management.",
@@ -325,7 +325,7 @@ const MCSB_DOMAIN_PROFILES: Readonly<Record<string, {
     nameEn: "Incident Response",
     nameKo: "인시던트 대응",
     configLabel: text("Incident response plan and alert correlation", "인시던트 대응 계획 및 고품질 경보 상관분석"),
-    mechLabel: text("Automated triage, containment and forensics loop", "자동 분류·격리·포렌식 증거 보존 경계"),
+    mechLabel: text("Automated triage, containment and forensics loop", "자동 분류, 격리, 포렌식 증거 보존 경계"),
     evLabel: text("Response drill and post-incident review check", "대응 모의 훈련 및 사후 교훈 검토 검증"),
     mechanism: text(
       "Incident response connects high-signal detections to accountable responders, bounded containment workflows, and forensic evidence retention.",
@@ -340,8 +340,8 @@ const MCSB_DOMAIN_PROFILES: Readonly<Record<string, {
     mechLabel: text("Automated patching and red-team validation loop", "패치 자동화 및 레드팀 검증 파이프라인"),
     evLabel: text("Baseline drift and CVE exposure verification", "기준선 이탈 및 CVE 노출 해소 검증"),
     mechanism: text(
-      "Posture and vulnerability management continuously audits resource configurations and software versions against hardened baselines and MSRC advisories.",
-      "보안 태세 및 취약성 관리는 리소스 구성과 소프트웨어 버전을 강화된 보안 기준선 및 MSRC 보안 권고와 지속적으로 대조·교정합니다.",
+      "Posture management audits resource configurations and software versions against hardened baselines and MSRC advisories.",
+      "보안 태세 및 취약성 관리는 리소스 구성과 소프트웨어 버전을 강화된 보안 기준선 및 MSRC 권고와 지속적으로 대조합니다.",
     ),
   },
   ES: {
@@ -352,8 +352,8 @@ const MCSB_DOMAIN_PROFILES: Readonly<Record<string, {
     mechLabel: text("Behavioral telemetry and signature update loop", "행위 기반 원격 분석 및 서명 자동 갱신 경계"),
     evLabel: text("Endpoint agent health and signature freshness check", "엔드포인트 에이전트 상태 및 서명 최신성 검증"),
     mechanism: text(
-      "Endpoint security enforces real-time anti-malware, automatic signature updates, and Endpoint Detection and Response (EDR) on compute hosts.",
-      "엔드포인트 보안은 컴퓨팅 호스트에 실시간 맬웨어 방지, 서명 자동 갱신, 엔드포인트 탐지 및 대응(EDR) 에이전트를 강제합니다.",
+      "Endpoint security enforces real-time anti-malware, automatic signature updates, and EDR on compute hosts.",
+      "엔드포인트 보안은 컴퓨팅 호스트에 실시간 맬웨어 방지, 서명 자동 갱신, 엔드포인트 탐지 및 대응(EDR)을 강제합니다.",
     ),
   },
   BR: {
@@ -361,35 +361,35 @@ const MCSB_DOMAIN_PROFILES: Readonly<Record<string, {
     nameEn: "Backup and Recovery",
     nameKo: "백업 및 복구",
     configLabel: text("Automated backup schedule and vault immutability", "자동 백업 일정 및 자격 증명 모음 불변성 정책"),
-    mechLabel: text("Soft delete, CMK encryption and cross-zone/region copy", "소프트 삭제·CMK 암호화·교차 영역 복제 경계"),
+    mechLabel: text("Soft delete, CMK encryption and cross-zone/region copy", "소프트 삭제, CMK 암호화, 교차 영역 복제 경계"),
     evLabel: text("Restore drill and recovery point verification", "정기 복원 훈련 및 복구 지점(RPO/RTO) 검증"),
     mechanism: text(
-      "Backup and recovery controls protect stateful data against accidental deletion, ransomware, and regional outages with tested restore procedures.",
-      "백업 및 복구 통제는 우발적 삭제, 랜섬웨어, 리전 장애로부터 상태 저장 데이터를 보호하고 실제 복원 훈련으로 복구 가능성을 검증합니다.",
+      "Backup controls protect stateful data against deletion, ransomware, and regional outages with tested restore drills.",
+      "백업 및 복구 통제는 삭제, 랜섬웨어, 리전 장애로부터 데이터를 보호하고 정기 복원 훈련으로 복구 가능성을 검증합니다.",
     ),
   },
   DS: {
     kind: "mcsb-v2-devops-security",
     nameEn: "DevOps Security",
     nameKo: "DevOps 보안",
-    configLabel: text("Threat modeling, SAST/DAST and supply-chain gates", "위협 모델링·SAST/DAST·공급망 보안 게이트"),
+    configLabel: text("Threat modeling, SAST/DAST and supply-chain gates", "위협 모델링, SAST/DAST, 공급망 보안 게이트"),
     mechLabel: text("Hardened CI/CD runner and signed artifact registry", "강화된 CI/CD 러너 및 서명된 아티팩트 경계"),
     evLabel: text("Pipeline audit log and dependency scan verification", "파이프라인 감사 로그 및 의존성 검증"),
     mechanism: text(
-      "DevOps security embeds threat modeling, static/dynamic scanning, dependency verification, and runner isolation throughout the delivery lifecycle.",
-      "DevOps 보안은 위협 모델링, 정적·동적 보안 분석(SAST/DAST), 의존성 무결성 검증, 빌드 러너 격리를 배포 전 과정에 내재화합니다.",
+      "DevOps security embeds threat modeling, static/dynamic scanning, dependency checks, and runner isolation in delivery.",
+      "DevOps 보안은 위협 모델링, 정적·동적 보안 분석(SAST/DAST), 의존성 검증, 빌드 러너 격리를 배포 과정에 내재화합니다.",
     ),
   },
   AI: {
     kind: "mcsb-v2-ai-security",
     nameEn: "Artificial Intelligence Security",
     nameKo: "인공 지능(AI) 보안",
-    configLabel: text("Approved model registry, meta-prompt and content shield", "승인 모델 레지스트리·메타 프롬프트·콘텐츠 실드"),
-    mechLabel: text("Least-privilege agent tools, HIL gate and AI red-teaming", "최소 권한 에이전트 도구·HIL 승인·AI 레드팀 경계"),
-    evLabel: text("Trajectory audit, filter receipts and red-team verification", "실행 궤적 감사·필터 증적·레드팀 검증"),
+    configLabel: text("Approved model registry, meta-prompt and content shield", "승인 모델 레지스트리, 메타 프롬프트, 콘텐츠 실드"),
+    mechLabel: text("Least-privilege agent tools, HIL gate and AI red-teaming", "최소 권한 에이전트 도구, HIL 승인, AI 레드팀 경계"),
+    evLabel: text("Trajectory audit, filter receipts and red-team verification", "실행 궤적 감사, 필터 증적, 레드팀 검증"),
     mechanism: text(
-      "AI security governs model provenance, multi-layered input/output safety shields, prompt boundaries, least-privilege agent tools, HIL approvals, and continuous AI red-teaming.",
-      "인공 지능(AI) 보안은 모델 출처 검증, 다계층 입출력 안전 필터, 프롬프트 경계, 최소 권한 에이전트 도구, 인간 개입(HIL) 승인, 지속적 AI 레드팀 검증을 통합 통제합니다.",
+      "AI security governs model provenance, content safety shields, prompt boundaries, least-privilege tools, and HIL gates.",
+      "인공 지능(AI) 보안은 모델 출처 검증, 입출력 안전 필터, 프롬프트 경계, 최소 권한 도구, HIL 승인을 통합 통제합니다.",
     ),
   },
 };
@@ -422,83 +422,94 @@ export function buildMcsbV2Guidance(detail: McsbControlDetail): GuidancePresenta
   const domain = detail.domain in MCSB_DOMAIN_PROFILES ? detail.domain : detail.control_id.split("-")[0] ?? "NS";
   const profile = MCSB_DOMAIN_PROFILES[domain] ?? MCSB_DOMAIN_PROFILES["NS"]!;
   const ai = AI_CONTROLS[detail.control_id];
+  const authored = resolveMcsbControlAuthoredGuidance(detail.control_id);
   const titleKo = mcsbDisplayTitle("v2-preview", detail, "ko");
   const title: GuidanceText = text(detail.title, titleKo);
   const learnUrl = (typeof detail.source["source_url"] === "string" && detail.source["source_url"].startsWith("https://learn.microsoft.com/"))
     ? detail.source["source_url"]
     : (MCSB_V2_DOMAIN_URLS[domain] ?? "https://learn.microsoft.com/en-us/security/benchmark/azure/overview");
+  const mechanism = authored?.mechanism ?? profile.mechanism;
 
   const summary = ai
     ? ai.summary
     : text(
-        `${detail.title} (${detail.control_id}) defines the MCSB v2 preview security expectation for ${profile.nameEn}. ${profile.mechanism.en}`,
-        `${titleKo}(${detail.control_id}) 항목은 ${profile.nameKo} 도메인의 MCSB v2 미리 보기 보안 기준을 정의합니다. ${profile.mechanism.ko}`,
+        `${detail.title} (${detail.control_id}) defines the MCSB v2 preview security expectation for ${profile.nameEn}. ${mechanism.en}`,
+        `${titleKo}(${detail.control_id}) 항목은 ${profile.nameKo} 도메인의 MCSB v2 미리 보기 보안 기준을 정의합니다. ${mechanism.ko}`,
       );
   const benefits = ai
     ? ai.benefits
-    : text(
-        `Establishes a verifiable ${profile.nameEn.toLowerCase()} boundary for ${detail.control_id} (${detail.title.toLowerCase()}) across cloud workloads and reduces exposure to configuration drift or unmonitored attack paths.`,
-        `${titleKo}(${detail.control_id}) 기준에 따라 클라우드 워크로드 전반에 검증 가능한 ${profile.nameKo} 경계를 수립하고 구성 드리프트나 모니터링되지 않는 공격 경로 노출을 줄입니다.`,
-      );
+    : authored
+      ? authored.benefits
+      : text(
+          `Establishes a verifiable ${profile.nameEn.toLowerCase()} boundary for ${detail.control_id} and reduces exposure to configuration drift.`,
+          `${titleKo}(${detail.control_id}) 기준에 따라 검증 가능한 ${profile.nameKo} 경계를 수립하고 구성 드리프트 노출을 줄입니다.`,
+        );
   const before = ai
     ? ai.before
-    : text(
-        `Workloads operate without standardized ${detail.control_id} (${detail.title.toLowerCase()}) guardrails or rely on ad-hoc per-resource configuration.`,
-        `워크로드가 표준화된 ${detail.control_id}(${titleKo}) 가드레일 없이 운영되거나 리소스별 임시 수동 설정에 의존합니다.`,
-      );
+    : authored
+      ? authored.before
+      : text(
+          `Workloads operate without standardized ${detail.control_id} guardrails or rely on ad-hoc per-resource configuration.`,
+          `워크로드가 표준화된 ${detail.control_id}(${titleKo}) 가드레일 없이 운영되거나 수동 설정에 의존합니다.`,
+        );
   const after = ai
     ? ai.after
-    : text(
-        `Enforce ${detail.control_id} (${detail.title}) across the target workload scope${detail.rule_ids.length > 0 ? ` (linked rules: ${detail.rule_ids.join(", ")})` : ""} and retain auditable configuration, policy, and operational evidence.`,
-        `대상 워크로드 범위에 ${detail.control_id}(${titleKo}) 통제를 일관되게 구성하고${detail.rule_ids.length > 0 ? `(연결 규칙: ${detail.rule_ids.join(", ")})` : ""} 감사 가능한 정책·런타임·운영 근거를 보존합니다.`,
-      );
+    : authored
+      ? authored.after
+      : text(
+          `Enforce ${detail.control_id} across the workload scope and retain auditable configuration and operational evidence.`,
+          `대상 워크로드 범위에 ${detail.control_id}(${titleKo}) 통제를 구성하고 감사 가능한 운영 근거를 보존합니다.`,
+        );
   const verify = ai
     ? ai.verify
-    : text(
-        `Inspect authoritative resource configuration, policy compliance state, and operational logs for ${detail.control_id} (${detail.title}) across the workload scope.`,
-        `대상 워크로드 범위에서 ${detail.control_id}(${titleKo}) 관련 리소스 구성, 정책 준수 상태, 운영 감사 로그를 독립적으로 대조하여 검증합니다.`,
-      );
+    : authored
+      ? authored.verify
+      : text(
+          `Inspect resource configuration, policy compliance state, and operational logs for ${detail.control_id} across the workload scope.`,
+          `대상 워크로드 범위에서 ${detail.control_id}(${titleKo}) 리소스 구성과 정책 준수 상태를 독립 대조합니다.`,
+        );
   const caution = ai
     ? ai.caution
-    : text(
-        `MCSB v2 preview definitions are cataloged for architectural review; never conflate v2 preview catalog presence with v1 shadow assessment results.`,
-        `MCSB v2 미리 보기 정의는 아키텍처 및 보안 기준 검토용으로 제공되며, v1 섀도 평가 결과와 혼동하거나 자동 충족으로 간주하지 않습니다.`,
-      );
+    : authored
+      ? authored.caution
+      : text(
+          `MCSB v2 preview definitions are cataloged for architectural review; never conflate v2 preview catalog presence with v1 shadow assessment results.`,
+          `MCSB v2 미리 보기 정의는 아키텍처 및 보안 기준 검토용으로 제공되며, v1 섀도 평가 결과와 혼동하거나 자동 충족으로 간주하지 않습니다.`,
+        );
 
+  const v2Tag = `[MCSB v2 ${detail.control_id}]`;
   const nodes: readonly GuidanceNode[] = [
     {
       id: "subject",
-      label: title,
-      detail: before,
+      label: text(`${detail.control_id} (${detail.title})`, `${detail.control_id}: ${titleKo}`),
+      detail: ai ? before : text(`${v2Tag} ${before.en}`, `${v2Tag} ${before.ko}`),
       role: "subject",
     },
     {
       id: "configuration",
       label: profile.configLabel,
-      detail: after,
+      detail: ai ? after : text(`${v2Tag} ${after.en}`, `${v2Tag} ${after.ko}`),
       role: "configuration",
     },
     {
       id: "evidence",
       label: profile.evLabel,
-      detail: verify,
+      detail: ai ? verify : text(`${v2Tag} ${verify.en}`, `${v2Tag} ${verify.ko}`),
       role: "evidence",
     },
     {
       id: "mechanism",
       label: profile.mechLabel,
-      detail: profile.mechanism,
+      detail: ai ? mechanism : text(`${v2Tag} ${mechanism.en}`, `${v2Tag} ${mechanism.ko}`),
       role: "dependency",
     },
     {
       id: "outcome",
-      label: text("Expected security outcome", "기대 보안 효과"),
-      detail: benefits,
+      label: text(`MCSB v2 outcome (${detail.control_id})`, `MCSB v2 목표 효과 (${detail.control_id})`),
+      detail: ai ? benefits : text(`${v2Tag} ${benefits.en}`, `${v2Tag} ${benefits.ko}`),
       role: "outcome",
     },
   ];
-
-  const referenceImage = resolveControlReferenceImage("mcsb-v2-preview", detail.control_id);
 
   return {
     title,
@@ -529,8 +540,8 @@ export function buildMcsbV2Guidance(detail: McsbControlDetail): GuidancePresenta
       after: [
         after,
         text(
-          `Illustrative target: align workload controls with ${detail.control_id} and verify through independent telemetry and review.`,
-          `예시 목표: 워크로드 통제를 ${detail.control_id} 기준에 맞추고 독립적인 원격 분석 및 보안 검토로 확인합니다.`,
+          `Illustrative target: align workload controls with ${detail.control_id}${detail.rule_ids.length > 0 ? ` (linked rules: ${detail.rule_ids.join(", ")})` : ""} and verify through independent telemetry and review.`,
+          `예시 목표: 워크로드 통제를 ${detail.control_id} 기준에 맞추고${detail.rule_ids.length > 0 ? `(연결 규칙: ${detail.rule_ids.join(", ")})` : ""} 독립적인 원격 분석 및 보안 검토로 확인합니다.`,
         ),
       ],
     },
@@ -563,7 +574,6 @@ export function buildMcsbV2Guidance(detail: McsbControlDetail): GuidancePresenta
         "변경 전후 예시는 이해를 돕기 위한 설명용입니다. 이 안내를 열람해도 실행 권한은 부여되지 않습니다.",
       ),
     ],
-    ...(referenceImage ? { reference_image: referenceImage } : {}),
     diagram: {
       id: `mcsb-v2.${detail.control_id.toLowerCase()}`,
       kind: profile.kind,

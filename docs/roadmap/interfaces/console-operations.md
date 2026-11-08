@@ -30,6 +30,12 @@ the medium-or-higher default, and source-pin admission remain owned by
 [framework assessment](../rules-and-detection/framework-assessment.md#control-enablement-and-implementation-guidance),
 not browser inference or another authorization path.
 
+Rule, MCSB v2-preview, and MSRC CSAF diagrams use their own control-specific text rather than
+generic WARA image mappings. MCSB v2-preview uses authored control guidance when available and
+retains explicit preview identity and linked Rule references. Framework details display only the
+reference image supplied by the source-bound guide; the browser does not attach an image by
+control ID or resource type. These reading aids do not change assessment or execution authority.
+
 ![Design at a glance. The main stages are FDAI Console - Operations, Domain projections, Operator API request routes, Typed event bus, Owning agents, Quality and risk gates, Var approval, Thor execution, Saga audit.](../../diagrams/generated/fdai-roadmap-interfaces-console-operations-01.en.svg)
 
 ## Architectural decision

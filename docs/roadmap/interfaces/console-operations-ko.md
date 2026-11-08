@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 72ee768f55ea65cbc4c69bfd4690c752999d2a33
-translation_revised: 2026-11-03
+translation_source_sha: 4e066546616c69432a906a3b4a579ba87e1cd876
+translation_revised: 2026-11-08
 ---
 
 # 콘솔 운영
@@ -31,6 +31,12 @@ Operations 영역은 기존 도메인 변환 결과를 읽고, 각 스키마와 
 Rule/ActionType 참조는 기존 Rule 상세로 연결할 뿐 실행 컨트롤을 추가하지 않습니다. 검토된
 프로필 재정의, `medium` 이상 기본 활성화, 원본 핀 수락은 브라우저 추론이나 별도 권한 경로가
 아니라 [프레임워크 평가](../rules-and-detection/framework-assessment-ko.md#컨트롤-활성화와-구현-안내)가 소유합니다.
+
+Rule, MCSB v2-preview, MSRC CSAF 도표는 일반적인 WARA 이미지 매핑 대신 각 컨트롤에 맞는
+설명을 사용합니다. MCSB v2-preview는 해당 컨트롤의 작성된 안내가 있으면 이를 사용하며,
+미리 보기 식별 정보와 연결된 Rule 참조를 명시적으로 유지합니다. 프레임워크 상세 화면은
+원본과 결속된 안내에서 제공한 참고 이미지만 표시합니다. 브라우저는 컨트롤 ID나 리소스
+유형으로 이미지를 추가하지 않습니다. 이 읽기 보조 자료는 평가나 실행 권한을 바꾸지 않습니다.
 
 ![설계 요약. 주요 단계는 FDAI Console - Operations, Domain projections, Operator API request routes, Typed event bus, Owning agents, Quality and risk gates, Var approval, Thor execution, Saga audit입니다.](../../diagrams/generated/fdai-roadmap-interfaces-console-operations-01.ko.svg)
 
