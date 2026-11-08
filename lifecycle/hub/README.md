@@ -11,16 +11,18 @@ authority.
 
 ## Local first-installation Bootstrap
 
-`fdai-lifecycle-hub start` opens the packaged setup interface on an ephemeral IPv4 loopback port.
+`fdai-lifecycle-hub start --hub-public-key /trusted/release-hub-public.pem` opens the packaged
+setup interface on an ephemeral IPv4 loopback port.
 It starts without a Hub database or FDAI Runtime. A separate customer-side executor owns Azure
 login and reuses the existing deployment CLI, Terraform, exact approvals and independent checks.
 The web process never runs Terraform or holds Azure tokens.
 
 Use Python 3.12 or later on Linux with a local browser. Install the reviewed Hub wheel and its
-declared dependencies from your approved source; this change does not publish a PyPI release.
-The executor checks tools and retains its own Azure CLI profile. Signed Release Hub images need
-an independently approved public key; explicit source mode needs a clean checkout. The current
-AKS/Console profile is not a Lite topology, and automatic lifecycle enrollment is not implied.
+declared dependencies from your approved source. The launcher binds the independently approved
+public key, region and monthly planning ceiling outside the browser. After Azure sign-in, the
+operator reviews the active subscription and chooses only AKS or ACA. The executor checks tools
+and retains its own Azure CLI profile. Explicit source mode remains a deployment CLI path. The
+current Console profile is not a Lite topology, and automatic lifecycle enrollment is not implied.
 See the [Bootstrap guide](../../docs/roadmap/deployment/lifecycle-hub-bootstrap.md) for private
 state, review, recovery and package/live-validation boundaries.
 

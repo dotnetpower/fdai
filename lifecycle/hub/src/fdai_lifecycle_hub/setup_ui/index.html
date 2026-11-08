@@ -52,9 +52,9 @@
         </ol>
         <dl id="rail-summary" class="rail-summary">
           <div><dt data-i18n="railRuntime">Runtime</dt><dd id="rail-runtime-val">AKS</dd></div>
-          <div><dt data-i18n="railDb">Database</dt><dd id="rail-db-val">Postgres Flex</dd></div>
+          <div><dt data-i18n="railSubscription">Subscription</dt><dd id="rail-subscription-val">Not connected</dd></div>
           <div><dt data-i18n="railRegion">Region</dt><dd id="rail-region-val">westus3</dd></div>
-          <div><dt data-i18n="railWorkload">Workload</dt><dd id="rail-workload-val">fdai</dd></div>
+          <div><dt data-i18n="railArtifacts">Artifacts</dt><dd id="rail-artifact-val">Signed images</dd></div>
         </dl>
       </aside>
       <div class="step-pane">
@@ -97,7 +97,7 @@
         <section id="perm-strip" class="perm-strip" aria-labelledby="perm-heading">
           <div class="perm-strip-bar">
             <div class="perm-strip-summary">
-              <strong id="perm-heading" class="check-badge" data-i18n="permVerified">✓ Account &amp; required permissions</strong>
+              <strong id="perm-heading" class="check-badge" data-i18n="permRequired">Account &amp; required permissions</strong>
               <span id="perm-summary-text" class="muted" data-i18n="permSummaryDefault">Subscription Owner/Contributor, UAMI RBAC delegation, Entra ID apps/groups, and 18 Azure resource providers</span>
             </div>
             <button id="toggle-perm-btn" type="button" class="link-btn" aria-expanded="false" data-i18n="showPermDetails">Permission details ⌄</button>
@@ -106,22 +106,22 @@
             <div class="perm-row">
               <span class="perm-row-title" data-i18n="permSubTitle">Subscription provisioning</span>
               <span class="perm-row-desc" data-i18n="permSubDesc">Create ops/app resource groups, VNet, Bastion, AKS/ACA, PostgreSQL, and Key Vault (Owner or Contributor)</span>
-              <span id="perm-sub-state" class="perm-row-status" data-i18n="permStateReady">✓ Required</span>
+              <span id="perm-sub-state" class="perm-row-status" data-i18n="permStateReady">Required</span>
             </div>
             <div class="perm-row">
               <span class="perm-row-title" data-i18n="permUamiTitle">Managed Identity RBAC delegation</span>
               <span class="perm-row-desc" data-i18n="permUamiDesc">Assign Reader, AcrPull, and Key Vault Secrets User roles to workload identities (Owner or User Access Admin)</span>
-              <span id="perm-uami-state" class="perm-row-status" data-i18n="permStateReady">✓ Required</span>
+              <span id="perm-uami-state" class="perm-row-status" data-i18n="permStateReady">Required</span>
             </div>
             <div class="perm-row">
               <span class="perm-row-title" data-i18n="permEntraTitle">Entra ID apps &amp; RBAC groups</span>
               <span class="perm-row-desc" data-i18n="permEntraDesc">Configure fdai-api, fdai-console-spa, and 5 role groups (aw-owners, aw-approvers, aw-contributors, aw-readers, aw-break-glass)</span>
-              <span id="perm-entra-state" class="perm-row-status" data-i18n="permStateReady">✓ Required</span>
+              <span id="perm-entra-state" class="perm-row-status" data-i18n="permStateReady">Required</span>
             </div>
             <div class="perm-row">
               <span class="perm-row-title" data-i18n="permRpTitle">Azure Policy &amp; 18 Resource Providers</span>
               <span class="perm-row-desc" data-i18n="permRpDesc">No blocking Deny assignments; Microsoft.ContainerService, Microsoft.App, Microsoft.DBforPostgreSQL, Microsoft.KeyVault registered</span>
-              <span id="perm-rp-state" class="perm-row-status" data-i18n="permStateReady">✓ 18/18 RP</span>
+              <span id="perm-rp-state" class="perm-row-status" data-i18n="permStateReady">Required</span>
             </div>
           </div>
         </section>
@@ -138,122 +138,57 @@
           <div id="config-form-wrap" class="configuration">
             <section id="account-section" aria-labelledby="account-heading">
               <div class="step-heading"><span class="step-number" aria-hidden="true">1</span><h2 id="account-heading" data-i18n="account">Connect Azure</h2></div>
-              <p class="compact-help" data-i18n="loginHelp">Microsoft browser sign-in opens on the machine running this Hub. Complete sign-in there, then return here and list subscriptions. Never enter credentials on this setup screen.</p>
+              <p class="compact-help" data-i18n="loginHelp">Microsoft browser sign-in opens on this machine. The active Azure CLI subscription becomes the read-only deployment target.</p>
               <div class="connect-grid">
+                <div class="button-row connect-actions">
+                  <button id="login" type="button" disabled data-i18n="login">Sign in to Azure</button>
+                  <button id="accounts" type="button" class="secondary" disabled data-i18n="accounts">Refresh active subscription</button>
+                </div>
+              </div>
+              <details class="signin-options">
+                <summary data-i18n="signInOptions">Sign-in options</summary>
                 <div class="field compact-field">
                   <label for="tenant" data-i18n="tenant">Azure tenant ID or domain (optional)</label>
                   <input id="tenant" name="tenant" pattern="[A-Za-z0-9._-]{1,128}" maxlength="128" autocomplete="off" spellcheck="false" disabled aria-describedby="tenant-help">
-                  <p id="tenant-help" class="hint" data-i18n="tenantHelp">Leave blank to use your active Azure CLI tenant, or enter a tenant ID or domain before signing in.</p>
+                  <p id="tenant-help" class="hint" data-i18n="tenantHelp">Leave blank to use your active Azure CLI tenant.</p>
                 </div>
-                <div class="button-row connect-actions">
-                  <button id="login" type="button" disabled data-i18n="login">Sign in to Azure</button>
-                  <button id="accounts" type="button" class="secondary" disabled data-i18n="accounts">List subscriptions</button>
-                </div>
-              </div>
-              <label class="checkbox-option"><input id="device-code" type="checkbox" disabled><span data-i18n="deviceCode">Use device code sign-in (for SSH or headless terminals without a local browser)</span></label>
+                <label class="checkbox-option"><input id="device-code" type="checkbox" disabled><span data-i18n="deviceCode">Use device code sign-in for SSH or headless terminals.</span></label>
+              </details>
             </section>
             <form id="install-form">
               <fieldset id="configuration-fields" disabled>
-                <legend class="step-heading"><span class="step-number" aria-hidden="true">2</span><span data-i18n="configure">Choose your installation</span></legend>
+                <legend class="step-heading"><span class="step-number" aria-hidden="true">2</span><span data-i18n="configure">Choose Console runtime</span></legend>
                 <div class="field">
                   <span class="field-label" data-i18n="runtimePlatformLabel">Deployment runtime platform</span>
-                  <div class="segmented-cards" role="radiogroup" aria-label="Deployment runtime platform">
+                  <div class="segmented-cards" role="radiogroup" aria-label="Deployment runtime platform" data-i18n-aria-label="runtimePlatformAria">
                     <label class="seg-card is-selected" id="card-runtime-aks">
                       <input type="radio" name="runtime-platform" value="aks" checked>
                       <span class="seg-card-head">
                         <strong data-i18n="runtimeAksTitle">AKS (Azure Kubernetes Service)</strong>
                         <span class="seg-card-tag" data-i18n="recommendedTag">Recommended</span>
                       </span>
-                      <span class="seg-card-desc" data-i18n="runtimeAksDesc">Isolated executor, NetworkPolicy, full observability topology, and production baseline</span>
+                      <span class="seg-card-desc" data-i18n="runtimeAksDesc">Kubernetes runtime with the full production baseline.</span>
                     </label>
                     <label class="seg-card" id="card-runtime-aca">
                       <input type="radio" name="runtime-platform" value="container-apps">
                       <span class="seg-card-head">
                         <strong data-i18n="runtimeAcaTitle">ACA (Azure Container Apps)</strong>
-                        <span class="seg-card-tag seg-card-tag--muted" data-i18n="compatTag">Compatibility</span>
+                        <span class="seg-card-tag seg-card-tag--muted" data-i18n="managedTag">Managed</span>
                       </span>
-                      <span class="seg-card-desc" data-i18n="runtimeAcaDesc">Serverless managed Container Apps and Jobs without Kubernetes cluster management</span>
+                      <span class="seg-card-desc" data-i18n="runtimeAcaDesc">Managed Container Apps runtime without Kubernetes cluster operations. Keyless ACA remains observation-only.</span>
                     </label>
                   </div>
                 </div>
-                <div class="field-grid">
-                  <div class="field">
-                    <label for="subscription" data-i18n="subscription">Azure subscription</label>
-                    <select id="subscription" name="subscription" required aria-describedby="subscription-help">
-                      <option value="" data-i18n="noAccounts">List subscriptions to choose a target</option>
-                    </select>
-                    <p id="subscription-help" class="hint" data-i18n="subscriptionHelp">Only subscriptions returned by your authenticated Azure session appear here.</p>
-                  </div>
-                  <div class="field">
-                    <label for="region" data-i18n="region">Azure region</label>
-                    <input id="region" name="region" list="region-list" required pattern="[a-z][a-z0-9]{1,31}" maxlength="32" autocomplete="off" spellcheck="false" aria-describedby="region-help">
-                    <datalist id="region-list">
-                      <option value="westus3"></option>
-                      <option value="eastus2"></option>
-                      <option value="eastus"></option>
-                      <option value="westus2"></option>
-                      <option value="koreacentral"></option>
-                      <option value="japaneast"></option>
-                      <option value="southeastasia"></option>
-                      <option value="westeurope"></option>
-                    </datalist>
-                    <p id="region-help" class="hint" data-i18n="regionHelp">Enter the supported Azure location name for your target, using lowercase letters and digits.</p>
-                  </div>
-                </div>
-                <div class="field-grid">
-                  <div class="field">
-                    <label for="workload" data-i18n="workload">Workload token (optional)</label>
-                    <input id="workload" name="workload" pattern="[a-z][a-z0-9]{1,11}" maxlength="12" autocomplete="off" spellcheck="false" placeholder="fdai" aria-describedby="workload-help">
-                    <p id="workload-help" class="hint" data-i18n="workloadHelp">Leave blank to auto-select a non-colliding name (such as fdai or fdaiboot).</p>
-                    <p id="rg-preview-text" class="hint mono-hint"></p>
-                  </div>
-                  <div class="field">
-                    <label for="database-placement" data-i18n="databasePlacement">Database placement</label>
-                    <select id="database-placement" name="database-placement" aria-describedby="db-help">
-                      <option value="postgres-flex" data-i18n="dbPostgresFlex">PostgreSQL Flexible Server (recommended)</option>
-                      <option value="postgres-aks" data-i18n="dbPostgresAks">In-cluster AKS PostgreSQL (non-production)</option>
-                    </select>
-                    <p id="db-help" class="hint" data-i18n="dbHelp">Managed PostgreSQL Flexible Server with pgvector and per-service roles.</p>
-                  </div>
-                </div>
-                <div class="field-grid">
-                  <div class="field">
-                    <label for="cost" data-i18n="cost">Monthly cost ceiling (USD)</label>
-                    <input id="cost" name="cost" type="number" min="1" step="1" required inputmode="numeric" aria-describedby="cost-help">
-                    <p id="cost-help" class="hint" data-i18n="costHelp">A planning limit, not a billing cap or a cost estimate.</p>
-                  </div>
-                  <div class="field">
-                    <label for="approval-mode" data-i18n="approvalMode">Checkpoint approval mode</label>
-                    <select id="approval-mode" name="approval-mode" aria-describedby="approval-mode-help">
-                      <option value="continuous" data-i18n="approvalContinuous">Continuous non-destructive (recommended)</option>
-                      <option value="stepwise" data-i18n="approvalStepwise">Review every checkpoint manually</option>
-                    </select>
-                    <p id="approval-mode-help" class="hint" data-i18n="approvalModeHelp">Destructive changes always pause for explicit confirmation.</p>
-                  </div>
-                </div>
-                <fieldset class="artifact-options">
-                  <legend data-i18n="artifacts">Installation artifacts</legend>
-                  <label class="radio-option"><input type="radio" name="artifact" value="hub" checked><span><strong data-i18n="hubMode">Signed prebuilt images</strong><span class="hint" data-i18n="hubHelp">Default. Verify Release Hub artifacts using an independently trusted public key. No source-build fallback.</span></span></label>
-                  <label class="radio-option"><input type="radio" name="artifact" value="source"><span><strong data-i18n="sourceMode">Build from a clean source checkout</strong><span class="hint" data-i18n="sourceHelp">Explicit source installation, independent of Release Hub images.</span></span></label>
-                </fieldset>
-                <div id="hub-fields" class="field">
-                  <label for="public-key" data-i18n="publicKey">Trusted Release Hub public key (Ed25519 PEM)</label>
-                  <p id="key-help" class="hint" data-i18n="keyWarning">Verify this public key through an independent trusted channel. Never paste or upload a private key, credential, or secret.</p>
-                  <textarea id="public-key" rows="3" maxlength="4096" required spellcheck="false" autocomplete="off" aria-describedby="key-help"></textarea>
-                  <label class="file-label" for="key-file" data-i18n="keyFile">Or read a public PEM file (maximum 4 KiB)</label>
-                  <input id="key-file" type="file" accept=".pem,.pub,text/plain" aria-describedby="key-help">
-                </div>
-                <div id="source-fields" class="field" hidden>
-                  <label for="source-root" data-i18n="sourceRoot">Clean checkout path on this Hub host</label>
-                  <input id="source-root" maxlength="1024" autocomplete="off" spellcheck="false" disabled aria-describedby="source-path-help">
-                  <p id="source-path-help" class="hint" data-i18n="sourcePathHelp">Use an absolute local path. The backend verifies the committed source before preparing the plan.</p>
-                </div>
-                <div class="baseline">
-                  <h3 data-i18n="baselineTitle">Existing AKS resource baseline</h3>
-                  <p data-i18n="baseline">The read-only-console runtime profile still deploys the existing AKS infrastructure and its supporting resources. It is not a reduced-cost runtime. Review the actual resources and cost evidence in each plan.</p>
-                </div>
-                <p id="prepare-help" data-i18n="prepareHelp">Preparation and non-destructive installation stages run continuously to completion once authorized. Only plans that delete or replace existing resources pause for extra confirmation.</p>
-                <button id="install" type="submit" aria-describedby="prepare-help" data-i18n="prepare">Authorize preparation</button>
+                <dl id="guided-summary" class="guided-defaults" aria-label="Read-only deployment target" data-i18n-aria-label="readOnlyTargetAria">
+                  <div><dt data-i18n="activeSubscription">Active subscription</dt><dd id="guided-subscription">Sign in first</dd></div>
+                  <div><dt data-i18n="region">Azure region</dt><dd id="guided-region">westus3</dd></div>
+                  <div><dt data-i18n="databasePlacement">Database</dt><dd data-i18n="dbPostgresFlex">PostgreSQL Flexible Server</dd></div>
+                  <div><dt data-i18n="artifacts">Artifacts</dt><dd data-i18n="hubMode">Signed prebuilt images</dd></div>
+                  <div><dt data-i18n="cost">Monthly planning ceiling</dt><dd id="guided-cost">1500 USD</dd></div>
+                  <div><dt data-i18n="approvalMode">Approval</dt><dd data-i18n="approvalContinuous">Continuous non-destructive</dd></div>
+                </dl>
+                <p id="prepare-help" data-i18n="prepareHelp">The launcher fixes these defaults outside the browser. Review the active subscription and runtime, then deploy. Destructive changes still pause for exact confirmation.</p>
+                <button id="install" type="submit" aria-describedby="prepare-help" data-i18n="prepare">Deploy FDAI Console</button>
               </fieldset>
             </form>
           </div>

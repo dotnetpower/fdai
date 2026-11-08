@@ -15,7 +15,12 @@ from urllib.parse import urlsplit
 from uuid import UUID
 
 from fdai_deployment_cli.bootstrap_approval import approval_source
-from fdai_deployment_cli.bootstrap_channel import _read, _write, prepare_directory
+from fdai_deployment_cli.bootstrap_channel import (
+    _read,
+    _write,
+    prepare_directory,
+    read_guided_profile,
+)
 from fdai_deployment_cli.bootstrap_support import (
     can_open_interactive_browser,
     configure_wsl_browser,
@@ -251,12 +256,12 @@ class BootstrapExecutor:
                     self._az("login", timeout=600)
             return {
                 "accounts": self.accounts(),
-                "message": "Signed in. Select the intended subscription.",
+                "message": "Signed in. Review the active subscription and choose AKS or ACA.",
             }
         if action == "accounts":
             return {
                 "accounts": self.accounts(),
-                "message": "Available Azure subscriptions refreshed.",
+                "message": "Active Azure subscription refreshed.",
             }
         if action == "reset":
             try:
@@ -265,7 +270,7 @@ class BootstrapExecutor:
                 raise BootstrapBlocked(str(exc)) from exc
             return {
                 "accounts": self.accounts(),
-                "message": "Setup configuration reset. Choose a subscription and region to start again.",
+                "message": "Setup configuration reset. Review the active target and choose AKS or ACA.",
             }
         if action == "inspect":
             retained = _read(self.area, "configuration.json")
@@ -292,7 +297,29 @@ class BootstrapExecutor:
                 raise BootstrapBlocked(
                     "An installation is retained. Use resume without replacing its inputs."
                 )
-            config = dict(payload)
+            if set(payload) == {"runtime_platform", "subscription_id"}:
+                available = self.accounts()
+                if not available:
+                    raise BootstrapBlocked(
+                        "No enabled Azure subscription is available to the signed-in user."
+                    )
+                reviewed_subscription = str(payload["subscription_id"])
+                if available[0]["id"] != reviewed_subscription:
+                    raise BootstrapBlocked(
+                        "Active Azure subscription changed after browser review. "
+                        "Refresh setup before deploying."
+                    )
+                guided_profile = read_guided_profile(self.area)
+                config = {
+                    **guided_profile,
+                    "subscription_id": reviewed_subscription,
+                    "artifact_source": "hub",
+                    "approval_mode": "continuous",
+                    "database_placement": "postgres-flex",
+                    "runtime_platform": payload["runtime_platform"],
+                }
+            else:
+                config = dict(payload)
             subscription = str(config["subscription_id"])
             if not any(item["id"] == subscription.lower() for item in self.accounts()):
                 raise BootstrapBlocked(

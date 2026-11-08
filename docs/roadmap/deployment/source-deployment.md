@@ -11,7 +11,7 @@ owns the first installation path in
 [Constitution Article 1](../architecture/fdai-constitution.md#article-1-purpose-and-scope).
 
 > **Status:** This is the target contract. The source run now continues from the verified
-> Foundation handoff into the shared AKS application stage without a signed kit. It transfers the
+> Foundation handoff into the shared AKS or ACA application stage without a signed kit. It transfers the
 > pinned source snapshot to the managed host, builds service images with the deployment registry,
 > resolves Terraform providers from the public registry under committed lock files, runs
 > migrations and catalogs from the checkout, and keeps the same health, inventory, and second
@@ -26,16 +26,18 @@ owns the first installation path in
 
 ## Design at a glance
 
-[Lifecycle Hub Bootstrap](lifecycle-hub-bootstrap.md) can present this same coordinator's exact
-checkpoints through an explicit customer-side approval adapter when source mode is selected.
-The adapter preserves actor, target, digest, expiry and destructive-change checks; terminal
-invocation behavior, source independence, Trial anchoring and verification remain unchanged.
+[Lifecycle Hub Bootstrap](lifecycle-hub-bootstrap.md) presents this same coordinator's exact
+checkpoints through an explicit customer-side approval adapter for guided signed-image deployment.
+Its browser selects only AKS or ACA. Explicit source installation remains a CLI path. The adapter
+preserves actor, target, digest, expiry and destructive-change checks; terminal invocation
+behavior, source independence, Trial anchoring and verification remain unchanged.
 
 | Concern | Decision |
 |---------|----------|
 | Who can deploy | Anyone with a clone, an interactive `az login`, and rights to create resources and role assignments in the target subscription |
 | Entry points | One line, `git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azure/fdai-up.sh --source . --region <region>`, or `fdaictl provision azure --source <checkout> --region <region>`; both run one coordinator |
 | Artifact source | One clean committed checkout; service images are built from it into the deployment's own registry |
+| Runtime | AKS with PostgreSQL Flexible Server or in-cluster PostgreSQL, or ACA with PostgreSQL Flexible Server |
 | Release artifacts created | None: no signed kit, bundle, control package, wheelhouse, appliance, host image, SBOM, provenance, attestation, or published release |
 | Keys required | None. A signing key is never an installation input |
 | No integrity signing key | One durable 30-day Trial anchored to the installation's creation time |

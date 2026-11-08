@@ -1,8 +1,8 @@
 ---
 title: Release Hub 이미지로 배포
 translation_of: hub-image-deployment.md
-translation_source_sha: 57128c59f3cf3a9ec779c03e68c1d5f681865a9a
-translation_revised: 2026-11-04
+translation_source_sha: dcdee917d5e281d6826966f3401de8a14e1abc80
+translation_revised: 2026-11-08
 ---
 # Release Hub 이미지로 배포
 
@@ -27,6 +27,7 @@ Azure 자격 증명을 받거나 배포를 적용하지 않습니다.
 | Release 선택 | 선택 채널의 적격 버전과 서명된 다이제스트 고정 이미지 위치 |
 | 로컬 소스 | 서명된 Release 소스 커밋과 일치하는 깨끗한 저장소. 마이그레이션과 Console이 조용히 달라지는 일을 방지 |
 | 이미지 전달 | 설치본 자체 레지스트리로 이미지를 가져오고 워크로드 적용 전에 정확한 다이제스트를 다시 조회 |
+| 런타임 | AKS 또는 ACA. ACA는 PostgreSQL Flexible Server를 사용하며 명시적인 부분 비용 근거를 유지 |
 | 실패 | 신뢰 누락, 잘못된 서명, 만료, 이전 개정, 회수, 소스 불일치나 이미지 관측 실패 시 중단. 소스 빌드로 자동 전환하지 않음 |
 | 요청 가시성 | Release Hub 운영자는 신고된 구독 요청 목록 조회 가능. 카탈로그와 공개 호출자는 목록 조회 불가 |
 | 라이선싱 | 기존 설치본 바인딩 Trial 및 사용권 규칙 유지. 카탈로그 서명은 사용권이나 실행 권한을 부여하지 않음 |

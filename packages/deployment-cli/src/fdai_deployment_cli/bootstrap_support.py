@@ -169,15 +169,20 @@ def select_available_workload(
 
 def format_nonready_message(result: dict[str, object]) -> str:
     """Format an actionable blocker message when plan_source_installation stops before ready."""
-    if result.get("stage") == "aks-preflight":
+    stage = result.get("stage")
+    if stage in {"aks-preflight", "container-apps-preflight"}:
         blockers = result.get("blockers")
         region = result.get("region", "")
         if isinstance(blockers, list) and blockers:
             joined = ", ".join(str(item) for item in blockers)
             recommended = ", ".join(r for r in RECOMMENDED_REGIONS[:4] if r != region)
+            availability = (
+                "VM SKU/quota" if stage == "aks-preflight" else "Container Apps and PostgreSQL"
+            )
             return (
                 f"Azure region '{region}' preflight blocked ({joined}). "
-                f"Reset setup and choose a region with available VM SKU/quota (such as {recommended})."
+                "Reset setup, stop Bootstrap, and restart with "
+                f"--region for available {availability} capacity (such as {recommended})."
             )
     if result.get("state") == "blocked" and isinstance(result.get("reason"), str):
         return f"Preparation blocked ({result['reason']}). Reset setup to adjust inputs."

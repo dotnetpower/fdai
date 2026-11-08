@@ -38,6 +38,7 @@ Release Hub service already exists.
 | Desired state | No single target state. The Hub derives the target from a channel subscription, version range, configuration revision, and constraints. |
 | Plan computation | The Hub computes Lifecycle Plans. Installation agents derive the maximum effect envelope locally, and a Plan can only narrow it. |
 | Installation agents | A lifecycle agent inside the cluster for workloads, and an infrastructure agent on the execution host for exact Terraform plans. Neither is a pantheon agent. |
+| First-install boundary | Local Bootstrap can deploy signed-image FDAI Console on AKS or ACA, but it does not enroll the installation or grant managed-lifecycle authority. Only AKS can continue to the in-cluster lifecycle Agent path. |
 | Upgrades | Automatic inside maintenance windows. Configuration changes need an approved change request, and deleting or replacing an Azure resource needs confirmation. |
 | Data boundary | The Hub holds no customer workload credential or operational data. Its own bounded service identity and signing key do not authorize customer resource changes. Only lifecycle metadata crosses the boundary. |
 | Records | Hub PostgreSQL per cell or Target Hub, and append-only installation receipts in Foundation storage |

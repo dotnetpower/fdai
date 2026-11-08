@@ -1,8 +1,8 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 043acd75d483151dfba92f1614efba910d8e27c0
-translation_revised: 2026-11-04
+translation_source_sha: 5d7f970db51095520db87334241753789372f9d1
+translation_revised: 2026-11-09
 ---
 # Hub 관리형 수명 주기
 
@@ -39,6 +39,7 @@ Lifecycle Hub가 사용하는 릴리스 목록, 데이터 또는 피드인 **Rel
 | 원하는 상태 | 단일 목표 상태는 없습니다. Hub는 채널 구독, 버전 범위, 구성 개정, 제약 조건에서 목표를 도출합니다. |
 | 계획 계산 | Hub가 Lifecycle Plan을 계산합니다. 설치 에이전트는 최대 효과 경계를 로컬에서 도출하며, Plan은 그 경계를 좁힐 수만 있습니다. |
 | 설치 에이전트 | 워크로드용 수명 주기 에이전트는 클러스터 안에, 정확한 Terraform 계획용 인프라 에이전트는 실행 호스트에 둡니다. 둘 다 판테온 에이전트가 아닙니다. |
+| 최초 설치 경계 | 로컬 Bootstrap은 서명 이미지를 사용해 AKS 또는 ACA에 FDAI Console을 배포할 수 있지만 설치본을 등록하거나 관리형 수명 주기 권한을 부여하지 않습니다. 클러스터 내부 Lifecycle Agent 경로로 이어질 수 있는 런타임은 AKS뿐입니다. |
 | 업그레이드 | 유지 관리 구간 안에서 자동으로 적용합니다. 구성 변경에는 승인된 변경 요청이, Azure 리소스 삭제나 교체에는 확인이 필요합니다. |
 | 데이터 경계 | Hub는 고객 워크로드의 자격 증명이나 운영 데이터를 보관하지 않습니다. Hub 자체의 제한된 서비스 ID와 서명 키는 고객 리소스를 변경할 권한을 주지 않습니다. 경계를 넘는 것은 수명 주기 메타데이터뿐입니다. |
 | 기록 | cell이나 Target Hub마다 Hub PostgreSQL을 두고, 설치 증적은 Foundation 스토리지에 추가 전용으로 남깁니다. |

@@ -14,11 +14,15 @@ from types import SimpleNamespace
 
 from fdai_service_contracts.product_profile import ProductAddOn
 
-from fdai_deployment_cli.aks_preflight import current_target_binding, inspect_aks_target
+from fdai_deployment_cli.aks_preflight import (
+    current_target_binding,
+    inspect_aks_target,
+    inspect_container_apps_target,
+)
 from fdai_deployment_cli.bootstrap_approval import selected_source
 from fdai_deployment_cli.catalog_review_profile import CatalogReviewDeploymentProfile
 from fdai_deployment_cli.contracts import load_json_object
-from fdai_deployment_cli.deployment_cost import inspect_aks_compute_cost
+from fdai_deployment_cli.deployment_cost import inspect_runtime_compute_cost
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.deployment_progress import (
     begin_stage,
@@ -191,19 +195,32 @@ def plan_source_installation(
         )
     with installer_activity("Verifying source and tenant-local identity names"):
         source = inspect_source(source_root, expected_commit=str(prepared["source_commit"]))
+        initial_target_binding = current_target_binding(timeout_seconds=deadline.remaining(60))
         _require_unique_entra_display_names(
             runtime_profile,
             source.root / "scripts/deployment/azure",
-            target_binding=current_target_binding(timeout_seconds=deadline.remaining(60)),
+            target_binding=initial_target_binding,
         )
-    with installer_activity("Checking AKS SKU, quota, and PostgreSQL availability"):
-        preflight = inspect_aks_target(
-            profile=runtime_profile,
-            region=region,
-            timeout_seconds=deadline.remaining(180),
-            owned_resource_group=_retained_application_group(work_dir, foundation_workload),
-        )
-    if hub_target_binding is not None and preflight.get("target_binding") != hub_target_binding:
+    if runtime_profile.runtime_platform.value == "aks":
+        activity = "Checking AKS SKU, quota, and PostgreSQL availability"
+        with installer_activity(activity):
+            preflight = inspect_aks_target(
+                profile=runtime_profile,
+                region=region,
+                timeout_seconds=deadline.remaining(180),
+                owned_resource_group=_retained_application_group(work_dir, foundation_workload),
+            )
+    else:
+        activity = "Checking Container Apps and PostgreSQL availability"
+        with installer_activity(activity):
+            preflight = inspect_container_apps_target(
+                profile=runtime_profile,
+                region=region,
+                timeout_seconds=deadline.remaining(180),
+            )
+    if preflight.get("target_binding") != initial_target_binding:
+        raise ValueError("Azure target changed during runtime preflight")
+    if hub_target_binding is not None and initial_target_binding != hub_target_binding:
         raise ValueError("Azure target changed after the Hub deployment request")
     work_dir = work_dir.absolute()
     retained_binding = {
@@ -214,7 +231,12 @@ def plan_source_installation(
         work_dir,
         retained_binding,
     ):
-        return {**preflight, "stage": "aks-preflight"}
+        stage = (
+            "aks-preflight"
+            if runtime_profile.runtime_platform.value == "aks"
+            else "container-apps-preflight"
+        )
+        return {**preflight, "stage": stage}
     if installation_options is not None:
         progress_detail("Waiting for the one-time installation scope confirmation")
         confirmation = confirm_installation_scope(
@@ -236,7 +258,7 @@ def plan_source_installation(
         if confirmation["state"] != "confirmed":
             return {**confirmation, "source_commit": source.commit}
     with installer_activity("Checking the public compute estimate"):
-        cost_review = inspect_aks_compute_cost(
+        cost_review = inspect_runtime_compute_cost(
             profile=runtime_profile,
             region=region,
             monthly_cost_ceiling=monthly_cost_ceiling,

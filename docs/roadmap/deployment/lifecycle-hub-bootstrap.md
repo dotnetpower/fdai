@@ -30,12 +30,19 @@ state handoff remain separate governed operations.
 
 ## Start the local interface
 
-The distribution requires Python 3.12 or later on Linux and a local browser. Install a reviewed
-Hub wheel and its declared dependencies from your approved package source, then run:
+The distribution requires Python 3.12 or later on Linux and a local browser. Install a reviewed Hub wheel and its declared dependencies from your approved package source.
+Provide the independently trusted Release public key to the launcher, then run:
 
 ```bash
-fdai-lifecycle-hub start
+fdai-lifecycle-hub start \
+  --hub-public-key /trusted/release-hub-public.pem
 ```
+
+The launcher binds the default region (`westus3`) and monthly planning ceiling (`1500` USD)
+outside the browser. Use `--region` and `--monthly-cost-ceiling` when an installation owner has
+approved different values. The public key can also come from the `FDAI_HUB_PUBLIC_KEY` file-path
+environment variable. The launcher validates and privately retains the public key before opening
+the browser; catalog content never supplies or replaces this trust.
 
 The command selects a free IPv4 loopback port (or falls back to a free port when a requested
 `--port` is busy unless `--strict-port` is passed) and opens `/setup` in the browser. On WSL hosts
@@ -54,16 +61,19 @@ not prove that all required dependency versions are available from an external p
    its private profile, supports an optional tenant ID or domain input and device-code sign-in for
    headless terminals, and filters out tenant-level placeholder accounts. Microsoft handles
    authentication; no token is sent to the Hub.
-2. Select an accessible subscription, region, monthly cost ceiling, optional workload token, and
-   checkpoint approval mode (`continuous` non-destructive default or `stepwise` manual review).
-   When no workload token is supplied, the executor automatically selects a non-colliding workload
-   name in the target region.
-3. Select signed Release Hub images and provide an independently approved Ed25519 public key.
-   The executor can retrieve the exact support checkout identified by the verified Release.
-   Fetching Terraform and migration support does not authorize service image builds.
-   Explicit source mode instead pins the selected clean checkout in an isolated work directory so
-   concurrent repository edits cannot interrupt a running deployment.
-4. Request preparation. The 15-stage ordered lifecycle panel and progress bar track real-time
+2. Review the active Azure CLI subscription and the launcher-bound region, cost ceiling, signed
+   image source, PostgreSQL Flexible Server placement, and continuous non-destructive approval
+   mode. These values are read-only in the browser. To change the subscription, stop Bootstrap,
+   select the intended subscription with Azure CLI, and restart. To change a launcher-bound value,
+   reset an unapplied setup and restart with the reviewed option.
+3. Choose only **AKS** or **Azure Container Apps (ACA)**, then select **Deploy FDAI Console**.
+   The executor automatically selects a non-colliding workload name. Both choices use signed
+   Release Hub images and the independently supplied Ed25519 public key. The executor retrieves
+   the exact support checkout identified by the verified Release. Fetching Terraform and migration
+   support does not authorize service image builds. Explicit source installation remains available
+   through the existing deployment CLI and is not a browser option. A keyless ACA installation
+   remains observation-only because ACA Trial bindings are not yet supplied.
+4. The 15-stage ordered lifecycle panel and progress bar track real-time
    checkpoint and sub-phase progress from the customer executor.
 5. Review required checkpoints. In default `continuous` mode, non-destructive checkpoints advance
    automatically once preparation is authorized, while any plan that deletes or replaces resources
@@ -73,7 +83,7 @@ not prove that all required dependency versions are available from an external p
    the verified HTTPS Console link only when the existing engine reports `deployment_ready=true`
    and the publication receipt digest matches.
 
-Missing Azure CLI, source tools, trust, permissions, capacity or artifacts produce explicit
+Missing Azure CLI, launcher-bound trust, source tools, permissions, capacity or artifacts produce explicit
 blockers. The interface does not acquire subscription privileges, create an Entra application
 without permission, weaken a trust check, or silently switch to source builds. The existing signed
 offline CLI installation path stays unchanged; this screen does not imply offline onboarding.

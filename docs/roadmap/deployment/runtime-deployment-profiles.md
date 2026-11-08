@@ -5,8 +5,12 @@ title: Runtime Deployment Profiles
 
 > **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines three installation paths: the one-command source deployment, the signed offline package, and the [Hub-managed lifecycle](hub-managed-lifecycle.md), which is designed but not yet implemented. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
 
-This document defines Azure Kubernetes Service (AKS) as the default runtime for new FDAI installations without changing application behavior or deployment
-authority. Azure Container Apps remains a supported compatibility profile for existing installations. The selection is part of the signed `fdaictl` provisioning profile and every exact Terraform plan. First-tier event lag uses the same Core stage and health composition in every venue, measures one process, and changes no deployment, product profile or authority ceiling.
+This document defines Azure Kubernetes Service (AKS) as the default runtime for new FDAI
+installations without changing application behavior or deployment authority. Azure Container Apps
+(ACA) is also supported for new guided Console installations and remains the compatibility profile
+for existing installations. The selection is part of the signed `fdaictl` provisioning profile and
+every exact Terraform plan. First-tier event lag uses the same Core stage and health composition in
+every venue, measures one process, and changes no deployment, product profile or authority ceiling.
 
 > **Scope:** This contract covers new installations. Moving an existing installation between
 > runtime platforms requires a separate migration design and is not an implicit profile update; document-intent ingress still requires its worker migration, Core PostgreSQL graph, current identity reader, Pantheon, event bus and exact Var approval.
@@ -37,8 +41,11 @@ The Core and Cost Governance images build OPA with the same pinned Go toolchain 
 ## Design at a glance
 
 Ordinary clone deployment uses [Hub-image bootstrap](hub-image-deployment.md) through
-`https://hub.msfdai.com`. This AKS bootstrap reuses the existing Foundation and application
-coordinator, carries the exact verified catalog selection to the managed host, imports all seven
+`https://hub.msfdai.com`. Guided Bootstrap selects AKS or ACA and reuses the existing Foundation
+and application coordinator. AKS remains the default. ACA requires PostgreSQL Flexible Server,
+verified Microsoft.App and PostgreSQL regional availability, and an explicit partial cost record
+because consumption cost is not estimated. The coordinator carries the exact verified catalog
+selection to the managed host and imports all seven
 signed component image digests (or the exact signed Stencil component subset and fail-closed `feature_flags`
 when the `v2` manifest embeds a verified `stencil` blueprint) into the installation registry, and verifies them before
 workload apply. Checkout-supplied infrastructure, migrations and Console remain separately attributed.

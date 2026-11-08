@@ -334,17 +334,18 @@ def test_source_preparation_admits_in_cluster_postgres(checkout: Path) -> None:
     assert receipt["release_signature_verified"] is False
 
 
-def test_source_preparation_refuses_container_apps(checkout: Path) -> None:
-    with pytest.raises(ValueError, match="requires AKS"):
-        prepare_source_deployment(
-            source_root=checkout,
-            work_dir=checkout.parent / "aca-run",
-            runtime_profile=RuntimeDeploymentProfile.create(
-                runtime_platform="container-apps", database_placement="postgres-flex"
-            ),
-            region="eastus2",
-            monthly_cost_ceiling=1000,
-        )
+def test_source_preparation_admits_container_apps_with_postgres_flex(checkout: Path) -> None:
+    receipt = prepare_source_deployment(
+        source_root=checkout,
+        work_dir=checkout.parent / "aca-run",
+        runtime_profile=RuntimeDeploymentProfile.create(
+            runtime_platform="container-apps", database_placement="postgres-flex"
+        ),
+        region="eastus2",
+        monthly_cost_ceiling=1000,
+    )
+    assert receipt["deployment_ready"] is False
+    assert receipt["release_signature_verified"] is False
 
 
 def test_source_preparation_cannot_adopt_kit_state(checkout: Path) -> None:

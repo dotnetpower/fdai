@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 
 from fdai_deployment_cli.bootstrap_channel import (
+    guided_profile_summary,
     read_status,
     submit_decision,
     submit_request,
@@ -130,17 +131,12 @@ def create_setup_app(
         except ValueError as error:
             return JSONResponse({"error": str(error)}, 400)
         supplied = body.get("token")
-        allow_loopback_bootstrap = (
-            isinstance(supplied, str)
-            and supplied == "local-loopback"
-            and (state_dir / "launch.url").is_file()
-        )
         if (
             token_consumed
             or time.monotonic() >= expires
             or set(body) != {"token"}
             or not isinstance(supplied, str)
-            or (not _matches(supplied, launch_token) and not allow_loopback_bootstrap)
+            or not _matches(supplied, launch_token)
         ):
             return JSONResponse({"error": "Bootstrap launch link is invalid or already used."}, 401)
         token_consumed = True
@@ -161,12 +157,15 @@ def create_setup_app(
             from fdai_deployment_cli.bootstrap_support import read_setup_telemetry
 
             telemetry = await run_in_threadpool(read_setup_telemetry, state_dir)
+            profile = await run_in_threadpool(guided_profile_summary, state_dir)
         except (ValueError, OSError):
             return JSONResponse(
                 {"error": "Setup state is unavailable; preserve it and inspect local diagnostics."},
                 409,
             )
-        return JSONResponse({**result, "telemetry": telemetry, "csrf_token": csrf})
+        return JSONResponse(
+            {**result, "guided_profile": profile, "telemetry": telemetry, "csrf_token": csrf}
+        )
 
     async def action(request: Request) -> Response:
         try:

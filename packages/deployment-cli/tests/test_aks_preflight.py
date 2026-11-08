@@ -357,6 +357,57 @@ def test_postgres_aks_profile_does_not_read_the_flexible_server_catalog(monkeypa
     assert all(command[1] != "postgres" for command in calls)
 
 
+def test_container_apps_preflight_requires_platform_and_postgres_region(monkeypatch) -> None:
+    calls: list[tuple[str, ...]] = []
+
+    def provider(command, **_kwargs):
+        calls.append(command)
+        if command[1:3] == ("account", "show"):
+            value = {
+                "id": "00000000-0000-0000-0000-000000000000",
+                "tenantId": "00000000-0000-0000-0000-000000000000",
+                "state": "Enabled",
+                "userType": "user",
+            }
+        elif command[1:3] == ("provider", "show"):
+            value = ["East US", "West US 3"]
+        elif command[1:4] == ("postgres", "flexible-server", "list-skus"):
+            value = _postgres_capabilities()
+        else:
+            raise AssertionError(f"Unexpected provider command: {command}")
+        return subprocess.CompletedProcess(
+            command, 0, stdout=json.dumps(value).encode(), stderr=b""
+        )
+
+    monkeypatch.setattr(aks_preflight.subprocess, "run", provider)
+    profile = RuntimeDeploymentProfile.create(
+        runtime_platform="container-apps",
+        database_placement="postgres-flex",
+    )
+
+    result = aks_preflight.inspect_container_apps_target(profile=profile, region="eastus")
+
+    assert result["state"] == "feasible"
+    assert result["blockers"] == []
+    assert result["platform"]["runtime_platform"] == "container-apps"
+    assert result["database"]["required_version"] == "16"
+    assert result["mutation_performed"] is False
+    assert all("--location" not in command or "eastus" in command for command in calls)
+
+
+@pytest.mark.parametrize(
+    "locations,expected",
+    [
+        (None, "container_apps_region_evidence_incomplete"),
+        ([], "container_apps_region_evidence_incomplete"),
+        (["West US 3"], "container_apps_region_unavailable"),
+    ],
+)
+def test_container_apps_region_uncertainty_blocks(locations, expected) -> None:
+    result = aks_preflight.assess_container_apps_region(locations, region="eastus")
+    assert result["blockers"] == [expected]
+
+
 def _constrained(remaining: int) -> dict:
     inputs = _inputs()
     inputs["usage"] = [

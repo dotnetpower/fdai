@@ -10,8 +10,18 @@ import time
 from pathlib import Path
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from fdai_lifecycle_hub import cli, setup_start
+
+
+def write_public_key(path: Path) -> None:
+    path.write_bytes(
+        Ed25519PrivateKey.generate()
+        .public_key()
+        .public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
+    )
 
 
 def test_start_command_does_not_open_hub_store(tmp_path, monkeypatch):
@@ -56,6 +66,26 @@ def test_start_rejects_remote_profile_and_invalid_port(tmp_path, monkeypatch):
     args.port = -1
     with pytest.raises(ValueError, match="port"):
         setup_start.start(args)
+
+
+def test_guided_profile_rejects_writable_or_linked_trust_file(tmp_path):
+    public_key = tmp_path / "release-public.pem"
+    write_public_key(public_key)
+    args = cli._parser().parse_args(["start", "--hub-public-key", str(public_key)])
+    profile = setup_start._guided_profile(args)
+    assert profile["region"] == "westus3"
+    assert profile["monthly_cost_ceiling"] == 1500
+
+    public_key.chmod(0o666)
+    with pytest.raises(ValueError, match="writable"):
+        setup_start._guided_profile(args)
+
+    public_key.chmod(0o644)
+    linked = tmp_path / "linked.pem"
+    linked.symlink_to(public_key)
+    linked_args = cli._parser().parse_args(["start", "--hub-public-key", str(linked)])
+    with pytest.raises(ValueError, match="unavailable or unsafe"):
+        setup_start._guided_profile(linked_args)
 
 
 @pytest.mark.parametrize("timeout", [False, True])
@@ -107,6 +137,8 @@ def test_dead_worker_does_not_count_as_startup_ready(tmp_path):
 def test_sigterm_reaps_the_actual_executor_before_launcher_exits(tmp_path):
     root = Path(__file__).resolve().parents[3]
     state = tmp_path / "setup"
+    public_key = tmp_path / "release-public.pem"
+    write_public_key(public_key)
     environment = {
         key: value
         for key, value in os.environ.items()
@@ -128,6 +160,8 @@ def test_sigterm_reaps_the_actual_executor_before_launcher_exits(tmp_path):
             "start",
             "--state-dir",
             str(state),
+            "--hub-public-key",
+            str(public_key),
             "--no-browser",
         ],
         cwd=tmp_path,

@@ -5,10 +5,18 @@ import { resolve } from "node:path";
 const assets = resolve("lifecycle/hub/src/fdai_lifecycle_hub/setup_ui");
 const origin = "https://setup.test";
 const account = { id: "00000000-0000-0000-0000-000000000001", name: "Test subscription", tenant_id: "test-tenant" };
+const guidedProfile = {
+  region: "westus3",
+  monthly_cost_ceiling: 1200,
+  artifact_source: "hub",
+  database_placement: "postgres-flex",
+  approval_mode: "continuous",
+  trust_configured: true,
+};
 const idle = () => ({
   phase: "idle", request_id: null, action: null, message: "Local setup is ready for a request.",
   error_code: null, accounts: [account], review: null, deployment_ready: false,
-  console_url: null, csrf_token: "fixture-csrf",
+  console_url: null, csrf_token: "fixture-csrf", guided_profile: guidedProfile,
 });
 const exactReview = () => ({
   id: "review-foundation", digest: "sha256:0123456789abcdef", title: "Apply exact Foundation plan",
@@ -70,11 +78,12 @@ test("fragment session is exchanged once, removed before exchange, and never per
   expect(app.posts[0].headers.origin).toBe(origin);
   expect(app.posts[0].pageUrl).toBe(`${origin}/setup`);
   expect(await page.evaluate(() => [location.hash, localStorage.length, sessionStorage.length])).toEqual(["", 0, 0]);
-  await page.getByRole("button", { name: "List subscriptions" }).click();
+  await page.getByRole("button", { name: "Refresh active subscription" }).click();
   await expect.poll(() => app.posts.length).toBe(2);
   expect(app.posts[1].body).toEqual({ action: "accounts", payload: {} });
   expect(app.posts[1].headers["x-fdai-csrf"]).toBe("fixture-csrf");
   expect(app.posts[1].headers["content-type"]).toBe("application/json");
+  await page.locator(".signin-options summary").click();
   await page.locator("#tenant").fill("contoso.onmicrosoft.com");
   await page.locator("#login").click();
   await expect.poll(() => app.posts.length).toBe(3);
@@ -100,54 +109,53 @@ test("same-document launcher navigation exchanges a new fragment and strips deni
   expect(app.posts.map(item => item.path)).toEqual(["/setup/api/session", "/setup/api/session"]);
 });
 
-test("source installation uses the exact payload and preserves form input on failure", async ({ page }) => {
+test("guided installation sends only the selected runtime and preserves it on failure", async ({ page }) => {
   const app = await fixture(page);
   await app.open();
-  await page.locator("#subscription").selectOption(account.id);
-  await page.locator("#region").fill("exampleregion");
-  await page.locator("#cost").fill("1200");
-  await page.getByRole("radio", { name: /Build from a clean/ }).check();
-  await page.locator("#source-root").fill("/approved/source-checkout");
+  await page.locator("#card-runtime-aca").click();
   app.failAction();
-  await page.getByRole("button", { name: "Authorize preparation" }).click();
+  await page.getByRole("button", { name: "Deploy FDAI Console" }).click();
   await expect(page.getByRole("alert")).toContainText("outcome is unknown");
   expect(app.posts).toHaveLength(1);
-  expect(app.posts[0].body).toEqual({ action: "install", payload: {
-    subscription_id: account.id, region: "exampleregion", monthly_cost_ceiling: 1200,
-    artifact_source: "source", source_root: "/approved/source-checkout",
-  } });
+  expect(app.posts[0].body).toEqual({
+    action: "install",
+    payload: { runtime_platform: "container-apps", subscription_id: account.id },
+  });
   await app.refresh();
   expect(app.posts).toHaveLength(1);
-  await expect(page.locator("#source-root")).toHaveValue("/approved/source-checkout");
+  await expect(page.getByRole("radio", { name: /ACA/ })).toBeChecked();
 });
 
-test("signed images are default and private or oversized key files never reach an action", async ({ page }) => {
+test("launcher defaults are read-only and trust material is absent from the browser", async ({ page }) => {
   const app = await fixture(page);
   await app.open();
-  await expect(page.getByRole("radio", { name: /Signed prebuilt/ })).toBeChecked();
-  await page.locator("#subscription").selectOption(account.id);
-  await page.locator("#region").fill("exampleregion");
-  await page.locator("#cost").fill("1200");
-  const privateKeyLabel = "PRIVATE KEY";
-  const privateFixture = [
-    `-----BEGIN ${privateKeyLabel}-----`, "not-a-key", `-----END ${privateKeyLabel}-----`,
-  ].join("\n");
-  await page.locator("#key-file").setInputFiles({
-    name: "private.pem", mimeType: "text/plain", buffer: Buffer.from(privateFixture),
-  });
-  await expect(page.getByRole("alert")).toContainText("Private keys");
-  await expect(page.locator("#public-key")).toHaveValue("");
-  await page.locator("#key-file").setInputFiles({ name: "large.pem", mimeType: "text/plain", buffer: Buffer.alloc(4097, "A") });
-  await expect(page.getByRole("alert")).toContainText("4 KiB");
-  expect(app.posts).toHaveLength(0);
-  const key = "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n-----END PUBLIC KEY-----";
-  await page.locator("#public-key").fill(key);
-  await page.getByRole("button", { name: "Authorize preparation" }).click();
+  await expect(page.locator("#guided-subscription")).toContainText(account.name);
+  await expect(page.locator("#guided-region")).toHaveText("westus3");
+  await expect(page.locator("#guided-cost")).toHaveText("1200 USD");
+  await expect(page.getByText("Signed prebuilt images", { exact: true })).toBeVisible();
+  await expect(page.locator("#card-runtime-aca")).toContainText("observation-only");
+  await expect(page.locator("#perm-heading")).toHaveText("Account & required permissions");
+  await expect(page.locator("#perm-heading")).toHaveAttribute("data-verified", "false");
+  await expect(page.locator("#subscription, #region, #cost, #public-key, #key-file, #source-root")).toHaveCount(0);
+  await page.getByRole("button", { name: "Deploy FDAI Console" }).click();
   await expect.poll(() => app.posts.length).toBe(1);
-  expect(app.posts[0].body).toEqual({ action: "install", payload: {
-    subscription_id: account.id, region: "exampleregion", monthly_cost_ceiling: 1200,
-    artifact_source: "hub", hub_public_key: key,
-  } });
+  expect(app.posts[0].body).toEqual({
+    action: "install",
+    payload: { runtime_platform: "aks", subscription_id: account.id },
+  });
+});
+
+test("runtime cards expose keyboard focus and arrow-key selection", async ({ page }) => {
+  const app = await fixture(page);
+  await app.open();
+  const aks = page.getByRole("radio", { name: /AKS/ });
+  const aca = page.getByRole("radio", { name: /ACA/ });
+  await aks.focus();
+  await expect(page.locator("#card-runtime-aks")).toHaveCSS("outline-style", "solid");
+  await page.keyboard.press("ArrowRight");
+  await expect(aca).toBeChecked();
+  await expect(page.locator("#card-runtime-aca")).toHaveClass(/is-selected/);
+  await expect(page.locator("#card-runtime-aca")).toHaveCSS("outline-style", "solid");
 });
 
 test("exact plan remains inert text and requires its exact confirmation", async ({ page }) => {
@@ -274,7 +282,25 @@ test("safe API errors are explicit inert text and never retried", async ({ page 
   await expect(page.locator("#notice strong")).toHaveCount(0);
   await page.locator("#locale").selectOption("ko");
   await expect(page.getByRole("alert")).toContainText("Exact approval required.");
+  await expect(page.locator(".segmented-cards")).toHaveAttribute("aria-label", "배포 런타임 플랫폼");
+  await expect(page.locator("#guided-summary")).toHaveAttribute("aria-label", "읽기 전용 배포 대상");
   expect(app.posts).toHaveLength(1);
+});
+
+test("region blockers point to launcher restart in English and Korean", async ({ page }) => {
+  const message = "Existing FDAI resource groups already occupy region 'eastus'. Choose another Azure region or remove unused test resource groups first.";
+  const app = await fixture(page, {
+    ...idle(),
+    phase: "blocked",
+    request_id: "request-1",
+    action: "install",
+    message,
+  });
+  await app.open();
+  await expect(page.locator("#recovery-section")).toContainText("restart with reviewed launcher options");
+  await page.locator("#locale").selectOption("ko");
+  await expect(page.locator("#message")).toContainText("--region");
+  await expect(page.locator("#message")).not.toContainText("Choose another Azure region");
 });
 
 test("visible status polling pauses while hidden and never submits a job", async ({ page }) => {
@@ -339,7 +365,7 @@ test("constrained and mobile viewports retain controls, Korean scope and no over
   }
 });
 
-test("minimal wizard displays operator permissions, AKS/ACA runtime selector, and per-stage timings", async ({ page }) => {
+test("minimal wizard displays operator permissions, read-only defaults, runtime selector, and timings", async ({ page }) => {
   const stageTimings = Array.from({ length: 15 }, (_, idx) => ({
     index: idx + 1,
     start_time: idx === 0 ? "03:54:04" : idx === 1 ? "03:54:05" : null,
@@ -373,6 +399,8 @@ test("minimal wizard displays operator permissions, AKS/ACA runtime selector, an
   await app.open();
   await expect(page.locator("#operator-pill")).toBeVisible();
   await expect(page.locator("#operator-user")).toHaveText("operator@example.com");
+  await expect(page.locator("#perm-heading")).toContainText("verified");
+  await expect(page.locator("#perm-heading")).toHaveAttribute("data-verified", "true");
   await expect(page.locator("#perm-drawer")).toBeHidden();
   await page.locator("#toggle-perm-btn").click();
   await expect(page.locator("#perm-drawer")).toBeVisible();
@@ -382,21 +410,10 @@ test("minimal wizard displays operator permissions, AKS/ACA runtime selector, an
   await page.locator("#card-runtime-aca").click();
   await expect(page.locator("#header-arch-tag")).toHaveText("ACA · Postgres Flex");
   await expect(page.locator("#rail-runtime-val")).toHaveText("ACA");
-  await page.locator("#region").fill("westus3");
-  await page.locator("#cost").fill("450");
-  await page.locator('input[name="artifact"][value="source"]').check();
-  await page.locator("#source-root").fill("/workspace/fdai");
   await page.locator("#install").click();
   await expect.poll(() => app.posts.length).toBeGreaterThanOrEqual(1);
   expect(app.posts.at(-1)?.body).toEqual({
     action: "install",
-    payload: {
-      subscription_id: account.id,
-      region: "westus3",
-      monthly_cost_ceiling: 450,
-      artifact_source: "source",
-      source_root: "/workspace/fdai",
-      runtime_platform: "container-apps",
-    },
+    payload: { runtime_platform: "container-apps", subscription_id: account.id },
   });
 });

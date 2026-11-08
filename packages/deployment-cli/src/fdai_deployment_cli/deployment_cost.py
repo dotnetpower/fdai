@@ -1,4 +1,4 @@
-"""Inspect the AKS compute portion of deployment cost without claiming a complete budget."""
+"""Inspect runtime compute cost without claiming a complete installation budget."""
 
 from __future__ import annotations
 
@@ -48,6 +48,65 @@ def resolve_work_dir_monthly_cost_ceiling(
     if adopted_foundation is not None:
         retained = (*retained, adopted_foundation / "profile.json")
     return resolve_monthly_cost_ceiling(requested, retained=retained)
+
+
+def inspect_runtime_compute_cost(
+    *,
+    profile: RuntimeDeploymentProfile,
+    region: str,
+    monthly_cost_ceiling: int,
+    timeout_seconds: int = 120,
+) -> dict[str, object]:
+    """Route cost review by runtime without turning missing ACA usage into an estimate."""
+
+    if profile.runtime_platform.value == "aks":
+        return inspect_aks_compute_cost(
+            profile=profile,
+            region=region,
+            monthly_cost_ceiling=monthly_cost_ceiling,
+            timeout_seconds=timeout_seconds,
+        )
+    if (
+        profile.runtime_platform.value != "container-apps"
+        or type(monthly_cost_ceiling) is not int
+        or monthly_cost_ceiling <= 0
+    ):
+        raise ValueError(
+            "Runtime cost review requires AKS or Container Apps and a positive ceiling"
+        )
+    result: dict[str, object] = {
+        "schema_version": "fdai.deployment-compute-cost.v1",
+        "stage": "cost-review",
+        "state": "partial",
+        "reason_code": "container_apps_consumption_cost_unpriced",
+        "runtime_profile_digest": profile.digest,
+        "region": region,
+        "monthly_cost_ceiling_usd": monthly_cost_ceiling,
+        "monthly_compute_estimate_usd": None,
+        "lines": [],
+        "quotes": {},
+        "excluded_costs": [
+            "container-apps-consumption",
+            "setup",
+            "foundation",
+            "database",
+            "network",
+            "registry",
+            "storage",
+            "monitoring",
+            "event-bus",
+            "models",
+            "taxes",
+        ],
+        "whole_installation_cost_verified": False,
+        "setup_cost_verified": False,
+        "billing_cap_enforced": False,
+        "apply_authorized": False,
+        "deployment_ready": False,
+        "mutation_performed": False,
+    }
+    result["receipt_digest"] = canonical_digest(result)
+    return result
 
 
 def inspect_aks_compute_cost(

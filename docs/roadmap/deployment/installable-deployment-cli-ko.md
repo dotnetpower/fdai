@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: b7bcc175624d753e69fd2d531ffff16e65f2be4b
-translation_revised: 2026-10-27
+translation_source_sha: b6ac0430e1114b638e3226d63cf7d99f8aa0f341
+translation_revised: 2026-11-08
 ---
 
 # 설치형 배포 CLI
@@ -67,8 +67,9 @@ Azure 배포 효과 전에 최소 구독 요청 메타데이터를 Release Hub�
 
 ## 연결된 소스 배포
 
-현재 소스 모드는 비공개 준비, 읽기 전용 AKS 용량 사전 점검, 정확한 승인을 받은 Foundation
-실행과 비공개 상태 이전, 등록된 호스트로의 검증된 소스 전송, 소스 런타임 OCI 이미지 준비까지
+현재 소스 모드는 비공개 준비, 읽기 전용 런타임 용량 사전 점검(AKS SKU와 쿼터 또는 ACA
+지역 가용성), 정확한 승인을 받은 Foundation 실행과 비공개 상태 이전, 등록된 호스트로의
+검증된 소스 전송, 소스 런타임 OCI 이미지 준비까지
 지원합니다. 연결된 배포는 전용 Managed Host 이미지를 만들지 않습니다. 공개 소스 명령은 공유
 비공개 조정기를 사용해 이 체크포인트들을 재개합니다. 새 대화형 소스 설치는 시작할 때만
 설정을 확인하며 이후 단계와 JSON 실행에서는 입력을 요청하지 않습니다. 헌법 제1조에 따라

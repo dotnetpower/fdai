@@ -1,13 +1,18 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 513824165cba1a23436f992fb32d539cfa479858
-translation_revised: 2026-11-04
+translation_source_sha: 2f4bb1b7e3acfeb0bde9e2d64fa6a253bed1b0e4
+translation_revised: 2026-11-09
 ---
 # 런타임 배포 프로파일
 
 > **배포 방식:** [헌법](../architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포, 서명된 오프라인 패키지, [Hub 관리형 수명 주기](hub-managed-lifecycle-ko.md)라는 세 가지 설치 방식을 정의합니다. Hub 관리형 수명 주기는 설계만 되어 있고 아직 구현되지 않았습니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
 
-이 문서는 애플리케이션 동작이나 배포 권한을 바꾸지 않으면서 신규 FDAI 설치의 기본 런타임을 Azure Kubernetes Service(AKS)로 정의합니다. Azure Container Apps는 기존 설치를 위한 호환 프로파일로 계속 지원합니다. 이 선택은 서명된 `fdaictl` 프로비저닝 프로파일과 모든 정확한 Terraform 플랜에 포함됩니다. 최초 계층 판정 지연은 모든 실행 위치에서 같은 Core 단계·상태 구성을 사용해 하나의 프로세스를 측정하며 배포, 제품 프로필이나 권한 상한을 바꾸지 않습니다.
+이 문서는 애플리케이션 동작이나 배포 권한을 바꾸지 않으면서 신규 FDAI 설치의 기본 런타임을
+Azure Kubernetes Service(AKS)로 정의합니다. Azure Container Apps(ACA)도 신규 안내형 Console
+설치에서 지원하며 기존 설치를 위한 호환 프로파일로 계속 사용할 수 있습니다. 이 선택은 서명된
+`fdaictl` 프로비저닝 프로파일과 모든 정확한 Terraform 플랜에 포함됩니다. 최초 계층 판정 지연은
+모든 실행 위치에서 같은 Core 단계와 상태 구성을 사용해 하나의 프로세스를 측정하며 배포, 제품
+프로필이나 권한 상한을 바꾸지 않습니다.
 
 > **범위:** 이 계약은 신규 설치를 다룹니다. 기존 설치를 다른 런타임 플랫폼으로 옮기려면
 > 별도의 마이그레이션 설계가 필요하며 프로파일 업데이트만으로 자동 전환되지 않습니다. 문서 의도 ingress에는 워커 마이그레이션, Core PostgreSQL 그래프, 현재 신원 읽기 경로, Pantheon, 이벤트 버스, 정확한 Var 승인이 계속 필요합니다.
@@ -38,8 +43,10 @@ Core와 Cost Governance 이미지는 두 런타임 프로필에서 같은 고정
 
 일반적인 복제 후 배포는 `https://hub.msfdai.com`을 통한
 [Hub 이미지 초기 설치](hub-image-deployment-ko.md)를 사용합니다.
-이 AKS 초기 설치는 기존 Foundation 및 애플리케이션 조정기를 재사용합니다.
-검증한 정확한 카탈로그 선택을 Managed Host로 전달하고, 서명된 일곱 구성 요소의 이미지
+안내형 Bootstrap은 AKS 또는 ACA를 선택하고 기존 Foundation 및 애플리케이션 조정기를
+재사용합니다. 기본값은 AKS입니다. ACA는 PostgreSQL Flexible Server, 검증된 Microsoft.App 및
+PostgreSQL 지역 가용성, 명시적인 부분 비용 기록이 필요합니다. 사용량 비용은 추정하지 않습니다.
+조정기는 검증한 정확한 카탈로그 선택을 Managed Host로 전달하고, 서명된 일곱 구성 요소의 이미지
 다이제스트(`v2` 매니페스트가 검증된 `stencil` 블루프린트와 fail-closed `feature_flags`를 내장한
 경우에는 해당 Stencil 구성 요소 부분집합)를 설치본 레지스트리로 가져온 뒤 워크로드 적용 전에
 검증합니다. 저장소에서 제공하는 인프라, 마이그레이션과 Console의 출처는 별도로 기록합니다.
