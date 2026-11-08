@@ -1,8 +1,8 @@
 ---
 title: 단일 명령 소스 배포
 translation_of: source-deployment.md
-translation_source_sha: fedbd6eff0d58aa7989eebd0c5df0ab5da45d220
-translation_revised: 2026-10-31
+translation_source_sha: c95f7b5d278a73263039d67b81175b4cd0eca0c5
+translation_revised: 2026-11-08
 ---
 
 # 단일 명령 소스 배포
@@ -14,7 +14,7 @@ FDAI 저장소를 clone한 누구나 `az login` 뒤 명령줄 한 줄로 모든 
 방식을 이 문서가 소유합니다.
 
 > **상태:** 이 문서는 목표 계약입니다. 이제 소스 실행은 서명된 키트 없이 검증된 Foundation
-> 인계에서 공유 AKS 애플리케이션 단계로 이어집니다. 고정된 소스 스냅샷을 managed host로
+> 인계에서 공유 AKS 또는 ACA 애플리케이션 단계로 이어집니다. 고정된 소스 스냅샷을 managed host로
 > 전송하고, 배포 레지스트리로 서비스 이미지를 빌드하며, 커밋된 lock 파일 기준으로 공개
 > 레지스트리에서 Terraform 공급자를 해석합니다. 또한 checkout의 마이그레이션과 카탈로그를
 > 실행하고, 동일한 상태 확인, 인벤토리, 두 번째 무변경 계획 확인을 유지합니다.
@@ -28,16 +28,18 @@ FDAI 저장소를 clone한 누구나 `az login` 뒤 명령줄 한 줄로 모든 
 
 ## 한눈에 보는 설계
 
-[Lifecycle Hub Bootstrap](lifecycle-hub-bootstrap-ko.md)에서 소스 모드를 선택하면 명시적인
-고객 측 승인 어댑터로 같은 조정기의 정확한 승인 지점을 표시할 수 있습니다.
-어댑터는 실행 주체, 대상, 다이제스트, 만료, 파괴적 변경 검사를 유지합니다.
-터미널 명령 동작, 소스 독립성, Trial 기준 시각, 검증은 바뀌지 않습니다.
+[Lifecycle Hub Bootstrap](lifecycle-hub-bootstrap-ko.md)은 안내형 서명 이미지 배포에서
+명시적인 고객 측 승인 어댑터로 같은 조정기의 정확한 승인 지점을 표시합니다. 브라우저에서는
+AKS 또는 ACA만 선택합니다. 명시적 소스 설치는 CLI 경로로 유지됩니다. 어댑터는 실행 주체,
+대상, 다이제스트, 만료, 파괴적 변경 검사를 유지합니다. 터미널 명령 동작, 소스 독립성,
+Trial 기준 시각, 검증은 바뀌지 않습니다.
 
 | 관심사 | 결정 |
 |--------|------|
 | 배포할 수 있는 사람 | clone, 대화형 `az login`, 대상 구독에서 리소스와 역할 할당을 만들 권한을 가진 누구나 |
 | 진입점 | 한 줄 명령 `git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azure/fdai-up.sh --source . --region <region>` 또는 `fdaictl provision azure --source <checkout> --region <region>`. 둘 다 하나의 조정기를 실행 |
 | 산출물 출처 | 깨끗하게 커밋된 checkout 하나. 서비스 이미지는 그 checkout에서 배포 자체의 레지스트리로 빌드 |
+| 런타임 | PostgreSQL Flexible Server 또는 클러스터 내부 PostgreSQL을 사용하는 AKS, 또는 PostgreSQL Flexible Server를 사용하는 ACA |
 | 만드는 릴리스 산출물 | 없음. 서명된 키트, 번들, 제어 패키지, wheelhouse, 어플라이언스, 호스트 이미지, SBOM, provenance, attestation, 게시된 릴리스를 만들지 않음 |
 | 필요한 키 | 없음. 서명 키는 설치 입력이 아님 |
 | 무결성 서명 키 없음 | 설치 생성 시각에 고정된 영속 30일 Trial 하나 |

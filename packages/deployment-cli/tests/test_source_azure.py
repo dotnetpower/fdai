@@ -28,7 +28,7 @@ def no_live_target(monkeypatch):
 def no_live_prices(monkeypatch):
     monkeypatch.setattr(
         source_azure,
-        "inspect_aks_compute_cost",
+        "inspect_runtime_compute_cost",
         lambda **_: {
             "state": "partial",
             "whole_installation_cost_verified": False,
@@ -303,6 +303,7 @@ def test_source_orchestration_stops_before_foundation_on_capacity_block(
             "state": "blocked",
             "blockers": ["system_sku_restricted_or_unknown"],
             "deployment_ready": False,
+            "target_binding": _TARGET_BINDING,
         },
     )
     result = source_azure.plan_source_installation(
@@ -317,6 +318,81 @@ def test_source_orchestration_stops_before_foundation_on_capacity_block(
     )
     assert result["stage"] == "aks-preflight"
     assert not (tmp_path / "work").exists()
+
+
+def test_container_apps_orchestration_uses_its_own_preflight_stage(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(
+        source_azure,
+        "prepare_source_deployment",
+        lambda **_: {"source_commit": "c" * 40},
+    )
+    monkeypatch.setattr(
+        source_azure,
+        "inspect_source",
+        lambda *_, **__: SimpleNamespace(commit="c" * 40, root=tmp_path),
+    )
+    monkeypatch.setattr(
+        source_azure,
+        "inspect_aks_target",
+        lambda **_: pytest.fail("ACA must not use the AKS preflight"),
+    )
+    monkeypatch.setattr(
+        source_azure,
+        "inspect_container_apps_target",
+        lambda **_: {
+            "state": "blocked",
+            "blockers": ["container_apps_region_unavailable"],
+            "deployment_ready": False,
+            "target_binding": _TARGET_BINDING,
+        },
+    )
+
+    result = source_azure.plan_source_installation(
+        source_root=tmp_path,
+        work_dir=tmp_path / "work",
+        runtime_profile=RuntimeDeploymentProfile.create(
+            runtime_platform="container-apps", database_placement="postgres-flex"
+        ),
+        region="eastus",
+        monthly_cost_ceiling=1000,
+        timeout_seconds=1800,
+    )
+
+    assert result["stage"] == "container-apps-preflight"
+    assert result["blockers"] == ["container_apps_region_unavailable"]
+
+
+def test_runtime_preflight_target_drift_stops_before_planning(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(
+        source_azure,
+        "prepare_source_deployment",
+        lambda **_: {"source_commit": "c" * 40},
+    )
+    monkeypatch.setattr(
+        source_azure,
+        "inspect_source",
+        lambda *_, **__: SimpleNamespace(commit="c" * 40, root=tmp_path),
+    )
+    monkeypatch.setattr(
+        source_azure,
+        "inspect_aks_target",
+        lambda **_: {
+            "state": "feasible",
+            "target_binding": "b" * 64,
+        },
+    )
+
+    with pytest.raises(ValueError, match="changed during runtime preflight"):
+        source_azure.plan_source_installation(
+            source_root=tmp_path,
+            work_dir=tmp_path / "work",
+            runtime_profile=RuntimeDeploymentProfile.create(
+                runtime_platform="aks", database_placement="postgres-flex"
+            ),
+            region="eastus",
+            monthly_cost_ceiling=1000,
+            timeout_seconds=1800,
+        )
 
 
 def test_retained_effected_source_run_does_not_require_fresh_capacity(
@@ -356,7 +432,7 @@ def test_retained_effected_source_run_does_not_require_fresh_capacity(
     )
     monkeypatch.setattr(
         source_azure,
-        "inspect_aks_compute_cost",
+        "inspect_runtime_compute_cost",
         lambda **_: {
             "state": "blocked",
             "stage": "cost-review",
@@ -463,7 +539,12 @@ def test_entra_check_binds_the_active_target_not_the_preparation_receipt(
     monkeypatch.setattr(
         source_azure,
         "inspect_aks_target",
-        lambda **_: {"state": "blocked", "blockers": ["stop"], "deployment_ready": False},
+        lambda **_: {
+            "state": "blocked",
+            "blockers": ["stop"],
+            "deployment_ready": False,
+            "target_binding": "b" * 64,
+        },
     )
 
     result = source_azure.plan_source_installation(
@@ -501,7 +582,7 @@ def test_over_budget_source_stops_before_foundation(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(
         source_azure,
-        "inspect_aks_compute_cost",
+        "inspect_runtime_compute_cost",
         lambda **_: {
             "state": "blocked",
             "stage": "cost-review",
@@ -872,7 +953,9 @@ def test_unpinned_path_terraform_fetches_the_committed_release(tmp_path, monkeyp
         "confirm_installation_scope",
         lambda **_: {"state": "confirmed", "deployment_ready": False},
     )
-    monkeypatch.setattr(source_azure, "inspect_aks_compute_cost", lambda **_: {"state": "partial"})
+    monkeypatch.setattr(
+        source_azure, "inspect_runtime_compute_cost", lambda **_: {"state": "partial"}
+    )
     toolchain = tmp_path / "infra/genesis-runner-image/toolchain.json"
     toolchain.parent.mkdir(parents=True)
     toolchain.write_text(json.dumps({"terraform_binary_sha256": "e" * 64}))

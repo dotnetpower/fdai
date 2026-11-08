@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from base64 import b64encode
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -306,6 +308,22 @@ def test_host_retains_exact_selection_and_rejects_mode_drift(selection, tmp_path
         prepare_host_selection(path=None, digest=None, work_dir=work)
     with pytest.raises(ValueError, match="digest differs"):
         prepare_host_selection(path=selection.path, digest="0" * 64, work_dir=work)
+
+
+def test_hub_source_inputs_admit_container_apps_with_independent_key() -> None:
+    source = Path("/approved/checkout")
+    key = Path("/trusted/release-public.pem")
+    args = SimpleNamespace(
+        hub=source,
+        source=None,
+        hub_url=None,
+        hub_public_key=key,
+        hub_release=None,
+        hub_channel=None,
+        runtime="container-apps",
+    )
+
+    assert hub_image_deploy.hub_source_inputs(args) == (True, source, key)
 
 
 @pytest.mark.parametrize(

@@ -8,6 +8,26 @@ from fdai_deployment_cli import bootstrap_support as support
 from fdai_deployment_cli.hub_image_trust import key_id
 
 
+@pytest.mark.parametrize(
+    "stage,availability",
+    [
+        ("aks-preflight", "VM SKU/quota"),
+        ("container-apps-preflight", "Container Apps and PostgreSQL"),
+    ],
+)
+def test_preflight_blocker_requires_launcher_restart(stage, availability):
+    message = support.format_nonready_message(
+        {
+            "stage": stage,
+            "region": "eastus",
+            "blockers": ["capacity_unavailable"],
+        }
+    )
+    assert "stop Bootstrap" in message
+    assert "--region" in message
+    assert availability in message
+
+
 def signed_catalog(monkeypatch, catalog):
     raw, signature = catalog.export()
     monkeypatch.setattr(

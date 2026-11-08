@@ -18,6 +18,7 @@ from pathlib import Path
 from uuid import UUID
 
 from fdai_deployment_cli.contracts import canonical_bytes, load_json_object
+from fdai_deployment_cli.deployment_cost import DEFAULT_MONTHLY_COST_CEILING
 from fdai_deployment_cli.lifecycle_native import NativeOwnershipAcceptance
 from fdai_deployment_cli.lifecycle_native_transition import NativeScopeTransitionCompletion
 from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
@@ -112,6 +113,29 @@ def _parser() -> argparse.ArgumentParser:
         "--strict-port",
         action="store_true",
         help="fail instead of falling back to a free port when --port is already in use",
+    )
+    start.add_argument(
+        "--hub-public-key",
+        type=Path,
+        default=Path(os.environ["FDAI_HUB_PUBLIC_KEY"])
+        if os.environ.get("FDAI_HUB_PUBLIC_KEY")
+        else None,
+        metavar="PATH",
+        help="independently provisioned Ed25519 Release public PEM (or FDAI_HUB_PUBLIC_KEY path)",
+    )
+    start.add_argument(
+        "--region",
+        default=os.environ.get("FDAI_BOOTSTRAP_REGION", "westus3"),
+        help="launcher-bound Azure region shown read-only in the browser",
+    )
+    start.add_argument(
+        "--monthly-cost-ceiling",
+        type=int,
+        default=os.environ.get(
+            "FDAI_BOOTSTRAP_MONTHLY_COST_CEILING",
+            str(DEFAULT_MONTHLY_COST_CEILING),
+        ),
+        help="launcher-bound monthly planning ceiling in USD",
     )
     status_cmd = command("status", _bootstrap_status, "print local Bootstrap setup status as JSON")
     status_cmd.add_argument(

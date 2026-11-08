@@ -48,8 +48,6 @@ def hub_source_inputs(args: argparse.Namespace) -> tuple[bool, Path | None, Path
             "--hub requires --hub-public-key PATH or FDAI_HUB_PUBLIC_KEY; provision the "
             "Ed25519 public key independently, never download a TOFU key from the Hub"
         )
-    if hub_mode and args.runtime != "aks":
-        raise ValueError("Hub image bootstrap currently requires AKS")
     return hub_mode, source_root, hub_key
 
 

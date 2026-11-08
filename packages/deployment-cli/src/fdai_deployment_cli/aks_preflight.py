@@ -1,4 +1,4 @@
-"""Bounded read-only AKS feasibility checks; no provider registration or resource mutation."""
+"""Bounded read-only runtime feasibility checks; no provider registration or mutation."""
 
 from __future__ import annotations
 
@@ -41,10 +41,12 @@ def _active_human_target(deadline: DeploymentDeadline) -> tuple[str, str]:
         or account.get("state") != "Enabled"
         or account.get("userType") != "user"
     ):
-        raise ValueError("AKS preflight requires an enabled subscription and active human identity")
+        raise ValueError(
+            "Deployment preflight requires an enabled subscription and active human identity"
+        )
     subscription, tenant = account.get("id"), account.get("tenantId")
     if not isinstance(subscription, str) or not isinstance(tenant, str):
-        raise ValueError("AKS preflight target binding is incomplete")  # noqa: TRY004
+        raise ValueError("Deployment preflight target binding is incomplete")  # noqa: TRY004
     require_selected_azure_target(subscription_id=subscription, tenant_id=tenant)
     return subscription, tenant
 
@@ -157,7 +159,7 @@ def inspect_aks_target(
             "blockers": blockers,
             "database": database,
         }
-    result = {
+    result: dict[str, object] = {
         "schema_version": "fdai.aks-capacity-preflight.v1",
         "target_binding": target_binding,
         "runtime_profile_digest": profile.digest,
@@ -171,6 +173,94 @@ def inspect_aks_target(
     deadline.remaining()
     result["receipt_digest"] = canonical_digest(result)
     return result
+
+
+def inspect_container_apps_target(
+    *,
+    profile: RuntimeDeploymentProfile,
+    region: str,
+    timeout_seconds: int = 180,
+) -> dict[str, object]:
+    """Inspect ACA and PostgreSQL regional availability without reserving capacity."""
+
+    if (
+        profile.runtime_platform.value != "container-apps"
+        or profile.database_placement.value != "postgres-flex"
+        or re.fullmatch(r"[a-z][a-z0-9]+", region) is None
+    ):
+        raise ValueError(
+            "Container Apps preflight requires container-apps, postgres-flex, and a valid region"
+        )
+    deadline = DeploymentDeadline(timeout_seconds)
+    subscription, tenant = _active_human_target(deadline)
+    target_binding = compute_target_binding(subscription_id=subscription, tenant_id=tenant)
+    locations = _json(
+        (
+            "provider",
+            "show",
+            "--namespace",
+            "Microsoft.App",
+            "--query",
+            "resourceTypes[?resourceType=='managedEnvironments'].locations | [0]",
+        ),
+        deadline,
+    )
+    capabilities = _json(
+        (
+            "postgres",
+            "flexible-server",
+            "list-skus",
+            "--subscription",
+            subscription,
+            "--location",
+            region,
+        ),
+        deadline,
+    )
+    platform = assess_container_apps_region(locations, region=region)
+    database = assess_postgres_flex_region(capabilities)
+    blockers = sorted(
+        {str(item) for item in cast(list[object], platform["blockers"])}
+        | {str(item) for item in cast(list[object], database["blockers"])}
+    )
+    result: dict[str, object] = {
+        "schema_version": "fdai.container-apps-capacity-preflight.v1",
+        "target_binding": target_binding,
+        "runtime_profile_digest": profile.digest,
+        "region": region,
+        "observed_at": datetime.now(UTC).isoformat(),
+        "state": "blocked" if blockers else "feasible",
+        "blockers": blockers,
+        "platform": platform,
+        "database": database,
+        "deployment_ready": False,
+        "apply_authorized": False,
+        "mutation_performed": False,
+    }
+    deadline.remaining()
+    result["receipt_digest"] = canonical_digest(result)
+    return result
+
+
+def assess_container_apps_region(observation: object, *, region: str) -> dict[str, object]:
+    """Require provider metadata to list the selected managed-environment region."""
+
+    if (
+        not isinstance(observation, list)
+        or not observation
+        or not all(isinstance(item, str) and item.strip() for item in observation)
+    ):
+        blockers = ["container_apps_region_evidence_incomplete"]
+    else:
+        normalized = {
+            re.sub(r"[^a-z0-9]", "", item.lower()) for item in observation if isinstance(item, str)
+        }
+        blockers = [] if region in normalized else ["container_apps_region_unavailable"]
+    return {
+        "runtime_platform": "container-apps",
+        "region": region,
+        "blockers": blockers,
+    }
 
 
 def _selected_skus(

@@ -21,6 +21,18 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         setup_api, "read_status", lambda root: {"phase": "idle", "deployment_ready": False}
     )
+    monkeypatch.setattr(
+        setup_api,
+        "guided_profile_summary",
+        lambda root: {
+            "region": "westus3",
+            "monthly_cost_ceiling": 1200,
+            "artifact_source": "hub",
+            "database_placement": "postgres-flex",
+            "approval_mode": "continuous",
+            "trust_configured": True,
+        },
+    )
     app = setup_api.create_setup_app(
         tmp_path, origin=ORIGIN, launch_token=LAUNCH_TOKEN, assets=assets
     )
@@ -46,7 +58,10 @@ def test_setup_needs_no_runtime_database_and_never_exposes_launch_token(client):
     assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
     assert client.get("/setup/api/status").status_code == 401
     authenticate(client)
-    assert client.get("/setup/api/status").json()["deployment_ready"] is False
+    status = client.get("/setup/api/status").json()
+    assert status["deployment_ready"] is False
+    assert status["guided_profile"]["region"] == "westus3"
+    assert "hub_public_key" not in status["guided_profile"]
 
 
 @pytest.mark.parametrize(
@@ -90,6 +105,16 @@ def test_launch_exchange_is_single_use_and_exact_shape(client):
         ).status_code
         == 401
     )
+
+
+def test_fixed_loopback_marker_cannot_replace_the_random_launch_token(client):
+    response = client.post(
+        "/setup/api/session",
+        json={"token": "local-loopback"},
+        headers={"Origin": ORIGIN},
+    )
+    assert response.status_code == 401
+    assert client.get("/setup/api/status").status_code == 401
 
 
 def test_mutations_require_session_origin_and_csrf(client, monkeypatch):

@@ -31,6 +31,12 @@ INSTALL_FIELDS = {
     "runtime_platform",
     "database_placement",
 }
+GUIDED_PROFILE_FILE = "guided-profile.json"
+GUIDED_PROFILE_FIELDS = {
+    "region",
+    "monthly_cost_ceiling",
+    "hub_public_key",
+}
 
 
 def prepare_directory(root: Path) -> None:
@@ -143,6 +149,85 @@ def initial_status() -> dict[str, object]:
     }
 
 
+def _validate_guided_profile(profile: dict[str, object]) -> dict[str, object]:
+    if set(profile) != GUIDED_PROFILE_FIELDS:
+        raise ValueError("Guided setup profile must contain only the documented launcher inputs")
+    region = profile.get("region")
+    ceiling = profile.get("monthly_cost_ceiling")
+    key = profile.get("hub_public_key")
+    if not isinstance(region, str) or re.fullmatch(r"[a-z][a-z0-9]{1,31}", region) is None:
+        raise ValueError("Guided setup requires a valid Azure region token")
+    if type(ceiling) is not int or ceiling <= 0 or ceiling > 1_000_000_000:
+        raise ValueError("Guided setup monthly cost ceiling must be a positive bounded integer")
+    if not isinstance(key, str) or len(key.encode()) > 4096:
+        raise ValueError("Guided setup requires an independently supplied Ed25519 public PEM")
+    from fdai_deployment_cli.hub_image_trust import public_key
+
+    try:
+        public_key(key.encode())
+    except (ValueError, TypeError) as exc:
+        raise ValueError(
+            "Guided setup trust requires an Ed25519 public PEM, never a private key"
+        ) from exc
+    return {
+        "region": region,
+        "monthly_cost_ceiling": ceiling,
+        "hub_public_key": key,
+    }
+
+
+def configure_guided_profile(root: Path, profile: dict[str, object]) -> None:
+    """Bind browser-hidden defaults without replacing retained installation inputs."""
+
+    validated = _validate_guided_profile(profile)
+    with locked(root):
+        retained = _read(root, "configuration.json")
+        current = _read(root, GUIDED_PROFILE_FILE)
+        if current and _validate_guided_profile(current) != validated:
+            if retained:
+                raise ValueError(
+                    "Retained installation uses different launcher defaults; reset it before restart"
+                )
+        if retained:
+            try:
+                retained_profile = _validate_guided_profile(
+                    {key: retained[key] for key in GUIDED_PROFILE_FIELDS}
+                )
+            except (KeyError, ValueError) as exc:
+                raise ValueError(
+                    "Retained installation is not compatible with guided Console setup"
+                ) from exc
+            if retained_profile != validated:
+                raise ValueError(
+                    "Retained installation uses different launcher defaults; reset it before restart"
+                )
+        _write(root, validated, GUIDED_PROFILE_FILE)
+
+
+def read_guided_profile(root: Path) -> dict[str, object]:
+    """Read the exact launcher-bound defaults for a guided installation."""
+
+    with locked(root):
+        profile = _read(root, GUIDED_PROFILE_FILE)
+    if not profile:
+        raise ValueError("Guided setup launcher defaults are unavailable; restart Bootstrap")
+    return _validate_guided_profile(profile)
+
+
+def guided_profile_summary(root: Path) -> dict[str, object]:
+    """Return browser-safe defaults without exposing the retained public key."""
+
+    profile = read_guided_profile(root)
+    return {
+        "region": profile["region"],
+        "monthly_cost_ceiling": profile["monthly_cost_ceiling"],
+        "artifact_source": "hub",
+        "database_placement": "postgres-flex",
+        "approval_mode": "continuous",
+        "trust_configured": True,
+    }
+
+
 def _status(record: dict[str, object]) -> dict[str, object]:
     stored = record.get("status")
     result = initial_status()
@@ -221,6 +306,17 @@ def validate_request(action: str, payload: dict[str, object]) -> dict[str, objec
         if payload:
             raise ValueError("This action accepts no replacement inputs")
         return {}
+    if set(payload) == {"runtime_platform", "subscription_id"}:
+        runtime = payload.get("runtime_platform")
+        if not isinstance(runtime, str) or runtime not in {"aks", "container-apps"}:
+            raise ValueError("Runtime platform must be aks or container-apps")
+        subscription = payload.get("subscription_id")
+        try:
+            if not isinstance(subscription, str) or str(UUID(subscription)) != subscription.lower():
+                raise ValueError
+        except ValueError as exc:
+            raise ValueError("Guided setup requires the reviewed Azure subscription UUID") from exc
+        return {"runtime_platform": runtime, "subscription_id": subscription}
     if set(payload) - INSTALL_FIELDS:
         raise ValueError("Unknown installation fields; use only the documented setup inputs")
     subscription = payload.get("subscription_id")

@@ -24,6 +24,7 @@ and records deployment requests; it never receives Azure credentials or applies 
 | Release selection | An eligible version in the selected channel, with signed, digest-pinned image locations |
 | Local source | A clean checkout matching the signed Release source commit, so migrations and Console cannot silently differ |
 | Image delivery | Import images into the installation's own registry and read back the exact digests before applying workloads |
+| Runtime | AKS or ACA; ACA uses PostgreSQL Flexible Server and retains explicit partial cost evidence |
 | Failure | Stop on missing trust, invalid signatures, expiry, rollback, recall, source drift or failed image observation; never fall back to source builds |
 | Request visibility | Release Hub operators can list reported subscription requests; the catalog and public callers cannot read that list |
 | Licensing | Existing installation-bound Trial and entitlement rules; a catalog signature grants no entitlement or execution authority |

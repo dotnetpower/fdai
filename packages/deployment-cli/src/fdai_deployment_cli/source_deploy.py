@@ -30,10 +30,13 @@ def prepare_source_deployment(
     profile. A partial snapshot is retained and blocked rather than silently replaced.
     The receipt proves local preparation only and never grants apply or Trial authority.
     """
-    if runtime_profile.runtime_platform.value != "aks" or (
-        runtime_profile.database_placement.value not in {"postgres-flex", "postgres-aks"}
+    runtime = runtime_profile.runtime_platform.value
+    database = runtime_profile.database_placement.value
+    if not (
+        (runtime == "aks" and database in {"postgres-flex", "postgres-aks"})
+        or (runtime == "container-apps" and database == "postgres-flex")
     ):
-        raise ValueError("source deployment currently requires AKS")
+        raise ValueError("source deployment runtime and database profile is unsupported")
     if re.fullmatch(r"[a-z][a-z0-9]+", region) is None:
         raise ValueError("source deployment region is invalid")
     if type(monthly_cost_ceiling) is not int or monthly_cost_ceiling <= 0:

@@ -202,6 +202,28 @@ def test_compute_partial_projection_cannot_approve_budget(monkeypatch, ceiling, 
     assert profile.to_mapping() == before
 
 
+def test_container_apps_cost_remains_explicitly_unpriced_and_non_authoritative():
+    profile = RuntimeDeploymentProfile.create(
+        runtime_platform="container-apps",
+        database_placement="postgres-flex",
+    )
+    result = cost.inspect_runtime_compute_cost(
+        profile=profile,
+        region="eastus",
+        monthly_cost_ceiling=1200,
+    )
+    assert result["state"] == "partial"
+    assert result["reason_code"] == "container_apps_consumption_cost_unpriced"
+    assert result["monthly_compute_estimate_usd"] is None
+    assert result["lines"] == []
+    assert "container-apps-consumption" in result["excluded_costs"]
+    assert result["whole_installation_cost_verified"] is False
+    assert result["billing_cap_enforced"] is False
+    assert result["apply_authorized"] is False
+    assert result["deployment_ready"] is False
+    assert result["mutation_performed"] is False
+
+
 def test_default_profile_fits_the_default_ceiling_at_observed_rates(monkeypatch, tmp_path):
     """The bare one-line command must pass its own cost review at public D4as_v5 rates."""
     ceiling = cost.resolve_monthly_cost_ceiling(None, retained=(tmp_path / "absent.json",))

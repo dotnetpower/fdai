@@ -5,10 +5,21 @@ import time
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from fdai_deployment_cli import bootstrap_channel as channel
 
 SUBSCRIPTION = "00000000-0000-0000-0000-000000000000"
+
+
+def public_key_pem() -> str:
+    return (
+        Ed25519PrivateKey.generate()
+        .public_key()
+        .public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
+        .decode()
+    )
 
 
 def install_payload(**changes):
@@ -79,6 +90,50 @@ def test_login_accepts_optional_tenant_id(tmp_path):
     assert channel.validate_request("login", {"tenant_id": "contoso.onmicrosoft.com"}) == {
         "tenant_id": "contoso.onmicrosoft.com"
     }
+
+
+def test_guided_install_accepts_only_one_runtime_choice():
+    assert channel.validate_request(
+        "install", {"runtime_platform": "aks", "subscription_id": SUBSCRIPTION}
+    ) == {
+        "runtime_platform": "aks",
+        "subscription_id": SUBSCRIPTION,
+    }
+    assert channel.validate_request(
+        "install", {"runtime_platform": "container-apps", "subscription_id": SUBSCRIPTION}
+    ) == {
+        "runtime_platform": "container-apps",
+        "subscription_id": SUBSCRIPTION,
+    }
+    with pytest.raises(ValueError, match="Runtime platform"):
+        channel.validate_request(
+            "install", {"runtime_platform": "other", "subscription_id": SUBSCRIPTION}
+        )
+    with pytest.raises(ValueError, match="reviewed Azure subscription"):
+        channel.validate_request(
+            "install", {"runtime_platform": "aks", "subscription_id": "not-a-uuid"}
+        )
+
+
+def test_guided_profile_is_private_and_cannot_drift_after_install_is_retained(tmp_path):
+    profile = {
+        "region": "westus3",
+        "monthly_cost_ceiling": 1200,
+        "hub_public_key": public_key_pem(),
+    }
+    channel.configure_guided_profile(tmp_path, profile)
+    assert channel.guided_profile_summary(tmp_path) == {
+        "region": "westus3",
+        "monthly_cost_ceiling": 1200,
+        "artifact_source": "hub",
+        "database_placement": "postgres-flex",
+        "approval_mode": "continuous",
+        "trust_configured": True,
+    }
+    assert "hub_public_key" not in channel.guided_profile_summary(tmp_path)
+    channel._write(tmp_path, {**profile, "subscription_id": SUBSCRIPTION}, "configuration.json")
+    with pytest.raises(ValueError, match="different launcher defaults"):
+        channel.configure_guided_profile(tmp_path, {**profile, "region": "eastus"})
 
 
 def review_record(root, *, expired=False):

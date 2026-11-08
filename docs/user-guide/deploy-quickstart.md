@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI with signed Release Hub images, an explicit source build, or a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: dc072347e85edb39df2c595ee54943fe8faa8eb2 }, { source: docs/roadmap/deployment/source-deployment.md, sha: fedbd6eff0d58aa7989eebd0c5df0ab5da45d220 }, { source: docs/roadmap/deployment/hub-image-deployment.md, sha: 57128c59f3cf3a9ec779c03e68c1d5f681865a9a }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: dc072347e85edb39df2c595ee54943fe8faa8eb2 }, { source: docs/roadmap/deployment/source-deployment.md, sha: c95f7b5d278a73263039d67b81175b4cd0eca0c5 }, { source: docs/roadmap/deployment/hub-image-deployment.md, sha: dcdee917d5e281d6826966f3401de8a14e1abc80 }]
 ---
 
 # Deploy Quickstart
@@ -39,11 +39,12 @@ Review this read scope in the plan.
 | Explicit source build in your own subscription | Run `az login`, then `scripts/deployment/azure/fdai-up.sh --source . --region <region>` | No Hub, verification key, kit or published Release |
 | An Azure VM without internet access | Run `fdaictl provision azure --offline-kit <package>` on that VM | One signed offline package from a key holder |
 
-> **Optional local setup:** With a reviewed Lifecycle Hub package installed, run
-> `fdai-lifecycle-hub start` to open the [Bootstrap wizard](../roadmap/deployment/lifecycle-hub-bootstrap.md).
-> It starts without Hub PostgreSQL and reuses the same deployment engine and exact approvals.
-> A compatible support Release is required for Hub images; this change does not publish to PyPI
-> or complete managed enrollment.
+> **Guided setup:** With a reviewed Lifecycle Hub package installed, run
+> `fdai-lifecycle-hub start --hub-public-key <trusted-public.pem>` to open the
+> [Bootstrap wizard](../roadmap/deployment/lifecycle-hub-bootstrap.md). After Azure sign-in, the
+> browser exposes only the AKS or ACA runtime choice. The active Azure CLI subscription and
+> launcher-bound defaults remain visible but read-only. The wizard reuses the same deployment
+> engine and exact approvals and doesn't complete managed enrollment.
 
 GitHub Actions tests the repository. It is not the tenant deployment transport.
 

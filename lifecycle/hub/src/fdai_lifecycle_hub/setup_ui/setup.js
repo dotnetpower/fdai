@@ -4,28 +4,28 @@
   const en = {
     skip: "Skip to setup", local: "Local setup", language: "Language", eyebrow: "INSTALLATION",
     title: "Set up FDAI in Azure",
-    intro: "Connect your Azure account, choose an installation target, and review each exact plan before applying it.",
+    intro: "Connect Azure, choose AKS or ACA, and deploy FDAI Console with reviewed launcher defaults.",
     standalone: "This local Hub starts without an FDAI Runtime or PostgreSQL.",
     stepConnect: "Connect Azure", stepTarget: "Choose target", stepReview: "Review & apply", stepReady: "Ready",
     status: "Installation status", refresh: "Refresh status", connecting: "Connecting",
     initializing: "Opening your authenticated setup session...", request: "Request", action: "Action",
     errorCode: "Error code", account: "Connect Azure",
-    loginHelp: "Microsoft browser sign-in opens on the machine running this Hub. Complete sign-in there, then return here and list subscriptions. Never enter credentials on this setup screen.",
+    loginHelp: "Microsoft browser sign-in opens on this machine. The active Azure CLI subscription becomes the read-only deployment target.",
+    signInOptions: "Sign-in options",
     tenant: "Azure tenant ID or domain (optional)",
     tenantHelp: "Leave blank to use your active Azure CLI tenant, or enter a tenant ID or domain before signing in.",
     deviceCode: "Use device code sign-in (for SSH or headless terminals without a local browser)",
     invalidTenant: "Enter a valid Azure tenant ID or domain.",
     orderedLifecycle: "ORDERED LIFECYCLE", stagesTitle: "Setup stages",
-    login: "Sign in to Azure", accounts: "List subscriptions", configure: "Choose your installation",
-    subscription: "Azure subscription", noAccounts: "List subscriptions to choose a target",
-    subscriptionHelp: "Only subscriptions returned by your authenticated Azure session appear here.",
+    login: "Sign in to Azure", accounts: "Refresh active subscription", configure: "Choose Console runtime",
+    activeSubscription: "Active subscription",
     region: "Azure region",
     regionHelp: "Enter the supported Azure location name for your target, using lowercase letters and digits.",
     cost: "Monthly cost ceiling (USD)", costHelp: "A planning limit, not a billing cap or a cost estimate.",
     workload: "Workload token (optional)",
     workloadHelp: "Leave blank to auto-select a non-colliding name (such as fdai or fdaiboot).",
     approvalMode: "Checkpoint approval mode",
-    approvalContinuous: "Continuous non-destructive (recommended)",
+    approvalContinuous: "Continuous non-destructive",
     approvalStepwise: "Review every checkpoint manually",
     approvalModeHelp: "Destructive changes always pause for explicit confirmation.",
     invalidWorkload: "Enter a lowercase alphanumeric workload token (2-12 characters).",
@@ -40,14 +40,14 @@
     sourcePathHelp: "Use an absolute local path. The backend verifies the committed source before preparing the plan.",
     baselineTitle: "Existing AKS resource baseline",
     baseline: "The read-only-console runtime profile still deploys the existing AKS infrastructure and its supporting resources. It is not a reduced-cost runtime. Review the actual resources and cost evidence in each plan.",
-    prepareHelp: "Preparation and non-destructive installation stages run continuously to completion once authorized. Only plans that delete or replace existing resources pause for extra confirmation.",
-    prepare: "Authorize preparation", decision: "YOUR DECISION", review: "Review the exact plan",
+    prepareHelp: "The launcher fixes these defaults outside the browser. Review the active subscription and runtime, then deploy. Destructive changes still pause for exact confirmation.",
+    prepare: "Deploy FDAI Console", decision: "YOUR DECISION", review: "Review the exact plan",
     reviewHelp: "Approval applies only to this request, review, and digest. Read every detail before continuing.",
     reviewId: "Review", digest: "Plan digest", expires: "Expires",
     confirmation: "Type this exact confirmation", fillConfirmation: "Fill confirmation",
     expired: "This review has expired or its expiry cannot be verified. Refresh status and request a current plan before approving.",
     approve: "Approve this exact plan", decline: "Decline", recovery: "Inspect before resuming",
-    recoveryHelp: "The job is not verified ready. Inspect the retained state, resolve the reported problem, then explicitly resume. Requests are never automatically replayed.",
+    recoveryHelp: "The job is not verified ready. Inspect retained state and explicitly resume after resolving the blocker. To change the target or region, reset setup, stop Bootstrap, and restart with reviewed launcher options. Requests are never automatically replayed.",
     inspect: "Inspect retained state", resume: "Resume explicitly", reset: "Reset setup", readyTitle: "Installation verified ready",
     readyHelp: "The backend reports deployment readiness. Open Console only through the verified HTTPS destination below.",
     openConsole: "Open FDAI Console",
@@ -77,8 +77,9 @@
     invalidCost: "Enter a positive whole-number monthly cost ceiling in USD.",
     keyRead: "The public key file could not be read. Choose a readable public PEM file.",
     themeToggle: "Dark / Light",
-    railRuntime: "Runtime", railDb: "Database", railRegion: "Region", railWorkload: "Workload",
-    permVerified: "✓ Account & required permissions",
+    railRuntime: "Runtime", railSubscription: "Subscription", railRegion: "Region", railArtifacts: "Artifacts",
+    notConnected: "Not connected", signInFirst: "Sign in first", signedImages: "Signed images", unavailable: "Unavailable",
+    permRequired: "Account & required permissions", permVerified: "✓ Account & required permissions verified",
     permSummaryDefault: "Subscription Owner/Contributor, UAMI RBAC delegation, Entra ID apps/groups, and 18 Azure resource providers",
     showPermDetails: "Permission details ⌄", hidePermDetails: "Hide details ⌃",
     permSubTitle: "Subscription provisioning",
@@ -89,12 +90,13 @@
     permEntraDesc: "Configure fdai-api, fdai-console-spa, and 5 role groups (aw-owners, aw-approvers, aw-contributors, aw-readers, aw-break-glass)",
     permRpTitle: "Azure Policy & 18 Resource Providers",
     permRpDesc: "No blocking Deny assignments; Microsoft.ContainerService, Microsoft.App, Microsoft.DBforPostgreSQL, Microsoft.KeyVault registered",
-    permStateReady: "✓ Required", permStateVerified: "✓ Verified",
-    runtimePlatformLabel: "Deployment runtime platform",
+    permStateReady: "Required", permStateVerified: "✓ Verified",
+    runtimePlatformLabel: "Deployment runtime platform", runtimePlatformAria: "Deployment runtime platform",
+    readOnlyTargetAria: "Read-only deployment target",
     runtimeAksTitle: "AKS (Azure Kubernetes Service)", recommendedTag: "Recommended",
     runtimeAksDesc: "Isolated executor, NetworkPolicy, full observability topology, and production baseline",
-    runtimeAcaTitle: "ACA (Azure Container Apps)", compatTag: "Compatibility",
-    runtimeAcaDesc: "Serverless managed Container Apps and Jobs without Kubernetes cluster management",
+    runtimeAcaTitle: "ACA (Azure Container Apps)", managedTag: "Managed",
+    runtimeAcaDesc: "Managed Container Apps runtime without Kubernetes cluster operations. Keyless ACA remains observation-only.",
     databasePlacement: "Database placement",
     dbPostgresFlex: "PostgreSQL Flexible Server (recommended)",
     dbPostgresAks: "In-cluster AKS PostgreSQL (non-production)",
@@ -106,27 +108,27 @@
   const ko = {
     skip: "설정으로 이동", local: "로컬 설치 설정", language: "언어", eyebrow: "설치",
     title: "Azure에 FDAI 설치",
-    intro: "Azure 계정을 연결하고 설치 대상을 선택한 다음, 각 단계의 실제 계획을 검토하고 승인하세요.",
+    intro: "Azure를 연결하고 AKS 또는 ACA를 선택한 다음, 검토된 시작 기본값으로 FDAI Console을 배포하세요.",
     standalone: "이 로컬 Hub는 FDAI Runtime이나 PostgreSQL 없이 시작됩니다.",
     stepConnect: "Azure 연결", stepTarget: "설치 대상 선택", stepReview: "계획 검토 및 실행", stepReady: "설치 완료",
     status: "설치 상태", refresh: "상태 새로 고침", connecting: "연결 중",
     initializing: "인증된 로컬 설정 세션을 여는 중입니다...", request: "요청", action: "작업",
     errorCode: "오류 코드", account: "Azure 연결",
-    loginHelp: "이 Hub를 실행하는 컴퓨터에서 Microsoft 로그인 창이 열립니다. 로그인을 완료한 다음 이 화면으로 돌아와 구독 목록을 조회하세요. 이 설정 화면에는 자격 증명을 입력하지 마세요.",
+    loginHelp: "이 컴퓨터에서 Microsoft 로그인 창이 열립니다. 현재 Azure CLI 기본 구독이 읽기 전용 배포 대상이 됩니다.",
+    signInOptions: "로그인 옵션",
     tenant: "Azure 테넌트 ID 또는 도메인 (선택 사항)",
     tenantHelp: "비워 두면 현재 활성화된 Azure CLI 테넌트를 사용하며, 다른 테넌트로 로그인하려면 테넌트 ID 또는 도메인을 입력하세요.",
     deviceCode: "브라우저 없는 터미널/SSH 환경: 디바이스 코드로 로그인 (https://microsoft.com/devicelogin)",
     invalidTenant: "유효한 Azure 테넌트 ID 또는 도메인을 입력하세요.",
     orderedLifecycle: "순서가 지정된 수명 주기", stagesTitle: "구성 단계",
-    login: "Azure 로그인", accounts: "구독 목록 조회", configure: "설치 대상 선택",
-    subscription: "Azure 구독", noAccounts: "구독 목록을 조회한 후 대상을 선택하세요",
-    subscriptionHelp: "인증된 Azure 세션에서 조회한 구독만 표시됩니다.",
+    login: "Azure 로그인", accounts: "현재 구독 새로 고침", configure: "Console 런타임 선택",
+    activeSubscription: "현재 구독",
     region: "Azure 지역", regionHelp: "대상에서 지원하는 Azure 위치 이름을 영문 소문자와 숫자로 입력하세요.",
     cost: "월 비용 상한 (USD)", costHelp: "계획 수립용 한도입니다. 청구 한도나 예상 비용이 아닙니다.",
     workload: "워크로드 토큰 (선택 사항)",
     workloadHelp: "비워 두면 충돌하지 않는 이름(fdai, fdaiboot 등)을 자동으로 선택합니다.",
     approvalMode: "체크포인트 승인 모드",
-    approvalContinuous: "비파괴 단계 자동 연속 실행 (권장)",
+    approvalContinuous: "비파괴 단계 자동 연속 실행",
     approvalStepwise: "모든 단계마다 수동 검토 및 승인",
     approvalModeHelp: "리소스 삭제·교체가 포함된 계획은 항상 별도 확인을 위해 일시 중지됩니다.",
     invalidWorkload: "영문 소문자와 숫자로 된 2~12자 워크로드 이름을 입력하세요.",
@@ -140,14 +142,14 @@
     sourcePathHelp: "로컬 절대 경로를 입력하세요. 백엔드는 계획을 준비하기 전에 커밋된 소스를 검증합니다.",
     baselineTitle: "기존 AKS 리소스 구성",
     baseline: "read-only-console 런타임 프로파일도 기존 AKS 인프라와 지원 리소스를 배포합니다. 비용을 줄인 런타임이 아닙니다. 각 계획에서 실제 리소스와 비용 근거를 검토하세요.",
-    prepareHelp: "준비 작업을 승인하면 리소스 삭제·교체가 없는 모든 설치 단계(01~15단계)가 중간 멈춤 없이 완료까지 자동으로 연속 실행됩니다. 기존 리소스를 삭제하거나 교체하는 경우에만 추가 승인을 요청합니다.",
-    prepare: "준비 작업 승인", decision: "승인 검토", review: "실제 계획 검토",
+    prepareHelp: "시작 명령이 브라우저 밖에서 기본값을 고정합니다. 현재 구독과 런타임을 검토한 다음 배포하세요. 리소스를 삭제하거나 교체하는 경우에는 정확한 확인을 위해 계속 일시 중지합니다.",
+    prepare: "FDAI Console 배포", decision: "승인 검토", review: "실제 계획 검토",
     reviewHelp: "승인은 이 요청, 검토 항목, 다이제스트에만 적용됩니다. 모든 세부 정보를 읽고 진행하세요.",
     reviewId: "검토 항목", digest: "계획 다이제스트", expires: "만료 시각", confirmation: "다음 확인 문구를 정확히 입력하세요",
     fillConfirmation: "확인 문구 자동 입력",
     expired: "검토 항목이 만료되었거나 만료 시각을 검증할 수 없습니다. 상태를 새로 고치고 유효한 계획을 요청한 후 승인하세요.",
     approve: "이 계획만 승인", decline: "거절", recovery: "재개 또는 다시 설정",
-    recoveryHelp: "작업이 중단되었거나 준비 완료가 검증되지 않았습니다. 저장된 상태를 점검해 재개하거나, 리소스 생성 전이라면 설정을 초기화해 다른 지역·대상을 선택하세요.",
+    recoveryHelp: "작업이 중단되었거나 준비 완료가 검증되지 않았습니다. 차단 원인을 해결한 뒤 저장된 상태를 점검하고 명시적으로 재개하세요. 대상이나 리전을 바꾸려면 설정을 초기화하고 Bootstrap을 중지한 다음 검토된 시작 옵션으로 다시 실행하세요.",
     inspect: "저장된 상태 점검", resume: "작업 재개", reset: "설정 초기화 (다시 선택)", readyTitle: "설치 준비 완료 검증됨",
     readyHelp: "백엔드에서 배포 준비 완료를 보고했습니다. 아래의 검증된 HTTPS 주소로만 Console을 여세요.",
     openConsole: "FDAI Console 열기",
@@ -175,8 +177,9 @@
     invalidCost: "월 비용 상한을 양의 정수로 입력하세요. 단위는 USD입니다.",
     keyRead: "공개 키 파일을 읽을 수 없습니다. 읽을 수 있는 공개 PEM 파일을 선택하세요.",
     themeToggle: "다크 / 라이트",
-    railRuntime: "배포 런타임", railDb: "데이터베이스", railRegion: "대상 리전", railWorkload: "워크로드",
-    permVerified: "✓ 로그인 계정 및 필요 권한 안내",
+    railRuntime: "배포 런타임", railSubscription: "구독", railRegion: "대상 리전", railArtifacts: "아티팩트",
+    notConnected: "연결되지 않음", signInFirst: "먼저 로그인하세요", signedImages: "서명 이미지", unavailable: "사용할 수 없음",
+    permRequired: "로그인 계정 및 필요 권한", permVerified: "✓ 로그인 계정 및 필요 권한 검증 완료",
     permSummaryDefault: "구독 Owner/Contributor · UAMI RBAC 위임 · Entra ID 앱/그룹 · 18개 Azure 리소스 공급자",
     showPermDetails: "권한 상세 보기 ⌄", hidePermDetails: "상세 접기 ⌃",
     permSubTitle: "구독 리소스 프로비저닝 권한",
@@ -187,12 +190,13 @@
     permEntraDesc: "fdai-api, fdai-console-spa 등록 및 aw-owners·approvers·contributors·readers·break-glass 구성",
     permRpTitle: "Azure Policy 및 18개 리소스 공급자",
     permRpDesc: "차단 Deny 정책 없음 · Microsoft.ContainerService, Microsoft.App, Microsoft.DBforPostgreSQL, Microsoft.KeyVault 등록",
-    permStateReady: "✓ 필수", permStateVerified: "✓ 검증 완료",
-    runtimePlatformLabel: "배포 런타임 아키텍처 (AKS vs ACA)",
+    permStateReady: "필수", permStateVerified: "✓ 검증 완료",
+    runtimePlatformLabel: "배포 런타임 아키텍처 (AKS vs ACA)", runtimePlatformAria: "배포 런타임 플랫폼",
+    readOnlyTargetAria: "읽기 전용 배포 대상",
     runtimeAksTitle: "AKS (Azure Kubernetes Service)", recommendedTag: "권장 · 기본값",
     runtimeAksDesc: "격리된 실행기, NetworkPolicy, 전체 관측 토폴로지 및 프로덕션 표준 구성",
-    runtimeAcaTitle: "ACA (Azure Container Apps)", compatTag: "호환성 모드",
-    runtimeAcaDesc: "클러스터 관리 없이 서버리스 컨테이너 앱 및 Job으로 경량 실행",
+    runtimeAcaTitle: "ACA (Azure Container Apps)", managedTag: "관리형",
+    runtimeAcaDesc: "Kubernetes 클러스터 운영 없이 사용하는 관리형 Container Apps 런타임입니다. 키 없이 설치한 ACA는 관찰 전용으로 유지됩니다.",
     databasePlacement: "데이터베이스 배치",
     dbPostgresFlex: "PostgreSQL Flexible Server (권장)",
     dbPostgresAks: "AKS 클러스터 내부 PostgreSQL (비프로덕션)",
@@ -213,18 +217,18 @@
   const text = key => (locale === "ko" && ko[key]) || en[key] || en.requestFailed;
   const koMessages = {
     "Sign in to Azure to begin first installation.": "1단계에서 'Azure 로그인' 또는 '구독 목록 조회'를 눌러 시작하세요.",
-    "Signed in. Select the intended subscription.": "Azure 연결이 완료되었습니다. 2단계에서 구독과 지역을 선택하고 '준비 작업 승인'을 누르세요.",
-    "Available Azure subscriptions refreshed.": "사용 가능한 Azure 구독 목록을 불러왔습니다. 2단계에서 대상을 선택하세요.",
+    "Signed in. Review the active subscription and choose AKS or ACA.": "Azure 연결이 완료되었습니다. 현재 구독을 검토하고 AKS 또는 ACA를 선택하세요.",
+    "Active Azure subscription refreshed.": "현재 Azure 기본 구독을 새로 고쳤습니다.",
     "Request queued for the local customer executor.": "요청을 로컬 실행기에 전달했습니다. 사전 점검 및 계획 생성을 준비하고 있습니다...",
     "Decision submitted to the exact checkpoint.": "승인 결정을 전달했습니다. 승인된 단계를 실행하고 있습니다...",
     "Review this exact checkpoint before continuing.": "계획 생성이 완료되었습니다. 아래 '실제 계획 검토' 카드에서 확인 후 승인하세요.",
-    "Setup configuration reset. Choose a subscription and region to start again.": "설정이 초기화되었습니다. 구독과 지역을 다시 선택해 진행하세요.",
-    "No first-install configuration has been retained.": "저장된 설치 구성이 없습니다. 2단계에서 구독과 지역을 선택해 시작하세요.",
+    "Setup configuration reset. Review the active target and choose AKS or ACA.": "설정이 초기화되었습니다. 현재 대상을 검토하고 AKS 또는 ACA를 선택하세요.",
+    "No first-install configuration has been retained.": "저장된 설치 구성이 없습니다. 현재 구독을 검토하고 런타임을 선택해 시작하세요.",
     "Retained installation exists. Explicitly resume to refresh plans and health.": "저장된 설치 구성이 있습니다. '작업 재개'를 눌러 진행하거나 '설정 초기화'로 다시 선택하세요.",
     "Retained installation preserved. Resume to refresh its exact target, plans and health.": "저장된 설치 구성이 유지되고 있습니다. '작업 재개' 또는 '설정 초기화'를 선택하세요.",
     "Executor stopped. Inspect private traces and retained evidence before resuming.": "실행기가 중단되었습니다. 상태를 점검한 뒤 재개하거나 '설정 초기화'로 다시 시작하세요.",
     "Independent health and zero-change acceptance completed.": "독립 상태 점검 및 Terraform 무변경 검증이 모두 완료되었습니다. 아래 '콘솔 열기' 버튼을 눌러 배포된 FDAI 웹 콘솔에 접속하세요.",
-    "Installation is not accepted. Inspect retained private evidence before resuming.": "사전 점검(해당 리전 VM SKU/쿼터 제한 등)에서 차단되었습니다. '설정 초기화 (다시 선택)'를 누른 뒤 가용한 리전(예: westus3)을 선택하세요.",
+    "Installation is not accepted. Inspect retained private evidence before resuming.": "설치 준비 완료를 검증하지 못했습니다. 저장된 상태를 점검한 뒤 명시적으로 재개하세요. 대상 또는 리전을 바꾸려면 설정을 초기화하고 Bootstrap을 검토된 시작 옵션으로 다시 실행하세요.",
   };
   const koStageDetails = {
     "Preparing the clean source snapshot": "1/5 소스 체크아웃 스냅샷 검증 및 준비 중",
@@ -258,11 +262,15 @@
     if (koMessages[value]) return koMessages[value];
     const pfBlocked = value.match(/^Azure region '([^']+)' preflight blocked \((.+)\)\./);
     if (pfBlocked) {
-      return `선택한 '${pfBlocked[1]}' 리전에서 사전 점검이 차단되었습니다 (사유: ${pfBlocked[2]} - 이 구독에서 해당 리전의 VM SKU가 제한되어 있습니다). 우측 '설정 초기화 (다시 선택)'를 누른 뒤 가용한 리전(예: westus3)을 선택하세요.`;
+      return `선택한 '${pfBlocked[1]}' 리전에서 사전 점검이 차단되었습니다 (사유: ${pfBlocked[2]}). 설정을 초기화하고 Bootstrap을 중지한 다음, 가용한 리전을 검토해 --region 옵션으로 다시 시작하세요.`;
     }
     const groups = value.match(/^Existing FDAI resource groups \((.+)\) already exist in region '([^']+)'/);
     if (groups) {
-      return `선택한 '${groups[2]}' 지역에 이미 FDAI 리소스 그룹(${groups[1]})이 존재합니다. '설정 초기화 (다시 선택)'를 누른 뒤 다른 지역을 선택하세요.`;
+      return `선택한 '${groups[2]}' 지역에 이미 FDAI 리소스 그룹(${groups[1]})이 존재합니다. 설정을 초기화하고 Bootstrap을 중지한 다음, 다른 리전을 검토해 --region 옵션으로 다시 시작하세요.`;
+    }
+    const occupied = value.match(/^Existing FDAI resource groups already occupy region '([^']+)'/);
+    if (occupied) {
+      return `선택한 '${occupied[1]}' 지역에서 사용할 수 있는 FDAI 워크로드 이름을 찾지 못했습니다. 사용하지 않는 테스트 리소스 그룹을 정리하거나, 설정을 초기화하고 Bootstrap을 다른 --region 옵션으로 다시 시작하세요.`;
     }
     const stopped = value.match(/^Stage '([^']+)' stopped \(([^)]+)\)/);
     if (stopped) {
@@ -365,7 +373,7 @@
       else if (msg.includes("infrastructure") || msg.includes("private access") || /^"[a-z0-9_]+":\s*\d+/.test(msg) || msg.includes("AKS runtime") || msg.includes("Container Insights") || msg.includes("runtime images") || msg.includes("database migrations") || msg.includes("application plan") || msg.includes("planning the application") || msg.includes("keyless Trial")) currentIdx = 13;
       else if (msg.includes("Bastion transfer")) currentIdx = 12;
       else if (msg.includes("source snapshot")) currentIdx = 2;
-      else if (msg.includes("AKS SKU") || msg.includes("identity names") || msg.includes("compute estimate")) currentIdx = 1;
+      else if (msg.includes("AKS SKU") || msg.includes("Container Apps") || msg.includes("identity names") || msg.includes("compute estimate")) currentIdx = 1;
       else if (msg.includes("Terraform executable")) currentIdx = 0;
       else if (msg.includes("Foundation inputs")) currentIdx = 5;
       else if (msg.includes("Decision submitted")) currentIdx = 9;
@@ -391,32 +399,31 @@
   }
   function renderTelemetryAndArch() {
     const tel = status?.telemetry || null;
+    const profile = status?.guided_profile || null;
     const formEditable = !$("configuration-fields")?.disabled;
     const checkedRuntime = document.querySelector('input[name="runtime-platform"]:checked')?.value || "aks";
     const runtimeVal = formEditable ? checkedRuntime : (tel?.runtime_platform || checkedRuntime);
-    const dbSelectVal = $("database-placement")?.value || "postgres-flex";
-    const dbVal = formEditable ? dbSelectVal : (tel?.database_placement || dbSelectVal);
-    const regionVal = ($("region")?.value || "").trim() || tel?.region || "westus3";
-    const workloadVal = ($("workload")?.value || "").trim() || tel?.workload || "fdai";
+    const regionVal = tel?.region || profile?.region || "westus3";
+    const account = status?.accounts?.[0] || null;
+    const subscriptionLabel = account?.name || text("notConnected");
     const runtimeLabel = runtimeVal === "container-apps" ? "ACA" : "AKS";
-    const dbLabel = dbVal === "postgres-aks" ? "In-cluster PG" : "Postgres Flex";
+    const dbLabel = "Postgres Flex";
     if ($("header-arch-tag")) setText("header-arch-tag", `${runtimeLabel} · ${dbLabel}`);
     if ($("rail-runtime-val")) setText("rail-runtime-val", runtimeLabel);
-    if ($("rail-db-val")) setText("rail-db-val", dbLabel);
+    if ($("rail-subscription-val")) setText("rail-subscription-val", subscriptionLabel);
     if ($("rail-region-val")) setText("rail-region-val", regionVal);
-    if ($("rail-workload-val")) setText("rail-workload-val", workloadVal);
-    if ($("rg-preview-text")) {
-      const opsRg = tel?.ops_rg || `rg-${workloadVal}-ops`;
-      const devRg = tel?.dev_rg || `rg-${workloadVal}-dev`;
-      setText("rg-preview-text", locale === "ko"
-        ? `생성될 리소스 그룹: ${opsRg}, ${devRg}`
-        : `Target resource groups: ${opsRg}, ${devRg}`);
+    if ($("rail-artifact-val")) setText("rail-artifact-val", text("signedImages"));
+    if ($("guided-subscription")) {
+      setText("guided-subscription", account ? `${account.name} (${account.id})` : text("signInFirst"));
+    }
+    if ($("guided-region")) setText("guided-region", regionVal);
+    if ($("guided-cost")) {
+      const ceiling = profile?.monthly_cost_ceiling;
+      setText("guided-cost", Number.isSafeInteger(ceiling) ? `${ceiling} USD` : text("unavailable"));
     }
     if ($("config-summary-text")) {
-      const subName = status?.accounts?.[0]?.name || $("subscription")?.selectedOptions?.[0]?.textContent || "Azure";
-      const opsRg = tel?.ops_rg || `rg-${workloadVal}-ops`;
-      const devRg = tel?.dev_rg || `rg-${workloadVal}-dev`;
-      setText("config-summary-text", `${subName} · ${runtimeLabel} (${dbLabel}) · ${regionVal} · ${opsRg} / ${devRg}`);
+      const resourceGroups = tel?.ops_rg && tel?.dev_rg ? ` · ${tel.ops_rg} / ${tel.dev_rg}` : "";
+      setText("config-summary-text", `${subscriptionLabel} · ${runtimeLabel} (${dbLabel}) · ${regionVal}${resourceGroups}`);
     }
     const opPill = $("operator-pill");
     if (opPill) {
@@ -429,17 +436,47 @@
       }
     }
     const perms = tel?.permissions || null;
+    const permissionState = (id, verified, label = text("permStateVerified")) => {
+      const node = $(id);
+      if (!node) return;
+      node.dataset.verified = String(verified);
+      setText(id, verified ? label : text("permStateReady"));
+    };
+    const allPermissionsVerified = Boolean(
+      perms && (
+        perms.verified ||
+        (
+          perms.subscription_role === "verified" &&
+          perms.rbac_delegation === "verified" &&
+          perms.entra_directory === "verified" &&
+          perms.policy_and_providers === "verified"
+        )
+      )
+    );
+    if ($("perm-heading")) {
+      $("perm-heading").dataset.verified = String(allPermissionsVerified);
+      setText("perm-heading", text(allPermissionsVerified ? "permVerified" : "permRequired"));
+    }
+    permissionState(
+      "perm-sub-state",
+      Boolean(perms && (perms.verified || perms.subscription_role === "verified")),
+    );
+    permissionState(
+      "perm-uami-state",
+      Boolean(perms && (perms.verified || perms.rbac_delegation === "verified")),
+    );
+    permissionState(
+      "perm-entra-state",
+      Boolean(perms && (perms.verified || perms.entra_directory === "verified")),
+    );
+    permissionState(
+      "perm-rp-state",
+      Boolean(perms && (perms.verified || perms.policy_and_providers === "verified")),
+      locale === "ko"
+        ? `✓ ${perms?.registered_providers || 18}/18 등록됨`
+        : `✓ ${perms?.registered_providers || 18}/18 RP`,
+    );
     if (perms) {
-      const isVer = Boolean(perms.verified);
-      const verifiedText = text("permStateVerified");
-      if ($("perm-sub-state") && (isVer || perms.subscription_role === "verified")) setText("perm-sub-state", verifiedText);
-      if ($("perm-uami-state") && (isVer || perms.rbac_delegation === "verified")) setText("perm-uami-state", verifiedText);
-      if ($("perm-entra-state") && (isVer || perms.entra_directory === "verified")) setText("perm-entra-state", verifiedText);
-      if ($("perm-rp-state") && (isVer || perms.policy_and_providers === "verified")) {
-        setText("perm-rp-state", locale === "ko"
-          ? `✓ ${perms.registered_providers || 18}/18 등록됨`
-          : `✓ ${perms.registered_providers || 18}/18 RP`);
-      }
       if (tel?.operator_user && $("perm-summary-text")) {
         setText("perm-summary-text", locale === "ko"
           ? `${tel.operator_user} · 구독 Owner/Contributor · UAMI RBAC 위임 · Entra ID 앱/그룹 · ${perms.registered_providers || 18}개 RP 확인됨`
@@ -561,20 +598,12 @@
     document.title = `FDAI Lifecycle Hub - ${locale === "ko" ? "설치 설정" : "Setup"}`;
     $("locale").value = locale;
     document.querySelectorAll("[data-i18n]").forEach(node => { node.textContent = text(node.dataset.i18n); });
+    document.querySelectorAll("[data-i18n-aria-label]").forEach(node => {
+      node.setAttribute("aria-label", text(node.dataset.i18nAriaLabel));
+    });
     if (noticeKey) notice(noticeKey, noticeDetail);
-    if ($("subscription").options[0]) $("subscription").options[0].textContent = text("noAccounts");
     if (status) render();
     else renderTelemetryAndArch();
-  }
-  function artifactFields() {
-    const source = document.querySelector('input[name="artifact"]:checked').value === "source";
-    $("hub-fields").hidden = source;
-    $("source-fields").hidden = !source;
-    $("public-key").disabled = source;
-    $("public-key").required = !source;
-    $("key-file").disabled = source;
-    $("source-root").disabled = !source;
-    $("source-root").required = source;
   }
   function safeConsole(value) {
     if (typeof value !== "string") return null;
@@ -596,7 +625,7 @@
     $("tenant").disabled = $("login").disabled;
     if ($("device-code")) $("device-code").disabled = $("login").disabled;
     $("accounts").disabled = !fresh;
-    $("configuration-fields").disabled = !fresh;
+    $("configuration-fields").disabled = !fresh || !Array.isArray(status?.accounts) || status.accounts.length === 0;
     $("refresh").disabled = loading;
     $("approve").disabled = !available || !reviewCurrent() ||
       $("confirmation").value !== (status?.review?.confirmation_required || "");
@@ -656,17 +685,7 @@
     $("observed").textContent = observedAt ? `${text("observed")}: ${observedAt.toLocaleString(locale === "ko" ? "ko-KR" : "en-US")}` : "";
     const accounts = JSON.stringify(status.accounts);
     if (accountKey !== accounts) {
-      const selected = $("subscription").value;
-      $("subscription").replaceChildren(new Option(text("noAccounts"), ""));
-      for (const account of status.accounts) {
-        $("subscription").add(new Option(`${account.name} (${account.id})`, account.id));
-      }
-      if (selected && status.accounts.some(account => account.id === selected)) {
-        $("subscription").value = selected;
-      } else if (status.accounts.length > 0) {
-        $("subscription").value = status.accounts[0].id;
-      }
-      const chosenAcc = status.accounts.find(a => a.id === $("subscription").value);
+      const chosenAcc = status.accounts[0];
       if (chosenAcc && $("tenant") && !$("tenant").value) {
         $("tenant").placeholder = chosenAcc.tenant_id;
       }
@@ -716,6 +735,11 @@
       !nullableString(value.console_url) || typeof value.message !== "string" ||
       typeof value.deployment_ready !== "boolean" || !Array.isArray(value.accounts) ||
       !value.accounts.every(item => item && ["id", "name", "tenant_id"].every(key => typeof item[key] === "string"))) return false;
+    const profile = value.guided_profile;
+    if (!profile || typeof profile.region !== "string" ||
+      !Number.isSafeInteger(profile.monthly_cost_ceiling) ||
+      profile.artifact_source !== "hub" || profile.database_placement !== "postgres-flex" ||
+      profile.approval_mode !== "continuous" || profile.trust_configured !== true) return false;
     const review = value.review;
     return review === null || (review && ["id", "digest", "title", "confirmation_required", "expires_at"]
       .every(key => typeof review[key] === "string") && Array.isArray(review.details) &&
@@ -735,13 +759,6 @@
     try { data = await response.json(); } catch { throw new Error(text("invalid")); }
     if (!response.ok) {
       if (response.status === 401) {
-        if (path === "status" && !window.__fdaiLoopbackRetried) {
-          window.__fdaiLoopbackRetried = true;
-          try {
-            await request("session", { token: "local-loopback" });
-            return await request(path, body);
-          } catch { /* fall through */ }
-        }
         throw new Error(text("auth"));
       }
       throw new Error(typeof data.error === "string" ? data.error : text("requestFailed"));
@@ -795,41 +812,12 @@
     finally { pending = false; await loadStatus(); controls(); }
   }
   const action = (name, payload = {}) => mutate("actions", { action: name, payload });
-  function publicKey(value) {
-    return new TextEncoder().encode(value).byteLength <= 4096 &&
-      /^-----BEGIN PUBLIC KEY-----\r?\n[A-Za-z0-9+/=\r\n]+-----END PUBLIC KEY-----\s*$/.test(value);
-  }
   $("install-form").addEventListener("submit", event => {
     event.preventDefault();
-    const payload = {
-      subscription_id: $("subscription").value, region: $("region").value,
-      monthly_cost_ceiling: Number($("cost").value),
-      artifact_source: document.querySelector('input[name="artifact"]:checked').value,
-    };
-    const workload = ($("workload")?.value || "").trim();
-    if (workload) {
-      if (!/^[a-z][a-z0-9]{1,11}$/.test(workload)) return notice("invalidWorkload");
-      payload.workload = workload;
-    }
-    const approvalMode = $("approval-mode")?.value || "continuous";
-    if (approvalMode === "stepwise") payload.approval_mode = "stepwise";
     const runtimePlatform = document.querySelector('input[name="runtime-platform"]:checked')?.value || "aks";
-    if (runtimePlatform !== "aks") payload.runtime_platform = runtimePlatform;
-    const dbPlacement = $("database-placement")?.value || "postgres-flex";
-    if (dbPlacement !== "postgres-flex") payload.database_placement = dbPlacement;
-    if (!Number.isSafeInteger(payload.monthly_cost_ceiling) || payload.monthly_cost_ceiling < 1) return notice("invalidCost");
-    if (payload.artifact_source === "source") payload.source_root = $("source-root").value;
-    else {
-      if (!publicKey($("public-key").value.trim())) return notice("invalidKey");
-      payload.hub_public_key = $("public-key").value.trim();
-    }
-    action("install", payload);
-  });
-  $("subscription").addEventListener("change", () => {
-    const chosenAcc = (status?.accounts || []).find(a => a.id === $("subscription").value);
-    if (chosenAcc && $("tenant") && !$("tenant").value) {
-      $("tenant").placeholder = chosenAcc.tenant_id;
-    }
+    const subscriptionId = status?.accounts?.[0]?.id;
+    if (typeof subscriptionId !== "string") return notice("signInFirst");
+    action("install", { runtime_platform: runtimePlatform, subscription_id: subscriptionId });
   });
   if ($("copy-console-url")) {
     $("copy-console-url").addEventListener("click", async () => {
@@ -877,16 +865,9 @@
       const val = document.querySelector('input[name="runtime-platform"]:checked')?.value || "aks";
       if ($("card-runtime-aks")) $("card-runtime-aks").classList.toggle("is-selected", val === "aks");
       if ($("card-runtime-aca")) $("card-runtime-aca").classList.toggle("is-selected", val === "container-apps");
-      if (val === "container-apps" && $("database-placement")?.value === "postgres-aks") {
-        $("database-placement").value = "postgres-flex";
-      }
       renderTelemetryAndArch();
     });
   });
-  for (const id of ["database-placement", "region", "workload"]) {
-    if ($(id)) $(id).addEventListener("input", renderTelemetryAndArch);
-    if ($(id)) $(id).addEventListener("change", renderTelemetryAndArch);
-  }
   if ($("toggle-completed-stages")) {
     $("toggle-completed-stages").addEventListener("click", () => {
       const list = $("provision-stages");
@@ -940,18 +921,6 @@
   window.addEventListener("focus", refreshIfStale);
   document.addEventListener("pointerenter", refreshIfStale);
   document.addEventListener("mousemove", refreshIfStale);
-  document.querySelectorAll('input[name="artifact"]').forEach(node => node.addEventListener("change", artifactFields));
-  $("key-file").addEventListener("change", async () => {
-    const file = $("key-file").files[0];
-    if (!file) return;
-    try {
-      if (file.size > 4096) { notice("invalidKey"); return; }
-      const value = await file.text();
-      if (!publicKey(value.trim())) { notice("invalidKey"); return; }
-      $("public-key").value = value.trim(); notice("");
-    } catch { notice("keyRead"); }
-    finally { $("key-file").value = ""; }
-  });
   $("locale").addEventListener("change", () => {
     locale = $("locale").value === "ko" ? "ko" : "en";
     try { localStorage.setItem("fdai_setup_locale", locale); } catch { /* ignore */ }
@@ -980,6 +949,6 @@
   window.addEventListener("hashchange", () => {
     if (new URLSearchParams(location.hash.slice(1)).has("session")) initialize();
   });
-  localize(); artifactFields();
+  localize();
   initialize();
 })();

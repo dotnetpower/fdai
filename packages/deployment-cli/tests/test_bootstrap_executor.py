@@ -10,6 +10,8 @@ from types import SimpleNamespace
 from uuid import UUID
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from fdai_deployment_cli import bootstrap_channel as channel
 from fdai_deployment_cli.bootstrap_approval import (
@@ -70,6 +72,58 @@ def fake_az(command, **kwargs):
     else:
         value = None
     return SimpleNamespace(returncode=0, stdout=json.dumps(value), stderr="")
+
+
+def test_guided_install_expands_launcher_defaults_and_active_subscription(
+    tmp_path,
+    monkeypatch,
+    prompt,
+):
+    from fdai_deployment_cli import source_input
+
+    monkeypatch.setattr(
+        source_input, "inspect_source", lambda *_a, **_k: SimpleNamespace(commit="c" * 40)
+    )
+    public_key = (
+        Ed25519PrivateKey.generate()
+        .public_key()
+        .public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
+        .decode()
+    )
+    channel.configure_guided_profile(
+        tmp_path,
+        {
+            "region": "westus3",
+            "monthly_cost_ceiling": 1200,
+            "hub_public_key": public_key,
+        },
+    )
+    plans = []
+    executor = BootstrapExecutor(
+        tmp_path,
+        lambda _: {},
+        run=fake_az,
+        hub_source=lambda *_a, **_k: (ROOT, None),
+        planner=lambda **kwargs: plans.append(kwargs) or {"deployment_ready": False},
+    )
+
+    assert (
+        executor.execute(
+            "install",
+            {"runtime_platform": "container-apps", "subscription_id": SUBSCRIPTION},
+        )["deployment_ready"]
+        is False
+    )
+    retained = channel._read(tmp_path, "configuration.json")
+    assert retained["subscription_id"] == SUBSCRIPTION
+    assert retained["region"] == "westus3"
+    assert retained["monthly_cost_ceiling"] == 1200
+    assert retained["artifact_source"] == "hub"
+    assert retained["approval_mode"] == "continuous"
+    assert retained["database_placement"] == "postgres-flex"
+    assert retained["hub_public_key"] == public_key
+    assert plans[0]["runtime_profile"].runtime_platform.value == "container-apps"
+    assert plans[0]["runtime_profile"].database_placement.value == "postgres-flex"
 
 
 def test_synthetic_customer_flow_uses_actual_genesis_entra_and_application_callbacks(

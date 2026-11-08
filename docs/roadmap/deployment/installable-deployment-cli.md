@@ -64,7 +64,8 @@ not submit a request.
 
 ## Connected source deployment
 
-Current source-mode support covers private preparation, read-only AKS capacity preflight,
+Current source-mode support covers private preparation, read-only runtime capacity preflight
+(AKS SKU and quota or ACA regional availability),
 exact-approved Foundation execution through private state handoff, and verified source transfer
 to the enrolled host, plus source-runtime OCI image preparation. Connected deployment does not
 build a dedicated managed-host image.

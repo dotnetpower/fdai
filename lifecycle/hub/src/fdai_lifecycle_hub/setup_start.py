@@ -10,6 +10,7 @@ import secrets
 import shutil
 import signal
 import socket
+import stat
 import subprocess
 import sys
 import time
@@ -21,7 +22,9 @@ from threading import Event
 from types import FrameType
 
 import uvicorn
-from fdai_deployment_cli.bootstrap_channel import prepare_directory
+from fdai_deployment_cli.bootstrap_channel import configure_guided_profile, prepare_directory
+from fdai_deployment_cli.deployment_cost import DEFAULT_MONTHLY_COST_CEILING
+from fdai_deployment_cli.hub_image_trust import public_key
 
 from fdai_lifecycle_hub.setup_api import SESSION_SECONDS, create_setup_app
 
@@ -106,6 +109,52 @@ def _open_browser(url: str) -> bool:
     return webbrowser.open(url)
 
 
+def _guided_profile(args: argparse.Namespace) -> dict[str, object]:
+    key_path = getattr(args, "hub_public_key", None)
+    if key_path is None:
+        raise ValueError("Guided setup requires --hub-public-key PATH or FDAI_HUB_PUBLIC_KEY.")
+    path = Path(key_path).expanduser().absolute()
+    try:
+        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    except OSError as exc:
+        raise ValueError("Guided setup Release public key is unavailable or unsafe.") from exc
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode):
+            raise ValueError("Guided setup Release public key must be a regular file.")
+        if stat.S_IMODE(info.st_mode) & (stat.S_IWGRP | stat.S_IWOTH):
+            raise ValueError(
+                "Guided setup Release public key must not be group- or world-writable."
+            )
+        with os.fdopen(descriptor, "rb") as stream:
+            descriptor = -1
+            value = stream.read(4097)
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+    if len(value) > 4096:
+        raise ValueError("Guided setup Release public key must not exceed 4 KiB.")
+    try:
+        public_key(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "Guided setup requires an Ed25519 public PEM, never a private key."
+        ) from exc
+    try:
+        encoded = value.decode("ascii")
+    except UnicodeDecodeError as exc:
+        raise ValueError("Guided setup Release public key must be ASCII PEM.") from exc
+    return {
+        "region": getattr(args, "region", "westus3"),
+        "monthly_cost_ceiling": getattr(
+            args,
+            "monthly_cost_ceiling",
+            DEFAULT_MONTHLY_COST_CEILING,
+        ),
+        "hub_public_key": encoded,
+    }
+
+
 def start(args: argparse.Namespace) -> int:
     """Start one loopback Hub surface and its independently running local executor."""
     if "FDAI_HUB_REMOTE_CONFIG" in os.environ:
@@ -113,8 +162,10 @@ def start(args: argparse.Namespace) -> int:
     if not 0 <= args.port <= 65535:
         raise ValueError("Bootstrap port must be between 0 and 65535.")
     state_dir: Path = args.state_dir.expanduser().absolute()
+    profile = _guided_profile(args)
     stop = Event()
     with launcher_lock(state_dir), _shutdown_signals(stop):
+        configure_guided_profile(state_dir, profile)
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         launch_path = state_dir / "launch.url"
         cookie_path = state_dir / "session.cookie"
