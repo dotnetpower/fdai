@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 2f4bb1b7e3acfeb0bde9e2d64fa6a253bed1b0e4
+translation_source_sha: f481ed89a799430fba6a229f751a94dac121403f
 translation_revised: 2026-11-09
 ---
 # 런타임 배포 프로파일
