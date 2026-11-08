@@ -8,6 +8,7 @@ import { WaraGuidanceDiagram } from "./wara-guidance-diagram";
 import { WaraGuidanceReferenceImage } from "./wara-guidance-image";
 import { guidanceText } from "./wara-guidance.model";
 import { ControlRemediationSection } from "./control-remediation";
+import { PACKAGED_REFERENCE_IMAGES } from "./reference-images.catalog";
 
 function inspect(tree: ComponentChildren) {
   const content: string[] = [];
@@ -31,6 +32,22 @@ function inspect(tree: ComponentChildren) {
 afterEach(() => setLocale("en"));
 
 describe("shared framework reading view", () => {
+  test("keeps supplied reference images source-bound and supplementary diagrams collapsed", () => {
+    const guide = fixtureFrameworkGuidance("azure-waf", "RE:09");
+    const render = (guidance: typeof guide) => inspect(FrameworkGuidanceContent({
+      guidance, controlId: guidance.control_id, title: "Source title",
+      expanded: false, onExpand: () => undefined,
+    }));
+    expect(render(guide).elements.some((element) => element.type === WaraGuidanceReferenceImage)).toBe(false);
+    const image = PACKAGED_REFERENCE_IMAGES["vmbackup-architecture"]!;
+    const view = render({ ...guide, reference_image: image });
+    expect(view.elements.find((element) => element.type === WaraGuidanceReferenceImage)?.props["image"]).toBe(image);
+    const supplement = view.elements.find((element) => element.type === "details" && element.props["class"] === "wara-guidance-supplement");
+    expect(supplement).toBeDefined();
+    expect(supplement!.props["open"]).toBeUndefined();
+    expect(view.elements.some((element) => element.type === WaraGuidanceDiagram)).toBe(true);
+  });
+
   test.each(["en", "ko"] as const)("reuses all WARA-quality technical sections and diagram in %s without WARA identity", (locale) => {
     setLocale(locale);
     for (const framework of ["azure-waf", "azure-mcsb", "azure-caf"] as const) {
