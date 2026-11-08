@@ -25,6 +25,11 @@ No runtime model, provider request, external image download or customer file is 
 Reviewed official reference images may be packaged at authoring time; they are never fetched
 from an arbitrary URL during a detail read or export.
 
+When a guide includes a reviewed reference image, its supplementary relationship diagram starts
+collapsed and remains available through a native disclosure. Guides without a reference image
+display their relationship diagram directly. The shared framework renderer preserves this behavior
+without adding an image that is absent from the source-bound guide.
+
 ## Content and illustration fixes
 
 The full inventory needs complete Korean reader text, not English sentences wrapped in a
