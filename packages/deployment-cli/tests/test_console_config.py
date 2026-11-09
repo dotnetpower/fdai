@@ -114,6 +114,33 @@ def test_console_config_renders_stencil_feature_flags_when_present() -> None:
         render_console_config(json.dumps(invalid_runtime_env).encode())
 
 
+@pytest.mark.parametrize("release_version", ["0.5.5", "1.0.0-rc.1"])
+def test_console_config_renders_valid_release_version(release_version: str) -> None:
+    script = render_console_config(
+        json.dumps({**SETTINGS, "release_version": release_version}).encode()
+    ).decode("ascii")
+
+    config_line = script.splitlines()[0]
+    assert json.loads(config_line.split(" = ", 1)[1][:-1]) == SETTINGS
+    assert f"document.title = 'FDAI Console ' + \"{release_version}\";" in script
+    assert f"version.textContent = 'v' + \"{release_version}\";" in script
+    assert f"'Release ' + \"{release_version}\"" in script
+    assert "document.querySelector('a.brand-lockup')" in script
+    assert "const releaseObserver = new MutationObserver" in script
+    assert "if (showRelease()) releaseObserver.disconnect();" in script
+    assert "(() => {" in script
+    assert "})();" in script
+
+
+@pytest.mark.parametrize(
+    "release_version",
+    ["", "v0.5.5", "0.5", "0.5.5+build", "0.5.5-01"],
+)
+def test_console_config_rejects_invalid_release_version(release_version: str) -> None:
+    with pytest.raises(ValueError, match="canonical SemVer"):
+        render_console_config(json.dumps({**SETTINGS, "release_version": release_version}).encode())
+
+
 @pytest.mark.parametrize(
     ("key", "value"),
     [

@@ -34,6 +34,9 @@ class ConsoleUpdatePublicationTarget(Protocol):
     def entra_console_api_scope(self) -> str: ...
 
     @property
+    def release_version(self) -> str: ...
+
+    @property
     def stencil_feature_flags(self) -> dict[str, object]: ...
 
 
@@ -77,6 +80,7 @@ def publish_console_update(
         verify_only=verify_only,
         verify_service_contracts=verify_service_contracts,
         stencil_feature_flags=target.stencil_feature_flags,
+        release_version=target.release_version,
     )
 
 

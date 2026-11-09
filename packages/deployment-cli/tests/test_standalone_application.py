@@ -481,6 +481,7 @@ def test_publish_verified_console_uses_verified_prebuilt_artifact(tmp_path, monk
         timeout_seconds=900,
         redirect_changed=True,
         stencil_feature_flags=stencil_feature_flags,
+        release_version="0.5.5",
     )
 
     settings = json.loads((tmp_path / "console-runtime-settings.json").read_text())
@@ -491,6 +492,7 @@ def test_publish_verified_console_uses_verified_prebuilt_artifact(tmp_path, monk
         "tenant_id": tenant_id,
         "spa_client_id": spa_client_id,
         "api_scope": f"api://{spa_client_id}/access",
+        "release_version": "0.5.5",
         "stencil_feature_flags": stencil_feature_flags,
     }
     assert calls[:2] == [
@@ -515,6 +517,7 @@ def test_publish_verified_console_uses_verified_prebuilt_artifact(tmp_path, monk
     assert environment["ARM_SUBSCRIPTION_ID"] == subscription_id
     assert environment["FDAI_CONSOLE_VERIFY_ONLY"] == "0"
     assert receipt["state"] == "published"
+    assert receipt["release_version"] == "0.5.5"
     assert receipt["stencil_id"] == "lite-observe-alert"
     assert receipt["operator_stencil_verified"] is True
     assert receipt["stencil_feature_flags_digest"] == canonical_digest(stencil_feature_flags)

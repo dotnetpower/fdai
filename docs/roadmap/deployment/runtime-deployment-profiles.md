@@ -53,7 +53,11 @@ The Operator API must first expose the same active panel list through
 publication; an explicit source deployment without a Hub selection keeps the existing unscoped
 Console behavior. The Console runtime file preserves the complete validated Release flag document,
 including workload, scheduled-job, add-on, digest, and `runtime_env` fields; the browser still uses
-the panel axis for navigation.
+the panel axis for navigation. The coordinator also validates the selected immutable Release id as
+canonical SemVer and records it in the publication receipt. The generated `fdai-config.js` uses
+that value only for presentation: it adds the version to the browser title and a quiet label beside
+the Console wordmark. The version grants no authority and does not select a Release in the browser.
+An explicit source deployment without a Hub selection keeps the existing unversioned title.
 
 Selecting Hub images does not change runtime-profile defaults, product add-ons, executor identity,
 approval, licensing or health/zero-change-plan requirements. Explicit source mode retains its

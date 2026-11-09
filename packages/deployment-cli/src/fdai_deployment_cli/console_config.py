@@ -13,6 +13,7 @@ from urllib.parse import urlsplit
 from fdai_deployment_cli.contracts import load_json_object
 from fdai_deployment_cli.offline_kit import _read_regular
 from fdai_deployment_cli.private_output import _open_private_parent
+from fdai_deployment_cli.release_version import canonical_release_version
 
 CONFIG_FILENAME = "fdai-config.js"
 CONFIG_PLACEHOLDER = b"globalThis.__FDAI_CONSOLE_CONFIG__ = null;\n"
@@ -26,7 +27,7 @@ _FIELDS = {
     "spa_client_id",
     "api_scope",
 }
-_OPTIONAL_FIELDS = {"stencil_feature_flags"}
+_OPTIONAL_FIELDS = {"release_version", "stencil_feature_flags"}
 _PANEL_ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*\Z", re.ASCII)
 _DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}\Z", re.ASCII)
 _RUNTIME_ENV_KEY_RE = re.compile(r"^FDAI_STENCIL_[A-Z0-9_]+\Z", re.ASCII)
@@ -191,9 +192,39 @@ def render_console_config(settings: bytes) -> bytes:
     if re.fullmatch(rf"api://{_UUID}/[A-Za-z0-9._-]+", scope) is None:
         raise ValueError("Console api_scope MUST identify an Entra API application scope")
     output_payload: dict[str, object] = dict(text_values)
+    release_version: str | None = None
+    if "release_version" in values:
+        release_version = canonical_release_version(
+            values["release_version"],
+            context="Console release_version",
+        )
     if stencil_flags is not None:
         output_payload["stencil_feature_flags"] = stencil_flags
     document = json.dumps(output_payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    release_script = ""
+    if release_version is not None:
+        version_doc = json.dumps(release_version, ensure_ascii=True)
+        release_script = (
+            f"document.title = 'FDAI Console ' + {version_doc};\n"
+            "(() => {\n"
+            "const showRelease = () => {\n"
+            "  const brand = document.querySelector('a.brand-lockup');\n"
+            "  if (!brand) return false;\n"
+            "  const version = document.createElement('span');\n"
+            "  version.className = 'brand-version';\n"
+            f"  version.textContent = 'v' + {version_doc};\n"
+            f"  version.setAttribute('aria-label', 'Release ' + {version_doc});\n"
+            "  brand.append(version);\n"
+            "  return true;\n"
+            "};\n"
+            "if (!showRelease()) {\n"
+            "  const releaseObserver = new MutationObserver(() => {\n"
+            "    if (showRelease()) releaseObserver.disconnect();\n"
+            "  });\n"
+            "  releaseObserver.observe(document.documentElement, { childList: true, subtree: true });\n"
+            "}\n"
+            "})();\n"
+        )
     if stencil_flags is not None:
         flags_doc = json.dumps(
             stencil_flags, sort_keys=True, separators=(",", ":"), ensure_ascii=True
@@ -201,8 +232,9 @@ def render_console_config(settings: bytes) -> bytes:
         return (
             f"globalThis.__FDAI_CONSOLE_CONFIG__ = {document};\n"
             f"globalThis.__FDAI_STENCIL_FEATURE_FLAGS__ = {flags_doc};\n"
+            f"{release_script}"
         ).encode("ascii")
-    return f"globalThis.__FDAI_CONSOLE_CONFIG__ = {document};\n".encode("ascii")
+    return (f"globalThis.__FDAI_CONSOLE_CONFIG__ = {document};\n{release_script}").encode("ascii")
 
 
 def configure_console(
