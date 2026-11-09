@@ -9,7 +9,6 @@ resumable work while the roadmap owner remains focused on normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Shared ObjectType ownership and freshness annotations | implemented | Canonical vocabulary ObjectTypes and `rule_catalog/schema/object_type.py`; 25 catalog-loader/semantic and shipped-coverage cases passed | Shared annotations do not activate Cost Governance or grant data, publication, or execution authority. |
 | Shared image dependency security floor | implemented | Root and six service manifests; `uv.lock` at `aiohttp 3.14.5`; 59 service distribution/image/wheelhouse checks | The fixed `>=3.14.4` floor removes the two HIGH image-scan findings without an ignore entry or package-activation change. |
 | Shared Pantheon lifecycle-state isolation | implemented | `agents/_framework/{runtime,execution_safety,runtime_operational_agents}.py`; `agents/{norns,var,vidar}.py`; focused Norns, Var, Vidar, and runtime checks | Enforce composition validates explicit Thor, Vidar, and Var durable bindings. Reusing one provider instance persists lifecycle recovery only and cannot install, activate, configure, publish, or grant Cost Governance package access. |
 | Extractable FinOps guard baseline | implemented | `services/core-control-plane/src/fdai/core/verticals/cost_governance/finops.py`; `services/core-control-plane/tests/core/verticals/test_finops.py`; 11 focused tests | Pure candidate and guard logic exists inside Core. This does not prove package composition. |
