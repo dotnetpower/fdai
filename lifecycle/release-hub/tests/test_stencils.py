@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -186,6 +187,12 @@ def test_stencil_api_compose_and_release_registration_roundtrip(
     assert len(cat_body["panels"]) == len(ALL_PANEL_IDS)
     assert cat_body["detected_source_commit"] is not None
     assert len(cat_body["detected_source_commit"]) == 40
+    detection_panel = next(
+        panel for panel in cat_body["panels"] if panel["id"] == "detection-readiness"
+    )
+    assert detection_panel["path"] == "/detection-coverage"
+    assert detection_panel["label"] == "Detection coverage"
+    assert detection_panel["label_ko"] == "감지 커버리지"
 
     # Also verify "auto" and "derived" source_commit modes work without manual 40-hex entry
     auto_resp = client.post(
@@ -439,6 +446,29 @@ def test_hardening_h21_to_h34_catalog_parity_manifest_validation_and_console_con
     assert len(CONSOLE_PANEL_CATALOG) == 63
     for hidden_id in ("dashboard-v2", "provision", "onboarding"):
         assert hidden_id in ALL_PANEL_IDS
+    root = Path(__file__).resolve().parents[3]
+    router_source = (root / "console/src/router.ts").read_text(encoding="utf-8")
+    paths_source = router_source[
+        router_source.index("export const PANEL_PATHS") : router_source.index(
+            "};", router_source.index("export const PANEL_PATHS")
+        )
+    ]
+    console_paths = {
+        match.group("quoted") or match.group("bare"): match.group("path")
+        for match in re.finditer(
+            r'^\s*(?:"(?P<quoted>[^"]+)"|(?P<bare>[a-z][a-z0-9]*)):\s*'
+            r'"(?P<path>/[^"]+)",',
+            paths_source,
+            re.MULTILINE,
+        )
+    }
+    assert {panel.id: panel.path for panel in CONSOLE_PANEL_CATALOG} == console_paths
+    detection = next(panel for panel in CONSOLE_PANEL_CATALOG if panel.id == "detection-readiness")
+    english = json.loads((root / "console/src/i18n/messages.en.json").read_text(encoding="utf-8"))
+    korean = json.loads((root / "console/src/i18n/messages.ko.json").read_text(encoding="utf-8"))
+    assert detection.path == "/detection-coverage"
+    assert detection.label == english["nav"]["panel"]["detectionReadiness"]
+    assert detection.label_ko == korean["nav"]["panel"]["detectionReadiness"]
 
     # H22: Selecting settings-environment auto-resolves provision and onboarding.
     env_stencil = compose_custom_stencil(

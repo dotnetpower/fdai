@@ -23,6 +23,7 @@ import {
 const samplePanels: StencilPanelDescriptor[] = [
   {
     id: "dashboard",
+    path: "/overview",
     group: "overview",
     label: "Overview dashboard",
     label_ko: "종합 대시보드",
@@ -34,6 +35,7 @@ const samplePanels: StencilPanelDescriptor[] = [
   },
   {
     id: "live",
+    path: "/live",
     group: "operations",
     label: "Live operations",
     label_ko: "실시간 리소스",
@@ -120,7 +122,7 @@ describe("stencil-builder helpers", () => {
       panels: [
         samplePanels[0]!,
         {
-          id: "policy", group: "governance", label: "Policy", label_ko: "정책",
+          id: "policy", path: "/policy", group: "governance", label: "Policy", label_ko: "정책",
           locked: false, required_workloads: [], required_loops: [],
           required_addons: ["policy-administration"], feature_ids: [],
         },
@@ -169,7 +171,7 @@ describe("stencil-builder helpers", () => {
       panels: [
         samplePanels[0]!,
         {
-          id: "documents", group: "knowledge", label: "Documents", label_ko: "문서",
+          id: "documents", path: "/documents", group: "knowledge", label: "Documents", label_ko: "문서",
           locked: false, required_workloads: ["document-ingestion-api", "document-processing-worker"],
           required_loops: ["document-ingestion"], required_addons: [], feature_ids: [],
         },
@@ -278,6 +280,7 @@ describe("stencil-builder helpers", () => {
         ...samplePanels,
         {
           id: "documents",
+          path: "/documents",
           group: "knowledge",
           label: "Documents",
           label_ko: "문서 수집",
