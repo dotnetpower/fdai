@@ -87,6 +87,7 @@ def publish_verified_console(
     verify_only: bool = False,
     verify_service_contracts: bool = True,
     stencil_feature_flags: Mapping[str, object] | None = None,
+    release_version: str | None = None,
 ) -> dict[str, object]:
     """Configure a verified Console artifact, publish it, and read back exact bytes."""
 
@@ -114,6 +115,8 @@ def publish_verified_console(
         "spa_client_id": str(entra_bindings["ENTRA_CONSOLE_SPA_CLIENT_ID"]),
         "api_scope": str(entra_bindings["ENTRA_CONSOLE_API_SCOPE"]),
     }
+    if release_version is not None:
+        settings["release_version"] = release_version
     if validated_stencil_flags is not None:
         settings["stencil_feature_flags"] = validated_stencil_flags
     settings_path = prepared_root / "console-runtime-settings.json"
@@ -180,6 +183,8 @@ def publish_verified_console(
         receipt["operator_stencil_verified"] = True
         receipt["stencil_id"] = validated_stencil_flags["stencil_id"]
         receipt["stencil_feature_flags_digest"] = canonical_digest(validated_stencil_flags)
+    if release_version is not None:
+        receipt["release_version"] = release_version
     receipt["receipt_digest"] = canonical_digest(receipt)
     replace_private_json(prepared_root / "console-publication-receipt.json", receipt)
     return receipt

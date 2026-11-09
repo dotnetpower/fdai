@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: c3e829e5d897446330ee38a2ae51fc9e5f4435aa
+translation_source_sha: 69c85a7fd86e5658f07876b0766ddb1b093460e1
 translation_revised: 2026-11-09
 ---
 # 런타임 배포 프로파일
@@ -56,7 +56,11 @@ Console 바이트를 게시하기 전에 조정기는 같은 검증된 Stencil `
 이 경로가 없거나 런타임 목록이 다르면 게시를 중단합니다. Hub 선택이 없는 명시적 소스 배포는
 기존의 범위 제한이 없는 Console 동작을 유지합니다. Console 런타임 파일은 workload, 예약 Job,
 추가 기능, 다이제스트, `runtime_env` 필드를 포함한 검증된 Release 플래그 문서 전체를 보존합니다.
-브라우저 탐색에는 계속 패널 축을 사용합니다.
+브라우저 탐색에는 계속 패널 축을 사용합니다. 조정기는 선택한 변경 불가능한 Release ID가
+정규 SemVer인지도 검증하고 게시 증적에 기록합니다. 생성된 `fdai-config.js`는 이 값을 화면
+표시에만 사용합니다. 브라우저 제목에 버전을 추가하고 Console 워드마크 옆에 눈에 띄지 않는
+레이블로 표시합니다. 이 버전은 권한을 부여하지 않으며 브라우저에서 Release를 선택하는 데
+사용되지 않습니다. Hub를 선택하지 않은 명시적 소스 배포는 기존의 버전 없는 제목을 유지합니다.
 
 Hub 이미지 선택은 런타임 프로필 기본값, 제품 추가 기능, 실행기 신원, 승인, 라이선싱,
 상태 및 무변경 계획 검증을 바꾸지 않습니다. 명시적 소스 모드는 Hub에 의존하지 않는

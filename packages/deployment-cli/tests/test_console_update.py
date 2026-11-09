@@ -43,6 +43,7 @@ def _target() -> dict[str, object]:
         "ingestion_api_base_url": "https://ingestion.example.com",
         "entra_console_spa_client_id": CLIENT,
         "entra_console_api_scope": f"api://{API_CLIENT}/access",
+        "release_version": "0.5.5",
         "stencil_feature_flags": STENCIL_FEATURE_FLAGS,
     }
 
@@ -67,6 +68,11 @@ def test_console_update_target_requires_valid_stencil_feature_flags() -> None:
     }
     with pytest.raises(ValueError, match="fail-closed"):
         console_update.ConsoleUpdateTarget.from_mapping(incomplete)
+
+    invalid_version = _target()
+    invalid_version["release_version"] = "0.5.5-01"
+    with pytest.raises(ValueError, match="canonical SemVer"):
+        console_update.ConsoleUpdateTarget.from_mapping(invalid_version)
 
 
 def test_prepare_console_update_plan_seals_target_candidate_and_rollback(
@@ -178,6 +184,7 @@ def test_apply_console_update_plan_writes_claim_before_publication(
     def publish(**arguments: object) -> dict[str, object]:
         assert (work / "claim.json").is_file()
         assert arguments["stencil_feature_flags"] == STENCIL_FEATURE_FLAGS
+        assert arguments["release_version"] == "0.5.5"
         calls.append(bool(arguments["verify_only"]))
         return _publication_receipt(verify_only=bool(arguments["verify_only"]))
 

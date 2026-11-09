@@ -15,9 +15,7 @@ from typing import Any
 
 from fdai_deployment_cli import azure_actor, bootstrap_approval, standalone_catalog_checkpoint
 from fdai_deployment_cli.application_state_adoption import ApplicationStateAdoption
-from fdai_deployment_cli.catalog_review_profile import (
-    CatalogReviewDeploymentProfile,
-)
+from fdai_deployment_cli.catalog_review_profile import CatalogReviewDeploymentProfile
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.control_package import ControlPackage
 from fdai_deployment_cli.deadline_transport import DeadlineTransport
@@ -676,6 +674,7 @@ def deploy_standalone_application(
                 timeout_seconds=deadline.remaining(),
                 redirect_changed=redirect_changed,
                 stencil_feature_flags=flags(hub_selection.document if hub_selection else None),
+                release_version=hub_selection.release_id if hub_selection is not None else None,
             )
         if source_mode:
             assert source_transfer is not None
