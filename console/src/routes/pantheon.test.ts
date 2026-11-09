@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { pantheonAgentContextRecords } from "./agents";
 import { PANTHEON } from "./agents.model";
 import {
   decodePantheonGraph,
@@ -45,6 +46,20 @@ function workflowPayload() {
     count: 1,
   };
 }
+
+describe("Pantheon screen context", () => {
+  test("publishes the complete agent-role catalog for verified answers", () => {
+    const records = pantheonAgentContextRecords();
+
+    expect(records).toHaveLength(15);
+    expect(records).toContainEqual(expect.objectContaining({
+      name: "Odin",
+      role: "Master Planner",
+      reports_to: "",
+    }));
+    expect(records.every((record) => record.role && record.owns)).toBe(true);
+  });
+});
 
 describe("Pantheon view routing", () => {
   test("opens the organization chart from its direct link", () => {

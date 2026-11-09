@@ -1,7 +1,7 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 24e16e54f77d8b0487331f1ae5b70bb3d7f7094b
+translation_source_sha: 1d054828c9a87ece8babb46c251cdb257c38131a
 translation_revised: 2026-11-10
 ---
 # 서술기 라우팅과 지연 시간
@@ -24,8 +24,9 @@ Console은 운영자 문장에서 배포를 선택하거나 실행 권한을 받
 설치본이 서비스 로컬 서술기를 명시적으로 선택하면 로컬 실행은 Azure CLI에서 단기 토큰을
 가져오고 배포 실행은 선택된 워크로드 ID에서 토큰을 가져옵니다. 토큰은 공급자 Authorization
 헤더에만 사용하고 로그에 기록하지 않으며 관리 리소스 실행 권한을 부여하지 않습니다.
-타입이 지정된 Pantheon 화면에서는 서비스 로컬 서술기가 범위가 제한된 전체
-`records.agents` 카탈로그를 결정론적 Markdown 표로 반환할 수 있습니다. 각 행은 화면 근거
+타입이 지정된 Pantheon 화면에서는 `AgentsRoute` 조직도 레이아웃이 범위가 제한된 전체
+`records.agents` 카탈로그를 게시하고 서비스 로컬 서술기가 이를 결정론적 Markdown 표로
+반환합니다. 각 행은 화면 근거
 참조와 지원됨 claim을 포함합니다. 이 경로는 모델을 호출하거나 자연어 의미를 추론하거나
 에이전트를 누락하거나 권한을 부여하지 않습니다. 그 밖의 근거 없는 모델 claim은 계속 보류합니다.
 
