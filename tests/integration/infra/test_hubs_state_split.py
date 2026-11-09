@@ -340,6 +340,18 @@ def test_each_resource_has_exactly_one_owner_and_base_has_no_graph() -> None:
         assert block is not None and "prevent_destroy = true" in block.group()
 
 
+def test_installation_console_urls_are_app_only_runtime_metadata() -> None:
+    module = INFRA / "modules/hub-service"
+    apps = (module / "apps.tf").read_text(encoding="utf-8")
+    migrations = (module / "migrations.tf").read_text(encoding="utf-8")
+    operations = (module / "operations.tf").read_text(encoding="utf-8")
+
+    assert "value = jsonencode(local.app_configs[each.key])" in apps
+    assert "installation_console_urls = var.installation_console_urls" in apps
+    assert "local.app_configs" not in migrations
+    assert "local.app_configs" not in operations
+
+
 @pytest.mark.parametrize("filename", ("apps.tf", "bootstrap.tf", "migrations.tf"))
 def test_runtime_workloads_explicitly_match_environment_profile(filename: str) -> None:
     module = INFRA / "modules/hub-service"

@@ -66,9 +66,14 @@ locals {
         )
       },
       kind == "target" && var.catalog != null ? { catalog = local.catalog_config } : {},
-      kind == "target" && length(var.installation_console_urls) > 0 ? { installation_console_urls = var.installation_console_urls } : {},
       kind == "release" && var.catalog_roles != null ? { catalog_roles = { for key, value in var.catalog_roles : key => value if value != null } } : {},
       kind == "release" && var.timestamp_renewal_check_seconds > 0 ? { timestamp_renewal_check_seconds = var.timestamp_renewal_check_seconds } : {},
+    )
+  }
+  app_configs = {
+    for kind in local.kinds : kind => merge(
+      local.configs[kind],
+      kind == "target" && length(var.installation_console_urls) > 0 ? { installation_console_urls = var.installation_console_urls } : {},
     )
   }
 }
@@ -192,7 +197,7 @@ resource "azurerm_container_app" "hub" {
       }
       env {
         name  = "FDAI_HUB_REMOTE_CONFIG"
-        value = jsonencode(local.configs[each.key])
+        value = jsonencode(local.app_configs[each.key])
       }
       env {
         name        = each.key == "release" ? "FDAI_RELEASE_HUB_DATABASE_URL" : "FDAI_LIFECYCLE_HUB_DATABASE_URL"
@@ -295,7 +300,7 @@ output "deployment" {
     database_host  = var.database == null ? null : azurerm_postgresql_flexible_server.hub[var.kind].fqdn
     database_name  = var.database == null ? "sqlite:////var/lib/fdai-hub/${var.kind}-hub.sqlite" : azurerm_postgresql_flexible_server_database.hub[var.kind].name
     identity_name  = azurerm_user_assigned_identity.hub[var.kind].name
-    runtime_config = local.configs[var.kind]
+    runtime_config = local.app_configs[var.kind]
     migration_job  = var.enable_migration_jobs ? azurerm_container_app_job.migrate[var.kind].name : null
     operation_job  = var.operation_job == null ? null : azurerm_container_app_job.operation[var.kind].name
   })

@@ -48,9 +48,19 @@ run "standalone_base" {
 
 run "installation_console_url_is_target_only_metadata" {
   command = plan
+  module {
+    source = "../modules/hub-service"
+  }
   variables {
+    kind                  = "target"
+    enable_apps           = true
+    enable_migration_jobs = true
     installation_console_urls = {
       installation-alpha = "https://console.example.com"
+    }
+    secret_versions = {
+      database    = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      signing_key = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     }
   }
   assert {
