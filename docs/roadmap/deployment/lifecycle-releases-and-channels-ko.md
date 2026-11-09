@@ -1,7 +1,7 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: 300ad01f83d4717ef018b339c25723982b965a7e
+translation_source_sha: e8be2775ce42034aa6c1d61579e705fdae1b19fa
 translation_revised: 2026-11-09
 ---
 # Lifecycle Release와 채널
@@ -198,6 +198,10 @@ FDAI도 하나의 배포 대상입니다. 발행, 정확한 고정값을 사용�
 주장하지 않습니다. 제품 ID는 독립적으로 승인된 설치 Settings 및 Agent 로컬 정책과 모두
 일치해야 합니다. 데이터베이스 정보가 없으면 개정 0을 선택하며 기존 데이터베이스를 초기화할 수
 없습니다. 릴리스 버전은 제품별로 나누지 않고 카탈로그 전체에서 고유합니다.
+Stencil 애플리케이션 Release는 workload, 루프, 패널, Job, 추가 기능의 capability 최대값을
+`shadow` 모드로 파생합니다. 기능 활성화는 구성과 표시 범위를 선택할 뿐 `enforce` 권한을
+부여하지 않습니다. 수명 주기 계획은 공용 `shadow`와 `enforce` 어휘만 수락하며, 다른 직렬화
+모드는 Plan을 발행하기 전에 거부합니다.
 별도의 `fdai.runtime-release.v3` 어댑터는 기존 FDAI 전체 서비스 목록과 소스/오프라인 계약을
 유지합니다. 관련 없는 앱에 이 형식을 요구하지는 않습니다.
 

@@ -114,30 +114,30 @@ class ApplicationRelease:
         caps: dict[str, str] = {}
         stencil_id = self.stencil.get("stencil_id")
         if isinstance(stencil_id, str):
-            caps[f"stencil:{stencil_id}"] = "enabled"
+            caps[f"stencil:{stencil_id}"] = "shadow"
         for key in ("enabled_workloads", "enabled_loops"):
             items = self.stencil.get(key)
             if isinstance(items, list):
                 for item in items:
                     if isinstance(item, str):
-                        caps[item] = "enabled"
+                        caps[item] = "shadow"
         raw_panels = self.stencil.get("enabled_panel_ids")
         if isinstance(raw_panels, list):
             for panel in raw_panels:
                 if isinstance(panel, str):
-                    caps[f"panel:{panel}"] = "enabled"
+                    caps[f"panel:{panel}"] = "shadow"
         raw_jobs = self.stencil.get("enabled_scheduled_jobs")
         if isinstance(raw_jobs, list):
             for job in raw_jobs:
                 if isinstance(job, str):
-                    caps[f"job:{job}"] = "enabled"
+                    caps[f"job:{job}"] = "shadow"
         feature_flags = self.stencil.get("feature_flags")
         if isinstance(feature_flags, dict) and isinstance(
             feature_flags.get("enabled_addons"), list
         ):
             for addon in feature_flags["enabled_addons"]:
                 if isinstance(addon, str):
-                    caps[f"addon:{addon}"] = "enabled"
+                    caps[f"addon:{addon}"] = "shadow"
         return caps
 
     def to_mapping(self) -> dict[str, object]:
