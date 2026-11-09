@@ -694,11 +694,31 @@ export async function requestStencilCatalog(): Promise<StencilCatalogResponse> {
   }
   const catalog = raw as StencilCatalogResponse;
   const panelIds = new Set(catalog.panels.map((panel) => panel.id));
-  const validPanelSelection = (ids: readonly string[]) =>
-    new Set(ids).size === ids.length && ids.every((id) => panelIds.has(id));
-  if (!validPanelSelection(catalog.locked_panels)
+  const validSelection = (ids: readonly string[], allowed: ReadonlySet<string>) =>
+    new Set(ids).size === ids.length && ids.every((id) => allowed.has(id));
+  const workloads = new Set(catalog.workloads);
+  const jobs = new Set(catalog.scheduled_jobs);
+  const loops = new Set(catalog.loops);
+  const addons = new Set(catalog.addons);
+  if (workloads.size !== catalog.workloads.length
+    || jobs.size !== catalog.scheduled_jobs.length
+    || loops.size !== catalog.loops.length
+    || addons.size !== catalog.addons.length
+    || !validSelection(catalog.locked_panels, panelIds)
+    || !validSelection(catalog.locked_workloads, workloads)
+    || !validSelection(catalog.locked_scheduled_jobs, jobs)
+    || !validSelection(catalog.locked_loops, loops)
+    || !validSelection(catalog.locked_addons, addons)
+    || !catalog.panels.every((panel) =>
+      validSelection(panel.required_workloads, workloads)
+      && validSelection(panel.required_loops, loops)
+      && validSelection(panel.required_addons, addons))
     || !catalog.presets.every(({ stencil }) =>
-      validPanelSelection(stencil.enabled_panel_ids))) {
+      validSelection(stencil.enabled_panel_ids, panelIds)
+      && validSelection(stencil.enabled_workloads, workloads)
+      && validSelection(stencil.enabled_scheduled_jobs, jobs)
+      && validSelection(stencil.enabled_loops, loops)
+      && validSelection(stencil.enabled_addons, addons))) {
     throw new Error("Invalid Stencil catalog payload.");
   }
   return catalog;

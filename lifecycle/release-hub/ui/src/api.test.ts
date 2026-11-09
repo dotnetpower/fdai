@@ -242,6 +242,30 @@ describe("release action boundaries", () => {
     }));
     await expect(requestStencilCatalog()).rejects.toThrow("Invalid Stencil catalog payload");
   });
+  it.each([
+    ["duplicate workloads", { ...stencilCatalog(VALID_PANEL), workloads: ["core", "core"] }],
+    [
+      "unknown locked workload",
+      { ...stencilCatalog(VALID_PANEL), locked_workloads: ["missing-workload"] },
+    ],
+    [
+      "unknown panel dependency",
+      stencilCatalog({ ...VALID_PANEL, required_loops: ["missing-loop"] }),
+    ],
+    [
+      "unknown preset workload",
+      stencilCatalog(VALID_PANEL, [], [{
+        stencil: { ...VALID_STENCIL, enabled_workloads: ["missing-workload"] },
+        footprint: VALID_FOOTPRINT,
+      }]),
+    ],
+  ])("rejects %s in Stencil runtime axes", async (_label, payload) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => payload,
+    }));
+    await expect(requestStencilCatalog()).rejects.toThrow("Invalid Stencil catalog payload");
+  });
   it("preserves a specific promotion rejection while advising a fresh review", () => {
     expect(catalogRecovery(new CatalogRequestError("Promotion stage blocked (promotion_canary_unhealthy).", 409)))
       .toContain("Healthy canary observations are insufficient");
