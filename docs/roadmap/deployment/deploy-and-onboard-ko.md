@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 336049e8937cae9a02026b93e5360c22e1a047ea
+translation_source_sha: 19187fdb294b42d94a2433ef3f860c3351f665db
 translation_revised: 2026-11-09
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -57,7 +57,9 @@ Lifecycle Hub의 비공개 배포 입력에는 선택적 `installation_console_u
 않으며 Lifecycle Hub는 Release, Plan, 보고, 설치 ID 또는 브라우저 입력에서 URL을 추론하지
 않습니다. 이 메타데이터는 접근 권한을 부여하지 않으며 독립적인 Console 상태 검증을 대체하지
 않습니다. 기본 운영자 내비게이션에는 설치 환경만 표시하며, 카탈로그, 등록, 명령, 감사,
-패키지, 업데이트와 확인 경로는 직접 URL을 통해 계속 사용할 수 있습니다.
+패키지, 업데이트와 확인 경로는 직접 URL을 통해 계속 사용할 수 있습니다. 마이그레이션 및
+운영 Job은 이 운영자 전용 매핑을 받지 않으므로 링크 연결이 Job 후보나 실행 계획을 바꾸지
+않습니다.
 
 Hub 관리형 AKS 인계에서는 `enable_document_ingestion=true`로 공용 Azure 선행 조건을 만들면서
 `enable_document_ingestion_workloads=false`로 인제스트 API, 워커, 마이그레이션 Container Apps를

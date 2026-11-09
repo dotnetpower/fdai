@@ -11,9 +11,14 @@ runs:
         set -euo pipefail
         opa_dir="$RUNNER_TEMP/fdai-opa/bin"
         mkdir -p "$opa_dir"
-        curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
+        if ! curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
           --retry-max-time 120 --connect-timeout 10 --max-time 90 -o "$opa_dir/opa" \
-          "https://openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static"
+          "https://openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static"; then
+          rm -f "$opa_dir/opa"
+          curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
+            --retry-max-time 120 --connect-timeout 10 --max-time 90 -o "$opa_dir/opa" \
+            "https://github.com/open-policy-agent/opa/releases/download/v0.68.0/opa_linux_amd64_static"
+        fi
         echo "dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa  $opa_dir/opa" \
           | sha256sum -c -
         chmod +x "$opa_dir/opa"

@@ -29,6 +29,8 @@ the mapping, and Lifecycle Hub doesn't derive a URL from a Release, Plan, report
 or browser input. The metadata grants no access and doesn't replace independent Console health
 verification. The default operator navigation shows Installations only; governed catalog,
 enrollment, command, audit, package, update and confirmation routes remain directly addressable.
+Migration and operations Jobs omit this operator-only mapping so binding a link cannot change a
+Job candidate or dispatch plan.
 
 Remote development Agents use `operator_auth.agent_principals` to bind an installation, Entra object and client on Lifecycle Hub only. Release Hub rejects these bindings; omission preserves existing authentication. Terraform grants no `Agent.Access`, federated credentials or Kubernetes permissions. Prepare those separately within the approved scope and follow the [Hub operator guide](../../runbooks/hub-lifecycle-operator-guide.md) for namespace-only RBAC, durable state, enrollment and independent readback. This grants no operator or release-apply authority. The Agent state volume uses a zone-redundant disk class so a Pod rescheduled to another zone can attach it.
 
