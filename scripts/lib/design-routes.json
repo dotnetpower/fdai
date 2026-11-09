@@ -3775,7 +3775,6 @@
         "docs/roadmap/decisioning/risk-classification.md",
         "docs/roadmap/interfaces/user-rbac-and-identity.md",
         "docs/roadmap/rules-and-detection/operational-learning-ontology.md",
-        "docs/roadmap/rules-and-detection/rule-governance.md",
         "docs/roadmap/deployment/runtime-deployment-profiles.md"
       ],
       "docs_update": [

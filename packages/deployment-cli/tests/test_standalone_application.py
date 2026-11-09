@@ -16,6 +16,7 @@ from fdai_deployment_cli import (
     standalone_aks_inventory,
     standalone_application,
     standalone_console_publish,
+    stencil_console,
 )
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
@@ -577,11 +578,11 @@ def test_selected_stencil_feature_flags_copy_verified_hub_metadata() -> None:
         }
     )
 
-    selected = standalone_application._selected_stencil_feature_flags(selection)
+    selected = stencil_console.flags(selection.document)
 
     assert selected == feature_flags
     assert selected is not feature_flags
-    assert standalone_application._selected_stencil_feature_flags(None) is None
+    assert stencil_console.flags(None) is None
 
 
 def test_selected_stencil_feature_flags_reject_mismatch() -> None:
@@ -595,7 +596,7 @@ def test_selected_stencil_feature_flags_reject_mismatch() -> None:
     )
 
     with pytest.raises(ValueError, match="feature flags"):
-        standalone_application._selected_stencil_feature_flags(selection)
+        stencil_console.flags(selection.document)
 
 
 def _publish_with_stubbed_effects(

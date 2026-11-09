@@ -53,33 +53,14 @@ from fdai_deployment_cli.standalone_approval_input import (
     wait_for_approval_input as _wait_for_approval_input,
 )
 from fdai_deployment_cli.standalone_checkpoint_failure import remote_failure as _remote_failure
-from fdai_deployment_cli.standalone_console_publish import publish_verified_console
 from fdai_deployment_cli.standalone_remote_prepare import prepare_remote as _prepare_remote
 from fdai_deployment_cli.standalone_review import validate_plan_review
 from fdai_deployment_cli.standalone_transfer_cleanup import cleanup_remote_transfers, remote_prune
+from fdai_deployment_cli.stencil_console import flags, publish_verified_console
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _SSH_USER = re.compile(r"[a-z_][a-z0-9_-]{0,31}")
 __all__ = ["deploy_standalone_application", "publish_verified_console"]
-
-
-def _selected_stencil_feature_flags(
-    selection: HubImageSelection | None,
-) -> dict[str, object] | None:
-    if selection is None or "stencil" not in selection.document:
-        return None
-    stencil = selection.document["stencil"]
-    if not isinstance(stencil, dict):
-        raise TypeError("Hub selection Stencil metadata is invalid")
-    stencil_id = stencil.get("stencil_id")
-    feature_flags = stencil.get("feature_flags")
-    if (
-        not isinstance(stencil_id, str)
-        or not isinstance(feature_flags, dict)
-        or feature_flags.get("stencil_id") != stencil_id
-    ):
-        raise ValueError("Hub selection Stencil feature flags are invalid")
-    return dict(feature_flags)
 
 
 def deploy_standalone_application(
@@ -694,7 +675,7 @@ def deploy_standalone_application(
                 tenant_id=str(handoff["tenant_id"]),
                 timeout_seconds=deadline.remaining(),
                 redirect_changed=redirect_changed,
-                stencil_feature_flags=_selected_stencil_feature_flags(hub_selection),
+                stencil_feature_flags=flags(hub_selection.document if hub_selection else None),
             )
         if source_mode:
             assert source_transfer is not None

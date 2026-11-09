@@ -16,9 +16,8 @@ from pathlib import Path
 from typing import cast
 from urllib.parse import urlsplit
 
-from fdai_deployment_cli.console_config import (
-    render_console_config,
-    validate_console_stencil_flags,
+from fdai_deployment_cli.console_update_publish import (
+    publish_console_update as _publish,
 )
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.private_output import (
@@ -26,7 +25,7 @@ from fdai_deployment_cli.private_output import (
     read_private_bytes,
     write_private_output,
 )
-from fdai_deployment_cli.standalone_application import publish_verified_console
+from fdai_deployment_cli.stencil_console import console_update_stencil_flags
 from fdai_deployment_cli.target import compute_target_binding
 
 _GUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
@@ -112,10 +111,10 @@ class ConsoleUpdateTarget:
         }
         if len(text) != len(_TARGET_FIELDS) - 2:
             raise ValueError("Console update target values MUST be strings")
-        raw_flags = value.get("stencil_feature_flags")
-        if not isinstance(raw_flags, dict):
-            raise TypeError("Console update target Stencil feature flags are invalid")
-        target = cls(**text, stencil_feature_flags=dict(raw_flags))
+        target = cls(
+            **text,
+            stencil_feature_flags=console_update_stencil_flags(value.get("stencil_feature_flags")),
+        )
         target.validate()
         return target
 
@@ -152,27 +151,7 @@ class ConsoleUpdateTarget:
                 raise ValueError(f"Console update {label} URL is invalid")
         if _API_SCOPE.fullmatch(self.entra_console_api_scope) is None:
             raise ValueError("Console update API scope is invalid")
-        validated_flags = validate_console_stencil_flags(self.stencil_feature_flags)
-        if (
-            validated_flags.get("schema_version") != "fdai.stencil-feature-flags.v1"
-            or validated_flags.get("enforcement_mode") != "fail-closed"
-            or not isinstance(validated_flags.get("stencil_id"), str)
-        ):
-            raise ValueError("Console update target requires fail-closed Stencil feature flags")
-        render_console_config(
-            json.dumps(
-                {
-                    "schema_version": "fdai.console-runtime.v1",
-                    "operator_api_base_url": self.operator_api_base_url,
-                    "ingestion_api_base_url": self.ingestion_api_base_url,
-                    "tenant_id": self.tenant_id,
-                    "spa_client_id": self.entra_console_spa_client_id,
-                    "api_scope": self.entra_console_api_scope,
-                    "stencil_feature_flags": self.stencil_feature_flags,
-                },
-                separators=(",", ":"),
-            ).encode("ascii")
-        )
+        console_update_stencil_flags(self.stencil_feature_flags)
 
     @property
     def target_binding(self) -> str:
@@ -461,49 +440,6 @@ def apply_console_update_plan(
         )
     finally:
         os.close(lock_descriptor)
-
-
-def _publish(
-    *,
-    source_root: Path,
-    work_dir: Path,
-    archive: Path,
-    archive_digest: str,
-    target: ConsoleUpdateTarget,
-    scripts: Path,
-    timeout_seconds: int,
-    verify_only: bool,
-    verify_service_contracts: bool = True,
-) -> dict[str, object]:
-    work_dir.mkdir(mode=0o700, exist_ok=True)
-    if work_dir.is_symlink() or not work_dir.is_dir():
-        raise ValueError("Console publication work directory is invalid")
-    work_dir.chmod(0o700)
-    return publish_verified_console(
-        console_archive=archive,
-        console_archive_sha256=archive_digest,
-        bundle_root=source_root,
-        prepared_root=work_dir,
-        entra_bindings={
-            "ENTRA_CONSOLE_SPA_CLIENT_ID": target.entra_console_spa_client_id,
-            "ENTRA_CONSOLE_API_SCOPE": target.entra_console_api_scope,
-        },
-        browser_console={
-            "console_hostname": target.console_hostname,
-            "console_origin": f"https://{target.console_hostname}",
-            "console_static_web_app_id": target.console_static_web_app_id,
-            "operator_api_base_url": target.operator_api_base_url,
-            "ingestion_api_base_url": target.ingestion_api_base_url,
-        },
-        scripts=scripts,
-        subscription_id=target.subscription_id,
-        tenant_id=target.tenant_id,
-        timeout_seconds=timeout_seconds,
-        redirect_changed=False,
-        verify_only=verify_only,
-        verify_service_contracts=verify_service_contracts,
-        stencil_feature_flags=target.stencil_feature_flags,
-    )
 
 
 def _write_apply_receipt(

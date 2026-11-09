@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from fdai_deployment_cli import cli, console_update
+from fdai_deployment_cli import cli, console_update, console_update_publish
 from fdai_deployment_cli.contracts import canonical_digest
 
 SUBSCRIPTION = "00000000-0000-0000-0000-000000000001"
@@ -181,7 +181,7 @@ def test_apply_console_update_plan_writes_claim_before_publication(
         calls.append(bool(arguments["verify_only"]))
         return _publication_receipt(verify_only=bool(arguments["verify_only"]))
 
-    monkeypatch.setattr(console_update, "publish_verified_console", publish)
+    monkeypatch.setattr(console_update_publish, "publish_verified_console", publish)
     receipt = console_update.apply_console_update_plan(
         source_root=source,
         work_dir=work,
@@ -219,7 +219,7 @@ def test_apply_console_update_plan_resumes_claim_by_readback_only(
         calls.append(bool(arguments["verify_only"]))
         return _publication_receipt(verify_only=bool(arguments["verify_only"]))
 
-    monkeypatch.setattr(console_update, "publish_verified_console", publish)
+    monkeypatch.setattr(console_update_publish, "publish_verified_console", publish)
     receipt = console_update.apply_console_update_plan(
         source_root=source,
         work_dir=work,
@@ -244,7 +244,7 @@ def test_apply_console_update_plan_rolls_back_failed_publication_once(
             raise ValueError("candidate failed")
         return _publication_receipt(verify_only=False)
 
-    monkeypatch.setattr(console_update, "publish_verified_console", publish)
+    monkeypatch.setattr(console_update_publish, "publish_verified_console", publish)
     arguments = {
         "source_root": source,
         "work_dir": work,
@@ -290,7 +290,7 @@ def test_claim_recovery_does_not_republish_an_existing_rollback(
             verify_service_contracts=verify_service_contracts,
         )
 
-    monkeypatch.setattr(console_update, "publish_verified_console", publish)
+    monkeypatch.setattr(console_update_publish, "publish_verified_console", publish)
     with pytest.raises(ValueError, match="rollback was restored"):
         console_update.apply_console_update_plan(
             source_root=source,
