@@ -200,6 +200,10 @@ Missing supply-chain evidence is displayed as **Not declared**, not manufactured
 The product must match both independently approved installation Settings and local Agent policy.
 Missing database metadata selects revision zero and cannot reset an existing database.
 Release versions remain globally unique within a catalog, not namespaced by product.
+Stencil application Releases derive their workload, loop, panel, job, and add-on capability
+maximums in `shadow` mode. Feature enablement selects composition and visibility; it does not
+grant `enforce` authority. Lifecycle planning accepts only the shared `shadow` and `enforce`
+vocabulary and rejects any other serialized mode before issuing a Plan.
 The separate `fdai.runtime-release.v3` adapter preserves the existing complete FDAI inventory and
 source/offline contracts. It is not the required shape for an unrelated application.
 

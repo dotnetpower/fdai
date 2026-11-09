@@ -507,6 +507,7 @@ def test_hardening_h21_to_h34_catalog_parity_manifest_validation_and_console_con
     assert "panel:aks-commerce" not in parsed_rel.capability_maximums
     assert "job:analyzer" in parsed_rel.capability_maximums
     assert "addon:read-only-console" in parsed_rel.capability_maximums
+    assert set(parsed_rel.capability_maximums.values()) == {"shadow"}
 
     # Tampering with feature_flags.stencil_id or disabled_panel_ids fails closed.
     bad_manifest = json.loads(json.dumps(manifest))
