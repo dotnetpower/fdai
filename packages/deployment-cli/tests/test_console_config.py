@@ -40,6 +40,12 @@ def test_console_config_renders_stencil_feature_flags_when_present() -> None:
             "disabled_panel_ids": ["chaos"],
             "enabled_loops": ["anomaly-analyzer"],
             "disabled_loops": ["remediation-execution"],
+            "enabled_workloads": ["core-control-plane", "operator-service"],
+            "disabled_workloads": ["isolated-executor"],
+            "enabled_scheduled_jobs": ["analyzer", "inventory"],
+            "disabled_scheduled_jobs": ["cost-collector"],
+            "enabled_addons": ["notifications", "read-only-console"],
+            "disabled_addons": ["governed-execution"],
             "panel_flags": {
                 "audit": True,
                 "chaos": False,
@@ -48,6 +54,27 @@ def test_console_config_renders_stencil_feature_flags_when_present() -> None:
                 "settings-general": True,
             },
             "loop_flags": {"anomaly-analyzer": True, "remediation-execution": False},
+            "workload_flags": {
+                "core-control-plane": True,
+                "isolated-executor": False,
+                "operator-service": True,
+            },
+            "scheduled_job_flags": {
+                "analyzer": True,
+                "cost-collector": False,
+                "inventory": True,
+            },
+            "addon_flags": {
+                "governed-execution": False,
+                "notifications": True,
+                "read-only-console": True,
+            },
+            "stencil_digest": "sha256:" + "a" * 64,
+            "feature_flags_digest": "sha256:" + "b" * 64,
+            "runtime_env": {
+                "FDAI_STENCIL_ID": "lite-observe-alert",
+                "FDAI_STENCIL_ENABLED_PANELS": "audit,dashboard,live,settings-general",
+            },
         },
     }
     script = render_console_config(json.dumps(payload).encode()).decode("utf-8")
@@ -75,6 +102,16 @@ def test_console_config_renders_stencil_feature_flags_when_present() -> None:
                 }
             ).encode()
         )
+
+    invalid_runtime_env = {
+        **payload,
+        "stencil_feature_flags": {
+            **payload["stencil_feature_flags"],
+            "runtime_env": {"AZURE_CLIENT_SECRET": "not-allowed"},
+        },
+    }
+    with pytest.raises(ValueError, match="runtime_env"):
+        render_console_config(json.dumps(invalid_runtime_env).encode())
 
 
 @pytest.mark.parametrize(

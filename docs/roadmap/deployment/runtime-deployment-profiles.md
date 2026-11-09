@@ -51,7 +51,9 @@ into the installation runtime configuration and records their digest in the publ
 The Operator API must first expose the same active panel list through
 `/system/stencil-feature-flags`. Missing metadata, a missing endpoint, or a runtime mismatch stops
 publication; an explicit source deployment without a Hub selection keeps the existing unscoped
-Console behavior.
+Console behavior. The Console runtime file preserves the complete validated Release flag document,
+including workload, scheduled-job, add-on, digest, and `runtime_env` fields; the browser still uses
+the panel axis for navigation.
 
 Selecting Hub images does not change runtime-profile defaults, product add-ons, executor identity,
 approval, licensing or health/zero-change-plan requirements. Explicit source mode retains its

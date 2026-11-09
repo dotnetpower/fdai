@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 4a55c64036af29cd2c66007a06abf4a3439b8857
+translation_source_sha: c3e829e5d897446330ee38a2ae51fc9e5f4435aa
 translation_revised: 2026-11-09
 ---
 # 런타임 배포 프로파일
@@ -54,7 +54,9 @@ Console 바이트를 게시하기 전에 조정기는 같은 검증된 Stencil `
 구성에 복사하고 게시 증적에 해당 다이제스트를 기록합니다. 먼저 Operator API가
 `/system/stencil-feature-flags`에서 같은 활성 패널 목록을 제공해야 합니다. Stencil 메타데이터나
 이 경로가 없거나 런타임 목록이 다르면 게시를 중단합니다. Hub 선택이 없는 명시적 소스 배포는
-기존의 범위 제한이 없는 Console 동작을 유지합니다.
+기존의 범위 제한이 없는 Console 동작을 유지합니다. Console 런타임 파일은 workload, 예약 Job,
+추가 기능, 다이제스트, `runtime_env` 필드를 포함한 검증된 Release 플래그 문서 전체를 보존합니다.
+브라우저 탐색에는 계속 패널 축을 사용합니다.
 
 Hub 이미지 선택은 런타임 프로필 기본값, 제품 추가 기능, 실행기 신원, 승인, 라이선싱,
 상태 및 무변경 계획 검증을 바꾸지 않습니다. 명시적 소스 모드는 Hub에 의존하지 않는
