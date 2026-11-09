@@ -227,7 +227,8 @@ describe("stencil-builder helpers", () => {
 
   it("restores registered add-ons and source rather than retaining the preceding preset", () => {
     const catalog: StencilCatalogResponse = {
-      presets: [], panels: [], workloads: [], locked_workloads: [],
+      presets: [], panels: [samplePanels[0]!],
+      workloads: ["core-control-plane"], locked_workloads: [],
       scheduled_jobs: ["analyzer"], locked_scheduled_jobs: ["analyzer"],
       loops: ["inventory"], locked_loops: ["inventory"],
       addons: ["notifications", "policy-administration"], locked_addons: ["notifications"],
@@ -262,6 +263,22 @@ describe("stencil-builder helpers", () => {
       addons: ["notifications"], loops: ["inventory"], jobs: ["analyzer"],
       sourceMode: "auto", sourceCommit: "auto",
     });
+    for (const stencil of [
+      { ...JSON.parse(release.manifest).stencil, enabled_panel_ids: ["unknown"] },
+      {
+        ...JSON.parse(release.manifest).stencil,
+        enabled_panel_ids: ["dashboard", "dashboard"],
+      },
+      {
+        ...JSON.parse(release.manifest).stencil,
+        feature_flags: { enabled_addons: ["unknown-addon"] },
+      },
+    ]) {
+      expect(restoreRegisteredStencil({
+        ...release,
+        manifest: JSON.stringify({ stencil }),
+      }, catalog)).toBeNull();
+    }
   });
 
   it("does not silently replace invalid or already registered preset one-click versions", () => {

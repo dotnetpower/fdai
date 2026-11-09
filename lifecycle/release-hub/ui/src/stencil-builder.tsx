@@ -117,13 +117,31 @@ export function restoreRegisteredStencil(
     ? manifest.source_commit.trim().toLowerCase()
     : "";
   const inherited = COMMIT_SHA_RE.test(source);
+  const loops = stencil.enabled_loops ?? catalog.locked_loops;
+  const jobs = stencil.enabled_scheduled_jobs ?? catalog.locked_scheduled_jobs;
+  const addons = stencil.feature_flags?.enabled_addons ?? catalog.locked_addons;
+  const validSelection = (values: readonly string[], allowed: readonly string[]) => {
+    const allowedIds = new Set(allowed);
+    return new Set(values).size === values.length
+      && values.every((value) => allowedIds.has(value));
+  };
+  if (!Array.isArray(loops)
+    || !Array.isArray(jobs)
+    || !Array.isArray(addons)
+    || !validSelection(stencil.enabled_panel_ids, catalog.panels.map((panel) => panel.id))
+    || !validSelection(stencil.enabled_workloads, catalog.workloads)
+    || !validSelection(loops, catalog.loops)
+    || !validSelection(jobs, catalog.scheduled_jobs)
+    || !validSelection(addons, catalog.addons)) {
+    return null;
+  }
   return {
     stencil,
     panels: [...stencil.enabled_panel_ids],
     workloads: [...stencil.enabled_workloads],
-    loops: [...(stencil.enabled_loops ?? catalog.locked_loops)],
-    jobs: [...(stencil.enabled_scheduled_jobs ?? catalog.locked_scheduled_jobs)],
-    addons: [...(stencil.feature_flags?.enabled_addons ?? catalog.locked_addons)],
+    loops: [...loops],
+    jobs: [...jobs],
+    addons: [...addons],
     sourceMode: inherited ? `release:${release.id}` : catalog.detected_source_commit ? "auto" : "derived",
     sourceCommit: inherited ? source : catalog.detected_source_commit ? "auto" : "derived",
     customCommitInput: inherited ? source : catalog.detected_source_commit ?? "",
