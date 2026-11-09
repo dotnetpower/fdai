@@ -45,9 +45,9 @@ locked, dependency and preset references; footprint arithmetic and privilege fla
 feature maps; and restored Release selections against the current catalog. One malformed or
 inconsistent record makes the complete catalog unavailable instead of rendering a partial
 selection that looks valid.
-The lightweight `lite-observe-alert` preset includes **Settings: Models** because the global
-conversation surface and model inventory share `/models/settings`. This keeps the panel guard and
-its API dependency aligned. The Stencil exposes the configuration surface only; the
+The lightweight `lite-observe-alert` preset includes **Fleet** and **Settings: Models**. Fleet keeps
+the Pantheon workspace's `/agents` tab navigable, while the global conversation surface and model
+inventory share `/models/settings`. This keeps panel guards and their API dependencies aligned. The Stencil exposes the configuration surface only; the
 installation-owned model binding, endpoint, managed identity, and capacity still come from
 Lifecycle configuration and grant no authority to Release Hub or the browser.
 

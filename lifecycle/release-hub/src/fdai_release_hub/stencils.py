@@ -841,6 +841,7 @@ LITE_OBSERVE_ALERT_PANELS: tuple[str, ...] = tuple(
     sorted(
         {
             *LOCKED_CORE_PANELS,
+            "agents",
             "live",
             "incidents",
             "detection-readiness",

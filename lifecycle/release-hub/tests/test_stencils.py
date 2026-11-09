@@ -64,7 +64,8 @@ def test_stencil_presets_and_footprint_calculations() -> None:
     assert set(lite.enabled_workloads) == {"core-control-plane", "operator-service"}
     assert set(lite.enabled_loops) == set(LOCKED_CORE_LOOPS)
     assert set(LOCKED_CORE_PANELS).issubset(lite.enabled_panel_ids)
-    assert len(lite.enabled_panel_ids) == 15
+    assert len(lite.enabled_panel_ids) == 16
+    assert "agents" in lite.enabled_panel_ids
     assert "settings-models" in lite.enabled_panel_ids
     assert lite_fp["feature_flags"]["schema_version"] == "fdai.stencil-feature-flags.v1"
     assert lite_fp["feature_flags"]["enforcement_mode"] == "fail-closed"

@@ -51,6 +51,7 @@ def _dummy_operator_app() -> Starlette:
         Route("/audit", ok_handler),
         Route("/incidents", ok_handler),
         Route("/live/stream", ok_handler),
+        Route("/agents", ok_handler),
         Route("/ontology/instances/states", ok_handler),
         Route("/aks-commerce/overview", ok_handler),
         Route("/cost-governance/summary", ok_handler),
@@ -90,7 +91,7 @@ def test_lite_observe_alert_stencil_blocks_deactivated_menu_endpoints_fail_close
     environ = {
         "FDAI_STENCIL_ID": "lite-observe-alert",
         "FDAI_STENCIL_ENABLED_PANELS": (
-            "audit,dashboard,incidents,live,detection-readiness,alert-quality,"
+            "audit,dashboard,agents,incidents,live,detection-readiness,alert-quality,"
             "configuration-baselines,conversation-delivery,pantheon,agent-activity,"
             "rules,trace,settings-general,settings-integrations,settings-models"
         ),
@@ -106,6 +107,7 @@ def test_lite_observe_alert_stencil_blocks_deactivated_menu_endpoints_fail_close
     for allowed_path in (
         "/healthz",
         "/iam/self",
+        "/agents",
         "/access-grants/stream",
         "/ontology/instances/states",
         "/kpi",
