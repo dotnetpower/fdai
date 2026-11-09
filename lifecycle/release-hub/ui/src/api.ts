@@ -670,6 +670,12 @@ export async function requestStencilCatalog(): Promise<StencilCatalogResponse> {
       && validStencilDefinition(item.stencil) && "footprint" in item && validStencilFootprint(item.footprint))
     || !Array.isArray(data.panels)
     || !data.panels.every(validStencilPanelDescriptor)
+    || new Set(
+      (data.panels as StencilPanelDescriptor[]).map((panel) => panel.id),
+    ).size !== data.panels.length
+    || new Set(
+      (data.panels as StencilPanelDescriptor[]).map((panel) => panel.path),
+    ).size !== data.panels.length
     || !["workloads", "locked_workloads", "scheduled_jobs", "locked_scheduled_jobs", "loops", "locked_loops",
       "addons", "locked_addons", "locked_panels"]
       .every((field) => Array.isArray(data[field]) && (data[field] as unknown[]).every((item) => typeof item === "string"))

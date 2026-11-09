@@ -3,10 +3,13 @@ import { actionsFor, artifacts, catalogChangeObserved, catalogRecovery, CatalogR
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
-function stencilCatalog(panel: Record<string, unknown>) {
+function stencilCatalog(
+  panel: Record<string, unknown>,
+  additionalPanels: Record<string, unknown>[] = [],
+) {
   return {
     presets: [],
-    panels: [panel],
+    panels: [panel, ...additionalPanels],
     workloads: [],
     locked_workloads: [],
     scheduled_jobs: [],
@@ -168,6 +171,16 @@ describe("release action boundaries", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
       ok: true,
       json: async () => stencilCatalog(panel),
+    }));
+    await expect(requestStencilCatalog()).rejects.toThrow("Invalid Stencil catalog payload");
+  });
+  it.each([
+    ["duplicate panel ids", { ...VALID_PANEL, path: "/other-path" }],
+    ["duplicate panel paths", { ...VALID_PANEL, id: "other-panel" }],
+  ])("rejects %s", async (_label, duplicate) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => stencilCatalog(VALID_PANEL, [duplicate]),
     }));
     await expect(requestStencilCatalog()).rejects.toThrow("Invalid Stencil catalog payload");
   });
