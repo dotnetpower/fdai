@@ -663,16 +663,50 @@ function validStencilFootprint(value: unknown): value is StencilFootprint {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const footprint = value as Record<string, unknown>;
   const featureFlags = footprint.feature_flags;
-  return typeof footprint.stencil_digest === "string"
-    && typeof footprint.azure_rbac_posture === "string"
-    && typeof footprint.console_build_command === "string"
+  const terraform = footprint.terraform_flags;
+  return typeof footprint.stencil_id === "string"
+    && STENCIL_PANEL_ID_PATTERN.test(footprint.stencil_id)
+    && typeof footprint.stencil_digest === "string"
+    && /^sha256:[0-9a-f]{64}$/.test(footprint.stencil_digest)
+    && typeof footprint.topology_profile === "string"
+    && STENCIL_TOPOLOGY_PROFILES.has(footprint.topology_profile)
+    && boundedDisplayText(footprint.azure_rbac_posture)
+    && boundedDisplayText(footprint.console_build_command, 4096)
     && typeof footprint.includes_clamav_sidecar === "boolean"
-    && ["workload_count", "total_workloads", "enabled_panel_count", "total_panel_count"]
-      .every((field) => typeof footprint[field] === "number" && Number.isFinite(footprint[field]))
-    && ["omitted_workloads", "required_azure_roles"]
+    && typeof footprint.includes_privileged_executor === "boolean"
+    && [
+      "workload_count",
+      "total_workloads",
+      "scheduled_job_count",
+      "enabled_panel_count",
+      "total_panel_count",
+      "omitted_panel_count",
+    ].every((field) =>
+      typeof footprint[field] === "number"
+      && Number.isInteger(footprint[field])
+      && (footprint[field] as number) >= 0)
+    && [
+      "omitted_workloads",
+      "omitted_scheduled_jobs",
+      "omitted_loops",
+      "disabled_panel_ids",
+      "disabled_loops",
+      "active_navigation_groups",
+      "enabled_feature_ids",
+      "required_azure_roles",
+    ]
       .every((field) => Array.isArray(footprint[field]) && (footprint[field] as unknown[]).every((item) => typeof item === "string"))
     && (footprint.release_labels === undefined
       || (Array.isArray(footprint.release_labels) && footprint.release_labels.every((item) => typeof item === "string")))
+    && typeof terraform === "object"
+    && terraform !== null
+    && !Array.isArray(terraform)
+    && "enable_document_ingestion_workloads" in terraform
+    && typeof terraform.enable_document_ingestion_workloads === "boolean"
+    && "enable_isolated_executor" in terraform
+    && typeof terraform.enable_isolated_executor === "boolean"
+    && "product_profile_mode" in terraform
+    && boundedDisplayText(terraform.product_profile_mode)
     && (featureFlags === undefined || (typeof featureFlags === "object" && featureFlags !== null
       && "enforcement_mode" in featureFlags && typeof featureFlags.enforcement_mode === "string"
       && "disabled_panel_ids" in featureFlags && Array.isArray(featureFlags.disabled_panel_ids)

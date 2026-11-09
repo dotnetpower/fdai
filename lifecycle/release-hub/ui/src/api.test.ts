@@ -53,16 +53,32 @@ const VALID_STENCIL = {
 };
 
 const VALID_FOOTPRINT = {
+  stencil_id: "lite-observe-alert",
   stencil_digest: `sha256:${"a".repeat(64)}`,
+  topology_profile: "lite-observe-alert",
   azure_rbac_posture: "read-only-observation",
   console_build_command: "npm run build",
   includes_clamav_sidecar: false,
+  includes_privileged_executor: false,
   workload_count: 0,
   total_workloads: 0,
+  scheduled_job_count: 0,
   enabled_panel_count: 1,
   total_panel_count: 1,
+  omitted_panel_count: 0,
   omitted_workloads: [],
+  omitted_scheduled_jobs: [],
+  omitted_loops: [],
+  disabled_panel_ids: [],
+  disabled_loops: [],
+  active_navigation_groups: ["operations"],
+  enabled_feature_ids: [],
   required_azure_roles: [],
+  terraform_flags: {
+    enable_document_ingestion_workloads: false,
+    enable_isolated_executor: false,
+    product_profile_mode: "observation-first",
+  },
 };
 
 describe("release action boundaries", () => {
@@ -334,6 +350,34 @@ describe("release action boundaries", () => {
       json: async () => stencilCatalog(VALID_PANEL, [], [{
         stencil,
         footprint: VALID_FOOTPRINT,
+      }]),
+    }));
+    await expect(requestStencilCatalog()).rejects.toThrow("Invalid Stencil catalog payload");
+  });
+  it.each([
+    ["invalid digest", { ...VALID_FOOTPRINT, stencil_digest: "sha256:bad" }],
+    ["negative count", { ...VALID_FOOTPRINT, workload_count: -1 }],
+    ["fractional count", { ...VALID_FOOTPRINT, total_panel_count: 1.5 }],
+    [
+      "missing executor boundary",
+      { ...VALID_FOOTPRINT, includes_privileged_executor: undefined },
+    ],
+    [
+      "invalid Terraform flag",
+      {
+        ...VALID_FOOTPRINT,
+        terraform_flags: {
+          ...VALID_FOOTPRINT.terraform_flags,
+          enable_isolated_executor: "false",
+        },
+      },
+    ],
+  ])("rejects %s in Stencil footprints", async (_label, footprint) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => stencilCatalog(VALID_PANEL, [], [{
+        stencil: VALID_STENCIL,
+        footprint,
       }]),
     }));
     await expect(requestStencilCatalog()).rejects.toThrow("Invalid Stencil catalog payload");
