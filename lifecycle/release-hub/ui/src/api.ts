@@ -589,10 +589,15 @@ const STENCIL_PANEL_GROUPS = new Set([
 ]);
 const STENCIL_PANEL_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const STENCIL_PANEL_PATH_PATTERN = /^\/[a-z0-9]+(?:[/-][a-z0-9]+)*$/;
+const STENCIL_TOPOLOGY_PROFILES = new Set([
+  "lite-observe-alert",
+  "standard-sre",
+  "full-enterprise",
+]);
 
-function boundedDisplayText(value: unknown): value is string {
+function boundedDisplayText(value: unknown, maximum = 160): value is string {
   return typeof value === "string"
-    && value.length <= 160
+    && value.length <= maximum
     && value.trim().length > 0
     && !/[\u0000-\u001f\u007f]/u.test(value);
 }
@@ -639,13 +644,16 @@ function validRuntimeAxisDescriptor(value: unknown): value is RuntimeAxisDescrip
 function validStencilDefinition(value: unknown): value is StencilDefinitionRecord {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const stencil = value as Record<string, unknown>;
-  return typeof stencil.schema_version === "string"
+  return stencil.schema_version === "fdai.stencil-definition.v1"
     && typeof stencil.stencil_id === "string"
-    && typeof stencil.title === "string"
-    && typeof stencil.title_ko === "string"
-    && typeof stencil.description === "string"
-    && typeof stencil.description_ko === "string"
+    && stencil.stencil_id.length <= 63
+    && STENCIL_PANEL_ID_PATTERN.test(stencil.stencil_id)
+    && boundedDisplayText(stencil.title)
+    && boundedDisplayText(stencil.title_ko)
+    && boundedDisplayText(stencil.description, 500)
+    && boundedDisplayText(stencil.description_ko, 500)
     && typeof stencil.topology_profile === "string"
+    && STENCIL_TOPOLOGY_PROFILES.has(stencil.topology_profile)
     && stencil.authority_granted === false
     && ["enabled_workloads", "enabled_panel_ids", "enabled_scheduled_jobs", "enabled_loops", "enabled_addons"]
       .every((field) => Array.isArray(stencil[field]) && (stencil[field] as unknown[]).every((item) => typeof item === "string"));
