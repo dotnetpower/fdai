@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 7b8a3d6d90c0e26095ff50a77d341df56113d062
+translation_source_sha: 416a488a022405f51d23c04def4ef7f62ebd8713
 translation_revised: 2026-11-09
 ---
 # FDAI Console 대화
@@ -205,6 +205,14 @@ Settings 모달은 데스크톱과 모바일에서 사용권 워터마크 위에
 표시합니다. 신뢰도 근거가 없는 측정값에는 참고용임을 알리는 안내를 함께 표시합니다. 누락된 값은
 계속 근거 없음으로 남으며 예시 값이나 0으로 대체하지 않습니다. 이러한 표시 규칙은 읽기, 승인,
 실행 권한을 추가하지 않습니다.
+
+### Release 식별 정보 표시
+
+Hub 이미지 Console 게시는 검증된 변경 불가능한 Release 버전을 브라우저 제목과 Console
+워드마크 옆의 눈에 띄지 않는 레이블로 표시합니다. 이 값은 설치본이 소유한
+`fdai-config.js`에서만 가져옵니다. 브라우저에서는 값을 편집하거나 다른 Release를 선택할 수
+없으며 이 값으로 권한을 부여하지도 않습니다. Hub를 선택하지 않은 명시적 소스 배포는 버전
+없는 제목을 유지하고 레이블을 표시하지 않습니다.
 
 ## 공통 답변 표시
 
