@@ -9,9 +9,11 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from types import SimpleNamespace
 
 import httpx
 import pytest
+from fdai_operator_service.adapters import narrator_identity
 from fdai_operator_service.adapters.local_narrator import (
     LocalAzureNarratorAdapters,
     NarratorLatencyPool,
@@ -140,6 +142,36 @@ class IncrementingClock:
     def __call__(self) -> float:
         self.value += 0.001
         return self.value
+
+
+async def test_deployed_narrator_uses_selected_workload_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scopes: list[str] = []
+    closed = False
+
+    class Credential:
+        async def get_token(self, scope: str) -> SimpleNamespace:
+            scopes.append(scope)
+            return SimpleNamespace(token="managed-token")
+
+        async def close(self) -> None:
+            nonlocal closed
+            closed = True
+
+    monkeypatch.setattr(
+        narrator_identity,
+        "create_workload_credential",
+        lambda **_kwargs: Credential(),
+    )
+    provider = narrator_identity.build_narrator_token_provider(
+        {"FDAI_EXECUTION_VENUE": "deployed"},
+        client_id="00000000-0000-0000-0000-000000000001",
+    )
+
+    assert await provider("https://cognitiveservices.azure.com/") == "managed-token"
+    assert scopes == ["https://cognitiveservices.azure.com/.default"]
+    assert closed is True
 
 
 def _artifact(path: Path) -> Path:
