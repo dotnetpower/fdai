@@ -452,6 +452,7 @@ export function computeApolloReleaseDiff(base: Release, target: Release): Apollo
 
 export type StencilPanelDescriptor = {
   id: string;
+  path: string;
   group: string;
   label: string;
   label_ko: string;
@@ -633,6 +634,8 @@ export async function requestStencilCatalog(): Promise<StencilCatalogResponse> {
       if (typeof item !== "object" || item === null || Array.isArray(item)) return false;
       const panel = item as Record<string, unknown>;
       return typeof panel.id === "string" && typeof panel.group === "string"
+        && typeof panel.path === "string"
+        && /^\/[a-z0-9]+(?:[/-][a-z0-9]+)*$/.test(panel.path)
         && typeof panel.label === "string" && typeof panel.label_ko === "string"
         && typeof panel.locked === "boolean"
         && ["required_workloads", "required_loops", "required_addons", "feature_ids"]

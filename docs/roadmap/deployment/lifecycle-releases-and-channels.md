@@ -35,6 +35,10 @@ The local Release Hub exposes API workflows and a web UI with left-to-right (`LR
 `0.5.0` baseline and `0.5.x` patch-default progression, and Stencil edition tracks. Existing signed bundles and
 local shadow-only validators alone don't constitute an implemented production Release Hub service. Catalog
 directories, APIs, schemas, and identifiers keep their technical names.
+Each Stencil panel descriptor also carries the stable machine id, canonical Console path, and
+English/Korean display labels. Release Hub shows the same display label as Console while retaining
+the machine id for signed feature flags. Cross-layer checks compare every Hub path with Console's
+registered route table so a renamed user-facing route cannot silently break a selected menu.
 
 The opt-in [two-Hub development path](../../../infra/hubs-development/README.md) adds direct
 Entra operator/service separation, PostgreSQL or single-replica serverless Azure Files SQLite storage with explicit migrations,

@@ -1,7 +1,7 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: e8be2775ce42034aa6c1d61579e705fdae1b19fa
+translation_source_sha: 65b7647a4c140a58708c2bbd4cb234510a6f97cc
 translation_revised: 2026-11-09
 ---
 # Lifecycle Release와 채널
@@ -36,6 +36,10 @@ translation_revised: 2026-11-09
 로컬 Release Hub는 API 작업 흐름과 좌우(`LR`) 버전 계통도, `0.5.0` 기준 및 `0.5.x` 하위 패치 기본 증가,
 Stencil 에디션 트랙을 포함한 웹 UI를 제공합니다. 기존 서명된 번들과 로컬 `shadow` 전용 검증기만 있다고 해서 프로덕션 Release Hub 서비스가 구현된 것은 아닙니다.
 카탈로그 디렉터리, API, 스키마, 식별자는 기존 기술 명칭을 유지합니다.
+각 Stencil 패널 서술자는 안정적인 기계 ID, Console 정규 경로, 영문/한글 표시 이름도 함께
+제공합니다. Release Hub는 서명된 기능 플래그에 기계 ID를 유지하면서 Console과 같은 표시
+이름을 사용합니다. 교차 계층 검사는 Hub의 모든 경로를 Console에 등록된 경로 표와 비교하여
+사용자 표시 경로가 바뀌어도 선택한 메뉴가 조용히 중단되지 않도록 합니다.
 
 명시적으로 선택하는 [두 Hub 개발 경로](../../../infra/hubs-development/README.md)는 Entra
 운영자 인증과 서비스 ID의 분리, 명시적 migration을 사용하는 PostgreSQL 또는 단일 레플리카 서버리스 Azure Files SQLite 발행 저장소,

@@ -1322,6 +1322,7 @@ export function StencilBuilder({
                                   </div>
                                   <div class="stencil-axis-meta">
                                     <code>{panel.id}</code>
+                                    <code>{panel.path}</code>
                                     {panel.required_workloads.length > 0 && (
                                       <span class="stencil-agents">
                                         + {panel.required_workloads.join(", ")}

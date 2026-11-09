@@ -297,6 +297,26 @@ SCHEDULED_JOB_DESCRIPTORS: tuple[RuntimeAxisDescriptor, ...] = (
 )
 
 
+_CONSOLE_PANEL_PATH_OVERRIDES: Mapping[str, str] = {
+    "dashboard": "/overview",
+    "dashboard-v2": "/resource-dashboard",
+    "gpu": "/gpu-monitoring",
+    "hil-queue": "/approvals",
+    "provision": "/provisioning",
+    "detection-readiness": "/detection-coverage",
+    "rca": "/root-cause-analysis",
+    "handover": "/agent-oversight",
+    "settings-general": "/settings/general",
+    "settings-environment": "/settings/environment-and-deployment",
+    "settings-models": "/settings/models",
+    "settings-runtime": "/settings/runtime-policies",
+    "settings-memory": "/settings/memory",
+    "settings-iam": "/settings/iam",
+    "settings-integrations": "/settings/integrations",
+    "settings-diagnostics": "/settings/diagnostics",
+}
+
+
 @dataclass(frozen=True, slots=True)
 class ConsolePanelDescriptor:
     """Metadata and dependency contract for one selectable FDAI Console menu panel."""
@@ -310,6 +330,12 @@ class ConsolePanelDescriptor:
     required_loops: tuple[str, ...] = ()
     required_addons: tuple[str, ...] = ()
     feature_ids: tuple[str, ...] = ()
+
+    @property
+    def path(self) -> str:
+        """Return the canonical Console route for this panel."""
+
+        return _CONSOLE_PANEL_PATH_OVERRIDES.get(self.id, f"/{self.id}")
 
 
 CONSOLE_PANEL_CATALOG: tuple[ConsolePanelDescriptor, ...] = (
@@ -432,8 +458,8 @@ CONSOLE_PANEL_CATALOG: tuple[ConsolePanelDescriptor, ...] = (
     ConsolePanelDescriptor(
         id="detection-readiness",
         group="operations",
-        label="Detection readiness",
-        label_ko="감지 준비 상태",
+        label="Detection coverage",
+        label_ko="감지 커버리지",
         required_loops=("anomaly-analyzer", "inventory-reconciliation"),
         feature_ids=("F03.1", "F04.1"),
     ),
@@ -1625,6 +1651,7 @@ def stencil_catalog_payload() -> dict[str, Any]:
         "panels": [
             {
                 "id": panel.id,
+                "path": panel.path,
                 "group": panel.group,
                 "label": panel.label,
                 "label_ko": panel.label_ko,
