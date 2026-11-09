@@ -23,6 +23,10 @@ The independent Operator Service owns the authenticated conversation HTTP bounda
 semantic turns over Kafka. Core owns model selection and inference in the standard local and
 deployed semantic path. Neither the Operator nor the Console selects a deployment from operator
 text, receives execution authority, or treats model availability as verified operational evidence.
+When an installation explicitly selects the service-local narrator, local execution obtains its
+short-lived token from Azure CLI and deployed execution obtains it from the selected workload
+identity. The token is sent only in the provider Authorization header, is never logged, and grants
+no managed-resource execution authority.
 
 Core verifies the configured model audiences through a separate bounded readiness path. If model
 identity is unavailable, semantic transport remains active and returns a typed authentication hold

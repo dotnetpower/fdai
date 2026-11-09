@@ -7,6 +7,7 @@ import hashlib
 import hmac
 import json
 import logging
+import os
 from collections.abc import Awaitable, Callable, Mapping
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass, field
@@ -21,7 +22,6 @@ from fdai_service_contracts.dialogue_state import DialogueState, DialogueTurn
 from fdai_operator_service.adapters.azure_cli_token import (
     AZURE_CLI_TOKEN_TIMEOUT_SECONDS,
     AZURE_OPENAI_AUDIENCE,
-    azure_cli_token,
 )
 from fdai_operator_service.adapters.narrator_dialogue_proposer import NarratorDialogueProposer
 from fdai_operator_service.adapters.narrator_dialogue_shadow import (
@@ -30,6 +30,7 @@ from fdai_operator_service.adapters.narrator_dialogue_shadow import (
     dialogue_shadow_receipt,
 )
 from fdai_operator_service.adapters.narrator_events import NarratorEventIterator
+from fdai_operator_service.adapters.narrator_identity import build_narrator_token_provider
 from fdai_operator_service.adapters.narrator_image_resolver import (
     NarratorImageResolver,
     resolve_turn_images_from_body,
@@ -204,7 +205,11 @@ class LocalAzureNarratorAdapters:
             targets=targets,
             fallback_projections=fallback_projections,
             fallback_streams=fallback_streams,
-            token_provider=token_provider or azure_cli_token,
+            token_provider=token_provider
+            or build_narrator_token_provider(
+                os.environ,
+                client_id=os.environ.get("FDAI_MI_CLIENT_ID"),
+            ),
             http_client=resolved_http_client,
             vision_targets=resolved_vision_targets,
             dialogue_snapshots=dialogue_snapshots,

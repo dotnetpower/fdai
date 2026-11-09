@@ -1,8 +1,8 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: e8937f1bed560bc85e0cafe578169041ec09fc30
-translation_revised: 2026-11-03
+translation_source_sha: 3e593e497faf975b643bf132808408fb24811747
+translation_revised: 2026-11-10
 ---
 # 서술기 라우팅과 지연 시간
 
@@ -21,6 +21,9 @@ Outcome Assurance 읽기 패널도 서술기 라우팅 밖에 있습니다. 이 
 표준 로컬 및 배포 환경의 의미 처리 경로에서 모델 선택과 추론은 Core가 담당합니다. Operator와
 Console은 운영자 문장에서 배포를 선택하거나 실행 권한을 받지 않으며, 모델 사용 가능 상태를
 검증된 운영 근거로 취급하지 않습니다.
+설치본이 서비스 로컬 서술기를 명시적으로 선택하면 로컬 실행은 Azure CLI에서 단기 토큰을
+가져오고 배포 실행은 선택된 워크로드 ID에서 토큰을 가져옵니다. 토큰은 공급자 Authorization
+헤더에만 사용하고 로그에 기록하지 않으며 관리 리소스 실행 권한을 부여하지 않습니다.
 
 Core는 별도의 범위가 제한된 준비 상태 경로에서 구성된 모델 대상을 검증합니다. 모델 ID를
 사용할 수 없으면 의미 전송을 계속 실행하면서 계획 전에 타입이 지정된 인증 보류 결과를
