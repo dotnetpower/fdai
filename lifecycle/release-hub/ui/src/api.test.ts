@@ -52,6 +52,30 @@ const VALID_STENCIL = {
   authority_granted: false,
 };
 
+const VALID_FEATURE_FLAGS = {
+  schema_version: "fdai.stencil-feature-flags.v1",
+  stencil_id: "lite-observe-alert",
+  stencil_digest: `sha256:${"a".repeat(64)}`,
+  feature_flags_digest: `sha256:${"b".repeat(64)}`,
+  enforcement_mode: "fail-closed",
+  enabled_panel_ids: ["detection-readiness"],
+  disabled_panel_ids: ["labs"],
+  enabled_loops: [],
+  disabled_loops: [],
+  enabled_workloads: [],
+  disabled_workloads: [],
+  enabled_scheduled_jobs: [],
+  disabled_scheduled_jobs: [],
+  enabled_addons: [],
+  disabled_addons: [],
+  panel_flags: { "detection-readiness": true, labs: false },
+  loop_flags: {},
+  workload_flags: {},
+  scheduled_job_flags: {},
+  addon_flags: {},
+  runtime_env: { FDAI_STENCIL_ID: "lite-observe-alert" },
+};
+
 const VALID_FOOTPRINT = {
   stencil_id: "lite-observe-alert",
   stencil_digest: `sha256:${"a".repeat(64)}`,
@@ -79,6 +103,7 @@ const VALID_FOOTPRINT = {
     enable_isolated_executor: false,
     product_profile_mode: "observation-first",
   },
+  feature_flags: VALID_FEATURE_FLAGS,
 };
 
 describe("release action boundaries", () => {
@@ -378,6 +403,40 @@ describe("release action boundaries", () => {
       json: async () => stencilCatalog(VALID_PANEL, [], [{
         stencil: VALID_STENCIL,
         footprint,
+      }]),
+    }));
+    await expect(requestStencilCatalog()).rejects.toThrow("Invalid Stencil catalog payload");
+  });
+  it.each([
+    [
+      "non-fail-closed enforcement",
+      { ...VALID_FEATURE_FLAGS, enforcement_mode: "allow" },
+    ],
+    [
+      "overlapping panel lists",
+      {
+        ...VALID_FEATURE_FLAGS,
+        disabled_panel_ids: ["detection-readiness"],
+        panel_flags: { "detection-readiness": true },
+      },
+    ],
+    [
+      "contradictory panel flag",
+      {
+        ...VALID_FEATURE_FLAGS,
+        panel_flags: { "detection-readiness": false, labs: false },
+      },
+    ],
+    [
+      "unscoped runtime env",
+      { ...VALID_FEATURE_FLAGS, runtime_env: { AZURE_CLIENT_SECRET: "not-allowed" } },
+    ],
+  ])("rejects %s in Stencil feature flags", async (_label, featureFlags) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => stencilCatalog(VALID_PANEL, [], [{
+        stencil: VALID_STENCIL,
+        footprint: { ...VALID_FOOTPRINT, feature_flags: featureFlags },
       }]),
     }));
     await expect(requestStencilCatalog()).rejects.toThrow("Invalid Stencil catalog payload");

@@ -659,6 +659,58 @@ function validStencilDefinition(value: unknown): value is StencilDefinitionRecor
       .every((field) => Array.isArray(stencil[field]) && (stencil[field] as unknown[]).every((item) => typeof item === "string"));
 }
 
+function validStencilFeatureFlags(value: unknown): value is StencilFeatureFlagsRecord {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const flags = value as Record<string, unknown>;
+  const axes = [
+    ["panel", "enabled_panel_ids", "disabled_panel_ids", "panel_flags"],
+    ["loop", "enabled_loops", "disabled_loops", "loop_flags"],
+    ["workload", "enabled_workloads", "disabled_workloads", "workload_flags"],
+    ["job", "enabled_scheduled_jobs", "disabled_scheduled_jobs", "scheduled_job_flags"],
+    ["addon", "enabled_addons", "disabled_addons", "addon_flags"],
+  ] as const;
+  if (flags.schema_version !== "fdai.stencil-feature-flags.v1"
+    || typeof flags.stencil_id !== "string"
+    || !STENCIL_PANEL_ID_PATTERN.test(flags.stencil_id)
+    || typeof flags.stencil_digest !== "string"
+    || !/^sha256:[0-9a-f]{64}$/.test(flags.stencil_digest)
+    || (flags.feature_flags_digest !== undefined
+      && (typeof flags.feature_flags_digest !== "string"
+        || !/^sha256:[0-9a-f]{64}$/.test(flags.feature_flags_digest)))
+    || flags.enforcement_mode !== "fail-closed") {
+    return false;
+  }
+  for (const [_label, enabledKey, disabledKey, mapKey] of axes) {
+    const enabled = flags[enabledKey];
+    const disabled = flags[disabledKey];
+    const map = flags[mapKey];
+    if (!Array.isArray(enabled)
+      || !enabled.every((item) => typeof item === "string")
+      || new Set(enabled).size !== enabled.length
+      || !Array.isArray(disabled)
+      || !disabled.every((item) => typeof item === "string")
+      || new Set(disabled).size !== disabled.length
+      || enabled.some((item) => disabled.includes(item))
+      || typeof map !== "object"
+      || map === null
+      || Array.isArray(map)) {
+      return false;
+    }
+    const values = map as Record<string, unknown>;
+    if (Object.keys(values).length !== enabled.length + disabled.length
+      || enabled.some((item) => values[item] !== true)
+      || disabled.some((item) => values[item] !== false)) {
+      return false;
+    }
+  }
+  const runtime = flags.runtime_env;
+  return typeof runtime === "object"
+    && runtime !== null
+    && !Array.isArray(runtime)
+    && Object.entries(runtime).every(([key, item]) =>
+      /^FDAI_STENCIL_[A-Z0-9_]+$/.test(key) && typeof item === "string");
+}
+
 function validStencilFootprint(value: unknown): value is StencilFootprint {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const footprint = value as Record<string, unknown>;
@@ -707,10 +759,7 @@ function validStencilFootprint(value: unknown): value is StencilFootprint {
     && typeof terraform.enable_isolated_executor === "boolean"
     && "product_profile_mode" in terraform
     && boundedDisplayText(terraform.product_profile_mode)
-    && (featureFlags === undefined || (typeof featureFlags === "object" && featureFlags !== null
-      && "enforcement_mode" in featureFlags && typeof featureFlags.enforcement_mode === "string"
-      && "disabled_panel_ids" in featureFlags && Array.isArray(featureFlags.disabled_panel_ids)
-      && "disabled_loops" in featureFlags && Array.isArray(featureFlags.disabled_loops)));
+    && (featureFlags === undefined || validStencilFeatureFlags(featureFlags));
 }
 
 export async function requestStencilCatalog(): Promise<StencilCatalogResponse> {
