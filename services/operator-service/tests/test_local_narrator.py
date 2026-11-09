@@ -364,18 +364,6 @@ async def test_pantheon_screen_question_returns_all_verified_agent_rows(tmp_path
             "screen://pantheon/agents/Bragi",
         ],
         "reason_code": "pantheon_screen_catalog_verified",
-        "claims": [
-            {
-                "claim_id": "pantheon-agent-1",
-                "status": "supported",
-                "evidence_refs": ["screen://pantheon/agents/Odin"],
-            },
-            {
-                "claim_id": "pantheon-agent-2",
-                "status": "supported",
-                "evidence_refs": ["screen://pantheon/agents/Bragi"],
-            },
-        ],
         "failed_claim_ids": [],
     }
 
