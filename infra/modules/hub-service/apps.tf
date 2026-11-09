@@ -66,6 +66,7 @@ locals {
         )
       },
       kind == "target" && var.catalog != null ? { catalog = local.catalog_config } : {},
+      kind == "target" && length(var.installation_console_urls) > 0 ? { installation_console_urls = var.installation_console_urls } : {},
       kind == "release" && var.catalog_roles != null ? { catalog_roles = { for key, value in var.catalog_roles : key => value if value != null } } : {},
       kind == "release" && var.timestamp_renewal_check_seconds > 0 ? { timestamp_renewal_check_seconds = var.timestamp_renewal_check_seconds } : {},
     )

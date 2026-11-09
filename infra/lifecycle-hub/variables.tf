@@ -77,6 +77,22 @@ variable "operator_auth" {
   })
   default = null
 }
+variable "installation_console_urls" {
+  type        = map(string)
+  default     = {}
+  description = "Deployment-owned installation id to exact HTTPS Console origin."
+  validation {
+    condition = (
+      length(var.installation_console_urls) <= 128 &&
+      alltrue([
+        for installation_id, console_url in var.installation_console_urls :
+        can(regex("^[a-z][a-z0-9-]{0,62}$", installation_id)) &&
+        can(regex("^https://[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+/?$", console_url))
+      ])
+    )
+    error_message = "Console bindings require at most 128 canonical installation ids and exact HTTPS origins."
+  }
+}
 variable "enable_apps" {
   type    = bool
   default = false

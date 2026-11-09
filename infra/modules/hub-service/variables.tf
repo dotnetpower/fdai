@@ -377,6 +377,23 @@ variable "catalog_roles" {
     error_message = "The snapshot validity must outlast the timestamp validity."
   }
 }
+variable "installation_console_urls" {
+  type        = map(string)
+  default     = {}
+  description = "Lifecycle Hub only: deployment-owned installation id to exact HTTPS Console origin."
+  validation {
+    condition = (
+      (var.kind == "target" || length(var.installation_console_urls) == 0) &&
+      length(var.installation_console_urls) <= 128 &&
+      alltrue([
+        for installation_id, console_url in var.installation_console_urls :
+        can(regex("^[a-z][a-z0-9-]{0,62}$", installation_id)) &&
+        can(regex("^https://[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+/?$", console_url))
+      ])
+    )
+    error_message = "Lifecycle Hub Console bindings require at most 128 canonical installation ids and exact HTTPS origins."
+  }
+}
 variable "enable_apps" {
   type    = bool
   default = false

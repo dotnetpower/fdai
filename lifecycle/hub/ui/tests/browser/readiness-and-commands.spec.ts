@@ -22,6 +22,7 @@ test("installation readiness, recovery timeline, configuration tab, commands, au
         json: {
           installation_id: installationId,
           enrollment: "enrolled",
+          console_url: "https://console.example.com",
           settings: {
             channel: "RELEASE",
             version_range: ">=1.4.0 <2.0.0",
@@ -83,6 +84,29 @@ test("installation readiness, recovery timeline, configuration tab, commands, au
               summary: "Canary failed readiness check",
               reported_at: "2026-10-25T01:10:00Z",
               received_at: "2026-10-25T01:10:01Z",
+            },
+          ],
+        },
+      });
+    }
+    if (path === "/v1/catalog/releases") {
+      return route.fulfill({
+        json: {
+          releases: [
+            {
+              release_id: "1.5.0",
+              digest,
+              source_commit: "b".repeat(40),
+              platform_tag: "linux-x86_64",
+              channels: ["RELEASE"],
+              schema_target: 15,
+              schema_range: { minimum: 15, maximum: 15 },
+              images: [
+                { section: "components", component: "core-control-plane", image_digest: `sha256:${digest}` },
+                { section: "components", component: "operator-service", image_digest: `sha256:${"b".repeat(64)}` },
+                { section: "components", component: "pgvector", image_digest: `sha256:${"c".repeat(64)}` },
+              ],
+              recall_notices: [],
             },
           ],
         },
@@ -164,6 +188,29 @@ test("installation readiness, recovery timeline, configuration tab, commands, au
   });
 
   await page.goto(`https://hub.test/installations/${installationId}`);
+  await expect(page.getByRole("heading", { name: "Console Web" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "https://console.example.com/" }))
+    .toHaveAttribute("href", "https://console.example.com/");
+  await expect(page.getByRole("heading", { name: "Installed modules" })).toBeVisible();
+  await expect(page.getByText("Core control plane", { exact: true })).toBeVisible();
+  await expect(page.getByText("Operator service", { exact: true })).toBeVisible();
+  await expect(page.getByText("Vector database", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Catalog import", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Enrollment requests", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Commands", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Audit", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Update readiness and next step" })).toHaveCount(0);
+  for (const width of [1440, 993, 390]) {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(
+      await page.locator("main").evaluate((main) => main.scrollWidth <= main.clientWidth),
+    ).toBe(true);
+    await expect(page.getByRole("heading", { name: "Installed modules" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Open FDAI Console" })).toBeVisible();
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.getByText("Technical details", { exact: true }).click();
   await expect(page.getByRole("heading", { name: "Update readiness and next step" })).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Failure, hold, and recovery timeline" }),
@@ -175,7 +222,7 @@ test("installation readiness, recovery timeline, configuration tab, commands, au
   await expect(
     page.getByLabel("Lifecycle Hub").getByRole("link", { name: "설치 환경", exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("link", { name: "카탈로그 가져오기", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "카탈로그 가져오기", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "제약 조건 및 다음 계획", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Switch workspace language" }).click();
 
@@ -186,7 +233,7 @@ test("installation readiness, recovery timeline, configuration tab, commands, au
   ).toBeVisible();
 
   // Navigate to Commands and lift the suppression using the one-click confirmation helper.
-  await page.getByRole("link", { name: "Commands", exact: true }).click();
+  await page.getByRole("link", { name: "Manage on Commands", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Lifecycle commands" })).toBeVisible();
   await page.getByLabel("Command action", { exact: true }).selectOption("lift");
   await page.getByLabel("Command installation", { exact: true }).selectOption(installationId);
@@ -207,7 +254,7 @@ test("installation readiness, recovery timeline, configuration tab, commands, au
   ]);
 
   // Navigate to Audit and verify hash-chain status.
-  await page.getByRole("link", { name: "Audit", exact: true }).click();
+  await page.goto("https://hub.test/audit");
   await expect(page.getByRole("heading", { name: "Hash-chained audit" })).toBeVisible();
   await expect(page.getByText("Verified intact")).toBeVisible();
   await expect(page.getByRole("cell", { name: "suppression.lifted" })).toBeVisible();
@@ -880,7 +927,7 @@ test("confirmations, bundle import, and break-glass commands verify exact digest
 
   // 2. Bundle import screen
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.getByRole("link", { name: "Bundle import", exact: true }).click();
+  await page.goto("https://hub.test/bundle-import");
   await expect(page.getByRole("heading", { name: "Bundle import" })).toBeVisible();
   await expect(page.getByText("Vendor release signature verified")).toBeVisible();
   await page.getByLabel("Predecessor bundle ID").fill("bundle-0018");
@@ -899,7 +946,7 @@ test("confirmations, bundle import, and break-glass commands verify exact digest
 
   // 3. Commands screen (break-glass with mandatory expiry)
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.getByRole("link", { name: "Commands", exact: true }).click();
+  await page.goto("https://hub.test/commands");
   await page.getByLabel("Command action", { exact: true }).selectOption("break-glass");
   await page.getByLabel("Command installation", { exact: true }).selectOption(installationId);
   await page.getByLabel("Reason code", { exact: true }).fill("emergency_scale_out");

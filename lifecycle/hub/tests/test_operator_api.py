@@ -75,6 +75,26 @@ def test_get_installation_detail_includes_entities_and_open_plan(
     assert entities["console"]["managed"] is False
 
 
+def test_installation_detail_exposes_only_its_deployment_bound_console_url(
+    enrolled_store: HubStore, installation: Installation, now: datetime
+) -> None:
+    client = TestClient(
+        create_app(
+            enrolled_store,
+            clock=lambda: now,
+            installation_console_urls={
+                installation.installation_id: "https://console.example.com",
+                "other-installation": "https://other.example.com",
+            },
+        )
+    )
+
+    body = client.get(f"/v1/installations/{installation.installation_id}").json()
+
+    assert body["console_url"] == "https://console.example.com"
+    assert "other.example.com" not in json.dumps(body)
+
+
 def test_get_installation_for_unknown_returns_404(client: TestClient) -> None:
     response = client.get("/v1/installations/missing")
 

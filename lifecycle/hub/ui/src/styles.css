@@ -579,6 +579,76 @@ h3 {
   background: #fbf3f3;
   border-color: #e6caca;
 }
+.installation-console {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 24px;
+  align-items: center;
+  padding: 20px 0;
+  border-block: 1px solid var(--cs-hairline);
+  margin-bottom: 32px;
+}
+.installation-console .panel-title,
+.installed-modules .panel-title {
+  margin-bottom: 4px;
+}
+.installation-console-link {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  min-width: 0;
+}
+.installation-console-link a {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-weight: 650;
+}
+.section-title-row {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.installed-modules {
+  margin-bottom: 36px;
+}
+.module-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 24px;
+  padding: 0;
+  margin: 18px 0 0;
+  list-style: none;
+  border-top: 1px solid var(--cs-hairline);
+}
+.module-item {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--cs-hairline);
+}
+.module-item code {
+  color: var(--cs-text-soft);
+  overflow-wrap: anywhere;
+}
+.installation-technical {
+  border-top: 1px solid var(--cs-hairline);
+  padding-top: 16px;
+}
+.installation-technical > summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--cs-text-soft);
+  font-weight: 650;
+}
+.installation-technical[open] > summary {
+  margin-bottom: 20px;
+}
+.installation-technical-body {
+  min-width: 0;
+}
 .kv {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -965,6 +1035,13 @@ table.t a:hover {
   }
   .main {
     padding: 20px 16px 32px;
+  }
+  .installation-console {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .module-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
   .kv {
     grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -62,6 +62,7 @@ async function openBinding(page: Page, options: {
   await page.goto(`https://hub.test/installations/${identifier}`);
   await expect(page.getByRole("heading", { name: identifier, exact: true })).toBeVisible();
   expect(reads).toBe(0);
+  await page.getByText("Technical details", { exact: true }).click();
   await page.getByRole("button", { name: "Application", exact: true }).focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Application binding", exact: true })).toBeVisible();
@@ -101,7 +102,7 @@ test("binding is lazy, keyboard-accessible, confirmed and does not dispatch a de
     await geometry(page);
   }
   await page.getByRole("button", { name: "Bind application", exact: true }).click();
-  await expect(page.getByText(`Bound application: ${product}.`, { exact: false })).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("Application bound.");
   expect(harness.writes).toHaveLength(1);
   expect(harness.writes[0]).toMatchObject({
     product, expected_settings_digest: digest, reason_code: "operator_application_binding",

@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: dc072347e85edb39df2c595ee54943fe8faa8eb2
-translation_revised: 2026-11-04
+translation_source_sha: 336049e8937cae9a02026b93e5360c22e1a047ea
+translation_revised: 2026-11-09
 ---
 # 배포와 온보딩(Deploy and Onboard)
 이 가이드를 사용해 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측을 시작할
@@ -50,6 +50,14 @@ FDAI 설치 경로를 추가하는 것이 아닙니다. 고정 이미지, state 
 상태로 유지합니다. 수동 마이그레이션 성공과 독립적인 스키마 확인을 마친 뒤, 별도로 검토하고
 봉인한 활성화 계획에서 `app_image=null`을 지정합니다. 이 입력을 생략하면 기존 단일 이미지
 기동 방식이 유지됩니다. 선택적 `resource_group_name`으로 기본 리소스 그룹 이름을 재정의하고 `custom_domain`으로 공개 HTTPS 서브도메인·Azure DNS 레코드·런타임 origin·상태 검사 `Host` 헤더를 일치시킬 수 있습니다. Hub는 설정된 origin 호스트만 받아들이므로 사용자 지정 도메인을 설정하면 기본 Container App 호스트네임은 `400`으로 응답합니다. `custom_domain.redirect_default_hostname=true`를 설정하면 `redirect_hosts`를 읽는 Hub 이미지가 그 호스트네임의 GET과 HEAD를 고정된 origin으로 `308` 리디렉션하고 나머지는 거부합니다. 이전 이미지에서는 설정하지 마세요. 전체 Job 검증과 실행 전 전체 변경 없음 계획도 유지하며, 상태 소유권, 인증이나 승인 절차를 우회하지 않습니다.
+
+Lifecycle Hub의 비공개 배포 입력에는 선택적 `installation_console_urls` 맵을 지정할 수
+있습니다. 각 항목은 정규 설치 ID 하나를 정확한 HTTPS Console origin 하나에 연결합니다.
+런타임은 일치하는 설치 상세 응답에만 해당 URL을 노출합니다. Release Hub는 이 맵을 수락하지
+않으며 Lifecycle Hub는 Release, Plan, 보고, 설치 ID 또는 브라우저 입력에서 URL을 추론하지
+않습니다. 이 메타데이터는 접근 권한을 부여하지 않으며 독립적인 Console 상태 검증을 대체하지
+않습니다. 기본 운영자 내비게이션에는 설치 환경만 표시하며, 카탈로그, 등록, 명령, 감사,
+패키지, 업데이트와 확인 경로는 직접 URL을 통해 계속 사용할 수 있습니다.
 
 Hub 관리형 AKS 인계에서는 `enable_document_ingestion=true`로 공용 Azure 선행 조건을 만들면서
 `enable_document_ingestion_workloads=false`로 인제스트 API, 워커, 마이그레이션 Container Apps를
