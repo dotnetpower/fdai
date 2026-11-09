@@ -63,6 +63,7 @@ def test_provisioner_is_idempotent_pinned_and_ends_with_verification() -> None:
     source = (INFRA / "provision-toolchain.sh").read_text(encoding="utf-8")
     assert "tool_current" in source
     assert "install_opa" in source
+    assert "FDAI_OPA_SEED:-/opt/fdai-ci/opa" in source
     assert "sha256sum --check --strict" in source
     assert "must run as root" in source
     assert source.index("normalize_ownership\n\nldconfig") > source.index("install_uv\n")

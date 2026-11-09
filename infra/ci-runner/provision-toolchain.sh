@@ -75,11 +75,16 @@ install_terraform() {
 }
 
 install_opa() {
-  local version sha current
+  local version sha current seed
   version="$(field '.pinned_tools.opa.version')"
   sha="$(field '.pinned_tools.opa.sha256')"
+  seed="${FDAI_OPA_SEED:-/opt/fdai-ci/opa}"
   current="$(command -v opa 2>/dev/null || true)"
   if tool_current opa && printf '%s  %s\n' "$sha" "$current" | sha256sum --check --strict; then
+    return 0
+  fi
+  if [[ -f "$seed" ]] && printf '%s  %s\n' "$sha" "$seed" | sha256sum --check --strict; then
+    install -m 0755 "$seed" /usr/local/bin/opa
     return 0
   fi
   if ! download \

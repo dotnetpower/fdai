@@ -95,7 +95,8 @@ def test_entrypoint_hides_the_credential_from_workflow_code() -> None:
 
 def test_image_is_built_from_the_declared_toolchain_with_a_pinned_runner() -> None:
     assert (
-        "COPY toolchain.json verify-toolchain.py provision-toolchain.sh /opt/fdai-ci/" in DOCKERFILE
+        "COPY toolchain.json verify-toolchain.py provision-toolchain.sh opa /opt/fdai-ci/"
+        in DOCKERFILE
     )
     assert "/opt/fdai-ci/provision-toolchain.sh" in DOCKERFILE
     assert "sha256sum --check --strict" in DOCKERFILE
@@ -105,6 +106,7 @@ def test_image_is_built_from_the_declared_toolchain_with_a_pinned_runner() -> No
     assert 'ENTRYPOINT ["/usr/bin/tini", "-g", "--", "/opt/fdai-ci/entrypoint.sh"]' in DOCKERFILE
     build = (INFRA / "build-image.sh").read_text(encoding="utf-8")
     assert "infra/ci-runner" in build and "az acr build" in build
+    assert "pinned_tools.opa.sha256" in build and 'cp "$opa" "$context/opa"' in build
     subprocess.run(  # noqa: S603 - syntax check of tracked scripts
         ["/usr/bin/bash", "-n", str(INFRA / "build-image.sh")], check=True
     )
