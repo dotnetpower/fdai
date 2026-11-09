@@ -616,6 +616,26 @@ function validStencilPanelDescriptor(value: unknown): value is StencilPanelDescr
         && (panel[field] as unknown[]).every((item) => typeof item === "string"));
 }
 
+function validRuntimeAxisDescriptor(value: unknown): value is RuntimeAxisDescriptorRecord {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const descriptor = value as Record<string, unknown>;
+  return typeof descriptor.id === "string"
+    && descriptor.id.length <= 63
+    && STENCIL_PANEL_ID_PATTERN.test(descriptor.id)
+    && boundedDisplayText(descriptor.label)
+    && boundedDisplayText(descriptor.label_ko)
+    && typeof descriptor.summary === "string"
+    && descriptor.summary.length <= 500
+    && descriptor.summary.trim().length > 0
+    && typeof descriptor.summary_ko === "string"
+    && descriptor.summary_ko.length <= 500
+    && descriptor.summary_ko.trim().length > 0
+    && Array.isArray(descriptor.agents)
+    && descriptor.agents.every((agent) =>
+      typeof agent === "string" && agent.length <= 63 && agent.trim().length > 0)
+    && typeof descriptor.locked === "boolean";
+}
+
 function validStencilDefinition(value: unknown): value is StencilDefinitionRecord {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const stencil = value as Record<string, unknown>;
@@ -680,15 +700,8 @@ export async function requestStencilCatalog(): Promise<StencilCatalogResponse> {
       "addons", "locked_addons", "locked_panels"]
       .every((field) => Array.isArray(data[field]) && (data[field] as unknown[]).every((item) => typeof item === "string"))
     || !["workloads_catalog", "scheduled_jobs_catalog", "loops_catalog"].every((field) =>
-      data[field] === undefined || (Array.isArray(data[field]) && data[field].every((item: unknown) =>
-        typeof item === "object" && item !== null
-        && "id" in item && typeof item.id === "string"
-        && "label" in item && typeof item.label === "string"
-        && "label_ko" in item && typeof item.label_ko === "string"
-        && "summary" in item && typeof item.summary === "string"
-        && "summary_ko" in item && typeof item.summary_ko === "string"
-        && "agents" in item && Array.isArray(item.agents)
-        && "locked" in item && typeof item.locked === "boolean")))
+      data[field] === undefined
+      || (Array.isArray(data[field]) && data[field].every(validRuntimeAxisDescriptor)))
   ) {
     throw new Error("Invalid Stencil catalog payload.");
   }
@@ -700,6 +713,15 @@ export async function requestStencilCatalog(): Promise<StencilCatalogResponse> {
   const jobs = new Set(catalog.scheduled_jobs);
   const loops = new Set(catalog.loops);
   const addons = new Set(catalog.addons);
+  const validAxisCatalog = (
+    descriptors: readonly RuntimeAxisDescriptorRecord[] | undefined,
+    ids: ReadonlySet<string>,
+    lockedIds: ReadonlySet<string>,
+  ) => descriptors === undefined
+    || (descriptors.length === ids.size
+      && new Set(descriptors.map((descriptor) => descriptor.id)).size === descriptors.length
+      && descriptors.every((descriptor) =>
+        ids.has(descriptor.id) && descriptor.locked === lockedIds.has(descriptor.id)));
   if (workloads.size !== catalog.workloads.length
     || jobs.size !== catalog.scheduled_jobs.length
     || loops.size !== catalog.loops.length
@@ -709,6 +731,21 @@ export async function requestStencilCatalog(): Promise<StencilCatalogResponse> {
     || !validSelection(catalog.locked_scheduled_jobs, jobs)
     || !validSelection(catalog.locked_loops, loops)
     || !validSelection(catalog.locked_addons, addons)
+    || !validAxisCatalog(
+      catalog.workloads_catalog,
+      workloads,
+      new Set(catalog.locked_workloads),
+    )
+    || !validAxisCatalog(
+      catalog.scheduled_jobs_catalog,
+      jobs,
+      new Set(catalog.locked_scheduled_jobs),
+    )
+    || !validAxisCatalog(
+      catalog.loops_catalog,
+      loops,
+      new Set(catalog.locked_loops),
+    )
     || !catalog.panels.every((panel) =>
       validSelection(panel.required_workloads, workloads)
       && validSelection(panel.required_loops, loops)

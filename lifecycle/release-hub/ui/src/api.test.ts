@@ -266,6 +266,62 @@ describe("release action boundaries", () => {
     }));
     await expect(requestStencilCatalog()).rejects.toThrow("Invalid Stencil catalog payload");
   });
+  it.each([
+    [
+      "unknown axis descriptor",
+      {
+        ...stencilCatalog(VALID_PANEL),
+        workloads_catalog: [{
+          id: "missing",
+          label: "Missing",
+          label_ko: "누락",
+          summary: "Missing workload",
+          summary_ko: "누락된 워크로드",
+          agents: [],
+          locked: false,
+        }],
+      },
+    ],
+    [
+      "axis descriptor lock mismatch",
+      {
+        ...stencilCatalog(VALID_PANEL),
+        workloads: ["core"],
+        locked_workloads: ["core"],
+        workloads_catalog: [{
+          id: "core",
+          label: "Core",
+          label_ko: "Core",
+          summary: "Core service",
+          summary_ko: "Core 서비스",
+          agents: [],
+          locked: false,
+        }],
+      },
+    ],
+    [
+      "blank axis descriptor label",
+      {
+        ...stencilCatalog(VALID_PANEL),
+        workloads: ["core"],
+        workloads_catalog: [{
+          id: "core",
+          label: " ",
+          label_ko: "Core",
+          summary: "Core service",
+          summary_ko: "Core 서비스",
+          agents: [],
+          locked: false,
+        }],
+      },
+    ],
+  ])("rejects %s", async (_label, payload) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => payload,
+    }));
+    await expect(requestStencilCatalog()).rejects.toThrow("Invalid Stencil catalog payload");
+  });
   it("preserves a specific promotion rejection while advising a fresh review", () => {
     expect(catalogRecovery(new CatalogRequestError("Promotion stage blocked (promotion_canary_unhealthy).", 409)))
       .toContain("Healthy canary observations are insufficient");
