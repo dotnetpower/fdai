@@ -647,9 +647,8 @@ def _pantheon_screen_evidence(
 
     locale = "ko" if str(body.get("locale") or "").startswith("ko") else "en"
     rows: list[tuple[str, str, str, str]] = []
-    claims: list[dict[str, Any]] = []
     evidence_refs: list[str] = []
-    for index, raw in enumerate(raw_agents):
+    for raw in raw_agents:
         if not isinstance(raw, Mapping):
             return None
         name = _screen_cell(raw.get("name"))
@@ -661,13 +660,6 @@ def _pantheon_screen_evidence(
         evidence_ref = f"screen://pantheon/agents/{quote(name, safe='')}"
         rows.append((name, role, reports_to, owns))
         evidence_refs.append(evidence_ref)
-        claims.append(
-            {
-                "claim_id": f"pantheon-agent-{index + 1}",
-                "status": "supported",
-                "evidence_refs": [evidence_ref],
-            }
-        )
 
     if locale == "ko":
         lines = [
@@ -696,7 +688,6 @@ def _pantheon_screen_evidence(
         "checks_total": len(rows),
         "evidence_refs": cast(Any, evidence_refs),
         "reason_code": "pantheon_screen_catalog_verified",
-        "claims": cast(Any, claims),
         "failed_claim_ids": [],
     }
     return answer, verification
