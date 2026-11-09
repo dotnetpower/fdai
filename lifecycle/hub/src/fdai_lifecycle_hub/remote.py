@@ -7,12 +7,14 @@ import asyncio
 import json
 import logging
 import os
+import re
 from collections.abc import Callable, Coroutine, Mapping
 from contextlib import asynccontextmanager
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import urlsplit
 
 from azure.core.exceptions import AzureError
 from cryptography.hazmat.primitives import serialization
@@ -94,6 +96,7 @@ class RemoteConfig(BaseModel):
     origin: str | None = None
     catalog: CatalogSource | None = None
     catalog_roles: CatalogRolesConfig | None = None
+    installation_console_urls: dict[str, str] = Field(default_factory=dict)
     key_epoch: int = 1
     # Release Hub only: zero disables. Otherwise re-assert already published content before the
     # development export expires; this can never add a Release, channel or recall.
@@ -105,11 +108,29 @@ class RemoteConfig(BaseModel):
             raise ValueError("Release Hub does not consume a catalog source.")
         if self.kind != "release" and self.catalog_roles is not None:
             raise ValueError("Only Release Hub serves catalog roles.")
+        if self.kind == "release" and self.installation_console_urls:
+            raise ValueError("Release Hub does not bind installation Console URLs.")
+        if len(self.installation_console_urls) > 128:
+            raise ValueError("Lifecycle Hub supports at most 128 installation Console URLs.")
+        for installation_id, console_url in self.installation_console_urls.items():
+            if re.fullmatch(r"[a-z][a-z0-9-]{0,62}", installation_id, re.ASCII) is None:
+                raise ValueError("Console URL bindings require canonical installation ids.")
+            parsed_console = urlsplit(console_url)
+            if (
+                len(console_url) > 2048
+                or parsed_console.scheme != "https"
+                or not parsed_console.hostname
+                or parsed_console.username
+                or parsed_console.password
+                or parsed_console.port not in (None, 443)
+                or parsed_console.path not in ("", "/")
+                or parsed_console.query
+                or parsed_console.fragment
+            ):
+                raise ValueError("Installation Console URLs must be exact HTTPS origins.")
         if self.auth is None and self.origin is None:
             raise ValueError("Remote Hub requires an explicit origin, not placeholder login IDs.")
         if self.origin is not None:
-            from urllib.parse import urlsplit
-
             parsed = urlsplit(self.origin)
             if (
                 parsed.scheme != "https"
@@ -849,6 +870,7 @@ def _run() -> None:
             release_hub_endpoint=(
                 source.url.removesuffix("/v1/catalog/export") if source is not None else None
             ),
+            installation_console_urls=config.installation_console_urls,
             stencil_export_public_key=env_export_pub,
             stencil_grant_issuer_public_keys=env_grant_pubs,
         )

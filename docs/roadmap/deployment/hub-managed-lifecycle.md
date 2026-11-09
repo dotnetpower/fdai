@@ -43,6 +43,20 @@ Release Hub service already exists.
 | Data boundary | The Hub holds no customer workload credential or operational data. Its own bounded service identity and signing key do not authorize customer resource changes. Only lifecycle metadata crosses the boundary. |
 | Records | Hub PostgreSQL per cell or Target Hub, and append-only installation receipts in Foundation storage |
 
+## Operator-facing installation experience
+
+The default Lifecycle Hub navigation shows **Installations** only. Catalog import, enrollment,
+commands, audit, package, update, and confirmation routes remain available through their direct
+URLs and governed procedures, but they don't compete with the normal first-use path.
+
+An installation detail page leads with the installed Release modules, their version and reported
+health, plus one deployment-owned Console Web URL when configured. The Hub accepts that URL only
+from the private deployment configuration's exact `installation_id` mapping, requires an HTTPS
+origin without credentials, and never derives it from a Release, Plan, report, installation id, or
+browser input. The link grants no authority and doesn't establish Console health by itself.
+Constraint evaluation, recovery, schedules, configuration, application binding, reports, and
+Entity records remain available under one collapsed **Technical details** disclosure.
+
 ## Local Release Hub connection
 
 **Catalog import** separates transport settings from trust; changes require the current revision,

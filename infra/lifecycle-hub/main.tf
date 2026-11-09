@@ -13,30 +13,31 @@ provider "azurerm" {
 }
 
 module "hub" {
-  source                = "../modules/hub-service"
-  kind                  = "target"
-  prefix                = var.prefix
-  resource_group_name   = var.resource_group_name
-  tenant_id             = var.tenant_id
-  location              = var.location
-  tags                  = var.tags
-  network               = var.network
-  database_admin        = var.database_admin
-  database              = var.database
-  log_retention_days    = var.log_retention_days
-  registry              = var.registry
-  image                 = var.image
-  app_image             = var.app_image
-  ingress_cidrs         = var.ingress_cidrs
-  custom_domain         = var.custom_domain
-  replicas              = var.replicas
-  operator_auth         = var.operator_auth
-  catalog               = var.catalog
-  enable_apps           = var.enable_apps
-  enable_bootstrap_job  = var.enable_bootstrap_job
-  enable_migration_jobs = var.enable_migration_jobs
-  operation_job         = var.operation_job
-  secret_versions       = var.secret_versions
+  source                    = "../modules/hub-service"
+  kind                      = "target"
+  prefix                    = var.prefix
+  resource_group_name       = var.resource_group_name
+  tenant_id                 = var.tenant_id
+  location                  = var.location
+  tags                      = var.tags
+  network                   = var.network
+  database_admin            = var.database_admin
+  database                  = var.database
+  log_retention_days        = var.log_retention_days
+  registry                  = var.registry
+  image                     = var.image
+  app_image                 = var.app_image
+  ingress_cidrs             = var.ingress_cidrs
+  custom_domain             = var.custom_domain
+  replicas                  = var.replicas
+  operator_auth             = var.operator_auth
+  installation_console_urls = var.installation_console_urls
+  catalog                   = var.catalog
+  enable_apps               = var.enable_apps
+  enable_bootstrap_job      = var.enable_bootstrap_job
+  enable_migration_jobs     = var.enable_migration_jobs
+  operation_job             = var.operation_job
+  secret_versions           = var.secret_versions
 }
 
 output "deployment" {

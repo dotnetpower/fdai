@@ -193,3 +193,31 @@ def test_serving_compatibility_does_not_accept_other_revisions(monkeypatch, engi
 def test_missing_or_invalid_origin_never_becomes_local_mode(origin):
     with pytest.raises(ValueError):
         remote.RemoteConfig(kind="target", origin=origin)
+
+
+def test_remote_config_accepts_only_target_https_console_origins():
+    config = remote.RemoteConfig(
+        kind="target",
+        origin="https://hub.example.com",
+        installation_console_urls={"installation-alpha": "https://console.example.com"},
+    )
+    assert config.installation_console_urls == {"installation-alpha": "https://console.example.com"}
+
+    for invalid in (
+        {"Installation-Alpha": "https://console.example.com"},
+        {"installation-alpha": "http://console.example.com"},
+        {"installation-alpha": "https://user@console.example.com"},
+        {"installation-alpha": "https://console.example.com/path"},
+    ):
+        with pytest.raises(ValueError):
+            remote.RemoteConfig(
+                kind="target",
+                origin="https://hub.example.com",
+                installation_console_urls=invalid,
+            )
+    with pytest.raises(ValueError, match="Release Hub"):
+        remote.RemoteConfig(
+            kind="release",
+            origin="https://release.example.com",
+            installation_console_urls={"installation-alpha": "https://console.example.com"},
+        )

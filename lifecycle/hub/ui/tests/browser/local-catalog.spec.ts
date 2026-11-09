@@ -63,7 +63,7 @@ for (const path of ["/updates", "/available-releases"]) {
           exact: true,
         }),
       ).toBeVisible();
-      await expect(page.getByRole("link", { name: "카탈로그 가져오기", exact: true })).toBeVisible();
+      await expect(page.getByRole("link", { name: "카탈로그 가져오기", exact: true })).toHaveCount(0);
     });
   }
 

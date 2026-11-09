@@ -73,7 +73,7 @@ test("no catalog accepted yet shows an empty state and Check now posts without a
   const api = await stub(page, { status: () => baseStatus });
   await page.goto("https://hub.test/updates");
   await expect(page.getByRole("heading", { name: "Updates", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Updates", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByLabel("Lifecycle Hub").locator("a.it")).toHaveCount(1);
   await expect(page.getByText("Checks the vendor catalog every 15 minutes; automatic adoption is off."))
     .toBeVisible();
   await expect(page.getByText("No catalog accepted yet")).toBeVisible();

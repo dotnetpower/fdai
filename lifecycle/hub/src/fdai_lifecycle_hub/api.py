@@ -7,7 +7,7 @@ sign-in, and transport authentication are Lifecycle I1 work and gate any non-loo
 from __future__ import annotations
 
 from base64 import b64encode
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from functools import partial
 from pathlib import Path
 from typing import Literal
@@ -91,6 +91,7 @@ def create_app(
     remote_origin: str | None = None,
     transition_key: HubSigningKey | None = None,
     release_hub_endpoint: str | None = None,
+    installation_console_urls: Mapping[str, str] | None = None,
     auto_workstation_auth: bool = False,
     stencil_export_public_key: Ed25519PublicKey | None = None,
     stencil_grant_issuer_public_keys: Sequence[Ed25519PublicKey] = (),
@@ -103,6 +104,7 @@ def create_app(
     entra_sessions = EntraSessionManager(
         auto_workstation=(auto_workstation_auth and remote_auth is None)
     )
+    console_urls = dict(installation_console_urls or {})
 
     async def auth_config(request: Request) -> Response:
         remote_principal = (
@@ -295,9 +297,13 @@ def create_app(
 
     async def get_installation(request: Request) -> Response:
         installation_id = request.path_params["installation_id"]
-        return JSONResponse(
-            await run_in_threadpool(store.installation_detail_view, installation_id, now=clock())
+        detail = await run_in_threadpool(
+            store.installation_detail_view,
+            installation_id,
+            now=clock(),
         )
+        detail["console_url"] = console_urls.get(installation_id)
+        return JSONResponse(detail)
 
     async def get_plan_detail(request: Request) -> Response:
         installation_id = request.path_params["installation_id"]

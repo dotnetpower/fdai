@@ -41,6 +41,11 @@ After standalone migration, use the explicit `bind-catalog --actor ... --reason 
 command with a separately approved source configuration before serving with that binding.
 Binding a key doesn't approve an export pin or download catalog bytes.
 
+Set `installation_console_urls` only for deployment-owned installation-to-Console bindings. Each
+key is one canonical installation id and each value is one exact HTTPS Console origin. The
+Lifecycle Hub displays the matching URL on that installation's simplified detail page; the mapping
+doesn't grant access, prove Console health, enroll an installation, or affect a Plan.
+
 ### Pull-only catalog adoption
 
 When `catalog` is set, the Hub only pulls the signed catalog export from the Release Hub. The

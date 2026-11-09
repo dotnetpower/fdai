@@ -76,6 +76,7 @@ async function openSchedule(page: Page, options: {
   await expect(page.getByRole("heading", { name: identifier, exact: true })).toBeVisible();
   await expect(page.locator("img.brand-logo")).not.toHaveJSProperty("naturalWidth", 0);
   expect(reads).toBe(0);
+  await page.getByText("Technical details", { exact: true }).click();
   const tab = page.getByRole("button", { name: "Execution schedule", exact: true });
   await tab.focus();
   await page.keyboard.press("Enter");

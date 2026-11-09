@@ -46,6 +46,32 @@ run "standalone_base" {
   }
 }
 
+run "installation_console_url_is_target_only_metadata" {
+  command = plan
+  variables {
+    installation_console_urls = {
+      installation-alpha = "https://console.example.com"
+    }
+  }
+  assert {
+    condition = (
+      length(output.deployment.runtime_config.installation_console_urls) == 1 &&
+      output.deployment.runtime_config.installation_console_urls["installation-alpha"] == "https://console.example.com"
+    )
+    error_message = "Lifecycle Hub must carry the exact deployment-owned Console origin."
+  }
+}
+
+run "installation_console_url_rejects_non_https_or_paths" {
+  command = plan
+  variables {
+    installation_console_urls = {
+      installation-alpha = "http://console.example.com/path"
+    }
+  }
+  expect_failures = [var.installation_console_urls]
+}
+
 run "standalone_app_and_migration" {
   command = plan
   variables {

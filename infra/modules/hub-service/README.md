@@ -29,6 +29,7 @@ Variable validation rejects invalid combinations at plan time.
 | `catalog.trust` | Lifecycle | Replaces `release_public_key` with signed TUF roles; name exactly one. `mode = "tuf"`, 1 to 16 unique `ed25519-<64 hex>` `root_key_ids`, and a whole `root_threshold` from 1 through the key count. |
 | `catalog_roles` | Release | Optional `timestamp_ttl_seconds` (`3600` to `604800`) and `snapshot_ttl_seconds` (`3600` to `5184000`, at least the timestamp). Needs the separate `secret_versions.catalog_snapshot_key` and `catalog_timestamp_key`; emits `FDAI_HUB_CATALOG_SNAPSHOT_KEY` and `FDAI_HUB_CATALOG_TIMESTAMP_KEY` only when set. |
 | `operator_auth.public_catalog_export` | Release | Serves the signed export without a bearer token. |
+| `installation_console_urls` | Lifecycle | Optional exact installation-id to HTTPS Console-origin mapping for the simplified installation detail screen. It is deployment-owned metadata, grants no authority, and is omitted for Release Hub. |
 | `timestamp_renewal_check_seconds` | Release | `0` or `60` to `3600`. |
 | `database` | Both | Optional PostgreSQL Flexible Server settings; `null` selects single-replica (`replicas.max == 1`) serverless embedded SQLite on a private Azure Files mount (`/var/lib/fdai-hub`). |
 

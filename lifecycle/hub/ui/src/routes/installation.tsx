@@ -2,6 +2,7 @@ import { useMemo, useState } from "preact/hooks";
 import { hubApi, type InstallationDetail } from "../api";
 import { AsyncBoundary } from "../components/async-boundary";
 import { Badge, HealthBadge, OutcomeBadge } from "../components/badge";
+import { InstallationSummary, safeConsoleUrl } from "../components/installation-summary";
 import { Link } from "../components/link";
 import { ConstraintResults } from "../components/constraint-results";
 import { ExecutionSettingsPanel } from "../components/execution-settings";
@@ -83,6 +84,7 @@ function InstallationConfigurationPanel({ installation }: { installation: Instal
 
 export function InstallationPage({ installationId }: { installationId: string }) {
   const detail = useAsync(() => hubApi.getInstallation(installationId), [installationId]);
+  const releases = useAsync(() => hubApi.listReleases(), []);
   const [tab, setTab] = useState<Tab>("constraints");
   const [notice, setNotice] = useState("");
   const [locale] = useHubLocale();
@@ -96,6 +98,7 @@ export function InstallationPage({ installationId }: { installationId: string })
       {(installation) => {
         const evaluation = installation.last_evaluation;
         const readiness = cachedReadiness ?? deriveInstallationReadiness(installation);
+        const consoleUrl = safeConsoleUrl(installation.console_url);
         const postureVariant =
           readiness.nextStep.posture === "ready"
             ? "ok"
@@ -128,12 +131,18 @@ export function InstallationPage({ installationId }: { installationId: string })
               <div>
                 <h1>{installation.installation_id}</h1>
                 <div class="sub">
-                  {tr(locale, "Channel", "채널")} {installation.settings.channel} ·{" "}
+                  {tr(locale, "Installed release", "설치된 릴리스")}{" "}
+                  {installation.current_release ?? tr(locale, "Not reported", "미보고")} ·{" "}
                   {tr(locale, "last report", "최근 보고")}{" "}
                   {formatTimestamp(installation.reported_at, undefined, locale)} (
                   {formatRelative(installation.reported_at, new Date(), locale)})
                 </div>
                 <div class="acts">
+                  {consoleUrl && (
+                    <a class="btn primary" href={consoleUrl} target="_blank" rel="noreferrer">
+                      {tr(locale, "Open FDAI Console", "FDAI Console 열기")}
+                    </a>
+                  )}
                   <button type="button" class="btn" onClick={detail.reload}>
                     {tr(locale, "Refresh", "새로 고침")}
                   </button>
@@ -142,50 +151,61 @@ export function InstallationPage({ installationId }: { installationId: string })
             </div>
 
             {notice && <p class="banner" role="status">{notice}</p>}
-            <div class="kv">
-              <div>
-                <div class="k">{tr(locale, "Current release", "현재 릴리스")}</div>
-                <div class="v">{installation.current_release ?? "\u2013"}</div>
-              </div>
-              <div>
-                <div class="k">{tr(locale, "Reported health", "보고된 상태")}</div>
-                <div class="v">
+            <InstallationSummary
+              installation={installation}
+              releases={releases.status === "ready" ? releases.data.releases : null}
+            />
+
+            <details class="installation-technical">
+              <summary>{tr(locale, "Technical details", "기술 세부 정보")}</summary>
+              <div class="installation-technical-body">
+                <div class="kv">
+                  <div>
+                    <div class="k">{tr(locale, "Reported health", "보고된 상태")}</div>
+                    <div class="v">
                   <HealthBadge health={installation.health} />
+                    </div>
+                  </div>
+                  <div>
+                    <div class="k">{tr(locale, "Channel", "채널")}</div>
+                    <div class="v">{installation.settings.channel}</div>
+                  </div>
+                  <div>
+                    <div class="k">{tr(locale, "Open Plan", "열린 계획")}</div>
+                    <div class="v small">
+                      {installation.open_plan ? (
+                        <Link
+                          href={planPath(
+                            installation.installation_id,
+                            installation.open_plan.plan_id,
+                          )}
+                        >
+                          {installation.open_plan.plan_id}
+                        </Link>
+                      ) : (
+                        "\u2013"
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <div class="k">{tr(locale, "Maintenance window", "유지보수 구간")}</div>
+                    <div class="v small">
+                      {installation.settings.windows.length > 0 ? (
+                        installation.settings.windows.map((window, index) => (
+                          <div key={index} class="maintenance-window">
+                            {window.start} {window.timezone}
+                            <div class="soft">
+                              {formatDurationMinutes(window.duration_minutes, locale)}{" "}
+                              {tr(locale, "window", "구간")}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        "\u2013"
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div>
-                <div class="k">{tr(locale, "Open Plan", "열린 계획")}</div>
-                <div class="v small">
-                  {installation.open_plan ? (
-                    <Link
-                      href={planPath(installation.installation_id, installation.open_plan.plan_id)}
-                    >
-                      {installation.open_plan.plan_id}
-                    </Link>
-                  ) : (
-                    "\u2013"
-                  )}
-                </div>
-              </div>
-              <div>
-                <div class="k">{tr(locale, "Maintenance window", "유지보수 구간")}</div>
-                <div class="v small">
-                  {installation.settings.windows.length > 0 ? (
-                    installation.settings.windows.map((window, index) => (
-                      <div key={index} class="maintenance-window">
-                        {window.start} {window.timezone}
-                        <div class="soft">
-                          {formatDurationMinutes(window.duration_minutes, locale)}{" "}
-                          {tr(locale, "window", "구간")}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    "\u2013"
-                  )}
-                </div>
-              </div>
-            </div>
 
             <section class="catalog-panel" aria-label="Update readiness">
               <h2 class="panel-title">
@@ -500,6 +520,8 @@ export function InstallationPage({ installationId }: { installationId: string })
                 </ol>
               </section>
             )}
+              </div>
+            </details>
           </>
         );
       }}

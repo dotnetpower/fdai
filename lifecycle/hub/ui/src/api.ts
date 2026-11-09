@@ -112,6 +112,7 @@ export interface PlanReportView {
 export interface InstallationDetail {
   installation_id: string;
   enrollment: string;
+  console_url?: string | null;
   settings: {
     channel: string;
     version_range: string;

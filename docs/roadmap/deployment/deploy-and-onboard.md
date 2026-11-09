@@ -22,6 +22,13 @@ The [single-product procedure](../../../infra/modules/hub-service/README.md) cov
 
 For running Hubs, `app_image` retains the approved serving digest while `image` selects the migration candidate; keep apps and migration Jobs enabled. After manual migration and independent schema verification, activate with `app_image=null` in a new reviewed, sealed plan. Omission preserves single-image defaults. Optional `resource_group_name` overrides the default `rg-<prefix>-<hub>` boundary name, and optional `custom_domain` binds a public HTTPS subdomain and optional Azure DNS records while aligning the runtime origin and probe `Host` headers. A Hub accepts only its configured origin host, so the default Container App hostname answers `400` once a custom domain is set; `custom_domain.redirect_default_hostname=true` makes a Hub image that reads `redirect_hosts` answer GET and HEAD on that hostname with a `308` to the fixed origin and refuse everything else. Leave it unset for older images. Complete Job checks, globally zero-change dispatch plans, state ownership, authentication and approval remain required.
 
+Lifecycle Hub can take an optional `installation_console_urls` map in its private deployment
+inputs. Each entry binds one canonical installation id to one exact HTTPS Console origin. The
+runtime exposes only the matching URL on that installation's detail response. Release Hub rejects
+the mapping, and Lifecycle Hub doesn't derive a URL from a Release, Plan, report, installation id
+or browser input. The metadata grants no access and doesn't replace independent Console health
+verification.
+
 Remote development Agents use `operator_auth.agent_principals` to bind an installation, Entra object and client on Lifecycle Hub only. Release Hub rejects these bindings; omission preserves existing authentication. Terraform grants no `Agent.Access`, federated credentials or Kubernetes permissions. Prepare those separately within the approved scope and follow the [Hub operator guide](../../runbooks/hub-lifecycle-operator-guide.md) for namespace-only RBAC, durable state, enrollment and independent readback. This grants no operator or release-apply authority. The Agent state volume uses a zone-redundant disk class so a Pod rescheduled to another zone can attach it.
 
 For a Hub-managed AKS handoff, `enable_document_ingestion=true` can provision the shared Azure
