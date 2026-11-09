@@ -78,9 +78,63 @@ def test_opa_downloads_are_bounded_and_checksum_verified() -> None:
     }
     assert "openpolicyagent.org/downloads" not in ci
     assert action.count("openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static") == 1
-    assert action.count("--retry 3 --retry-delay 2 --retry-all-errors") == 1
-    assert action.count("--retry-max-time 120 --connect-timeout 10 --max-time 90") == 1
+    assert (
+        action.count(
+            "github.com/open-policy-agent/opa/releases/download/v0.68.0/opa_linux_amd64_static"
+        )
+        == 1
+    )
+    assert action.count("--retry 3 --retry-delay 2 --retry-all-errors") == 2
+    assert action.count("--retry-max-time 120 --connect-timeout 10 --max-time 90") == 2
     assert action.count("dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa") == 1
+
+
+def test_opa_setup_uses_checksum_verified_official_fallback(tmp_path: Path) -> None:
+    action = yaml.safe_load(
+        (_ROOT / ".github" / "actions" / "setup-opa" / "action.yml").read_text(encoding="utf-8")
+    )
+    script = action["runs"]["steps"][0]["run"]
+    payload = b'#!/usr/bin/env bash\nset -eu\ntest "$1" = version\necho opa-fallback\n'
+    script = script.replace(
+        "dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa",
+        hashlib.sha256(payload).hexdigest(),
+    )
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    curl = tools / "curl"
+    curl.write_text(
+        "#!/usr/bin/env python3\n"
+        "import os, sys\n"
+        "from pathlib import Path\n"
+        "url = sys.argv[-1]\n"
+        "if 'openpolicyagent.org' in url:\n"
+        "    raise SystemExit(28)\n"
+        "if 'github.com/open-policy-agent/opa/releases/download/' not in url:\n"
+        "    raise SystemExit('unexpected fallback')\n"
+        "target = Path(sys.argv[sys.argv.index('-o') + 1])\n"
+        "target.write_bytes(Path(os.environ['OPA_FIXTURE']).read_bytes())\n",
+        encoding="utf-8",
+    )
+    curl.chmod(0o755)
+    runner_temp = tmp_path / "runner"
+    runner_temp.mkdir()
+    fixture = tmp_path / "opa"
+    fixture.write_bytes(payload)
+    result = subprocess.run(  # noqa: S603 - checked action with a synthetic downloader
+        ["/usr/bin/bash", "-c", script],
+        env={
+            **os.environ,
+            "PATH": str(tools) + os.pathsep + os.environ["PATH"],
+            "OPA_FIXTURE": str(fixture),
+            "RUNNER_TEMP": str(runner_temp),
+            "GITHUB_PATH": str(tmp_path / "github-path"),
+        },
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "opa-fallback" in result.stdout
 
 
 def test_opa_setup_is_job_local_and_does_not_require_sudo() -> None:
