@@ -339,12 +339,22 @@ def test_own_package_prefix_retains_child_modules(tmp_path: Path) -> None:
 
 
 def _write_go_builder(
-    tmp_path: Path, *, go_version: str, digest: str, opa: str = "v1.18.2"
+    tmp_path: Path,
+    *,
+    go_version: str,
+    digest: str,
+    opa: str = "v1.18.2",
+    x_net: str = "v0.60.0",
+    x_crypto: str = "v0.57.0",
+    x_text: str = "v0.42.0",
 ) -> None:
     (tmp_path / "services/core-control-plane/docker/Dockerfile").write_text(
         f"FROM example.invalid/library/golang@sha256:{digest} AS opa-builder\n"
         f"ARG OPA_VERSION={opa}\n"
         f"ARG OPA_GO_VERSION={go_version}\n"
+        f"ARG OPA_X_NET_VERSION={x_net}\n"
+        f"ARG OPA_X_CRYPTO_VERSION={x_crypto}\n"
+        f"ARG OPA_X_TEXT_VERSION={x_text}\n"
         "RUN echo build\n"
         "FROM example.invalid/python@sha256:" + ("b" * 64) + " AS builder\n",
         encoding="utf-8",
@@ -359,6 +369,42 @@ def _violations_after(
         module.current_revisions(tmp_path),
         artifact_root=tmp_path / "rule-catalog/revisions",
     )
+
+
+@pytest.mark.parametrize(
+    ("x_net_version", "x_crypto_version", "x_text_version", "preserves_identity"),
+    (
+        ("v0.62.0", "v0.58.0", "v0.43.0", True),
+        ("v0.62.1", "v0.58.0", "v0.43.0", False),
+        ("v0.63.0", "v0.58.0", "v0.43.0", False),
+        ("v0.62.0", "v0.59.0", "v0.43.0", False),
+        ("v0.62.0", "v0.58.0", "v0.44.0", False),
+    ),
+)
+def test_only_reviewed_opa_module_security_pins_preserve_rule_identity(
+    tmp_path: Path,
+    x_net_version: str,
+    x_crypto_version: str,
+    x_text_version: str,
+    preserves_identity: bool,
+) -> None:
+    module = _load_module()
+    rule_id = "network.nsg.no-inbound-any-ssh"
+    _copy_revision_inputs(tmp_path, rule_id)
+    go_version, digest = module._GO_IDENTITY_BASELINES["go1.27"]
+    _write_go_builder(tmp_path, go_version=go_version, digest=digest.removeprefix("sha256:"))
+    retained = _register_current(module, tmp_path)
+
+    _write_go_builder(
+        tmp_path,
+        go_version=go_version,
+        digest=digest.removeprefix("sha256:"),
+        x_net=x_net_version,
+        x_crypto=x_crypto_version,
+        x_text=x_text_version,
+    )
+    expected = [] if preserves_identity else [f"{rule_id}@1.0.0: immutable Rule revision changed"]
+    assert _violations_after(module, tmp_path, retained) == expected
 
 
 def test_go_patch_release_keeps_rule_identity_but_other_toolchain_changes_do_not(

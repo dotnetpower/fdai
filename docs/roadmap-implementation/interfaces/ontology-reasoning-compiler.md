@@ -9,7 +9,7 @@ The [owner design](../../roadmap/interfaces/ontology-reasoning-compiler.md) was 
 2026-09-28. An initial, partial shadow implementation covers selected operations in Core: the
 closed form, admission, concept selection, anchor binding, relation and operator compilers for
 collection, count, state, history, impact, and schema reads, independent verifiers, the claim
-verifier, a coverage receipt in which 149 of 433 closed cells compile, follow-up references bound
+verifier, a coverage receipt in which 155 of 437 closed cells compile, follow-up references bound
 to result handles, and a shadow runner with an Azure adapter. The shadow runner is not wired into the
 production semantic turn, so deployed venues answer only through the current path, where resource-group
 membership now reads containment. The local development profile alone may answer from a released
@@ -57,6 +57,7 @@ and its history.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-11-09 | implemented | Corrected the opening coverage summary to the existing baseline of 155 compiled cells out of 437; no new compiler coverage is claimed. | Current change; #2982; `scripts/quality/architecture/reasoning-coverage-baseline.json` contains 155 `compiled_cells` and `cells=437`. | Unsupported cells, production integration, and live qualification remain tracked below. |
 | 2026-11-02 | implemented | Keyed `_SHARED_CONCEPT_CACHE` by `(catalog_digest, index, total)` with trailing Korean particle normalization, normalized `contextual` preflight family proposals in `discard_details_without_family`, and promoted unfiltered `OBJECT_TYPE` follow-up selects in `promote_contextual_admission`. | `current change`; `test_conversation_preflight.py`, `test_semantic_reasoning_selection.py`, `test_semantic_compiled_answers.py` (`238 passed`). | Retain post-merge live Console session-browser verification separately. |
 | 2026-11-02 | implemented | Added shared live concept-choice LRU caching in `semantic_reasoning_selection.py` and `semantic_question_form.py`, Hangul particle context attachment in `propose_with_repair`, `primary_read_candidate` widening for non-`PENDING_DECISION` context dependencies, multi-line `outbound:` context compaction, and `minimal` reasoning on initial `semantic-question-form` passes. | `current change`; `test_semantic_reasoning_selection.py`, `test_conversation_preflight_context.py`, `test_semantic_reasoning_accounting.py` (`212 passed`). | Retain post-merge live Console session-browser verification separately. |
 | 2026-11-02 | implemented | Supported `calendar_offset_days` on `TimeKind.WINDOW` in `history_lookback_seconds`, `_expected_lookback`, and `metric_window`, and hardened contextual `PRIOR_RESULT` vs `COLLECTION` normalization and `context_confused` resampling. | `current change`; `test_semantic_reasoning_compiler.py`, `test_semantic_compiled_answers.py` (`264 passed`). | Retain post-merge live Console session-browser verification separately. |

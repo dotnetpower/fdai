@@ -1,33 +1,77 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: FrameworkControl
-version: "1.1.0"
+version: 1.1.0
 key: id
 description: One advisory framework recommendation with explicit FDAI mapping state.
 properties:
-  id: {type: string, required: true}
-  framework_id: {type: string, required: true}
-  control_id: {type: string, required: true}
-  area: {type: string, required: true}
-  title: {type: string, required: true}
-  mapping_status: {type: string, required: true}
-  best_practice_ref: {type: string, required: false}
-  recommendation_control: {type: string, required: false}
-  recommendation_impact: {type: string, required: false}
-  resource_type: {type: string, required: false}
-  metadata_state: {type: string, required: false}
-  product_group_verified: {type: boolean, required: false}
-  automation_available: {type: boolean, required: false}
-  tags: {type: array, required: false}
-  potential_benefits: {type: string, required: false}
-  query_digest: {type: string, required: false}
-  assessment_crosswalk_digest: {type: string, required: false}
-  assessment_mapping_state: {type: string, required: false}
-  source_url: {type: string, required: true}
-  source_version: {type: string, required: true}
-  resolved_ref: {type: string, required: true}
+  id:
+    type: string
+    required: true
+  framework_id:
+    type: string
+    required: true
+  control_id:
+    type: string
+    required: true
+  area:
+    type: string
+    required: true
+  title:
+    type: string
+    required: true
+  mapping_status:
+    type: string
+    required: true
+  best_practice_ref:
+    type: string
+    required: false
+  recommendation_control:
+    type: string
+    required: false
+  recommendation_impact:
+    type: string
+    required: false
+  resource_type:
+    type: string
+    required: false
+  metadata_state:
+    type: string
+    required: false
+  product_group_verified:
+    type: boolean
+    required: false
+  automation_available:
+    type: boolean
+    required: false
+  tags:
+    type: array
+    required: false
+  potential_benefits:
+    type: string
+    required: false
+  query_digest:
+    type: string
+    required: false
+  assessment_crosswalk_digest:
+    type: string
+    required: false
+  assessment_mapping_state:
+    type: string
+    required: false
+  source_url:
+    type: string
+    required: true
+  source_version:
+    type: string
+    required: true
+  resolved_ref:
+    type: string
+    required: true
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:FrameworkControl@1.1.0
-  content_hash: sha256:bc2202e45c29068ba8141aef5418c1977be32a5791151610877d3b6710281d99
+  content_hash: sha256:7032aff3bd394cbe193f49d5c1ec68d9de4a52505a4ff996286800fa8d7e6542
   license: MIT
-  retrieved_at: "2026-08-31T00:00:00Z"
+  retrieved_at: '2026-08-31T00:00:00Z'
+authority_class: catalog_as_code
+freshness_max_age_seconds: 86400

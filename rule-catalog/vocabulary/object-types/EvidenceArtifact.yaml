@@ -1,20 +1,41 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: EvidenceArtifact
-version: "1.0.0"
+version: 1.0.0
 key: id
 description: Immutable metadata for evidence held in a governed external store.
 properties:
-  id: {type: string, required: true}
-  kind: {type: string, required: true}
-  uri: {type: string, required: true, access_scope: approver, purpose_binding: [architecture_review]}
-  sha256: {type: string, required: true}
-  status: {type: string, required: true}
-  classification: {type: string, required: true}
-  captured_at: {type: datetime, required: true}
-  expires_at: {type: datetime, required: false}
+  id:
+    type: string
+    required: true
+  kind:
+    type: string
+    required: true
+  uri:
+    type: string
+    required: true
+    access_scope: approver
+    purpose_binding:
+    - architecture_review
+  sha256:
+    type: string
+    required: true
+  status:
+    type: string
+    required: true
+  classification:
+    type: string
+    required: true
+  captured_at:
+    type: datetime
+    required: true
+  expires_at:
+    type: datetime
+    required: false
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:EvidenceArtifact@1.0.0
-  content_hash: sha256:b8d338342997ba186e939d36687d10b65ccf2b2bb2af27ae0a27107071bc5e2b
+  content_hash: sha256:2dd21f5d9cd6f9ae0001f970a4893b469484b4bd5f20f9b995cc81d68dd39d62
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: projection_owned
+freshness_max_age_seconds: 900

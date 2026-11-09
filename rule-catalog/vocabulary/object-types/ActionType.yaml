@@ -1,16 +1,26 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: ActionType
-version: "1.0.0"
+version: 1.0.0
 key: id
 description: Meta object describing one registered ontology ActionType declaration.
 properties:
-  id: {type: string, required: true}
-  version: {type: string, required: true}
-  category: {type: string, required: true}
-  operation: {type: string, required: true}
+  id:
+    type: string
+    required: true
+  version:
+    type: string
+    required: true
+  category:
+    type: string
+    required: true
+  operation:
+    type: string
+    required: true
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:ActionType@1.0.0
-  content_hash: sha256:04a5b4ca7eaac50ae2705eafd4f779b4ef5e8d7c7c4558427a6dd7507ccc60e1
+  content_hash: sha256:b73948f9ea915af6ad241856600ef33ffe5c0705a05205191fe94f079977216a
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: catalog_as_code
+freshness_max_age_seconds: 86400

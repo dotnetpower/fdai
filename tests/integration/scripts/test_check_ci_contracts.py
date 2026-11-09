@@ -2002,9 +2002,12 @@ def test_shipped_runtime_images_pin_fixed_runtime_packages() -> None:
     for dockerfile in dockerfiles:
         text = dockerfile.read_text(encoding="utf-8")
         assert "ARG OPENSSL_LIBS_VERSION=3.5.9-r0" in text
+        assert "ARG MUSL_LIBS_VERSION=1.2.6-r3" in text
+        assert '"musl=${MUSL_LIBS_VERSION}"' in text
+        assert '"musl-utils=${MUSL_LIBS_VERSION}"' in text
         assert '"libcrypto3=${OPENSSL_LIBS_VERSION}"' in text
         assert '"libssl3=${OPENSSL_LIBS_VERSION}"' in text
-        assert "ARG ZLIB_VERSION=1.3.2-r1" in text
+        assert "ARG ZLIB_VERSION=1.4-r0" in text
         assert '"zlib=${ZLIB_VERSION}"' in text
         assert "ARG SQLITE_LIBS_VERSION=3.53.4-r0" in text
         assert "ARG UTIL_LINUX_LIBS_VERSION=2.42.3-r1" in text

@@ -184,6 +184,8 @@ def extended_business_object_types() -> tuple[OntologyObjectType, ...]:
             key="id",
             description="Reviewed shared-resource cost split targeting a BusinessService.",
             query_terms=BILINGUAL_OBJECT_QUERY_TERMS["CostAllocation"],
+            authority_class="pantheon_owned",
+            freshness_max_age_seconds=600,
             properties={
                 "id": s,
                 "source_resource_ref": s,
@@ -205,6 +207,8 @@ def extended_business_object_types() -> tuple[OntologyObjectType, ...]:
             key="id",
             description="Explicit external SLA commitment and error-budget burn ceiling.",
             query_terms=BILINGUAL_OBJECT_QUERY_TERMS["ExternalSlaContract"],
+            authority_class="pantheon_owned",
+            freshness_max_age_seconds=600,
             properties={
                 "id": s,
                 "service_ref": s,

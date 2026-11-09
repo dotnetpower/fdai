@@ -1,27 +1,48 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: Property
-version: "1.2.0"
+version: 1.2.0
 key: id
-description: Meta object describing one resource property referenced by a Rule, with optional reviewed shared semantics.
+description: Meta object describing one resource property referenced by a Rule, with
+  optional reviewed shared semantics.
 properties:
-  id: {type: string, required: true}
-  resource_type: {type: string, required: true}
-  path: {type: string, required: true}
-  semantic_id: {type: string}
-  value_type: {type: string}
-  canonical_unit: {type: string}
-  enum_values: {type: array}
-  range: {type: object}
-  normalization_rule: {type: string}
-  authority_policy: {type: object}
-  freshness_policy: {type: object}
-  equivalent_provider_paths: {type: array}
-  semantic_registry_version: {type: string}
-  semantic_registry_digest: {type: string}
-  normalized_equivalence: {type: boolean}
+  id:
+    type: string
+    required: true
+  resource_type:
+    type: string
+    required: true
+  path:
+    type: string
+    required: true
+  semantic_id:
+    type: string
+  value_type:
+    type: string
+  canonical_unit:
+    type: string
+  enum_values:
+    type: array
+  range:
+    type: object
+  normalization_rule:
+    type: string
+  authority_policy:
+    type: object
+  freshness_policy:
+    type: object
+  equivalent_provider_paths:
+    type: array
+  semantic_registry_version:
+    type: string
+  semantic_registry_digest:
+    type: string
+  normalized_equivalence:
+    type: boolean
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:Property@1.2.0
-  content_hash: sha256:0c20eeff288c8710510dae7df2f733e6073a0343b09d8e53535790c91bcdb658
+  content_hash: sha256:b5c988359b2fc6d24b8dce3daeae8da1ee7c4c978126a26a194623c43c27f90a
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: catalog_as_code
+freshness_max_age_seconds: 86400

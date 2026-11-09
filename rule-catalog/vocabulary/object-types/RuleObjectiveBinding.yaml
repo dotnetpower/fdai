@@ -1,19 +1,36 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: RuleObjectiveBinding
-version: "1.0.0"
+version: 1.0.0
 key: id
-description: Version-pinned relation from one control objective to one exact Rule version.
+description: Version-pinned relation from one control objective to one exact Rule
+  version.
 properties:
-  id: {type: string, required: true}
-  version: {type: string, required: true}
-  relationship: {type: string, required: true}
-  implementation_signature_digest: {type: string, required: true}
-  evidence_signature_digest: {type: string, required: true}
-  state: {type: string, required: true}
-  content_digest: {type: string, required: true}
+  id:
+    type: string
+    required: true
+  version:
+    type: string
+    required: true
+  relationship:
+    type: string
+    required: true
+  implementation_signature_digest:
+    type: string
+    required: true
+  evidence_signature_digest:
+    type: string
+    required: true
+  state:
+    type: string
+    required: true
+  content_digest:
+    type: string
+    required: true
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:RuleObjectiveBinding@1.0.0
-  content_hash: sha256:a4706554c0cc9062bfc8a5888aeff0fa77e743391c6af0ee69f6e98fa201b42e
+  content_hash: sha256:82716907f26da71b01c23daf858a78eae0e5115d8e30e0b6ad9660e59c94aa40
   license: MIT
-  retrieved_at: "2026-08-13T00:00:00Z"
+  retrieved_at: '2026-08-13T00:00:00Z'
+authority_class: catalog_as_code
+freshness_max_age_seconds: 86400

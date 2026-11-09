@@ -1,18 +1,19 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 2c555846e98584d1a0979584265aa77c350f3e52
-translation_revised: 2026-10-20
+translation_source_sha: a803da7b8f82070620aced98eb803869d620a65b
+translation_revised: 2026-11-09
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
 
 Operator post-turn review 발행도 Cost Governance package 활성화, Njord 발행, cost data access, action authority의 범위 밖에 있습니다.
 
-이 문서는 FDAI가 비용 거버넌스를 독립적으로 빌드하는 `fdai-cost-governance` 배포판으로
-패키징하면서 운영 온톨로지와 고정된 15개 에이전트 조직을 자율 운영의 중심에 유지하는 방법을
-정의합니다. 패키징은 교체 가능한 도메인 코드와 자산의 소유권을 바꿉니다. 별도 컨트롤 플레인을
-만들거나 Core 외부로 권한을 옮기지는 않습니다.
+이 문서는 FDAI의 운영 온톨로지와 고정된 15개 에이전트의 자율 운영 책임을 유지하면서
+독립적으로 빌드하는 `fdai-cost-governance` 배포판을 정의합니다. 패키징은 교체 가능한 도메인
+코드와 자산의 소유권을 옮기며, 별도 컨트롤 플레인을 만들거나 Core 외부로 권한을 옮기지 않습니다.
+ObjectType의 권한 및 최신성 메타데이터는 카탈로그에서 검증하며, Cost Governance 활성화,
+관측, 권고, 게시, 액션 권한을 부여하지 않습니다.
 
 > **범위:** 이 설계는 패키지 경계, 온톨로지 프로필, 에이전트 책임, 원자적 등록, 호환성 및
 > 롤백을 소유합니다. 전달 wave와 수락 근거는 [FinOps 패키지 전달

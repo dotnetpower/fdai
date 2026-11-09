@@ -1,34 +1,67 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: Change
-version: "1.1.0"
+version: 1.1.0
 key: id
-description: Proposed, active, or completed operational mutation with provenance and affected scope.
+description: Proposed, active, or completed operational mutation with provenance and
+  affected scope.
 properties:
-  id: {type: string, required: true}
-  change_kind: {type: string, required: true}
-  source_kind: {type: string, required: false}
-  intent_kind: {type: string, required: false}
-  target_ref: {type: string, required: true}
-  actor_ref: {type: string, required: true}
-  status: {type: string, required: true}
-  occurred_at: {type: datetime, required: true}
-  evidence_ref: {type: string, required: true}
-  desired_state_digest: {type: string, required: false}
-  plan_receipt_ref: {type: string, required: false}
-  window_ref: {type: string, required: false}
-  incident_ref: {type: string, required: false}
-  process_ref: {type: string, required: false}
+  id:
+    type: string
+    required: true
+  change_kind:
+    type: string
+    required: true
+  source_kind:
+    type: string
+    required: false
+  intent_kind:
+    type: string
+    required: false
+  target_ref:
+    type: string
+    required: true
+  actor_ref:
+    type: string
+    required: true
+  status:
+    type: string
+    required: true
+  occurred_at:
+    type: datetime
+    required: true
+  evidence_ref:
+    type: string
+    required: true
+  desired_state_digest:
+    type: string
+    required: false
+  plan_receipt_ref:
+    type: string
+    required: false
+  window_ref:
+    type: string
+    required: false
+  incident_ref:
+    type: string
+    required: false
+  process_ref:
+    type: string
+    required: false
 lifecycle:
   owner: Huginn
   creation:
-    - code: normalized_change_event
-      when: An authoritative change source emits a mutation receipt.
-      result: Create an immutable change revision.
-      source_refs: [docs/roadmap/architecture/operating-ontology.md]
-  authority_refs: [docs/roadmap/architecture/operating-ontology.md]
+  - code: normalized_change_event
+    when: An authoritative change source emits a mutation receipt.
+    result: Create an immutable change revision.
+    source_refs:
+    - docs/roadmap/architecture/operating-ontology.md
+  authority_refs:
+  - docs/roadmap/architecture/operating-ontology.md
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:Change@1.1.0
-  content_hash: sha256:1bb20884e9834e7af66c6155db063271bd6513d5a94a40b46205d3c42917c253
+  content_hash: sha256:9c8dfa1681e82563d77203063b95f8716ca8f8db223ef715b1fb132411c78679
   license: MIT
-  retrieved_at: "2026-07-31T00:00:00Z"
+  retrieved_at: '2026-07-31T00:00:00Z'
+authority_class: pantheon_owned
+freshness_max_age_seconds: 600

@@ -1,27 +1,14 @@
-# Upstream built-in ObjectType: Process.
-#
-# A `Process` is the runtime instance and state of one Workflow run
-# (see docs/roadmap/decisioning/process-automation.md). It is the fifth first-class
-# ontology object type after Resource / Rule / Signal / Finding, and it
-# is what makes a multi-step business process traversable in the graph
-# without duplicating the append-only audit log.
-#
-# A Process references the Workflow it instantiates by name
-# (`workflow_ref`); the Workflow catalog lives under
-# `rule-catalog/workflows/` and cross-references its steps' ActionTypes
-# at load, exactly as a Rule's `remediates` resolves to an ActionType.
-# The Process itself carries only run state; the step definitions and
-# their safety invariants live on the referenced ActionTypes.
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: Process
-version: "1.0.0"
+version: 1.0.0
 key: id
 description: Runtime instance and state of one Workflow run over a target Resource.
 properties:
   id:
     type: string
     required: true
-    description: Idempotent process id derived from (workflow_ref, target_resource_id, trigger_ts); retries MUST reuse it.
+    description: Idempotent process id derived from (workflow_ref, target_resource_id,
+      trigger_ts); retries MUST reuse it.
   workflow_ref:
     type: string
     required: true
@@ -33,7 +20,8 @@ properties:
   status:
     type: string
     required: true
-    description: One of pending | running | waiting | compensating | compensated | succeeded | failed | cancelled | timed_out.
+    description: One of pending | running | waiting | compensating | compensated |
+      succeeded | failed | cancelled | timed_out.
   current_step:
     type: string
     required: false
@@ -61,6 +49,8 @@ properties:
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:Process@1.0.0
-  content_hash: sha256:b111e9bcf4e106b1b52c49e3d7bbe684824a1b15418646f9ba6ed6fb95573f0f
+  content_hash: sha256:2d94cd62334b47d38d83c4026be3d113658533d96e360660b9a847b02f64051f
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: projection_owned
+freshness_max_age_seconds: 900

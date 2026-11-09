@@ -94,6 +94,11 @@ class OntologyObjectType(_Base):
     properties: dict[str, PropertyDecl]
     description: str | None = None
     query_terms: tuple[Annotated[str, Field(min_length=1, max_length=128)], ...] = ()
+    authority_class: (
+        Literal["catalog_as_code", "event_bus_registry", "projection_owned", "pantheon_owned"]
+        | None
+    ) = None
+    freshness_max_age_seconds: Annotated[int, Field(ge=1, le=31_536_000)] | None = None
     lifecycle: ObjectLifecycle | None = None
     provenance: OntologyProvenance | None = None
 
@@ -104,6 +109,7 @@ class LinkSemanticTrait(StrEnum):
     ATTACHMENT = "attachment"
     AUTHORIZATION = "authorization"
     CLASSIFICATION = "classification"
+    COMPOSITION = "composition"
     CONNECTIVITY = "connectivity"
     CONTAINMENT = "containment"
     DEPENDENCY = "dependency"

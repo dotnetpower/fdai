@@ -166,6 +166,19 @@ def load_object_type_catalog(
                 ObjectTypeIssue(key=f"{path.name}:provenance", message=provenance_error)
             )
             continue
+        if path.parent.name == "object-types" and (
+            model.authority_class is None or model.freshness_max_age_seconds is None
+        ):
+            aggregated.append(
+                ObjectTypeIssue(
+                    key=f"{path.name}:authority_freshness",
+                    message=(
+                        f"catalog ObjectType {model.name!r} MUST declare authority_class "
+                        "and freshness_max_age_seconds"
+                    ),
+                )
+            )
+            continue
         loaded.append(model)
 
     if aggregated:

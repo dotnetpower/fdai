@@ -1,45 +1,30 @@
-# Upstream reference ObjectType: ChangeSummary.
-#
-# A `ChangeSummary` is a document artifact that projects the resource
-# change events observed within a bounded time window over a resource
-# scope (typically a resource-group). It is the shipped example of a
-# **non-Resource business ObjectType** and is referenced by:
-#
-# - the reference ActionType `ops.publish-change-summary` under
-#   `rule-catalog/action-types/`,
-# - the reference Rule `ops.change-summary` under `rule-catalog/catalog/`.
-#
-# Fork extension: a fork that adds a workflow object (architecture
-# proposal, compliance attestation record, incident postmortem) copies
-# this file's shape into `fork/vocabulary/object-types/`. See
-# `docs/roadmap/fork-and-sequencing/downstream-fork-example-vertical.md` for the full
-# walkthrough.
-#
-# The ObjectType declaration is metadata only - it does not by itself
-# create runtime instances. Instances are produced by the executor when
-# the paired ActionType fires; the audit log persists them.
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: ChangeSummary
-version: "1.0.0"
+version: 1.0.0
 key: id
-description: A document projecting resource change events observed within a bounded time window over a resource scope.
+description: A document projecting resource change events observed within a bounded
+  time window over a resource scope.
 properties:
   id:
     type: string
     required: true
-    description: Idempotent report id derived from (scope_ref, window_start, window_end); retries MUST reuse it.
+    description: Idempotent report id derived from (scope_ref, window_start, window_end);
+      retries MUST reuse it.
   scope_ref:
     type: string
     required: true
-    description: CSP-neutral identifier of the resource whose subtree the summary covers (typically a resource-group ref).
+    description: CSP-neutral identifier of the resource whose subtree the summary
+      covers (typically a resource-group ref).
   window_start:
     type: datetime
     required: true
-    description: RFC 3339 UTC timestamp; the earliest change event included in the summary.
+    description: RFC 3339 UTC timestamp; the earliest change event included in the
+      summary.
   window_end:
     type: datetime
     required: true
-    description: RFC 3339 UTC timestamp; the latest change event included in the summary (exclusive).
+    description: RFC 3339 UTC timestamp; the latest change event included in the summary
+      (exclusive).
   generated_at:
     type: datetime
     required: true
@@ -59,10 +44,13 @@ properties:
   delivery_ref:
     type: string
     required: false
-    description: External reference (PR url, page id, ticket id) once the delivery adapter publishes the report.
+    description: External reference (PR url, page id, ticket id) once the delivery
+      adapter publishes the report.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:ChangeSummary@1.0.0
-  content_hash: sha256:2392be0c8cd1a8d8ea567156bdc0e69007933d214437c2e519e923e9ee4355f9
+  content_hash: sha256:a32a5c0dc23af6e2b4c7e9575bda9929c16e2fa9a1415bcc8849e53a985fdc71
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: projection_owned
+freshness_max_age_seconds: 900

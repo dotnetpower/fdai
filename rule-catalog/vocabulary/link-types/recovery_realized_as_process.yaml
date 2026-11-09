@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: recovery_realized_as_process
-version: "1.0.0"
+version: 1.0.0
 from_type: RecoveryPlan
 to_type: Process
 cardinality: one_to_one
@@ -8,6 +8,10 @@ description: Durable Process journal that realizes a recovery plan.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:recovery_realized_as_process@1.0.0
-  content_hash: sha256:b70a7173f693d75d6710e0baf37f0ed9675bc2e967860155fabcc907e8b8bcc9
+  content_hash: sha256:3a113df862d3a5ec811fa4b40f78f7389c6087e32ec7206d9ebd467e61ded2cc
   license: MIT
-  retrieved_at: "2026-07-31T00:00:00Z"
+  retrieved_at: '2026-07-31T00:00:00Z'
+semantic_traits:
+- composition
+forward_role: recovery_realized_as_process
+reverse_role: inverse_recovery_realized_as_process

@@ -1,13 +1,6 @@
-# LinkType: applies_to (Rule -> ResourceType, M:M)
-#
-# Which resource types a Rule may match. In the current catalog the
-# concrete match value is stored on the Rule as its `resource_type`
-# field; this LinkType declaration exists so downstream tooling
-# (assurance twin, operator console) can enumerate the relationship
-# without hard-coding the field name.
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: applies_to
-version: "1.0.0"
+version: 1.0.0
 from_type: Rule
 to_type: ResourceType
 cardinality: many_to_many
@@ -15,6 +8,10 @@ description: Which resource subtypes a Rule may match.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:applies_to@1.0.0
-  content_hash: sha256:c2b1cfe277c83c7629f605cf267dd71133cd01653c6ee2812fa94a785dda67b5
+  content_hash: sha256:22d92ecf19b48261cdaccebe88187ccdca1dd3b8945a82b08daf50abd1f99632
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+semantic_traits:
+- attachment
+forward_role: applies_to
+reverse_role: inverse_applies_to

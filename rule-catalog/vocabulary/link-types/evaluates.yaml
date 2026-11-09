@@ -1,12 +1,6 @@
-# LinkType: evaluates (Rule -> Property, M:M)
-#
-# Which Resource properties the Rule reads. Populated at rule-load
-# time from the Rule's declared property references so a fork-added
-# rule that reads an unmodeled property is caught at load, not at
-# first evaluation.
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: evaluates
-version: "1.0.0"
+version: 1.0.0
 from_type: Rule
 to_type: Property
 cardinality: many_to_many
@@ -14,6 +8,10 @@ description: Which Resource properties the Rule reads.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:evaluates@1.0.0
-  content_hash: sha256:3ec71c48d84ea822636d0cb5712c9bde83fc446f5895914fc911fba56711e389
+  content_hash: sha256:ddfc62268239f5a204e28c782476c3d69a741d493295fe4fcb1eddf0499d65f7
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+semantic_traits:
+- evidence
+forward_role: evaluates
+reverse_role: inverse_evaluates

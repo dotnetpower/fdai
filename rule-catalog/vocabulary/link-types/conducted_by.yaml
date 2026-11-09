@@ -1,13 +1,6 @@
-# LinkType: conducted_by (Conversation -> Agent, M:1)
-#
-# The pantheon Agent that ran a conversation (Bragi for the
-# conversational surface today; other agents when their own tools
-# extend the surface). Cardinality is M:1 because a Conversation is
-# owned by exactly one Agent, but one Agent conducts many
-# Conversations across sessions.
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: conducted_by
-version: "1.0.0"
+version: 1.0.0
 from_type: Conversation
 to_type: Agent
 cardinality: many_to_one
@@ -15,6 +8,10 @@ description: Pantheon Agent that conducted a Conversation.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:conducted_by@1.0.0
-  content_hash: sha256:b9d4cc2a341f4e5504f71982a6665a063c59c69d1cdf7b382cc4a7e7b3dcb0c7
+  content_hash: sha256:9134a33d4fea46821a7e075ac93e9cc3115bd0a8eb4dc54a398f5d72ad612a91
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+semantic_traits:
+- ownership
+forward_role: conducted_by
+reverse_role: inverse_conducted_by

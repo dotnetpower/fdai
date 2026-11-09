@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:0670dce8f0fff58070a1607097ab02815e13386c6763d03f9a01c4ececad08c2",
+  "catalog_digest": "sha256:b9ec08b823f113c0a30d94bd3cb3e23399135d8bb91b73c78ca938b541e85a9c",
   "execution_authority": false,
-  "generated_at": "2026-11-04T04:27:42.168936Z",
+  "generated_at": "2026-11-09T09:09:47.720975Z",
   "records": [
     {
       "designed_behavior": [
@@ -517,13 +517,13 @@
         "What does the FDAI ontology do?",
         "FDAI 온톨로지는 어떤 역할을 하나요?"
       ],
-      "record_digest": "sha256:bc42840e9122f4fb2d2b17daffb9d7ca0f78c9e67f7a993321556d60154e624c",
+      "record_digest": "sha256:206d84f44e16770b3fb6910134a89b86d0bc55e7b88d7588b629fca3c7eb498e",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "0a5d924469b76a3a84b27a1f8716c82732eb9412",
-          "line_end": 18,
-          "line_start": 18,
+          "blob_sha": "df44ebadb8fa44300cb4fb0b85c886c0195b5d36",
+          "line_end": 20,
+          "line_start": 20,
           "path": "docs/roadmap/architecture/operating-ontology.md",
           "source_kind": "doc",
           "symbol": "Catalog semantic projection"
@@ -854,5 +854,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "9d9be8bed2d16039b241fddfd569003100fbea36"
+  "source_revision": "c191e5203b3f3178f722953843fc337a27a4ae60"
 }

@@ -1,15 +1,9 @@
-# Upstream built-in ObjectType: HandoffEscalation.
-#
-# A `HandoffEscalation` is the Bragi-owned intent event published when a
-# conversational request cannot resolve through T0 / T1 / T2. Saga executes
-# `governance.escalate-to-github-issue` in response, materializing the
-# escalation as an Issue with fingerprint dedup. See agent-pantheon.md
-# § 6.4.
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: HandoffEscalation
-version: "1.0.0"
+version: 1.0.0
 key: id
-description: Bragi-owned intent event for an unresolved conversational request; Saga materializes it into an Issue.
+description: Bragi-owned intent event for an unresolved conversational request; Saga
+  materializes it into an Issue.
 properties:
   id:
     type: string
@@ -26,7 +20,8 @@ properties:
   intent_category:
     type: string
     required: true
-    description: Classified intent (used in fingerprint - see agent-pantheon.md § 6.4).
+    description: Classified intent (used in fingerprint - see agent-pantheon.md §
+      6.4).
   resource_type:
     type: string
     required: false
@@ -34,11 +29,13 @@ properties:
   normalized_selector:
     type: string
     required: false
-    description: Selector abstraction (e.g. `public_network_field`); NOT a raw resource id.
+    description: Selector abstraction (e.g. `public_network_field`); NOT a raw resource
+      id.
   failure_reason_code:
     type: string
     required: true
-    description: Machine-readable abstain reason (no_owned_data, low_confidence, unsupported_intent, ...).
+    description: Machine-readable abstain reason (no_owned_data, low_confidence, unsupported_intent,
+      ...).
   context:
     type: object
     required: false
@@ -50,6 +47,8 @@ properties:
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:HandoffEscalation@1.0.0
-  content_hash: sha256:1a8e14be9ae7402368d54fc14130c76317e93c35b709b641858df605e9c285ea
+  content_hash: sha256:369d79fc2d8d15f61947b088df72e527e5a2fcca9eb535b15849f0d99fd49f27
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: event_bus_registry
+freshness_max_age_seconds: 300

@@ -1,13 +1,6 @@
-# LinkType: raises (Agent -> Issue, M:M)
-#
-# When an Agent cannot resolve a request within its scope it raises
-# an Issue via Saga (`Handoff-to-GitHub-issue`). Modeled here so the
-# operator console can trace "which Agent raised this Issue?" without
-# reading Saga's audit trail. Cardinality is M:M because a single Issue
-# may aggregate observations from multiple Agents.
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: raises
-version: "1.0.0"
+version: 1.0.0
 from_type: Agent
 to_type: Issue
 cardinality: many_to_many
@@ -15,6 +8,10 @@ description: Agents that raised or contributed observations to an Issue.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:raises@1.0.0
-  content_hash: sha256:f9603d8f89f0c54ee10f84c18881e0e100b1ea27d433ea17054a85025ec74c1c
+  content_hash: sha256:8eed675be7e0eeab64a8030378a0a14ba8ab1e50a269040cd0ac61374155814e
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+semantic_traits:
+- dependency
+forward_role: raises
+reverse_role: inverse_raises

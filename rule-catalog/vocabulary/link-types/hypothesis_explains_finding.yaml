@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: hypothesis_explains_finding
-version: "1.0.0"
+version: 1.0.0
 from_type: CausalHypothesis
 to_type: Finding
 cardinality: many_to_one
@@ -9,6 +9,10 @@ description: Finding effect that one causal hypothesis attempts to explain.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:hypothesis_explains_finding@1.0.0
-  content_hash: sha256:7803bae18fbb260d6a8fd0334161a4fae1a6a010b8e2850e3a18b31d14649135
+  content_hash: sha256:28dc7cbd969af3958e23f8eb11a4c3c1de9f59ea2e362d1a1dff6a9d20cdeedb
   license: MIT
-  retrieved_at: "2026-07-31T00:00:00Z"
+  retrieved_at: '2026-07-31T00:00:00Z'
+semantic_traits:
+- evidence
+forward_role: hypothesis_explains_finding
+reverse_role: inverse_hypothesis_explains_finding

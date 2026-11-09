@@ -1,22 +1,47 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: BriefingRun
-version: "1.0.0"
+version: 1.0.0
 key: id
 description: Grounded result metadata for one opening or scheduled briefing.
 properties:
-  id: {type: string, required: true}
-  principal_ref: {type: string, required: true, access_scope: owner, purpose_binding: [user_context]}
-  subscription_ref: {type: string, required: false}
-  conversation_ref: {type: string, required: false}
-  scheduled_for: {type: datetime, required: true}
-  started_at: {type: datetime, required: true}
-  status: {type: string, required: true}
-  item_count: {type: integer, required: true}
-  evidence_refs: {type: array, required: true}
-  source_error_count: {type: integer, required: true}
+  id:
+    type: string
+    required: true
+  principal_ref:
+    type: string
+    required: true
+    access_scope: owner
+    purpose_binding:
+    - user_context
+  subscription_ref:
+    type: string
+    required: false
+  conversation_ref:
+    type: string
+    required: false
+  scheduled_for:
+    type: datetime
+    required: true
+  started_at:
+    type: datetime
+    required: true
+  status:
+    type: string
+    required: true
+  item_count:
+    type: integer
+    required: true
+  evidence_refs:
+    type: array
+    required: true
+  source_error_count:
+    type: integer
+    required: true
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:BriefingRun@1.0.0
-  content_hash: sha256:602d42e71e00cece1e637ec7869bba064d877fb338842fa8ba5a27de6ffc5792
+  content_hash: sha256:b167ecec35a43b5b524a347197122f6551478e528762c30d384625a9402837af
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: projection_owned
+freshness_max_age_seconds: 900

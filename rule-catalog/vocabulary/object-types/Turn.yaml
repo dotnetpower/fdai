@@ -1,24 +1,20 @@
-# Upstream built-in ObjectType: Turn.
-#
-# A `Turn` is one exchange within a Conversation. Append-only. Includes
-# the routing decision (primary agent, contributors, score) so the audit
-# reader can reconstruct how a natural-language response was assembled.
-# See docs/roadmap/agents/agent-pantheon.md § 6.3.
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: Turn
-version: "1.1.0"
+version: 1.1.0
 key: id
 description: One exchange in a Conversation; append-only; carries routing decision.
 properties:
   id:
     type: string
     required: true
-    description: Opaque turn identifier (turn_id in payload); stable within the parent Conversation.
+    description: Opaque turn identifier (turn_id in payload); stable within the parent
+      Conversation.
   session_id:
     type: string
     required: true
     access_scope: owner
-    purpose_binding: [user_context]
+    purpose_binding:
+    - user_context
     description: Parent Conversation session id.
   turn_index:
     type: integer
@@ -28,8 +24,10 @@ properties:
     type: string
     required: true
     access_scope: owner
-    purpose_binding: [user_context]
-    description: Opaque reference to the operator input in the principal-scoped conversation store.
+    purpose_binding:
+    - user_context
+    description: Opaque reference to the operator input in the principal-scoped conversation
+      store.
   question_sha256:
     type: string
     required: true
@@ -46,25 +44,33 @@ properties:
     type: string
     required: false
     access_scope: owner
-    purpose_binding: [user_context]
-    description: Opaque reference to the assistant output in the principal-scoped conversation store.
+    purpose_binding:
+    - user_context
+    description: Opaque reference to the assistant output in the principal-scoped
+      conversation store.
   answer_sha256:
     type: string
     required: false
-    description: SHA-256 integrity digest of the assistant output; never the output body.
+    description: SHA-256 integrity digest of the assistant output; never the output
+      body.
   score_breakdown:
     type: object
     required: false
     access_scope: owner
-    purpose_binding: [user_context]
-    description: Bragi routing scores (specificity, ownership, recency, confidence, tie_break) - see agent-pantheon.md § 6.3.
+    purpose_binding:
+    - user_context
+    description: Bragi routing scores (specificity, ownership, recency, confidence,
+      tie_break) - see agent-pantheon.md § 6.3.
   trace_ref:
     type: string
     required: false
-    description: Correlation id chain linking this turn to any typed-port events it triggered.
+    description: Correlation id chain linking this turn to any typed-port events it
+      triggered.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:Turn@1.1.0
-  content_hash: sha256:d5f415a0eaab05ba01ea945bd134f79196651ba8362c9714039d7bb053bdc8e0
+  content_hash: sha256:02643b86592eb08fdb00f40bc25a70297cc63457a392ad95b5318c9a5f3f93ab
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: event_bus_registry
+freshness_max_age_seconds: 300

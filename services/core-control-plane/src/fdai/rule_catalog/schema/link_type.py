@@ -224,6 +224,34 @@ def load_link_type_catalog(
                 LinkTypeIssue(key=f"{path.name}:provenance", message=provenance_error)
             )
             continue
+        if model.from_type == model.to_type and (
+            not model.forward_role or not model.reverse_role or not model.semantic_traits
+        ):
+            aggregated.append(
+                LinkTypeIssue(
+                    key=f"{path.name}:same_type_disambiguation",
+                    message=(
+                        f"same-type LinkType {model.name!r} ({model.from_type} -> {model.to_type}) "
+                        "MUST declare forward_role, reverse_role, and semantic_traits"
+                    ),
+                )
+            )
+            continue
+        if (
+            model.from_type == model.to_type
+            and model.forward_role == model.reverse_role
+            and all(trait.value != "reciprocal" for trait in model.semantic_traits)
+        ):
+            aggregated.append(
+                LinkTypeIssue(
+                    key=f"{path.name}:same_type_identical_roles",
+                    message=(
+                        f"non-reciprocal same-type LinkType {model.name!r} MUST declare "
+                        "distinct forward_role and reverse_role"
+                    ),
+                )
+            )
+            continue
         loaded.append(model)
 
     if aggregated:

@@ -1,8 +1,8 @@
 ---
 title: Ontology Value Realization
 translation_of: ontology-value-realization.md
-translation_source_sha: b8cff20d130677f64a67c2858ede95fb94b34d80
-translation_revised: 2026-11-04
+translation_source_sha: ec7ed7a4acbf87a932f878c5497570944770f631
+translation_revised: 2026-11-09
 ---
 # 온톨로지 가치 실현
 
@@ -24,9 +24,9 @@ FDAI는 이미 개체, 관계, 시간, 근거를 타입이 있는 온톨로지�
 |------|-------------|------|
 | 온톨로지 구조 | ObjectType 89개, LinkType 127개, 인터페이스 타입 7개, 모든 사실에 유효 시간과 출처가 있습니다. | 강함 |
 | 함수 | 카탈로그에 선언된 FunctionType 1개와 `operational_function_types`가 등록하는 소스 파생 읽기 FunctionType 약 40개가 있습니다. 모두 읽기 전용 근거 조회입니다. 워크플로우를 위한 판단, 점수, 예측을 계산하는 함수는 없습니다. | 근거 조회는 넓고 판단 함수는 없음 |
-| 인과 추론 | 카탈로그에는 인과 메커니즘이 1개 선언되어 있습니다. 별도의 55개 시나리오 인과, 예측, 영향 엔진이 있지만 자체 테스트만 참조하므로 런타임 경로가 사용하지 않습니다. | 능력은 있으나 연결되지 않음 |
+| 인과 추론 | 카탈로그에는 인과 메커니즘이 12개 선언되어 있습니다(`causal-mechanisms.yaml`). 별도의 55개 시나리오 인과, 예측, 영향 엔진이 `CatalogCausalGradeBridge`로 연결되어 있습니다. | 반박 읽기와 연결됨 |
 | 비즈니스 계층 | `BusinessService`는 식별, 중요도, 소유를 가집니다. 목표는 서비스에 연결됩니다. | 영향이 서열형이며 측정값이 아님 |
-| 워크플로우 | 카탈로그 워크플로우 14개가 모두 `shadow`입니다. 트리거는 schedule 또는 signal입니다. 스텝 매개변수는 `${event.*}` 토큰만 받습니다. 게이트는 `ChangeWindow`만 온톨로지에서 읽습니다. | 워크플로우 계층이 온톨로지 추론을 사용하지 않음 |
+| 워크플로우 | 카탈로그 워크플로우 16개가 모두 `shadow`입니다. 2개 워크플로우(`blast-radius-gated-service-restart`, `change-risk-gated-scale-in`)가 `ontology-function:` 게이트를 사용합니다. | 초기 온톨로지 함수 게이트 연결됨 |
 | 액션 도달 범위 | ActionType 58개 중 직접 executor 바인딩이 있는 것은 약 10개, PR 기반 shadow가 23개, 바인딩이 없는 것이 9개입니다. | 대부분 제안 수준 |
 | 근거의 현실성 | 역량 영수증은 `deterministic_fixture`, 검색 평가는 합성 데이터, typed selection은 shadow, 외부 벤치마크 하네스는 휴면 상태입니다. | 라이브 정확도 주장을 뒷받침하지 못함 |
 | 가치 측정 | 비용 효과 정산, MTTR, DORA, cohort 주장은 부품으로 존재합니다. 주장한 개선을 정산하는 워크플로우 단위 원장은 없습니다. | 부품은 있으나 루프는 닫히지 않음 |

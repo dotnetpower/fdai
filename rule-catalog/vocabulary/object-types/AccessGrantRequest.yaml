@@ -1,23 +1,48 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: AccessGrantRequest
-version: "2.0.0"
+version: 2.0.0
 key: id
 description: Immutable request for one bounded execution-identity permission change.
 properties:
-  id: {type: string, required: true}
-  status: {type: string, required: true}
-  decision_digest: {type: string, required: true}
-  plan_digest: {type: string, required: true}
-  scope_ref: {type: string, required: true, access_scope: approver}
-  expires_at: {type: datetime, required: true}
-  capability_id: {type: string, required: true}
-  grant_mode: {type: string, required: true}
-  requested_at: {type: datetime, required: true}
-  quorum: {type: integer, required: true}
-  revision: {type: integer, required: true}
+  id:
+    type: string
+    required: true
+  status:
+    type: string
+    required: true
+  decision_digest:
+    type: string
+    required: true
+  plan_digest:
+    type: string
+    required: true
+  scope_ref:
+    type: string
+    required: true
+    access_scope: approver
+  expires_at:
+    type: datetime
+    required: true
+  capability_id:
+    type: string
+    required: true
+  grant_mode:
+    type: string
+    required: true
+  requested_at:
+    type: datetime
+    required: true
+  quorum:
+    type: integer
+    required: true
+  revision:
+    type: integer
+    required: true
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:AccessGrantRequest@2.0.0
-  content_hash: sha256:695fb762925285f9756d7a14d6d1181bbd9bff4126827eaee317bcc0533493bf
+  content_hash: sha256:3d674de7d821c3e2c6194f35caf2cd7bebb071573d879462c405f562ff373b7a
   license: MIT
-  retrieved_at: "2026-07-31T00:00:00Z"
+  retrieved_at: '2026-07-31T00:00:00Z'
+authority_class: projection_owned
+freshness_max_age_seconds: 900

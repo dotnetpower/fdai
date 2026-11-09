@@ -1,28 +1,21 @@
-# Upstream built-in ObjectType: Agent.
-#
-# An `Agent` is one of the 15 fixed pantheon roles that own the runtime
-# control plane. See docs/roadmap/agents/agent-pantheon.md for the full contract
-# and docs/roadmap/agents/agent-workflows.md for the 10 workflows they compose.
-#
-# The pantheon is customer-agnostic and upstream-fixed: forks configure
-# agents (bindings, enable/disable, rate limits) but MUST NOT add, remove,
-# or rename agents. The registry loader
-# `fdai.agents.registry.load_pantheon` reads instances of this ObjectType
-# to build the runtime dispatch table.
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: Agent
-version: "1.0.0"
+version: 1.0.0
 key: id
-description: One of the 15 fixed pantheon roles that own the runtime control plane; ontology first-class citizen.
+description: One of the 15 fixed pantheon roles that own the runtime control plane;
+  ontology first-class citizen.
 properties:
   id:
     type: string
     required: true
-    description: Canonical pantheon name (Odin, Thor, Forseti, Huginn, Heimdall, Vidar, Var, Bragi, Saga, Mimir, Muninn, Norns, Njord, Freyr, Loki). ASCII, capitalized. Doubles as the instance key.
+    description: Canonical pantheon name (Odin, Thor, Forseti, Huginn, Heimdall, Vidar,
+      Var, Bragi, Saga, Mimir, Muninn, Norns, Njord, Freyr, Loki). ASCII, capitalized.
+      Doubles as the instance key.
   layer:
     type: string
     required: true
-    description: One of `domain` (Njord/Freyr/Loki), `pipeline` (sensing/judgment/operations/interface), or `governance` (Odin/Mimir/Muninn/Saga/Norns).
+    description: One of `domain` (Njord/Freyr/Loki), `pipeline` (sensing/judgment/operations/interface),
+      or `governance` (Odin/Mimir/Muninn/Saga/Norns).
   reports_to:
     type: string
     required: false
@@ -30,7 +23,8 @@ properties:
   owns:
     type: array
     required: true
-    description: ObjectType names this agent is the single writer of. The schema registry enforces producer_principal against this list.
+    description: ObjectType names this agent is the single writer of. The schema registry
+      enforces producer_principal against this list.
   executes:
     type: array
     required: false
@@ -38,7 +32,8 @@ properties:
   initiates:
     type: array
     required: false
-    description: ActionType names this agent may propose (initiator role). Includes actions where executor is a different agent.
+    description: ActionType names this agent may propose (initiator role). Includes
+      actions where executor is a different agent.
   subscribes:
     type: array
     required: false
@@ -46,30 +41,39 @@ properties:
   publishes:
     type: array
     required: false
-    description: Topic names this agent publishes to; MUST be exactly the topics owned via `owns`.
+    description: Topic names this agent publishes to; MUST be exactly the topics owned
+      via `owns`.
   question_domains:
     type: array
     required: false
-    description: Natural-language query categories this agent is the primary responder for (used by Bragi routing; see agent-pantheon.md 6.3).
+    description: Natural-language query categories this agent is the primary responder
+      for (used by Bragi routing; see agent-pantheon.md 6.3).
   owns_code_paths:
     type: array
     required: false
-    description: Glob patterns of source-code paths this agent may RAG over for self-introspection on the conversational port.
+    description: Glob patterns of source-code paths this agent may RAG over for self-introspection
+      on the conversational port.
   llm_bindings:
     type: array
     required: false
-    description: Fork-configured model IDs this agent may invoke. Empty means LLM-free by construction. Hot-path invocation restricted to Bragi, Forseti (T2 abstain), Norns (off-path).
+    description: Fork-configured model IDs this agent may invoke. Empty means LLM-free
+      by construction. Hot-path invocation restricted to Bragi, Forseti (T2 abstain),
+      Norns (off-path).
   rate_limits:
     type: object
     required: false
-    description: Per-agent proposal caps. Default 20/min, 100/hour. Overflow drops with `RateLimitExceeded` audit; Norns treats spikes as a learning signal.
+    description: Per-agent proposal caps. Default 20/min, 100/hour. Overflow drops
+      with `RateLimitExceeded` audit; Norns treats spikes as a learning signal.
   enabled:
     type: boolean
     required: false
-    description: Fork toggle. Disabling a domain agent (e.g. Loki in a fork without chaos) is legal; disabling Saga or Vidar is refused (hard dependencies).
+    description: Fork toggle. Disabling a domain agent (e.g. Loki in a fork without
+      chaos) is legal; disabling Saga or Vidar is refused (hard dependencies).
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:Agent@1.0.0
-  content_hash: sha256:60fa6c3159a10464ff6fdbc02a98ed025e1a8568417c0c39ec777868a3cf8f5d
+  content_hash: sha256:adef7b307421cb287fb0418ca82203292b683d7abadd025f0c3ed6cc758663c1
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: event_bus_registry
+freshness_max_age_seconds: 300

@@ -1,17 +1,29 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: SignalType
-version: "1.1.0"
+version: 1.1.0
 key: id
 description: Meta object describing one normalized event type used for rule dispatch.
 properties:
-  id: {type: string, required: true}
-  source: {type: string, required: false}
-  description: {type: string, required: false}
-  dispatch_mode: {type: string, required: true}
-  event_type_patterns: {type: array, required: true}
+  id:
+    type: string
+    required: true
+  source:
+    type: string
+    required: false
+  description:
+    type: string
+    required: false
+  dispatch_mode:
+    type: string
+    required: true
+  event_type_patterns:
+    type: array
+    required: true
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:SignalType@1.1.0
-  content_hash: sha256:db35ad3eefd903cb5a48d9de8e37675582c877d6734fa3aa5da22aee5b657040
+  content_hash: sha256:c32aa216a8c8df4bcfea3bd9c3fe80f894425b4d5f87518bba5a55900c1a53ba
   license: MIT
-  retrieved_at: "2026-08-04T00:00:00Z"
+  retrieved_at: '2026-08-04T00:00:00Z'
+authority_class: catalog_as_code
+freshness_max_age_seconds: 86400

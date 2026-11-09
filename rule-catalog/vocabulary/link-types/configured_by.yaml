@@ -1,13 +1,6 @@
-# LinkType: configured_by (Agent -> UserPreference, M:M)
-#
-# Fork-configured knobs (rate limits, LLM bindings, enabled flag) live
-# in UserPreference records that pantheon Agents read at startup and
-# on hot-reload. Modeled M:M because one preference can drive multiple
-# agents (e.g. shared LLM binding) and one agent may consult multiple
-# preferences.
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: configured_by
-version: "1.0.0"
+version: 1.0.0
 from_type: Agent
 to_type: UserPreference
 cardinality: many_to_many
@@ -15,6 +8,10 @@ description: UserPreference records that configure a pantheon Agent.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:configured_by@1.0.0
-  content_hash: sha256:ad5015ff636a4adaae63018250bf1a370aff75daba2bf64450985b83fa1606a8
+  content_hash: sha256:8fbe16fa9e6233975c10345e1efc4b3aca409de999c8529614ede0f25f6b09ee
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+semantic_traits:
+- composition
+forward_role: configured_by
+reverse_role: inverse_configured_by

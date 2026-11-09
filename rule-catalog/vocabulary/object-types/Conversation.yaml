@@ -1,24 +1,20 @@
-# Upstream built-in ObjectType: Conversation.
-#
-# A `Conversation` is one operator dialog session, owned by Bragi. Turns
-# accumulate immutably; the session is partitioned by user_id for RBAC.
-# See docs/roadmap/agents/agent-pantheon.md § 6.5 for the retention and per-user
-# context rules.
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: Conversation
-version: "1.0.0"
+version: 1.0.0
 key: id
 description: One operator dialog session; owned by Bragi; partitioned by user_id.
 properties:
   id:
     type: string
     required: true
-    description: Opaque session identifier assigned by Bragi on first turn (session_id in payload).
+    description: Opaque session identifier assigned by Bragi on first turn (session_id
+      in payload).
   user_id:
     type: string
     required: true
     access_scope: owner
-    purpose_binding: [user_context]
+    purpose_binding:
+    - user_context
     description: RBAC-scoped user identifier; cross-user reads refused.
   started_at:
     type: string
@@ -36,11 +32,14 @@ properties:
     type: string
     required: false
     access_scope: owner
-    purpose_binding: [user_context]
+    purpose_binding:
+    - user_context
     description: Root correlation id linking this session to trace records.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:Conversation@1.0.0
-  content_hash: sha256:31084f9738f17b18aaf5fe2782f7c9c2e79f08d8529b38ba21b7a68643e99f53
+  content_hash: sha256:0469c22dcdab29f052edfe311e10c76578b5c43c42888c2f4e6a154720f1e31f
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: event_bus_registry
+freshness_max_age_seconds: 300

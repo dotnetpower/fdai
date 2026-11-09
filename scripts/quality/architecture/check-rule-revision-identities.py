@@ -66,6 +66,11 @@ _OPA_SECURITY_OVERRIDE_LINES = frozenset(
         ),
     }
 )
+_OPA_SECURITY_IDENTITY_BASELINES = {
+    "ARG OPA_X_NET_VERSION=v0.62.0": "ARG OPA_X_NET_VERSION=v0.60.0",
+    "ARG OPA_X_CRYPTO_VERSION=v0.58.0": "ARG OPA_X_CRYPTO_VERSION=v0.57.0",
+    "ARG OPA_X_TEXT_VERSION=v0.43.0": "ARG OPA_X_TEXT_VERSION=v0.42.0",
+}
 _NORMALIZATION_SOURCES = (
     "services/core-control-plane/src/fdai/rule_catalog/schema/revision_identity.py",
     "services/core-control-plane/src/fdai/shared/contracts/models/rule.py",
@@ -233,7 +238,7 @@ def _opa_toolchain(root: Path) -> tuple[str, str]:
 
 
 def _normalize_go_patch_pin(stage: list[str]) -> list[str]:
-    """Map a Go patch pin to its minor series baseline so patch releases keep the identity."""
+    """Normalize reviewed Go patch and security-only pins to retained identity inputs."""
 
     series = next(
         (match.group(2) for line in stage if (match := _OPA_GO_VERSION.match(line))),
@@ -251,7 +256,7 @@ def _normalize_go_patch_pin(stage: list[str]) -> list[str]:
             line = f"ARG OPA_GO_VERSION={version}"
         elif (builder := _OPA_GO_BUILDER.match(line)) is not None:
             line = f"{builder.group(1)}{digest}{builder.group(2)}"
-        normalized.append(line)
+        normalized.append(_OPA_SECURITY_IDENTITY_BASELINES.get(line, line))
     return normalized
 
 

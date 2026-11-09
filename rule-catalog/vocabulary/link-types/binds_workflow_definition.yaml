@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: binds_workflow_definition
-version: "1.0.0"
+version: 1.0.0
 from_type: WorkflowBinding
 to_type: WorkflowDefinition
 cardinality: many_to_one
@@ -8,6 +8,10 @@ description: Immutable WorkflowDefinition selected by a principal-scoped binding
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:binds_workflow_definition@1.0.0
-  content_hash: sha256:711ef36708d6abd772e4afa6c3fc55b08251129734fb8638083c786ced2eb0ec
+  content_hash: sha256:313bcca6811192e3931d2b159950932a472d64012cef9ac3108e397d9e9e3c23
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+semantic_traits:
+- composition
+forward_role: binds_workflow_definition
+reverse_role: inverse_binds_workflow_definition

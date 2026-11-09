@@ -1,29 +1,24 @@
-# Upstream built-in ObjectType: Rule.
-#
-# A `Rule` is a deterministic control with a declared intent
-# (`applies_to`, `evaluates`, `remediates`). The concrete Rule catalog
-# lives in `rule-catalog/catalog/` and is loaded via
-# `fdai.rule_catalog.schema.rule.load_rule_catalog`; this ObjectType
-# declaration exists so the ontology loaders can validate LinkTypes
-# whose endpoints reference `Rule` (e.g. `remediates`, `overrides`).
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: Rule
-version: "1.0.0"
+version: 1.0.0
 key: id
 description: Deterministic control with a declared intent; instances live in rule-catalog/catalog/.
 properties:
   id:
     type: string
     required: true
-    description: Fork-unique rule id, kebab-cased with dot-separated namespaces (e.g. object-storage.public-access.deny).
+    description: Fork-unique rule id, kebab-cased with dot-separated namespaces (e.g.
+      object-storage.public-access.deny).
   version:
     type: string
     required: true
-    description: Semver rule version; a change to check_logic or remediation MUST bump this.
+    description: Semver rule version; a change to check_logic or remediation MUST
+      bump this.
   severity:
     type: string
     required: true
-    description: Severity level from the ontology `Severity` enum (info | low | medium | high | critical).
+    description: Severity level from the ontology `Severity` enum (info | low | medium
+      | high | critical).
   resource_type:
     type: string
     required: true
@@ -31,10 +26,13 @@ properties:
   remediates:
     type: string
     required: true
-    description: ActionType name (M:1) this rule proposes on match; resolved against rule-catalog/action-types/.
+    description: ActionType name (M:1) this rule proposes on match; resolved against
+      rule-catalog/action-types/.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:Rule@1.0.0
-  content_hash: sha256:50092f8f630eb8a61bde19c94940073de58f3eaa75af5b6385a45ce060964dc4
+  content_hash: sha256:7e3984c2ead688d0e27783b7b2f775157bf558c5f11f9b0a395db610d275561c
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: catalog_as_code
+freshness_max_age_seconds: 86400

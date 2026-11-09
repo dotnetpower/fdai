@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: considers
-version: "1.0.0"
+version: 1.0.0
 from_type: DecisionCase
 to_type: ActionOption
 cardinality: one_to_many
@@ -8,6 +8,10 @@ description: Bounded action options evaluated by one immutable decision case.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:considers@1.0.0
-  content_hash: sha256:9e6e1a2f8674457fc919444bfeac44a2ed27f193b96d19729c2597df3b1f3518
+  content_hash: sha256:93fe48018fd7be49717ffcd36c67c427f7c9d014466b6b650e82263e3fe27119
   license: MIT
-  retrieved_at: "2026-08-12T00:00:00Z"
+  retrieved_at: '2026-08-12T00:00:00Z'
+semantic_traits:
+- dependency
+forward_role: considers
+reverse_role: inverse_considers

@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: workload_depends_on
-version: "1.0.0"
+version: 1.0.0
 from_type: Workload
 to_type: Workload
 cardinality: many_to_many
@@ -9,6 +9,10 @@ description: A workload dependency required for correct service operation.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:workload_depends_on@1.0.0
-  content_hash: sha256:a0c9b9201b48003bfd1cccf4f3e6b7911d79a99401f6534fd78800fecfb613ee
+  content_hash: sha256:8684e69cfc92a8462ba0882a9a208cdc6173cf342ca97a7c78f136c09d2637cd
   license: MIT
-  retrieved_at: "2026-07-31T00:00:00Z"
+  retrieved_at: '2026-07-31T00:00:00Z'
+semantic_traits:
+- dependency
+forward_role: depends_on_workload
+reverse_role: required_by_workload

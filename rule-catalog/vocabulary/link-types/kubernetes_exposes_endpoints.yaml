@@ -1,14 +1,17 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: kubernetes_exposes_endpoints
-version: "1.0.0"
+version: 1.0.0
 from_type: Resource
 to_type: Resource
 cardinality: one_to_one
-semantic_traits: [connectivity]
+semantic_traits:
+- connectivity
 description: Exact same-name Kubernetes Service to Endpoints relationship in one namespace.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:kubernetes_exposes_endpoints@1.0.0
-  content_hash: sha256:0314cdfcdc25e6b386fefdf749e2bfaa817135ddbfe42576594694a067764178
+  content_hash: sha256:2c7b1b50aa3d58aa4dea240af0dc8a1c0f02767dd0b00a2fbfe319273a190bc9
   license: MIT
-  retrieved_at: "2026-08-05T00:00:00Z"
+  retrieved_at: '2026-08-05T00:00:00Z'
+forward_role: kubernetes_exposes_endpoints
+reverse_role: inverse_kubernetes_exposes_endpoints

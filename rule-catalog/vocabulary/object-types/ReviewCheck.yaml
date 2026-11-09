@@ -1,20 +1,38 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: ReviewCheck
-version: "1.0.0"
+version: 1.0.0
 key: id
 description: One bounded requirement evaluated during a governed review.
 properties:
-  id: {type: string, required: true}
-  check_key: {type: string, required: true}
-  category: {type: string, required: true}
-  status: {type: string, required: true}
-  severity: {type: string, required: true}
-  required: {type: boolean, required: true}
-  description: {type: string, required: true}
-  updated_at: {type: datetime, required: true}
+  id:
+    type: string
+    required: true
+  check_key:
+    type: string
+    required: true
+  category:
+    type: string
+    required: true
+  status:
+    type: string
+    required: true
+  severity:
+    type: string
+    required: true
+  required:
+    type: boolean
+    required: true
+  description:
+    type: string
+    required: true
+  updated_at:
+    type: datetime
+    required: true
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:ReviewCheck@1.0.0
-  content_hash: sha256:14705a26d64ca32a1173736b8bc5009483efd1ee87e43ae7c8593b63c5799e2a
+  content_hash: sha256:1c2e31037b36e69d1448195153721fdf87ea9d25c4d2e84d551a6d80a1626c57
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: projection_owned
+freshness_max_age_seconds: 900

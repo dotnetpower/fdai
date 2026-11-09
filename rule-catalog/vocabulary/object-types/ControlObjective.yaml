@@ -1,19 +1,36 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: ControlObjective
-version: "1.0.0"
+version: 1.0.0
 key: id
-description: Versioned provider-neutral invariant used to discover exact governed Rules.
+description: Versioned provider-neutral invariant used to discover exact governed
+  Rules.
 properties:
-  id: {type: string, required: true}
-  version: {type: string, required: true}
-  title: {type: string, required: true}
-  operating_domain: {type: string, required: true}
-  predicate_family: {type: string, required: true}
-  state: {type: string, required: true}
-  content_digest: {type: string, required: true}
+  id:
+    type: string
+    required: true
+  version:
+    type: string
+    required: true
+  title:
+    type: string
+    required: true
+  operating_domain:
+    type: string
+    required: true
+  predicate_family:
+    type: string
+    required: true
+  state:
+    type: string
+    required: true
+  content_digest:
+    type: string
+    required: true
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:ControlObjective@1.0.0
-  content_hash: sha256:8b06dfcfbb94735b20000cd0eb8843afd99c09b1ab1dc17a35fa303b5969f58e
+  content_hash: sha256:b8da3cdf0920fdb1fa4c69b634f5058d430054352964c8dcdcc362b89a753c5b
   license: MIT
-  retrieved_at: "2026-08-13T00:00:00Z"
+  retrieved_at: '2026-08-13T00:00:00Z'
+authority_class: catalog_as_code
+freshness_max_age_seconds: 86400

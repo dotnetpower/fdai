@@ -4,10 +4,7 @@ title: Ontology-Grounded FinOps Package Architecture
 
 # Ontology-Grounded FinOps Package Architecture
 
-This document defines how FDAI can package Cost Governance as an independently built
-`fdai-cost-governance` distribution while keeping the operating ontology and the fixed 15-agent
-organization at the center of autonomous operation. Packaging changes ownership of replaceable
-domain code and assets. It does not create another control plane or move authority out of Core.
+This document defines the independently built `fdai-cost-governance` distribution while preserving FDAI's operating ontology and fixed 15-agent ownership of autonomous operation. Packaging transfers replaceable domain code and assets, not control-plane or Core authority. Catalog-validated ObjectType authority/freshness metadata grants no Cost Governance activation, observation, recommendation, publication, or action authority.
 
 > **Scope:** This design owns package boundaries, the ontology profile, agent responsibility,
 > atomic registration, compatibility, and rollback. Delivery waves and acceptance evidence belong

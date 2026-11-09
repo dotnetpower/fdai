@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: has_approval
-version: "1.0.0"
+version: 1.0.0
 from_type: ReviewCase
 to_type: Approval
 cardinality: one_to_many
@@ -8,6 +8,10 @@ description: Approval request associated with a ReviewCase.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:has_approval@1.0.0
-  content_hash: sha256:6a9f49db3e05fa1622d3477cab5395d1158b03e3ae10157774676ed20897156e
+  content_hash: sha256:b8b27a6beefee3c675df36bb4939ab4a445988d00eab22f41bfdd7e0714cd652
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+semantic_traits:
+- dependency
+forward_role: has_approval
+reverse_role: inverse_has_approval

@@ -246,7 +246,7 @@
         "How are repeated Issues handled?",
         "Issue 중복은 어떻게 처리하나요?"
       ],
-      "source_manifest_hash": "7b5aea4f18527dd02c97f21722595b63f2c02ebc6c726fd14a43e16b27520f6b",
+      "source_manifest_hash": "5c195a74a36ea2f2f7dedeb2463459eea5d0c38adab4b724e1e3ae915ffd9cf9",
       "sources": [
         {
           "authority_role": "implementation",
@@ -268,9 +268,9 @@
         },
         {
           "authority_role": "design",
-          "blob_sha": "3f0af925785f7f18cd5447ab5d89387238c7b69e",
-          "line_end": 35,
-          "line_start": 27,
+          "blob_sha": "108300c3244340f9917738f2083efe65cc418d60",
+          "line_end": 31,
+          "line_start": 22,
           "path": "rule-catalog/vocabulary/object-types/Issue.yaml",
           "source_kind": "schema",
           "symbol": "lifecycle.deduplication"

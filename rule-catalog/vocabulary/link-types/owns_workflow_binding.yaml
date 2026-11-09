@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: owns_workflow_binding
-version: "1.0.0"
+version: 1.0.0
 from_type: Principal
 to_type: WorkflowBinding
 cardinality: one_to_many
@@ -8,6 +8,10 @@ description: Workflow bindings owned by one authenticated Principal.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:owns_workflow_binding@1.0.0
-  content_hash: sha256:e7f20850325731231164e6852b817efcc0df8d2ec8cae719a433585dac0198c5
+  content_hash: sha256:804879551fb5a759e242b529afa12d722181c7fdbf42906d869baded589d036d
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+semantic_traits:
+- ownership
+forward_role: owns_workflow_binding
+reverse_role: inverse_owns_workflow_binding

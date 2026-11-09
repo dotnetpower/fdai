@@ -1,39 +1,72 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: CausalHypothesis
-version: "1.0.0"
+version: 1.0.0
 key: id
 description: Immutable machine-evaluable causal claim over one incident evidence cutoff.
 properties:
-  id: {type: string, required: true}
-  incident_id: {type: string, required: true}
-  status: {type: string, required: true}
-  cause_ref: {type: string, required: true}
-  effect_ref: {type: string, required: true}
-  mechanism: {type: string, required: true}
-  evidence_grade: {type: string, required: true}
-  confidence: {type: number, required: true}
-  ambiguity: {type: integer, required: true}
-  graph_revision: {type: string, required: true}
-  evidence_cutoff: {type: datetime, required: true}
-  method_version: {type: string, required: true}
-  created_at: {type: datetime, required: true}
-  closure: {type: string, required: false}
+  id:
+    type: string
+    required: true
+  incident_id:
+    type: string
+    required: true
+  status:
+    type: string
+    required: true
+  cause_ref:
+    type: string
+    required: true
+  effect_ref:
+    type: string
+    required: true
+  mechanism:
+    type: string
+    required: true
+  evidence_grade:
+    type: string
+    required: true
+  confidence:
+    type: number
+    required: true
+  ambiguity:
+    type: integer
+    required: true
+  graph_revision:
+    type: string
+    required: true
+  evidence_cutoff:
+    type: datetime
+    required: true
+  method_version:
+    type: string
+    required: true
+  created_at:
+    type: datetime
+    required: true
+  closure:
+    type: string
+    required: false
 lifecycle:
   owner: Forseti
   creation:
-    - code: grounded_causal_candidate
-      when: A bounded incident graph supports a replayable causal candidate.
-      result: Create an immutable hypothesis revision.
-      source_refs: [docs/roadmap/rules-and-detection/causal-incident-graph.md]
+  - code: grounded_causal_candidate
+    when: A bounded incident graph supports a replayable causal candidate.
+    result: Create an immutable hypothesis revision.
+    source_refs:
+    - docs/roadmap/rules-and-detection/causal-incident-graph.md
   closure:
-    - code: outcome_closure
-      when: Independent outcome evidence confirms, refutes, or leaves the claim inconclusive.
-      result: Create a terminal hypothesis revision without rewriting prior evidence.
-      source_refs: [docs/roadmap/rules-and-detection/causal-incident-graph.md]
-  authority_refs: [docs/roadmap/rules-and-detection/causal-incident-graph.md]
+  - code: outcome_closure
+    when: Independent outcome evidence confirms, refutes, or leaves the claim inconclusive.
+    result: Create a terminal hypothesis revision without rewriting prior evidence.
+    source_refs:
+    - docs/roadmap/rules-and-detection/causal-incident-graph.md
+  authority_refs:
+  - docs/roadmap/rules-and-detection/causal-incident-graph.md
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:CausalHypothesis@1.0.0
-  content_hash: sha256:90a9056ce11021d9748dc5c627f594eb2a997efd1464fe64e861a9717f96cbd9
+  content_hash: sha256:317d0e170b572c0179368f7e3813e25cc11106deeca7d56e401c3d572f6c5b1c
   license: MIT
-  retrieved_at: "2026-07-31T00:00:00Z"
+  retrieved_at: '2026-07-31T00:00:00Z'
+authority_class: pantheon_owned
+freshness_max_age_seconds: 600

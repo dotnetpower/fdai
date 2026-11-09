@@ -1,25 +1,14 @@
-# Upstream built-in ObjectType: Finding.
-#
-# A `Finding` is a Rule match on a Resource at a point in time, with
-# context and severity. Findings are derived at runtime and persisted
-# in the audit store; they are the primary object the risk-gate,
-# executor, and audit log operate on.
-#
-# Multi-step workflows (e.g. an architecture-review lifecycle) ride on
-# the upstream `Process` ObjectType (docs/roadmap/decisioning/process-automation.md),
-# which references a Finding via the `advances` LinkType; the built-in
-# Finding stays lifecycle-free so the audit log remains append-only and
-# non-mutable. A fork MAY add further lifecycle objects the same way.
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: Finding
-version: "1.0.0"
+version: 1.0.0
 key: id
 description: Rule match on a Resource at a point in time, with context and severity.
 properties:
   id:
     type: string
     required: true
-    description: Idempotent Finding id derived from (rule_id, resource_id, evaluation_ts); retries MUST reuse it.
+    description: Idempotent Finding id derived from (rule_id, resource_id, evaluation_ts);
+      retries MUST reuse it.
   rule_id:
     type: string
     required: true
@@ -43,6 +32,8 @@ properties:
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:Finding@1.0.0
-  content_hash: sha256:85479e8c5fbbb3edf5022661c289fcae42f18addc1a1ca7b2a9d2a3821e8c0ed
+  content_hash: sha256:e191b4adf4ef6247e9c25c61708b3ad8264edfb78e379882c47275826ee6aac6
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: projection_owned
+freshness_max_age_seconds: 900

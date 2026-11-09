@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: has_conversation_policy
-version: "1.0.0"
+version: 1.0.0
 from_type: Principal
 to_type: ConversationPolicy
 cardinality: one_to_many
@@ -8,6 +8,10 @@ description: Confirmed typed conversation policies owned by a Principal.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:has_conversation_policy@1.0.0
-  content_hash: sha256:2a7eb0442385f91b05744fd12a83fead7f386942710b90d65036bd30a0893405
+  content_hash: sha256:7eb79e5beee3d9aebc56c90e781b00fae5f959e36aba633f556fb61cdd145032
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+semantic_traits:
+- dependency
+forward_role: has_conversation_policy
+reverse_role: inverse_has_conversation_policy

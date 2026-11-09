@@ -96,6 +96,67 @@ def _declaration_ref(
     )
 
 
+_HISTORICAL_TRAIT_LINKS = frozenset(
+    {
+        "attached_to",
+        "capacity_forecast_targets_resource",
+        "change_targets_resource",
+        "contains",
+        "cost_anomaly_derived_from",
+        "cost_observation_targets_resource",
+        "depends_on",
+        "diagnostic_finding_affects_resource",
+        "drift_finding_affects_resource",
+        "emits_to",
+        "kubernetes_backed_by",
+        "kubernetes_exposes_endpoint_slice",
+        "kubernetes_exposes_endpoints",
+        "kubernetes_owned_by",
+        "kubernetes_scheduled_on",
+        "kubernetes_selects",
+        "observation_targets_resource",
+        "owns",
+        "peered_with",
+        "recovery_targets_resource",
+        "resource_class_specializes",
+        "resource_classified_as",
+        "resource_of",
+        "resource_type_member_of_class",
+        "routes_to",
+        "runs_on",
+        "runtime_calls",
+        "scoped_to",
+        "sizing_recommendation_based_on",
+        "sizing_recommendation_targets_resource",
+        "summarizes",
+        "targets",
+        "workload_runs_on",
+    }
+)
+_HISTORICAL_ROLE_LINKS = frozenset(
+    {
+        "attached_to",
+        "budget_implements_cost_objective",
+        "capacity_forecast_targets_resource",
+        "contains",
+        "cost_anomaly_derived_from",
+        "cost_observation_targets_resource",
+        "depends_on",
+        "kubernetes_backed_by",
+        "kubernetes_exposes_endpoint_slice",
+        "peered_with",
+        "resource_class_specializes",
+        "resource_classified_as",
+        "resource_type_member_of_class",
+        "routes_to",
+        "runtime_calls",
+        "service_has_budget",
+        "sizing_recommendation_based_on",
+        "sizing_recommendation_targets_resource",
+    }
+)
+
+
 def _release_payload(
     declaration: (
         OntologyObjectType
@@ -108,6 +169,22 @@ def _release_payload(
     payload = declaration.model_dump(mode="json", exclude_none=True)
     if isinstance(declaration, OntologyObjectType):
         payload.pop("query_terms", None)
+        payload.pop("authority_class", None)
+        payload.pop("freshness_max_age_seconds", None)
+    if isinstance(declaration, OntologyLinkType):
+        if declaration.version == "1.0.0":
+            if declaration.name not in _HISTORICAL_TRAIT_LINKS:
+                payload["semantic_traits"] = []
+            if declaration.name not in _HISTORICAL_ROLE_LINKS:
+                payload.pop("forward_role", None)
+                payload.pop("reverse_role", None)
+        provenance = payload.get("provenance")
+        if isinstance(provenance, dict) and "content_hash" in provenance:
+            link_without_prov = dict(payload)
+            link_without_prov.pop("provenance", None)
+            if link_without_prov.get("semantic_traits") == []:
+                link_without_prov.pop("semantic_traits", None)
+            provenance["content_hash"] = _digest(link_without_prov)
     if isinstance(declaration, OntologyObjectType | OntologyInterfaceType):
         properties = payload.get("properties")
         if isinstance(properties, dict):

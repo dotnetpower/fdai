@@ -1,22 +1,44 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: Approval
-version: "1.1.0"
+version: 1.1.0
 key: id
 description: Action-bound approval request and its current decision state.
 properties:
-  id: {type: string, required: true}
-  status: {type: string, required: true}
-  required_role: {type: string, required: true}
-  quorum: {type: integer, required: true}
-  no_self_approval: {type: boolean, required: true}
-  requested_at: {type: datetime, required: true}
-  decided_at: {type: datetime, required: false}
-  justification_hash: {type: string, required: false}
-  approver_id: {type: string, required: false}
-  receipt_ref: {type: string, required: false}
+  id:
+    type: string
+    required: true
+  status:
+    type: string
+    required: true
+  required_role:
+    type: string
+    required: true
+  quorum:
+    type: integer
+    required: true
+  no_self_approval:
+    type: boolean
+    required: true
+  requested_at:
+    type: datetime
+    required: true
+  decided_at:
+    type: datetime
+    required: false
+  justification_hash:
+    type: string
+    required: false
+  approver_id:
+    type: string
+    required: false
+  receipt_ref:
+    type: string
+    required: false
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:Approval@1.1.0
-  content_hash: sha256:b4645edfbe0f2cb71a9ececdd3ea209a5b0713886ae989b2695a28bbab692bc9
+  content_hash: sha256:eac57ea871cef10484737f472540b60ac0a25f82af5213922d2da54dc9048b3a
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: event_bus_registry
+freshness_max_age_seconds: 300

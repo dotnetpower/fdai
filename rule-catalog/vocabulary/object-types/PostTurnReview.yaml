@@ -1,13 +1,9 @@
-# Upstream built-in ObjectType: PostTurnReview.
-#
-# A `PostTurnReview` is a consent-filtered, off-path learning envelope owned
-# by Bragi. Norns consumes it after the operator and assistant turns have been
-# persisted; it is separate from the immutable `Turn` conversation record.
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: PostTurnReview
-version: "1.0.0"
+version: 1.0.0
 key: id
-description: Consent-filtered post-turn learning envelope owned by Bragi and consumed by Norns.
+description: Consent-filtered post-turn learning envelope owned by Bragi and consumed
+  by Norns.
 properties:
   id:
     type: string
@@ -17,17 +13,22 @@ properties:
     type: string
     required: true
     access_scope: owner
-    purpose_binding: [learning]
+    purpose_binding:
+    - learning
     description: Opaque principal scope used for consent and retention enforcement.
   review:
     type: object
     required: true
     access_scope: owner
-    purpose_binding: [learning]
-    description: Consent-filtered review input; raw bodies are absent unless the operator opted in.
+    purpose_binding:
+    - learning
+    description: Consent-filtered review input; raw bodies are absent unless the operator
+      opted in.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:PostTurnReview@1.0.0
-  content_hash: sha256:6f0c5025731253ffe18ca70864347319dc3a24b05d6b65325e967253be8ecc11
+  content_hash: sha256:9540b5feebc46616405feffb40fb303dbd4d3720615edcbde00cef733be4bfeb
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: event_bus_registry
+freshness_max_age_seconds: 300

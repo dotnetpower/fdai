@@ -1,20 +1,48 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: ConversationPolicy
-version: "1.0.0"
+version: 1.0.0
 key: id
-description: Confirmed typed per-user conversation behavior; never raw system-prompt prose.
+description: Confirmed typed per-user conversation behavior; never raw system-prompt
+  prose.
 properties:
-  id: {type: string, required: true}
-  principal_ref: {type: string, required: true, access_scope: owner, purpose_binding: [user_context]}
-  kind: {type: string, required: true}
-  enabled: {type: boolean, required: true}
-  revision: {type: integer, required: true}
-  confirmed_at: {type: datetime, required: true}
-  source_turn_id: {type: string, required: true, access_scope: owner, purpose_binding: [user_context]}
-  policy_shape: {type: object, required: true, access_scope: owner, purpose_binding: [user_context]}
+  id:
+    type: string
+    required: true
+  principal_ref:
+    type: string
+    required: true
+    access_scope: owner
+    purpose_binding:
+    - user_context
+  kind:
+    type: string
+    required: true
+  enabled:
+    type: boolean
+    required: true
+  revision:
+    type: integer
+    required: true
+  confirmed_at:
+    type: datetime
+    required: true
+  source_turn_id:
+    type: string
+    required: true
+    access_scope: owner
+    purpose_binding:
+    - user_context
+  policy_shape:
+    type: object
+    required: true
+    access_scope: owner
+    purpose_binding:
+    - user_context
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:ConversationPolicy@1.0.0
-  content_hash: sha256:de350e7845728ba4088137406b27453480c010aa14230d25c140747d7942cb8c
+  content_hash: sha256:0757107737195766378b73e8c0901a0adaac25f7971289763bf6c5485bdb17d9
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: projection_owned
+freshness_max_age_seconds: 900

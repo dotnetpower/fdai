@@ -76,6 +76,8 @@ query_terms:
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:ExternalSlaContract@1.0.0
-  content_hash: sha256:d2cf147be17ae8f9e473c2b9f07118b80ac4c760ff89850e07f5e936618f7929
+  content_hash: sha256:af713357922bb86c879ee85fbaa5b429629911f9dc17bedd8e1d6da3bcf47a82
   license: MIT
   retrieved_at: '2026-10-01T00:00:00Z'
+authority_class: pantheon_owned
+freshness_max_age_seconds: 600

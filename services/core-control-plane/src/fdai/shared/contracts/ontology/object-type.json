@@ -107,6 +107,22 @@
       "uniqueItems": true,
       "description": "Reviewed English and Korean object labels for semantic document projection. These terms provide model context only and do not authorize lookup or inference."
     },
+    "authority_class": {
+      "type": "string",
+      "enum": [
+        "catalog_as_code",
+        "event_bus_registry",
+        "projection_owned",
+        "pantheon_owned"
+      ],
+      "description": "Authoritative ownership and write-boundary class for this ObjectType."
+    },
+    "freshness_max_age_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 31536000,
+      "description": "Maximum observation age in seconds before instances of this ObjectType are treated as stale."
+    },
     "lifecycle": {
       "type": "object",
       "additionalProperties": false,

@@ -1,20 +1,45 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: UserMemoryFact
-version: "1.0.0"
+version: 1.0.0
 key: id
-description: User-confirmed long-term memory metadata; the private body remains in UserMemoryStore.
+description: User-confirmed long-term memory metadata; the private body remains in
+  UserMemoryStore.
 properties:
-  id: {type: string, required: true}
-  principal_ref: {type: string, required: true, access_scope: owner, purpose_binding: [user_context]}
-  category: {type: string, required: true}
-  source_turn_id: {type: string, required: true, access_scope: owner, purpose_binding: [user_context]}
-  consented_at: {type: datetime, required: true}
-  created_at: {type: datetime, required: true}
-  expires_at: {type: datetime, required: false}
-  superseded_by: {type: string, required: false}
+  id:
+    type: string
+    required: true
+  principal_ref:
+    type: string
+    required: true
+    access_scope: owner
+    purpose_binding:
+    - user_context
+  category:
+    type: string
+    required: true
+  source_turn_id:
+    type: string
+    required: true
+    access_scope: owner
+    purpose_binding:
+    - user_context
+  consented_at:
+    type: datetime
+    required: true
+  created_at:
+    type: datetime
+    required: true
+  expires_at:
+    type: datetime
+    required: false
+  superseded_by:
+    type: string
+    required: false
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:UserMemoryFact@1.0.0
-  content_hash: sha256:3ef16c397dda527e03ca758732d1b054487676fd1d73e8f6297854865042ec80
+  content_hash: sha256:e234eb833f1a1424fccbc9735ad0ef007c2613ee6b48b4e31c3375c45709eec0
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: projection_owned
+freshness_max_age_seconds: 900

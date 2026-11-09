@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: contains_check
-version: "1.0.0"
+version: 1.0.0
 from_type: ReviewCase
 to_type: ReviewCheck
 cardinality: one_to_many
@@ -8,6 +8,10 @@ description: A requirement evaluated as part of a ReviewCase.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:contains_check@1.0.0
-  content_hash: sha256:44d372f0088d4f0672a72cb747f8ef0370bd8a87499effd817bff820cc5b7295
+  content_hash: sha256:df282d5d31684650230556a215722d8fea66eae56b3e5b609745ee741019962c
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+semantic_traits:
+- containment
+forward_role: contains_check
+reverse_role: inverse_contains_check

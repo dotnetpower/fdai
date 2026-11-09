@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: VmTaskRun
-version: "1.0.0"
+version: 1.0.0
 key: id
 description: One planned or submitted Python task run on a managed compute Resource.
 properties:
@@ -47,6 +47,8 @@ properties:
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:VmTaskRun@1.0.0
-  content_hash: sha256:8281f060f56fe65564310888fcef3e3fcac0932ad5dd9b46818be51dbbabdc1c
+  content_hash: sha256:1eec62412ffc43623faa667e87db20acd5ccb3db846edfa6da550a602564e04d
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: projection_owned
+freshness_max_age_seconds: 900

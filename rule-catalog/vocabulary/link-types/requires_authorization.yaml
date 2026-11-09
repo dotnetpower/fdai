@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: requires_authorization
-version: "1.0.0"
+version: 1.0.0
 from_type: ActionType
 to_type: AuthorizationRequirement
 cardinality: many_to_many
@@ -8,6 +8,10 @@ description: Capability requirement associated with an action type.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:requires_authorization@1.0.0
-  content_hash: sha256:165091b7cdceff91491662d633723dd9e14d4ef9e73322e13e14125e61e650fd
+  content_hash: sha256:f0abb2ec9c573c56ca3383dcbf1ca21a01fb31fe7e1b20084f89e181f6c1ded3
   license: MIT
-  retrieved_at: "2026-07-31T00:00:00Z"
+  retrieved_at: '2026-07-31T00:00:00Z'
+semantic_traits:
+- authorization
+forward_role: requires_authorization
+reverse_role: inverse_requires_authorization

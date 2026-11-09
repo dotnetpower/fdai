@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: subscribed_to_briefing
-version: "1.0.0"
+version: 1.0.0
 from_type: Principal
 to_type: BriefingSubscription
 cardinality: one_to_many
@@ -8,6 +8,10 @@ description: Proactive briefing subscriptions configured by a Principal.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:subscribed_to_briefing@1.0.0
-  content_hash: sha256:515b7161325cee7ef5dd6dd8fb91b5519abd431d02fc821ff22d31e7383af71e
+  content_hash: sha256:f8beae00a20c0032144b84180ba16891ba029477acb1044c089352a9f76ed825
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+semantic_traits:
+- evidence
+forward_role: subscribed_to_briefing
+reverse_role: inverse_subscribed_to_briefing
