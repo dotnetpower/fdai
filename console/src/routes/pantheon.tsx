@@ -379,6 +379,7 @@ function PantheonBody({
       records: {
         agents: graph.agents.map((a) => ({
           name: a.name,
+          role: agentRoleTitle(a.name),
           layer: a.layer,
           reports_to: a.reports_to ?? "",
           owns: a.owns.join(", ") || "-",

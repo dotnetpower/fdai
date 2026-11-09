@@ -1,8 +1,8 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: e089fd49a944a0a454dcae708fe0f13bf80d9e9f
-translation_revised: 2026-11-09
+translation_source_sha: 5d69847418596f071794913cd781d0b9d290db1e
+translation_revised: 2026-11-10
 ---
 # Lifecycle Release와 채널
 
@@ -45,8 +45,9 @@ ID, 그룹, 경로, 영문/한글 텍스트, 고유한 패널 및 런타임 축 
 참조, footprint 계산과 권한 플래그, fail-closed 기능 맵, 현재 카탈로그에 대한 등록 Release
 복원을 검증합니다. 레코드 하나라도 잘못되거나 서로 모순되면 일부 선택을 정상처럼 표시하지
 않고 전체 카탈로그를 사용할 수 없는 상태로 처리합니다.
-경량 `lite-observe-alert` preset에는 **설정: 모델 라우팅**이 포함됩니다. 일반 대화 화면과 모델
-인벤토리가 `/models/settings`를 함께 사용하므로, 패널 차단 규칙과 API 의존성이 일치해야 합니다.
+경량 `lite-observe-alert` preset에는 **Fleet**과 **설정: 모델 라우팅**이 포함됩니다. Fleet은
+Pantheon 작업 영역의 `/agents` 탭을 유지하고, 일반 대화 화면과 모델 인벤토리는
+`/models/settings`를 함께 사용합니다. 따라서 패널 차단 규칙과 API 의존성이 일치합니다.
 Stencil은 구성 화면만 노출합니다. 설치본이 소유하는 모델 바인딩, 엔드포인트, Managed Identity,
 용량은 Lifecycle 구성에서 계속 제공하며 Release Hub나 브라우저에 권한을 부여하지 않습니다.
 

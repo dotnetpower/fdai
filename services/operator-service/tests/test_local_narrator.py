@@ -307,6 +307,79 @@ async def test_local_narrator_calls_provider_and_emits_canonical_turn(tmp_path: 
     assert kwargs["json"]["stream_options"] == {"include_usage": True}  # type: ignore[index]
 
 
+async def test_pantheon_screen_question_returns_all_verified_agent_rows(tmp_path: Path) -> None:
+    async def forbidden_token(_audience: str) -> str:
+        raise AssertionError("verified screen evidence MUST NOT call a model")
+
+    fallback = FallbackAdapters()
+    adapter = LocalAzureNarratorAdapters.from_environment(
+        {"LLM_RESOLVED_MODELS_PATH": str(_artifact(tmp_path / "models.json"))},
+        fallback_projections=fallback,
+        fallback_streams=fallback,
+        token_provider=forbidden_token,
+        http_client=RecordingHttpClient(),
+    )
+    source = await adapter.open(
+        ConversationStreamRequest(
+            operation="chat.stream",
+            scope=PrincipalScope("operator-1", frozenset({"Reader"})),
+            body={
+                "prompt": "현재 어떤 에이전트들이 있고 각각 무슨 역할을 하나요?",
+                "locale": "ko",
+                "view_context": {
+                    "routeId": "pantheon",
+                    "records": {
+                        "agents": [
+                            {
+                                "name": "Odin",
+                                "role": "마스터 플래너",
+                                "reports_to": "",
+                                "owns": "plan",
+                            },
+                            {
+                                "name": "Bragi",
+                                "role": "내레이터",
+                                "reports_to": "Thor",
+                                "owns": "answer",
+                            },
+                        ]
+                    },
+                },
+            },
+        )
+    )
+    events = [event async for event in source]
+
+    assert [event.event for event in events] == ["token", "done"]
+    assert "| Odin | 마스터 플래너 | - | plan |" in events[1].data["answer"]
+    assert "| Bragi | 내레이터 | Thor | answer |" in events[1].data["answer"]
+    assert events[1].data["source"] == "screen-context:pantheon"
+    assert events[1].data["verification"] == {
+        "status": "verified",
+        "authority": "screen-context",
+        "checks_completed": 2,
+        "checks_total": 2,
+        "evidence_refs": [
+            "screen://pantheon/agents/Odin",
+            "screen://pantheon/agents/Bragi",
+        ],
+        "reason_code": "pantheon_screen_catalog_verified",
+        "claims": [
+            {
+                "claim_id": "pantheon-agent-1",
+                "status": "supported",
+                "evidence_refs": ["screen://pantheon/agents/Odin"],
+            },
+            {
+                "claim_id": "pantheon-agent-2",
+                "status": "supported",
+                "evidence_refs": ["screen://pantheon/agents/Bragi"],
+            },
+        ],
+        "failed_claim_ids": [],
+    }
+
+
 def test_narrator_context_selection_is_token_aware_and_accounts_omissions() -> None:
     plan = narrator_message_plan(
         "Continue with the latest evidence.",

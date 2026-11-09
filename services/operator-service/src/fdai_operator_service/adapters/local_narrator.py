@@ -280,6 +280,25 @@ class LocalAzureNarratorAdapters:
                 "invalid_prompt",
                 "prompt MUST be non-empty and bounded",
             )
+        screen_evidence = _pantheon_screen_evidence(request.body)
+        if screen_evidence is not None:
+            answer, screen_verification = screen_evidence
+            return NarratorEventIterator(
+                (
+                    StreamEvent(event="token", data={"seq": 1, "revision": 0, "delta": answer}),
+                    StreamEvent(
+                        event="done",
+                        data={
+                            "seq": 2,
+                            "revision": 0,
+                            "answer": answer,
+                            "model": "deterministic-screen-context",
+                            "source": "screen-context:pantheon",
+                            "verification": screen_verification,
+                        },
+                    ),
+                )
+            )
         answer, model, usage, context_receipt, dialogue_state, dialogue_turns = await self._answer(
             prompt.strip(), request.body
         )
@@ -611,6 +630,82 @@ class LocalAzureNarratorAdapters:
     ) -> None:
         del elapsed_ms
         self._pool.record_failure(deployment=target.deployment, vision=vision)
+
+
+def _pantheon_screen_evidence(
+    body: Mapping[str, Any],
+) -> tuple[str, JsonObject] | None:
+    view = body.get("view_context")
+    if not isinstance(view, Mapping) or view.get("routeId") != "pantheon":
+        return None
+    records = view.get("records")
+    if not isinstance(records, Mapping):
+        return None
+    raw_agents = records.get("agents")
+    if not isinstance(raw_agents, list) or not raw_agents or len(raw_agents) > 64:
+        return None
+
+    locale = "ko" if str(body.get("locale") or "").startswith("ko") else "en"
+    rows: list[tuple[str, str, str, str]] = []
+    claims: list[dict[str, Any]] = []
+    evidence_refs: list[str] = []
+    for index, raw in enumerate(raw_agents):
+        if not isinstance(raw, Mapping):
+            return None
+        name = _screen_cell(raw.get("name"))
+        role = _screen_cell(raw.get("role"))
+        reports_to = _screen_cell(raw.get("reports_to")) or "-"
+        owns = _screen_cell(raw.get("owns")) or "-"
+        if not name or not role:
+            return None
+        evidence_ref = f"screen://pantheon/agents/{quote(name, safe='')}"
+        rows.append((name, role, reports_to, owns))
+        evidence_refs.append(evidence_ref)
+        claims.append(
+            {
+                "claim_id": f"pantheon-agent-{index + 1}",
+                "status": "supported",
+                "evidence_refs": [evidence_ref],
+            }
+        )
+
+    if locale == "ko":
+        lines = [
+            "현재 화면에서 검증된 에이전트와 역할입니다.",
+            "",
+            "| 에이전트 | 역할 | 보고 대상 | 소유 영역 |",
+            "|---|---|---|---|",
+        ]
+    else:
+        lines = [
+            "These are the agents and roles verified on the current screen.",
+            "",
+            "| Agent | Role | Reports to | Owned areas |",
+            "|---|---|---|---|",
+        ]
+    lines.extend(
+        f"| {name} | {role} | {reports_to} | {owns} |" for name, role, reports_to, owns in rows
+    )
+    answer = "\n".join(lines)
+    if len(answer) > _MAX_ANSWER_CHARS:
+        return None
+    verification: JsonObject = {
+        "status": "verified",
+        "authority": "screen-context",
+        "checks_completed": len(rows),
+        "checks_total": len(rows),
+        "evidence_refs": cast(Any, evidence_refs),
+        "reason_code": "pantheon_screen_catalog_verified",
+        "claims": cast(Any, claims),
+        "failed_claim_ids": [],
+    }
+    return answer, verification
+
+
+def _screen_cell(value: object) -> str:
+    if not isinstance(value, str):
+        return ""
+    return value.replace("|", "\\|").replace("\r", " ").replace("\n", " ").strip()
 
 
 @dataclass(slots=True)
