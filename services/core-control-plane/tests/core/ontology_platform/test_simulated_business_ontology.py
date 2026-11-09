@@ -311,6 +311,7 @@ async def test_yaml_catalog_extensions_runtime_functions_and_planner_wiring() ->
         OntologyQueryPlanVerifier,
     )
     from fdai.core.ontology_platform.business_ontology_extensions import (
+        extended_business_object_types,
         load_authored_rule_objective_bindings_manifest,
         load_business_extended_ontology_catalog,
         register_business_ontology_functions,
@@ -328,6 +329,11 @@ async def test_yaml_catalog_extensions_runtime_functions_and_planner_wiring() ->
     assert len(ext_catalog.link_types) == 130
     assert len(ext_catalog.function_types) == 5
     assert all(len(obj.query_terms) >= 2 for obj in ext_catalog.object_types)
+    objects_by_name = {obj.name: obj for obj in ext_catalog.object_types}
+    for declaration in extended_business_object_types():
+        loaded = objects_by_name[declaration.name]
+        assert loaded.authority_class == declaration.authority_class == "pantheon_owned"
+        assert loaded.freshness_max_age_seconds == declaration.freshness_max_age_seconds == 600
 
     manifest_proj, manifest_report = load_authored_rule_objective_bindings_manifest(
         REPO_ROOT / "rule-catalog"

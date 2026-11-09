@@ -82,6 +82,8 @@ query_terms:
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:CostAllocation@1.0.0
-  content_hash: sha256:6543d477a9aee88902f7e2089b29edb1abc89110ba52c487ea0707c55c3083eb
+  content_hash: sha256:1e55a252d6094647b02ca17ed225a9b0d1e46878368de29e3447000ab91973aa
   license: MIT
   retrieved_at: '2026-10-01T00:00:00Z'
+authority_class: pantheon_owned
+freshness_max_age_seconds: 600
