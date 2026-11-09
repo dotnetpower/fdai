@@ -393,7 +393,12 @@ Additional identity, channel, and console elements are deployment-owned or opt-i
   messages, and receives the stage topic. Document ingestion API and worker identities can send
   only to `fdai.pantheon.objects`; the worker can also receive that topic for gated stage commands.
 - **Static Web Apps (Free tier, opt-in)** - hosts the read-only console when
-  `enable_console=true`.
+  `enable_console=true`. Hub-image publication copies the exact fail-closed
+  `stencil.feature_flags` from the verified signed Release into `fdai-config.js`; missing or
+  mismatched flags block publication. Before publishing, the Operator API must expose the same
+  active panel list through `/system/stencil-feature-flags`; a missing endpoint or runtime mismatch
+  also blocks publication. Development Console update targets use schema `v2` and carry the
+  validated flags so a later asset update cannot reopen menus disabled by the selected Release.
 - **Design-mocks Static Web App (Free tier, opt-in)** - hosts the isolated static design-review
   artifact when `enable_design_mocks=true`. The artifact builder copies only allowlisted browser
   assets from `index.html`, `mocks/`, `examples/`, and the shared agent icons. Static Web Apps

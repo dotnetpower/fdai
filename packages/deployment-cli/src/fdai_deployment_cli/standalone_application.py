@@ -63,6 +63,25 @@ _SSH_USER = re.compile(r"[a-z_][a-z0-9_-]{0,31}")
 __all__ = ["deploy_standalone_application", "publish_verified_console"]
 
 
+def _selected_stencil_feature_flags(
+    selection: HubImageSelection | None,
+) -> dict[str, object] | None:
+    if selection is None or "stencil" not in selection.document:
+        return None
+    stencil = selection.document["stencil"]
+    if not isinstance(stencil, dict):
+        raise TypeError("Hub selection Stencil metadata is invalid")
+    stencil_id = stencil.get("stencil_id")
+    feature_flags = stencil.get("feature_flags")
+    if (
+        not isinstance(stencil_id, str)
+        or not isinstance(feature_flags, dict)
+        or feature_flags.get("stencil_id") != stencil_id
+    ):
+        raise ValueError("Hub selection Stencil feature flags are invalid")
+    return dict(feature_flags)
+
+
 def deploy_standalone_application(
     *,
     kit: DeploymentKit | None,
@@ -675,6 +694,7 @@ def deploy_standalone_application(
                 tenant_id=str(handoff["tenant_id"]),
                 timeout_seconds=deadline.remaining(),
                 redirect_changed=redirect_changed,
+                stencil_feature_flags=_selected_stencil_feature_flags(hub_selection),
             )
         if source_mode:
             assert source_transfer is not None

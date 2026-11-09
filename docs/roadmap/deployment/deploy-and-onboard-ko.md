@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 19187fdb294b42d94a2433ef3f860c3351f665db
+translation_source_sha: d9ab6bfff941f8cafd97c49e5f2d9db25ec2a50e
 translation_revised: 2026-11-09
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -413,6 +413,12 @@ Event Hubs Kafka를 계속 요구합니다.
   단계 토픽을 수신합니다. 문서 인제스트 API와 워커 신원은 `fdai.pantheon.objects`로만
   전송할 수 있으며, 워커는 통제된 단계 명령을 위해 같은 토픽을 수신할 수도 있습니다.
 - **Static Web Apps (Free 계층, 명시적 선택)** - `enable_console=true`일 때 읽기 전용 콘솔을 호스팅합니다.
+  Hub 이미지 게시 과정은 검증된 서명 Release의 정확한 fail-closed `stencil.feature_flags`를
+  `fdai-config.js`에 복사합니다. 플래그가 없거나 Stencil과 일치하지 않으면 게시를 차단합니다.
+  게시 전에 Operator API도 `/system/stencil-feature-flags`에서 같은 활성 패널 목록을 제공해야
+  합니다. 이 경로가 없거나 런타임 목록이 다르면 게시하지 않습니다. 개발 Console 업데이트
+  대상은 `v2` 스키마와 검증된 플래그를 함께 사용하므로, 이후 자산 업데이트가 선택한 Release에서
+  비활성화한 메뉴를 다시 열지 않습니다.
 - **Design-mocks Static Web App (Free 계층, 명시적 선택)** - `enable_design_mocks=true`일 때 격리된
   정적 디자인 검토 아티팩트를 호스팅합니다. 아티팩트 빌더는 `index.html`, `mocks/`,
   `examples/`, 공유 에이전트 icon에서 허용된 브라우저 자산만 복사합니다. Static Web Apps

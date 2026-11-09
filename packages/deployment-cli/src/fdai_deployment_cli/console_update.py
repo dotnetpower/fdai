@@ -16,6 +16,10 @@ from pathlib import Path
 from typing import cast
 from urllib.parse import urlsplit
 
+from fdai_deployment_cli.console_config import (
+    render_console_config,
+    validate_console_stencil_flags,
+)
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.private_output import (
     copy_private_file,
@@ -50,6 +54,7 @@ _TARGET_FIELDS = frozenset(
         "ingestion_api_base_url",
         "entra_console_spa_client_id",
         "entra_console_api_scope",
+        "stencil_feature_flags",
     }
 )
 _PLAN_FIELDS = frozenset(
@@ -89,6 +94,7 @@ class ConsoleUpdateTarget:
     ingestion_api_base_url: str
     entra_console_spa_client_id: str
     entra_console_api_scope: str
+    stencil_feature_flags: dict[str, object]
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, object]) -> ConsoleUpdateTarget:
@@ -96,17 +102,20 @@ class ConsoleUpdateTarget:
 
         if (
             set(value) != _TARGET_FIELDS
-            or value.get("schema_version") != "fdai.console-update-target.v1"
+            or value.get("schema_version") != "fdai.console-update-target.v2"
         ):
             raise ValueError("Console update target fields are invalid")
         text = {
             key: item
             for key, item in value.items()
-            if key != "schema_version" and isinstance(item, str)
+            if key not in {"schema_version", "stencil_feature_flags"} and isinstance(item, str)
         }
-        if len(text) != len(_TARGET_FIELDS) - 1:
+        if len(text) != len(_TARGET_FIELDS) - 2:
             raise ValueError("Console update target values MUST be strings")
-        target = cls(**text)
+        raw_flags = value.get("stencil_feature_flags")
+        if not isinstance(raw_flags, dict):
+            raise TypeError("Console update target Stencil feature flags are invalid")
+        target = cls(**text, stencil_feature_flags=dict(raw_flags))
         target.validate()
         return target
 
@@ -143,6 +152,27 @@ class ConsoleUpdateTarget:
                 raise ValueError(f"Console update {label} URL is invalid")
         if _API_SCOPE.fullmatch(self.entra_console_api_scope) is None:
             raise ValueError("Console update API scope is invalid")
+        validated_flags = validate_console_stencil_flags(self.stencil_feature_flags)
+        if (
+            validated_flags.get("schema_version") != "fdai.stencil-feature-flags.v1"
+            or validated_flags.get("enforcement_mode") != "fail-closed"
+            or not isinstance(validated_flags.get("stencil_id"), str)
+        ):
+            raise ValueError("Console update target requires fail-closed Stencil feature flags")
+        render_console_config(
+            json.dumps(
+                {
+                    "schema_version": "fdai.console-runtime.v1",
+                    "operator_api_base_url": self.operator_api_base_url,
+                    "ingestion_api_base_url": self.ingestion_api_base_url,
+                    "tenant_id": self.tenant_id,
+                    "spa_client_id": self.entra_console_spa_client_id,
+                    "api_scope": self.entra_console_api_scope,
+                    "stencil_feature_flags": self.stencil_feature_flags,
+                },
+                separators=(",", ":"),
+            ).encode("ascii")
+        )
 
     @property
     def target_binding(self) -> str:
@@ -153,11 +183,11 @@ class ConsoleUpdateTarget:
             subscription_id=self.subscription_id,
         )
 
-    def to_mapping(self) -> dict[str, str]:
+    def to_mapping(self) -> dict[str, object]:
         """Return canonical target data for a private plan."""
 
         return {
-            "schema_version": "fdai.console-update-target.v1",
+            "schema_version": "fdai.console-update-target.v2",
             "environment": self.environment,
             "subscription_id": self.subscription_id,
             "tenant_id": self.tenant_id,
@@ -167,6 +197,7 @@ class ConsoleUpdateTarget:
             "ingestion_api_base_url": self.ingestion_api_base_url,
             "entra_console_spa_client_id": self.entra_console_spa_client_id,
             "entra_console_api_scope": self.entra_console_api_scope,
+            "stencil_feature_flags": self.stencil_feature_flags,
         }
 
 
@@ -471,6 +502,7 @@ def _publish(
         redirect_changed=False,
         verify_only=verify_only,
         verify_service_contracts=verify_service_contracts,
+        stencil_feature_flags=target.stencil_feature_flags,
     )
 
 

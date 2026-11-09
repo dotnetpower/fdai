@@ -15,6 +15,12 @@ SUBSCRIPTION = "00000000-0000-0000-0000-000000000001"
 TENANT = "00000000-0000-0000-0000-000000000002"
 CLIENT = "00000000-0000-0000-0000-000000000003"
 API_CLIENT = "00000000-0000-0000-0000-000000000004"
+STENCIL_FEATURE_FLAGS = {
+    "schema_version": "fdai.stencil-feature-flags.v1",
+    "stencil_id": "lite-observe-alert",
+    "enforcement_mode": "fail-closed",
+    "enabled_panel_ids": ["audit", "dashboard", "settings-general"],
+}
 
 
 def _private_json(path: Path, value: object) -> None:
@@ -22,9 +28,9 @@ def _private_json(path: Path, value: object) -> None:
     path.chmod(0o600)
 
 
-def _target() -> dict[str, str]:
+def _target() -> dict[str, object]:
     return {
-        "schema_version": "fdai.console-update-target.v1",
+        "schema_version": "fdai.console-update-target.v2",
         "environment": "dev",
         "subscription_id": SUBSCRIPTION,
         "tenant_id": TENANT,
@@ -37,7 +43,30 @@ def _target() -> dict[str, str]:
         "ingestion_api_base_url": "https://ingestion.example.com",
         "entra_console_spa_client_id": CLIENT,
         "entra_console_api_scope": f"api://{API_CLIENT}/access",
+        "stencil_feature_flags": STENCIL_FEATURE_FLAGS,
     }
+
+
+def test_console_update_target_requires_valid_stencil_feature_flags() -> None:
+    missing = _target()
+    missing.pop("stencil_feature_flags")
+    with pytest.raises(ValueError, match="target fields"):
+        console_update.ConsoleUpdateTarget.from_mapping(missing)
+
+    malformed = _target()
+    malformed["stencil_feature_flags"] = {
+        **STENCIL_FEATURE_FLAGS,
+        "enabled_panel_ids": ["audit", "dashboard", "settings-general", "Bad_Panel"],
+    }
+    with pytest.raises(ValueError, match="stencil_feature_flags"):
+        console_update.ConsoleUpdateTarget.from_mapping(malformed)
+
+    incomplete = _target()
+    incomplete["stencil_feature_flags"] = {
+        "enabled_panel_ids": ["audit", "dashboard", "settings-general"],
+    }
+    with pytest.raises(ValueError, match="fail-closed"):
+        console_update.ConsoleUpdateTarget.from_mapping(incomplete)
 
 
 def test_prepare_console_update_plan_seals_target_candidate_and_rollback(
@@ -148,6 +177,7 @@ def test_apply_console_update_plan_writes_claim_before_publication(
 
     def publish(**arguments: object) -> dict[str, object]:
         assert (work / "claim.json").is_file()
+        assert arguments["stencil_feature_flags"] == STENCIL_FEATURE_FLAGS
         calls.append(bool(arguments["verify_only"]))
         return _publication_receipt(verify_only=bool(arguments["verify_only"]))
 

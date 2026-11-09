@@ -46,6 +46,12 @@ selection to the managed host and imports all seven
 signed component image digests (or the exact signed Stencil component subset and fail-closed `feature_flags`
 when the `v2` manifest embeds a verified `stencil` blueprint) into the installation registry, and verifies them before
 workload apply. Checkout-supplied infrastructure, migrations and Console remain separately attributed.
+Before publishing Console bytes, the coordinator copies the same verified Stencil `feature_flags`
+into the installation runtime configuration and records their digest in the publication receipt.
+The Operator API must first expose the same active panel list through
+`/system/stencil-feature-flags`. Missing metadata, a missing endpoint, or a runtime mismatch stops
+publication; an explicit source deployment without a Hub selection keeps the existing unscoped
+Console behavior.
 
 Selecting Hub images does not change runtime-profile defaults, product add-ons, executor identity,
 approval, licensing or health/zero-change-plan requirements. Explicit source mode retains its
