@@ -1,14 +1,17 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: workload_runs_on
-version: "1.0.0"
+version: 1.0.0
 from_type: Workload
 to_type: Resource
 cardinality: many_to_many
-semantic_traits: [attachment]
+semantic_traits:
+- attachment
 description: Runtime resources that host a workload.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:workload_runs_on@1.0.0
-  content_hash: sha256:7899d2032995b915de75e7509c66e6ee51afc06bb07bc0ed9151579fb1957cfc
+  content_hash: sha256:66ab479dc4b2995c6eac79a44fdcdc0a81d64daf5b403d2b312335402302d885
   license: MIT
-  retrieved_at: "2026-07-31T00:00:00Z"
+  retrieved_at: '2026-07-31T00:00:00Z'
+forward_role: workload_runs_on
+reverse_role: inverse_workload_runs_on

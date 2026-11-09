@@ -69,6 +69,15 @@ def _structural_receipts() -> tuple[StructuralCoverageReceipt, ...]:
         action_types=catalog.action_types,
         interface_types=catalog.interface_types,
     )
+    full_release = build_ontology_release(
+        object_types=catalog.object_types,
+        link_types=catalog.link_types,
+        action_types=catalog.action_types,
+        interface_types=catalog.interface_types,
+        function_types=catalog.function_types,
+    )
+    if full_release != catalog.build_release():
+        raise ValueError("canonical catalog.build_release() does not match function-bound release")
     provider = CatalogQueryManifestProvider(
         release=release,
         object_types=catalog.object_types,

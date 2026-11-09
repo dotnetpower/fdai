@@ -9,7 +9,7 @@ The [owner design](../../roadmap/interfaces/ontology-reasoning-compiler.md) was 
 2026-09-28. An initial, partial shadow implementation covers selected operations in Core: the
 closed form, admission, concept selection, anchor binding, relation and operator compilers for
 collection, count, state, history, impact, and schema reads, independent verifiers, the claim
-verifier, a coverage receipt in which 149 of 433 closed cells compile, follow-up references bound
+verifier, a coverage receipt in which 155 of 437 closed cells compile, follow-up references bound
 to result handles, and a shadow runner with an Azure adapter. The shadow runner is not wired into the
 production semantic turn, so deployed venues answer only through the current path, where resource-group
 membership now reads containment. The local development profile alone may answer from a released

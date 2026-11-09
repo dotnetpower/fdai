@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: granted_by
-version: "1.0.0"
+version: 1.0.0
 from_type: Approval
 to_type: Principal
 cardinality: many_to_one
@@ -8,6 +8,10 @@ description: Principal that recorded an approval decision.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:granted_by@1.0.0
-  content_hash: sha256:d552f56c1c1209591c908e7ce1319add97839bf19dc63a51a85d04aefee99398
+  content_hash: sha256:6f2cd2720db037bac7a7436419030043f64531db334ea5efe819c971e0ab8140
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+semantic_traits:
+- authorization
+forward_role: granted_by
+reverse_role: inverse_granted_by

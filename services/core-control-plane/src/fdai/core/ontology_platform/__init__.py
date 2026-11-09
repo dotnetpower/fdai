@@ -1,6 +1,23 @@
 """Typed operational ontology platform primitives."""
 
 from .action_plans import compile_action_mutation_plan, validate_action_plan_semantics
+from .anti_hallucination_guards import (
+    AUTHORITY_PRECEDENCE,
+    CausalRefutationGateResult,
+    CrossAuthorityAdjudicationResult,
+    GatewayAsOfBinding,
+    PlanGuardVerdict,
+    SubtractiveRubricVerdict,
+    adjudicate_cross_authority_observations,
+    bind_gateway_as_of_cutoff,
+    enforce_plan_operand_and_level_guard,
+    evaluate_subtractive_rubric_enforcement,
+    reauthorize_cached_or_handle_read,
+    resolve_bitemporal_record_window,
+    resolve_epistemic_empty_posture,
+    verify_causal_competitor_refutation_gate,
+    verify_multiformat_distillation_conformance_gate,
+)
 from .catalog_projection import (
     CatalogOntologyProjection,
     CatalogOntologyProjector,
@@ -214,6 +231,21 @@ from .zstd_codec import (
 )
 
 __all__ = [
+    "AUTHORITY_PRECEDENCE",
+    "CausalRefutationGateResult",
+    "CrossAuthorityAdjudicationResult",
+    "GatewayAsOfBinding",
+    "PlanGuardVerdict",
+    "SubtractiveRubricVerdict",
+    "adjudicate_cross_authority_observations",
+    "bind_gateway_as_of_cutoff",
+    "enforce_plan_operand_and_level_guard",
+    "evaluate_subtractive_rubric_enforcement",
+    "reauthorize_cached_or_handle_read",
+    "resolve_bitemporal_record_window",
+    "resolve_epistemic_empty_posture",
+    "verify_causal_competitor_refutation_gate",
+    "verify_multiformat_distillation_conformance_gate",
     "ActionArgumentBinding",
     "ActionReadSetReceipt",
     "ActiveSemanticCatalog",

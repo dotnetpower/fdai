@@ -1,14 +1,6 @@
-# LinkType: escalates (Agent -> HandoffEscalation, M:M)
-#
-# When an Agent decides a request exceeds its scope it emits a
-# HandoffEscalation that Saga materialises into a GitHub Issue with
-# fingerprint deduplication (agent-pantheon.md - Handoff and security
-# notification). Modeled as M:M so a HandoffEscalation may carry
-# co-signatures from multiple agents (e.g. Forseti judging + Odin
-# arbitration).
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: escalates
-version: "1.0.0"
+version: 1.0.0
 from_type: Agent
 to_type: HandoffEscalation
 cardinality: many_to_many
@@ -16,6 +8,10 @@ description: Agents that produced or co-signed a HandoffEscalation.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:escalates@1.0.0
-  content_hash: sha256:35190c52b674167fc8165293d074ce9f55b8e7c2d9465e78d275e318262a72b7
+  content_hash: sha256:e006a0c9bd2a517165fc63dbd3e09750f7639e21d8fcaff9b69c931c050a531f
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+semantic_traits:
+- dependency
+forward_role: escalates
+reverse_role: inverse_escalates

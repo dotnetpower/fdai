@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: objective_owned_by
-version: "1.0.0"
+version: 1.0.0
 from_type: ServiceObjective
 to_type: Ownership
 cardinality: many_to_one
@@ -8,6 +8,10 @@ description: Accountable operating ownership for a service objective.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:objective_owned_by@1.0.0
-  content_hash: sha256:f1819cdefd21fed50c420bfaf837973dc9ee9a738662502cc9ac8ffc454a228d
+  content_hash: sha256:914c9988f35338d00f6e70b7006e8a9e6b778e318a6395e0ba544be3a7e2bee1
   license: MIT
-  retrieved_at: "2026-07-31T00:00:00Z"
+  retrieved_at: '2026-07-31T00:00:00Z'
+semantic_traits:
+- ownership
+forward_role: objective_owned_by
+reverse_role: inverse_objective_owned_by

@@ -1,22 +1,20 @@
-# LinkType: precedes (Finding -> Finding, M:M, temporal)
-#
-# Correlation of related Findings on one incident. Queries over this
-# link MUST respect the `evaluation_ts` on each endpoint - the
-# temporal_order flag tells the traversal engine to enforce the
-# ordering. Symmetric partner is `follows` (not shipped; a fork adds
-# it when the query pattern actually needs the reverse direction).
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: precedes
-version: "1.0.0"
+version: 1.0.0
 from_type: Finding
 to_type: Finding
 cardinality: many_to_many
 temporal_order: true
 order_by_property: evaluation_ts
-description: Correlation of related Findings on one incident; endpoints have a strict time ordering.
+description: Correlation of related Findings on one incident; endpoints have a strict
+  time ordering.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:precedes@1.0.0
-  content_hash: sha256:c693d34052c0d93f0d7c08abe3da7e642f4698700955520b5d3d6ce33ead2ddf
+  content_hash: sha256:21d561601223db78b0d089e908889c304b9f71df30cdb07e311955e3c2c6556c
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+semantic_traits:
+- dependency
+forward_role: precedes_finding
+reverse_role: succeeded_by_finding

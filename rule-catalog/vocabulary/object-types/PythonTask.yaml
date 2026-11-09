@@ -1,8 +1,9 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: PythonTask
-version: "1.0.0"
+version: 1.0.0
 key: id
-description: A validated, content-addressed Python source artifact that can be planned or executed by a governed workflow.
+description: A validated, content-addressed Python source artifact that can be planned
+  or executed by a governed workflow.
 properties:
   id:
     type: string
@@ -27,7 +28,8 @@ properties:
   capabilities:
     type: array
     required: true
-    description: Explicit host capabilities such as gpu, network, filesystem access, or process creation.
+    description: Explicit host capabilities such as gpu, network, filesystem access,
+      or process creation.
   timeout_seconds:
     type: integer
     required: true
@@ -43,6 +45,8 @@ properties:
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:PythonTask@1.0.0
-  content_hash: sha256:07d65653c3e63a636820e3fb9b27fc6c753a98dc8783337dcd6ddf70ef3c0727
+  content_hash: sha256:467a0c30db88ee21bfc0effb715eb9e750e526ca1215c647237f5082a503c7cc
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: projection_owned
+freshness_max_age_seconds: 900

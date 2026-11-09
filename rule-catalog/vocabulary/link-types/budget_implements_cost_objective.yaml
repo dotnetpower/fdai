@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: budget_implements_cost_objective
-version: "1.0.0"
+version: 1.0.0
 from_type: Budget
 to_type: CostObjective
 cardinality: many_to_one
@@ -10,6 +10,8 @@ description: Reviewed CostObjective represented by one effective-time Budget rev
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:budget_implements_cost_objective@1.0.0
-  content_hash: sha256:9fe040de5aa26a45598c733a1485d9d684001ab5028e42d4af1fc0eeb05d1874
+  content_hash: sha256:594105efec28083c805016d7c0e6590e567158355cc9262a62b06544d40a069a
   license: MIT
-  retrieved_at: "2026-08-28T00:00:00Z"
+  retrieved_at: '2026-08-28T00:00:00Z'
+semantic_traits:
+- composition

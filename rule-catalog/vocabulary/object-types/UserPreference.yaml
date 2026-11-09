@@ -1,11 +1,6 @@
-# Upstream built-in ObjectType: UserPreference.
-#
-# A `UserPreference` scopes per-user Bragi behavior: locale, answer shape,
-# and consent for Norns learner access. Default `share_with_learner:
-# false`. See docs/roadmap/agents/agent-pantheon.md § 6.5.
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: UserPreference
-version: "1.1.0"
+version: 1.1.0
 key: id
 description: Per-user Bragi personalization + Norns learner opt-in state.
 properties:
@@ -13,55 +8,65 @@ properties:
     type: string
     required: true
     access_scope: owner
-    purpose_binding: [user_context]
-    description: RBAC-scoped user identifier (user_id in payload). Doubles as the instance key.
+    purpose_binding:
+    - user_context
+    description: RBAC-scoped user identifier (user_id in payload). Doubles as the
+      instance key.
   locale:
     type: string
     required: false
     access_scope: owner
-    purpose_binding: [user_context]
+    purpose_binding:
+    - user_context
     description: BCP 47 tag (e.g. en, ko). Bragi renders responses in this locale.
   verbosity:
     type: string
     required: false
     access_scope: owner
-    purpose_binding: [user_context]
+    purpose_binding:
+    - user_context
     description: One of `concise`, `detailed`. Controls Bragi answer density.
   answer_detail:
     type: string
     required: false
     access_scope: owner
-    purpose_binding: [user_context]
+    purpose_binding:
+    - user_context
     description: Default deterministic AnswerPlan detail level.
   answer_format:
     type: string
     required: false
     access_scope: owner
-    purpose_binding: [user_context]
+    purpose_binding:
+    - user_context
     description: Default deterministic AnswerPlan response format.
   answer_preferences_enabled:
     type: boolean
     required: false
     access_scope: owner
-    purpose_binding: [user_context]
+    purpose_binding:
+    - user_context
     description: Whether stored answer-shape defaults apply to new turns.
   answer_intent_detail:
     type: object
     required: false
     access_scope: owner
-    purpose_binding: [user_context]
+    purpose_binding:
+    - user_context
     description: Explicit per-intent detail overrides keyed by AnswerIntent.
   answer_intent_format:
     type: object
     required: false
     access_scope: owner
-    purpose_binding: [user_context]
+    purpose_binding:
+    - user_context
     description: Explicit per-intent format overrides keyed by AnswerIntent.
   share_with_learner:
     type: boolean
     required: false
     access_scope: owner
-    purpose_binding: [user_context]
+    purpose_binding:
+    - user_context
     description: Opt-in for Norns turn-body access. Default false (metadata-only).
   updated_at:
     type: string
@@ -70,6 +75,8 @@ properties:
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:UserPreference@1.1.0
-  content_hash: sha256:8138eb305c3e4d96ed0fb036ae442552127770c9969567ae192269fc35b480af
+  content_hash: sha256:c78dfa88470528dd26d6a9b3d6ddf15fefc8b0e8dfeac20cdf2ebf47de2f51f1
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: projection_owned
+freshness_max_age_seconds: 900

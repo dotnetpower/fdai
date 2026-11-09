@@ -1,17 +1,6 @@
-# LinkType: remediates (Rule -> ActionType, M:1)
-#
-# The ontology ActionType a Rule proposes on match. Modeled here as a
-# Rule -> ActionType link. ActionType declarations live in
-# `rule-catalog/action-types/` and are cross-referenced by name from
-# each Rule; the dedicated meta ObjectType prevents aliasing an action
-# declaration as a Rule.
-#
-# Concrete cross-reference validation lives in
-# `fdai.rule_catalog.schema.rule.load_rule_catalog` which resolves
-# `remediates` against the ActionType catalog.
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: remediates
-version: "1.0.0"
+version: 1.0.0
 from_type: Rule
 to_type: ActionType
 cardinality: many_to_one
@@ -19,6 +8,10 @@ description: The ontology ActionType a Rule proposes on match.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:remediates@1.0.0
-  content_hash: sha256:7500d2c9d774747848a5e0cbb8ad2357156400e247aeb39e0ab6172c9bd63c09
+  content_hash: sha256:8604dc6289062c39ed180a0c7f85cb539714b90fe80045f5fd246a6ad37eebed
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+semantic_traits:
+- dependency
+forward_role: remediates
+reverse_role: inverse_remediates

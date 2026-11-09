@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: drift_check_produces_finding
-version: "1.0.0"
+version: 1.0.0
 from_type: ConfigurationDriftCheck
 to_type: ConfigurationDriftFinding
 cardinality: one_to_many
@@ -8,6 +8,10 @@ description: Field or topology differences emitted by one configuration drift ch
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:drift_check_produces_finding@1.0.0
-  content_hash: sha256:7d7b4d45a90c22e6da1ba542f86cc3980003f5e52d38167ed4ef416c8a5b4932
+  content_hash: sha256:9b554b09ea4ea034761caf7c1e4dcd29125d1fae0d5973258abd92620f9346a5
   license: MIT
-  retrieved_at: "2026-08-09T00:00:00Z"
+  retrieved_at: '2026-08-09T00:00:00Z'
+semantic_traits:
+- evidence
+forward_role: drift_check_produces_finding
+reverse_role: inverse_drift_check_produces_finding

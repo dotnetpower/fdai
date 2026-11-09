@@ -82,6 +82,7 @@
           "attachment",
           "authorization",
           "classification",
+          "composition",
           "connectivity",
           "containment",
           "dependency",

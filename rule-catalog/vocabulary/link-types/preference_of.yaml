@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: preference_of
-version: "1.0.0"
+version: 1.0.0
 from_type: UserPreference
 to_type: Principal
 cardinality: one_to_one
@@ -8,6 +8,10 @@ description: Principal whose semantic narrator preferences this record controls.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:preference_of@1.0.0
-  content_hash: sha256:769d8edbd359e400f03faf661354f298839117c3cddf3ae8747cc2ec67f5f810
+  content_hash: sha256:f7910161ae88f3fd89ed8e6ec43a4e21232f234ba9aaa74d4137be9b0ef7cbe9
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+semantic_traits:
+- dependency
+forward_role: preference_of
+reverse_role: inverse_preference_of

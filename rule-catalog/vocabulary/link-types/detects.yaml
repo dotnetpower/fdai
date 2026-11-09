@@ -1,12 +1,6 @@
-# LinkType: detects (Rule -> SecurityEvent, M:M)
-#
-# A Rule that matches on SecurityEvent signals (rather than generic
-# Signals or Resource state) declares the match here. M:M because a
-# single SecurityEvent stream can drive multiple Rules and a Rule can
-# detect multiple event kinds.
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: detects
-version: "1.0.0"
+version: 1.0.0
 from_type: Rule
 to_type: SecurityEvent
 cardinality: many_to_many
@@ -14,6 +8,10 @@ description: Which SecurityEvent kinds a Rule matches on.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:detects@1.0.0
-  content_hash: sha256:eae87f4f507bd6987dd3e83fa1eac1b31c2a1ec37277c6eb6d5b652bb488cf0a
+  content_hash: sha256:cf797b074ea96323cb08a9946208b18522c8c7ec78bcc37f36392fd98e0f64f8
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+semantic_traits:
+- evidence
+forward_role: detects
+reverse_role: inverse_detects

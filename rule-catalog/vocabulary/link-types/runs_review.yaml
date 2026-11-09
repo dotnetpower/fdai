@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: runs_review
-version: "1.0.0"
+version: 1.0.0
 from_type: Process
 to_type: ReviewCase
 cardinality: one_to_one
@@ -8,6 +8,10 @@ description: The governed review aggregate instantiated by a Process.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:runs_review@1.0.0
-  content_hash: sha256:6cf0bec494abfcecd690965f5c497fee8432e60b21b28756c5666cd3c5f9d903
+  content_hash: sha256:2d437ccab2f19fb8905f62fee72fcd27eb0af7487a47da3cec401078ee28e304
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+semantic_traits:
+- dependency
+forward_role: runs_review
+reverse_role: inverse_runs_review

@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: executed_as
-version: "1.0.0"
+version: 1.0.0
 from_type: ActionOption
 to_type: ActionRun
 cardinality: one_to_many
@@ -8,6 +8,10 @@ description: Governed action runs dispatched for one selected option.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:executed_as@1.0.0
-  content_hash: sha256:8075b312f3b3a79fdd241b77221d1d04833cabde4272709401ca5bb771456519
+  content_hash: sha256:0a1132618c08cff447466349de8ba0aa2b3e1ed22d8efd59c0817beab23d2d7a
   license: MIT
-  retrieved_at: "2026-08-12T00:00:00Z"
+  retrieved_at: '2026-08-12T00:00:00Z'
+semantic_traits:
+- dependency
+forward_role: executed_as
+reverse_role: inverse_executed_as

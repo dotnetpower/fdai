@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: diagnostic_finding_produced_by
-version: "1.0.0"
+version: 1.0.0
 from_type: DiagnosticFinding
 to_type: DiagnosticMechanism
 cardinality: many_to_one
@@ -8,6 +8,10 @@ description: Deterministic mechanism that produced a hold-only diagnostic findin
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:diagnostic_finding_produced_by@1.0.0
-  content_hash: sha256:dcb41bd7617840b1a5646fa89acbdedaca4f6cc5bddca53085a5c1f0ceae50cb
+  content_hash: sha256:da35cafe99760009dd09f72213fc6824f105e6956c4f037a3afaa2009a53fb5b
   license: MIT
-  retrieved_at: "2026-08-05T00:00:00Z"
+  retrieved_at: '2026-08-05T00:00:00Z'
+semantic_traits:
+- evidence
+forward_role: diagnostic_finding_produced_by
+reverse_role: inverse_diagnostic_finding_produced_by

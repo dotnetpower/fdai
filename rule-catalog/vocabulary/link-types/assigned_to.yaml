@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: assigned_to
-version: "1.0.0"
+version: 1.0.0
 from_type: ReviewCheck
 to_type: Principal
 cardinality: many_to_one
@@ -8,6 +8,10 @@ description: Principal accountable for resolving or accepting a ReviewCheck.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:assigned_to@1.0.0
-  content_hash: sha256:09c8a4767b77e9ee3771d7d371ea50a0217b3d3d95a44c74720fed1a8275f85c
+  content_hash: sha256:8f5ad4a2e95cf49c1643164262136a92345f1cf8e1cd35ad764bfaae4e5a9b39
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+semantic_traits:
+- ownership
+forward_role: assigned_to
+reverse_role: inverse_assigned_to

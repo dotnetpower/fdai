@@ -1,12 +1,6 @@
-# LinkType: has_turn (Conversation -> Turn, 1:M)
-#
-# Structural containment for the conversational surface: one
-# Conversation owns an ordered append-only list of Turns
-# (operator-console.md). Modeled here so the operator console can walk
-# a conversation without joining through a hidden foreign key on Turn.
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: has_turn
-version: "1.0.0"
+version: 1.0.0
 from_type: Conversation
 to_type: Turn
 cardinality: one_to_many
@@ -16,6 +10,10 @@ description: Ordered turns owned by a Conversation (append-only).
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:has_turn@1.0.0
-  content_hash: sha256:3cb3e26e3a6d3f9c71270041211d4b34944d3edbc0d3375c17740788b97f7f3b
+  content_hash: sha256:c62f7565dc5505a0ea08cb4904429251e5a4646d6d11995df6841dd7a92b8356
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+semantic_traits:
+- containment
+forward_role: has_turn
+reverse_role: inverse_has_turn

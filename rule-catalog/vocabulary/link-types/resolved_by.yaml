@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: resolved_by
-version: "1.0.0"
+version: 1.0.0
 from_type: ReviewCase
 to_type: Decision
 cardinality: one_to_many
@@ -10,6 +10,10 @@ description: Ordered decisions that resolved or conditioned a ReviewCase.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:resolved_by@1.0.0
-  content_hash: sha256:2276f1b9ce21bc12ed42fa9870fadf68676e181f475a91ed4bf25e0c6e4ccf7b
+  content_hash: sha256:b808d2d42ea8a176a42fbeec19f2a212f2a89e5aaf1986e73ea7e5756f0bf93e
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+semantic_traits:
+- dependency
+forward_role: resolved_by
+reverse_role: inverse_resolved_by

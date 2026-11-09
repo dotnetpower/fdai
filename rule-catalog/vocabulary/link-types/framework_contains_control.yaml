@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: framework_contains_control
-version: "1.0.0"
+version: 1.0.0
 from_type: Framework
 to_type: FrameworkControl
 cardinality: one_to_many
@@ -8,6 +8,10 @@ description: Advisory controls contained by one pinned framework definition.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:framework_contains_control@1.0.0
-  content_hash: sha256:e649422f0c415aa722a7ccbae31ed4e64dad3a910a23750178aba10e67d9988b
+  content_hash: sha256:b6ec97bf7c10fb2e821a3b95d3b3fdd2af5f6aa6212ce0bd5ce167fcfe847418
   license: MIT
-  retrieved_at: "2026-08-31T00:00:00Z"
+  retrieved_at: '2026-08-31T00:00:00Z'
+semantic_traits:
+- containment
+forward_role: framework_contains_control
+reverse_role: inverse_framework_contains_control

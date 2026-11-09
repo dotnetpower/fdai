@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: derived_from_turn
-version: "1.0.0"
+version: 1.0.0
 from_type: UserMemoryFact
 to_type: Turn
 cardinality: many_to_one
@@ -8,6 +8,10 @@ description: Source Turn that grounds a user-confirmed memory fact.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:derived_from_turn@1.0.0
-  content_hash: sha256:f021b2730d94f84cc37b209f2b486e6a1bfc24cfb7a0065036b8b5aa1c86693c
+  content_hash: sha256:eb8a55be342a92dd5a2003ec977943c5d118165ff4f74b864060401cf8bf1c4b
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+semantic_traits:
+- dependency
+forward_role: derived_from_turn
+reverse_role: inverse_derived_from_turn

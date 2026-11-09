@@ -344,6 +344,13 @@ def _descriptor(
             None,
         )
     if isinstance(declaration, OntologyLinkType):
+        from fdai.shared.ontology.release import (
+            _HISTORICAL_ROLE_LINKS,
+            _HISTORICAL_TRAIT_LINKS,
+        )
+
+        keep_roles = declaration.version != "1.0.0" or declaration.name in _HISTORICAL_ROLE_LINKS
+        keep_traits = declaration.version != "1.0.0" or declaration.name in _HISTORICAL_TRAIT_LINKS
         return (
             {
                 "kind": "link",
@@ -369,9 +376,11 @@ def _descriptor(
                 "is_transitive": declaration.is_transitive,
                 "is_causal": declaration.is_causal,
                 "temporal_order": declaration.temporal_order,
-                "forward_role": declaration.forward_role,
-                "reverse_role": declaration.reverse_role,
-                "semantic_traits": [trait.value for trait in declaration.semantic_traits],
+                "forward_role": declaration.forward_role if keep_roles else None,
+                "reverse_role": declaration.reverse_role if keep_roles else None,
+                "semantic_traits": (
+                    [trait.value for trait in declaration.semantic_traits] if keep_traits else []
+                ),
             },
             None,
         )

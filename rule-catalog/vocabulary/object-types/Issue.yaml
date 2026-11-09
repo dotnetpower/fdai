@@ -1,49 +1,46 @@
-# Upstream built-in ObjectType: Issue.
-#
-# An `Issue` is FDAI's internal mirror of a GitHub Issue created by Saga
-# via the `governance.escalate-to-github-issue` action. Fingerprint-based
-# dedup collapses repeated occurrences into one Issue + N comments. See
-# agent-pantheon.md § 6.4.
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: Issue
-version: "1.0.0"
+version: 1.0.0
 key: id
-description: FDAI mirror of a GitHub issue created via escalate_to_github_issue; dedup by fingerprint.
+description: FDAI mirror of a GitHub issue created via escalate_to_github_issue; dedup
+  by fingerprint.
 lifecycle:
   owner: Saga
   creation:
-    - code: agent_handoff
-      when: An Agent cannot resolve a request within its owned scope and emits HandoffEscalation.
-      result: Saga creates the Issue mirror and the backing GitHub issue.
-      source_refs:
-        - services/core-control-plane/src/fdai/agents/saga.py#escalate_to_github_issue
-        - rule-catalog/vocabulary/object-types/HandoffEscalation.yaml
-    - code: bragi_unhandled_query
-      when: Bragi abstains from a conversational turn with handoff_needed set to true.
-      result: The runtime sends the handoff to Saga for Issue materialization.
-      source_refs:
-        - services/core-control-plane/src/fdai/agents/_framework/runtime.py#_maybe_escalate_handoff
-        - services/core-control-plane/src/fdai/agents/saga.py#escalate_to_github_issue
+  - code: agent_handoff
+    when: An Agent cannot resolve a request within its owned scope and emits HandoffEscalation.
+    result: Saga creates the Issue mirror and the backing GitHub issue.
+    source_refs:
+    - services/core-control-plane/src/fdai/agents/saga.py#escalate_to_github_issue
+    - rule-catalog/vocabulary/object-types/HandoffEscalation.yaml
+  - code: bragi_unhandled_query
+    when: Bragi abstains from a conversational turn with handoff_needed set to true.
+    result: The runtime sends the handoff to Saga for Issue materialization.
+    source_refs:
+    - services/core-control-plane/src/fdai/agents/_framework/runtime.py#_maybe_escalate_handoff
+    - services/core-control-plane/src/fdai/agents/saga.py#escalate_to_github_issue
   deduplication:
     strategy: deterministic fingerprint
     fields:
-      - intent_category
-      - resource_type
-      - normalized_selector
-      - primary_agent
-      - failure_reason_code
-    on_repeat: Append a correlation-scoped comment to the existing Issue instead of creating another Issue.
+    - intent_category
+    - resource_type
+    - normalized_selector
+    - primary_agent
+    - failure_reason_code
+    on_repeat: Append a correlation-scoped comment to the existing Issue instead of
+      creating another Issue.
   closure:
-    - code: resolving_capability_promoted
-      when: A rule or capability that resolves the fingerprint is promoted and its regression window passes.
-      result: Saga closes the Issue and records the promoting pull request.
-      source_refs:
-        - services/core-control-plane/src/fdai/agents/saga.py#close_issue
-        - docs/roadmap/agents/agent-pantheon.md#64-handoff-escalation-protocol
+  - code: resolving_capability_promoted
+    when: A rule or capability that resolves the fingerprint is promoted and its regression
+      window passes.
+    result: Saga closes the Issue and records the promoting pull request.
+    source_refs:
+    - services/core-control-plane/src/fdai/agents/saga.py#close_issue
+    - docs/roadmap/agents/agent-pantheon.md#64-handoff-escalation-protocol
   authority_refs:
-    - rule-catalog/vocabulary/object-types/Issue.yaml
-    - services/core-control-plane/src/fdai/agents/saga.py#escalate_to_github_issue
-    - services/core-control-plane/src/fdai/agents/_framework/runtime.py#_maybe_escalate_handoff
+  - rule-catalog/vocabulary/object-types/Issue.yaml
+  - services/core-control-plane/src/fdai/agents/saga.py#escalate_to_github_issue
+  - services/core-control-plane/src/fdai/agents/_framework/runtime.py#_maybe_escalate_handoff
 properties:
   id:
     type: string
@@ -52,7 +49,8 @@ properties:
   fingerprint:
     type: string
     required: true
-    description: SHA1 of `intent_category + resource_type + normalized_selector + primary_agent + failure_reason_code`. Label hash never carries customer identifiers.
+    description: SHA1 of `intent_category + resource_type + normalized_selector +
+      primary_agent + failure_reason_code`. Label hash never carries customer identifiers.
   github_number:
     type: integer
     required: false
@@ -80,14 +78,18 @@ properties:
   correlation_ids:
     type: array
     required: false
-    description: Correlation ids of the recorded occurrences; each comment references one.
+    description: Correlation ids of the recorded occurrences; each comment references
+      one.
   closed_by_pr:
     type: string
     required: false
-    description: PR url that promoted the resolving rule / capability (present only when status = closed).
+    description: PR url that promoted the resolving rule / capability (present only
+      when status = closed).
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:Issue@1.0.0
-  content_hash: sha256:13f4098211b74695842ad150af6328bb68b1c8ce6bf933fb075dc4711da0b3e9
+  content_hash: sha256:4f14a94f82d2e507d34f722da6cb6977d5db4b7e700b2f03226b3286f8902551
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: pantheon_owned
+freshness_max_age_seconds: 600

@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: delivered_by
-version: "1.0.0"
+version: 1.0.0
 from_type: BusinessCapability
 to_type: BusinessService
 cardinality: one_to_many
@@ -8,6 +8,10 @@ description: Services that deliver a generic business capability.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:delivered_by@1.0.0
-  content_hash: sha256:3f367abd70c18925fb63c98cb5ce650fc98af29188beef4ecc5ce381feda1a8e
+  content_hash: sha256:4884c5fb97b5d51f63b8834ecf1f9aa6990589fc46986a33f4bb5868ee1b0366
   license: MIT
-  retrieved_at: "2026-07-31T00:00:00Z"
+  retrieved_at: '2026-07-31T00:00:00Z'
+semantic_traits:
+- dependency
+forward_role: delivered_by
+reverse_role: inverse_delivered_by

@@ -21,9 +21,9 @@ The assessment compares the repository with the public pattern of ontology-cente
 |------|----------------|------------|
 | Ontology structure | 89 ObjectTypes, 127 LinkTypes, 7 interface types, effective-time and provenance on every fact. | Strong |
 | Functions | One catalog-declared FunctionType plus about 40 source-derived read FunctionTypes registered by `operational_function_types`. All are read-only evidence queries. No function computes a decision, score, or forecast for a workflow. | Evidence reads are broad; decision functions are absent |
-| Causal inference | The catalog declares one causal mechanism. A separate 55-scenario causal, forecast, and impact engine exists, but only its own tests reference it, so no runtime path consumes it. | Capability exists, unwired |
+| Causal inference | The catalog declares 12 causal mechanisms (`causal-mechanisms.yaml`). A separate 55-scenario causal, forecast, and impact engine is bridged through `CatalogCausalGradeBridge`. | Bridged with refutation reads |
 | Business layer | `BusinessService` carries identity, criticality, and ownership. Objectives link to services. | Impact is ordinal, not measured |
-| Workflows | 14 catalog workflows, all `shadow`. Triggers are schedule or signal. Step parameters accept only `${event.*}` tokens. A gate can read the `ChangeWindow` and nothing else from the ontology. | The workflow layer does not consume ontology reasoning |
+| Workflows | 16 catalog workflows, all `shadow`. Two workflows (`blast-radius-gated-service-restart`, `change-risk-gated-scale-in`) bind `ontology-function:` gates in addition to `ChangeWindow`. | Initial ontology function gates wired |
 | Action reach | Of 58 ActionTypes, about 10 have a direct executor binding, 23 are PR-native shadow, and 9 have no binding. | Mostly proposals |
 | Evidence realism | Competency receipts are `deterministic_fixture`, retrieval evaluation is synthetic, typed selection runs in shadow, and the external benchmark harness is dormant. | No live accuracy claim is supported |
 | Value measurement | Cost effect settlement, MTTR, DORA, and cohort claims exist as parts. No workflow-level ledger settles a claimed improvement. | Parts without a closed loop |

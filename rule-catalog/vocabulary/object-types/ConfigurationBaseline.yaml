@@ -1,24 +1,50 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: ConfigurationBaseline
-version: "1.0.0"
+version: 1.0.0
 key: id
 description: Immutable reviewed desired configuration identity for one bounded scope.
 properties:
-  id: {type: string, required: true}
-  baseline_version: {type: string, required: true}
-  scope_ref: {type: string, required: true}
-  root_ref: {type: string, required: true}
-  source_kind: {type: string, required: true}
-  source_revision: {type: string, required: true}
-  desired_state_digest: {type: string, required: true}
-  document_digest: {type: string, required: true}
-  created_at: {type: datetime, required: true}
-  effective_from: {type: datetime, required: true}
-  status: {type: string, required: true}
-  synthetic: {type: boolean, required: true}
+  id:
+    type: string
+    required: true
+  baseline_version:
+    type: string
+    required: true
+  scope_ref:
+    type: string
+    required: true
+  root_ref:
+    type: string
+    required: true
+  source_kind:
+    type: string
+    required: true
+  source_revision:
+    type: string
+    required: true
+  desired_state_digest:
+    type: string
+    required: true
+  document_digest:
+    type: string
+    required: true
+  created_at:
+    type: datetime
+    required: true
+  effective_from:
+    type: datetime
+    required: true
+  status:
+    type: string
+    required: true
+  synthetic:
+    type: boolean
+    required: true
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:ConfigurationBaseline@1.0.0
-  content_hash: sha256:eb19ffb194c5583cc8dfab97cfd4baa4320987ef54a0a0154943b64832e77da2
+  content_hash: sha256:5bbf9b061db542de230035564b46c8b23bd056f24353873b26e1376fe5b4b73b
   license: MIT
-  retrieved_at: "2026-08-09T00:00:00Z"
+  retrieved_at: '2026-08-09T00:00:00Z'
+authority_class: projection_owned
+freshness_max_age_seconds: 900

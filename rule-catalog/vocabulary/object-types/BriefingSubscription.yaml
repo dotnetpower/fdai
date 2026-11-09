@@ -1,22 +1,56 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: BriefingSubscription
-version: "1.0.0"
+version: 1.0.0
 key: id
 description: Principal-scoped timezone-aware recurring briefing definition.
 properties:
-  id: {type: string, required: true}
-  principal_ref: {type: string, required: true, access_scope: owner, purpose_binding: [user_context]}
-  name: {type: string, required: true, access_scope: owner, purpose_binding: [user_context]}
-  briefing_kind: {type: string, required: true}
-  cron_expression: {type: string, required: true, access_scope: owner, purpose_binding: [user_context]}
-  timezone: {type: string, required: true}
-  delivery_modes: {type: array, required: true, access_scope: owner, purpose_binding: [user_context]}
-  enabled: {type: boolean, required: true}
-  next_run_at: {type: datetime, required: true}
-  revision: {type: integer, required: true}
+  id:
+    type: string
+    required: true
+  principal_ref:
+    type: string
+    required: true
+    access_scope: owner
+    purpose_binding:
+    - user_context
+  name:
+    type: string
+    required: true
+    access_scope: owner
+    purpose_binding:
+    - user_context
+  briefing_kind:
+    type: string
+    required: true
+  cron_expression:
+    type: string
+    required: true
+    access_scope: owner
+    purpose_binding:
+    - user_context
+  timezone:
+    type: string
+    required: true
+  delivery_modes:
+    type: array
+    required: true
+    access_scope: owner
+    purpose_binding:
+    - user_context
+  enabled:
+    type: boolean
+    required: true
+  next_run_at:
+    type: datetime
+    required: true
+  revision:
+    type: integer
+    required: true
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:BriefingSubscription@1.0.0
-  content_hash: sha256:3956044a9f858f699f7427e937c4c88350cdcca9ef34e122d5505e72ca465e85
+  content_hash: sha256:95c9f931d3dad84fc92ef2870f3b549977b8af7d3927ce7113a852a2372702f4
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: projection_owned
+freshness_max_age_seconds: 900

@@ -1,13 +1,18 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: change_bounded_by_envelope
-version: "1.0.0"
+version: 1.0.0
 from_type: Change
 to_type: ImpactEnvelope
 cardinality: one_to_one
-description: Approved impact envelope that bounds a change without granting execution authority.
+description: Approved impact envelope that bounds a change without granting execution
+  authority.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:change_bounded_by_envelope@1.0.0
-  content_hash: sha256:34624a964a898ed4382fffa0af2b9491b95d01669595830229cf2d81d786cb42
+  content_hash: sha256:4400e937ad360f5e2777c43da630c3a9eb8ca5f7121631d227cffcd4585d9f3d
   license: MIT
-  retrieved_at: "2026-08-04T00:00:00Z"
+  retrieved_at: '2026-08-04T00:00:00Z'
+semantic_traits:
+- dependency
+forward_role: change_bounded_by_envelope
+reverse_role: inverse_change_bounded_by_envelope

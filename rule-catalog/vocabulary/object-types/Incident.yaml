@@ -1,49 +1,96 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: Incident
-version: "1.0.0"
+version: 1.0.0
 key: id
-description: Correlated operational episode with bounded membership and lifecycle state.
-query_terms: [incident, incidents, 인시던트, 장애]
+description: Correlated operational episode with bounded membership and lifecycle
+  state.
+query_terms:
+- incident
+- incidents
+- 인시던트
+- 장애
 properties:
-  id: {type: string, required: true}
-  correlation_id: {type: string, required: true}
+  id:
+    type: string
+    required: true
+  correlation_id:
+    type: string
+    required: true
   status:
     type: string
     required: true
-    query_terms: [status, state, 상태]
+    query_terms:
+    - status
+    - state
+    - 상태
     value_query_terms:
-      open: [open, 열린, 진행 중]
-      triaging: [triaging, 분류 중, 분류]
-      mitigated: [mitigated, 완화]
-      resolved: [resolved, 해결, 해결 상태]
-      closed: [closed, 종료, 닫힘]
+      open:
+      - open
+      - 열린
+      - 진행 중
+      triaging:
+      - triaging
+      - 분류 중
+      - 분류
+      mitigated:
+      - mitigated
+      - 완화
+      resolved:
+      - resolved
+      - 해결
+      - 해결 상태
+      closed:
+      - closed
+      - 종료
+      - 닫힘
   severity:
     type: string
     required: true
-    query_terms: [severity, 심각도]
+    query_terms:
+    - severity
+    - 심각도
     value_query_terms:
-      critical: [critical, 심각, 심각도 critical]
-      high: [high, 높음, 심각도 high]
-      medium: [medium, 중간]
-      low: [low, 낮음]
-  opened_at: {type: datetime, required: true}
-  updated_at: {type: datetime, required: true}
+      critical:
+      - critical
+      - 심각
+      - 심각도 critical
+      high:
+      - high
+      - 높음
+      - 심각도 high
+      medium:
+      - medium
+      - 중간
+      low:
+      - low
+      - 낮음
+  opened_at:
+    type: datetime
+    required: true
+  updated_at:
+    type: datetime
+    required: true
 lifecycle:
   owner: Heimdall
   creation:
-    - code: grounded_incident_candidate
-      when: A bounded finding set satisfies incident correlation policy.
-      result: Create or update one idempotent incident revision.
-      source_refs: [docs/roadmap/rules-and-detection/observability-and-detection.md]
+  - code: grounded_incident_candidate
+    when: A bounded finding set satisfies incident correlation policy.
+    result: Create or update one idempotent incident revision.
+    source_refs:
+    - docs/roadmap/rules-and-detection/observability-and-detection.md
   closure:
-    - code: verified_recovery
-      when: Independent recovery verification closes the recurrence window.
-      result: Close the incident without rewriting prior revisions.
-      source_refs: [docs/roadmap/decisioning/recovery-and-chaos-enforcement.md]
-  authority_refs: [docs/roadmap/rules-and-detection/observability-and-detection.md]
+  - code: verified_recovery
+    when: Independent recovery verification closes the recurrence window.
+    result: Close the incident without rewriting prior revisions.
+    source_refs:
+    - docs/roadmap/decisioning/recovery-and-chaos-enforcement.md
+  authority_refs:
+  - docs/roadmap/rules-and-detection/observability-and-detection.md
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:Incident@1.0.0
-  content_hash: sha256:01e679f784123e991ddff9274e96057c27fdeb13883b1c51de4700a8795f8b04
+  content_hash: sha256:2932e73090155a81cea586c32b040def7a9c65f48d90bc24a9afc0b56c2681eb
   license: MIT
-  retrieved_at: "2026-07-31T00:00:00Z"
+  retrieved_at: '2026-07-31T00:00:00Z'
+authority_class: pantheon_owned
+freshness_max_age_seconds: 600

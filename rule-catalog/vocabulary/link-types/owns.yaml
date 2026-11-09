@@ -1,22 +1,17 @@
-# LinkType: owns (Agent -> Resource, M:M)
-#
-# Data-ownership relationship: each Resource under governance is written
-# to by exactly one pantheon Agent (the schema registry enforces
-# `producer_principal` against the Agent's `owns` list). Modeled as
-# M:M so an Agent can own multiple Resources and multiple Agents can
-# observe (via `subscribes`) the same Resource - subscription is NOT
-# ownership.
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: owns
-version: "1.0.0"
+version: 1.0.0
 from_type: Agent
 to_type: Resource
 cardinality: many_to_many
-semantic_traits: [ownership]
+semantic_traits:
+- ownership
 description: Which Resources a pantheon Agent is the sole writer of.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:owns@1.0.0
-  content_hash: sha256:98396d65001fca012142e8d998403192afeca79cfbb2c65df70bdbab402d6e3b
+  content_hash: sha256:346d56dffe9558771ae6d733ab75fb8482e47accfc1eb2afdfb7bec321a3e4fd
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+forward_role: owns
+reverse_role: inverse_owns

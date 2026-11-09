@@ -1,22 +1,17 @@
-# LinkType: summarizes (ChangeSummary -> Resource, M:M)
-#
-# Every `ChangeSummary` reports on the change events of one or more
-# Resources contained in its `scope_ref` subtree. This link records the
-# Resource set that actually contributed change events to the summary
-# (the derived set, not the full contents of the scope) so the
-# assurance twin and the operator console can dispatch "what changed"
-# queries directly against the report instance.
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: summarizes
-version: "1.0.0"
+version: 1.0.0
 from_type: ChangeSummary
 to_type: Resource
 cardinality: many_to_many
-semantic_traits: [evidence]
+semantic_traits:
+- evidence
 description: Which Resources contributed change events to a ChangeSummary.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:summarizes@1.0.0
-  content_hash: sha256:975ca7733871f5a36af27579bf91f01b3ee46cda20ad9620a29cbe517bb8e3e4
+  content_hash: sha256:21afb4b135b6894010813df707cd6604ee82cabbff74dfe7dca926e4c41a6daa
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+forward_role: summarizes
+reverse_role: inverse_summarizes

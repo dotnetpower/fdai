@@ -1,19 +1,17 @@
-# LinkType: resource_of (Signal -> Resource, M:1)
-#
-# Every resource-scoped Signal MUST resolve to exactly one Resource.
-# Tenant-level Signals (e.g. subscription-wide cost anomalies) omit
-# this link; the trust-router treats them as tenant-scoped.
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: resource_of
-version: "1.0.0"
+version: 1.0.0
 from_type: Signal
 to_type: Resource
 cardinality: many_to_one
-semantic_traits: [evidence]
+semantic_traits:
+- evidence
 description: Which Resource the Signal is about.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:resource_of@1.0.0
-  content_hash: sha256:e47409bd29d5e2e67015ccd4d79a44acd5b29db702f17ac11744f2f78b00a51e
+  content_hash: sha256:ec6579bdaa190cc9e0d5d5c72fb69bc141d901871556fab5999578762b40497c
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+forward_role: resource_of
+reverse_role: inverse_resource_of

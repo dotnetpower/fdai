@@ -1,28 +1,50 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: Workload
-version: "1.0.0"
+version: 1.0.0
 key: id
 description: A deployable or operable unit that implements a business service.
-query_terms: [workload, workloads, 워크로드, 작업]
+query_terms:
+- workload
+- workloads
+- 워크로드
+- 작업
 properties:
-  id: {type: string, required: true}
-  name: {type: string, required: true}
-  aliases: {type: array, required: false}
-  workload_kind: {type: string, required: true}
-  effective_from: {type: datetime, required: true}
-  effective_to: {type: datetime, required: false}
-  source_ref: {type: string, required: true}
+  id:
+    type: string
+    required: true
+  name:
+    type: string
+    required: true
+  aliases:
+    type: array
+    required: false
+  workload_kind:
+    type: string
+    required: true
+  effective_from:
+    type: datetime
+    required: true
+  effective_to:
+    type: datetime
+    required: false
+  source_ref:
+    type: string
+    required: true
 lifecycle:
   owner: Muninn
   creation:
-    - code: approved_workload_manifest
-      when: An approved service manifest declares the workload.
-      result: Create an effective-time workload revision.
-      source_refs: [docs/roadmap/architecture/operating-ontology.md]
-  authority_refs: [docs/roadmap/architecture/operating-ontology.md]
+  - code: approved_workload_manifest
+    when: An approved service manifest declares the workload.
+    result: Create an effective-time workload revision.
+    source_refs:
+    - docs/roadmap/architecture/operating-ontology.md
+  authority_refs:
+  - docs/roadmap/architecture/operating-ontology.md
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:Workload@1.0.0
-  content_hash: sha256:380b8aba3a5fc39e63fa0ebd112ccd8d8337a24338b58f4dd8afe07fd7ef16d2
+  content_hash: sha256:f4c54689c647be1c20c65520428b177f50d4ab8f41e5597250bec02393933373
   license: MIT
-  retrieved_at: "2026-07-31T00:00:00Z"
+  retrieved_at: '2026-07-31T00:00:00Z'
+authority_class: pantheon_owned
+freshness_max_age_seconds: 600

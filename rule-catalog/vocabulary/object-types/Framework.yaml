@@ -1,18 +1,33 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: Framework
-version: "1.0.0"
+version: 1.0.0
 key: id
-description: Version-pinned advisory framework definition that grants no policy or execution authority.
+description: Version-pinned advisory framework definition that grants no policy or
+  execution authority.
 properties:
-  id: {type: string, required: true}
-  version: {type: string, required: true}
-  name: {type: string, required: true}
-  scope: {type: string, required: true}
-  advisory: {type: boolean, required: true}
-  completeness_scope: {type: string, required: true}
+  id:
+    type: string
+    required: true
+  version:
+    type: string
+    required: true
+  name:
+    type: string
+    required: true
+  scope:
+    type: string
+    required: true
+  advisory:
+    type: boolean
+    required: true
+  completeness_scope:
+    type: string
+    required: true
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:Framework@1.0.0
-  content_hash: sha256:7747d0178deae8ea29db5c9e3f6a079a6512d89d191357049adf4022840e5c9b
+  content_hash: sha256:9d1a834428c08d382f455c5c5e84e916c90c936f06d188646b528d98c173f50d
   license: MIT
-  retrieved_at: "2026-08-31T00:00:00Z"
+  retrieved_at: '2026-08-31T00:00:00Z'
+authority_class: catalog_as_code
+freshness_max_age_seconds: 86400

@@ -1,14 +1,9 @@
-# Upstream built-in ObjectType: SecurityEvent.
-#
-# A `SecurityEvent` is emitted by Forseti when an action proposal fails
-# RBAC gating (or other security checks). Heimdall correlates and
-# classifies severity; §9 of agent-pantheon.md defines the four-tier
-# response ladder.
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: SecurityEvent
-version: "1.0.0"
+version: 1.0.0
 key: id
-description: First-class security signal (e.g., privilege_escalation_attempt); Forseti writes, Heimdall correlates.
+description: First-class security signal (e.g., privilege_escalation_attempt); Forseti
+  writes, Heimdall correlates.
 properties:
   id:
     type: string
@@ -21,7 +16,8 @@ properties:
   event_type:
     type: string
     required: true
-    description: Category (privilege_escalation_attempt, unusual_actor, etc.). Enum grows with pantheon.
+    description: Category (privilege_escalation_attempt, unusual_actor, etc.). Enum
+      grows with pantheon.
   initiator_principal:
     type: string
     required: true
@@ -33,11 +29,13 @@ properties:
   target_resource:
     type: string
     required: false
-    description: Resource id targeted (customer identifier - stays in fork audit only, never in issue labels).
+    description: Resource id targeted (customer identifier - stays in fork audit only,
+      never in issue labels).
   severity_hint:
     type: string
     required: false
-    description: Forseti's initial hint (low | medium | high | critical); Heimdall may reclassify.
+    description: Forseti's initial hint (low | medium | high | critical); Heimdall
+      may reclassify.
   detected_at:
     type: string
     required: true
@@ -45,10 +43,13 @@ properties:
   evidence:
     type: object
     required: false
-    description: Structured context (recent attempts, prior denials, actor pattern) - used by Heimdall correlator.
+    description: Structured context (recent attempts, prior denials, actor pattern)
+      - used by Heimdall correlator.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:SecurityEvent@1.0.0
-  content_hash: sha256:9f299708f61a0a9887f116b046a7862a0a5a9ae61e11a9e12948294ad7c98ad7
+  content_hash: sha256:2de6a32ec9657da1278be2cab6bc3314b9f96e8b770660ba2c640ef9cbbf2c32
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: event_bus_registry
+freshness_max_age_seconds: 300

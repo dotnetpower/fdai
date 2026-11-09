@@ -1,6 +1,6 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: authorization_targets
-version: "1.0.0"
+version: 1.0.0
 from_type: AuthorizationRequirement
 to_type: ResourceType
 cardinality: many_to_many
@@ -8,6 +8,10 @@ description: Resource types selected by an authorization requirement.
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: link-type:authorization_targets@1.0.0
-  content_hash: sha256:3272ae5dfbfcfe36d961faaf585098bcb9e447cdc8e40a8cd35b1b5c38ae4e7b
+  content_hash: sha256:f1ba289eb5e4f9cb0e50af6338ea42e0cc399dff9ab8d69b466c8f7aaecc0387
   license: MIT
-  retrieved_at: "2026-07-31T00:00:00Z"
+  retrieved_at: '2026-07-31T00:00:00Z'
+semantic_traits:
+- authorization
+forward_role: authorization_targets
+reverse_role: inverse_authorization_targets

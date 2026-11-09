@@ -1,14 +1,9 @@
-# Upstream built-in ObjectType: RuleCandidate.
-#
-# A `RuleCandidate` is a proposed rule (new, revision, or retirement)
-# produced by Norns from operational signals: recurring handoffs,
-# override patterns, coherence drift, or workflow post-mortems. Mimir
-# takes candidates through the standard promotion pipeline.
-schema_version: "1.0.0"
+schema_version: 1.0.0
 name: RuleCandidate
-version: "1.0.0"
+version: 1.0.0
 key: id
-description: Proposed rule (new / revision / retirement) produced by Norns; consumed by Mimir.
+description: Proposed rule (new / revision / retirement) produced by Norns; consumed
+  by Mimir.
 properties:
   id:
     type: string
@@ -25,11 +20,13 @@ properties:
   source_signal:
     type: string
     required: true
-    description: What produced the candidate (handoff_fingerprint, override_pattern, coherence_drift, workflow_postmortem).
+    description: What produced the candidate (handoff_fingerprint, override_pattern,
+      coherence_drift, workflow_postmortem).
   evidence:
     type: object
     required: true
-    description: Structured evidence (fingerprint, override counts, drift stats). Mimir uses this in shadow evaluation.
+    description: Structured evidence (fingerprint, override counts, drift stats).
+      Mimir uses this in shadow evaluation.
   proposed_shape:
     type: object
     required: false
@@ -37,7 +34,8 @@ properties:
   proposed_by:
     type: string
     required: true
-    description: Agent name that produced this candidate (typically Norns; may be Mimir for auto-drafts).
+    description: Agent name that produced this candidate (typically Norns; may be
+      Mimir for auto-drafts).
   proposed_at:
     type: string
     required: true
@@ -45,6 +43,8 @@ properties:
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: object-type:RuleCandidate@1.0.0
-  content_hash: sha256:eccd034217df00fef5337cae15a1c15505496b904dda264769242c0af3bde9c9
+  content_hash: sha256:d3435b58f85d952194cd14ed4cffa5a50eb2118a975ae1217ed42e7c640e57a4
   license: MIT
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-07-29T00:00:00Z'
+authority_class: event_bus_registry
+freshness_max_age_seconds: 300
