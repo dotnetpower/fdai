@@ -1,12 +1,18 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 0a5d924469b76a3a84b27a1f8716c82732eb9412
-translation_revised: 2026-10-08
+translation_source_sha: 39ee2a69809ac182987157560c32529ccbf2f6fb
+translation_revised: 2026-11-09
 ---
 # FDAI 운영 온톨로지
 
 이 문서는 FDAI의 15개 에이전트가 사용하는 타입이 지정된 operational truth infrastructure를 정의합니다. 활성 컨트롤 플레인은 에이전트이며, 온톨로지는 대상 신원, 의존성, 목표, 근거, 허용 액션, 예상 효과의 해석이 서로 달라지지 않도록 제한합니다. 업스트림은 안정적인 cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의도를 제공합니다.
+
+정식 ObjectType 카탈로그는 `authority_class`와 `freshness_max_age_seconds`를 선언합니다.
+이 값은 소유권과 관측 정보의 최대 허용 나이를 설명하며, 관측된 상태나 접근 권한을 제공하지 않습니다.
+양 끝이 같은 타입인 LinkType은 정방향 및 역방향 역할과 의미 특성을 선언합니다.
+상호 관계가 아닌 같은 타입의 링크는 서로 다른 역할을 사용해야 하므로, 끝점 타입이 같아도
+관계의 방향이 모호해지지 않습니다.
 
 > **Positioning:** FDAI는 agent-driven이며 ontology-driven이 아닙니다. Graph는 해석을 제한하고 에이전트 작업을 재생 가능하게 하지만 sensing, judgment, 승인, 실행, 복구, learning을 수행하지 않습니다. 다만 그래프는 필수 읽기 경로입니다. 운영 질문은 ad hoc 프로바이더 조회가 아니라 온톨로지를 통해 객체 신원, 관계, 근거를 해석하므로, 답이 의존하는 근거는 타입이 지정된·범위가 제한된·citable 상태로 유지되고 관측하지 못한 범위까지 밝힐 수 있습니다.
 

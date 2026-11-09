@@ -5,6 +5,11 @@ title: FDAI Operating Ontology
 
 This document defines the typed operational truth infrastructure used by FDAI's 15 agents. Agents remain the active control plane; the ontology prevents them from disagreeing about target identity, dependencies, objectives, evidence, allowed actions, and expected effects. Upstream owns stable cloud-operations concepts, while each deployment supplies its observed instances and intent.
 
+The canonical ObjectType catalog declares `authority_class` and `freshness_max_age_seconds`;
+these describe ownership and an observation-age bound without supplying observed state or access.
+Same-type LinkTypes declare forward and reverse roles and semantic traits. Non-reciprocal
+same-type links require distinct roles, so endpoint equality cannot obscure their direction.
+
 > **Positioning:** FDAI is agent-driven, not ontology-driven. The graph constrains interpretation and makes agent work replayable; it never senses, judges, approves, executes, recovers, or learns. It is nonetheless the required read path. An operational question resolves object identity, relationships, and evidence through the ontology instead of an ad hoc provider query, so the evidence an answer depends on stays typed, bounded, citable, and complete enough to name what it did not observe.
 
 > **Authority boundary:** The ontology graph is a shared semantic read model, not a mutable system of record and not an execution surface. Events, approved configuration, telemetry sources, the append-only audit ledger, and catalog-as-code remain authoritative for their own facts.

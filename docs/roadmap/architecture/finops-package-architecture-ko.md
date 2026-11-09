@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 2c555846e98584d1a0979584265aa77c350f3e52
-translation_revised: 2026-10-20
+translation_source_sha: 21c64f29dbeda4844364debfa747d0f833d1315f
+translation_revised: 2026-11-09
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -13,6 +13,10 @@ Operator post-turn review 발행도 Cost Governance package 활성화, Njord 발
 패키징하면서 운영 온톨로지와 고정된 15개 에이전트 조직을 자율 운영의 중심에 유지하는 방법을
 정의합니다. 패키징은 교체 가능한 도메인 코드와 자산의 소유권을 바꿉니다. 별도 컨트롤 플레인을
 만들거나 Core 외부로 권한을 옮기지는 않습니다.
+
+Cost Governance 선언을 포함한 정식 ObjectType은 권한 분류와 최신성 메타데이터를 가지며,
+공유 카탈로그 로더가 이를 검사합니다. 이 주석은 패키지를 활성화하거나 비용 관측, 권고,
+게시, 액션을 허가하지 않습니다.
 
 > **범위:** 이 설계는 패키지 경계, 온톨로지 프로필, 에이전트 책임, 원자적 등록, 호환성 및
 > 롤백을 소유합니다. 전달 wave와 수락 근거는 [FinOps 패키지 전달

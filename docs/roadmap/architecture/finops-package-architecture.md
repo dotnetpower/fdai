@@ -9,6 +9,10 @@ This document defines how FDAI can package Cost Governance as an independently b
 organization at the center of autonomous operation. Packaging changes ownership of replaceable
 domain code and assets. It does not create another control plane or move authority out of Core.
 
+Canonical ObjectTypes, including Cost Governance declarations, carry authority-class and freshness
+metadata checked by the shared catalog loader. These annotations neither activate the package nor
+authorize a cost observation, recommendation, publication, or action.
+
 > **Scope:** This design owns package boundaries, the ontology profile, agent responsibility,
 > atomic registration, compatibility, and rollback. Delivery waves and acceptance evidence belong
 > to the [FinOps Package Delivery Plan](../fork-and-sequencing/finops-package-delivery-plan.md).

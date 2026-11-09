@@ -5,6 +5,11 @@ title: Ontology Query Coverage Implementation Plan
 
 This plan closes the implementation gap between FDAI's bounded conversation and ontology foundations and the target non-keyword path for operator questions. It records the verified current baseline, service and agent ownership, dependency-ordered work packages, cutover gates, and rollback units for 100% structural query coverage; [governed typed-selection read](governed-typed-selection-read.md) owns the default-disabled pre-Function model boundary.
 
+ObjectType authority and freshness annotations and LinkType roles and semantic traits are catalog
+metadata, not evidence that a read is current or authorized. Historical version `1.0.0` LinkType
+release and manifest identities preserve their original role and trait payloads when annotations
+are completed; the coverage gate also checks the canonical function-bound release independently.
+
 Governed cloud-reference queries use source-spanned scalar applicability and preserve source dates; the [lifecycle owner](cloud-resource-knowledge-lifecycle.md) defines as-of and live-current behavior.
 Workflow trigger vocabulary loading now separates observation `SignalType` references from request and command workflow events, so typed workflow triggers do not widen T0 rule dispatch or ontology query coverage.
 The shared Operator operations manifest also carries the authenticated operational-state read
