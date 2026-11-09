@@ -39,6 +39,12 @@ Each Stencil panel descriptor also carries the stable machine id, canonical Cons
 English/Korean display labels. Release Hub shows the same display label as Console while retaining
 the machine id for signed feature flags. Cross-layer checks compare every Hub path with Console's
 registered route table so a renamed user-facing route cannot silently break a selected menu.
+The authenticated Builder still treats `/v1/stencils` as an untrusted boundary. It validates
+bounded descriptor identities, groups, paths and bilingual text; unique panel and axis mappings;
+locked, dependency and preset references; footprint arithmetic and privilege flags; fail-closed
+feature maps; and restored Release selections against the current catalog. One malformed or
+inconsistent record makes the complete catalog unavailable instead of rendering a partial
+selection that looks valid.
 
 The opt-in [two-Hub development path](../../../infra/hubs-development/README.md) adds direct
 Entra operator/service separation, PostgreSQL or single-replica serverless Azure Files SQLite storage with explicit migrations,

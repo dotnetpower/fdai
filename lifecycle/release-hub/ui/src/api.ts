@@ -577,39 +577,219 @@ export type StencilComposeResult = {
   release_manifest: Record<string, unknown>;
 };
 
+const STENCIL_PANEL_GROUPS = new Set([
+  "overview",
+  "operations",
+  "agents",
+  "governance",
+  "knowledge",
+  "evidence",
+  "labs",
+  "settings",
+]);
+const STENCIL_PANEL_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const STENCIL_PANEL_PATH_PATTERN = /^\/[a-z0-9]+(?:[/-][a-z0-9]+)*$/;
+const STENCIL_TOPOLOGY_PROFILES = new Set([
+  "lite-observe-alert",
+  "standard-sre",
+  "full-enterprise",
+]);
+
+function boundedDisplayText(value: unknown, maximum = 160): value is string {
+  return typeof value === "string"
+    && value.length <= maximum
+    && value.trim().length > 0
+    && !/[\u0000-\u001f\u007f]/u.test(value);
+}
+
+function validStencilPanelDescriptor(value: unknown): value is StencilPanelDescriptor {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const panel = value as Record<string, unknown>;
+  return typeof panel.id === "string"
+    && panel.id.length <= 63
+    && STENCIL_PANEL_ID_PATTERN.test(panel.id)
+    && typeof panel.group === "string"
+    && STENCIL_PANEL_GROUPS.has(panel.group)
+    && typeof panel.path === "string"
+    && panel.path.length <= 256
+    && STENCIL_PANEL_PATH_PATTERN.test(panel.path)
+    && boundedDisplayText(panel.label)
+    && boundedDisplayText(panel.label_ko)
+    && typeof panel.locked === "boolean"
+    && ["required_workloads", "required_loops", "required_addons", "feature_ids"]
+      .every((field) => Array.isArray(panel[field])
+        && (panel[field] as unknown[]).every((item) => typeof item === "string"));
+}
+
+function validRuntimeAxisDescriptor(value: unknown): value is RuntimeAxisDescriptorRecord {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const descriptor = value as Record<string, unknown>;
+  return typeof descriptor.id === "string"
+    && descriptor.id.length <= 63
+    && STENCIL_PANEL_ID_PATTERN.test(descriptor.id)
+    && boundedDisplayText(descriptor.label)
+    && boundedDisplayText(descriptor.label_ko)
+    && typeof descriptor.summary === "string"
+    && descriptor.summary.length <= 500
+    && descriptor.summary.trim().length > 0
+    && typeof descriptor.summary_ko === "string"
+    && descriptor.summary_ko.length <= 500
+    && descriptor.summary_ko.trim().length > 0
+    && Array.isArray(descriptor.agents)
+    && descriptor.agents.every((agent) =>
+      typeof agent === "string" && agent.length <= 63 && agent.trim().length > 0)
+    && typeof descriptor.locked === "boolean";
+}
+
 function validStencilDefinition(value: unknown): value is StencilDefinitionRecord {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const stencil = value as Record<string, unknown>;
-  return typeof stencil.schema_version === "string"
+  return stencil.schema_version === "fdai.stencil-definition.v1"
     && typeof stencil.stencil_id === "string"
-    && typeof stencil.title === "string"
-    && typeof stencil.title_ko === "string"
-    && typeof stencil.description === "string"
-    && typeof stencil.description_ko === "string"
+    && stencil.stencil_id.length <= 63
+    && STENCIL_PANEL_ID_PATTERN.test(stencil.stencil_id)
+    && boundedDisplayText(stencil.title)
+    && boundedDisplayText(stencil.title_ko)
+    && boundedDisplayText(stencil.description, 500)
+    && boundedDisplayText(stencil.description_ko, 500)
     && typeof stencil.topology_profile === "string"
+    && STENCIL_TOPOLOGY_PROFILES.has(stencil.topology_profile)
     && stencil.authority_granted === false
     && ["enabled_workloads", "enabled_panel_ids", "enabled_scheduled_jobs", "enabled_loops", "enabled_addons"]
       .every((field) => Array.isArray(stencil[field]) && (stencil[field] as unknown[]).every((item) => typeof item === "string"));
+}
+
+function validStencilFeatureFlags(value: unknown): value is StencilFeatureFlagsRecord {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const flags = value as Record<string, unknown>;
+  const axes = [
+    ["panel", "enabled_panel_ids", "disabled_panel_ids", "panel_flags"],
+    ["loop", "enabled_loops", "disabled_loops", "loop_flags"],
+    ["workload", "enabled_workloads", "disabled_workloads", "workload_flags"],
+    ["job", "enabled_scheduled_jobs", "disabled_scheduled_jobs", "scheduled_job_flags"],
+    ["addon", "enabled_addons", "disabled_addons", "addon_flags"],
+  ] as const;
+  if (flags.schema_version !== "fdai.stencil-feature-flags.v1"
+    || typeof flags.stencil_id !== "string"
+    || !STENCIL_PANEL_ID_PATTERN.test(flags.stencil_id)
+    || typeof flags.stencil_digest !== "string"
+    || !/^sha256:[0-9a-f]{64}$/.test(flags.stencil_digest)
+    || (flags.feature_flags_digest !== undefined
+      && (typeof flags.feature_flags_digest !== "string"
+        || !/^sha256:[0-9a-f]{64}$/.test(flags.feature_flags_digest)))
+    || flags.enforcement_mode !== "fail-closed") {
+    return false;
+  }
+  for (const [_label, enabledKey, disabledKey, mapKey] of axes) {
+    const enabled = flags[enabledKey];
+    const disabled = flags[disabledKey];
+    const map = flags[mapKey];
+    if (!Array.isArray(enabled)
+      || !enabled.every((item) => typeof item === "string")
+      || new Set(enabled).size !== enabled.length
+      || !Array.isArray(disabled)
+      || !disabled.every((item) => typeof item === "string")
+      || new Set(disabled).size !== disabled.length
+      || enabled.some((item) => disabled.includes(item))
+      || typeof map !== "object"
+      || map === null
+      || Array.isArray(map)) {
+      return false;
+    }
+    const values = map as Record<string, unknown>;
+    if (Object.keys(values).length !== enabled.length + disabled.length
+      || enabled.some((item) => values[item] !== true)
+      || disabled.some((item) => values[item] !== false)) {
+      return false;
+    }
+  }
+  const runtime = flags.runtime_env;
+  return typeof runtime === "object"
+    && runtime !== null
+    && !Array.isArray(runtime)
+    && Object.entries(runtime).every(([key, item]) =>
+      /^FDAI_STENCIL_[A-Z0-9_]+$/.test(key) && typeof item === "string");
 }
 
 function validStencilFootprint(value: unknown): value is StencilFootprint {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const footprint = value as Record<string, unknown>;
   const featureFlags = footprint.feature_flags;
-  return typeof footprint.stencil_digest === "string"
-    && typeof footprint.azure_rbac_posture === "string"
-    && typeof footprint.console_build_command === "string"
+  const terraform = footprint.terraform_flags;
+  return typeof footprint.stencil_id === "string"
+    && STENCIL_PANEL_ID_PATTERN.test(footprint.stencil_id)
+    && typeof footprint.stencil_digest === "string"
+    && /^sha256:[0-9a-f]{64}$/.test(footprint.stencil_digest)
+    && typeof footprint.topology_profile === "string"
+    && STENCIL_TOPOLOGY_PROFILES.has(footprint.topology_profile)
+    && boundedDisplayText(footprint.azure_rbac_posture)
+    && boundedDisplayText(footprint.console_build_command, 4096)
     && typeof footprint.includes_clamav_sidecar === "boolean"
-    && ["workload_count", "total_workloads", "enabled_panel_count", "total_panel_count"]
-      .every((field) => typeof footprint[field] === "number" && Number.isFinite(footprint[field]))
-    && ["omitted_workloads", "required_azure_roles"]
+    && typeof footprint.includes_privileged_executor === "boolean"
+    && [
+      "workload_count",
+      "total_workloads",
+      "scheduled_job_count",
+      "enabled_panel_count",
+      "total_panel_count",
+      "omitted_panel_count",
+    ].every((field) =>
+      typeof footprint[field] === "number"
+      && Number.isInteger(footprint[field])
+      && (footprint[field] as number) >= 0)
+    && [
+      "omitted_workloads",
+      "omitted_scheduled_jobs",
+      "omitted_loops",
+      "disabled_panel_ids",
+      "disabled_loops",
+      "active_navigation_groups",
+      "enabled_feature_ids",
+      "required_azure_roles",
+    ]
       .every((field) => Array.isArray(footprint[field]) && (footprint[field] as unknown[]).every((item) => typeof item === "string"))
     && (footprint.release_labels === undefined
       || (Array.isArray(footprint.release_labels) && footprint.release_labels.every((item) => typeof item === "string")))
-    && (featureFlags === undefined || (typeof featureFlags === "object" && featureFlags !== null
-      && "enforcement_mode" in featureFlags && typeof featureFlags.enforcement_mode === "string"
-      && "disabled_panel_ids" in featureFlags && Array.isArray(featureFlags.disabled_panel_ids)
-      && "disabled_loops" in featureFlags && Array.isArray(featureFlags.disabled_loops)));
+    && typeof terraform === "object"
+    && terraform !== null
+    && !Array.isArray(terraform)
+    && "enable_document_ingestion_workloads" in terraform
+    && typeof terraform.enable_document_ingestion_workloads === "boolean"
+    && "enable_isolated_executor" in terraform
+    && typeof terraform.enable_isolated_executor === "boolean"
+    && "product_profile_mode" in terraform
+    && boundedDisplayText(terraform.product_profile_mode)
+    && (featureFlags === undefined || validStencilFeatureFlags(featureFlags));
+}
+
+function stencilFootprintMatches(
+  stencil: StencilDefinitionRecord,
+  footprint: StencilFootprint,
+): boolean {
+  const sameItems = (left: readonly string[], right: readonly string[]) =>
+    left.length === right.length && left.every((item, index) => item === right[index]);
+  return footprint.stencil_id === stencil.stencil_id
+    && footprint.topology_profile === stencil.topology_profile
+    && footprint.workload_count === stencil.enabled_workloads.length
+    && footprint.scheduled_job_count === stencil.enabled_scheduled_jobs.length
+    && footprint.enabled_panel_count === stencil.enabled_panel_ids.length
+    && footprint.total_workloads >= footprint.workload_count
+    && footprint.total_panel_count >= footprint.enabled_panel_count
+    && footprint.omitted_panel_count
+      === footprint.total_panel_count - footprint.enabled_panel_count
+    && (footprint.feature_flags === undefined
+      || (
+        footprint.feature_flags.stencil_id === stencil.stencil_id
+        && footprint.feature_flags.stencil_digest === footprint.stencil_digest
+        && sameItems(footprint.feature_flags.enabled_panel_ids, stencil.enabled_panel_ids)
+        && sameItems(footprint.feature_flags.enabled_loops, stencil.enabled_loops)
+        && sameItems(footprint.feature_flags.enabled_workloads, stencil.enabled_workloads)
+        && sameItems(
+          footprint.feature_flags.enabled_scheduled_jobs,
+          stencil.enabled_scheduled_jobs,
+        )
+        && sameItems(footprint.feature_flags.enabled_addons, stencil.enabled_addons)
+      ));
 }
 
 export async function requestStencilCatalog(): Promise<StencilCatalogResponse> {
@@ -630,34 +810,78 @@ export async function requestStencilCatalog(): Promise<StencilCatalogResponse> {
       typeof item === "object" && item !== null && "stencil" in item
       && validStencilDefinition(item.stencil) && "footprint" in item && validStencilFootprint(item.footprint))
     || !Array.isArray(data.panels)
-    || !data.panels.every((item: unknown) => {
-      if (typeof item !== "object" || item === null || Array.isArray(item)) return false;
-      const panel = item as Record<string, unknown>;
-      return typeof panel.id === "string" && typeof panel.group === "string"
-        && typeof panel.path === "string"
-        && /^\/[a-z0-9]+(?:[/-][a-z0-9]+)*$/.test(panel.path)
-        && typeof panel.label === "string" && typeof panel.label_ko === "string"
-        && typeof panel.locked === "boolean"
-        && ["required_workloads", "required_loops", "required_addons", "feature_ids"]
-          .every((field) => Array.isArray(panel[field]) && (panel[field] as unknown[]).every((value) => typeof value === "string"));
-    })
+    || !data.panels.every(validStencilPanelDescriptor)
+    || new Set(
+      (data.panels as StencilPanelDescriptor[]).map((panel) => panel.id),
+    ).size !== data.panels.length
+    || new Set(
+      (data.panels as StencilPanelDescriptor[]).map((panel) => panel.path),
+    ).size !== data.panels.length
     || !["workloads", "locked_workloads", "scheduled_jobs", "locked_scheduled_jobs", "loops", "locked_loops",
       "addons", "locked_addons", "locked_panels"]
       .every((field) => Array.isArray(data[field]) && (data[field] as unknown[]).every((item) => typeof item === "string"))
     || !["workloads_catalog", "scheduled_jobs_catalog", "loops_catalog"].every((field) =>
-      data[field] === undefined || (Array.isArray(data[field]) && data[field].every((item: unknown) =>
-        typeof item === "object" && item !== null
-        && "id" in item && typeof item.id === "string"
-        && "label" in item && typeof item.label === "string"
-        && "label_ko" in item && typeof item.label_ko === "string"
-        && "summary" in item && typeof item.summary === "string"
-        && "summary_ko" in item && typeof item.summary_ko === "string"
-        && "agents" in item && Array.isArray(item.agents)
-        && "locked" in item && typeof item.locked === "boolean")))
+      data[field] === undefined
+      || (Array.isArray(data[field]) && data[field].every(validRuntimeAxisDescriptor)))
   ) {
     throw new Error("Invalid Stencil catalog payload.");
   }
-  return raw as StencilCatalogResponse;
+  const catalog = raw as StencilCatalogResponse;
+  const panelIds = new Set(catalog.panels.map((panel) => panel.id));
+  const validSelection = (ids: readonly string[], allowed: ReadonlySet<string>) =>
+    new Set(ids).size === ids.length && ids.every((id) => allowed.has(id));
+  const workloads = new Set(catalog.workloads);
+  const jobs = new Set(catalog.scheduled_jobs);
+  const loops = new Set(catalog.loops);
+  const addons = new Set(catalog.addons);
+  const validAxisCatalog = (
+    descriptors: readonly RuntimeAxisDescriptorRecord[] | undefined,
+    ids: ReadonlySet<string>,
+    lockedIds: ReadonlySet<string>,
+  ) => descriptors === undefined
+    || (descriptors.length === ids.size
+      && new Set(descriptors.map((descriptor) => descriptor.id)).size === descriptors.length
+      && descriptors.every((descriptor) =>
+        ids.has(descriptor.id) && descriptor.locked === lockedIds.has(descriptor.id)));
+  if (workloads.size !== catalog.workloads.length
+    || jobs.size !== catalog.scheduled_jobs.length
+    || loops.size !== catalog.loops.length
+    || addons.size !== catalog.addons.length
+    || !validSelection(catalog.locked_panels, panelIds)
+    || !validSelection(catalog.locked_workloads, workloads)
+    || !validSelection(catalog.locked_scheduled_jobs, jobs)
+    || !validSelection(catalog.locked_loops, loops)
+    || !validSelection(catalog.locked_addons, addons)
+    || !validAxisCatalog(
+      catalog.workloads_catalog,
+      workloads,
+      new Set(catalog.locked_workloads),
+    )
+    || !validAxisCatalog(
+      catalog.scheduled_jobs_catalog,
+      jobs,
+      new Set(catalog.locked_scheduled_jobs),
+    )
+    || !validAxisCatalog(
+      catalog.loops_catalog,
+      loops,
+      new Set(catalog.locked_loops),
+    )
+    || !catalog.presets.every(({ stencil, footprint }) =>
+      stencilFootprintMatches(stencil, footprint))
+    || !catalog.panels.every((panel) =>
+      validSelection(panel.required_workloads, workloads)
+      && validSelection(panel.required_loops, loops)
+      && validSelection(panel.required_addons, addons))
+    || !catalog.presets.every(({ stencil }) =>
+      validSelection(stencil.enabled_panel_ids, panelIds)
+      && validSelection(stencil.enabled_workloads, workloads)
+      && validSelection(stencil.enabled_scheduled_jobs, jobs)
+      && validSelection(stencil.enabled_loops, loops)
+      && validSelection(stencil.enabled_addons, addons))) {
+    throw new Error("Invalid Stencil catalog payload.");
+  }
+  return catalog;
 }
 
 export async function requestStencilCompose(
