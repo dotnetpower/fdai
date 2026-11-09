@@ -6,9 +6,10 @@ afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 function stencilCatalog(
   panel: Record<string, unknown>,
   additionalPanels: Record<string, unknown>[] = [],
+  presets: Record<string, unknown>[] = [],
 ) {
   return {
-    presets: [],
+    presets,
     panels: [panel, ...additionalPanels],
     workloads: [],
     locked_workloads: [],
@@ -33,6 +34,35 @@ const VALID_PANEL = {
   required_loops: [],
   required_addons: [],
   feature_ids: [],
+};
+
+const VALID_STENCIL = {
+  schema_version: "fdai.stencil-definition.v1",
+  stencil_id: "lite-observe-alert",
+  title: "Lite",
+  title_ko: "경량",
+  description: "Lite profile",
+  description_ko: "경량 프로필",
+  topology_profile: "lite-observe-alert",
+  enabled_workloads: [],
+  enabled_scheduled_jobs: [],
+  enabled_loops: [],
+  enabled_addons: [],
+  enabled_panel_ids: ["detection-readiness"],
+  authority_granted: false,
+};
+
+const VALID_FOOTPRINT = {
+  stencil_digest: `sha256:${"a".repeat(64)}`,
+  azure_rbac_posture: "read-only-observation",
+  console_build_command: "npm run build",
+  includes_clamav_sidecar: false,
+  workload_count: 0,
+  total_workloads: 0,
+  enabled_panel_count: 1,
+  total_panel_count: 1,
+  omitted_workloads: [],
+  required_azure_roles: [],
 };
 
 describe("release action boundaries", () => {
@@ -181,6 +211,34 @@ describe("release action boundaries", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
       ok: true,
       json: async () => stencilCatalog(VALID_PANEL, [duplicate]),
+    }));
+    await expect(requestStencilCatalog()).rejects.toThrow("Invalid Stencil catalog payload");
+  });
+  it.each([
+    ["unknown locked panel", stencilCatalog(VALID_PANEL), ["missing-panel"]],
+    [
+      "unknown preset panel",
+      stencilCatalog(VALID_PANEL, [], [{
+        stencil: { ...VALID_STENCIL, enabled_panel_ids: ["missing-panel"] },
+        footprint: VALID_FOOTPRINT,
+      }]),
+      [],
+    ],
+    [
+      "duplicate preset panel",
+      stencilCatalog(VALID_PANEL, [], [{
+        stencil: {
+          ...VALID_STENCIL,
+          enabled_panel_ids: ["detection-readiness", "detection-readiness"],
+        },
+        footprint: VALID_FOOTPRINT,
+      }]),
+      [],
+    ],
+  ])("rejects %s references", async (_label, payload, lockedPanels) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ...payload, locked_panels: lockedPanels }),
     }));
     await expect(requestStencilCatalog()).rejects.toThrow("Invalid Stencil catalog payload");
   });

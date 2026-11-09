@@ -692,7 +692,16 @@ export async function requestStencilCatalog(): Promise<StencilCatalogResponse> {
   ) {
     throw new Error("Invalid Stencil catalog payload.");
   }
-  return raw as StencilCatalogResponse;
+  const catalog = raw as StencilCatalogResponse;
+  const panelIds = new Set(catalog.panels.map((panel) => panel.id));
+  const validPanelSelection = (ids: readonly string[]) =>
+    new Set(ids).size === ids.length && ids.every((id) => panelIds.has(id));
+  if (!validPanelSelection(catalog.locked_panels)
+    || !catalog.presets.every(({ stencil }) =>
+      validPanelSelection(stencil.enabled_panel_ids))) {
+    throw new Error("Invalid Stencil catalog payload.");
+  }
+  return catalog;
 }
 
 export async function requestStencilCompose(
