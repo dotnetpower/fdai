@@ -27,8 +27,9 @@ When an installation explicitly selects the service-local narrator, local execut
 short-lived token from Azure CLI and deployed execution obtains it from the selected workload
 identity. The token is sent only in the provider Authorization header, is never logged, and grants
 no managed-resource execution authority.
-For the typed Pantheon screen only, the service-local narrator can return the complete bounded
-`records.agents` catalog as a deterministic Markdown table. Every row receives a screen evidence
+For the typed Pantheon screen only, the `AgentsRoute` organization layout publishes the complete
+bounded `records.agents` catalog and the service-local narrator returns it as a deterministic
+Markdown table. Every row receives a screen evidence
 reference and a supported claim; the path performs no model call, infers no natural-language
 meaning, drops no agent, and grants no authority. Other unsupported model claims remain held.
 

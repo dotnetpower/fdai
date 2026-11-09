@@ -76,6 +76,15 @@ function rosterFiltersFromRoute(): {
   };
 }
 
+export function pantheonAgentContextRecords() {
+  return PANTHEON.map((agent) => ({
+    name: agent.name,
+    role: agentRoleTitle(agent.name),
+    reports_to: AGENT_ROLE[agent.name]?.reportsTo ?? "",
+    owns: AGENT_ROLE[agent.name]?.summary ?? "-",
+  }));
+}
+
 export function AgentsRoute({ client }: Props) {
   const initialRoute = currentRoute();
   const initialRosterFilters = rosterFiltersFromRoute();
@@ -251,6 +260,7 @@ export function AgentsRoute({ client }: Props) {
         { key: "stream_status", value: status, group: "runtime" },
       ],
       records: {
+        agents: layout === "org" ? pantheonAgentContextRecords() : [],
         selected_agent: selectedAgentNode
           ? [agentViewContextRecord(selectedAgentNode, layout)]
           : [],
