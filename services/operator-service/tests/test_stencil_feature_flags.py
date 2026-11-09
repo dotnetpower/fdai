@@ -91,7 +91,7 @@ def test_lite_observe_alert_stencil_blocks_deactivated_menu_endpoints_fail_close
         "FDAI_STENCIL_ENABLED_PANELS": (
             "audit,dashboard,incidents,live,detection-readiness,alert-quality,"
             "configuration-baselines,conversation-delivery,pantheon,agent-activity,"
-            "rules,trace,settings-general,settings-integrations"
+            "rules,trace,settings-general,settings-integrations,settings-models"
         ),
         "FDAI_STENCIL_ENABLED_LOOPS": (
             "anomaly-analyzer,inventory-reconciliation,notification-dispatch,saga-audit"
@@ -113,6 +113,8 @@ def test_lite_observe_alert_stencil_blocks_deactivated_menu_endpoints_fail_close
         "/configuration-baselines/review/run",
         "/runtime/integrations/teams-workflow/test",
         "/runtime/settings",
+        "/models/settings",
+        "/me/model-preferences",
     ):
         res = client.get(allowed_path)
         assert res.status_code == 200, allowed_path
@@ -129,8 +131,6 @@ def test_lite_observe_alert_stencil_blocks_deactivated_menu_endpoints_fail_close
         ("/access-grants/stream", "settings-iam"),
         ("/iam", "settings-iam"),
         ("/iam/directory/users", "settings-iam"),
-        ("/models/settings", "settings-models"),
-        ("/me/model-preferences", "settings-models"),
         ("/me/memories", "settings-memory"),
         ("/me/conversations/search", "conversation-search"),
         ("/conversation-assurance", "conversation-assurance"),

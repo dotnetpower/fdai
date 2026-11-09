@@ -161,6 +161,42 @@ describe("Operator API authentication boundary", () => {
     await expect(transport.getJson("/healthz")).resolves.toEqual({ ok: true });
   });
 
+  test("retries bounded transient browser transport failures for safe GET requests", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce(Response.json({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    const transport = new OperatorApiTransport(
+      { ...config, operatorApiRequestTimeoutMs: 10_000 },
+      auth(),
+    );
+
+    const request = transport.getJson("/healthz");
+    await vi.runAllTimersAsync();
+
+    await expect(request).resolves.toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  test("surfaces a persistent browser transport failure after bounded retries", async () => {
+    vi.useFakeTimers();
+    const failure = new TypeError("Failed to fetch");
+    const fetchMock = vi.fn().mockRejectedValue(failure);
+    vi.stubGlobal("fetch", fetchMock);
+    const transport = new OperatorApiTransport(
+      { ...config, operatorApiRequestTimeoutMs: 10_000 },
+      auth(),
+    );
+
+    const request = transport.getJson("/healthz");
+    const expectation = expect(request).rejects.toBe(failure);
+    await vi.runAllTimersAsync();
+
+    await expectation;
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   test.each([
     "authoritative Operator projection is unavailable",
     "authoritative projection is unavailable",

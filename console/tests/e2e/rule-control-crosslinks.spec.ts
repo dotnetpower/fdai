@@ -404,6 +404,16 @@ test("keeps the grouped rail aligned in constrained desktop and mobile", async (
     scrollWidth: element.scrollWidth,
   }));
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
+  const facetDimensions = await page.locator(".rule-facet-set > div").evaluateAll(
+    (elements) => elements.map((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    })),
+  );
+  expect(facetDimensions.length).toBeGreaterThan(0);
+  for (const facet of facetDimensions) {
+    expect(facet.scrollWidth).toBeLessThanOrEqual(facet.clientWidth);
+  }
 
   await page.setViewportSize({ width: 390, height: 844 });
   const mobileLinks = await rail.locator("nav a").evaluateAll(
