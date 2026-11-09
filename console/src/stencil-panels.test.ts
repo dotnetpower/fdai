@@ -64,6 +64,27 @@ describe("stencil-panels", () => {
     expect(groupIds).not.toContain("labs");
   });
 
+  test("keeps only essential navigation groups for the essential Console Stencil", () => {
+    const enabled = parseStencilRuntimeFeatureFlags({
+      schema_version: "fdai.stencil-feature-flags.v1",
+      stencil_id: "essential-console",
+      enforcement_mode: "fail-closed",
+      enabled_panel_ids: [
+        "dashboard",
+        "audit",
+        "settings-general",
+        "settings-diagnostics",
+      ],
+    });
+
+    expect(enabled?.has("detection-readiness")).toBe(false);
+    expect(
+      filterNavigationGroupsByStencil(PANEL_GROUPS, resolvePanels(), enabled).map(
+        (group) => group.id,
+      ),
+    ).toEqual(["overview", "evidence", "settings"]);
+  });
+
   test("physically prunes disabled route imports from panels.tsx at build time (#2526)", () => {
     const rawPanelsTsx = readFileSync(resolve(__dirname, "panels.tsx"), "utf-8");
     const liteEnabled = parseStencilEnabledPanelIds(
