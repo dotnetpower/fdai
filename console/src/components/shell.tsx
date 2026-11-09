@@ -120,27 +120,29 @@ export function Shell({
               principalId={auth.account?.homeAccountId ?? null}
             />
           ) : null}
-          <Suspense fallback={(
-            <button
-              type="button"
-              class="topbar-control browser-notification-control"
-              aria-label={t("shared.loading")}
-              aria-busy="true"
-              aria-pressed="false"
-              disabled
-            >
-              <span class="browser-notification-indicator skeleton-shimmer" aria-hidden="true" />
-              <span class="topbar-control-label">{t("shared.loading")}</span>
-              <span class="browser-notification-state" role="status" aria-live="polite">
-                ...
-              </span>
-            </button>
-          )}>
-            <FindingNotifications
-              client={client}
-              principalId={auth.account?.homeAccountId ?? null}
-            />
-          </Suspense>
+          {isStencilPanelEnabled("detection-readiness") ? (
+            <Suspense fallback={(
+              <button
+                type="button"
+                class="topbar-control browser-notification-control"
+                aria-label={t("shared.loading")}
+                aria-busy="true"
+                aria-pressed="false"
+                disabled
+              >
+                <span class="browser-notification-indicator skeleton-shimmer" aria-hidden="true" />
+                <span class="topbar-control-label">{t("shared.loading")}</span>
+                <span class="browser-notification-state" role="status" aria-live="polite">
+                  ...
+                </span>
+              </button>
+            )}>
+              <FindingNotifications
+                client={client}
+                principalId={auth.account?.homeAccountId ?? null}
+              />
+            </Suspense>
+          ) : null}
           {auth.account ? (
             <Suspense fallback={(
               <span class="account-menu-loading" role="status" aria-live="polite">
