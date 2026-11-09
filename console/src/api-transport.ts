@@ -220,7 +220,7 @@ export class OperatorApiTransport {
     );
     let response: Response;
     try {
-      response = await fetch(url.toString(), {
+      response = await fetchGet(url.toString(), {
         method: "GET",
         headers,
         credentials: "omit",
@@ -249,6 +249,16 @@ export class OperatorApiTransport {
       throw error;
     }
     return response;
+  }
+}
+
+async function fetchGet(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error;
+    await new Promise((resolve) => globalThis.setTimeout(resolve, 1_000));
+    return fetch(url, init);
   }
 }
 

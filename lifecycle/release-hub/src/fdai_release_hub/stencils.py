@@ -852,6 +852,7 @@ LITE_OBSERVE_ALERT_PANELS: tuple[str, ...] = tuple(
             "rules",
             "trace",
             "settings-integrations",
+            "settings-models",
         }
     )
 )
