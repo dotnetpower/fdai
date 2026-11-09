@@ -2,6 +2,36 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { actionsFor, artifacts, catalogChangeObserved, catalogRecovery, CatalogRequestError, isCustomChannel, parseReleaseManifest, releaseStateIndex, releaseTitle, requestCatalog, requestCatalogExport, requestEntraLogout, requestStencilCatalog, requestStencilCompose, schemaCompatibility, type Catalog, type Release, type StencilComposePayload } from "./api";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+
+function stencilCatalog(panel: Record<string, unknown>) {
+  return {
+    presets: [],
+    panels: [panel],
+    workloads: [],
+    locked_workloads: [],
+    scheduled_jobs: [],
+    locked_scheduled_jobs: [],
+    loops: [],
+    locked_loops: [],
+    addons: [],
+    locked_addons: [],
+    locked_panels: [],
+  };
+}
+
+const VALID_PANEL = {
+  id: "detection-readiness",
+  path: "/detection-coverage",
+  group: "operations",
+  label: "Detection coverage",
+  label_ko: "감지 커버리지",
+  locked: false,
+  required_workloads: [],
+  required_loops: [],
+  required_addons: [],
+  feature_ids: [],
+};
+
 describe("release action boundaries", () => {
   const base = { id: "1.0.0" } as Release;
   const catalog = (revision = 3) => ({
@@ -127,6 +157,19 @@ describe("release action boundaries", () => {
     vi.stubGlobal("fetch", fetch);
     await expect(requestStencilCatalog()).rejects.toThrow("Invalid Stencil catalog payload");
     await expect(requestStencilCompose(payload)).rejects.toThrow("Invalid Stencil composition payload");
+  });
+  it.each([
+    ["invalid id", { ...VALID_PANEL, id: "Detection_Readiness" }],
+    ["unknown group", { ...VALID_PANEL, group: "other" }],
+    ["invalid path", { ...VALID_PANEL, path: "/Detection-Coverage" }],
+    ["blank English label", { ...VALID_PANEL, label: " " }],
+    ["control character in Korean label", { ...VALID_PANEL, label_ko: "감지\n커버리지" }],
+  ])("rejects %s in Stencil panel descriptors", async (_label, panel) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => stencilCatalog(panel),
+    }));
+    await expect(requestStencilCatalog()).rejects.toThrow("Invalid Stencil catalog payload");
   });
   it("preserves a specific promotion rejection while advising a fresh review", () => {
     expect(catalogRecovery(new CatalogRequestError("Promotion stage blocked (promotion_canary_unhealthy).", 409)))

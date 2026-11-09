@@ -577,6 +577,45 @@ export type StencilComposeResult = {
   release_manifest: Record<string, unknown>;
 };
 
+const STENCIL_PANEL_GROUPS = new Set([
+  "overview",
+  "operations",
+  "agents",
+  "governance",
+  "knowledge",
+  "evidence",
+  "labs",
+  "settings",
+]);
+const STENCIL_PANEL_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const STENCIL_PANEL_PATH_PATTERN = /^\/[a-z0-9]+(?:[/-][a-z0-9]+)*$/;
+
+function boundedDisplayText(value: unknown): value is string {
+  return typeof value === "string"
+    && value.length <= 160
+    && value.trim().length > 0
+    && !/[\u0000-\u001f\u007f]/u.test(value);
+}
+
+function validStencilPanelDescriptor(value: unknown): value is StencilPanelDescriptor {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const panel = value as Record<string, unknown>;
+  return typeof panel.id === "string"
+    && panel.id.length <= 63
+    && STENCIL_PANEL_ID_PATTERN.test(panel.id)
+    && typeof panel.group === "string"
+    && STENCIL_PANEL_GROUPS.has(panel.group)
+    && typeof panel.path === "string"
+    && panel.path.length <= 256
+    && STENCIL_PANEL_PATH_PATTERN.test(panel.path)
+    && boundedDisplayText(panel.label)
+    && boundedDisplayText(panel.label_ko)
+    && typeof panel.locked === "boolean"
+    && ["required_workloads", "required_loops", "required_addons", "feature_ids"]
+      .every((field) => Array.isArray(panel[field])
+        && (panel[field] as unknown[]).every((item) => typeof item === "string"));
+}
+
 function validStencilDefinition(value: unknown): value is StencilDefinitionRecord {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const stencil = value as Record<string, unknown>;
@@ -630,17 +669,7 @@ export async function requestStencilCatalog(): Promise<StencilCatalogResponse> {
       typeof item === "object" && item !== null && "stencil" in item
       && validStencilDefinition(item.stencil) && "footprint" in item && validStencilFootprint(item.footprint))
     || !Array.isArray(data.panels)
-    || !data.panels.every((item: unknown) => {
-      if (typeof item !== "object" || item === null || Array.isArray(item)) return false;
-      const panel = item as Record<string, unknown>;
-      return typeof panel.id === "string" && typeof panel.group === "string"
-        && typeof panel.path === "string"
-        && /^\/[a-z0-9]+(?:[/-][a-z0-9]+)*$/.test(panel.path)
-        && typeof panel.label === "string" && typeof panel.label_ko === "string"
-        && typeof panel.locked === "boolean"
-        && ["required_workloads", "required_loops", "required_addons", "feature_ids"]
-          .every((field) => Array.isArray(panel[field]) && (panel[field] as unknown[]).every((value) => typeof value === "string"));
-    })
+    || !data.panels.every(validStencilPanelDescriptor)
     || !["workloads", "locked_workloads", "scheduled_jobs", "locked_scheduled_jobs", "loops", "locked_loops",
       "addons", "locked_addons", "locked_panels"]
       .every((field) => Array.isArray(data[field]) && (data[field] as unknown[]).every((item) => typeof item === "string"))
