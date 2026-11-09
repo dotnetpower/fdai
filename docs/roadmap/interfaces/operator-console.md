@@ -204,11 +204,9 @@ or execution authority.
 
 ### Release identity presentation
 
-A Hub-image Console publication displays its validated immutable Release version in the browser
-title and as a quiet label beside the Console wordmark. The value comes only from the
-installation-owned `fdai-config.js`; the browser cannot edit it, select a different Release, or
-derive authority from it. An explicit source deployment without a Hub selection keeps the
-unversioned title and omits the label.
+A Hub-image Console publication displays its validated immutable Release version in the browser title and as a quiet label beside the Console wordmark.
+The value comes only from the installation-owned `fdai-config.js`; the browser cannot edit it, select another Release, or derive authority from it.
+An explicit source deployment without a Hub selection keeps the unversioned title and omits the label.
 
 ## Common answer presentation
 
