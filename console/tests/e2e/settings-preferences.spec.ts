@@ -509,7 +509,11 @@ test("Settings preferences reflow read-only at 993x641 then 390x844 in English a
     }, touch);
     expect(failures, state).toEqual([]);
   };
-  for (const viewport of [{ width: 993, height: 641 }, { width: 390, height: 844 }]) {
+  for (const viewport of [
+    { width: 1208, height: 984 },
+    { width: 993, height: 641 },
+    { width: 390, height: 844 },
+  ]) {
     await page.setViewportSize(viewport);
     for (const locale of ["en", "ko"] as const) {
       const text = labels[locale];

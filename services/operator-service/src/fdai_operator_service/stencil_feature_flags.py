@@ -53,7 +53,9 @@ ALWAYS_ALLOWED_OPERATOR_PATHS: Final[frozenset[str]] = frozenset(
     {
         "/healthz",
         "/iam/self",
+        "/access-grants/stream",
         "/local-auth/me",
+        "/ontology/instances/states",
         "/system/data-sources",
         "/system/stencil-feature-flags",
     }
