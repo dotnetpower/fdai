@@ -87,6 +87,8 @@ def test_opa_downloads_are_bounded_and_checksum_verified() -> None:
     assert action.count("--retry 3 --retry-delay 2 --retry-all-errors") == 2
     assert action.count("--retry-max-time 120 --connect-timeout 10 --max-time 90") == 2
     assert action.count("dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa") == 1
+    assert 'system_opa="$(command -v opa 2>/dev/null || true)"' in action
+    assert 'install -m 0755 "$system_opa" "$opa_dir/opa"' in action
 
 
 def test_opa_setup_uses_checksum_verified_official_fallback(tmp_path: Path) -> None:
@@ -137,6 +139,44 @@ def test_opa_setup_uses_checksum_verified_official_fallback(tmp_path: Path) -> N
     assert "opa-fallback" in result.stdout
 
 
+def test_opa_setup_prefers_checksum_verified_runner_toolchain(tmp_path: Path) -> None:
+    action = yaml.safe_load(
+        (_ROOT / ".github" / "actions" / "setup-opa" / "action.yml").read_text(encoding="utf-8")
+    )
+    script = action["runs"]["steps"][0]["run"]
+    payload = b'#!/usr/bin/env bash\nset -eu\ntest "$1" = version\necho opa-toolchain\n'
+    script = script.replace(
+        "dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa",
+        hashlib.sha256(payload).hexdigest(),
+    )
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    opa = tools / "opa"
+    opa.write_bytes(payload)
+    opa.chmod(0o755)
+    curl = tools / "curl"
+    curl.write_text("#!/bin/sh\nexit 99\n", encoding="utf-8")
+    curl.chmod(0o755)
+    runner_temp = tmp_path / "runner"
+    runner_temp.mkdir()
+
+    result = subprocess.run(  # noqa: S603 - checked action with a synthetic toolchain
+        ["/usr/bin/bash", "-c", script],
+        env={
+            **os.environ,
+            "PATH": str(tools) + os.pathsep + os.environ["PATH"],
+            "RUNNER_TEMP": str(runner_temp),
+            "GITHUB_PATH": str(tmp_path / "github-path"),
+        },
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "opa-toolchain" in result.stdout
+
+
 def test_opa_setup_is_job_local_and_does_not_require_sudo() -> None:
     action = yaml.safe_load(
         (_ROOT / ".github/actions/setup-opa/action.yml").read_text(encoding="utf-8")
@@ -149,7 +189,6 @@ def test_opa_setup_is_job_local_and_does_not_require_sudo() -> None:
     assert '"$opa_dir/opa" version' in script
     assert "sudo" not in script
     assert "/tmp/opa" not in script  # noqa: S108 - forbid the old shared download path
-    assert "/usr/local/bin" not in script
 
 
 def test_opa_setup_executes_with_five_separate_job_directories(tmp_path: Path) -> None:

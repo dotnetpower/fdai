@@ -86,6 +86,11 @@ operator independently approves the new exact pin and explicitly imports it, or
 Renewal never imports, plans or applies an installation change and does not replace production
 signed catalog roles. An optional Release Hub task can perform the renewal automatically.
 The UI distinguishes read-only **Refresh catalog** from **Renew catalog freshness**.
+When signed snapshot and timestamp roles are active, normal periodic renewal still changes only
+the online timestamp. If the legacy signed export used by clone bootstrap has already expired, the
+same task also performs the attributed legacy renewal once. This keeps the clone path from
+remaining permanently unavailable after a storage outage without changing any Release, channel,
+recall, manifest, or image digest.
 
 ## Automatic catalog adoption
 

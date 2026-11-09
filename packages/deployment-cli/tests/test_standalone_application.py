@@ -16,8 +16,9 @@ from fdai_deployment_cli import (
     standalone_aks_inventory,
     standalone_application,
     standalone_console_publish,
+    stencil_console,
 )
-from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.target import compute_target_binding
 
@@ -438,6 +439,12 @@ def test_publish_verified_console_uses_verified_prebuilt_artifact(tmp_path, monk
     monkeypatch.setattr(standalone_console_publish, "extract_bundle_archive", extract)
     monkeypatch.setattr(standalone_console_publish, "configure_console", configure)
     monkeypatch.setattr(standalone_console_publish.subprocess, "run", run)
+    verified_stencils: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        standalone_console_publish,
+        "verify_operator_stencil_contract",
+        lambda _url, flags, *, timeout_seconds: verified_stencils.append(dict(flags)),
+    )
     tenant_id = "00000000-0000-0000-0000-000000000001"
     subscription_id = "00000000-0000-0000-0000-000000000002"
     spa_client_id = "00000000-0000-0000-0000-000000000003"
@@ -450,6 +457,12 @@ def test_publish_verified_console_uses_verified_prebuilt_artifact(tmp_path, monk
         ),
         "operator_api_base_url": "https://apim-fdai.azure-api.net",
         "ingestion_api_base_url": "https://apim-fdai.azure-api.net/ingestion",
+    }
+    stencil_feature_flags = {
+        "schema_version": "fdai.stencil-feature-flags.v1",
+        "stencil_id": "lite-observe-alert",
+        "enforcement_mode": "fail-closed",
+        "enabled_panel_ids": ["audit", "dashboard", "settings-general"],
     }
 
     receipt = standalone_application.publish_verified_console(
@@ -467,6 +480,7 @@ def test_publish_verified_console_uses_verified_prebuilt_artifact(tmp_path, monk
         tenant_id=tenant_id,
         timeout_seconds=900,
         redirect_changed=True,
+        stencil_feature_flags=stencil_feature_flags,
     )
 
     settings = json.loads((tmp_path / "console-runtime-settings.json").read_text())
@@ -477,6 +491,7 @@ def test_publish_verified_console_uses_verified_prebuilt_artifact(tmp_path, monk
         "tenant_id": tenant_id,
         "spa_client_id": spa_client_id,
         "api_scope": f"api://{spa_client_id}/access",
+        "stencil_feature_flags": stencil_feature_flags,
     }
     assert calls[:2] == [
         ("extract", archive, tmp_path / "console-publish"),
@@ -500,9 +515,88 @@ def test_publish_verified_console_uses_verified_prebuilt_artifact(tmp_path, monk
     assert environment["ARM_SUBSCRIPTION_ID"] == subscription_id
     assert environment["FDAI_CONSOLE_VERIFY_ONLY"] == "0"
     assert receipt["state"] == "published"
+    assert receipt["stencil_id"] == "lite-observe-alert"
+    assert receipt["operator_stencil_verified"] is True
+    assert receipt["stencil_feature_flags_digest"] == canonical_digest(stencil_feature_flags)
     assert receipt["entra_redirect_verified"] is True
     assert len(str(receipt["receipt_digest"])) == 64
     assert (tmp_path / "console-publication-receipt.json").is_file()
+    assert verified_stencils == [stencil_feature_flags]
+
+
+def test_operator_stencil_contract_requires_exact_runtime_state() -> None:
+    feature_flags = {
+        "schema_version": "fdai.stencil-feature-flags.v1",
+        "stencil_id": "lite-observe-alert",
+        "enforcement_mode": "fail-closed",
+        "enabled_panel_ids": ["audit", "dashboard", "settings-general"],
+    }
+    payload = {
+        "schema_version": "fdai.stencil-feature-flags.v1",
+        "active": True,
+        "stencil_id": "lite-observe-alert",
+        "enforcement_mode": "fail-closed",
+        "enabled_panel_ids": ["audit", "dashboard", "settings-general"],
+    }
+
+    standalone_console_publish.verify_operator_stencil_contract(
+        "https://operator.example.com",
+        feature_flags,
+        timeout_seconds=30,
+        fetch=lambda url, timeout: (
+            canonical_bytes(payload)
+            if url == "https://operator.example.com/system/stencil-feature-flags"
+            and timeout == 10.0
+            else b""
+        ),
+    )
+
+    with pytest.raises(ValueError, match="differs"):
+        standalone_console_publish.verify_operator_stencil_contract(
+            "https://operator.example.com",
+            feature_flags,
+            timeout_seconds=30,
+            fetch=lambda _url, _timeout: canonical_bytes(
+                {**payload, "enabled_panel_ids": ["audit", "dashboard"]}
+            ),
+        )
+
+
+def test_selected_stencil_feature_flags_copy_verified_hub_metadata() -> None:
+    feature_flags = {
+        "schema_version": "fdai.stencil-feature-flags.v1",
+        "stencil_id": "lite-observe-alert",
+        "enforcement_mode": "fail-closed",
+        "enabled_panel_ids": ["audit", "dashboard", "settings-general"],
+    }
+    selection = SimpleNamespace(
+        document={
+            "stencil": {
+                "stencil_id": "lite-observe-alert",
+                "feature_flags": feature_flags,
+            }
+        }
+    )
+
+    selected = stencil_console.flags(selection.document)
+
+    assert selected == feature_flags
+    assert selected is not feature_flags
+    assert stencil_console.flags(None) is None
+
+
+def test_selected_stencil_feature_flags_reject_mismatch() -> None:
+    selection = SimpleNamespace(
+        document={
+            "stencil": {
+                "stencil_id": "lite-observe-alert",
+                "feature_flags": {"stencil_id": "standard-sre"},
+            }
+        }
+    )
+
+    with pytest.raises(ValueError, match="feature flags"):
+        stencil_console.flags(selection.document)
 
 
 def _publish_with_stubbed_effects(
@@ -584,6 +678,53 @@ def test_publish_verified_console_replaces_a_retained_prior_extraction(
 
     assert published == {"index": "current release", "stale": False}
     assert (elsewhere / "index.html").read_text() == "untouched"
+
+
+def test_publish_verified_console_rejects_stencil_without_id_before_extraction(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    archive, archive_digest = _console_archive(tmp_path, "current release")
+    extracted = False
+
+    def extract(*_: object, **__: object) -> Path:
+        nonlocal extracted
+        extracted = True
+        raise AssertionError("extraction must not start")
+
+    monkeypatch.setattr(standalone_console_publish, "extract_bundle_archive", extract)
+    with pytest.raises(ValueError, match="Stencil id"):
+        standalone_application.publish_verified_console(
+            console_archive=archive,
+            console_archive_sha256=archive_digest,
+            bundle_root=tmp_path,
+            prepared_root=tmp_path,
+            entra_bindings={
+                "ENTRA_CONSOLE_SPA_CLIENT_ID": "00000000-0000-0000-0000-000000000003",
+                "ENTRA_CONSOLE_API_SCOPE": ("api://00000000-0000-0000-0000-000000000003/access"),
+            },
+            browser_console={
+                "console_hostname": "calm-field-012345678.3.azurestaticapps.net",
+                "console_origin": "https://calm-field-012345678.3.azurestaticapps.net",
+                "console_static_web_app_id": (
+                    "/subscriptions/00000000-0000-0000-0000-000000000002/"
+                    "resourceGroups/rg-app/providers/Microsoft.Web/staticSites/swa-console"
+                ),
+                "operator_api_base_url": "https://apim-fdai.azure-api.net",
+                "ingestion_api_base_url": "https://apim-fdai.azure-api.net/ingestion",
+            },
+            scripts=tmp_path,
+            subscription_id="00000000-0000-0000-0000-000000000002",
+            tenant_id="00000000-0000-0000-0000-000000000001",
+            timeout_seconds=900,
+            redirect_changed=False,
+            stencil_feature_flags={
+                "schema_version": "fdai.stencil-feature-flags.v1",
+                "enforcement_mode": "fail-closed",
+                "enabled_panel_ids": ["audit", "dashboard", "settings-general"],
+            },
+        )
+
+    assert extracted is False
 
 
 @pytest.mark.parametrize("dangling", [False, True])

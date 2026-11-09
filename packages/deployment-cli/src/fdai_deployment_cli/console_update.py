@@ -16,13 +16,16 @@ from pathlib import Path
 from typing import cast
 from urllib.parse import urlsplit
 
+from fdai_deployment_cli.console_update_publish import (
+    publish_console_update as _publish,
+)
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.private_output import (
     copy_private_file,
     read_private_bytes,
     write_private_output,
 )
-from fdai_deployment_cli.standalone_application import publish_verified_console
+from fdai_deployment_cli.stencil_console import console_update_stencil_flags
 from fdai_deployment_cli.target import compute_target_binding
 
 _GUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
@@ -50,6 +53,7 @@ _TARGET_FIELDS = frozenset(
         "ingestion_api_base_url",
         "entra_console_spa_client_id",
         "entra_console_api_scope",
+        "stencil_feature_flags",
     }
 )
 _PLAN_FIELDS = frozenset(
@@ -89,6 +93,7 @@ class ConsoleUpdateTarget:
     ingestion_api_base_url: str
     entra_console_spa_client_id: str
     entra_console_api_scope: str
+    stencil_feature_flags: dict[str, object]
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, object]) -> ConsoleUpdateTarget:
@@ -96,17 +101,20 @@ class ConsoleUpdateTarget:
 
         if (
             set(value) != _TARGET_FIELDS
-            or value.get("schema_version") != "fdai.console-update-target.v1"
+            or value.get("schema_version") != "fdai.console-update-target.v2"
         ):
             raise ValueError("Console update target fields are invalid")
         text = {
             key: item
             for key, item in value.items()
-            if key != "schema_version" and isinstance(item, str)
+            if key not in {"schema_version", "stencil_feature_flags"} and isinstance(item, str)
         }
-        if len(text) != len(_TARGET_FIELDS) - 1:
+        if len(text) != len(_TARGET_FIELDS) - 2:
             raise ValueError("Console update target values MUST be strings")
-        target = cls(**text)
+        target = cls(
+            **text,
+            stencil_feature_flags=console_update_stencil_flags(value.get("stencil_feature_flags")),
+        )
         target.validate()
         return target
 
@@ -143,6 +151,7 @@ class ConsoleUpdateTarget:
                 raise ValueError(f"Console update {label} URL is invalid")
         if _API_SCOPE.fullmatch(self.entra_console_api_scope) is None:
             raise ValueError("Console update API scope is invalid")
+        console_update_stencil_flags(self.stencil_feature_flags)
 
     @property
     def target_binding(self) -> str:
@@ -153,11 +162,11 @@ class ConsoleUpdateTarget:
             subscription_id=self.subscription_id,
         )
 
-    def to_mapping(self) -> dict[str, str]:
+    def to_mapping(self) -> dict[str, object]:
         """Return canonical target data for a private plan."""
 
         return {
-            "schema_version": "fdai.console-update-target.v1",
+            "schema_version": "fdai.console-update-target.v2",
             "environment": self.environment,
             "subscription_id": self.subscription_id,
             "tenant_id": self.tenant_id,
@@ -167,6 +176,7 @@ class ConsoleUpdateTarget:
             "ingestion_api_base_url": self.ingestion_api_base_url,
             "entra_console_spa_client_id": self.entra_console_spa_client_id,
             "entra_console_api_scope": self.entra_console_api_scope,
+            "stencil_feature_flags": self.stencil_feature_flags,
         }
 
 
@@ -430,48 +440,6 @@ def apply_console_update_plan(
         )
     finally:
         os.close(lock_descriptor)
-
-
-def _publish(
-    *,
-    source_root: Path,
-    work_dir: Path,
-    archive: Path,
-    archive_digest: str,
-    target: ConsoleUpdateTarget,
-    scripts: Path,
-    timeout_seconds: int,
-    verify_only: bool,
-    verify_service_contracts: bool = True,
-) -> dict[str, object]:
-    work_dir.mkdir(mode=0o700, exist_ok=True)
-    if work_dir.is_symlink() or not work_dir.is_dir():
-        raise ValueError("Console publication work directory is invalid")
-    work_dir.chmod(0o700)
-    return publish_verified_console(
-        console_archive=archive,
-        console_archive_sha256=archive_digest,
-        bundle_root=source_root,
-        prepared_root=work_dir,
-        entra_bindings={
-            "ENTRA_CONSOLE_SPA_CLIENT_ID": target.entra_console_spa_client_id,
-            "ENTRA_CONSOLE_API_SCOPE": target.entra_console_api_scope,
-        },
-        browser_console={
-            "console_hostname": target.console_hostname,
-            "console_origin": f"https://{target.console_hostname}",
-            "console_static_web_app_id": target.console_static_web_app_id,
-            "operator_api_base_url": target.operator_api_base_url,
-            "ingestion_api_base_url": target.ingestion_api_base_url,
-        },
-        scripts=scripts,
-        subscription_id=target.subscription_id,
-        tenant_id=target.tenant_id,
-        timeout_seconds=timeout_seconds,
-        redirect_changed=False,
-        verify_only=verify_only,
-        verify_service_contracts=verify_service_contracts,
-    )
 
 
 def _write_apply_receipt(

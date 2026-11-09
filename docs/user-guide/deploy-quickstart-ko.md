@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 서명된 Release Hub 이미지, 명시적 소스 빌드 또는 서명된 오프라인 패키지로 FDAI를 배포합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 2b29e163244f6a514fc3c96003e61bb11c17d7ad
+translation_source_sha: a8d3f9a593c2a64dffb0ecff20706f51bf219137
 translation_revised: 2026-11-09
 ---
 
@@ -103,6 +103,9 @@ GitHub Actions는 저장소를 테스트합니다. 대상 환경에 배포하는
   선택 채널과 서명된 이미지 위치에 접근할 수 있어야 합니다. 검사에 실패하면 대체 이미지를
   빌드하지 않고 멈춥니다. [Release Hub 이미지 배포](../roadmap/deployment/hub-image-deployment-ko.md)를
   참조하세요.
+- Stencil Release를 사용하는 경우 배포된 Operator가 서명된 Release와 같은 활성 패널 목록을
+  보고해야 Console 파일을 게시합니다. 점검 경로가 없거나 메뉴가 다르면 지원되지 않는 Console
+  화면을 노출하지 않고 게시를 중단합니다.
 
 ### 명령을 한 번 설치
 

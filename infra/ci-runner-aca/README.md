@@ -16,6 +16,10 @@ It supports repository validation, not FDAI deployment or managed-resource execu
 | `build-image.sh` | Builds the image in the registry with a minimal context |
 | `set-credential.sh` | Interactive, no-echo entry of the GitHub credential into the job secret |
 
+The image builder requires the declared OPA version on the operator workstation, verifies its
+manifest checksum, and copies it only into the temporary ACR build context. The binary is never
+added to the repository, and VM provisioning retains the bounded official download fallback.
+
 ## Measured basis
 
 Same commit, cold start, heaviest regression shard, `westus3`:

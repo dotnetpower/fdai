@@ -31,9 +31,9 @@ _PANEL_ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*\Z", re.ASCII)
 _LOCKED_PANELS = ("audit", "dashboard", "settings-general")
 
 
-def _validate_console_stencil_flags(raw: object) -> dict[str, object]:
+def validate_console_stencil_flags(raw: object) -> dict[str, object]:
     if not isinstance(raw, dict):
-        raise ValueError("Console stencil_feature_flags MUST be an object")
+        raise TypeError("Console stencil_feature_flags MUST be an object")
     allowed_keys = {
         "schema_version",
         "stencil_id",
@@ -68,11 +68,11 @@ def _validate_console_stencil_flags(raw: object) -> dict[str, object]:
         "disabled_loops",
     ):
         items = raw.get(list_key)
-        if items is not None:
-            if not isinstance(items, list) or not all(
-                isinstance(p, str) and _PANEL_ID_RE.fullmatch(p) is not None for p in items
-            ):
-                raise ValueError(f"Console stencil_feature_flags.{list_key} is invalid")
+        if items is not None and (
+            not isinstance(items, list)
+            or not all(isinstance(p, str) and _PANEL_ID_RE.fullmatch(p) is not None for p in items)
+        ):
+            raise ValueError(f"Console stencil_feature_flags.{list_key} is invalid")
     disabled = set(raw.get("disabled_panel_ids") or ())
     if any(lp in disabled for lp in _LOCKED_PANELS):
         raise ValueError("Console stencil_feature_flags cannot disable locked safety-core panel(s)")
@@ -107,7 +107,7 @@ def render_console_config(settings: bytes) -> bytes:
     ):
         raise ValueError("Console settings fields do not match fdai.console-runtime.v1")
     stencil_flags = (
-        _validate_console_stencil_flags(values["stencil_feature_flags"])
+        validate_console_stencil_flags(values["stencil_feature_flags"])
         if "stencil_feature_flags" in values
         else None
     )

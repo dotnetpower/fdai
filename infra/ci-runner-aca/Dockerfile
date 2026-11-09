@@ -18,7 +18,7 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 # The same manifest, provisioner, and verifier every VM runner uses: one declared toolchain.
-COPY toolchain.json verify-toolchain.py provision-toolchain.sh /opt/fdai-ci/
+COPY toolchain.json verify-toolchain.py provision-toolchain.sh opa /opt/fdai-ci/
 RUN chmod 0755 /opt/fdai-ci/provision-toolchain.sh /opt/fdai-ci/verify-toolchain.py \
  && /opt/fdai-ci/provision-toolchain.sh \
  && rm -rf /var/lib/apt/lists/*

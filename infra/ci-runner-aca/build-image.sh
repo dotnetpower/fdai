@@ -16,6 +16,11 @@ context="$(mktemp -d)"
 trap 'rm -rf "$context"' EXIT
 cp "$repository_root"/infra/ci-runner/{toolchain.json,verify-toolchain.py,provision-toolchain.sh} "$context/"
 cp "$repository_root"/infra/ci-runner-aca/{Dockerfile,entrypoint.sh,broker-entrypoint.py} "$context/"
+opa="$(command -v opa 2>/dev/null || true)"
+[[ -x "$opa" ]] || { echo "checksum-pinned local opa is required to build the runner image" >&2; exit 1; }
+opa_sha="$(jq -er '.pinned_tools.opa.sha256' "$context/toolchain.json")"
+printf '%s  %s\n' "$opa_sha" "$opa" | sha256sum --check --strict
+cp "$opa" "$context/opa"
 
 az acr build --registry "$registry" --image "fdai-ci-runner:${tag}" --platform linux/amd64 "$context"
 echo "fdai-ci-runner:${tag}"

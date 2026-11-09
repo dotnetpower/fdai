@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: f481ed89a799430fba6a229f751a94dac121403f
+translation_source_sha: 4a55c64036af29cd2c66007a06abf4a3439b8857
 translation_revised: 2026-11-09
 ---
 # 런타임 배포 프로파일
@@ -50,6 +50,11 @@ PostgreSQL 지역 가용성, 명시적인 부분 비용 기록이 필요합니�
 다이제스트(`v2` 매니페스트가 검증된 `stencil` 블루프린트와 fail-closed `feature_flags`를 내장한
 경우에는 해당 Stencil 구성 요소 부분집합)를 설치본 레지스트리로 가져온 뒤 워크로드 적용 전에
 검증합니다. 저장소에서 제공하는 인프라, 마이그레이션과 Console의 출처는 별도로 기록합니다.
+Console 바이트를 게시하기 전에 조정기는 같은 검증된 Stencil `feature_flags`를 설치 런타임
+구성에 복사하고 게시 증적에 해당 다이제스트를 기록합니다. 먼저 Operator API가
+`/system/stencil-feature-flags`에서 같은 활성 패널 목록을 제공해야 합니다. Stencil 메타데이터나
+이 경로가 없거나 런타임 목록이 다르면 게시를 중단합니다. Hub 선택이 없는 명시적 소스 배포는
+기존의 범위 제한이 없는 Console 동작을 유지합니다.
 
 Hub 이미지 선택은 런타임 프로필 기본값, 제품 추가 기능, 실행기 신원, 승인, 라이선싱,
 상태 및 무변경 계획 검증을 바꾸지 않습니다. 명시적 소스 모드는 Hub에 의존하지 않는

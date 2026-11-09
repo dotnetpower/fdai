@@ -8,17 +8,67 @@ import re
 import shutil
 import stat
 import subprocess
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 from fdai_deployment_cli.bundle import extract_bundle_archive
-from fdai_deployment_cli.console_config import configure_console
-from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.console_config import (
+    configure_console,
+    validate_console_stencil_flags,
+)
+from fdai_deployment_cli.contracts import canonical_digest, load_json_object
 from fdai_deployment_cli.private_output import write_private_output
 from fdai_deployment_cli.standalone_host_state import replace_private_json
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _PUBLISHER_FIXED_REASON = re.compile(r'echo "([^"$`\\]+)" >&2')
+_MAX_STENCIL_STATE_BYTES = 16_384
+
+
+def _fetch_operator_stencil_state(url: str, timeout_seconds: float) -> bytes:
+    request = Request(url, headers={"Accept": "application/json"})
+    try:
+        with urlopen(request, timeout=timeout_seconds) as response:
+            if response.status != 200:
+                raise ValueError("Operator Stencil state endpoint is unavailable")
+            raw = bytes(response.read(_MAX_STENCIL_STATE_BYTES + 1))
+    except (HTTPError, URLError, TimeoutError) as error:
+        raise ValueError("Operator Stencil state endpoint is unavailable") from error
+    if len(raw) > _MAX_STENCIL_STATE_BYTES:
+        raise ValueError("Operator Stencil state response is too large")
+    return raw
+
+
+def verify_operator_stencil_contract(
+    operator_api_base_url: str,
+    stencil_feature_flags: Mapping[str, object],
+    *,
+    timeout_seconds: float,
+    fetch: Callable[[str, float], bytes] = _fetch_operator_stencil_state,
+) -> None:
+    """Require the deployed Operator to expose the exact selected Stencil before Console publish."""
+
+    expected = validate_console_stencil_flags(stencil_feature_flags)
+    expected_panels = expected.get("enabled_panel_ids")
+    if not isinstance(expected_panels, list):
+        raise TypeError("Selected Release Stencil enabled panels are required")
+    endpoint = operator_api_base_url.rstrip("/") + "/system/stencil-feature-flags"
+    payload = load_json_object(
+        fetch(endpoint, min(max(timeout_seconds, 1.0), 10.0)),
+        label="Operator Stencil state",
+        max_bytes=_MAX_STENCIL_STATE_BYTES,
+        strict=True,
+    )
+    if (
+        payload.get("active") is not True
+        or payload.get("stencil_id") != expected.get("stencil_id")
+        or payload.get("enforcement_mode") != "fail-closed"
+        or payload.get("enabled_panel_ids") != sorted(expected_panels)
+    ):
+        raise ValueError("Operator Stencil state differs from the selected Release")
 
 
 def publish_verified_console(
@@ -36,9 +86,20 @@ def publish_verified_console(
     redirect_changed: bool,
     verify_only: bool = False,
     verify_service_contracts: bool = True,
+    stencil_feature_flags: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """Configure a verified Console artifact, publish it, and read back exact bytes."""
 
+    validated_stencil_flags: dict[str, object] | None = None
+    if stencil_feature_flags is not None:
+        validated_stencil_flags = validate_console_stencil_flags(stencil_feature_flags)
+        if not isinstance(validated_stencil_flags.get("stencil_id"), str):
+            raise ValueError("Console publication Stencil id is required")
+        verify_operator_stencil_contract(
+            str(browser_console["operator_api_base_url"]),
+            validated_stencil_flags,
+            timeout_seconds=timeout_seconds,
+        )
     _require_archive_digest(console_archive, console_archive_sha256)
     extraction = prepared_root / "console-publish"
     # A retained extraction may contain a prior release, not the just-verified archive.
@@ -53,6 +114,8 @@ def publish_verified_console(
         "spa_client_id": str(entra_bindings["ENTRA_CONSOLE_SPA_CLIENT_ID"]),
         "api_scope": str(entra_bindings["ENTRA_CONSOLE_API_SCOPE"]),
     }
+    if validated_stencil_flags is not None:
+        settings["stencil_feature_flags"] = validated_stencil_flags
     settings_path = prepared_root / "console-runtime-settings.json"
     replace_private_json(settings_path, settings)
     configured = configure_console(
@@ -113,6 +176,10 @@ def publish_verified_console(
         "mutation_performed": not verify_only,
         "subscription_ready": False,
     }
+    if validated_stencil_flags is not None:
+        receipt["operator_stencil_verified"] = True
+        receipt["stencil_id"] = validated_stencil_flags["stencil_id"]
+        receipt["stencil_feature_flags_digest"] = canonical_digest(validated_stencil_flags)
     receipt["receipt_digest"] = canonical_digest(receipt)
     replace_private_json(prepared_root / "console-publication-receipt.json", receipt)
     return receipt

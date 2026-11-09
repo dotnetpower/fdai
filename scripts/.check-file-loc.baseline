@@ -17,7 +17,6 @@
 # Pre-existing standalone coordinator debt; growth is blocked pending lifecycle-stage extraction.
 978 packages/deployment-cli/src/fdai_deployment_cli/standalone_application.py
 # Pre-existing Console publication debt; growth is blocked pending artifact/readback separation.
-832 packages/deployment-cli/src/fdai_deployment_cli/console_update.py
 # Family-store orchestration debt after extracting models, row projections, and evidence codecs.
 3697 services/operator-service/src/fdai_operator_service/postgres_family_store.py
 # Conversation presentation debt after extracting assurance, Incident, and trajectory renderers.

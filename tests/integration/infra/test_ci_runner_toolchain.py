@@ -38,13 +38,14 @@ def _manifest() -> dict[str, object]:
 
 
 def test_manifest_covers_the_tools_and_libraries_that_broke_main_ci() -> None:
-    assert {"az", "azd", "gh", "terraform", "uv"} <= set(MANIFEST["pinned_tools"])
+    assert {"az", "azd", "gh", "opa", "terraform", "uv"} <= set(MANIFEST["pinned_tools"])
     assert {"pango-1.0", "pangoft2-1.0"} <= set(MANIFEST["libraries"])
     assert "libpango-1.0-0" in MANIFEST["apt_packages"]
     assert "tzdata" in MANIFEST["apt_packages"]
     assert "tzdata-legacy" in MANIFEST["apt_packages"]
     assert {"Etc/UTC", "America/Buenos_Aires"} <= set(MANIFEST["timezones"])
     assert MANIFEST["pinned_tools"]["terraform"]["sha256"]
+    assert MANIFEST["pinned_tools"]["opa"]["sha256"]
     assert len(MANIFEST["pinned_tools"]["az"]["apt_key_fingerprint"]) == 40
 
 
@@ -61,6 +62,8 @@ def test_cloud_init_provisions_from_the_manifest_before_creating_the_runner() ->
 def test_provisioner_is_idempotent_pinned_and_ends_with_verification() -> None:
     source = (INFRA / "provision-toolchain.sh").read_text(encoding="utf-8")
     assert "tool_current" in source
+    assert "install_opa" in source
+    assert "FDAI_OPA_SEED:-/opt/fdai-ci/opa" in source
     assert "sha256sum --check --strict" in source
     assert "must run as root" in source
     assert source.index("normalize_ownership\n\nldconfig") > source.index("install_uv\n")

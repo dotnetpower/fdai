@@ -854,27 +854,31 @@ class ReleaseStore:
     ) -> bool:
         """Re-assert already published content when its validity is running out.
 
-        With signed roles this re-signs only the timestamp: no event is appended, the export
-        and its revision stay byte-identical, and versions only increase. Without roles it is
-        the legacy renewal, which appends an attributed event and moves the export expiry. In
-        both forms it cannot add, change or recall a Release or channel.
+        With signed roles this normally re-signs only the timestamp: no event is appended, the
+        export and its revision stay byte-identical, and versions only increase. If the legacy
+        signed export has already expired, it is also renewed so clone bootstrap does not remain
+        permanently unavailable. Without roles, the existing bounded freshness window applies.
+        Neither path can add, change or recall a Release or channel.
         """
 
+        roles_renewed = False
         if self.roles is not None and self.roles.installed():
             signed = self.signed_export()
             within = (
                 min_remaining if min_remaining is not None else self.roles.keys.timestamp_ttl / 2
             )
-            return self.roles.renew_if_due(
+            roles_renewed = self.roles.renew_if_due(
                 signed.digest, lambda: snapshot_content(signed.raw, signed.digest), within
             )
-        min_remaining = min_remaining if min_remaining is not None else timedelta(hours=12)
+            min_remaining = timedelta(0)
+        else:
+            min_remaining = min_remaining if min_remaining is not None else timedelta(hours=12)
         with self.engine.connect() as db:
             revision, updated_at = catalog_position(db)
             expires_at = self._export_expiry(db, updated_at)
         remaining = expires_at - self.clock()
         if remaining > min_remaining:
-            return False
+            return roles_renewed
         try:
             self.renew(
                 CatalogConfirmation(
@@ -886,7 +890,7 @@ class ReleaseStore:
             )
         except CatalogError as error:
             if error.status == 409:
-                return False
+                return roles_renewed
             raise
         return True
 

@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI with signed Release Hub images, an explicit source build, or a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 19187fdb294b42d94a2433ef3f860c3351f665db }, { source: docs/roadmap/deployment/source-deployment.md, sha: c95f7b5d278a73263039d67b81175b4cd0eca0c5 }, { source: docs/roadmap/deployment/hub-image-deployment.md, sha: dcdee917d5e281d6826966f3401de8a14e1abc80 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: d9ab6bfff941f8cafd97c49e5f2d9db25ec2a50e }, { source: docs/roadmap/deployment/source-deployment.md, sha: c95f7b5d278a73263039d67b81175b4cd0eca0c5 }, { source: docs/roadmap/deployment/hub-image-deployment.md, sha: dcdee917d5e281d6826966f3401de8a14e1abc80 }]
 ---
 
 # Deploy Quickstart
@@ -107,6 +107,9 @@ Before you start, confirm the following requirements:
   matching the signed Release source commit. The key is public; never supply a private key.
   The selected channel and signed image locations must be reachable. A failed check stops deployment
   instead of building replacement images. See [Release Hub image deployment](../roadmap/deployment/hub-image-deployment.md).
+- For a Stencil Release, the deployed Operator must report the same active panel list as the signed
+  Release before the command publishes Console files. A missing inspection endpoint or a menu
+  mismatch stops publication instead of exposing unsupported Console pages.
 
 ### Install the command once
 

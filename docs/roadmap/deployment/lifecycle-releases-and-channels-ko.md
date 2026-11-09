@@ -1,8 +1,8 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: fe1d7f6755feb9fee4c5316c8ccf02e578bfc545
-translation_revised: 2026-11-04
+translation_source_sha: 300ad01f83d4717ef018b339c25723982b965a7e
+translation_revised: 2026-11-09
 ---
 # Lifecycle Release와 채널
 
@@ -87,6 +87,11 @@ release 목록이 같아도 신선도를 다시 발행하려면 검토가 필요
 운영용 서명된 카탈로그 역할을 대신하지 않습니다. 선택적 Release Hub 작업이
 갱신을 자동으로 수행할 수도 있습니다.
 UI는 읽기 전용 **Refresh catalog**와 **Renew catalog freshness**를 구분합니다.
+서명된 snapshot 및 timestamp 역할을 사용하는 동안 일반 주기 갱신은 온라인 timestamp만
+변경합니다. 복제 후 초기 설치가 사용하는 기존 서명 내보내기 파일이 이미 만료되었다면, 같은
+작업이 행위자를 기록한 기존 갱신도 한 번 수행합니다. 따라서 저장소 중단 후에도 복제 경로가
+계속 사용할 수 없는 상태로 남지 않으며 Release, 채널, 회수, 매니페스트, 이미지 다이제스트는
+바뀌지 않습니다.
 
 ## 자동 카탈로그 채택
 
