@@ -280,10 +280,10 @@ def test_container_opa_build_overrides_vulnerable_go_modules() -> None:
     for path in dockerfile_paths:
         content = path.read_text(encoding="utf-8")
         assert "ARG OPA_GRPC_VERSION=v1.83.2" in content, path
-        assert "ARG OPA_X_CRYPTO_VERSION=v0.57.0" in content, path
-        assert "ARG OPA_X_TEXT_VERSION=v0.42.0" in content, path
+        assert "ARG OPA_X_CRYPTO_VERSION=v0.58.0" in content, path
+        assert "ARG OPA_X_TEXT_VERSION=v0.43.0" in content, path
         assert "ARG OPA_GO_VERSION=go1.27.3" in content, path
-        assert "ARG OPA_X_NET_VERSION=v0.60.0" in content, path
+        assert "ARG OPA_X_NET_VERSION=v0.62.0" in content, path
         assert "ARG OPA_KLAUSPOST_COMPRESS_VERSION=v1.18.7" in content, path
         assert "ENV GOTOOLCHAIN=local" in content, path
         assert "GOEXPERIMENT=nojsonv2" in content, path
@@ -305,7 +305,7 @@ def test_container_opa_build_overrides_vulnerable_go_modules() -> None:
     dockerfile = dockerfile_paths[-1].read_text(encoding="utf-8")
 
     assert "ARG OPA_VERSION=v1.18.2" in dockerfile
-    assert "ARG OPA_X_TEXT_VERSION=v0.42.0" in dockerfile
+    assert "ARG OPA_X_TEXT_VERSION=v0.43.0" in dockerfile
     assert "ARG OPA_ORAS_VERSION=v2.6.2" in dockerfile
     assert 'go mod edit -require="google.golang.org/grpc@${OPA_GRPC_VERSION}"' in dockerfile
     assert 'go mod edit -require="golang.org/x/crypto@${OPA_X_CRYPTO_VERSION}"' in dockerfile

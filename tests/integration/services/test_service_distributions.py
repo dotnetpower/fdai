@@ -254,6 +254,17 @@ def test_service_modules_force_the_declared_postgres_role() -> None:
         assert '{ name = "PGOPTIONS", value = "-c role=${var.database.role}" }' in module
 
 
+def test_locked_oauthlib_meets_security_floor() -> None:
+    locked = tomllib.loads((REPO_ROOT / "uv.lock").read_text(encoding="utf-8"))
+    versions = [
+        Version(package["version"])
+        for package in locked["package"]
+        if package["name"] == "oauthlib"
+    ]
+    assert versions
+    assert all(version >= Version("4.0.1") for version in versions)
+
+
 def test_service_distributions_declare_only_owned_runtime_dependencies() -> None:
     for service_id, expected in EXPECTED_DEPENDENCIES.items():
         project = tomllib.loads((SERVICE_ROOT / service_id / "pyproject.toml").read_text())

@@ -21,7 +21,7 @@ The observation-first product default loads rules for audit, replay, and advisor
 > Customer-agnostic: all identifiers, scopes, and values below are synthetic placeholders per
 > [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md).
 
-The OPA builder stage is part of every Rule revision identity, but a Go patch release or the pinned `github.com/klauspost/compress@v1.18.7` security override is not a policy change. The identity gate hashes the Go pin of a minor series as the baseline that the retained revisions recorded and strips that exact security override line set, so a patch release keeps every identity. A new Go minor series, an OPA version change, or any other builder change still requires a Rule version bump, and a new series joins the baseline table only together with that bump.
+The OPA builder stage is part of every Rule revision identity, but reviewed security-only updates do not change the policy. Within the recorded Go minor-series baseline, the identity gate normalizes Go patch releases, strips the exact `github.com/klauspost/compress@v1.18.7` override, and maps the reviewed `golang.org/x/net@v0.62.0` pin and its required `x/crypto@v0.58.0` and `x/text@v0.43.0` pins to their retained `v0.60.0`, `v0.57.0`, and `v0.42.0` identity inputs. Other module versions, a new Go minor series, an OPA version change, or any other builder change still requires a Rule version bump. A new Go series joins the baseline table only together with that bump.
 
 ## Catalog retrieval
 
