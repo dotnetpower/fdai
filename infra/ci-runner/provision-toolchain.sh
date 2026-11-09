@@ -74,6 +74,25 @@ install_terraform() {
   install -m 0755 "$work/terraform/terraform" /usr/local/bin/terraform
 }
 
+install_opa() {
+  local version sha current
+  version="$(field '.pinned_tools.opa.version')"
+  sha="$(field '.pinned_tools.opa.sha256')"
+  current="$(command -v opa 2>/dev/null || true)"
+  if tool_current opa && printf '%s  %s\n' "$sha" "$current" | sha256sum --check --strict; then
+    return 0
+  fi
+  if ! download \
+    "https://openpolicyagent.org/downloads/v${version}/opa_linux_amd64_static" \
+    "$work/opa"; then
+    download \
+      "https://github.com/open-policy-agent/opa/releases/download/v${version}/opa_linux_amd64_static" \
+      "$work/opa"
+  fi
+  printf '%s  %s\n' "$sha" "$work/opa" | sha256sum --check --strict
+  install -m 0755 "$work/opa" /usr/local/bin/opa
+}
+
 install_github_cli() {
   local version archive
   version="$(field '.pinned_tools.gh.version')"
@@ -116,6 +135,7 @@ normalize_ownership() {
 
 install_azure_cli
 install_terraform
+install_opa
 install_github_cli
 install_azd
 install_uv

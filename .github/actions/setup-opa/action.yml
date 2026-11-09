@@ -10,16 +10,23 @@ runs:
       run: |
         set -euo pipefail
         opa_dir="$RUNNER_TEMP/fdai-opa/bin"
+        opa_sha="dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa"
         mkdir -p "$opa_dir"
-        if ! curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
-          --retry-max-time 120 --connect-timeout 10 --max-time 90 -o "$opa_dir/opa" \
-          "https://openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static"; then
-          rm -f "$opa_dir/opa"
-          curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
+        system_opa="$(command -v opa 2>/dev/null || true)"
+        if [[ -n "$system_opa" ]] \
+          && printf '%s  %s\n' "$opa_sha" "$system_opa" | sha256sum --check --strict; then
+          install -m 0755 "$system_opa" "$opa_dir/opa"
+        else
+          if ! curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
             --retry-max-time 120 --connect-timeout 10 --max-time 90 -o "$opa_dir/opa" \
-            "https://github.com/open-policy-agent/opa/releases/download/v0.68.0/opa_linux_amd64_static"
+            "https://openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static"; then
+            rm -f "$opa_dir/opa"
+            curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
+              --retry-max-time 120 --connect-timeout 10 --max-time 90 -o "$opa_dir/opa" \
+              "https://github.com/open-policy-agent/opa/releases/download/v0.68.0/opa_linux_amd64_static"
+          fi
         fi
-        echo "dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa  $opa_dir/opa" \
+        echo "$opa_sha  $opa_dir/opa" \
           | sha256sum -c -
         chmod +x "$opa_dir/opa"
         echo "$opa_dir" >> "$GITHUB_PATH"

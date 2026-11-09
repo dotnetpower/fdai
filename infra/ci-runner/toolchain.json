@@ -45,6 +45,11 @@
       "version": "2.100.0",
       "version_args": ["--version"]
     },
+    "opa": {
+      "version": "0.68.0",
+      "version_args": ["version"],
+      "sha256": "dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa"
+    },
     "terraform": {
       "version": "1.16.1",
       "version_args": ["version"],
