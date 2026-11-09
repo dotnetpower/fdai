@@ -762,6 +762,36 @@ function validStencilFootprint(value: unknown): value is StencilFootprint {
     && (featureFlags === undefined || validStencilFeatureFlags(featureFlags));
 }
 
+function stencilFootprintMatches(
+  stencil: StencilDefinitionRecord,
+  footprint: StencilFootprint,
+): boolean {
+  const sameItems = (left: readonly string[], right: readonly string[]) =>
+    left.length === right.length && left.every((item, index) => item === right[index]);
+  return footprint.stencil_id === stencil.stencil_id
+    && footprint.topology_profile === stencil.topology_profile
+    && footprint.workload_count === stencil.enabled_workloads.length
+    && footprint.scheduled_job_count === stencil.enabled_scheduled_jobs.length
+    && footprint.enabled_panel_count === stencil.enabled_panel_ids.length
+    && footprint.total_workloads >= footprint.workload_count
+    && footprint.total_panel_count >= footprint.enabled_panel_count
+    && footprint.omitted_panel_count
+      === footprint.total_panel_count - footprint.enabled_panel_count
+    && (footprint.feature_flags === undefined
+      || (
+        footprint.feature_flags.stencil_id === stencil.stencil_id
+        && footprint.feature_flags.stencil_digest === footprint.stencil_digest
+        && sameItems(footprint.feature_flags.enabled_panel_ids, stencil.enabled_panel_ids)
+        && sameItems(footprint.feature_flags.enabled_loops, stencil.enabled_loops)
+        && sameItems(footprint.feature_flags.enabled_workloads, stencil.enabled_workloads)
+        && sameItems(
+          footprint.feature_flags.enabled_scheduled_jobs,
+          stencil.enabled_scheduled_jobs,
+        )
+        && sameItems(footprint.feature_flags.enabled_addons, stencil.enabled_addons)
+      ));
+}
+
 export async function requestStencilCatalog(): Promise<StencilCatalogResponse> {
   const response = await authenticatedFetch("/v1/stencils", {
     cache: "no-store",
@@ -837,6 +867,8 @@ export async function requestStencilCatalog(): Promise<StencilCatalogResponse> {
       loops,
       new Set(catalog.locked_loops),
     )
+    || !catalog.presets.every(({ stencil, footprint }) =>
+      stencilFootprintMatches(stencil, footprint))
     || !catalog.panels.every((panel) =>
       validSelection(panel.required_workloads, workloads)
       && validSelection(panel.required_loops, loops)
