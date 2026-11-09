@@ -272,6 +272,22 @@ def test_renewal_re_signs_only_the_timestamp_and_never_appends_an_event(vendor):
     assert store.renew_if_due() is False
 
 
+def test_expired_legacy_export_is_renewed_beside_signed_roles(vendor):
+    store = vendor.store
+    before_export = store.signed_export()
+    before_revision = store.snapshot()["revision"]
+    vendor.clock.advance(hours=25)
+
+    assert store.renew_if_due() is True
+
+    after_export = store.signed_export()
+    after_snapshot = store.snapshot()
+    assert after_export.raw != before_export.raw
+    assert after_snapshot["revision"] == before_revision + 1
+    assert [event["action"] for event in after_snapshot["events"]].count("renew") == 1
+    assert datetime.fromisoformat(json.loads(after_export.raw)["expires_at"]) > vendor.clock.now
+
+
 def test_concurrent_requests_for_one_new_state_sign_exactly_once(vendor, catalog, monkeypatch):
     from concurrent.futures import ThreadPoolExecutor
 
