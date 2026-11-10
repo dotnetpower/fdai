@@ -1902,6 +1902,29 @@ def test_contributor_sees_binding_metadata_without_the_url_and_reader_sees_nothi
     assert bad_channel_reveal.status_code == 400
 
 
+def test_missing_teams_workflow_store_is_an_unconfigured_read_not_an_api_failure() -> None:
+    client = _client(teams_workflow_tester=None)
+
+    described = client.get(
+        "/runtime/integrations/teams-workflow/binding",
+        headers={"x-test-role": "Contributor", "x-test-oid": "contributor-1"},
+    )
+    revealed = client.get(
+        "/runtime/integrations/teams-workflow/binding?reveal=1",
+        headers={"x-test-role": "Contributor", "x-test-oid": "contributor-1"},
+    )
+
+    assert described.status_code == 200
+    assert described.json() == {
+        "visible": True,
+        "configured": False,
+        "storage_available": False,
+    }
+    assert described.headers["cache-control"] == "no-store"
+    assert revealed.status_code == 503
+    assert revealed.json()["error"]["kind"] == "binding_unavailable"
+
+
 def test_owner_can_send_one_secret_free_slack_webhook_diagnostic() -> None:
     tester = RecordingSlackWebhookTester()
     webhook_url = "https://hooks.slack.com/services/T00000000/B00000000/abcdefghijklmnopqrstuvwxyz"
