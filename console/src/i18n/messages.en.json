@@ -833,7 +833,7 @@
     "roster": {
       "contextTitle": "Idle is healthy.",
       "contextBody": "Agents wake on subscribed topics. Fixed ownership and safety boundaries are in Details.",
-      "contextSource": "Live source: {source}",
+      "contextSource": "Observation source: {source}",
       "interpretationLabel": "Roster interpretation",
       "interpretationTitle": "State is descriptive, not prescriptive.",
       "interpretationBody": "Engaged counts agents handling a pipeline stage now, not every subscribed runtime loop. Idle agents wake on their topics. This console observes work; it does not approve or execute actions. Live delta source: {source}. Incident history comes from the durable audit projection.",

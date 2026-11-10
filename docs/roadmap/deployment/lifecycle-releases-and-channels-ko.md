@@ -1,7 +1,7 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: 5d69847418596f071794913cd781d0b9d290db1e
+translation_source_sha: e2f8d2c577fb80f7c827ef6c8b215c9b6b370fb3
 translation_revised: 2026-11-10
 ---
 # Lifecycle Release와 채널
@@ -50,6 +50,10 @@ Pantheon 작업 영역의 `/agents` 탭을 유지하고, 일반 대화 화면과
 `/models/settings`를 함께 사용합니다. 따라서 패널 차단 규칙과 API 의존성이 일치합니다.
 Stencil은 구성 화면만 노출합니다. 설치본이 소유하는 모델 바인딩, 엔드포인트, Managed Identity,
 용량은 Lifecycle 구성에서 계속 제공하며 Release Hub나 브라우저에 권한을 부여하지 않습니다.
+Lifecycle Hub의 빠른 작업은 서명된 Lifecycle Plan 하나만 발급합니다. `apply-started` 또는
+`applied` 보고서를 직접 기록하거나, 보고된 Release나 상태를 변경하거나, 검증된 이미지
+다이제스트를 배포 성공으로 처리하지 않습니다. 설치 에이전트가 정확한 Plan을 적용하고 효과를
+독립적으로 보고한 뒤에만 Hub가 현재 상태를 변경합니다.
 
 명시적으로 선택하는 [두 Hub 개발 경로](../../../infra/hubs-development/README.md)는 Entra
 운영자 인증과 서비스 ID의 분리, 명시적 migration을 사용하는 PostgreSQL 또는 단일 레플리카 서버리스 Azure Files SQLite 발행 저장소,

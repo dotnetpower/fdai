@@ -50,6 +50,10 @@ the Pantheon workspace's `/agents` tab navigable, while the global conversation 
 inventory share `/models/settings`. This keeps panel guards and their API dependencies aligned. The Stencil exposes the configuration surface only; the
 installation-owned model binding, endpoint, managed identity, and capacity still come from
 Lifecycle configuration and grant no authority to Release Hub or the browser.
+The Lifecycle Hub quick action issues one signed Lifecycle Plan only. It never writes
+`apply-started` or `applied` reports, advances reported Release or health, or treats verified image
+digests as deployment success. The installation agent must apply the exact Plan and independently
+report its effects before the Hub changes current state.
 
 The opt-in [two-Hub development path](../../../infra/hubs-development/README.md) adds direct
 Entra operator/service separation, PostgreSQL or single-replica serverless Azure Files SQLite storage with explicit migrations,

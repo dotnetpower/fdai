@@ -360,7 +360,7 @@ def test_unconfigured_catalog_never_accepts_authority_bearing_writes(
     assert response.json() == {"error": "catalog_not_configured"}
 
 
-def test_one_click_provision_issues_plan_and_updates_reported_state(
+def test_one_click_provision_issues_plan_without_fabricating_reported_state(
     client: TestClient,
     store: HubStore,
     enroll: Callable[..., None],
@@ -415,18 +415,27 @@ def test_one_click_provision_issues_plan_and_updates_reported_state(
     assert preview["release_details"]["0.5.2"]["stencil_id"] == "lite-observe-alert"
     assert preview["release_details"]["0.5.2"]["digest_verified"] is True
 
-    response = client.post(
+    current_release = store.load("installation-alpha").current_release
+    rejected = client.post(
         "/v1/release-hub/provision",
         json={"installation_id": "installation-alpha", "release_id": "0.5.2", "apply_state": True},
+    )
+    assert rejected.status_code == 422
+
+    response = client.post(
+        "/v1/release-hub/provision",
+        json={"installation_id": "installation-alpha", "release_id": "0.5.2", "apply_state": False},
     )
     assert response.status_code == 200
     receipt = response.json()
     assert receipt["installation_id"] == "installation-alpha"
     assert receipt["release_id"] == "0.5.2"
-    assert receipt["outcome"] == "applied"
+    assert receipt["outcome"] == "issued"
     assert receipt["stencil_id"] == "lite-observe-alert"
+    assert receipt["apply_required"] is True
+    assert receipt["effect_verified"] is False
 
     installations = client.get("/v1/installations").json()["installations"]
-    assert installations[0]["current_release"] == "0.5.2"
+    assert installations[0]["current_release"] == current_release
     assert installations[0]["target_release_id"] == "0.5.2"
     assert store.audit_chain_intact() is True
