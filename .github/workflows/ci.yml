@@ -968,6 +968,7 @@ jobs:
         shard: [1, 2]
     runs-on: >-
       ${{ vars.FDAI_CI_POOLS_ENABLED == 'true' && fromJSON('["self-hosted","Linux","X64","fdai-ci-docker"]') || fromJSON('["ubuntu-24.04"]') }}
+    timeout-minutes: 30
 
     services:
       postgres:

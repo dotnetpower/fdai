@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import ipaddress
 import json
 import logging
 import os
 import re
 from dataclasses import replace
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import TYPE_CHECKING, Literal
 from urllib.parse import urlsplit
 
@@ -29,7 +28,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import BaseRoute, Mount, Route
 
-from fdai_lifecycle_hub import domain, schemas
+from fdai_lifecycle_hub import domain
 from fdai_lifecycle_hub.domain import Clock
 from fdai_lifecycle_hub.errors import NotEnrolledError, UnknownInstallationError
 from fdai_lifecycle_hub.migrations import begin_sqlite_write
@@ -233,7 +232,7 @@ class ProvisionReleaseRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     installation_id: str = Field(min_length=1, max_length=160)
     release_id: str | None = Field(default=None, min_length=1, max_length=128)
-    apply_state: bool = True
+    apply_state: Literal[False] = False
 
 
 _DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -404,7 +403,7 @@ def provision_installation_from_catalog(
     request: ProvisionReleaseRequest,
     now: datetime,
 ) -> dict[str, object]:
-    """Issue a signed Lifecycle Plan for a published Release Hub release and apply state."""
+    """Issue a signed Lifecycle Plan without fabricating installation effects."""
     published = [release for release in catalog.releases if release.state == "published"]
     if request.release_id is not None:
         selected = next((r for r in published if r.id == request.release_id), None)
@@ -451,85 +450,24 @@ def provision_installation_from_catalog(
     detail = _extract_release_detail(selected) or {}
     raw_digests = detail.get("component_digests")
     component_digests: dict[str, object] = raw_digests if isinstance(raw_digests, dict) else {}
-    valid_digests = frozenset(
-        str(digest) for digest in component_digests.values() if _DIGEST_RE.fullmatch(str(digest))
-    )
     plan_id: str | None = None
-    applied_outcome: str = outcome.kind
     if isinstance(outcome, domain.Issued):
         plan_id = outcome.plan.plan_id
-        if request.apply_state:
-            plan_digest = domain.IssuedPlan.from_signed(outcome.plan).digest
-            hub_store.record_report(
-                request.installation_id,
-                plan_id,
-                schemas.PlanReport(
-                    attempt=1,
-                    outcome="apply-started",
-                    reason_code="apply_started",
-                    exact_plan_digest=plan_digest,
-                    summary=f"Provisioning {selected.id} from {endpoint}",
-                    reported_at=now,
-                ),
-                now=now,
-            )
-            hub_store.record_report(
-                request.installation_id,
-                plan_id,
-                schemas.PlanReport(
-                    attempt=2,
-                    outcome="applied",
-                    reason_code="applied",
-                    exact_plan_digest=plan_digest,
-                    summary=f"Provisioned Console Web release {selected.id}",
-                    reported_at=now,
-                ),
-                now=now,
-            )
-            current = hub_store.load(request.installation_id)
-            observed_at = max(now, current.reported.observed_at + timedelta(seconds=1))
-            state_digest = hashlib.sha256(
-                f"{request.installation_id}:{selected.id}:{plan_id}:{observed_at.isoformat()}".encode()
-            ).hexdigest()
-            updated_entities = {
-                entity_id: (
-                    domain.EntityState(
-                        release_id=selected.id,
-                        artifact_digests=valid_digests or state.artifact_digests,
-                        health=domain.Health.HEALTHY,
-                    )
-                    if entity_id in current.managed_entity_ids
-                    else state
-                )
-                for entity_id, state in current.reported.entities.items()
-            }
-            hub_store.record_state(
-                request.installation_id,
-                domain.ReportedState(
-                    digest=state_digest,
-                    schema_revision=current.reported.schema_revision,
-                    entities=updated_entities,
-                    observed_at=observed_at,
-                    available_artifact_digests=(
-                        valid_digests or current.reported.available_artifact_digests
-                    ),
-                ),
-                now=now,
-            )
-            applied_outcome = "applied"
 
     return {
         "installation_id": request.installation_id,
         "release_id": selected.id,
         "plan_id": plan_id,
-        "outcome": applied_outcome,
+        "outcome": outcome.kind,
         "endpoint": endpoint,
         "stencil_id": detail.get("stencil_id"),
         "enabled_workloads": detail.get("enabled_workloads", []),
         "enabled_panel_count": detail.get("enabled_panel_count", 0),
         "component_digests": component_digests,
         "digest_verified": bool(detail.get("digest_verified", False)),
-        "provisioned_at": now.isoformat(),
+        "plan_issued_at": now.isoformat(),
+        "apply_required": plan_id is not None,
+        "effect_verified": False,
     }
 
 

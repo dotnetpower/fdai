@@ -1,5 +1,12 @@
-import { describe, expect, it } from "vitest";
-import { connectionChange, hasCatalogTrustSource, releaseHubConfirmation } from "./routes/release-connection";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  connectionChange,
+  hasCatalogTrustSource,
+  provisionFromReleaseHub,
+  releaseHubConfirmation,
+} from "./routes/release-connection";
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("Release Hub connection approval", () => {
   it("binds the exact endpoint and revision", () => {
@@ -31,6 +38,37 @@ describe("Release Hub connection approval", () => {
     expect(hasCatalogTrustSource({ ...connection, source: "saved" })).toBe(false);
     expect(hasCatalogTrustSource({ ...connection, source: "environment" })).toBe(false);
     expect(hasCatalogTrustSource({ ...connection, source: "deployment" })).toBe(true);
+  });
+
+  it("requests a Plan without claiming that the installation applied it", async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      installation_id: "installation-alpha",
+      release_id: "0.5.2",
+      plan_id: "plan-1",
+      outcome: "issued",
+      endpoint: "https://hub.example",
+      stencil_id: "lite-observe-alert",
+      enabled_workloads: ["core-control-plane", "operator-service"],
+      enabled_panel_count: 16,
+      component_digests: {},
+      digest_verified: true,
+      plan_issued_at: "2026-11-10T00:00:00Z",
+      apply_required: true,
+      effect_verified: false,
+    })));
+    vi.stubGlobal("fetch", fetcher);
+
+    await provisionFromReleaseHub("installation-alpha", "0.5.2");
+
+    expect(fetcher).toHaveBeenCalledOnce();
+    const [path, init] = fetcher.mock.calls[0] as [string, RequestInit];
+    expect(path).toBe("/v1/release-hub/provision");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(String(init.body))).toEqual({
+      installation_id: "installation-alpha",
+      release_id: "0.5.2",
+      apply_state: false,
+    });
   });
 
   it.each([
