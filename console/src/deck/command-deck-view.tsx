@@ -82,6 +82,7 @@ interface CommandDeckViewProps {
   readonly turns: readonly Turn[];
   readonly snapshot: ReturnType<typeof useViewContext>;
   readonly canAttachScreen: boolean;
+  readonly documentUploadAvailable: boolean;
   readonly onAttachScreen: () => void;
   readonly onRemoveScreen: () => void;
   readonly pending: boolean;
@@ -154,6 +155,7 @@ export function CommandDeckView({
   turns,
   snapshot,
   canAttachScreen,
+  documentUploadAvailable,
   onAttachScreen,
   onRemoveScreen,
   pending,
@@ -302,6 +304,7 @@ export function CommandDeckView({
       contextMode={contextMode}
       snapshot={snapshot}
       canAttachScreen={canAttachScreen && !sessionLabel && !activeConversation?.binding}
+      documentUploadAvailable={documentUploadAvailable}
       onAttachScreen={onAttachScreen}
       onRemoveScreen={onRemoveScreen}
       jumpVisible={jumpVisible}
@@ -572,6 +575,7 @@ type DeckComposerProps = Pick<CommandDeckViewProps,
   | "contextMode"
   | "snapshot"
   | "canAttachScreen"
+  | "documentUploadAvailable"
   | "onAttachScreen"
   | "onRemoveScreen"
   | "jumpVisible"
@@ -593,6 +597,7 @@ function DeckComposer({
   contextMode,
   snapshot,
   canAttachScreen,
+  documentUploadAvailable,
   onAttachScreen,
   onRemoveScreen,
   jumpVisible,
@@ -681,7 +686,7 @@ function DeckComposer({
             ))}
           </ul>
         ) : null}
-        {handoverGoalId && handoverAgent ? (
+        {documentUploadAvailable && handoverGoalId && handoverAgent ? (
           <div class="deck-handover-actions">
             <a
               class="deck-handover-upload"
@@ -698,7 +703,7 @@ function DeckComposer({
             {handoverStatus ? <span role="status">{handoverStatus}</span> : null}
           </div>
         ) : null}
-        <ComposerAttachments />
+        {documentUploadAvailable ? <ComposerAttachments /> : null}
         <textarea
           ref={inputRef}
           class="deck-input cs-deck-composer-input"
