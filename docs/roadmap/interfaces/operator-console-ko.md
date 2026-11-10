@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: e62a247711640ef0c396ce3eb4c7e8a3199e4105
+translation_source_sha: 7f595cc41e5f00ba95652ff0f69e146560347103
 translation_revised: 2026-11-10
 ---
 # FDAI Console 대화
