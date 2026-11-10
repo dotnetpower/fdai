@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 068c61c67196782756859b0b4ade6394c42a0fed
-translation_revised: 2026-10-26
+translation_source_sha: 87f750cc60756cd51aafabb20656622d455e796b
+translation_revised: 2026-11-10
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
@@ -15,6 +15,9 @@ translation_revised: 2026-10-26
 응답은 기본 발언, 비평, 소유 근거와 요청한 모든 참여자의 발언 완료·기권·미시도 상태를
 보존합니다. 일부 응답에는 결론이 없으며 검증된 T2 결론도 제한된 자문입니다. 모드 선택기나
 표시기로 승인, 실행 또는 승격할 수 없습니다.
+작성 영역은 활성 Stencil에 `documents`가 등록된 경우에만 파일 첨부와 인계 문서 업로드
+컨트롤을 표시합니다. 문서 수집 기능이 물리적으로 제외된 에디션에서는 두 진입점을 모두
+표시하지 않습니다.
 
 
 Command Deck의 화면 대화는 경로 범위 `ViewSnapshot`을 받습니다. 등록된 모든 패널은 로딩, 오류,
@@ -64,6 +67,7 @@ Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| Stencil 기반 문서 업로드 컨트롤 | validated | `command-deck.tsx`, `command-deck-view.tsx`, `command-deck-attachments.test.ts`, `command-deck-workspace-visual.test.ts`; 집중 Console 검사 33개 통과; 타입 검사와 운영 빌드 통과; 로컬 브라우저 확인 | Lite는 대화 입력을 유지하면서 파일 입력과 업로드 컨트롤을 표시하지 않습니다. `documents`가 등록된 Stencil은 파일 선택기를 그대로 제공합니다. |
 | 테스트 맥락 초안 전달 | implemented | `console/src/deck/test-context.test.ts`; 초안, 자문, 대화 저장, 스트림 검사 128개 및 운영/테스트 TypeScript 컴파일러 통과 | 후보 데이터는 서버와 로컬 재생 후에도 보존합니다. 새 표시, 선택, 제출, 검토 기능이나 권한을 구현했다는 의미는 아닙니다. |
 | 적응형 답변 출처와 재실행 표현 | implemented | `adaptive-answer.test.ts` 33개, `turn-history.test.ts` 및 `command-deck.session.test.ts` 20개, Console 타입 검사와 빌드 통과 | 일반 지식에는 전체 답변의 조회 증적을 부여하지 않습니다. 목표별 근거와 별도 초안 설명은 스트림 및 복원 후에도 유지하며, 잘못된 스트림은 미검증 텍스트를 지웁니다. 브라우저 런타임 검증은 별도입니다. |
 | 일반 대화 예시 질문 즉시 전송 | 구현됨 | `general-conversation-intro.tsx`, `command-deck-view.tsx`, `conversation-entry.spec.ts` | 양 언어의 예시 버튼 세 개는 클릭하거나 키보드로 실행하면 표시된 질문을 선택한 맥락에 맞는 일반 전송 경로로 보냅니다. 툴팁은 즉시 전송 동작을 안내합니다. 실제 모델 호출 없이 합성 응답으로 예시 질문 검사 6개와 기존 진입점 검사 2개를 통과했습니다. |
@@ -97,6 +101,7 @@ Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-11-10 | validated | Command Deck의 파일 선택기와 인계 문서 업로드 링크를 활성 Stencil에 등록된 `documents` 패널에 결속했습니다. Lite는 더 이상 사용할 수 없는 문서 기능을 표시하지 않으며, 문서 수집 기능이 포함된 에디션은 기존 파일 선택기를 유지합니다. | `current change`; `console/src/deck/command-deck.tsx`, `command-deck-view.tsx`, `deferred-command-deck.tsx`, `command-deck-attachments.test.ts`, `command-deck-workspace-visual.test.ts`; 집중 Console 검사 33개 통과; Console 타입 검사; 운영 빌드 및 초기 번들 예산 검사; 로컬 브라우저에서 Lite의 파일 입력과 업로드 컨트롤이 각각 0개, 대화 입력이 1개, 수평 넘침이 0이고 `documents` 활성화 후 파일 입력이 1개임을 확인했습니다. | 이 Stencil 일치성 수정에 남은 작업은 없습니다. |
 | 2026-10-08 | 구현됨 | 작업 패널이 차분하게 표시되도록 했습니다. 계획 단계 모델 호출은 진행 중인 최신 호출과 완료 건수를 보여 주는 "답변 계획" 한 행으로 묶이고 이벤트 하나로 셉니다. 턴이 실행되는 동안 단계가 근거 패널을 자동으로 펼치지 않고, 실행 중 행의 채운 배경과 반복 상태 문구를 없앴으며, 스피너는 더 옅은 트랙 위에서 돌고, 새 행은 서서히 나타나며, `interpolate-size`를 지원하는 환경에서는 답변이 정착할 때 패널 높이가 부드럽게 접힙니다. 모션 감소 설정은 두 애니메이션을 끕니다. | `current change`; `console/src/deck/investigation-timeline.tsx`와 테스트, Deck investigation 카탈로그 쌍, `console/src/styles.css`, `tests/e2e/agents-incident-deck.spec.ts`; `npx vitest run src`(3780개 통과); Console 타입 검사; `npm --prefix console run test:e2e:quick -- tests/e2e/deck-conversation-layer.spec.ts tests/e2e/agents-incident-deck.spec.ts`(24개 통과); 로컬 Console에서 패널 높이가 계획 중 96px, 조회 표시 시 172px, 정착 후 44px였고, 이전에는 646px까지 커졌음. | 이 표시 개선에 남은 작업은 없습니다. |
 | 2026-10-08 | 구현됨 | 실행 중 단계의 스피너가 아래로 처지고 튀던 문제를 고치고, 표 답변의 폭을 맞췄습니다. 단계 표시는 `transform: translateY(-50%)`로 가운데 정렬했는데, 회전 애니메이션의 `transform: rotate()`가 이를 대체해 실행 중 표시가 8px 아래에 놓이고 회전하며 튀었습니다. 이제 독립 속성 `translate`로 가운데 정렬합니다. 표 답변의 본문은 72ch 폭을 유지한 반면 표는 1080px로 펼쳐졌습니다. 이제 표는 셀이 단어 단위로 줄바꿈되며 읽기 열에 맞춰지고, 표 옆의 본문은 표의 폭을 사용합니다. 이 변경은 이전의 표 확장 방식을 대체합니다. | `current change`; `console/src/styles.css`, `command-deck-workspace-visual.test.ts`; `npx vitest run src`(3776개 통과); Console 타입 검사; 로컬 Console에서 실행 중 표시를 24번 샘플링한 결과 완료 표시와 같은 x에서 세로 오차 0px였고, 답변, 본문, 표 wrapper, 앞 턴이 1440x900(323, 840px), 993x641(116, 808px), 390x844, 도킹(401px)에서 같은 x와 폭을 가졌으며 단어 중간 줄바꿈과 넘침이 없었음. | 이 배치 수정에 남은 작업은 없습니다. |
 | 2026-10-08 | 구현됨 | 부분 상태 답변에서 Resource 범위가 불완전한 이유를 설명하게 했습니다. 상태 함수가 스냅샷의 타입 지정 원본 사유를 버렸고 이 코드에 검토된 설명도 없어서, 답변에는 `resource_scope_incomplete` 코드만 표시되었습니다. 이제 함수는 `resource_scope_incomplete+inventory_observation_pending` 같은 조합을 보고하고, 두 부분 모두 정확한 코드와 함께 운영자 언어로 표시됩니다. | `current change`; `resource_state_queries.py`, `semantic_source_limitations.py`와 테스트; `eval/golden-dataset/corpus-manifest.json` 재생성; Core ontology-platform, conversation, semantic, prompt 테스트(4952개 통과). | 이 설명에 남은 작업은 없습니다. |
