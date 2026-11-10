@@ -829,7 +829,7 @@ def _run() -> None:
                     request=ProvisionReleaseRequest(
                         installation_id=target_inst_id,
                         release_id="0.5.2",
-                        apply_state=True,
+                        apply_state=False,
                     ),
                     now=now,
                 )
