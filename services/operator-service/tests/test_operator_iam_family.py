@@ -89,6 +89,9 @@ from fdai_operator_service.operator_request_receipt import (
 from fdai_operator_service.postgres_family_store import StoredProposal
 from fdai_operator_service.postgres_iam import PostgresIamAdapters
 from fdai_operator_service.postgres_iam_access_projection import assignment_case_from_proposal
+from fdai_operator_service.teams_workflow_diagnostics import (
+    TeamsWorkflowBindingUnavailableError,
+)
 from fdai_service_contracts import DocumentOcrPolicy, OperatorPrincipalKind, OperatorRole
 from fdai_service_contracts.operator_authentication import (
     LOCAL_LOOPBACK_ISSUER,
@@ -1135,6 +1138,18 @@ class RecordingTeamsWorkflowTester:
         }
 
 
+class UnavailableTeamsWorkflowTester(RecordingTeamsWorkflowTester):
+    async def describe_binding(self, *, actor_id: str) -> Mapping[str, object]:
+        raise TeamsWorkflowBindingUnavailableError(
+            "Teams Workflow binding storage is not configured"
+        )
+
+    async def reveal_binding(self, *, actor_id: str) -> Mapping[str, object]:
+        raise TeamsWorkflowBindingUnavailableError(
+            "Teams Workflow binding storage is not configured"
+        )
+
+
 class RecordingSlackWebhookTester:
     def __init__(self) -> None:
         self.command: SlackWebhookTestCommand | None = None
@@ -1921,6 +1936,28 @@ def test_missing_teams_workflow_store_is_an_unconfigured_read_not_an_api_failure
         "storage_available": False,
     }
     assert described.headers["cache-control"] == "no-store"
+    assert revealed.status_code == 503
+    assert revealed.json()["error"]["kind"] == "binding_unavailable"
+
+
+def test_unavailable_teams_workflow_adapter_is_an_unconfigured_read() -> None:
+    client = _client(teams_workflow_tester=UnavailableTeamsWorkflowTester())
+
+    described = client.get(
+        "/runtime/integrations/teams-workflow/binding",
+        headers={"x-test-role": "Contributor", "x-test-oid": "contributor-1"},
+    )
+    revealed = client.get(
+        "/runtime/integrations/teams-workflow/binding?reveal=1",
+        headers={"x-test-role": "Contributor", "x-test-oid": "contributor-1"},
+    )
+
+    assert described.status_code == 200
+    assert described.json() == {
+        "visible": True,
+        "configured": False,
+        "storage_available": False,
+    }
     assert revealed.status_code == 503
     assert revealed.json()["error"]["kind"] == "binding_unavailable"
 
