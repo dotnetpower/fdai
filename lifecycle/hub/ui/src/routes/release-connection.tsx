@@ -32,7 +32,9 @@ export type ReleaseProvisionReceipt = {
   enabled_panel_count: number;
   component_digests: Record<string, string>;
   digest_verified: boolean;
-  provisioned_at: string;
+  plan_issued_at: string;
+  apply_required: boolean;
+  effect_verified: false;
 };
 
 export type ReleaseCatalogPreview = {
@@ -51,14 +53,13 @@ export type ReleaseCatalogPreview = {
 export async function provisionFromReleaseHub(
   installationId: string,
   releaseId: string | null = null,
-  applyState = true,
 ): Promise<ReleaseProvisionReceipt> {
   return request<ReleaseProvisionReceipt>("/v1/release-hub/provision", {
     method: "POST",
     body: JSON.stringify({
       installation_id: installationId,
       release_id: releaseId,
-      apply_state: applyState,
+      apply_state: false,
     }),
   });
 }
@@ -122,7 +123,7 @@ export function ReleaseConnectionPanel(
     setError("");
     setProvisionReceipt(null);
     try {
-      const receipt = await provisionFromReleaseHub(selectedInstallationId, selectedReleaseId, true);
+      const receipt = await provisionFromReleaseHub(selectedInstallationId, selectedReleaseId);
       setProvisionReceipt(receipt);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Provisioning failed.");
@@ -244,11 +245,11 @@ export function ReleaseConnectionPanel(
       {preview.releases.some((r) => r.state === "published") && (preview.enrolled_installations?.length ?? 0) > 0 && (
         <div class="quick-provision-box">
           <div class="quick-provision-header">
-            <strong>{tr(locale, "1-Click Console Web Provisioning", "원클릭 콘솔 웹 프로비저닝")}</strong>
+            <strong>{tr(locale, "Console Web deployment Plan", "콘솔 웹 배포 계획")}</strong>
             <span class="soft">{tr(
               locale,
-              "Issue a signed upgrade Plan from the Release Hub Stencil manifest and apply verified container digests to the installation.",
-              "Release Hub의 Stencil 매니페스트로 서명된 업그레이드 계획을 즉시 발급하고 검증된 컨테이너 다이제스트를 설치 환경에 바인딩합니다.",
+              "Issue a signed upgrade Plan from the Release Hub Stencil manifest. The installation agent applies it and reports independently verified effects.",
+              "Release Hub의 Stencil 매니페스트로 서명된 업그레이드 계획을 발급합니다. 설치 에이전트가 계획을 적용하고 독립적으로 검증한 효과를 보고합니다.",
             )}</span>
           </div>
           <div class="quick-provision-controls">
@@ -281,22 +282,34 @@ export function ReleaseConnectionPanel(
               onClick={() => void handleProvision()}
             >
               {provisionBusy
-                ? tr(locale, "Provisioning...", "프로비저닝 중...")
+                ? tr(locale, "Issuing Plan...", "계획 발급 중...")
                 : tr(
                     locale,
-                    `1-Click Provision v${selectedReleaseId} -> ${selectedInstallationId}`,
-                    `원클릭 프로비저닝 v${selectedReleaseId} -> ${selectedInstallationId}`,
+                    `Issue Plan v${selectedReleaseId} -> ${selectedInstallationId}`,
+                    `계획 발급 v${selectedReleaseId} -> ${selectedInstallationId}`,
                   )}
             </button>
           </div>
           {provisionReceipt && (
-            <p class="banner ok" role="status">
-              ✓ {tr(
-                locale,
-                `Provisioned ${provisionReceipt.installation_id} to v${provisionReceipt.release_id} (Plan ${provisionReceipt.plan_id ?? "issued"} · ${provisionReceipt.stencil_id ?? "stencil"} · ${Object.keys(provisionReceipt.component_digests).length} OCI images bound).`,
-                `${provisionReceipt.installation_id} 환경을 v${provisionReceipt.release_id} 버전으로 프로비저닝 완료했습니다 (계획 ${provisionReceipt.plan_id ?? "issued"} · ${provisionReceipt.stencil_id ?? "stencil"} · OCI 이미지 ${Object.keys(provisionReceipt.component_digests).length}개 바인딩 완료).`,
-              )}
-            </p>
+            <div class="banner ok" role="status">
+              <strong>
+                ✓ {tr(
+                  locale,
+                  `Plan issued for ${provisionReceipt.installation_id} to deploy v${provisionReceipt.release_id}.`,
+                  `${provisionReceipt.installation_id} 환경에 v${provisionReceipt.release_id} 배포 계획을 발급했습니다.`,
+                )}
+              </strong>
+              <div>
+                Plan: {provisionReceipt.plan_id ?? "issued"} · {provisionReceipt.stencil_id ?? "stencil"} · {Object.keys(provisionReceipt.component_digests).length} OCI images
+              </div>
+              <div>
+                {tr(
+                  locale,
+                  "Current and health remain unchanged until the installation agent reports independently verified effects.",
+                  "설치 에이전트가 독립적으로 검증한 효과를 보고할 때까지 현재 릴리스와 상태는 변경되지 않습니다.",
+                )}
+              </div>
+            </div>
           )}
         </div>
       )}

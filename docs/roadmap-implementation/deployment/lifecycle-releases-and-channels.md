@@ -9,6 +9,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Lifecycle Hub Plan-only Release quick action | implemented | `current change`; `lifecycle/hub/src/fdai_lifecycle_hub/release_connection.py`, `lifecycle/hub/tests/test_release_connection.py`, and Hub UI routes/tests; focused Python and UI checks | The quick action can issue a signed Plan but cannot submit `apply_state=true`, synthesize apply reports, advance reported Release or health, or claim effect verification. Installation-agent apply and independent readback remain separate. |
 | Lite Fleet navigation | implemented | `current change`; `lifecycle/release-hub/src/fdai_release_hub/stencils.py`; focused Stencil and Operator feature-flag tests | `lite-observe-alert` includes `agents`, so the Pantheon workspace's Fleet tab resolves to `/agents` instead of the disabled-panel fallback. The route remains read-only and grants no agent or execution authority. |
 | Lite model settings availability | implemented | `current change`; `lifecycle/release-hub/src/fdai_release_hub/stencils.py`; `services/operator-service/tests/test_stencil_feature_flags.py`; focused Stencil and Operator feature-flag checks | `lite-observe-alert` includes `settings-models`, so the global conversation surface and model inventory no longer request an API route blocked by their own active Stencil. The installation still owns the model endpoint, identity, capacity, and resolved binding. |
 | Authenticated Stencil catalog browser admission | implemented | `current change`; `lifecycle/release-hub/ui/src/api.ts`, `stencil-builder.tsx`; ten focused hardening commits; Release Hub UI tests (`69 passed`), Python route/API checks (`2 passed`), Console route tests (`37 passed`), UI typecheck/build, strict mypy, and Ruff | The Browser rejects malformed descriptor identity/text, duplicate mappings, unknown or duplicate panel/axis references, mismatched axis catalogs, invalid footprint or feature-flag claims, cross-document identity/count drift, and stale registered Release selections. Any inconsistency fails the whole catalog closed; no authority or Stencil membership is widened. |
@@ -48,6 +49,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-11-10 | implemented | Removed the Lifecycle Hub quick action's synthetic `apply-started`, `applied`, Healthy, and current-Release updates. The API now accepts only `apply_state=false`, returns `effect_verified=false`, and the bilingual UI says that it issued a Plan rather than completed deployment. | `current change`; `release_connection.py`, `test_release_connection.py`, `installations.tsx`, `release-connection.tsx`, and `release-connection.test.ts`; focused Python/UI tests, typecheck, and build. | Connect Plan issuance to the installation agent and retain an independent effect report before presenting deployment completion. |
 | 2026-11-10 | implemented | Added the Fleet panel to the Lite Stencil so Pantheon internal navigation reaches `/agents` rather than Overview. | `current change`; focused Release Hub Stencil and Operator feature-flag checks. | Retain authenticated Fleet navigation evidence after deployment. |
 | 2026-11-09 | implemented | Added Settings: Models to the Lite Stencil so global conversation startup and the model inventory use an enabled `/models/settings` route while retaining installation-owned bindings and authority boundaries. | `current change`; focused Stencil and Operator feature-flag tests, Console transport tests, and Rules control layout browser tests. | Publish and deploy one immutable Release, bind the installation-owned narrator, then retain authenticated conversation and full Lite-route evidence. |
 | 2026-11-09 | implemented | Completed ten focused Stencil catalog admission hardening batches, making the Browser reject malformed, ambiguous, referentially inconsistent, privilege-incomplete, or stale catalog and Release selections as one unavailable catalog. | `current change`; Release Hub UI tests (`69 passed`), Python checks (`2 passed`), Console route tests (`37 passed`), UI typecheck/build, strict mypy, Ruff, translation, and roadmap gates. | Re-run the authenticated deployed catalog and 14-route Console sweep after any future Hub publication. |
@@ -108,6 +110,9 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 ### Remaining work
 
+- [ ] Connect the Plan-only quick action to the installation agent and mark a Release current only
+  after exact-Plan apply plus independent effect readback; retain a deployed receipt proving that a
+  Plan acknowledgement alone leaves current Release and health unchanged.
 - [ ] Complete #2532 / #2534 with durable single FDAI Release build/publication status and recovery,
   authoritative promotion-run receipts, transcription-free routine tasks and actual authenticated
   operation evidence. Keep existing labels, canary, soak, timeout, recall and confirmation gates;

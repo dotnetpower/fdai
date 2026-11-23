@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import { t } from "../i18n";
-import { navigate } from "../router";
+import { isPanelRegistered, navigate } from "../router";
 import { type VerificationProgress } from "./backend";
 export {
   clampDockWidth,
@@ -417,6 +417,7 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
         setContext(selected);
       }}
       canAttachScreen={snapshot !== null && snapshotPath === currentPathname()}
+      documentUploadAvailable={isPanelRegistered("documents")}
       health={health}
       conversationModelTier={conversationModelTier}
       presentationMode={presentationMode}

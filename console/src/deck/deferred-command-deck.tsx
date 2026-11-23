@@ -43,7 +43,7 @@ export function DeferredCommandDeck({
       const inField = target?.tagName === "INPUT"
         || target?.tagName === "TEXTAREA"
         || target?.isContentEditable === true;
-      const commandKey = (event.key === "k" || event.key === "K")
+      const commandKey = event.key.toLowerCase() === "k"
         && (event.metaKey || event.ctrlKey);
       const slashKey = !inField && event.key === "/";
       if (!commandKey && !slashKey) return;

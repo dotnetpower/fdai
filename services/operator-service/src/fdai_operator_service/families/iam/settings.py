@@ -598,6 +598,15 @@ def make_runtime_settings_routes(
                 )
             return JSONResponse({"visible": False}, headers=_NO_STORE_HEADERS)
         if teams_workflow_tester is None:
+            if not reveal:
+                return JSONResponse(
+                    {
+                        "visible": True,
+                        "configured": False,
+                        "storage_available": False,
+                    },
+                    headers=_NO_STORE_HEADERS,
+                )
             return error_response(
                 503,
                 "Teams Workflow binding storage is not configured",
@@ -621,6 +630,15 @@ def make_runtime_settings_routes(
         except ValueError as exc:
             return error_response(400, str(exc), kind="invalid_channel_id")
         except TeamsWorkflowBindingUnavailableError as exc:
+            if not reveal:
+                return JSONResponse(
+                    {
+                        "visible": True,
+                        "configured": False,
+                        "storage_available": False,
+                    },
+                    headers=_NO_STORE_HEADERS,
+                )
             return error_response(503, str(exc), kind="binding_unavailable")
         except TeamsWorkflowBindingError as exc:
             return error_response(502, str(exc), kind="binding_provider_error")

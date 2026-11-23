@@ -14,7 +14,10 @@ import type { OperatorApiClient } from "../api";
 import { AgentWorkspaceNav } from "../components/agent-workspace-nav";
 import { UnavailableState } from "../components/ui";
 import { agentStreamDescriptor, useAgentStream } from "../hooks/use-agent-stream";
-import { observationSourceLabel } from "../hooks/observation-source";
+import {
+  observationSourceLabel,
+  type ObservationSource,
+} from "../hooks/observation-source";
 import { t } from "../i18n";
 import {
   currentRoute,
@@ -47,6 +50,11 @@ import {
 } from "./agents.view-model";
 import { AgentRoster } from "./agents.roster";
 import { AgentOrganizationWorkspace } from "./agent-organization";
+import {
+  agentActivitySnapshotSource,
+  agentEvidenceAvailable,
+  agentObservationSource,
+} from "./agents.runtime-source";
 
 interface Props {
   readonly client: OperatorApiClient;
@@ -90,6 +98,10 @@ export function AgentsRoute({ client }: Props) {
   const initialRosterFilters = rosterFiltersFromRoute();
   const [state, dispatch] = useReducer(reducer, undefined, makeInitialState);
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
+  const [activityError, setActivityError] = useState<string | null>(null);
+  const [activitySnapshotAvailable, setActivitySnapshotAvailable] = useState(false);
+  const [activitySnapshotSource, setActivitySnapshotSource] =
+    useState<ObservationSource>("unknown");
 
   const stream = useMemo(agentStreamDescriptor, []);
 
@@ -98,6 +110,22 @@ export function AgentsRoute({ client }: Props) {
     getAuthorizationHeader: client.authorizationHeader,
     onEvent: (msg) => dispatch({ kind: "message", msg }),
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    void client.listAgentActivity(200).then((page) => {
+      if (cancelled) return;
+      dispatch({ kind: "hydrate-activity", activities: page.items });
+      setActivitySnapshotAvailable(true);
+      setActivitySnapshotSource(agentActivitySnapshotSource(page.source));
+      setActivityError(null);
+    }).catch((error: unknown) => {
+      if (!cancelled) {
+        setActivityError(error instanceof Error ? error.message : String(error));
+      }
+    });
+    return () => { cancelled = true; };
+  }, [client]);
 
   // Fleet and hierarchical organization are separate workspace views.
   // Legacy `view=constellation` links map to organization in `layoutFromRoute`.
@@ -192,7 +220,13 @@ export function AgentsRoute({ client }: Props) {
   };
 
   const runtimeCurrent = status === "open";
-  const active = currentRuntimeCount(runtimeCurrent, activeAgentCount(state));
+  const evidenceAvailable = agentEvidenceAvailable(status, activitySnapshotAvailable);
+  const observationSource = agentObservationSource(
+    status,
+    streamSource,
+    activitySnapshotSource,
+  );
+  const active = currentRuntimeCount(evidenceAvailable, activeAgentCount(state));
   const rosterAgents = useMemo(() => {
     const query = rosterQuery.trim().toLocaleLowerCase();
     return PANTHEON
@@ -201,7 +235,7 @@ export function AgentsRoute({ client }: Props) {
       .filter((node) => rosterLayer === "all" || rosterLayerOf(node.name) === rosterLayer)
       .filter((node) => {
         if (rosterState === "all") return true;
-        if (rosterState === "engaged") return runtimeCurrent && isEngaged(node);
+        if (rosterState === "engaged") return evidenceAvailable && isEngaged(node);
         if (rosterState === "unobserved") return !node.observed;
         return node.observed && node.state === rosterState;
       })
@@ -221,11 +255,11 @@ export function AgentsRoute({ client }: Props) {
           .toLocaleLowerCase()
           .includes(query);
       });
-  }, [runtimeCurrent, state.agents, rosterLayer, rosterState, rosterQuery]);
-  const watching = currentRuntimeCount(runtimeCurrent, Object.values(state.agents).filter(
+  }, [evidenceAvailable, state.agents, rosterLayer, rosterState, rosterQuery]);
+  const watching = currentRuntimeCount(evidenceAvailable, Object.values(state.agents).filter(
     (node) => node.observed && node.state === "watching",
   ).length);
-  const idle = currentRuntimeCount(runtimeCurrent, Object.values(state.agents).filter(
+  const idle = currentRuntimeCount(evidenceAvailable, Object.values(state.agents).filter(
     (node) => node.observed && node.state === "idle",
   ).length);
   const unobserved = Object.values(state.agents).filter((node) => !node.observed).length;
@@ -293,9 +327,13 @@ export function AgentsRoute({ client }: Props) {
           </p>
         </div>
         <div class="agents-meta">
-          <span class={`agents-conn conn-${status}`}>{t(`agents.connection.${status}`)}</span>
+          <span class={`agents-conn conn-${status}`}>
+            {status !== "open" && activitySnapshotAvailable
+              ? t("agents.roster.metric.lastStateRetained")
+              : t(`agents.connection.${status}`)}
+          </span>
           <span class="status-pill status-pill-neutral">
-            {observationSourceLabel(streamSource)}
+            {observationSourceLabel(observationSource)}
           </span>
           <span class="agents-active">
             {t("agents.header.engaged", { count: active ?? "-" })}
@@ -305,6 +343,11 @@ export function AgentsRoute({ client }: Props) {
 
       {layout === "roster" && snapshotError ? (
         <UnavailableState message={t("agents.error.historyUnavailable", { error: snapshotError })} />
+      ) : null}
+      {status !== "open" && activityError ? (
+        <UnavailableState
+          message={`${t("observationSource.unavailable")}: ${activityError}`}
+        />
       ) : null}
       {selectedAgent && !selectedAgentNode ? (
         <UnavailableState message={t("agents.error.unknownAgent", { agent: selectedAgent })} />
@@ -322,7 +365,7 @@ export function AgentsRoute({ client }: Props) {
           idle={idle}
           unobserved={unobserved}
           runtimeCurrent={runtimeCurrent}
-          streamSource={streamSource}
+          streamSource={observationSource}
           onLayerChange={(next) => openRosterFilters(next, rosterState, rosterQuery)}
           onStateChange={(next) => openRosterFilters(rosterLayer, next, rosterQuery)}
           onQueryChange={(next) => openRosterFilters(rosterLayer, rosterState, next, true)}

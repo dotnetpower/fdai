@@ -23,6 +23,10 @@ const source = readFileSync(
   fileURLToPath(new URL("./command-deck-view.tsx", import.meta.url)),
   "utf8",
 );
+const controller = readFileSync(
+  fileURLToPath(new URL("./command-deck.tsx", import.meta.url)),
+  "utf8",
+);
 const header = readFileSync(
   fileURLToPath(new URL("./command-deck-header.tsx", import.meta.url)),
   "utf8",
@@ -135,6 +139,18 @@ describe("Command Deck workspace hierarchy", () => {
     // Jump to latest follows the measured transcript, never a bare turn count.
     expect(source).toContain("{jumpVisible ? (");
     expect(source).not.toContain("showJumpToLatest");
+  });
+
+  test("shows document upload only when the active Stencil includes Documents", () => {
+    expect(controller).toContain(
+      'documentUploadAvailable={isPanelRegistered("documents")}',
+    );
+    expect(source).toContain(
+      "{documentUploadAvailable && handoverGoalId && handoverAgent ? (",
+    );
+    expect(source).toContain(
+      "{documentUploadAvailable ? <ComposerAttachments /> : null}",
+    );
   });
 
   test("shows compact pending feedback before observed progress", () => {

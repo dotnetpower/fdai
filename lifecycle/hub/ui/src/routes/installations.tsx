@@ -115,9 +115,8 @@ export function InstallationsPage() {
     setProvisionError("");
     setProvisionReceipt(null);
     try {
-      const receipt = await provisionFromReleaseHub(targetInstallationId, releaseId, true);
+      const receipt = await provisionFromReleaseHub(targetInstallationId, releaseId);
       setProvisionReceipt(receipt);
-      installations.reload();
     } catch (failure) {
       setProvisionError(failure instanceof Error ? failure.message : "Provisioning failed.");
     } finally {
@@ -158,17 +157,17 @@ export function InstallationsPage() {
         </div>
       </div>
       {publishedReleases.length > 0 && installations.status === "ready" && installations.data.installations.length > 0 && (
-        <section class="quick-provision-card" aria-label={tr(locale, "Console Web 1-Click Provisioning", "콘솔 웹 원클릭 프로비저닝")}>
+        <section class="quick-provision-card" aria-label={tr(locale, "Console Web deployment Plan", "콘솔 웹 배포 계획")}>
           <div class="quick-provision-top">
             <div>
               <h2 class="panel-title">
-                {tr(locale, "Console Web 1-Click Provisioning", "콘솔 웹 원클릭 프로비저닝")}
+                {tr(locale, "Console Web deployment Plan", "콘솔 웹 배포 계획")}
               </h2>
               <p class="note">
                 {tr(
                   locale,
-                  `Connected to Release Hub (${releasePreview?.endpoint ?? "http://127.0.0.1:8091"}) · ${publishedReleases.length} published Stencil release(s) ready.`,
-                  `Release Hub(${releasePreview?.endpoint ?? "http://127.0.0.1:8091"}) 연결됨 · 즉시 배포 가능한 게시 릴리스 ${publishedReleases.length}개 준비됨.`,
+                  `Connected to Release Hub (${releasePreview?.endpoint ?? "http://127.0.0.1:8091"}) · ${publishedReleases.length} published Stencil release(s) ready for planning.`,
+                  `Release Hub(${releasePreview?.endpoint ?? "http://127.0.0.1:8091"}) 연결됨 · 배포 계획을 발급할 수 있는 게시 릴리스 ${publishedReleases.length}개 준비됨.`,
                 )}
               </p>
             </div>
@@ -221,11 +220,11 @@ export function InstallationsPage() {
               onClick={() => void runProvision(selectedInstallationId, selectedReleaseId)}
             >
               {provisionBusy
-                ? tr(locale, "Provisioning...", "프로비저닝 중...")
+                ? tr(locale, "Issuing Plan...", "계획 발급 중...")
                 : tr(
                     locale,
-                    `1-Click Provision v${selectedReleaseId} -> ${selectedInstallationId}`,
-                    `원클릭 프로비저닝 v${selectedReleaseId} -> ${selectedInstallationId}`,
+                    `Issue Plan v${selectedReleaseId} -> ${selectedInstallationId}`,
+                    `계획 발급 v${selectedReleaseId} -> ${selectedInstallationId}`,
                   )}
             </button>
           </div>
@@ -235,12 +234,19 @@ export function InstallationsPage() {
               <strong>
                 ✓ {tr(
                   locale,
-                  `Provisioned ${provisionReceipt.installation_id} to v${provisionReceipt.release_id}`,
-                  `${provisionReceipt.installation_id} 환경을 v${provisionReceipt.release_id} 릴리스로 프로비저닝 완료`,
+                  `Plan issued for ${provisionReceipt.installation_id} to deploy v${provisionReceipt.release_id}`,
+                  `${provisionReceipt.installation_id} 환경에 v${provisionReceipt.release_id} 배포 계획을 발급했습니다`,
                 )}
               </strong>
               <div class="soft mono" style={{ marginTop: "4px" }}>
                 Plan: {provisionReceipt.plan_id ?? "issued"} · Stencil: {provisionReceipt.stencil_id ?? "custom"} · Workloads: {provisionReceipt.enabled_workloads.join(", ")} ({provisionReceipt.enabled_panel_count} menus)
+              </div>
+              <div class="soft" style={{ marginTop: "4px" }}>
+                {tr(
+                  locale,
+                  "Current and health remain unchanged until the installation agent reports independently verified effects.",
+                  "설치 에이전트가 독립적으로 검증한 효과를 보고할 때까지 현재 릴리스와 상태는 변경되지 않습니다.",
+                )}
               </div>
             </div>
           )}

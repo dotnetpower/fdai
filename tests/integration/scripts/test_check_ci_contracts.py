@@ -2038,6 +2038,7 @@ def test_ci_partitions_database_and_provider_checks_across_two_shards() -> None:
     integration_job = jobs["db-integration"]
 
     assert integration_job["strategy"]["matrix"]["shard"] == [1, 2]
+    assert integration_job["timeout-minutes"] == 30
     assert integration_job["env"]["FDAI_PYTEST_MODE"] == "integration"
     assert integration_job["env"]["FDAI_PYTEST_SHARD_COUNT"] == "2"
     assert integration_job["env"]["FDAI_PYTEST_SHARD_INDEX"] == "${{ matrix.shard }}"
