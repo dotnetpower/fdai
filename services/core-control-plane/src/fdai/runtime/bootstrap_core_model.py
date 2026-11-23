@@ -91,6 +91,7 @@ class CoreRuntime:
     notification_receipt_applier: NotificationDeliveryReceiptApplier
     environment: Mapping[str, str]
     diagnostic_event_ingest_bridge: DiagnosticEventIngestBridge | None = None
+    service_health_signal_job: Any = None
     hil_workflow_registry: HilWorkflowDecisionRegistry | None = None
     stewardship_governance_worker: StewardshipGovernanceWorker | None = None
     exemption_lifecycle_worker: ExemptionLifecycleWorker | None = None
@@ -145,6 +146,7 @@ class CoreRuntime:
             incident_notification_replay_worker=self.incident_notification_replay_worker,
             notification_receipt_applier=self.notification_receipt_applier,
             diagnostic_event_ingest_bridge=self.diagnostic_event_ingest_bridge,
+            service_health_signal_job=self.service_health_signal_job,
             hil_workflow_registry=self.hil_workflow_registry,
             stewardship_governance_worker=self.stewardship_governance_worker,
             exemption_lifecycle_worker=self.exemption_lifecycle_worker,

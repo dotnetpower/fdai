@@ -257,6 +257,20 @@ patch 컨트롤, 우선순위별 교정, CVE 적용 가능성, 데이터 출처 
 인용을 제공합니다. 사용할 수 없는 출처는 공백으로 렌더링되고 완전성을
 낮추며 암묵적인 passing 컨트롤로 바뀌지 않습니다.
 
+#### Service Health 감지
+
+선택적으로 켜는 Core 작업(`FDAI_SERVICE_HEALTH_SIGNALS_ENABLED=1`, 선택 항목
+`FDAI_SERVICE_HEALTH_SIGNALS_INTERVAL_SECONDS`, 60~3600초, 기본 300초)이 서버가 소유한
+구독의 활성 Azure Service Health 이벤트를 조회하고 멱등한 `service_health` 보고서 신호로
+기록합니다. `SecurityAdvisory` 이벤트는 security 범주 신호가 되어 이 보고서에 발견 사항으로
+나타나고, `ServiceIssue`, `HealthAdvisory`, `PlannedMaintenance` 이벤트는 workload 신호가
+됩니다. 신호 id에 관측 날짜가 들어가므로 활성 이벤트는 하루에 최대 한 번만 다시 기록됩니다.
+알 수 없는 공급자 수준은 더 심각한 기본값으로 처리하고, 보안 권고와 장애는 `medium` 아래로
+내려가지 않습니다. 아무것도 관측하지 못한 불완전한 조회는 `service-health.source_gap` 신호를
+기록하므로 빈 피드를 정상 구독으로 읽지 않습니다. 감지는 읽기 전용이며 권한을 부여하지
+않습니다. 해결 상태는 추적하지 않습니다. 활성 집합에서 사라진 이벤트는 신호 생성을 멈추고
+보고서 창에서 자연스럽게 사라집니다.
+
 ## Format 카탈로그
 
 | 이름 | Content-Type | Notes |

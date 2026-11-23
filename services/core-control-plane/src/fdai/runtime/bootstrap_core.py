@@ -106,6 +106,10 @@ from fdai.runtime.rule_activation_transport import (
     build_rule_activation_consumer,
     rule_activation_source_time,
 )
+from fdai.runtime.service_health_signals import (
+    build_service_health_signal_job,
+    service_health_signals_enabled,
+)
 from fdai.runtime.stewardship_governance import (
     StewardshipGovernanceWorker,
     build_stewardship_governance_worker,
@@ -169,6 +173,7 @@ async def build_core_runtime(
         plan.requires_channel_http_client
         or stewardship_mode is not None
         or environment.get("FDAI_OPERATIONAL_EVIDENCE_ENABLED", "").strip() == "1"
+        or service_health_signals_enabled(environment)
     ) and resources.http_client is None:
         resources.http_client = _new_http_client()
     hil_identity = _product_profile.build_hil_identity(
@@ -773,6 +778,11 @@ async def build_core_runtime(
         notification_receipt_applier=incident_runtime.notification_receipt_applier,
         environment=environment,
         diagnostic_event_ingest_bridge=diagnostic_event_ingest_bridge,
+        service_health_signal_job=build_service_health_signal_job(
+            environment=environment,
+            identity=identity,
+            http_client=resources.http_client,
+        ),
         hil_workflow_registry=_build_hil_workflow_registry(state_store),
         exemption_lifecycle_worker=await build_runtime_exemption_lifecycle_worker(
             container, resources.http_client, state_store, environment

@@ -33,6 +33,7 @@ _EVENT_TYPE_SIGNAL = {
     "service_issue": "service_health_issue",
     "planned_maintenance": "service_health_maintenance",
     "health_advisory": "service_health_advisory",
+    "security_advisory": "service_health_security_advisory",
 }
 
 

@@ -6,10 +6,11 @@ from collections.abc import Mapping
 
 from .semantic_answer_presentation import readable_timestamp
 
-EVENT_TYPES = ("service_issue", "health_advisory", "planned_maintenance")
+EVENT_TYPES = ("service_issue", "health_advisory", "planned_maintenance", "security_advisory")
 _EVENT_TYPE_LABELS = {
     "service_issue": ("Service issue", "서비스 장애"),
     "health_advisory": ("Health advisory", "상태 권고"),
+    "security_advisory": ("Security advisory", "보안 권고"),
     "planned_maintenance": ("Planned maintenance", "예정된 유지 관리"),
 }
 _STATUS_LABELS = {
@@ -124,6 +125,7 @@ def category_lines(
             "service_issue": "활성 장애",
             "health_advisory": "활성 상태 권고",
             "planned_maintenance": "활성 예정 유지 관리",
+            "security_advisory": "활성 보안 권고",
         }
         qualifier = "" if exact else "확인된 최소 "
         return [
@@ -134,6 +136,7 @@ def category_lines(
         "service_issue": "service issues/outages",
         "health_advisory": "health advisories",
         "planned_maintenance": "planned maintenance",
+        "security_advisory": "security advisories",
     }
     qualifier = "Active" if exact else "Minimum observed active"
     return [
@@ -206,6 +209,9 @@ def event_label(measure_concepts: tuple[str, ...], *, korean: bool) -> str:
         ),
         "service_health.health_advisory": (
             "Azure 상태 권고" if korean else "Azure health advisories"
+        ),
+        "service_health.security_advisory": (
+            "Azure 보안 권고" if korean else "Azure security advisories"
         ),
     }
     if len(selected) == 1 and (concept := next(iter(selected))) in labels:

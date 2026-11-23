@@ -274,8 +274,8 @@ service-outage 질문 또는 카탈로그 의미가 Resource Health를 요구하
   `HealthResources` 가용성 상태와 리소스 annotation을 조회합니다. Occurrence 시간으로
   병합하고 각 이벤트를 `customer-initiated`, `status-only`, `platform-initiated`로 분류합니다.
 4. 명시적인 platform-impact 의도에는 활성 `ServiceHealthResources` 이벤트와 범위가 제한된
-  impacted-resource 행을 조회합니다. 렌더링 전에 `ServiceIssue`, `PlannedMaintenance` 및
-  `HealthAdvisory` 개수를 분리합니다.
+  impacted-resource 행을 조회합니다. 렌더링 전에 `ServiceIssue`, `PlannedMaintenance`,
+  `HealthAdvisory` 및 `SecurityAdvisory` 개수를 분리합니다.
 5. Platform 영향이 아닌 diagnosis 의도에는 representative Azure Monitor 메트릭을 확인할
   supported 리소스를 최대 16개 선택합니다.
 6. 최대 4개 메트릭을 동시에 조회하고 서버가 소유한 임계값과 비교합니다.

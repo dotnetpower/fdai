@@ -255,6 +255,20 @@ positive controls, unknowns and evidence gaps, resource rollups, compliance
 mappings, and evidence citations. An unavailable source is rendered as a gap
 and lowers completeness; it never becomes an implicit passing control.
 
+#### Service Health detection
+
+An opt-in Core task (`FDAI_SERVICE_HEALTH_SIGNALS_ENABLED=1`, optional
+`FDAI_SERVICE_HEALTH_SIGNALS_INTERVAL_SECONDS`, 60 to 3600, default 300) polls the active Azure
+Service Health events of the server-owned subscription and writes idempotent `service_health` report
+signals. `SecurityAdvisory` events become security-category signals, so they appear as findings in
+this report; `ServiceIssue`, `HealthAdvisory`, and `PlannedMaintenance` events become workload
+signals. The signal id carries the observation day, so an active event is re-affirmed at most once
+per day. An unrecognized provider level fails toward the more severe default, and a security
+advisory or outage never drops below `medium`. A read that observed nothing and was incomplete
+records a `service-health.source_gap` signal, so an empty feed is never read as a clear
+subscription. Detection is read-only and grants no authority. It does not track resolution: an
+event that leaves the active set stops producing signals and ages out of the report window.
+
 ## Format catalog
 
 | Name | Content-Type | Notes |

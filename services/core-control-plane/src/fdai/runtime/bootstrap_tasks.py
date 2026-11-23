@@ -78,6 +78,7 @@ class RuntimeTaskConfiguration:
     operating_intent_revalidation_worker: Any = None
     operational_readiness_handler: OperationalReadinessEventHandler | None = None
     diagnostic_event_ingest_bridge: Any = None
+    service_health_signal_job: Any = None
     hil_workflow_registry: HilWorkflowDecisionRegistry | None = None
     """Authoritative quorum owner for ``decision_route=workflow`` parks."""
     stewardship_governance_worker: Any = None
@@ -322,6 +323,15 @@ async def run_runtime_tasks(
                 config.diagnostic_event_ingest_bridge.run,
             ),
             name="azure-diagnostic-event-ingest",
+        )
+    service_health_signal_task: asyncio.Task[None] | None = None
+    if config.service_health_signal_job is not None:
+        service_health_signal_task = asyncio.create_task(
+            config.readiness.run_when_ready(
+                config.stop,
+                lambda: config.service_health_signal_job.run(config.stop),
+            ),
+            name="azure-service-health-signals",
         )
     incident_notification_replay_task: asyncio.Task[None] | None = None
     incident_notification_replay_worker = config.incident_notification_replay_worker
@@ -750,6 +760,7 @@ async def run_runtime_tasks(
             rule_generation_outbox_task,
             rule_generation_reconciliation_task,
             incident_notification_replay_task,
+            service_health_signal_task,
             stewardship_governance_task,
             exemption_lifecycle_task,
             stewardship_identity_health_task,

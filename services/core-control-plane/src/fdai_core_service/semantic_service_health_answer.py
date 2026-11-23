@@ -22,6 +22,7 @@ _EVENT_TYPE_BY_MEASURE = {
     "service_health.service_issue": "service_issue",
     "service_health.health_advisory": "health_advisory",
     "service_health.planned_maintenance": "planned_maintenance",
+    "service_health.security_advisory": "security_advisory",
 }
 
 

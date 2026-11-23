@@ -32,6 +32,7 @@ _EVENT_TYPES = {
     "serviceissue": "service_issue",
     "plannedmaintenance": "planned_maintenance",
     "healthadvisory": "health_advisory",
+    "securityadvisory": "security_advisory",
 }
 
 

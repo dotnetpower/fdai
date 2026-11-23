@@ -35,6 +35,7 @@ class SignalKind(StrEnum):
     CHAOS = "chaos"
     IRP = "irp"
     SECURITY_ASSESSMENT = "security_assessment"
+    SERVICE_HEALTH = "service_health"
 
 
 # Sort weight for severity (critical first).

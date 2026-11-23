@@ -77,6 +77,8 @@ signals:
     terms: [planned maintenance, scheduled maintenance, maintenance event, 예정된 유지 관리, 계획된 유지 관리, 유지 관리 이벤트]
   service_health_advisory:
     terms: [health advisory, health advisories, service advisory, 상태 권고, 서비스 권고]
+  service_health_security_advisory:
+    terms: [security advisory, security advisories, azure security advisory, 보안 권고, Azure 보안 권고]
   health_history:
     terms: [resource health events, resource status events, health events during the previous day, managed resources health events, managed resources' health events, health event history, resource health history, Resource Health 이벤트, 리소스 상태 이벤트, 리소스 헬스 이벤트, 리소스 상태 변경 이력, 상태 이벤트 이력, 리소스 상태 이력]
   continuation:

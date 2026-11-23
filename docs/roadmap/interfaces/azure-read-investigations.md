@@ -271,8 +271,8 @@ appropriately scoped reader identity. Neither the browser nor the narrator can s
   annotations under the catalog-parsed lookback, capped at 24 hours. Merge them by occurrence time
   and classify each event as `customer-initiated`, `status-only`, or `platform-initiated`.
 4. For explicit platform-impact intent, query active `ServiceHealthResources` events and their
-  bounded impacted-resource rows. Separate `ServiceIssue`, `PlannedMaintenance`, and
-  `HealthAdvisory` counts before rendering.
+  bounded impacted-resource rows. Separate `ServiceIssue`, `PlannedMaintenance`,
+  `HealthAdvisory`, and `SecurityAdvisory` counts before rendering.
 5. For diagnosis intent that isn't platform impact, select up to 16 supported resources for
   representative Azure Monitor metrics.
 6. Query at most four metrics concurrently and compare them with server-owned thresholds.

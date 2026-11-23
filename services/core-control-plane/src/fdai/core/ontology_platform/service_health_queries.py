@@ -26,7 +26,9 @@ from fdai.shared.contracts.models import (
 
 SERVICE_HEALTH_FUNCTION_NAME = "query.subscription_service_health"
 SERVICE_HEALTH_MEASURE_CONCEPTS = ("service_health.active_event",)
-SERVICE_HEALTH_EVENT_TYPES = frozenset({"service_issue", "planned_maintenance", "health_advisory"})
+SERVICE_HEALTH_EVENT_TYPES = frozenset(
+    {"service_issue", "planned_maintenance", "health_advisory", "security_advisory"}
+)
 SERVICE_HEALTH_EVENT_TYPE_MEASURES = {
     event_type: f"service_health.{event_type}" for event_type in sorted(SERVICE_HEALTH_EVENT_TYPES)
 }
@@ -160,7 +162,7 @@ def service_health_function_type() -> OntologyFunctionType:
 
     return OntologyFunctionType(
         name=SERVICE_HEALTH_FUNCTION_NAME,
-        version="1.1.0",
+        version="1.2.0",
         kind=OntologyFunctionKind.QUERY,
         artifact_digest=f"sha256:{hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}",
         publisher="fdai",
