@@ -1,8 +1,8 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 0f582a973dc5dba2726fac1ab89f1e8647d6d181
-translation_revised: 2026-09-05
+translation_source_sha: bc5457271aa85fc3ff2296a9db787f458c4edadd
+translation_revised: 2026-11-23
 ---
 
 # Azure 읽기 조사

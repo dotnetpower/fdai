@@ -1481,6 +1481,29 @@
       ]
     },
     {
+      "id": "exposure-reasoning",
+      "paths": [
+        "docs/roadmap/operations/exposure-reasoning*.md",
+        "docs/roadmap-implementation/operations/exposure-reasoning.md"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/agent-pantheon.instructions.md",
+        "docs/roadmap/operations/exposure-reasoning.md",
+        "docs/roadmap/architecture/operating-ontology.md",
+        "docs/roadmap/architecture/operating-ontology-metamodel.md",
+        "docs/roadmap/rules-and-detection/operational-hypothesis-loop.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/operations/exposure-reasoning.md",
+        "docs/roadmap-implementation/operations/exposure-reasoning.md"
+      ],
+      "validate": [
+        "python3 scripts/quality/architecture/check-document-size.py",
+        "bash scripts/quality/localization/check-translations.sh"
+      ]
+    },
+    {
       "id": "outcome-assurance",
       "paths": [
         "docs/roadmap/architecture/outcome-assurance*.md",

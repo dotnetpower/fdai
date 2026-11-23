@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 3efdba6f6e9765a8cde2dbed0f22a56cdb386239
-translation_revised: 2026-10-31
+translation_source_sha: e102f0a32091f5308ee1ba6411fb43de65412b61
+translation_revised: 2026-11-23
 ---
 # FDAI 로드맵
 
@@ -116,6 +116,7 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 | 21a | [code-security-findings-ko.md](operations/code-security-findings-ko.md) | FDAI 레인, MDASH 및 기타 SARIF 생산자의 코드 보안 점검 결과: 근본 원인마다 하나의 심각도, 결정론적 우선순위, GitHub Copilot과 Claude Code용 대화형 조치 팩 |
 | 21b | [code-security-scanning-ko.md](operations/code-security-scanning-ko.md) | FDAI가 직접 실행하는 코드 스캔: 정확한 커밋 확보, 네트워크 없는 bubblewrap 샌드박스, 스캐너 카탈로그, FDAI 작성 규칙 팩, 정직한 커버리지 증적 |
 | 21c | [code-security-analysis-engine-ko.md](operations/code-security-analysis-engine-ko.md) | 계획된 FDAI 자체 공통 코드 그래프, 함수 간 데이터 흐름, 버전 지정 규칙 및 경로 근거, 측정 기반 승격, 검증된 수정 경계 |
+| 21d | [exposure-reasoning-ko.md](operations/exposure-reasoning-ko.md) | 제안된 온톨로지 기반 노출 추론: 진입점 평면, 의도와 시행의 모순, 검토된 보안 불변식, 증거 단계, CVE가 없는 결함에 대한 3값 결론 |
 | 22 | [operational-readiness-ko.md](operations/operational-readiness-ko.md) | 개발팀에서 운영팀으로 인계하는 게이트: 소유권 이전 트리거, 전체 범위 RBAC / 정책 / 신뢰성 검토, ReadinessReport, 환경 승격 게이트 |
 | 22a | [operator-initiated-sre-and-arb-ko.md](operations/operator-initiated-sre-and-arb-ko.md) | 인시던트가 아닌 작업의 신원, 운영자가 시작하는 SRE 응답, 실제 운영 단계 진행 상황, ARB 상태/수동 시작, 작업 흐름 강제 적용, 로컬/배포 환경 동등성 |
 
