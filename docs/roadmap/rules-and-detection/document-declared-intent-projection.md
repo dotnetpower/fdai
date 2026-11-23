@@ -20,6 +20,8 @@ ontology records, current source-aware queries, and recovery.
 
 Console-governed stewardship composition in `bootstrap_core.py` binds no document-intent SDK, source principal, or approval. It reads only inert handover drafts and creates review-only ownership candidates. The composition starts under the `enterprise-identity-governance` add-on without `governed-execution`.
 
+> **Change note (2026-11-23):** Runtime composition also supervises an opt-in, read-only Azure Service Health signal task (`FDAI_SERVICE_HEALTH_SIGNALS_ENABLED=1`, off by default). It is bound through the semantic runtime and reuses the Service Health reader. This design is otherwise unchanged. See the [reporting subsystem](../interfaces/reporting-subsystem.md#service-health-detection).
+
 ## Design at a glance
 
 The private namespace uses the pinned `BusinessService` declaration and existing secured

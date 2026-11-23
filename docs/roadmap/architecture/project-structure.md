@@ -203,6 +203,8 @@ verified empty only when its read was complete. Scoped collection traversals can
 population hop by hop, collection metric reads can apply reviewed qualitative recipes, and a
 stopped metric read can issue a leased continuation. Every one of these reads stays read-only.
 
+> **Change note (2026-11-23):** Runtime composition also supervises an opt-in, read-only Azure Service Health signal task (`FDAI_SERVICE_HEALTH_SIGNALS_ENABLED=1`, off by default). It is bound through the semantic runtime and reuses the Service Health reader. This design is otherwise unchanged. See the [reporting subsystem](../interfaces/reporting-subsystem.md#service-health-detection).
+
 ## Design at a glance
 Core's handover bootstrap checks actual document/line/quote/person grounding before directory
 resolution; the model supplies no identity id and only a governance draft survives. Freyr's

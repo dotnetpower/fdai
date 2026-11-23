@@ -1,8 +1,8 @@
 ---
 title: 승인된 문서 의도 변환
 translation_of: document-declared-intent-projection.md
-translation_source_sha: 69378d6330b07c6b3ed5797ff6d7d0018836c20d
-translation_revised: 2026-10-24
+translation_source_sha: aebb1a600668f5e0d6a317e7b78614cdf59eccc4
+translation_revised: 2026-11-23
 ---
 # 승인된 문서 의도 변환
 
@@ -22,6 +22,8 @@ translation_revised: 2026-10-24
 > 않습니다. 기존 수집/인덱싱 승인은 원래 의미를 유지합니다.
 
 `bootstrap_core.py`의 Console 관리형 담당 체계 조립은 문서 의도 SDK, 원본 주체, 승인을 연결하지 않습니다. 비활성 인수인계 초안만 읽고 검토 전용 담당 체계 후보를 만듭니다. 이 조립은 `governed-execution` 없이 `enterprise-identity-governance` 추가 기능만으로 시작합니다.
+
+> **변경 참고(2026-11-23):** 런타임 구성은 선택적으로 켜는 읽기 전용 Azure Service Health 신호 작업(`FDAI_SERVICE_HEALTH_SIGNALS_ENABLED=1`, 기본 꺼짐)도 감독합니다. 이 작업은 시맨틱 런타임을 통해 바인딩되며 Service Health 리더를 재사용합니다. 이 설계의 나머지는 바뀌지 않습니다. [보고 하위 시스템](../interfaces/reporting-subsystem-ko.md#service-health-감지)을 참고하십시오.
 
 ## 설계 한눈에 보기
 

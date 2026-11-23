@@ -31,6 +31,8 @@ not create an Incident, approve an ARB decision, promote an ActionType, or grant
 > managed-resource action-confirmation path and authority-bearing Workflow enforcement evidence
 > remain open and are tracked below.
 
+> **Change note (2026-11-23):** Runtime composition also supervises an opt-in, read-only Azure Service Health signal task (`FDAI_SERVICE_HEALTH_SIGNALS_ENABLED=1`, off by default). It is bound through the semantic runtime and reuses the Service Health reader. This design is otherwise unchanged. See the [reporting subsystem](../interfaces/reporting-subsystem.md#service-health-detection).
+
 ## Design at a glance
 
 Operator production composition now delegates lifecycle ordering, route-family assembly, and

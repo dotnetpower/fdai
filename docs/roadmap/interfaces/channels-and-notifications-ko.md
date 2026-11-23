@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: b045b2fdae785c0018d879ae04d144d64a4072f4
-translation_revised: 2026-11-04
+translation_source_sha: 3b289e02db6f7d1570d560817e7a2da83a9e1713
+translation_revised: 2026-11-23
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -46,6 +46,8 @@ Teams Workflows 웹훅 바인딩은
 > 고객 비종속: 아래 모든 채널 ID, 그룹 이름, 엔드포인트는 **자리 표시자**입니다. 포크가
 > 구성을 통해 자체 테넌트, 작업 영역, 엔드포인트 값을 제공합니다
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+> **변경 참고(2026-11-23):** 런타임 구성은 선택적으로 켜는 읽기 전용 Azure Service Health 신호 작업(`FDAI_SERVICE_HEALTH_SIGNALS_ENABLED=1`, 기본 꺼짐)도 감독합니다. 이 작업은 시맨틱 런타임을 통해 바인딩되며 Service Health 리더를 재사용합니다. 이 설계의 나머지는 바뀌지 않습니다. [보고 하위 시스템](../interfaces/reporting-subsystem-ko.md#service-health-감지)을 참고하십시오.
+
 ## 1. 설계 원칙
 
 1. **세 개의 좁은 추상화, 여러 어댑터.** `NotificationChannel`은 A2/A4 push,

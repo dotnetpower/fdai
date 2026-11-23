@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: d232649ed9c613c7cff936c78ec8c819ab2a320d
-translation_revised: 2026-11-04
+translation_source_sha: bc7b1b20bf21ad0a6677f5e0f22c366474cc811c
+translation_revised: 2026-11-23
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -20,6 +20,8 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 > **안전 경계:** 함수는 계획, 조회, derive 또는 validate만 수행합니다. Thor만 승인된
 > `MutationPlan`을 실행하며 모든 외부 효과는 독립 조정으로 종료합니다.
 >
+> **변경 참고(2026-11-23):** Service Health FunctionType `query.subscription_service_health`(버전 1.2.0)이 `service_issue`, `planned_maintenance`, `health_advisory`와 함께 `security_advisory`도 검토하며, 검토된 질의 어휘에 `service_health_security_advisory`가 추가되었습니다. 읽기 권한과 `execution_authority: false`는 바뀌지 않습니다.
+
 ## 선언 워크벤치 제품 경계
 
 워크벤치는 객체 중심 검사로 정확한 선언을 속성, 방향이 있는 관계, 액션, 종속 항목, 근거 상태,

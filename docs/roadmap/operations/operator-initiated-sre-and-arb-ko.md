@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: 1d5645f5159376b39a6a7e347ccf627dfe1d8340
-translation_revised: 2026-11-01
+translation_source_sha: 7ace2dd82847c4e2fb500e9c81bb425b553b9e91
+translation_revised: 2026-11-23
 ---
 
 # 오퍼레이터 시작 SRE 및 아키텍처 리뷰
@@ -34,6 +34,8 @@ Core task 감독은 실제 PostgreSQL과 신원 전제 조건이 있을 때 독�
 > 조사 기본 기능, 프로세스 내부 SRE 명령/진행 상황 조정기, ARB 준비 상태/변환 결과,
 > 제안 전용 작업 흐름 제출은 구현되었습니다. 배포된 관리 리소스 작업 확인 경로와
 > 권한을 수반하는 작업 흐름 적용 증거는 아직 열려 있으며 아래에서 추적합니다.
+
+> **변경 참고(2026-11-23):** 런타임 구성은 선택적으로 켜는 읽기 전용 Azure Service Health 신호 작업(`FDAI_SERVICE_HEALTH_SIGNALS_ENABLED=1`, 기본 꺼짐)도 감독합니다. 이 작업은 시맨틱 런타임을 통해 바인딩되며 Service Health 리더를 재사용합니다. 이 설계의 나머지는 바뀌지 않습니다. [보고 하위 시스템](../interfaces/reporting-subsystem-ko.md#service-health-감지)을 참고하십시오.
 
 ## 설계 요약
 

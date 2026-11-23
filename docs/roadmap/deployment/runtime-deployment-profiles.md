@@ -35,6 +35,8 @@ Stewardship governance is runtime-profile neutral. With `FDAI_STEWARDSHIP_GOVERN
 
 The Core and Cost Governance images build OPA with the same pinned Go toolchain and `github.com/klauspost/compress@v1.18.7` module override in both runtime profiles. Selecting AKS or Container Apps never changes that toolchain, its builder digest, or the image scan that gates a pull request.
 
+> **Change note (2026-11-23):** Runtime composition also supervises an opt-in, read-only Azure Service Health signal task (`FDAI_SERVICE_HEALTH_SIGNALS_ENABLED=1`, off by default). It is bound through the semantic runtime and reuses the Service Health reader. This design is otherwise unchanged. See the [reporting subsystem](../interfaces/reporting-subsystem.md#service-health-detection).
+
 ## Design at a glance
 
 Ordinary clone deployment uses [Hub-image bootstrap](hub-image-deployment.md) through

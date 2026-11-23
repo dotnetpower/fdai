@@ -14,6 +14,8 @@ bounded object sets, semantic action effects, typed functions, authority-aware w
 > **Safety boundary:** Functions plan, query, derive, or validate. Only Thor executes an approved
 > `MutationPlan`, and every external effect closes through independent reconciliation.
 >
+> **Change note (2026-11-23):** The Service Health FunctionType `query.subscription_service_health` (version 1.2.0) now reviews `security_advisory` beside `service_issue`, `planned_maintenance`, and `health_advisory`, and the reviewed query vocabulary gains `service_health_security_advisory`. Read authority and `execution_authority: false` are unchanged.
+
 ## Declaration workbench product boundary
 
 The workbench uses object-centric inspection to connect an exact declaration to properties,

@@ -56,6 +56,8 @@ credential reference do not create Resource, ObjectType, LinkType, or authority 
 read-access observation is neither current provider health nor indexed evidence. Knowledge read
 permission and independently approved scan permission remain separate from ontology meaning. MSRC CSAF product-tree crosswalks (`rule_catalog/schema/msrc_csaf.py`, `msrc_csaf_oasis_parser.py`, and `scripts/catalog/import_msrc_csaf.py`, covering all 9,055 official 2019-2026 MSRC CSAF advisories plus 3 baseline test records across 20 digest-verified shards, 1,875 deduplicated product windows, 41 canonical ResourceTypes, and subscription zero-risk, critic-hardening, Codename MDASH parity, and 15-agent proactive prediction checks `V01`-`V60`, `Z01`-`Z60`, `Q001`-`Q100`, `M001`-`M100`, and `P001`-`P100`) likewise map advisory product identifiers onto existing neutral ResourceTypes without creating new ontology declarations or execution authority.
 
+> **Change note (2026-11-23):** The Service Health FunctionType `query.subscription_service_health` (version 1.2.0) now reviews `security_advisory` beside `service_issue`, `planned_maintenance`, and `health_advisory`, and the reviewed query vocabulary gains `service_health_security_advisory`. Read authority and `execution_authority: false` are unchanged.
+
 ## Design at a glance
 
 The WARA resource crosswalk now resolves all 80 source types through reviewed exact provider

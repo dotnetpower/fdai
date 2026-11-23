@@ -43,6 +43,8 @@ durable delivery, and the Teams Workflows webhook binding are owned by
 > Customer-agnostic: every channel id, group name, and endpoint below is a **placeholder**.
 > A fork supplies its own tenant, workspace, and endpoint values via config
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+> **Change note (2026-11-23):** Runtime composition also supervises an opt-in, read-only Azure Service Health signal task (`FDAI_SERVICE_HEALTH_SIGNALS_ENABLED=1`, off by default). It is bound through the semantic runtime and reuses the Service Health reader. This design is otherwise unchanged. See the [reporting subsystem](../interfaces/reporting-subsystem.md#service-health-detection).
+
 ## 1. Design Principles
 
 1. **Three narrow abstractions, many adapters.** `NotificationChannel` owns A2/A4 push,

@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 2323e56d25f9c9eff5186a0278e2e68c546a006b
-translation_revised: 2026-11-09
+translation_source_sha: dae327ce1aa9286364b0168617cb8a4ca06f21d9
+translation_revised: 2026-11-23
 ---
 # 프로젝트 구조
 
@@ -208,6 +208,8 @@ Core가 소유한 같은 스케줄러가 기존 잔여 호출 예산 검사 안�
 비어 있음으로 확인됩니다. 범위가 정해진 컬렉션 traversal은 한 단계씩 정확한 모집단을 읽을 수 있고,
 컬렉션 메트릭 읽기는 검토된 정성 레시피를 적용할 수 있으며, 멈춘 메트릭 읽기는 임대된 이어받기를
 발급할 수 있습니다. 이 읽기는 모두 읽기 전용으로 유지됩니다.
+
+> **변경 참고(2026-11-23):** 런타임 구성은 선택적으로 켜는 읽기 전용 Azure Service Health 신호 작업(`FDAI_SERVICE_HEALTH_SIGNALS_ENABLED=1`, 기본 꺼짐)도 감독합니다. 이 작업은 시맨틱 런타임을 통해 바인딩되며 Service Health 리더를 재사용합니다. 이 설계의 나머지는 바뀌지 않습니다. [보고 하위 시스템](../interfaces/reporting-subsystem-ko.md#service-health-감지)을 참고하십시오.
 
 ## 설계 개요
 Core의 인수인계 부트스트랩은 디렉터리 조회 전에 실제 문서·행·인용·사람 근거를 확인합니다.
