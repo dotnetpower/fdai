@@ -260,13 +260,10 @@ def test_security_advisory_signal_surfaces_as_a_security_assessment_finding() ->
 def test_runtime_binding_is_opt_in_and_fails_closed_when_misconfigured() -> None:
     from fdai.runtime.service_health_signals import build_service_health_signal_job
 
-    assert (
-        build_service_health_signal_job(environment={}, identity=object(), http_client=object())
-        is None
-    )
+    assert build_service_health_signal_job({}, _Reader(_collection())) is None
     with pytest.raises(RuntimeError, match="FDAI_SERVICE_HEALTH_SIGNALS_ENABLED"):
+        build_service_health_signal_job({"FDAI_SERVICE_HEALTH_SIGNALS_ENABLED": "1"}, None)
+    with pytest.raises(RuntimeError, match="FDAI_STATE_STORE_DSN"):
         build_service_health_signal_job(
-            environment={"FDAI_SERVICE_HEALTH_SIGNALS_ENABLED": "1"},
-            identity=object(),
-            http_client=object(),
+            {"FDAI_SERVICE_HEALTH_SIGNALS_ENABLED": "1"}, _Reader(_collection())
         )

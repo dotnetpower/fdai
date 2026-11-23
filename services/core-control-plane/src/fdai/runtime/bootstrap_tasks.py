@@ -35,6 +35,7 @@ from fdai.runtime.discovery_activation import DiscoveryActivationRuntime
 from fdai.runtime.ontology_index_runtime import OntologyIndexRuntime
 from fdai.runtime.readiness import StartupReadinessRuntime
 from fdai.runtime.rule_generation_documents import RuleGenerationReconciliation
+from fdai.runtime.service_health_signals import schedule_service_health_signals
 from fdai.runtime.skill_source_runtime import (
     SkillSourceRuntimeBundle,
     build_skill_source_runtime_bundle,
@@ -324,15 +325,7 @@ async def run_runtime_tasks(
             ),
             name="azure-diagnostic-event-ingest",
         )
-    service_health_signal_task: asyncio.Task[None] | None = None
-    if config.service_health_signal_job is not None:
-        service_health_signal_task = asyncio.create_task(
-            config.readiness.run_when_ready(
-                config.stop,
-                lambda: config.service_health_signal_job.run(config.stop),
-            ),
-            name="azure-service-health-signals",
-        )
+    service_health_signal_task = schedule_service_health_signals(config)
     incident_notification_replay_task: asyncio.Task[None] | None = None
     incident_notification_replay_worker = config.incident_notification_replay_worker
     incident_notification_replay_task = asyncio.create_task(

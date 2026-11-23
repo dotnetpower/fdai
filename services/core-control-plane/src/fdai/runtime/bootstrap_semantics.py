@@ -203,6 +203,7 @@ class SemanticRuntime:
     t1_mini_probe: T1MiniProbe | None = None
     ontology_index_runtime: OntologyIndexRuntime | None = None
     behavior_knowledge_index: PostgresBehaviorKnowledgeIndex | None = None
+    service_health_signal_job: Any = None
 
     @property
     def context_index_workers(self) -> ContextIndexWorkerBindings | None:

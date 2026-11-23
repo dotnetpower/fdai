@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Mapping
 from typing import Any
 
-from fdai.delivery.azure.service_health import AzureServiceHealthConfig, AzureServiceHealthReader
+from fdai.core.ontology_platform.service_health_queries import ServiceHealthReader
 from fdai.delivery.azure.service_health_signals import ServiceHealthSignalJob
 from fdai.delivery.persistence import PostgresReportSignalStore, PostgresReportSignalStoreConfig
 
@@ -13,25 +14,18 @@ ENABLE_ENV = "FDAI_SERVICE_HEALTH_SIGNALS_ENABLED"
 _INTERVAL_ENV = "FDAI_SERVICE_HEALTH_SIGNALS_INTERVAL_SECONDS"
 
 
-def service_health_signals_enabled(environment: Mapping[str, str]) -> bool:
-    return environment.get(ENABLE_ENV, "").strip() == "1"
-
-
 def build_service_health_signal_job(
-    *,
     environment: Mapping[str, str],
-    identity: Any,
-    http_client: Any,
+    reader: ServiceHealthReader | None,
 ) -> ServiceHealthSignalJob | None:
     """Bind detection only when explicitly enabled and fully server-configured."""
 
-    if not service_health_signals_enabled(environment):
+    if environment.get(ENABLE_ENV, "").strip() != "1":
         return None
-    subscription_id = environment.get("AZURE_SUBSCRIPTION_ID", "").strip()
     dsn = environment.get("FDAI_STATE_STORE_DSN", "").strip()
-    if identity is None or http_client is None or not subscription_id or not dsn:
+    if reader is None or not dsn:
         raise RuntimeError(
-            f"{ENABLE_ENV}=1 requires an identity, HTTP client, AZURE_SUBSCRIPTION_ID, "
+            f"{ENABLE_ENV}=1 requires an Azure identity, AZURE_SUBSCRIPTION_ID, "
             "and FDAI_STATE_STORE_DSN"
         )
     raw_interval = environment.get(_INTERVAL_ENV, "").strip()
@@ -40,14 +34,22 @@ def build_service_health_signal_job(
     except ValueError as exc:
         raise RuntimeError(f"{_INTERVAL_ENV} MUST be a number") from exc
     return ServiceHealthSignalJob(
-        reader=AzureServiceHealthReader(
-            identity=identity,
-            http_client=http_client,
-            config=AzureServiceHealthConfig(subscription_id=subscription_id),
-        ),
+        reader=reader,
         writer=PostgresReportSignalStore(config=PostgresReportSignalStoreConfig(dsn=dsn)),
         interval_seconds=interval,
     )
 
 
-__all__ = ["ENABLE_ENV", "build_service_health_signal_job", "service_health_signals_enabled"]
+def schedule_service_health_signals(config: Any) -> asyncio.Task[None] | None:
+    """Supervise the detection loop only when its job is bound."""
+
+    job = config.service_health_signal_job
+    if job is None:
+        return None
+    return asyncio.create_task(
+        config.readiness.run_when_ready(config.stop, lambda: job.run(config.stop)),
+        name="azure-service-health-signals",
+    )
+
+
+__all__ = ["ENABLE_ENV", "build_service_health_signal_job", "schedule_service_health_signals"]
