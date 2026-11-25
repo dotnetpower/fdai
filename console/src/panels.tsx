@@ -2,7 +2,7 @@
  * Console panel registry - the frontend half of the fork extension seam.
  *
  * The upstream console ships a deliberately minimal UI grouped by
- * operator domain (Overview / Operations / Agents / Governance / Knowledge / Evidence), plus
+ * operator domain (Overview / Operations / Agents / Governance / Evidence), plus
  * standalone global utilities pinned to the bottom of the rail. A fork
  * that wants a vertical-specific surface (a FinOps cost dashboard,
  * a drift board, a DR-drill history) does NOT edit `app.tsx` or
@@ -16,12 +16,11 @@
  * console button (app-shape.instructions.md § Operator console).
  *
  * Groups reflect stable operator domains, not internal architecture layers:
- *  - `overview`   - KPIs and cross-cutting summaries
- *  - `operations` - Live operations and operator attention
- *  - `agents`     - Agent organization and runtime activity
- *  - `governance` - Rules, ontology, scope, and safety controls
- *  - `knowledge`  - Governed documents and external knowledge sources
- *  - `evidence`   - Audit, RCA, traces, and reports
+ *  - `overview`   - KPIs, outcomes, and cost summaries
+ *  - `operations` - Live operations, SRE/security risks, approvals, and automation runs
+ *  - `agents`     - Agent fleet, roles, skills, and runtime activity
+ *  - `governance` - Rules, ontology, safety controls, and governed knowledge
+ *  - `evidence`   - Audit, trace, RCA, and reports
  */
 
 import type { ComponentType } from "preact";
@@ -201,11 +200,11 @@ export interface PanelProps {
   readonly dataMode: ConsoleDataMode;
 }
 
-/** The six stable production navigation domains plus dev-only Labs.
+/** The five stable production navigation domains plus dev-only Labs and Settings.
  * Fork panels MUST pick one; the Explorer groups by this key. Adding a
  * new group is a design decision (docs update required); do not extend
  * this union in a fork without upstreaming the change. */
-export type PanelGroup = "overview" | "operations" | "agents" | "governance" | "knowledge" | "evidence" | "labs" | "settings";
+export type PanelGroup = "overview" | "operations" | "agents" | "governance" | "evidence" | "labs" | "settings";
 
 /** Optional visual placement for panels that are global utilities rather
  * than members of an Explorer domain. Grouped placement is the
@@ -227,11 +226,6 @@ export const PANEL_GROUPS: readonly PanelGroupMeta[] = [
   { id: "operations", label: t("nav.group.operations"), hint: t("nav.groupHint.operations") },
   { id: "agents", label: t("nav.group.agents"), hint: t("nav.groupHint.agents") },
   { id: "governance", label: t("nav.group.governance"), hint: t("nav.groupHint.governance") },
-  {
-    id: "knowledge",
-    label: t("deck.sourceReadiness.source.knowledge"),
-    hint: t("nav.panel.documents"),
-  },
   { id: "evidence", label: t("nav.group.evidence"), hint: t("nav.groupHint.evidence") },
   {
     id: "labs",
@@ -257,6 +251,12 @@ export interface ConsolePanel {
   /** Operator-facing label shown in the Explorer and page header.
    * May be renamed freely. */
   readonly label: string;
+  /** Optional combined label used in primary navigation when this panel
+   * represents a multi-tab hub while preserving its own tab label. */
+  readonly hubLabel?: string;
+  /** Optional parent hub representative panel id. Child panels stay
+   * routable on their permanent URLs and render inside the shared hub tabs. */
+  readonly hubRootId?: string;
   /** Optional one-line panel description. */
   readonly subtitle?: string;
   /** Which stable navigation domain (or dev-only Labs) this panel belongs to. */
@@ -277,16 +277,85 @@ const DASHBOARD_PANEL: ConsolePanel = {
   component: DashboardRoute,
 };
 
-function knowledgeSourcePanel(id: string, label: string): ConsolePanel {
-  return { id, label, group: "knowledge", component: KnowledgeDomainRoute };
+function knowledgeSourcePanel(id: string, label: string, primary = false): ConsolePanel {
+  return primary
+    ? {
+        id,
+        label,
+        hubLabel: t("nav.hub.knowledge"),
+        subtitle: t("nav.panelSub.knowledge"),
+        group: "governance",
+        component: KnowledgeDomainRoute,
+      }
+    : {
+        id,
+        label,
+        hubRootId: "knowledge",
+        group: "governance",
+        hiddenFromNavigation: true,
+        component: KnowledgeDomainRoute,
+      };
 }
 
 /** The panels the upstream console always ships, grouped by intent. */
 export const CORE_PANELS: readonly ConsolePanel[] = [
-  // Operations
+  // ── Overview ────────────────────────────────────────────────────────
+  DASHBOARD_PANEL,
+  {
+    id: "dashboard-v2",
+    label: t("nav.panel.dashboard"),
+    group: "overview",
+    hiddenFromNavigation: true,
+    component: DashboardV2Route,
+  },
+  {
+    id: "operating-outcomes",
+    label: t("nav.panel.operatingOutcomes"),
+    hubLabel: t("nav.hub.outcomes"),
+    subtitle: t("nav.panelSub.operatingOutcomes"),
+    group: "overview",
+    component: OperatingOutcomesRoute,
+  },
+  {
+    id: "control-assurance",
+    label: t("nav.panel.controlAssurance"),
+    subtitle: t("nav.panelSub.controlAssurance"),
+    group: "overview",
+    hubRootId: "operating-outcomes",
+    hiddenFromNavigation: true,
+    component: ControlAssuranceRoute,
+  },
+  {
+    id: "verticals",
+    label: t("nav.panel.verticalOutcomes"),
+    subtitle: t("nav.panelSub.verticalOutcomes"),
+    group: "overview",
+    hubRootId: "operating-outcomes",
+    hiddenFromNavigation: true,
+    component: VerticalOutcomesRoute,
+  },
+  {
+    id: "cost-governance",
+    label: t("nav.panel.costGovernance"),
+    hubLabel: t("nav.hub.costGovernance"),
+    subtitle: t("nav.panelSub.costGovernance"),
+    group: "overview",
+    component: CostGovernanceRoute,
+  },
+  {
+    id: "llm-cost",
+    label: t("nav.panel.llmCost"),
+    subtitle: t("nav.panelSub.llmCost"),
+    group: "overview",
+    hubRootId: "cost-governance",
+    hiddenFromNavigation: true,
+    component: LlmCostRoute,
+  },
+  // ── Operations ──────────────────────────────────────────────────────
   {
     id: "live",
     label: t("nav.panel.live"),
+    hubLabel: t("nav.hub.liveOperations"),
     subtitle: t("nav.panelSub.live"),
     group: "operations",
     component: LiveRoute,
@@ -296,6 +365,8 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     label: t("nav.panel.gpu"),
     subtitle: t("nav.groupHint.operations"),
     group: "operations",
+    hubRootId: "live",
+    hiddenFromNavigation: true,
     component: GpuMonitoringRoute,
   },
   {
@@ -306,18 +377,109 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     component: IncidentsRoute,
   },
   {
-    id: "agents",
-    label: t("nav.panel.agents"),
-    subtitle: t("nav.panelSub.agents"),
-    group: "agents",
-    component: AgentsRoute,
+    id: "code-security",
+    label: t("nav.panel.codeSecurity"),
+    hubLabel: t("nav.hub.securityBaselines"),
+    subtitle: t("nav.panelSub.codeSecurity"),
+    group: "operations",
+    component: CodeSecurityRoute,
+  },
+  {
+    id: "configuration-baselines",
+    label: t("nav.panel.configurationBaselines"),
+    subtitle: t("nav.panelSub.configurationBaselines"),
+    group: "operations",
+    hubRootId: "code-security",
+    hiddenFromNavigation: true,
+    component: ConfigurationBaselinesRoute,
   },
   {
     id: "hil-queue",
     label: t("nav.panel.hilQueue"),
+    hubLabel: t("nav.hub.approvalsAlerts"),
     subtitle: t("nav.panelSub.hilQueue"),
     group: "operations",
     component: HilQueueRoute,
+  },
+  {
+    id: "alert-quality",
+    get label() { return alertQualityNavText("title"); },
+    get subtitle() { return alertQualityNavText("subtitle"); },
+    group: "operations",
+    hubRootId: "hil-queue",
+    hiddenFromNavigation: true,
+    component: AlertQualityRoute,
+  },
+  {
+    id: "detection-readiness",
+    label: t("nav.panel.detectionReadiness"),
+    subtitle: t("nav.panelSub.detectionReadiness"),
+    group: "operations",
+    hubRootId: "hil-queue",
+    hiddenFromNavigation: true,
+    component: DetectionReadinessRoute,
+  },
+  {
+    id: "conversation-delivery",
+    label: t("nav.panel.conversationDelivery"),
+    subtitle: t("nav.panelSub.conversationDelivery"),
+    group: "operations",
+    hubRootId: "hil-queue",
+    hiddenFromNavigation: true,
+    component: ConversationDeliveryRoute,
+  },
+  {
+    id: "workflow-apps",
+    label: t("nav.panel.workflowApps"),
+    hubLabel: t("nav.hub.automationRuns"),
+    subtitle: t("nav.panelSub.workflowApps"),
+    group: "operations",
+    component: WorkflowAppsRoute,
+  },
+  {
+    id: "automation-blueprints",
+    label: t("nav.panel.automationBlueprints"),
+    subtitle: t("nav.panelSub.automationBlueprints"),
+    group: "operations",
+    hubRootId: "workflow-apps",
+    hiddenFromNavigation: true,
+    component: AutomationBlueprintsRoute,
+  },
+  {
+    id: "processes",
+    label: t("nav.panel.processes"),
+    subtitle: t("nav.panelSub.processes"),
+    group: "operations",
+    hubRootId: "workflow-apps",
+    hiddenFromNavigation: true,
+    component: ProcessesRoute,
+  },
+  {
+    id: "scheduler-runs",
+    label: t("nav.panel.schedulerRuns"),
+    subtitle: t("nav.panelSub.schedulerRuns"),
+    group: "operations",
+    hubRootId: "workflow-apps",
+    hiddenFromNavigation: true,
+    component: SchedulerRunsRoute,
+  },
+  {
+    id: "background-tasks",
+    label: t("nav.panel.backgroundTasks"),
+    subtitle: t("nav.panelSub.backgroundTasks"),
+    group: "operations",
+    hubRootId: "workflow-apps",
+    hiddenFromNavigation: true,
+    component: BackgroundTasksRoute,
+  },
+  {
+    id: "scheduled-continuations",
+    label: t("nav.panel.scheduledContinuations"),
+    subtitle: t("nav.panelSub.scheduledContinuations"),
+    group: "operations",
+    hubRootId: "workflow-apps",
+    hiddenFromNavigation: true,
+    component: ScheduledContinuationsRoute,
   },
   {
     id: "provision",
@@ -335,148 +497,73 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     hiddenFromNavigation: true,
     component: OnboardingRoute,
   },
+  // ── Agents ──────────────────────────────────────────────────────────
   {
-    id: "detection-readiness",
-    label: t("nav.panel.detectionReadiness"),
-    subtitle: t("nav.panelSub.detectionReadiness"),
-    group: "operations",
-    component: DetectionReadinessRoute,
+    id: "agents",
+    label: t("nav.panel.agents"),
+    subtitle: t("nav.panelSub.agents"),
+    group: "agents",
+    component: AgentsRoute,
   },
   {
-    id: "alert-quality",
-    get label() { return alertQualityNavText("title"); },
-    get subtitle() { return alertQualityNavText("subtitle"); },
-    group: "operations",
-    component: AlertQualityRoute,
+    id: "pantheon",
+    label: t("nav.panel.pantheon"),
+    hubLabel: t("nav.hub.rolesHandover"),
+    subtitle: t("nav.panelSub.pantheon"),
+    group: "agents",
+    component: AgentsRoute,
   },
   {
-    id: "configuration-baselines",
-    label: t("nav.panel.configurationBaselines"),
-    subtitle: t("nav.panelSub.configurationBaselines"),
-    group: "operations",
-    component: ConfigurationBaselinesRoute,
+    id: "handover",
+    label: t("nav.panel.handover"),
+    subtitle: t("nav.panelSub.handover"),
+    group: "agents",
+    hubRootId: "pantheon",
+    hiddenFromNavigation: true,
+    component: HandoverRoute,
   },
   {
-    id: "processes",
-    label: t("nav.panel.processes"),
-    subtitle: t("nav.panelSub.processes"),
-    group: "operations",
-    component: ProcessesRoute,
+    id: "agent-activity",
+    label: t("nav.panel.agentActivity"),
+    subtitle: t("nav.panelSub.agentActivity"),
+    group: "agents",
+    component: AgentActivityRoute,
   },
   {
-    id: "workflow-apps",
-    label: t("nav.panel.workflowApps"),
-    subtitle: t("nav.panelSub.workflowApps"),
-    group: "operations",
-    component: WorkflowAppsRoute,
+    id: "skills",
+    label: t("nav.panel.skills"),
+    hubLabel: t("nav.hub.skillsCapabilities"),
+    subtitle: t("nav.panelSub.skills"),
+    group: "agents",
+    component: SkillsRoute,
   },
   {
-    id: "scheduler-runs",
-    label: t("nav.panel.schedulerRuns"),
-    subtitle: t("nav.panelSub.schedulerRuns"),
-    group: "operations",
-    component: SchedulerRunsRoute,
+    id: "capabilities",
+    label: t("nav.panel.capabilities"),
+    subtitle: t("nav.panelSub.capabilities"),
+    group: "agents",
+    hubRootId: "skills",
+    hiddenFromNavigation: true,
+    component: CapabilitiesRoute,
+  },
+  // ── Governance (includes Knowledge) ─────────────────────────────────
+  {
+    id: "rules",
+    label: t("nav.panel.rules"),
+    hubLabel: t("nav.hub.rulesTrustRouting"),
+    subtitle: t("nav.panelSub.rules"),
+    group: "governance",
+    component: RuleCatalogRoute,
   },
   {
-    id: "background-tasks",
-    label: t("nav.panel.backgroundTasks"),
-    subtitle: t("nav.panelSub.backgroundTasks"),
-    group: "operations",
-    component: BackgroundTasksRoute,
+    id: "trust-routing",
+    label: t("nav.panel.trustRouting"),
+    subtitle: t("nav.panelSub.trustRouting"),
+    group: "governance",
+    hubRootId: "rules",
+    hiddenFromNavigation: true,
+    component: TrustRoutingRoute,
   },
-  {
-    id: "automation-blueprints",
-    label: t("nav.panel.automationBlueprints"),
-    subtitle: t("nav.panelSub.automationBlueprints"),
-    group: "operations",
-    component: AutomationBlueprintsRoute,
-  },
-  {
-    id: "scheduled-continuations",
-    label: t("nav.panel.scheduledContinuations"),
-    subtitle: t("nav.panelSub.scheduledContinuations"),
-    group: "operations",
-    component: ScheduledContinuationsRoute,
-  },
-  {
-    id: "conversation-delivery",
-    label: t("nav.panel.conversationDelivery"),
-    subtitle: t("nav.panelSub.conversationDelivery"),
-    group: "operations",
-    component: ConversationDeliveryRoute,
-  },
-  // Agents and evidence
-  {
-    id: "audit",
-    label: t("nav.panel.audit"),
-    subtitle: t("nav.panelSub.audit"),
-    group: "evidence",
-    component: AuditRoute,
-  },
-  {
-    id: "browser-evidence",
-    label: t("nav.panel.browserEvidence"),
-    subtitle: t("nav.panelSub.browserEvidence"),
-    group: "evidence",
-    component: BrowserEvidenceRoute,
-  },
-  {
-    id: "forecast-learning",
-    label: t("nav.panel.forecastLearning"),
-    subtitle: t("nav.panelSub.forecastLearning"),
-    group: "evidence",
-    component: ForecastLearningRoute,
-  },
-  {
-    id: "assurance-twin",
-    label: t("nav.panel.assuranceTwin"),
-    subtitle: t("nav.panelSub.assuranceTwin"),
-    group: "evidence",
-    component: AssuranceTwinRoute,
-  },
-  {
-    id: "code-security",
-    label: t("nav.panel.codeSecurity"),
-    subtitle: t("nav.panelSub.codeSecurity"),
-    group: "evidence",
-    component: CodeSecurityRoute,
-  },
-  {
-    id: "conversation-search",
-    label: t("nav.panel.conversationSearch"),
-    subtitle: t("nav.panelSub.conversationSearch"),
-    group: "evidence",
-    component: ConversationSearchRoute,
-  },
-  {
-    id: "conversation-assurance",
-    label: t("nav.panel.conversationAssurance"),
-    subtitle: t("nav.panelSub.conversationAssurance"),
-    group: "evidence",
-    component: ConversationAssuranceRoute,
-  },
-  {
-    id: "reports",
-    label: t("nav.panel.reports"),
-    subtitle: t("nav.panelSub.reports"),
-    group: "evidence",
-    component: ReportsRoute,
-  },
-  {
-    id: "trace",
-    label: t("nav.panel.trace"),
-    subtitle: t("nav.panelSub.trace"),
-    group: "evidence",
-    component: RuleTraceRoute,
-  },
-  {
-    id: "rca",
-    label: t("nav.panel.rca"),
-    subtitle: t("nav.panelSub.rca"),
-    group: "evidence",
-    component: RcaRoute,
-  },
-  // Governance
   {
     id: "architecture",
     label: t("nav.panel.architecture"),
@@ -487,74 +574,24 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
   {
     id: "ontology",
     label: t("nav.panel.ontology"),
+    hubLabel: t("nav.hub.ontologyScope"),
     subtitle: t("nav.panelSub.ontology"),
     group: "governance",
     component: OntologyRoute,
   },
   {
-    id: "pantheon",
-    label: t("nav.panel.pantheon"),
-    subtitle: t("nav.panelSub.pantheon"),
-    group: "agents",
-    component: AgentsRoute,
-  },
-  {
-    id: "agent-activity",
-    label: t("nav.panel.agentActivity"),
-    subtitle: t("nav.panelSub.agentActivity"),
-    group: "agents",
-    component: AgentActivityRoute,
-  },
-  {
-    id: "handover",
-    label: t("nav.panel.handover"),
-    subtitle: t("nav.panelSub.handover"),
+    id: "scope",
+    label: t("nav.panel.scope"),
+    subtitle: t("nav.panelSub.scope"),
     group: "governance",
-    component: HandoverRoute,
+    hubRootId: "ontology",
+    hiddenFromNavigation: true,
+    component: ScopeRoute,
   },
-  {
-    id: "rules",
-    label: t("nav.panel.rules"),
-    subtitle: t("nav.panelSub.rules"),
-    group: "governance",
-    component: RuleCatalogRoute,
-  },
-  {
-    id: "workflow-builder",
-    label: t("nav.panel.workflowBuilder"),
-    subtitle: t("nav.panelSub.workflowBuilder"),
-    group: "governance",
-    component: WorkflowBuilderRoute,
-  },
-  {
-    id: "capabilities",
-    label: t("nav.panel.capabilities"),
-    subtitle: t("nav.panelSub.capabilities"),
-    group: "governance",
-    component: CapabilitiesRoute,
-  },
-  {
-    id: "skills",
-    label: t("nav.panel.skills"),
-    subtitle: t("nav.panelSub.skills"),
-    group: "governance",
-    component: SkillsRoute,
-  },
-  knowledgeSourcePanel("knowledge", t("nav.group.overview")),
-  {
-    id: "documents",
-    label: t("nav.panel.documents"),
-    subtitle: t("nav.panelSub.documents"),
-    group: "knowledge",
-    component: KnowledgeDomainRoute,
-  },
-  knowledgeSourcePanel("github", "GitHub"),
-  knowledgeSourcePanel("gitlab", "GitLab"),
-  knowledgeSourcePanel("azure-devops", "Azure DevOps"),
-  // Governance controls
   {
     id: "blast-radius",
     label: t("nav.panel.blastRadius"),
+    hubLabel: t("nav.hub.blastRadiusGates"),
     subtitle: t("nav.panelSub.blastRadius"),
     group: "governance",
     component: BlastRadiusRoute,
@@ -564,80 +601,79 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     label: t("nav.panel.promotionGates"),
     subtitle: t("nav.panelSub.promotionGates"),
     group: "governance",
+    hubRootId: "blast-radius",
+    hiddenFromNavigation: true,
     component: PromotionGatesRoute,
   },
   {
-    id: "context-selection-comparisons",
-    label: t("nav.panel.contextSelectionComparisons"),
-    subtitle: t("nav.panelSub.contextSelectionComparisons"),
+    id: "workflow-builder",
+    label: t("nav.panel.workflowBuilder"),
+    subtitle: t("nav.panelSub.workflowBuilder"),
     group: "governance",
-    component: ContextSelectionComparisonsRoute,
+    component: WorkflowBuilderRoute,
   },
+  knowledgeSourcePanel("knowledge", t("nav.panel.knowledge"), true),
   {
-    id: "scope",
-    label: t("nav.panel.scope"),
-    subtitle: t("nav.panelSub.scope"),
+    id: "documents",
+    label: t("nav.panel.documents"),
+    subtitle: t("nav.panelSub.documents"),
     group: "governance",
-    component: ScopeRoute,
-  },
-  // ── Overview ────────────────────────────────────────────────────────
-  DASHBOARD_PANEL,
-  {
-    id: "dashboard-v2",
-    label: t("nav.panel.dashboard"),
-    group: "overview",
+    hubRootId: "knowledge",
     hiddenFromNavigation: true,
-    component: DashboardV2Route,
+    component: KnowledgeDomainRoute,
+  },
+  knowledgeSourcePanel("github", "GitHub"),
+  knowledgeSourcePanel("gitlab", "GitLab"),
+  knowledgeSourcePanel("azure-devops", "Azure DevOps"),
+  // ── Evidence ────────────────────────────────────────────────────────
+  {
+    id: "audit",
+    label: t("nav.panel.audit"),
+    subtitle: t("nav.panelSub.audit"),
+    group: "evidence",
+    component: AuditRoute,
   },
   {
-    id: "operating-outcomes",
-    label: t("nav.panel.operatingOutcomes"),
-    subtitle: t("nav.panelSub.operatingOutcomes"),
-    group: "overview",
-    component: OperatingOutcomesRoute,
+    id: "trace",
+    label: t("nav.panel.trace"),
+    hubLabel: t("nav.hub.traceRca"),
+    subtitle: t("nav.panelSub.trace"),
+    group: "evidence",
+    component: RuleTraceRoute,
   },
   {
-    id: "control-assurance",
-    label: t("nav.panel.controlAssurance"),
-    subtitle: t("nav.panelSub.controlAssurance"),
-    group: "overview",
-    component: ControlAssuranceRoute,
+    id: "rca",
+    label: t("nav.panel.rca"),
+    subtitle: t("nav.panelSub.rca"),
+    group: "evidence",
+    hubRootId: "trace",
+    hiddenFromNavigation: true,
+    component: RcaRoute,
   },
   {
-    id: "verticals",
-    label: t("nav.panel.verticalOutcomes"),
-    subtitle: t("nav.panelSub.verticalOutcomes"),
-    group: "overview",
-    component: VerticalOutcomesRoute,
+    id: "browser-evidence",
+    label: t("nav.panel.browserEvidence"),
+    subtitle: t("nav.panelSub.browserEvidence"),
+    group: "evidence",
+    hubRootId: "trace",
+    hiddenFromNavigation: true,
+    component: BrowserEvidenceRoute,
   },
   {
-    id: "trust-routing",
-    label: t("nav.panel.trustRouting"),
-    subtitle: t("nav.panelSub.trustRouting"),
-    group: "overview",
-    component: TrustRoutingRoute,
+    id: "reports",
+    label: t("nav.panel.reports"),
+    subtitle: t("nav.panelSub.reports"),
+    group: "evidence",
+    component: ReportsRoute,
   },
   {
-    id: "llm-cost",
-    label: t("nav.panel.llmCost"),
-    subtitle: t("nav.panelSub.llmCost"),
-    group: "overview",
-    component: LlmCostRoute,
+    id: "conversation-search",
+    label: t("nav.panel.conversationSearch"),
+    subtitle: t("nav.panelSub.conversationSearch"),
+    group: "evidence",
+    component: ConversationSearchRoute,
   },
-  {
-    id: "aks-commerce",
-    label: t("nav.panel.aksCommerce"),
-    subtitle: t("nav.panelSub.aksCommerce"),
-    group: "overview",
-    component: AksCommerceRoute,
-  },
-  {
-    id: "cost-governance",
-    label: t("nav.panel.costGovernance"),
-    subtitle: t("nav.panelSub.costGovernance"),
-    group: "overview",
-    component: CostGovernanceRoute,
-  },
+  // ── Labs & Evaluation Hubs (dev-only rail) ──────────────────────────
   {
     id: "labs",
     label: t("nav.panel.labs"),
@@ -646,8 +682,54 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     component: LabsRoute,
   },
   {
+    id: "aks-commerce",
+    label: t("nav.panel.aksCommerce"),
+    subtitle: t("nav.panelSub.aksCommerce"),
+    group: "labs",
+    hubRootId: "labs",
+    hiddenFromNavigation: true,
+    component: AksCommerceRoute,
+  },
+  {
+    id: "assurance-twin",
+    label: t("nav.panel.assuranceTwin"),
+    hubLabel: t("nav.hub.assuranceEvals"),
+    subtitle: t("nav.panelSub.assuranceTwin"),
+    group: "labs",
+    component: AssuranceTwinRoute,
+  },
+  {
+    id: "forecast-learning",
+    label: t("nav.panel.forecastLearning"),
+    subtitle: t("nav.panelSub.forecastLearning"),
+    group: "labs",
+    hubRootId: "assurance-twin",
+    hiddenFromNavigation: true,
+    component: ForecastLearningRoute,
+  },
+  {
+    id: "conversation-assurance",
+    label: t("nav.panel.conversationAssurance"),
+    subtitle: t("nav.panelSub.conversationAssurance"),
+    group: "labs",
+    hubRootId: "assurance-twin",
+    hiddenFromNavigation: true,
+    component: ConversationAssuranceRoute,
+  },
+  {
+    id: "context-selection-comparisons",
+    label: t("nav.panel.contextSelectionComparisons"),
+    subtitle: t("nav.panelSub.contextSelectionComparisons"),
+    group: "labs",
+    hubRootId: "assurance-twin",
+    hiddenFromNavigation: true,
+    component: ContextSelectionComparisonsRoute,
+  },
+  // ── Settings ────────────────────────────────────────────────────────
+  {
     id: "settings-general",
     label: t("nav.panel.settingsGeneral"),
+    hubLabel: t("nav.hub.settingsGeneralEnv"),
     subtitle: t("nav.panelSub.settingsGeneral"),
     group: "settings",
     component: SettingsGeneralRoute,
@@ -657,11 +739,14 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     label: t("nav.panel.settingsEnvironment"),
     subtitle: t("nav.panelSub.settingsEnvironment"),
     group: "settings",
+    hubRootId: "settings-general",
+    hiddenFromNavigation: true,
     component: EnvironmentDeploymentRoute,
   },
   {
     id: "settings-models",
     label: t("nav.panel.settingsModels"),
+    hubLabel: t("nav.hub.settingsModelsRuntime"),
     subtitle: t("nav.panelSub.settingsModels"),
     group: "settings",
     component: SettingsModelsRoute,
@@ -671,14 +756,9 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     label: t("nav.panel.settingsRuntime"),
     subtitle: t("nav.panelSub.settingsRuntime"),
     group: "settings",
+    hubRootId: "settings-models",
+    hiddenFromNavigation: true,
     component: SettingsRuntimeRoute,
-  },
-  {
-    id: "settings-memory",
-    label: t("nav.panel.operatorMemory"),
-    subtitle: t("nav.panelSub.operatorMemory"),
-    group: "settings",
-    component: OperatorMemoryRoute,
   },
   {
     id: "settings-iam",
@@ -697,9 +777,19 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
   {
     id: "settings-diagnostics",
     label: t("nav.panel.settingsDiagnostics"),
+    hubLabel: t("nav.hub.settingsDiagnosticsMemory"),
     subtitle: t("nav.panelSub.settingsDiagnostics"),
     group: "settings",
     component: SettingsDiagnosticsRoute,
+  },
+  {
+    id: "settings-memory",
+    label: t("nav.panel.operatorMemory"),
+    subtitle: t("nav.panelSub.operatorMemory"),
+    group: "settings",
+    hubRootId: "settings-diagnostics",
+    hiddenFromNavigation: true,
+    component: OperatorMemoryRoute,
   },
 ];
 
@@ -737,14 +827,68 @@ export function validatePanelRegistry(panels: readonly ConsolePanel[]): readonly
   return panels;
 }
 
-/** Panels filtered to a single group, in registration order. */
-export function panelsInGroup(group: PanelGroup): readonly ConsolePanel[] {
-  return resolvePanels().filter(
-    (panel) =>
-      panel.group === group &&
-      panel.placement === undefined &&
-      panel.hiddenFromNavigation !== true,
+/** Primary navigation label for a panel (uses combined hub label when present). */
+export function navLabelForPanel(panel: ConsolePanel): string {
+  return panel.hubLabel ?? panel.label;
+}
+
+/** Resolve the primary navigation representative panel id for any panel or child hub tab. */
+export function hubRootIdForPanel(panelId: string): string {
+  const panels = resolvePanels();
+  const panel = panels.find((candidate) => candidate.id === panelId);
+  if (!panel) return panelId;
+  const rootKey = panel.hubRootId ?? panel.id;
+  const directRoot = panels.find((candidate) => candidate.id === rootKey);
+  if (directRoot && directRoot.hiddenFromNavigation !== true) return directRoot.id;
+  const promotedChild = panels.find(
+    (candidate) => candidate.hubRootId === rootKey && candidate.group === panel.group,
   );
+  return promotedChild?.id ?? panel.id;
+}
+
+/** Return the ordered tab panels for a multi-view hub, or an empty array for single views. */
+export function hubPanelsFor(panelId: string): readonly ConsolePanel[] {
+  const panels = resolvePanels();
+  const panel = panels.find((candidate) => candidate.id === panelId);
+  if (!panel) return [];
+  const rootKey = panel.hubRootId ?? panel.id;
+  const members = panels.filter(
+    (candidate) =>
+      candidate.group === panel.group &&
+      (candidate.id === rootKey || candidate.hubRootId === rootKey),
+  );
+  return members.length > 1 ? members : [];
+}
+
+/** Panels filtered to a single group, in registration order.
+ * If a Stencil disables a hub representative while keeping a child tab enabled,
+ * the first enabled child in that hub is promoted so no active surface is orphaned. */
+export function panelsInGroup(group: PanelGroup): readonly ConsolePanel[] {
+  const panels = resolvePanels().filter(
+    (panel) => panel.group === group && panel.placement === undefined,
+  );
+  const visibleIds = new Set(
+    panels
+      .filter((panel) => panel.hiddenFromNavigation !== true)
+      .map((panel) => panel.id),
+  );
+  const promotedHubRoots = new Set<string>();
+  const result: ConsolePanel[] = [];
+  for (const panel of panels) {
+    if (panel.hiddenFromNavigation !== true) {
+      result.push(panel);
+      continue;
+    }
+    if (
+      panel.hubRootId !== undefined &&
+      !visibleIds.has(panel.hubRootId) &&
+      !promotedHubRoots.has(panel.hubRootId)
+    ) {
+      promotedHubRoots.add(panel.hubRootId);
+      result.push(panel);
+    }
+  }
+  return result;
 }
 
 /** Standalone global utilities pinned to the bottom of the left rail. */

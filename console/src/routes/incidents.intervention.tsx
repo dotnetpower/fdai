@@ -6,7 +6,7 @@ import type {
   IncidentInterventionReceipt,
 } from "../api-operations-client";
 import type { IncidentSummary } from "../types";
-import { t } from "./i18n/evidence";
+import { t } from "./i18n/incidents";
 import { incidentDisplayTitle } from "./incidents.title";
 
 type Duration = NonNullable<IncidentInterventionBody["duration"]>;

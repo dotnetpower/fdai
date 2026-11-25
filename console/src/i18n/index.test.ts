@@ -4,7 +4,10 @@ import liveKo from "../routes/i18n/live.messages.ko.json";
 import { t as liveT } from "../routes/i18n/live";
 import { tForLocale as assuranceTwinT } from "../routes/i18n/assurance-twin";
 import { setLocale, t, tForLocale } from ".";
+import en from "./messages.en.json";
 import ko from "./messages.ko.json";
+import navEn from "./navigation.en.json";
+import navKo from "./navigation.ko.json";
 
 afterEach(() => setLocale("en"));
 
@@ -90,6 +93,26 @@ describe("mandatory English catalog fallback", () => {
       expect(liveT("live.title")).toBe("Control plane");
     } finally {
       mutableKo.title = original;
+    }
+  });
+
+  test("keeps navigation and extracted route strings modularized outside messages.{en,ko}.json with English fallback", () => {
+    for (const extractedKey of ["nav", "incidents", "onboardingView"]) {
+      expect(extractedKey in en).toBe(false);
+      expect(extractedKey in ko).toBe(false);
+    }
+    expect(Object.keys(navKo).sort()).toEqual(Object.keys(navEn).sort());
+    expect(tForLocale("ko", "nav.hub.knowledge")).toBe("지식·문서");
+    expect(tForLocale("en", "nav.hub.knowledge")).toBe("Knowledge & documents");
+
+    const mutableNavKo = navKo as { hub: { knowledge: string } };
+    const original = mutableNavKo.hub.knowledge;
+    mutableNavKo.hub.knowledge = "";
+    try {
+      setLocale("ko");
+      expect(t("nav.hub.knowledge")).toBe("Knowledge & documents");
+    } finally {
+      mutableNavKo.hub.knowledge = original;
     }
   });
 });

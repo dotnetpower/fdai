@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { supportsSampleData } from "../console-data-mode";
 import { getLocale, setLocale } from "../i18n";
 import { panelSourceClassification } from "../panel-sources";
-import { panelForId, panelsInGroup } from "../panels";
+import { hubPanelsFor, panelForId } from "../panels";
 import { parseConsoleRoute, routeHref } from "../router";
 import {
   AlertQualityEvidence, AlertQualityFindingTable, AlertQualityPlans, AlertQualityProvenance,
@@ -70,7 +70,7 @@ afterEach(() => setLocale(initialLocale));
 
 describe("Operations navigation and bilingual catalogs", () => {
   it("registers one lazy Operations route with its authoritative source and no Sample fallback", () => {
-    expect(panelsInGroup("operations").filter((item) => item.id === "alert-quality")).toHaveLength(1);
+    expect(hubPanelsFor("hil-queue").filter((item) => item.id === "alert-quality")).toHaveLength(1);
     expect(panelForId("alert-quality").group).toBe("operations");
     expect(panelSourceClassification("alert-quality")).toBe("operator-api");
     expect(supportsSampleData("alert-quality")).toBe(false);

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import { AsyncBoundary, ErrorState, PageHeader, type AsyncState } from "../components/ui";
 import type { ConsoleDataMode } from "../console-data-mode";
-import { t } from "../i18n";
+import { t } from "./i18n/onboarding";
 import { OnboardingBody, OnboardingLoadingState } from "./onboarding.presentation";
 import { panelArray, panelBoolean, panelNumber, panelRecord, panelString, panelStringArray } from "./panel-decode";
 

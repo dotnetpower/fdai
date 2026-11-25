@@ -468,11 +468,11 @@ def test_hardening_h21_to_h34_catalog_parity_manifest_validation_and_console_con
     }
     assert {panel.id: panel.path for panel in CONSOLE_PANEL_CATALOG} == console_paths
     detection = next(panel for panel in CONSOLE_PANEL_CATALOG if panel.id == "detection-readiness")
-    english = json.loads((root / "console/src/i18n/messages.en.json").read_text(encoding="utf-8"))
-    korean = json.loads((root / "console/src/i18n/messages.ko.json").read_text(encoding="utf-8"))
+    english = json.loads((root / "console/src/i18n/navigation.en.json").read_text(encoding="utf-8"))
+    korean = json.loads((root / "console/src/i18n/navigation.ko.json").read_text(encoding="utf-8"))
     assert detection.path == "/detection-coverage"
-    assert detection.label == english["nav"]["panel"]["detectionReadiness"]
-    assert detection.label_ko == korean["nav"]["panel"]["detectionReadiness"]
+    assert detection.label == english["panel"]["detectionReadiness"]
+    assert detection.label_ko == korean["panel"]["detectionReadiness"]
 
     # H22: Selecting settings-environment auto-resolves provision and onboarding.
     env_stencil = compose_custom_stencil(

@@ -1,6 +1,6 @@
 import type { AuditItem } from "../types";
 import { agentOf } from "./agent-activity-semantics";
-import { t } from "./i18n/evidence";
+import { t } from "./i18n/incidents";
 
 export interface IncidentTimelineFact {
   readonly label: string;

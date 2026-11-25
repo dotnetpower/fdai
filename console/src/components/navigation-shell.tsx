@@ -17,6 +17,8 @@ import {
 } from "../navigation-preferences";
 import {
   bottomRailPanels,
+  hubRootIdForPanel,
+  navLabelForPanel,
   panelForId,
   PANEL_GROUPS,
   panelsInGroup,
@@ -227,11 +229,12 @@ export function NavigationShell({
     PANEL_GROUPS.find((group) => group.id === effectiveGroup) ?? PANEL_GROUPS[0]!;
   const eligiblePanels = visibleExplorerPanels(panelsInGroup(effectiveGroup));
   const orderedPanels = orderPanels(eligiblePanels, preferences.groupOrder[effectiveGroup]);
+  const activeNavPanelId = hubRootIdForPanel(activePanelId);
   const visiblePanels = orderedPanels.filter(
-    (panel) => panel.id === activePanelId || !preferences.hiddenPanelIds.includes(panel.id),
+    (panel) => panel.id === activeNavPanelId || !preferences.hiddenPanelIds.includes(panel.id),
   );
   const hiddenPanels = orderedPanels.filter(
-    (panel) => panel.id !== activePanelId && preferences.hiddenPanelIds.includes(panel.id),
+    (panel) => panel.id !== activeNavPanelId && preferences.hiddenPanelIds.includes(panel.id),
   );
   const firstActivityBarMenuIndex = visibleGroups.findIndex((group) =>
     canHideNavigationGroup(group.id, activeGroup, preferences.hiddenGroupIds));
@@ -280,7 +283,7 @@ export function NavigationShell({
   }
 
   function hidePanel(panelId: string): void {
-    if (panelId === activePanelId) return;
+    if (panelId === activeNavPanelId) return;
     updatePreferences({
       ...preferences,
       hiddenPanelIds: [...new Set([...preferences.hiddenPanelIds, panelId])],
@@ -664,18 +667,20 @@ export function NavigationShell({
             <header><span>{selectedMeta.label}</span><small>{editing ? t("nav.visible") : t("nav.menu")}</small></header>
             <ul>
               {visiblePanels.map((panel) => {
+                const label = navLabelForPanel(panel);
+                const isCurrent = panel.id === activeNavPanelId;
                 return (
                   <li
                     key={panel.id}
                     data-nav-panel-id={panel.id}
-                    class={`navigation-row ${panel.id === activePanelId ? "active" : ""}`}
+                    class={`navigation-row ${isCurrent ? "active" : ""}`}
                   >
                     {editing ? (
                       <Tooltip content={t("nav.reorderHint")} placement="right">
                         <button
                           type="button"
                           class="navigation-drag-handle"
-                          aria-label={t("nav.reorder", { panel: panel.label })}
+                          aria-label={t("nav.reorder", { panel: label })}
                           onPointerDown={(event) => startDrag(event, panel.id)}
                           onKeyDown={(event) => {
                             if (!event.altKey) return;
@@ -691,25 +696,25 @@ export function NavigationShell({
                     ) : null}
                     <a
                       href={panelPath(panel.id)}
-                      aria-current={panel.id === activePanelId ? "page" : undefined}
+                      aria-current={isCurrent ? "page" : undefined}
                       onClick={() => {
                         if (mobile || !explorerPinned) setExplorerOpen(false);
                       }}
                     >
-                      {panel.label}
+                      {label}
                     </a>
                     {editing ? (
                       <Tooltip
-                        content={panel.id === activePanelId
+                        content={isCurrent
                           ? t("nav.hideActiveDisabled")
-                          : t("nav.hidePanel", { panel: panel.label })}
+                          : t("nav.hidePanel", { panel: label })}
                         placement="left"
                       >
                         <button
                           type="button"
                           class="navigation-row-action"
-                          disabled={panel.id === activePanelId}
-                          aria-label={t("nav.hidePanel", { panel: panel.label })}
+                          disabled={isCurrent}
+                          aria-label={t("nav.hidePanel", { panel: label })}
                           onClick={() => hidePanel(panel.id)}
                         >
                           <span aria-hidden="true">⊘</span>
@@ -727,21 +732,24 @@ export function NavigationShell({
               <header><span>{t("nav.hidden")}</span><small>{hiddenPanels.length}</small></header>
               {hiddenPanels.length === 0 ? <p>{t("nav.noHidden")}</p> : (
                 <ul>
-                  {hiddenPanels.map((panel) => (
-                    <li key={panel.id} class="navigation-row hidden">
-                      <span>{panel.label}</span>
-                      <Tooltip content={t("nav.showPanel", { panel: panel.label })} placement="left">
-                        <button
-                          type="button"
-                          class="navigation-row-action"
-                          aria-label={t("nav.showPanel", { panel: panel.label })}
-                          onClick={() => showPanel(panel.id)}
-                        >
-                          <span aria-hidden="true">↶</span>
-                        </button>
-                      </Tooltip>
-                    </li>
-                  ))}
+                  {hiddenPanels.map((panel) => {
+                    const label = navLabelForPanel(panel);
+                    return (
+                      <li key={panel.id} class="navigation-row hidden">
+                        <span>{label}</span>
+                        <Tooltip content={t("nav.showPanel", { panel: label })} placement="left">
+                          <button
+                            type="button"
+                            class="navigation-row-action"
+                            aria-label={t("nav.showPanel", { panel: label })}
+                            onClick={() => showPanel(panel.id)}
+                          >
+                            <span aria-hidden="true">↶</span>
+                          </button>
+                        </Tooltip>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </section>

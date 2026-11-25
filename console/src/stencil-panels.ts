@@ -240,14 +240,14 @@ export function filterPanelsByStencil<T extends Pick<ConsolePanel, "id">>(
 
 export function filterNavigationGroupsByStencil(
   groups: readonly PanelGroupMeta[],
-  panels: readonly Pick<ConsolePanel, "id" | "group" | "hiddenFromNavigation">[],
+  panels: readonly Pick<ConsolePanel, "id" | "group" | "hiddenFromNavigation" | "hubRootId">[],
   enabledIds: ReadonlySet<string> | null = activeStencilPanelIds(),
 ): readonly PanelGroupMeta[] {
   if (enabledIds === null) return groups;
   const filteredPanels = filterPanelsByStencil(panels, enabledIds);
   const groupsWithVisiblePanels = new Set<PanelGroup>(["overview", "settings"]);
   for (const panel of filteredPanels) {
-    if (!panel.hiddenFromNavigation) {
+    if (!panel.hiddenFromNavigation || panel.hubRootId !== undefined) {
       groupsWithVisiblePanels.add(panel.group);
     }
   }
@@ -321,15 +321,28 @@ export function transformPanelsSourceForStencil(
       continue;
     }
     if (coreBody.startsWith("knowledgeSourcePanel(", index)) {
-      const closeParen = coreBody.indexOf(")", index);
-      if (closeParen < 0) break;
-      const callExpr = coreBody.slice(index, closeParen + 1);
+      let depth = 0;
+      let cursor = index + "knowledgeSourcePanel".length;
+      while (cursor < coreBody.length) {
+        const current = coreBody[cursor]!;
+        if (current === "(") depth += 1;
+        else if (current === ")") {
+          depth -= 1;
+          if (depth === 0) {
+            cursor += 1;
+            break;
+          }
+        }
+        cursor += 1;
+      }
+      if (depth !== 0) break;
+      const callExpr = coreBody.slice(index, cursor);
       const idMatch = /knowledgeSourcePanel\(\s*"([a-z0-9-]+)"/.exec(callExpr);
       const panelId = idMatch?.[1];
       if (!panelId || enabledIds.has(panelId)) {
         keptEntries.push(callExpr);
       }
-      index = closeParen + 1;
+      index = cursor;
       continue;
     }
     index += 1;

@@ -24,7 +24,8 @@ test("hides Architecture from Governance navigation while preserving its route",
     const explorer = page.locator("#navigation-explorer");
     await expect(explorer).toHaveAttribute("aria-hidden", "false");
     await expect(explorer.locator('a[href="/architecture"]')).toHaveCount(0);
-    await expect(explorer.locator("a").first()).toHaveAttribute("href", "/ontology");
+    await expect(explorer.locator("a").first()).toHaveAttribute("href", "/rules");
+    await expect(explorer.locator('a[href="/knowledge"]')).toHaveCount(1);
     expect(await page.evaluate(() =>
       document.documentElement.scrollWidth <= document.documentElement.clientWidth
     )).toBe(true);

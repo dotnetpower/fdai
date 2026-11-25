@@ -36,7 +36,6 @@ export function readNavigationPreferences(
     "operations",
     "agents",
     "governance",
-    "knowledge",
     "evidence",
     "labs",
     "settings",
@@ -52,7 +51,7 @@ export function readNavigationPreferences(
   );
   const groupOrder: Partial<Record<PanelGroup, readonly string[]>> = {};
   if (isRecord(parsed.groupOrder)) {
-    for (const group of ["overview", "operations", "agents", "governance", "knowledge", "evidence", "labs", "settings"] as const) {
+    for (const group of ["overview", "operations", "agents", "governance", "evidence", "labs", "settings"] as const) {
       const order = stringArray(parsed.groupOrder[group]).filter(
         (id) => validIds.has(id) && isStencilPanelEnabled(id),
       );

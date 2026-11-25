@@ -9,7 +9,7 @@ import {
 import type { ConsoleDataMode } from "../console-data-mode";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
-import { t } from "../i18n";
+import { t } from "./i18n/onboarding";
 import { routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import type { OnboardingResponse } from "./onboarding";
