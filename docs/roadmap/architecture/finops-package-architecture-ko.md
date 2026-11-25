@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: a803da7b8f82070620aced98eb803869d620a65b
-translation_revised: 2026-11-09
+translation_source_sha: 5ef433590b81859a00ae4c266f1a8770bc4ebbcd
+translation_revised: 2026-11-25
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -36,7 +36,7 @@ ObjectType의 권한 및 최신성 메타데이터는 카탈로그에서 검증�
 > 유효한 세분성 또는 신원 정책이 허용하지 않으면 Operator 공개 결과에서
 > 리소스 권고를 제외할 수 있습니다. 제한된 변환 결과는 공개 권고 수가 원본 수와 일치할 것을
 > 요구하지 않고 금액 및 권고 제한 사유를 기록합니다. 공용 Console 카탈로그 원본 검사기는 관련 없는 형식 지정 도우미가 아니라 가져온 `t` 바인딩을 확인합니다. 이 검사기와 패널 레지스트리 검사기는 저장소 검증만 담당하며, FinOps와 무관한 컴포넌트 또는 레이블 변경은
-> Cost Governance 패키지, 활성화 상태 또는 권한에 포함되지 않습니다. Shared Operator 조립은 관련 없는 이벤트 버스 worker를 감독할 수 있지만
+> Cost Governance 패키지, 활성화 상태 또는 권한에 포함되지 않습니다. Console 내비게이션을 `PanelHubTabs` 기반의 다섯 개 운영자 도메인 허브로 통합하고(영구 라우트 ID를 유지한 채 Knowledge를 Governance 아래로 이동) `navigation`, `incidents`, `onboarding` 번역 카탈로그를 `messages.{en,ko}.json`에서 분리하는 변경도 마찬가지로 Console 화면 표현 범위의 변경이며 Cost Governance 패키지, 활성화 상태, 데이터 접근 또는 실행 권한에 영향을 주지 않습니다. Shared Operator 조립은 관련 없는 이벤트 버스 worker를 감독할 수 있지만
 > Cost Governance 자산을 활성화, 구성, 게시하거나 대화 fallback stream을 통해 바꿀 수 없습니다.
 > 보낼 편지함 수명 주기 facade는 관련 없는 Incident 개입 작업자도 제공합니다. 해당 수명
 > 주기와 준비 상태는 Cost Governance 패키지를 활성화하거나 Njord 소유 레코드를 게시할 수
