@@ -20,6 +20,7 @@ import { AccessGrantAttention } from "./access-grant-attention";
 import { IncidentAttention } from "./incident-attention";
 import { NavigationShell } from "./navigation-shell";
 import { NavigationTitleProvider } from "./navigation-title";
+import { PanelHubTabs } from "./panel-hub-tabs";
 import type { ConsoleDataMode } from "../console-data-mode";
 import { supportsSampleData } from "../console-data-mode";
 import { DataModeControl } from "./data-mode-control";
@@ -189,6 +190,7 @@ export function Shell({
             onExplorerOpenChange={setNavigationExplorerOpen}
           />
           <main data-route-frame={routeFrame}>
+            {!settingsOpen ? <PanelHubTabs activePanelId={activePanelId} dataMode={dataMode} /> : null}
             {children}
           </main>
         </NavigationTitleProvider>

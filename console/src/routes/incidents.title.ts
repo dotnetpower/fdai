@@ -1,5 +1,5 @@
 import type { IncidentSummary, IncidentTitlePresentation } from "../types";
-import { t } from "./i18n/evidence";
+import { t } from "./i18n/incidents";
 
 type IncidentTitleInput = Pick<
   IncidentSummary,

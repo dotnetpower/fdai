@@ -15,16 +15,18 @@ test("navigates the Knowledge domain without implying unavailable connectors are
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/knowledge");
 
-  await expect(page.locator(".page-header-title")).toContainText("Knowledge");
-  await expect(page.locator(".page-header-title")).toContainText("Overview");
-  await expect(page.locator(".knowledge-source-card")).toHaveCount(4);
-  await expect(page.getByRole("link", { name: /Documents/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: /GitHub/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: /GitLab/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Azure DevOps/ })).toBeVisible();
+  await expect(page.locator(".page-header-title")).toContainText("Governance");
+  await expect(page.locator(".page-header-title")).toContainText("Knowledge overview");
+  await expect(page.locator(".panel-hub-tabs a")).toHaveCount(5);
+  const cards = page.locator(".knowledge-source-grid");
+  await expect(cards.locator(".knowledge-source-card")).toHaveCount(4);
+  await expect(cards.getByRole("link", { name: /Documents/ })).toBeVisible();
+  await expect(cards.getByRole("link", { name: /GitHub/ })).toBeVisible();
+  await expect(cards.getByRole("link", { name: /GitLab/ })).toBeVisible();
+  await expect(cards.getByRole("link", { name: /Azure DevOps/ })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
-  await page.getByRole("link", { name: /GitHub/ }).click();
+  await cards.getByRole("link", { name: /GitHub/ }).click();
   await expect(page).toHaveURL(/\/github$/);
   await expect(page.getByRole("heading", { name: "GitHub connection is not configured" }))
     .toBeVisible();

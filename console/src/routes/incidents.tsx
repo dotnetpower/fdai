@@ -20,7 +20,7 @@ import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { currentRoute, navigate, routeHref, ROUTE_STATE_EVENT } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
-import { t } from "./i18n/evidence";
+import { t } from "./i18n/incidents";
 import "./incident-clarity.css";
 import {
   IncidentMilestones,

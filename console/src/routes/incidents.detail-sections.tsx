@@ -2,7 +2,7 @@ import type { AuditItem, IncidentOutcomeCohort, IncidentOutcomeMetrics, Incident
 import { StatusPill, type PillKind } from "../components/ui";
 import { currentRoute, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
-import { t } from "./i18n/evidence";
+import { t } from "./i18n/incidents";
 import { incidentMilestones, type IncidentMilestoneStatus } from "./incidents.milestones";
 import { incidentTimelinePresentation } from "./incidents.timeline";
 

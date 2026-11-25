@@ -16,13 +16,18 @@
 
 import en from "./messages.en.json";
 import ko from "./messages.ko.json";
+import navEn from "./navigation.en.json";
+import navKo from "./navigation.ko.json";
 import { readConsolePreferences } from "../preferences";
 
 export type Locale = "en" | "ko";
 
 type Catalog = Record<string, unknown>;
 
-const CATALOGS: Record<Locale, Catalog> = { en, ko };
+const CATALOGS: Record<Locale, Catalog> = {
+  en: { ...en, nav: navEn },
+  ko: { ...ko, nav: navKo },
+};
 
 function detectLocale(): Locale {
   return readConsolePreferences().locale;

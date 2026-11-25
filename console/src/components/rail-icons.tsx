@@ -137,12 +137,6 @@ export function groupIcon(group: PanelGroup): JSX.Element {
       return <IconAgents />;
     case "governance":
       return <IconGovernance />;
-    case "knowledge":
-      return (
-        <svg {...iconProps}>
-          <path d="M5 3H19V21H5ZM8 8H16M8 12H16" />
-        </svg>
-      );
     case "evidence":
       return <IconEvidence />;
     case "labs":

@@ -3,6 +3,7 @@ import { extname, join, relative } from "node:path";
 import ts from "typescript";
 import { describe, expect, test } from "vitest";
 import mainCatalog from "./messages.en.json";
+import navigationCatalog from "./navigation.en.json";
 import analyticsCatalog from "../routes/i18n/analytics.en.json";
 import approvalsCatalog from "../routes/i18n/approvals.en.json";
 import architectureCatalog from "../routes/i18n/architecture.en.json";
@@ -17,8 +18,10 @@ import dashboardV2Catalog from "../routes/i18n/dashboard-v2.en.json";
 import detectionReadinessCatalog from "../routes/i18n/detection-readiness.en.json";
 import evidenceCatalog from "../routes/i18n/evidence.en.json";
 import governanceCatalog from "../routes/i18n/governance.en.json";
+import incidentsCatalog from "../routes/i18n/incidents.en.json";
 import llmCostCatalog from "../routes/i18n/llm-cost.en.json";
 import liveCatalog from "../routes/i18n/live.messages.en.json";
+import onboardingCatalog from "../routes/i18n/onboarding.en.json";
 import ontologyCatalog from "../routes/i18n/ontology.en.json";
 import processesCatalog from "../routes/i18n/processes.en.json";
 import agentTrajectoryCatalog from "../routes/i18n/agent-trajectory.en.json";
@@ -114,7 +117,10 @@ describe("console static translation keys", () => {
   });
 
   test("all literal t() calls resolve in their English source catalog", () => {
-    const mainKeys = catalogKeys(mainCatalog);
+    const mainKeys = new Set([
+      ...catalogKeys(mainCatalog),
+      ...catalogKeys({ nav: navigationCatalog }),
+    ]);
     const analyticsKeys = catalogKeys({ analytics: analyticsCatalog });
     const approvalsKeys = catalogKeys({ approvals: approvalsCatalog });
     const aksCommerceKeys = catalogKeys({ aksCommerce: aksCommerceCatalog });
@@ -145,8 +151,17 @@ describe("console static translation keys", () => {
       ...catalogKeys(governanceCatalog),
       ...catalogKeys({ governance: governanceCatalog }),
     ]);
+    const incidentsKeys = new Set([
+      ...evidenceKeys,
+      ...catalogKeys(incidentsCatalog),
+      ...catalogKeys({ incidents: incidentsCatalog }),
+    ]);
     const llmCostKeys = catalogKeys({ llmCost: llmCostCatalog });
     const liveKeys = catalogKeys({ live: liveCatalog });
+    const onboardingKeys = new Set([
+      ...catalogKeys(onboardingCatalog),
+      ...catalogKeys({ onboardingView: onboardingCatalog }),
+    ]);
     const processesKeys = catalogKeys({ processesView: processesCatalog });
     const agentTrajectoryKeys = catalogKeys({ agentActivity: { trajectory: agentTrajectoryCatalog } });
     const provisionKeys = catalogKeys({ provision: provisionCatalog });
@@ -198,6 +213,10 @@ describe("console static translation keys", () => {
                 ? conversationAssuranceKeys
             : catalogImport.includes("i18n/evidence")
               ? evidenceKeys
+              : catalogImport.includes("i18n/incidents")
+                ? incidentsKeys
+              : catalogImport.includes("i18n/onboarding")
+                ? onboardingKeys
               : catalogImport.includes("i18n/governance")
                 ? governanceKeys
             : catalogImport.includes("i18n/ontology")

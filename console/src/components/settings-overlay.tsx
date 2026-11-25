@@ -1,9 +1,10 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { t } from "../i18n";
-import { panelsInGroup } from "../panels";
+import { hubRootIdForPanel, navLabelForPanel, panelsInGroup } from "../panels";
 import { panelPath } from "../router";
 import { filterPanelsByStencil } from "../stencil-panels";
+import { PanelHubTabs } from "./panel-hub-tabs";
 import { SettingsDirtyContext, type SettingsDirtyRegistration } from "./settings-dirty-state";
 
 interface SettingsOverlayProps {
@@ -158,30 +159,34 @@ export function SettingsOverlay({
             aria-label={t("settings.menuLabel")}
           >
             <ul>
-              {filterPanelsByStencil(panelsInGroup("settings")).map((panel) => (
-                <li key={panel.id}>
-                  <a
-                    href={panelPath(panel.id)}
-                    class={panel.id === activePanelId ? "active" : ""}
-                    aria-current={panel.id === activePanelId ? "page" : undefined}
-                    onClick={(event) => {
-                      if (
-                        panel.id !== activePanelId
-                        && hasUnsavedChanges
-                        && !window.confirm(t("settings.unsavedConfirm"))
-                      ) event.preventDefault();
-                    }}
-                    onPointerEnter={() => onPrefetchPanel?.(panel.id)}
-                    onFocus={() => onPrefetchPanel?.(panel.id)}
-                  >
-                    <strong>{panel.label}</strong>
-                    {panel.subtitle ? <small>{panel.subtitle}</small> : null}
-                  </a>
-                </li>
-              ))}
+              {filterPanelsByStencil(panelsInGroup("settings")).map((panel) => {
+                const isCurrent = panel.id === hubRootIdForPanel(activePanelId);
+                return (
+                  <li key={panel.id}>
+                    <a
+                      href={panelPath(panel.id)}
+                      class={isCurrent ? "active" : ""}
+                      aria-current={isCurrent ? "page" : undefined}
+                      onClick={(event) => {
+                        if (
+                          !isCurrent
+                          && hasUnsavedChanges
+                          && !window.confirm(t("settings.unsavedConfirm"))
+                        ) event.preventDefault();
+                      }}
+                      onPointerEnter={() => onPrefetchPanel?.(panel.id)}
+                      onFocus={() => onPrefetchPanel?.(panel.id)}
+                    >
+                      <strong>{navLabelForPanel(panel)}</strong>
+                      {panel.subtitle ? <small>{panel.subtitle}</small> : null}
+                    </a>
+                  </li>
+                );
+              })}
             </ul>
           </nav>
           <div class="settings-overlay-content">
+            <PanelHubTabs activePanelId={activePanelId} />
             <SettingsDirtyContext.Provider value={registerDirtySource}>
               {children}
             </SettingsDirtyContext.Provider>
