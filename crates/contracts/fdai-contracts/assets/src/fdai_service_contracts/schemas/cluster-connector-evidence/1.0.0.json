@@ -1,0 +1,154 @@
+{
+  "$defs": {
+    "ConnectorScope": {
+      "additionalProperties": false,
+      "description": "Name the registered deployment and exact cluster without carrying credentials.",
+      "properties": {
+        "deployment_ref": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$",
+          "title": "Deployment Ref",
+          "type": "string"
+        },
+        "cluster_ref": {
+          "maxLength": 512,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$",
+          "title": "Cluster Ref",
+          "type": "string"
+        },
+        "connector_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$",
+          "title": "Connector Id",
+          "type": "string"
+        },
+        "enrollment_revision": {
+          "maximum": 9223372036854775807,
+          "minimum": 1,
+          "title": "Enrollment Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "deployment_ref",
+        "cluster_ref",
+        "connector_id",
+        "enrollment_revision"
+      ],
+      "title": "ConnectorScope",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Bind a separately validated immutable evidence artifact to one observation stream.",
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scope": {
+      "$ref": "#/$defs/ConnectorScope"
+    },
+    "capability": {
+      "enum": [
+        "inventory.snapshot",
+        "lifecycle.events",
+        "diagnostic.read"
+      ],
+      "title": "Capability",
+      "type": "string"
+    },
+    "stream_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$",
+      "title": "Stream Id",
+      "type": "string"
+    },
+    "sequence": {
+      "maximum": 9223372036854775807,
+      "minimum": 1,
+      "title": "Sequence",
+      "type": "integer"
+    },
+    "observed_at": {
+      "format": "date-time",
+      "title": "Observed At",
+      "type": "string"
+    },
+    "producer_revision": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Producer Revision",
+      "type": "string"
+    },
+    "artifact_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Artifact Digest",
+      "type": "string"
+    },
+    "artifact_bytes": {
+      "maximum": 8388608,
+      "minimum": 1,
+      "title": "Artifact Bytes",
+      "type": "integer"
+    },
+    "namespaces": {
+      "items": {
+        "maxLength": 63,
+        "minLength": 1,
+        "pattern": "^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?$",
+        "type": "string"
+      },
+      "maxItems": 32,
+      "minItems": 1,
+      "title": "Namespaces",
+      "type": "array"
+    },
+    "complete": {
+      "title": "Complete",
+      "type": "boolean"
+    },
+    "limitations": {
+      "default": [],
+      "items": {
+        "enum": [
+          "cursor_expired",
+          "result_limit",
+          "source_unavailable",
+          "coverage_gap"
+        ],
+        "type": "string"
+      },
+      "maxItems": 4,
+      "title": "Limitations",
+      "type": "array"
+    },
+    "execution_authority": {
+      "const": false,
+      "default": false,
+      "title": "Execution Authority",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "scope",
+    "capability",
+    "stream_id",
+    "sequence",
+    "observed_at",
+    "producer_revision",
+    "artifact_digest",
+    "artifact_bytes",
+    "namespaces",
+    "complete"
+  ],
+  "title": "ConnectorEvidence",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/cluster-connector-evidence/1.0.0"
+}

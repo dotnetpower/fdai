@@ -1,0 +1,4 @@
+-- Migration Revision: ingestion_api_base_20260808
+-- Down Revision: none
+-- Owner: document-ingestion-api
+-- Extracted SQL Blocks: 0

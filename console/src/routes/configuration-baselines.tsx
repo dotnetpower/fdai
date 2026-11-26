@@ -9,10 +9,9 @@ import {
   KpiCard,
   KpiGrid,
   PageHeader,
-  StatusPill,
   type AsyncState,
-  type PillKind,
 } from "../components/ui";
+import { StatusBadge, type BadgeTone } from "../components/status-badge";
 import { currentRoute, navigate, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { configurationBaselinesText } from "./configuration-baselines.i18n";
@@ -184,7 +183,7 @@ function ConfigurationBaselinesBody({
                 [configurationBaselinesText("scope"), published ? <code class="small">{data.baseline.scope}</code> : configurationBaselinesText("notConfigured")],
                 [configurationBaselinesText("created"), formatConsoleTimestamp(data.baseline.createdAt, configurationBaselinesText("notAvailable"))],
                 [configurationBaselinesText("document"), published ? <code class="small">{data.baseline.documentName}</code> : configurationBaselinesText("notAvailable")],
-                [configurationBaselinesText("lifecycle"), <StatusPill kind={tone(data.baseline.lifecycle)} label={lifecycleLabel(data.baseline.lifecycle)} />],
+                [configurationBaselinesText("lifecycle"), <StatusBadge tone={tone(data.baseline.lifecycle)} label={lifecycleLabel(data.baseline.lifecycle)} />],
                 [configurationBaselinesText("resources"), published ? data.baseline.resourceCount : configurationBaselinesText("notAvailable")],
                 [configurationBaselinesText("topology"), published ? data.baseline.topologyCount : configurationBaselinesText("notAvailable")],
                 [configurationBaselinesText("unknown"), published ? data.baseline.unknownCount : configurationBaselinesText("notAvailable")],
@@ -200,7 +199,7 @@ function ConfigurationBaselinesBody({
               title={configurationBaselinesText("drift")}
               description={configurationBaselinesText("driftDescription")}
               rows={[
-                [configurationBaselinesText("decision"), <StatusPill kind={tone(data.drift.verdict)} label={verdictLabel(data.drift.verdict)} />],
+                [configurationBaselinesText("decision"), <StatusBadge tone={tone(data.drift.verdict)} label={verdictLabel(data.drift.verdict)} />],
                 [configurationBaselinesText("findings"), driftEvaluated ? data.drift.findingCount : configurationBaselinesText("notAvailable")],
                 [configurationBaselinesText("observed"), formatConsoleTimestamp(data.drift.observedAt, configurationBaselinesText("notAvailable"))],
               ]}
@@ -210,7 +209,7 @@ function ConfigurationBaselinesBody({
               title={configurationBaselinesText("knowledge")}
               description={configurationBaselinesText("knowledgeDescription")}
               rows={[
-                [configurationBaselinesText("decision"), <StatusPill kind={tone(data.knowledge.status)} label={knowledgeStatusLabel(data.knowledge.status)} />],
+                [configurationBaselinesText("decision"), <StatusBadge tone={tone(data.knowledge.status)} label={knowledgeStatusLabel(data.knowledge.status)} />],
                 [configurationBaselinesText("citations"), knowledgeIndexed ? data.knowledge.citationCount : configurationBaselinesText("notAvailable")],
               ]}
             />
@@ -288,10 +287,10 @@ function BaselineHistory({ versions }: { readonly versions: readonly Configurati
               {versions.map((version) => (
                 <tr key={version.version}>
                   <td><code class="small">{version.version}</code></td>
-                  <td><StatusPill kind={tone(version.status)} label={statusLabel(version.status)} /></td>
+                  <td><StatusBadge tone={tone(version.status)} label={statusLabel(version.status)} /></td>
                   <td>{formatConsoleTimestamp(version.createdAt)}</td>
                   <td class="num">{version.resourceCount}</td>
-                  <td><StatusPill kind={tone(version.comparison.verdict)} label={verdictLabel(version.comparison.verdict)} /></td>
+                  <td><StatusBadge tone={tone(version.comparison.verdict)} label={verdictLabel(version.comparison.verdict)} /></td>
                   <td class="num">{version.comparison.findingCount}</td>
                 </tr>
               ))}
@@ -328,12 +327,12 @@ function EvidenceSection({
   );
 }
 
-function tone(value: string): PillKind {
+function tone(value: string): BadgeTone {
   if (value === "passed" || value === "cited" || value === "active" || value === "active-pinned") {
-    return "success";
+    return "live";
   }
-  if (value === "failed") return "danger";
-  if (value === "blocked" || value === "paused-failed") return "warning";
+  if (value === "failed") return "sec";
+  if (value === "blocked" || value === "paused-failed") return "sre";
   return "neutral";
 }
 

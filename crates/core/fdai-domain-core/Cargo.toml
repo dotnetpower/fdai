@@ -1,0 +1,11 @@
+[package]
+name = "fdai-domain-core"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+fdai-contracts = { path = "../../contracts/fdai-contracts" }
+serde_json = { workspace = true }

@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/governance/assignment/1.0.0",
+  "title": "GovernanceAssignment",
+  "description": "Catalog-as-code shape of a governance assignment: binds one or more rules - listed explicitly (target_rule_ids) or by referencing a rule-set (rule_set) - to a scope with an effect + enforcement. See docs/roadmap/rules-and-detection/rule-governance.md. Loaded into fdai.rule_catalog.schema.assignment.Assignment.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "scope"],
+  "oneOf": [
+    {"required": ["target_rule_ids"]},
+    {"required": ["rule_set"]}
+  ],
+  "properties": {
+    "schema_version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "kind": {"type": "string", "enum": ["assignment"]},
+    "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$"},
+    "target_rule_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$"}
+    },
+    "rule_set": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$"},
+    "scope": {"$ref": "#/$defs/scope"},
+    "effect": {"$ref": "#/$defs/effect", "default": "audit"},
+    "enforcement": {"type": "string", "enum": ["enforce", "do-not-enforce"], "default": "do-not-enforce"},
+    "parameters": {
+      "type": "object",
+      "additionalProperties": {"type": "string"}
+    },
+    "effect_overrides": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/effect"}
+    },
+    "parameter_overrides": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {"type": "string"}
+      }
+    },
+    "provenance": {"$ref": "#/$defs/provenance"}
+  },
+  "$defs": {
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["created_at", "created_by"],
+      "properties": {
+        "created_at": {},
+        "created_by": {"type": "string", "minLength": 1},
+        "source": {"type": "string", "minLength": 1}
+      }
+    },
+    "effect": {
+      "type": "string",
+      "enum": ["disabled", "audit", "deny", "remediate"]
+    },
+    "scopeLevel": {
+      "type": "string",
+      "enum": ["organization", "account", "resource-group", "resource"]
+    },
+    "scopeUri": {"type": "string", "pattern": "^scope://[^/\\s]+(/[^/\\s]+){0,3}$"},
+    "selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "resource_types": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "tags": {"type": "object", "additionalProperties": {"type": "string"}},
+        "resource_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      }
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["level", "id"],
+          "properties": {
+            "level": {"$ref": "#/$defs/scopeLevel"},
+            "id": {"type": "string", "minLength": 1},
+            "selector": {"$ref": "#/$defs/selector"},
+            "excludes": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["include"],
+          "properties": {
+            "include": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/scopeUri"}, "uniqueItems": true},
+            "exclude": {"type": "array", "items": {"$ref": "#/$defs/scopeUri"}, "uniqueItems": true},
+            "selector": {"$ref": "#/$defs/selector"}
+          }
+        }
+      ]
+    }
+  }
+}

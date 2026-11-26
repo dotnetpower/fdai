@@ -1,5 +1,6 @@
 import type { RefObject } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
+import { SearchInput, SelectField } from "../components/form-controls";
 import { Tooltip } from "../components/tooltip";
 import { t } from "../i18n";
 import type { BackendHealth } from "./backend";
@@ -125,54 +126,56 @@ export function CommandDeckHeader({
         <BackendBadge health={health} placement="header" />
       </div>
       <div class="deck-model-controls">
-      {onPresentationMode && <label class="deck-model-selector deck-mode-selector">
-        <span class="sr-only">{conversationModelText("mode")}</span>
-        <select
+      {onPresentationMode && <div class="deck-model-selector deck-mode-selector">
+        <SelectField
+          label={conversationModelText("mode")}
+          hideLabel
+          size="sm"
           value={presentationMode}
           disabled={modelSelectionDisabled || sessionLabel !== null}
-          aria-label={conversationModelText("mode")}
-          onChange={(event) => onPresentationMode(event.currentTarget.value as "operator" | "agent_discussion")}
-        >
-          <option value="operator">{conversationModelText("operatorMode")}</option>
-          <option value="agent_discussion">{conversationModelText("discussionMode")}</option>
-        </select>
-      </label>}
-      <label class="deck-model-selector">
-        <span class="sr-only">{conversationModelText("label")}</span>
+          options={[
+            { value: "operator", label: conversationModelText("operatorMode") },
+            { value: "agent_discussion", label: conversationModelText("discussionMode") },
+          ]}
+          onChange={(value) => onPresentationMode(value as "operator" | "agent_discussion")}
+        />
+      </div>}
+      <div class="deck-model-selector">
         <Tooltip content={conversationModelText("hint")}>
-          <select
+          <SelectField
+            label={conversationModelText("label")}
+            hideLabel
+            size="sm"
             value={conversationModelTier}
             disabled={modelSelectionDisabled}
-            aria-label={conversationModelText("label")}
-            style={{ maxWidth: "164px" }}
-            onChange={(event) => {
-              const accepted = onConversationModelTier(
-                event.currentTarget.value as ConversationModelTier,
-              );
-              if (!accepted) event.currentTarget.value = conversationModelTier;
+            options={[
+              { value: "auto", label: conversationModelText("auto") },
+              { value: "t1", label: conversationModelText("t1") },
+              {
+                value: "t2",
+                disabled: !conversationModelAvailability.t2Available,
+                label: conversationModelAvailability.t2Available
+                  ? conversationT2Label(conversationModelAvailability.t2Label ?? "T2")
+                  : conversationModelText("t2Unavailable"),
+              },
+            ]}
+            onChange={(value) => {
+              onConversationModelTier(value as ConversationModelTier);
             }}
-          >
-            <option value="auto">{conversationModelText("auto")}</option>
-            <option value="t1">{conversationModelText("t1")}</option>
-            <option value="t2" disabled={!conversationModelAvailability.t2Available}>
-              {conversationModelAvailability.t2Available
-                ? conversationT2Label(conversationModelAvailability.t2Label ?? "T2")
-                : conversationModelText("t2Unavailable")}
-            </option>
-          </select>
+          />
         </Tooltip>
-      </label>
+      </div>
       </div>
       <div class="deck-header-center">
         {searchAvailable ? <div class="deck-search" role="search">
-          <span class="deck-search-icon" aria-hidden="true">⌕</span>
-          <input
-            ref={searchRef}
-            type="search"
+          <SearchInput
+            inputRef={searchRef}
+            label={t("deck.searchConversation")}
+            hideLabel
+            size="sm"
             value={searchQuery}
             placeholder={t("deck.searchPlaceholder")}
-            aria-label={t("deck.searchConversation")}
-            onInput={(event) => onSearchInput((event.target as HTMLInputElement).value)}
+            onInput={onSearchInput}
             onKeyDown={(event) => {
               if (event.key === "Escape") {
                 event.preventDefault();

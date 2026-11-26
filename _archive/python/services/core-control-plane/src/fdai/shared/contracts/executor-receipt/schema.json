@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/executor-receipt/1.0.0",
+  "title": "ExecutorShadowReceipt",
+  "description": "Terminal isolated-Executor shadow receipt. SD-07 receipts cannot claim an applied effect.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "receipt_id", "command_id", "action_id", "idempotency_key",
+    "attempt", "action_payload_digest", "requested_mode", "status", "reason",
+    "executor_instance_id", "received_at", "completed_at", "effect_applied"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "receipt_id": {"type": "string", "format": "uuid"},
+    "command_id": {"type": "string", "format": "uuid"},
+    "action_id": {"type": "string", "format": "uuid"},
+    "idempotency_key": {"type": "string", "minLength": 1, "maxLength": 512},
+    "attempt": {"type": "integer", "minimum": 1, "maximum": 100},
+    "action_payload_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "requested_mode": {"type": "string", "enum": ["shadow", "enforce"]},
+    "status": {"type": "string", "enum": ["shadowed", "duplicate", "rejected", "expired"]},
+    "reason": {"type": "string", "minLength": 1, "maxLength": 512},
+    "executor_instance_id": {"type": "string", "minLength": 1, "maxLength": 512},
+    "received_at": {"type": "string", "format": "date-time"},
+    "completed_at": {"type": "string", "format": "date-time"},
+    "effect_applied": {"const": false},
+    "audit_ref": {"type": ["string", "null"], "minLength": 1, "maxLength": 512}
+  }
+}

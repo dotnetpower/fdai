@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
 import { useMemo, useState } from "preact/hooks";
+import { SearchInput, SelectField } from "../components/form-controls";
 import type {
   CostGovernanceAnalytics,
   CostGovernanceProjection,
@@ -93,16 +94,20 @@ function Overview({
             title={t("costGovernance.overview.trendTitle")}
             description={t("costGovernance.overview.trendDescription")}
             action={analytics && analytics.budgets.length > 1 ? (
-              <label class="cost-budget-select">
-                <span>{t("costGovernance.overview.budget")}</span>
-                <select value={budget?.budget_ref ?? ""} onChange={(event) => setBudgetRef(event.currentTarget.value)}>
-                  {analytics.budgets.map((item, index) => (
-                    <option value={item.budget_ref} key={item.budget_ref}>
-                      {t("costGovernance.overview.budgetOption", { index: index + 1, amount: formatCurrency(item.amount, item.currency) })}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <SelectField
+                size="sm"
+                className="cost-budget-select"
+                label={t("costGovernance.overview.budget")}
+                value={budget?.budget_ref ?? ""}
+                options={analytics.budgets.map((item, index) => ({
+                  value: item.budget_ref,
+                  label: t("costGovernance.overview.budgetOption", {
+                    index: index + 1,
+                    amount: formatCurrency(item.amount, item.currency),
+                  }),
+                }))}
+                onChange={setBudgetRef}
+              />
             ) : null}
           />
           <div class="cost-metric-rail">
@@ -237,15 +242,16 @@ function ResourceEfficiency({
               <h2>{t("costGovernance.resource.serviceTableTitle")}</h2>
               <p>{t("costGovernance.resource.serviceTableDescription")}</p>
             </div>
-            <label class="cost-search">
-              <span class="sr-only">{t("costGovernance.resource.searchService")}</span>
-              <input
-                type="search"
-                value={query}
-                placeholder={t("costGovernance.resource.searchService")}
-                onInput={(event) => setQuery(event.currentTarget.value)}
-              />
-            </label>
+            <SearchInput
+              size="sm"
+              hideLabel
+              className="cost-search"
+              label={t("costGovernance.resource.searchService")}
+              value={query}
+              placeholder={t("costGovernance.resource.searchService")}
+              onInput={setQuery}
+              onClear={() => setQuery("")}
+            />
           </header>
           <ServiceSummaryTable rows={filteredServices} projection={projection} />
           <footer class="cost-table-foot">
@@ -307,15 +313,16 @@ function ResourceEfficiency({
               <h2>{t("costGovernance.resource.candidateTableTitle")}</h2>
               <p>{t("costGovernance.resource.candidateTableDescription")}</p>
             </div>
-            <label class="cost-search">
-              <span class="sr-only">{t("costGovernance.resource.search")}</span>
-              <input
-                type="search"
-                value={query}
-                placeholder={t("costGovernance.resource.search")}
-                onInput={(event) => setQuery(event.currentTarget.value)}
-              />
-            </label>
+            <SearchInput
+              size="sm"
+              hideLabel
+              className="cost-search"
+              label={t("costGovernance.resource.search")}
+              value={query}
+              placeholder={t("costGovernance.resource.search")}
+              onInput={setQuery}
+              onClear={() => setQuery("")}
+            />
           </header>
           <ResourceCandidateTable
             candidates={filteredCandidates}

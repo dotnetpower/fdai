@@ -1,6 +1,7 @@
 /** Cloud-knowledge presentation; API requests and authority remain with the panel and server. */
 import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
+import { CheckboxField } from "../components/form-controls";
 import { DataTable, StatusPill } from "../components/ui";
 import type {
   CloudKnowledgeCollection, CloudKnowledgeRelease,
@@ -195,11 +196,12 @@ export function CollectionList({ collections, permissions, onExport, onStage, on
 function RollbackRequest({ allowed, onRequest }: { readonly allowed: boolean; readonly onRequest: () => void }) {
   const [confirmed, setConfirmed] = useState(false);
   return <div class="stack-section">
-    <label style={{ display: "flex", gap: "8px", minHeight: "44px" }}>
-      <input type="checkbox" checked={confirmed} disabled={!allowed}
-        onChange={(event) => setConfirmed(event.currentTarget.checked)} />
-      <span>{text("confirmRollback")}</span>
-    </label>
+    <CheckboxField
+      label={text("confirmRollback")}
+      checked={confirmed}
+      disabled={!allowed}
+      onChange={setConfirmed}
+    />
     <ActionButton disabled={!allowed || !confirmed} onClick={() => { setConfirmed(false); onRequest(); }}>
       {text("rollback")}
     </ActionButton>

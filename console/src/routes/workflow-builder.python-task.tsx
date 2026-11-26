@@ -1,4 +1,10 @@
 import { useRef, useState } from "preact/hooks";
+import {
+  CheckboxField,
+  SelectField,
+  TextInput,
+  TextareaField,
+} from "../components/form-controls";
 import { CopyButton, StatusPill } from "../components/ui";
 import {
   generatePythonTask,
@@ -208,37 +214,110 @@ export function PythonTaskWorkbench({
             </div>
             <button type="button" class="btn btn-small" onClick={removeSelected} disabled={files.length === 1} aria-label={t("workflow.pythonTask.removeSelectedAria")}>{t("workflow.pythonTask.remove")}</button>
           </div>
-          <textarea
-            class="python-task-code mono"
-            aria-label={t("workflow.pythonTask.sourceFor", { path: selected?.path ?? t("workflow.pythonTask.taskFile") })}
+          <TextareaField
+            label={t("workflow.pythonTask.sourceFor", { path: selected?.path ?? t("workflow.pythonTask.taskFile") })}
+            hideLabel
+            mono
+            rows={12}
+            className="python-task-code"
             value={selected?.content ?? ""}
-            spellcheck={false}
-            onInput={(event) => updateSelected((event.target as HTMLTextAreaElement).value)}
+            onInput={updateSelected}
           />
           <div class="python-task-add-file">
-            <input value={newPath} placeholder="helpers.py" aria-label={t("workflow.pythonTask.newFilePath")} onInput={(event) => setNewPath((event.target as HTMLInputElement).value)} />
+            <TextInput
+              label={t("workflow.pythonTask.newFilePath")}
+              hideLabel
+              mono
+              value={newPath}
+              placeholder="helpers.py"
+              onInput={setNewPath}
+            />
             <button type="button" class="btn btn-small" onClick={addFile}>{t("workflow.pythonTask.addFile")}</button>
           </div>
         </section>
 
         <aside class="python-task-manifest" aria-label={t("workflow.pythonTask.manifest")}>
-          <label><span>{t("workflow.pythonTask.field.taskId")}</span><input value={taskId} onInput={(event) => { draftRevision.current += 1; setTaskId((event.target as HTMLInputElement).value); setStagedArtifact(null); }} /></label>
-          <label><span>{t("workflow.pythonTask.field.version")}</span><input value={version} onInput={(event) => { draftRevision.current += 1; setVersion((event.target as HTMLInputElement).value); setStagedArtifact(null); }} /></label>
-          <label><span>{t("workflow.pythonTask.field.entrypoint")}</span><select value={entrypoint} onChange={(event) => { draftRevision.current += 1; setEntrypoint((event.target as HTMLSelectElement).value); }}>{files.filter((file) => file.path.endsWith(".py")).map((file) => <option key={file.path} value={file.path}>{file.path}</option>)}</select></label>
-          <label><span>{t("workflow.pythonTask.field.requiredModules")}</span><input value={modules} placeholder="torch,numpy" onInput={(event) => { draftRevision.current += 1; setModules((event.target as HTMLInputElement).value); }} /></label>
-          <label><span>{t("workflow.pythonTask.field.timeoutSeconds")}</span><input type="number" min="1" max="86400" value={timeoutSeconds} onInput={(event) => { draftRevision.current += 1; setTimeoutSeconds(Number((event.target as HTMLInputElement).value)); }} /></label>
+          <TextInput
+            label={t("workflow.pythonTask.field.taskId")}
+            value={taskId}
+            mono
+            onInput={(next) => { draftRevision.current += 1; setTaskId(next); setStagedArtifact(null); }}
+          />
+          <TextInput
+            label={t("workflow.pythonTask.field.version")}
+            value={version}
+            mono
+            onInput={(next) => { draftRevision.current += 1; setVersion(next); setStagedArtifact(null); }}
+          />
+          <SelectField
+            label={t("workflow.pythonTask.field.entrypoint")}
+            value={entrypoint}
+            options={files.filter((file) => file.path.endsWith(".py")).map((file) => ({
+              value: file.path,
+              label: file.path,
+            }))}
+            onChange={(next) => { draftRevision.current += 1; setEntrypoint(next); }}
+          />
+          <TextInput
+            label={t("workflow.pythonTask.field.requiredModules")}
+            value={modules}
+            placeholder="torch,numpy"
+            onInput={(next) => { draftRevision.current += 1; setModules(next); }}
+          />
+          <TextInput
+            label={t("workflow.pythonTask.field.timeoutSeconds")}
+            type="number"
+            min="1"
+            max="86400"
+            value={String(timeoutSeconds)}
+            onInput={(next) => { draftRevision.current += 1; setTimeoutSeconds(Number(next)); }}
+          />
           <fieldset>
             <legend>{t("workflow.pythonTask.field.capabilities")}</legend>
-            {CAPABILITIES.map((capability) => <label key={capability} class="python-task-check"><input type="checkbox" checked={capabilities.includes(capability)} onChange={() => { draftRevision.current += 1; setCapabilities(capabilities.includes(capability) ? capabilities.filter((value) => value !== capability) : [...capabilities, capability]); }} /><span>{capability.replaceAll("_", " ")}</span></label>)}
+            {CAPABILITIES.map((capability) => (
+              <CheckboxField
+                key={capability}
+                label={capability.replaceAll("_", " ")}
+                checked={capabilities.includes(capability)}
+                className="python-task-check"
+                onChange={() => {
+                  draftRevision.current += 1;
+                  setCapabilities(
+                    capabilities.includes(capability)
+                      ? capabilities.filter((value) => value !== capability)
+                      : [...capabilities, capability],
+                  );
+                }}
+              />
+            ))}
           </fieldset>
-          <label><span>{t("workflow.pythonTask.field.targetResource")}</span><input value={target} onInput={(event) => setTarget((event.target as HTMLInputElement).value)} /></label>
-          <label><span>{t("workflow.pythonTask.field.runReason")}</span><textarea value={reason} rows={3} onInput={(event) => setReason((event.target as HTMLTextAreaElement).value)} /></label>
-          <label><span>{t("workflow.pythonTask.field.cronSchedule")}</span><input value={cronExpression} onInput={(event) => setCronExpression((event.target as HTMLInputElement).value)} /></label>
+          <TextInput
+            label={t("workflow.pythonTask.field.targetResource")}
+            value={target}
+            onInput={setTarget}
+          />
+          <TextareaField
+            label={t("workflow.pythonTask.field.runReason")}
+            rows={3}
+            value={reason}
+            onInput={setReason}
+          />
+          <TextInput
+            label={t("workflow.pythonTask.field.cronSchedule")}
+            mono
+            value={cronExpression}
+            onInput={setCronExpression}
+          />
         </aside>
       </div>
 
       <div class="python-task-intent">
-        <label><span>{t("workflow.pythonTask.field.intent")}</span><textarea value={intent} rows={2} onInput={(event) => setIntent((event.target as HTMLTextAreaElement).value)} /></label>
+        <TextareaField
+          label={t("workflow.pythonTask.field.intent")}
+          rows={2}
+          value={intent}
+          onInput={setIntent}
+        />
         <button type="button" class="btn" disabled={busy !== null || !intent.trim() || !availability.operations.generate} onClick={() => void generate()}>{t(busy === "generate" ? "workflow.pythonTask.authoring" : "workflow.pythonTask.generate")}</button>
       </div>
 

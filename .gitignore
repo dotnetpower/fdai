@@ -11,6 +11,10 @@ __pycache__/
 build/
 develop-eggs/
 dist/
+!lifecycle_rs/hub/ui/dist/
+!lifecycle_rs/hub/ui/dist/**
+!lifecycle_rs/release-hub/ui/dist/
+!lifecycle_rs/release-hub/ui/dist/**
 downloads/
 eggs/
 .eggs/

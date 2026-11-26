@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useReducer, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import { AgentWorkspaceNav } from "../components/agent-workspace-nav";
+import { StatusBadge } from "../components/status-badge";
 import { UnavailableState } from "../components/ui";
 import { agentStreamDescriptor, useAgentStream } from "../hooks/use-agent-stream";
 import {
@@ -327,14 +328,13 @@ export function AgentsRoute({ client }: Props) {
           </p>
         </div>
         <div class="agents-meta">
-          <span class={`agents-conn conn-${status}`}>
-            {status !== "open" && activitySnapshotAvailable
+          <StatusBadge
+            tone={status === "open" ? "live" : status === "closed" ? "sre" : "neutral"}
+            label={status !== "open" && activitySnapshotAvailable
               ? t("agents.roster.metric.lastStateRetained")
               : t(`agents.connection.${status}`)}
-          </span>
-          <span class="status-pill status-pill-neutral">
-            {observationSourceLabel(observationSource)}
-          </span>
+          />
+          <StatusBadge tone="neutral" label={observationSourceLabel(observationSource)} noDot />
           <span class="agents-active">
             {t("agents.header.engaged", { count: active ?? "-" })}
           </span>

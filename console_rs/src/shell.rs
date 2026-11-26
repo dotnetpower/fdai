@@ -6,11 +6,59 @@ use axum::{
 };
 use serde_json::{json, Value};
 
-/// Maps a canonical FDAI Console v4 panel ID to its unique clean HTTP path (zero `#tab=`).
+/// Maps a canonical FDAI Console v4 panel ID to its unique domain-scoped HTTP path (zero `#tab=`).
 pub fn canonical_panel_path(panel_id: &str) -> String {
     match panel_id {
         "command-deck-chat" => "/chat".to_string(),
+        "agents" => "/agents".to_string(),
         "labs" => "/labs".to_string(),
+        "dashboard"
+        | "dashboard-v2"
+        | "operating-outcomes"
+        | "control-assurance"
+        | "verticals"
+        | "cost-governance"
+        | "llm-cost" => format!("/overview/{panel_id}"),
+        "live"
+        | "gpu"
+        | "incidents"
+        | "code-security"
+        | "vulnerability-risk"
+        | "configuration-baselines"
+        | "hil-queue"
+        | "alert-quality"
+        | "detection-readiness"
+        | "conversation-delivery"
+        | "workflow-apps"
+        | "automation-blueprints"
+        | "processes"
+        | "scheduler-runs"
+        | "background-tasks"
+        | "scheduled-continuations"
+        | "provision"
+        | "onboarding" => format!("/operations/{panel_id}"),
+        "pantheon" | "handover" | "agent-activity" | "skills" | "capabilities" => {
+            format!("/agents/{panel_id}")
+        }
+        "rules"
+        | "trust-routing"
+        | "ontology"
+        | "scope"
+        | "architecture"
+        | "blast-radius"
+        | "promotion-gates"
+        | "workflow-builder"
+        | "knowledge"
+        | "github"
+        | "gitlab"
+        | "azure-devops"
+        | "documents" => format!("/governance/{panel_id}"),
+        "audit"
+        | "trace"
+        | "rca"
+        | "browser-evidence"
+        | "conversation-search"
+        | "reports" => format!("/evidence/{panel_id}"),
         "aks-commerce"
         | "assurance-twin"
         | "forecast-learning"
@@ -101,7 +149,7 @@ pub fn finalize_v4_html(
         .replace("mockup-settings-labs.html", "/settings")
         .replace("mockup-chat.html", "/chat")
         .replace("overview-components.html", "/components")
-        .replace("overview-amethyst-teal.html", "/dashboard");
+        .replace("overview-amethyst-teal.html", "/overview/dashboard");
     let rewritten = rewrite_hash_tab_links(&base_rewritten);
 
     let bootstrap_obj = json!({

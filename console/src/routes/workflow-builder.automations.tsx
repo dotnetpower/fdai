@@ -1,4 +1,5 @@
 import { useState } from "preact/hooks";
+import { SelectField, TextInput } from "../components/form-controls";
 import {
   createWorkflowBinding,
   deleteWorkflowBinding,
@@ -186,54 +187,45 @@ export function WorkflowAutomations({
               ? t("workflow.automations.useWorkflow", { workflow: selectedDefinition.workflow_name })
               : t("workflow.automations.selectDefinition")}
           </strong>
-          <label>
-            <span>{t("workflow.automations.trigger")}</span>
-            <select
-              value={trigger}
-              disabled={selectedDefinition === null}
-              onChange={(event) => setTrigger(event.currentTarget.value as typeof trigger)}
-            >
-              <option value="deck_open">{t("workflow.automations.deckOpen")}</option>
-              <option value="schedule">{t("workflow.automations.schedule")}</option>
-              <option value="signal">{t("workflow.automations.signal")}</option>
-            </select>
-          </label>
+          <SelectField
+            label={t("workflow.automations.trigger")}
+            value={trigger}
+            disabled={selectedDefinition === null}
+            options={[
+              { value: "deck_open", label: t("workflow.automations.deckOpen") },
+              { value: "schedule", label: t("workflow.automations.schedule") },
+              { value: "signal", label: t("workflow.automations.signal") },
+            ]}
+            onChange={(next) => setTrigger(next as typeof trigger)}
+          />
           {trigger === "schedule" ? (
             <>
-              <label>
-                <span>{t("workflow.automations.cronExpression")}</span>
-                <input
-                  class="form-input mono"
-                  value={cronExpression}
-                  aria-invalid={!cronValid}
-                  aria-describedby="workflow-binding-cron-hint"
-                  onInput={(event) => setCronExpression(event.currentTarget.value)}
-                />
-                <small id="workflow-binding-cron-hint" class={cronValid ? undefined : "error-text"}>
-                  {cronValid
-                    ? schedulePreview
-                      ? t("workflow.automations.cronPreview", { description: schedulePreview })
-                      : null
-                    : t("workflow.automations.cronInvalid")}
-                </small>
-              </label>
-              <label>
-                <span>{t("workflow.automations.timezone")}</span>
-                <input
-                  class="form-input"
-                  value={timezone}
-                  aria-describedby="workflow-binding-timezone-hint"
-                  onInput={(event) => setTimezone(event.currentTarget.value)}
-                />
-                <small id="workflow-binding-timezone-hint">{t("workflow.automations.timezoneHint")}</small>
-              </label>
+              <TextInput
+                label={t("workflow.automations.cronExpression")}
+                value={cronExpression}
+                mono
+                {...(!cronValid ? { error: t("workflow.automations.cronInvalid") } : {})}
+                {...(cronValid && schedulePreview
+                  ? { hint: t("workflow.automations.cronPreview", { description: schedulePreview }) }
+                  : {})}
+                onInput={setCronExpression}
+              />
+              <TextInput
+                label={t("workflow.automations.timezone")}
+                value={timezone}
+                hint={t("workflow.automations.timezoneHint")}
+                onInput={setTimezone}
+              />
             </>
           ) : null}
           {trigger === "signal" ? (
-            <label>
-              <span>{t("workflow.automations.signalType")}</span>
+            <div class="cs-field">
+              <label for="workflow-binding-signal-input" class="cs-field-label">
+                <span>{t("workflow.automations.signalType")}</span>
+              </label>
               <input
-                class="form-input mono"
+                id="workflow-binding-signal-input"
+                class="cs-field-control cs-field-control--mono"
                 list="workflow-binding-signals"
                 value={signalType}
                 aria-describedby="workflow-binding-signal-hint"
@@ -244,8 +236,8 @@ export function WorkflowAutomations({
                   <option key={option.value} value={option.value}>{signalLabel(option.value)}</option>
                 ))}
               </datalist>
-              <small id="workflow-binding-signal-hint">{t("workflow.automations.signalHint")}</small>
-            </label>
+              <span id="workflow-binding-signal-hint" class="cs-field-hint">{t("workflow.automations.signalHint")}</span>
+            </div>
           ) : null}
           <button
             type="button"

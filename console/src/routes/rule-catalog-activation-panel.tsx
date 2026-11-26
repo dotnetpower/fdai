@@ -1,4 +1,5 @@
 import { useState } from "preact/hooks";
+import { TextareaField } from "../components/form-controls";
 import { ErrorState, LoadingState, StatusPill } from "../components/ui";
 import { formatConsoleTimestamp } from "../time-format";
 import { displayValue, t } from "./i18n/governance";
@@ -119,21 +120,22 @@ function ActivationRequestForm({
   return (
     <DetailSection title={t("governance.rules.activation.requestTitle")}>
       <form class="rule-activation-form" onSubmit={(event) => void submit(event)}>
-        <label>
-          <span>{t("governance.rules.activation.reason")} ({reason.trim().length}/1000)</span>
-          <textarea
+        <div
+          onKeyDown={(event) => {
+            if ((event.ctrlKey || event.metaKey) && event.key === "Enter" && reason.trim().length >= 20 && state !== "submitting") {
+              void submit(event);
+            }
+          }}
+        >
+          <TextareaField
+            label={t("governance.rules.activation.reason")}
             required
-            minLength={20}
             maxLength={1000}
+            showCounter
             value={reason}
-            onInput={(event) => setReason((event.target as HTMLTextAreaElement).value)}
-            onKeyDown={(event) => {
-              if ((event.ctrlKey || event.metaKey) && event.key === "Enter" && reason.trim().length >= 20 && state !== "submitting") {
-                void submit(event);
-              }
-            }}
+            onInput={setReason}
           />
-        </label>
+        </div>
         <button class="btn primary" type="submit" disabled={state === "submitting" || reason.trim().length < 20}>
           {targetEnabled
             ? t("governance.rules.activation.requestEnable")

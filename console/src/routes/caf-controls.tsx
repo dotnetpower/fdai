@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
+import {
+  RuleFacetToolbar,
+  buildFacetSelectOptions,
+} from "../components/rule-facet-toolbar";
 import { Tooltip } from "../components/tooltip";
 import {
   CopyButton,
@@ -30,7 +34,7 @@ import {
 } from "./caf-controls.model";
 import { displayValue, t } from "./i18n/governance";
 import { frameworkDisplayTitle } from "./reference-images.catalog";
-import { DetailRow, DetailSection, FacetSelect } from "./rule-catalog-components";
+import { DetailRow, DetailSection } from "./rule-catalog-components";
 import { guidanceText, verifyWaraGuidanceDigest } from "./wara-guidance.model";
 import { verifyFrameworkGuidanceDigest } from "./framework-guidance.model";
 import { FrameworkGuidanceContent } from "./framework-guidance";
@@ -353,27 +357,58 @@ function CafControlsBody({
         <KpiCard href="#caf-control-table" label={t("governance.rules.caf.kpi.evidenceReady")} value={evidenceReady} />
       </KpiGrid>
       <section class="stack-section">
-        <div class="rule-facet-toolbar">
-          <FacetSelect label={t("governance.rules.caf.filter.area")} value={filters.area} counts={facet("by_area")} displayGroup="cafArea" onChange={(area) => onFilter({ area })} />
-          <FacetSelect label={t("governance.rules.caf.filter.applicability")} value={filters.applicability} counts={facet("by_applicability")} displayGroup="controlStatus" onChange={(applicability) => onFilter({ applicability })} />
-          <FacetSelect label={t("governance.rules.caf.filter.satisfaction")} value={filters.satisfaction} counts={facet("by_satisfaction")} displayGroup="controlStatus" onChange={(satisfaction) => onFilter({ satisfaction })} />
-          <label class="rule-facet-search">
-            <span class="sr-only">{t("governance.rules.caf.filter.searchAria")}</span>
-            <input type="search" maxLength={256} value={searchInput} placeholder={t("governance.rules.caf.filter.searchPlaceholder")} onInput={(event) => onSearch((event.target as HTMLInputElement).value)} />
-          </label>
-          {Boolean(filters.area || filters.applicability || filters.satisfaction || filters.q || searchInput) ? (
-            <button
-              type="button"
-              class="btn"
-              onClick={() => {
-                onSearch("");
-                onFilter(EMPTY_FILTERS);
-              }}
-            >
-              {t("governance.common.clearFilter")}
-            </button>
-          ) : null}
-        </div>
+        <RuleFacetToolbar
+          ariaLabel={t("governance.rules.caf.filter.searchAria")}
+          search={{
+            label: t("governance.rules.caf.filter.searchAria"),
+            hideLabel: true,
+            value: searchInput,
+            maxLength: 256,
+            placeholder: t("governance.rules.caf.filter.searchPlaceholder"),
+            clearLabel: t("governance.common.clearFilter"),
+            onInput: onSearch,
+          }}
+          facets={[
+            {
+              id: "caf-facet-area",
+              label: t("governance.rules.caf.filter.area"),
+              value: filters.area,
+              options: buildFacetSelectOptions(
+                facet("by_area"),
+                t("governance.common.all"),
+                (key) => displayValue("cafArea", key),
+              ),
+              onChange: (area) => onFilter({ area }),
+            },
+            {
+              id: "caf-facet-applicability",
+              label: t("governance.rules.caf.filter.applicability"),
+              value: filters.applicability,
+              options: buildFacetSelectOptions(
+                facet("by_applicability"),
+                t("governance.common.all"),
+                (key) => displayValue("controlStatus", key),
+              ),
+              onChange: (applicability) => onFilter({ applicability }),
+            },
+            {
+              id: "caf-facet-satisfaction",
+              label: t("governance.rules.caf.filter.satisfaction"),
+              value: filters.satisfaction,
+              options: buildFacetSelectOptions(
+                facet("by_satisfaction"),
+                t("governance.common.all"),
+                (key) => displayValue("controlStatus", key),
+              ),
+              onChange: (satisfaction) => onFilter({ satisfaction }),
+            },
+          ]}
+          resetLabel={t("governance.common.clearFilter")}
+          onReset={() => {
+            onSearch("");
+            onFilter(EMPTY_FILTERS);
+          }}
+        />
         <div class="table-toolbar">
           <p class="muted">{t("governance.rules.caf.result.showing", { filtered: data.filtered_total, total: data.total })}{loading ? t("governance.rules.result.updating") : ""}</p>
         </div>

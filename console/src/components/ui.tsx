@@ -381,7 +381,11 @@ export type PillKind =
   | "shadow"
   | "enforce"
   | "hil"
-  | "auto";
+  | "auto"
+  | "live"
+  | "sre"
+  | "sec"
+  | "human";
 
 export interface StatusPillProps {
   readonly kind: PillKind;

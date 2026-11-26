@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
+import { TextInput } from "../components/form-controls";
 import {
   AsyncBoundary,
   PageHeader,
@@ -185,20 +186,18 @@ export function RcaRoute({ client }: Props) {
             }
           }}
         >
-          <label class="rca-lookup-field">
-            <span>{rcaText("correlationLabel")}</span>
-            <input
-              ref={lookupInput}
-              type="text"
-              maxLength={MAX_RCA_CORRELATION_ID_LENGTH}
-              value={draftCorrelationId}
-              aria-describedby="rca-lookup-help"
-              onInput={(event) => setDraftCorrelationId(
-                (event.target as HTMLInputElement).value,
-              )}
-              required
-            />
-          </label>
+          <TextInput
+            type="text"
+            inputRef={lookupInput}
+            label={rcaText("correlationLabel")}
+            value={draftCorrelationId}
+            maxLength={MAX_RCA_CORRELATION_ID_LENGTH}
+            mono
+            required
+            hint={rcaText("lookupHelp")}
+            className="rca-lookup-field"
+            onInput={setDraftCorrelationId}
+          />
           <button
             type="submit"
             class="btn primary"
@@ -212,7 +211,6 @@ export function RcaRoute({ client }: Props) {
           >
             {rcaText("fetch")}
           </button>
-          <small id="rca-lookup-help">{rcaText("lookupHelp")}</small>
         </form>
       </section>
       {state.status === "ready" ? null : (

@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fdai-operator-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: fdai-operator-service
+  template:
+    metadata:
+      labels:
+        app: fdai-operator-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8010"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: operator
+          image: fdai-operator-service:distroless
+          ports:
+            - containerPort: 8010
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8010
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8010
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]

@@ -61,7 +61,7 @@ jobs:
             git fetch --force origin main --tags
             git checkout -B automatic-version origin/main
 
-            version="$(python3 scripts/automation/next-version.py)"
+            version="$(python3 _archive/python/scripts/automation/next-version.py)"
             tag="v${version}"
             echo "Preparing ${tag} (attempt ${attempt}/${MAX_PUSH_ATTEMPTS})"
 

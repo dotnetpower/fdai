@@ -1,0 +1,205 @@
+/* AgentRosterTable: high-density 15-agent pantheon roster table (>= 12px, no accent rails). */
+.cs-agent-roster-table-wrap {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  border: 1px solid var(--cs-hairline, var(--border));
+  border-radius: var(--cs-radius, 8px);
+  background: var(--cs-card, var(--bg-elevated));
+  box-shadow: var(--cs-shadow-card, none);
+}
+
+.cs-agent-roster-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--cs-type-compact-size, 13px);
+  line-height: 1.45;
+  color: var(--cs-text, var(--fg));
+}
+
+.cs-agent-roster-table thead th {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--cs-hairline, var(--border));
+  background: var(--cs-card-subtle, var(--cs-shade));
+  color: var(--cs-text-soft, var(--fg-muted));
+  font-size: var(--cs-type-label-size, 12px);
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.cs-agent-roster-table tbody td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--cs-hairline-soft, var(--cs-hairline, var(--border)));
+  vertical-align: top;
+  min-width: 0;
+}
+
+.cs-agent-roster-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.cs-agent-roster-table tbody tr:hover {
+  background: var(--cs-shade, rgba(16, 24, 40, 0.02));
+}
+
+.cs-agent-roster-identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 180px;
+}
+
+.cs-agent-roster-avatar {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--cs-hairline, var(--border));
+  border-radius: var(--cs-radius-sm, 6px);
+  background: var(--cs-shade, var(--bg-subtle));
+  color: var(--cs-text-soft, var(--fg-muted));
+}
+
+.cs-agent-roster-avatar .agent-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.cs-agent-roster-name {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cs-agent-roster-name strong {
+  font-size: var(--cs-type-body-size, 14px);
+  font-weight: 600;
+  color: var(--cs-text, var(--fg));
+}
+
+.cs-agent-roster-role {
+  color: var(--cs-text-soft, var(--fg-muted));
+  font-size: var(--cs-type-label-size, 12px);
+  overflow-wrap: anywhere;
+}
+
+.cs-agent-roster-layer {
+  color: var(--cs-text-soft, var(--fg-muted));
+  font-size: var(--cs-type-label-size, 12px);
+  white-space: nowrap;
+}
+
+.cs-agent-roster-work {
+  display: grid;
+  gap: 6px;
+  min-width: 220px;
+  max-width: 420px;
+}
+
+.cs-agent-roster-work-text {
+  margin: 0;
+  font-size: var(--cs-type-compact-size, 13px);
+  color: var(--cs-text, var(--fg));
+  overflow-wrap: anywhere;
+}
+
+.cs-agent-roster-meta {
+  color: var(--cs-text-soft, var(--fg-muted));
+  font-size: var(--cs-type-label-size, 12px);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cs-agent-roster-details {
+  font-size: var(--cs-type-label-size, 12px);
+}
+
+.cs-agent-roster-details > summary {
+  color: var(--cs-steel, var(--accent));
+  font-size: var(--cs-type-label-size, 12px);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cs-agent-roster-details-body {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--cs-hairline-soft, var(--cs-hairline, var(--border)));
+}
+
+.cs-agent-roster-details-summary {
+  margin: 0;
+  color: var(--cs-text-soft, var(--fg-muted));
+  font-size: var(--cs-type-label-size, 12px);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.cs-agent-roster-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+  margin: 0;
+}
+
+.cs-agent-roster-facts dt {
+  color: var(--cs-text-soft, var(--fg-muted));
+  font-size: var(--cs-type-label-size, 12px);
+  font-weight: 600;
+}
+
+.cs-agent-roster-facts dd {
+  margin: 2px 0 0;
+  color: var(--cs-text, var(--fg));
+  font-size: var(--cs-type-label-size, 12px);
+  overflow-wrap: anywhere;
+}
+
+.cs-agent-roster-owns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.cs-agent-roster-owns code {
+  padding: 1px 6px;
+  border: 1px solid var(--cs-hairline, var(--border));
+  border-radius: 4px;
+  background: var(--cs-shade, var(--bg-subtle));
+  font-family: var(--cs-font-mono, monospace);
+  font-size: var(--cs-type-label-size, 12px);
+}
+
+.cs-agent-roster-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cs-agent-roster-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 190px;
+}
+
+.cs-agent-roster-actions .cs-control-button {
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: var(--cs-type-label-size, 12px);
+}
+
+@media (max-width: 720px) {
+  .cs-agent-roster-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cs-agent-roster-actions .cs-control-button {
+    min-height: 44px;
+  }
+}

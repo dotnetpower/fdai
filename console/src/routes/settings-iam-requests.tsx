@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
+import { SearchInput, SelectField, TextInput } from "../components/form-controls";
 import { DataTable, StatusPill, type PillKind } from "../components/ui";
 import { t } from "../i18n";
 import { formatConsoleTimestamp } from "../time-format";
@@ -94,16 +95,23 @@ export function AccessRequestsView({
       </div>
       {receipt ? <p role="status">{receipt}</p> : null}
       <div class="settings-actions">
-        <label>{settingsIamText("requestStatusFilter")}
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.currentTarget.value)}>
-            <option value="all">{settingsIamText("allRequests")}</option>
-            {(["pending", "approved", "rejected"] as const).map((value) =>
-              <option key={value} value={value}>{t(`settings.iam.statusValue.${value}`)}</option>)}
-          </select>
-        </label>
-        <label>{settingsIamText("requestSearch")}
-          <input type="search" value={query} onInput={(event) => setQuery(event.currentTarget.value)} />
-        </label>
+        <SelectField
+          label={settingsIamText("requestStatusFilter")}
+          value={statusFilter}
+          options={[
+            { value: "all", label: settingsIamText("allRequests") },
+            ...(["pending", "approved", "rejected"] as const).map((value) => ({
+              value,
+              label: t(`settings.iam.statusValue.${value}`),
+            })),
+          ]}
+          onChange={setStatusFilter}
+        />
+        <SearchInput
+          label={settingsIamText("requestSearch")}
+          value={query}
+          onInput={setQuery}
+        />
         {query || statusFilter !== "all" ? <button type="button" class="secondary" onClick={() => {
           setQuery(""); setStatusFilter("all");
         }}>{settingsIamText("clearFilters")}</button> : null}
@@ -268,7 +276,6 @@ function RequestReviewActions({ item, reviewerOid, auth, client, reload, onRevie
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const justificationLength = justification.trim().length;
-  const helpId = `review-justification-${item.requestId}`;
   const selfReview = !canReviewAccessRequest(item, reviewerOid);
   const pending = useRef(false);
 
@@ -299,18 +306,16 @@ function RequestReviewActions({ item, reviewerOid, auth, client, reload, onRevie
 
   return (
     <div class="settings-request-review">
-      <input
-        aria-label={t("settings.iam.reviewJustification")}
-        aria-describedby={helpId}
+      <TextInput
+        label={t("settings.iam.reviewJustification")}
+        hideLabel
         maxLength={2000}
         disabled={submitting || selfReview || stale}
         value={justification}
         placeholder={t("settings.iam.reviewJustification")}
-        onInput={(event) => setJustification(event.currentTarget.value)}
+        hint={t("settings.iam.reviewJustificationHint", { count: justificationLength })}
+        onInput={setJustification}
       />
-      <small id={helpId} class="settings-review-hint">
-        {t("settings.iam.reviewJustificationHint", { count: justificationLength })}
-      </small>
       <div>
         <button
           type="button"

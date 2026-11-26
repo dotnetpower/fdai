@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
+import { SelectField, type SelectOptionGroup } from "../components/form-controls";
 import { SearchableSelect, type SearchableSelectOption } from "../components/searchable-select";
 import { Tooltip } from "../components/tooltip";
 import { ArchitectureInspector } from "../components/architecture-inspector";
@@ -109,6 +110,18 @@ export function ArchitectureWorkbench({
     [graph.resources],
   );
   const views = graph.views ?? [];
+  const viewGroups = useMemo<readonly SelectOptionGroup[]>(() => {
+    const groups: SelectOptionGroup[] = [];
+    for (const kind of ["fdai", "service", "resource_group"] as const) {
+      const scopedViews = views.filter((view) => view.kind === kind);
+      if (scopedViews.length === 0) continue;
+      groups.push({
+        label: t(kind === "fdai" ? "viewGroup.fdai" : kind === "service" ? "viewGroup.service" : "viewGroup.resourceGroup"),
+        options: scopedViews.map((view) => ({ value: view.id, label: view.label })),
+      });
+    }
+    return groups;
+  }, [views]);
 
   useEffect(() => {
     if (selectedId !== null || mode === "network") setInspectorOpen(true);
@@ -123,23 +136,13 @@ export function ArchitectureWorkbench({
     <section class="architecture-surface" aria-label={t("workbench.title")}>
       <div class={`architecture-toolbar${views.length === 0 ? " is-scope-less" : ""}`}>
         {views.length > 0 ? (
-          <label class="architecture-toolbar-field">
-            <span>{t("scope")}</span>
-            <select
-              value={graph.active_view ?? views[0]?.id ?? ""}
-              onChange={(event) => onViewScopeChange(event.currentTarget.value)}
-            >
-              {(["fdai", "service", "resource_group"] as const).map((kind) => {
-                const scopedViews = views.filter((view) => view.kind === kind);
-                if (scopedViews.length === 0) return null;
-                return (
-                  <optgroup label={t(kind === "fdai" ? "viewGroup.fdai" : kind === "service" ? "viewGroup.service" : "viewGroup.resourceGroup")}>
-                    {scopedViews.map((view) => <option value={view.id}>{view.label}</option>)}
-                  </optgroup>
-                );
-              })}
-            </select>
-          </label>
+          <SelectField
+            label={t("scope")}
+            value={graph.active_view ?? views[0]?.id ?? ""}
+            groups={viewGroups}
+            className="architecture-toolbar-field"
+            onChange={onViewScopeChange}
+          />
         ) : null}
         <SearchableSelect
           label={t("workbench.resource")}

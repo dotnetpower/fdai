@@ -1,0 +1,163 @@
+{
+  "$defs": {
+    "IntentServiceProperties": {
+      "additionalProperties": false,
+      "description": "The scalar BusinessService declaration, not arbitrary graph properties.",
+      "properties": {
+        "id": {
+          "pattern": "^service:[A-Za-z0-9_.:-]{1,180}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "criticality": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Criticality",
+          "type": "string"
+        },
+        "effective_from": {
+          "format": "date-time",
+          "title": "Effective From",
+          "type": "string"
+        },
+        "effective_to": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effective To"
+        },
+        "source_ref": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Source Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "criticality",
+        "effective_from",
+        "source_ref"
+      ],
+      "title": "IntentServiceProperties",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A human approves this complete immutable diff, never an envelope's indexing permission.",
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "authority": {
+      "const": "declared_intent",
+      "default": "declared_intent",
+      "title": "Authority",
+      "type": "string"
+    },
+    "object_type": {
+      "const": "BusinessService",
+      "default": "BusinessService",
+      "title": "Object Type",
+      "type": "string"
+    },
+    "operation": {
+      "enum": [
+        "add",
+        "update"
+      ],
+      "title": "Operation",
+      "type": "string"
+    },
+    "document_id": {
+      "format": "uuid",
+      "title": "Document Id",
+      "type": "string"
+    },
+    "version_id": {
+      "format": "uuid",
+      "title": "Version Id",
+      "type": "string"
+    },
+    "source_revision": {
+      "minimum": 1,
+      "title": "Source Revision",
+      "type": "integer"
+    },
+    "source_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Source Digest",
+      "type": "string"
+    },
+    "envelope_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Envelope Digest",
+      "type": "string"
+    },
+    "acl_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Acl Digest",
+      "type": "string"
+    },
+    "ontology_release": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Ontology Release",
+      "type": "string"
+    },
+    "expected_revision": {
+      "minimum": 0,
+      "title": "Expected Revision",
+      "type": "integer"
+    },
+    "scope_ref": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Scope Ref",
+      "type": "string"
+    },
+    "requester_ref": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Requester Ref",
+      "type": "string"
+    },
+    "properties": {
+      "$ref": "#/$defs/IntentServiceProperties"
+    }
+  },
+  "required": [
+    "operation",
+    "document_id",
+    "version_id",
+    "source_revision",
+    "source_digest",
+    "envelope_digest",
+    "acl_digest",
+    "ontology_release",
+    "expected_revision",
+    "scope_ref",
+    "requester_ref",
+    "properties"
+  ],
+  "title": "DocumentIntentDiff",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/document-intent-diff/1.0.0"
+}

@@ -1,5 +1,7 @@
 import { Fragment } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { FilterToolbar, SearchInput, SelectField } from "../components/form-controls";
+import { StatusBadge, type BadgeTone } from "../components/status-badge";
 import { Tooltip } from "../components/tooltip";
 import { useContentUpdatePulse } from "../hooks/use-content-update-pulse";
 import type { AgentStreamStatus } from "../hooks/use-agent-stream";
@@ -186,65 +188,63 @@ export function AgentTrajectories({
     window.requestAnimationFrame(() => titleRef.current?.focus());
   };
 
+  const activeFilterCount = (selectedAgent ? 1 : 0)
+    + (query.trim().length > 0 ? 1 : 0)
+    + (correlationFilter ? 1 : 0);
+
   return (
     <section class="aa-trajectories" aria-label={t("agentActivity.trajectory.label")}>
-      <div class="tj-filters" role="search">
-        <label class="cs-control-field">
-          <span class="cs-control-label">{t("agentActivity.log.agent")}</span>
-          <select
-            class="cs-control-select"
-            value={selectedAgent ?? ""}
-            onChange={(event) => onAgentChange(event.currentTarget.value || null)}
-          >
-            <option value="">{t("agentActivity.log.allAgents")}</option>
-            {agents.map((agent) => <option key={agent} value={agent}>{agent}</option>)}
-          </select>
-        </label>
-        <label class="cs-control-field tj-find">
-          <span class="cs-control-label">{t("agentActivity.log.find")}</span>
-          <input
-            class="cs-control-input"
-            type="search"
-            value={query}
-            placeholder={t("agentActivity.trajectory.findPlaceholder")}
-            onInput={(event) => onQueryChange(event.currentTarget.value)}
-          />
-        </label>
-        <label class="cs-control-field tj-correlation-field">
-          <span class="cs-control-label">{t("agentActivity.trajectory.correlation")}</span>
-          <select
-            class="cs-control-select"
-            value={correlationFilter}
-            onChange={(event) => {
-              const next = event.currentTarget.value;
-              setCorrelationFilter(next);
-              if (next) select(next);
-            }}
-          >
-            <option value="">{t("agentActivity.trajectory.allCorrelations")}</option>
-            {correlations.map((id) => (
-              <option key={id} value={id}>
-                {id.length > 36 ? `${id.slice(0, 24)}...${id.slice(-8)}` : id}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="button"
-          class="cs-control-button is-quiet tj-clear-btn"
-          onClick={() => {
-            setCorrelationFilter("");
-            if (onClearFilters) {
-              onClearFilters();
-              return;
-            }
-            onAgentChange(null);
-            onQueryChange("");
+      <FilterToolbar
+        ariaLabel={t("agentActivity.trajectory.label")}
+        activeFilterCount={activeFilterCount}
+        onReset={() => {
+          setCorrelationFilter("");
+          if (onClearFilters) {
+            onClearFilters();
+            return;
+          }
+          onAgentChange(null);
+          onQueryChange("");
+        }}
+        resetLabel={t("agentActivity.trajectory.clearFilters")}
+        className="tj-filters"
+      >
+        <SelectField
+          label={t("agentActivity.log.agent")}
+          value={selectedAgent ?? ""}
+          size="sm"
+          options={[
+            { value: "", label: t("agentActivity.log.allAgents") },
+            ...agents.map((agent) => ({ value: agent, label: agent })),
+          ]}
+          onChange={(value) => onAgentChange(value || null)}
+        />
+        <SearchInput
+          label={t("agentActivity.log.find")}
+          value={query}
+          placeholder={t("agentActivity.trajectory.findPlaceholder")}
+          size="sm"
+          className="tj-find"
+          onInput={onQueryChange}
+        />
+        <SelectField
+          label={t("agentActivity.trajectory.correlation")}
+          value={correlationFilter}
+          size="sm"
+          className="tj-correlation-field"
+          options={[
+            { value: "", label: t("agentActivity.trajectory.allCorrelations") },
+            ...correlations.map((id) => ({
+              value: id,
+              label: id.length > 36 ? `${id.slice(0, 24)}...${id.slice(-8)}` : id,
+            })),
+          ]}
+          onChange={(next) => {
+            setCorrelationFilter(next);
+            if (next) select(next);
           }}
-        >
-          {t("agentActivity.trajectory.clearFilters")}
-        </button>
-      </div>
+        />
+      </FilterToolbar>
       <p class="tj-source" role="status" aria-live="polite">
         {t("agentActivity.trajectory.count", {
           shown: shown.length,
@@ -1060,13 +1060,23 @@ function NestedObjectBlock({
   );
 }
 
+function trajectoryBadgeTone(tone: TrajectoryTone): BadgeTone {
+  if (tone === "good") return "live";
+  if (tone === "attention") return "sre";
+  if (tone === "bad") return "sec";
+  return "neutral";
+}
+
 function OutcomePill({ trajectory, large = false }: { readonly trajectory: AgentTrajectory; readonly large?: boolean }) {
+  const label = trajectory.latestOutcome
+    ? formatOutcomeLabel(trajectory.latestOutcome)
+    : t("agentActivity.trajectory.noOutcome");
   return (
-    <span class={`tj-status${large ? " tj-status-lg" : ""}`} data-tone={trajectory.tone}>
-      {trajectory.latestOutcome
-        ? formatOutcomeLabel(trajectory.latestOutcome)
-        : t("agentActivity.trajectory.noOutcome")}
-    </span>
+    <StatusBadge
+      tone={trajectoryBadgeTone(trajectory.tone)}
+      label={label}
+      className={large ? "tj-status tj-status-lg" : "tj-status"}
+    />
   );
 }
 

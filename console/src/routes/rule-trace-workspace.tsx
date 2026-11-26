@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
+import { DisclosurePanel } from "../components/disclosure-panel";
 import { Tooltip } from "../components/tooltip";
 import { StatusPill } from "../components/ui";
 import { currentRoute, routeHref } from "../router";
@@ -126,15 +127,17 @@ export function RuleTraceWorkspace({
         />
       </section>
 
-      <details
-        class="trace-context-details"
+      <DisclosurePanel
+        {...{
+          title: t("evidence.trace.contextSummary", {
+            kind: t(`evidence.trace.discovery.kind.${data.trace_kind}`),
+            records: data.step_count,
+          }),
+        }}
+        className="trace-context-details"
         open={contextExpanded}
-        onToggle={(event) => setContextExpanded(event.currentTarget.open)}
+        onToggle={setContextExpanded}
       >
-        <summary>{t("evidence.trace.contextSummary", {
-          kind: t(`evidence.trace.discovery.kind.${data.trace_kind}`),
-          records: data.step_count,
-        })}</summary>
         <dl class="trace-context-strip">
           <TraceContext
             label={t("evidence.trace.traceKind")}
@@ -183,7 +186,7 @@ export function RuleTraceWorkspace({
               : formatConsoleTimestamp(loadedAt)}
           />
         </dl>
-      </details>
+      </DisclosurePanel>
 
       {toolbar}
 
@@ -273,10 +276,12 @@ export function RuleTraceWorkspace({
 
       <TraceActionLifecycleSection lifecycles={lifecycles} />
 
-      <details class="trace-timeline-details">
-        <summary>{t("evidence.trace.timelineDetailsCount", { count: data.step_count })}</summary>
+      <DisclosurePanel
+        {...{ title: t("evidence.trace.timelineDetailsCount", { count: data.step_count }) }}
+        className="trace-timeline-details"
+      >
         <TraceTimeline correlationId={data.correlation_id} steps={data.steps} />
-      </details>
+      </DisclosurePanel>
     </div>
   );
 }

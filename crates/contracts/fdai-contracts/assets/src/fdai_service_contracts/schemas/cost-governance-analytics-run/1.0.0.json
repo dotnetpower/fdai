@@ -1,0 +1,260 @@
+{
+  "$defs": {
+    "CostAnalyticsRunStatus": {
+      "description": "Terminal state of one scheduled Cost Analytics attempt.",
+      "enum": [
+        "complete",
+        "partial",
+        "failed",
+        "disabled"
+      ],
+      "title": "CostAnalyticsRunStatus",
+      "type": "string"
+    },
+    "CostEvidenceSourceFacet": {
+      "additionalProperties": false,
+      "description": "Bounded source-level window and completeness evidence.",
+      "properties": {
+        "source_authority": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Source Authority",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/CostEvidenceState"
+        },
+        "window_start_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Window Start At"
+        },
+        "window_end_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Window End At"
+        },
+        "latest_source_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latest Source At"
+        },
+        "complete_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Complete Count",
+          "type": "integer"
+        },
+        "partial_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Partial Count",
+          "type": "integer"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "source_authority",
+        "state"
+      ],
+      "title": "CostEvidenceSourceFacet",
+      "type": "object"
+    },
+    "CostEvidenceState": {
+      "description": "Completeness state for one authoritative source or read surface.",
+      "enum": [
+        "complete",
+        "partial",
+        "unavailable"
+      ],
+      "title": "CostEvidenceState",
+      "type": "string"
+    }
+  },
+  "$id": "https://fdai.example/schemas/cost-governance-analytics-run/1.0.0.json",
+  "additionalProperties": false,
+  "description": "Content-free durable receipt for one scheduled analytics attempt.",
+  "properties": {
+    "type": {
+      "const": "cost-governance.analytics-run",
+      "default": "cost-governance.analytics-run",
+      "title": "Type",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "run_id": {
+      "pattern": "^costrun:[0-9a-f]{64}$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "receipt_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Receipt Digest",
+      "type": "string"
+    },
+    "scope_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Scope Digest",
+      "type": "string"
+    },
+    "venue": {
+      "enum": [
+        "local",
+        "deployed"
+      ],
+      "title": "Venue",
+      "type": "string"
+    },
+    "window_start_at": {
+      "format": "date-time",
+      "title": "Window Start At",
+      "type": "string"
+    },
+    "window_end_at": {
+      "format": "date-time",
+      "title": "Window End At",
+      "type": "string"
+    },
+    "started_at": {
+      "format": "date-time",
+      "title": "Started At",
+      "type": "string"
+    },
+    "finished_at": {
+      "format": "date-time",
+      "title": "Finished At",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/CostAnalyticsRunStatus"
+    },
+    "sources": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/CostEvidenceSourceFacet"
+      },
+      "maxItems": 8,
+      "title": "Sources",
+      "type": "array"
+    },
+    "observation_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Observation Count",
+      "type": "integer"
+    },
+    "trend_point_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Trend Point Count",
+      "type": "integer"
+    },
+    "budget_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Budget Count",
+      "type": "integer"
+    },
+    "recommendation_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Recommendation Count",
+      "type": "integer"
+    },
+    "utilization_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Utilization Count",
+      "type": "integer"
+    },
+    "limitations": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 32,
+      "title": "Limitations",
+      "type": "array"
+    },
+    "failure_reason": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Failure Reason"
+    },
+    "snapshot_id": {
+      "anyOf": [
+        {
+          "pattern": "^analytics:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Snapshot Id"
+    }
+  },
+  "required": [
+    "run_id",
+    "receipt_digest",
+    "scope_digest",
+    "venue",
+    "window_start_at",
+    "window_end_at",
+    "started_at",
+    "finished_at",
+    "status"
+  ],
+  "title": "CostAnalyticsRunReceipt",
+  "type": "object"
+}

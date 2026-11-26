@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>FDAI Console - 전체 현황 / 컴포넌트 카탈로그 (Deep Amethyst &amp; Teal)</title>
+  <title>FDAI 운영 콘솔 — 컴포넌트 카탈로그</title>
   <link rel="icon" type="image/svg+xml" href="/brand/fdai-favicon.svg" />
   <style>
     /* =====================================================================
-       FDAI Console Component Catalog - Enterprise Precision Edition
+       FDAI Console Component Catalog — Enterprise Precision Edition
        Neutral Canvas Surface Depth + #19 Deep Amethyst & Teal
        Web-Standard Typography Floor: >= 12px everywhere, 14px base body
        ===================================================================== */
@@ -998,7 +998,7 @@
           <section class="cat-section" data-section="chat_deck">
             <div class="sec-head">
               <div>
-                <h3>채팅 UI - Command Deck</h3>
+                <h3>채팅 UI — Command Deck</h3>
                 <p><code class="inline-code">console/src/deck/</code>(41개 모듈)의 운영자 대화 워크스페이스입니다. 통합 컴포저, 슬래시 명령, 근거 추적 타임라인, 진행 중 턴 제어를 직접 테스트해 보세요.</p>
               </div>
               <span class="sec-src">command-deck-view.tsx · busy-input-controls.tsx · retrieval-trace.tsx</span>
@@ -1052,7 +1052,7 @@
                   </div>
                   <div class="chat-msg">
                     <div class="chat-bubble">
-                      <strong>검증된 근거 요약</strong> - 최근 10분간 연결 풀 대기율이 +42% 상승했고, 14일 동일 시간대 주기 대비 임계치 도달까지 약 18분이 남아 있습니다.
+                      <strong>검증된 근거 요약</strong> — 최근 10분간 연결 풀 대기율이 +42% 상승했고, 14일 동일 시간대 주기 대비 임계치 도달까지 약 18분이 남아 있습니다.
                       <div class="pill-row" style="margin-top:10px;">
                         <span class="status-pill pill-sre">metrics/prod-orders-api</span>
                         <span class="status-pill pill-live">감사 해시 Verified</span>
@@ -1147,7 +1147,7 @@
                   <button type="button" data-hub-tab="azure-devops">Azure DevOps</button>
                 </div>
                 <div class="hub-tab-preview-body" id="demoHubBody">
-                  <strong>/knowledge</strong> - 거버넌스 적용 문서와 읽기 전용 저장소 지식 원본의 연결 경계를 한눈에 확인합니다.
+                  <strong>/knowledge</strong> — 거버넌스 적용 문서와 읽기 전용 저장소 지식 원본의 연결 경계를 한눈에 확인합니다.
                 </div>
               </div>
               <div class="specimen-box">
@@ -1236,7 +1236,7 @@
               <span class="cs-skeleton cs-skel-chart" style="height:84px;" aria-label="차트 스켈레톤 프리뷰"></span>
             </div>
             <details class="trace-details">
-              <summary>접이식 상세 영역 (&lt;details&gt; - 콘솔 내 139곳 사용)</summary>
+              <summary>접이식 상세 영역 (&lt;details&gt; — 콘솔 내 139곳 사용)</summary>
               <p class="cs-help" style="margin-top:8px;">세부 감사 메타데이터, 원본 다이제스트, 규칙 평가 근거처럼 1차 요약 뒤에 두는 정보를 기본 접힘 상태로 정리합니다.</p>
             </details>
           </section>
@@ -1620,7 +1620,7 @@
         aDiv.className = "chat-msg";
         aDiv.innerHTML = `
           <div class="chat-bubble">
-            <strong>근거 기반 응답</strong> - ${replyText}
+            <strong>근거 기반 응답</strong> — ${replyText}
             <div class="pill-row" style="margin-top:10px;">
               <span class="status-pill pill-live">감사 Verified</span>
               <span class="status-pill pill-neutral">${tier}</span>
@@ -1694,11 +1694,11 @@
 
       // Hub tabs
       const HUB_COPY = {
-        knowledge: "<strong>/knowledge</strong> - 거버넌스 적용 문서와 읽기 전용 저장소 지식 원본의 연결 경계를 한눈에 확인합니다.",
-        documents: "<strong>/documents</strong> - 업로드된 문서의 격리·검사·추출·인덱싱 파이프라인과 버전을 조회합니다.",
-        github: "<strong>/github</strong> - 읽기 전용 GitHub 저장소 연결과 커밋·README 출처 증적을 확인합니다.",
-        gitlab: "<strong>/gitlab</strong> - 거버넌스 범위 내 GitLab 프로젝트 지식 연결 경계를 확인합니다.",
-        "azure-devops": "<strong>/azure-devops</strong> - Azure DevOps 저장소 지식 원본의 동기화 정책과 상태를 확인합니다."
+        knowledge: "<strong>/knowledge</strong> — 거버넌스 적용 문서와 읽기 전용 저장소 지식 원본의 연결 경계를 한눈에 확인합니다.",
+        documents: "<strong>/documents</strong> — 업로드된 문서의 격리·검사·추출·인덱싱 파이프라인과 버전을 조회합니다.",
+        github: "<strong>/github</strong> — 읽기 전용 GitHub 저장소 연결과 커밋·README 출처 증적을 확인합니다.",
+        gitlab: "<strong>/gitlab</strong> — 거버넌스 범위 내 GitLab 프로젝트 지식 연결 경계를 확인합니다.",
+        "azure-devops": "<strong>/azure-devops</strong> — Azure DevOps 저장소 지식 원본의 동기화 정책과 상태를 확인합니다."
       };
       $("demoHubTabs").querySelectorAll("button[data-hub-tab]").forEach((btn) => {
         btn.addEventListener("click", () => {

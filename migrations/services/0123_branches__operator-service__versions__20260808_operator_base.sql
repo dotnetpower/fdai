@@ -1,0 +1,4 @@
+-- Migration Revision: operator_base_20260808
+-- Down Revision: none
+-- Owner: operator-service
+-- Extracted SQL Blocks: 0

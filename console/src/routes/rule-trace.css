@@ -23,14 +23,6 @@
 }
 
 .trace-readonly-boundary {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--cs-radius-sm);
-  background: color-mix(in oklab, var(--bg-subtle) 72%, transparent);
-  color: var(--fg-muted);
   font-size: var(--cs-type-compact-size);
   line-height: var(--cs-type-compact-line-height);
 }
@@ -119,22 +111,12 @@
 }
 
 .trace-toolbar-field {
-  display: grid;
   min-width: 0;
-  gap: 5px;
 }
 
-.trace-toolbar-field > span {
-  color: var(--fg-muted);
-  font-size: var(--cs-type-label-size);
-  font-weight: 650;
-  line-height: var(--cs-type-label-line-height);
-}
-
-.trace-toolbar-field input {
-  width: 100%;
+.trace-toolbar-field .cs-field-control {
   min-height: 40px;
-  box-sizing: border-box;
+  height: 40px;
 }
 
 .trace-toolbar-links {

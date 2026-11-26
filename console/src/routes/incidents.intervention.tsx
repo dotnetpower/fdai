@@ -5,6 +5,8 @@ import type {
   IncidentInterventionBody,
   IncidentInterventionReceipt,
 } from "../api-operations-client";
+import { ActionProposalCard, type ActionProposalCardProps } from "../components/domain-primitives";
+import { SelectField, TextInput, TextareaField } from "../components/form-controls";
 import type { IncidentSummary } from "../types";
 import { t } from "./i18n/incidents";
 import { incidentDisplayTitle } from "./incidents.title";
@@ -159,69 +161,97 @@ export function IncidentIntervention({ client, incident, onAccepted }: Props) {
           </div>
           {step === "edit" ? (
             <div class="incident-intervention-form">
-              <label>
-                <span>{t("incidents.intervention.actionLabel")}</span>
-                <select value={action} onChange={(event) => {
-                  setAction(event.currentTarget.value as IncidentInterventionAction);
+              <SelectField
+                label={t("incidents.intervention.actionLabel")}
+                value={action}
+                options={ACTIONS.map((value) => ({
+                  value,
+                  label: t(`incidents.intervention.action.${value}`),
+                }))}
+                onChange={(value) => {
+                  setAction(value as IncidentInterventionAction);
                   setError(null);
                   idempotencyKey.current = "";
-                }}>
-                  {ACTIONS.map((value) => (
-                    <option key={value} value={value}>{t(`incidents.intervention.action.${value}`)}</option>
-                  ))}
-                </select>
-              </label>
+                }}
+              />
               <p>{t(`incidents.intervention.help.${action}`)}</p>
               {action === "create_development_exception" ? (
-                <label>
-                  <span>{t("incidents.intervention.durationLabel")}</span>
-                  <select value={duration} onChange={(event) => {
-                    setDuration(event.currentTarget.value as Duration);
-                    setError(null);
-                    idempotencyKey.current = "";
-                  }}>
-                    {DURATIONS.map((value) => (
-                      <option key={value} value={value}>{t(`incidents.intervention.duration.${value}`)}</option>
-                    ))}
-                  </select>
-                </label>
-              ) : null}
-              {action === "revoke_development_exception" ? (
-                <label>
-                  <span>{t("incidents.intervention.exceptionId")}</span>
-                  <input value={exceptionId} maxLength={36} onInput={(event) => {
-                    setExceptionId(event.currentTarget.value);
-                    setError(null);
-                    idempotencyKey.current = "";
-                  }} />
-                </label>
-              ) : null}
-              <label>
-                <span>{t("incidents.intervention.comment")}</span>
-                <textarea
-                  rows={5}
-                  maxLength={500}
-                  value={comment}
-                  onInput={(event) => {
-                    setComment(event.currentTarget.value);
+                <SelectField
+                  label={t("incidents.intervention.durationLabel")}
+                  value={duration}
+                  options={DURATIONS.map((value) => ({
+                    value,
+                    label: t(`incidents.intervention.duration.${value}`),
+                  }))}
+                  onChange={(value) => {
+                    setDuration(value as Duration);
                     setError(null);
                     idempotencyKey.current = "";
                   }}
                 />
-                <small>{t("incidents.intervention.commentCount", { count: comment.length })}</small>
-              </label>
-              {validation !== null && comment.length > 0 ? <p class="state-error-text">{validation}</p> : null}
+              ) : null}
+              {action === "revoke_development_exception" ? (
+                <TextInput
+                  label={t("incidents.intervention.exceptionId")}
+                  value={exceptionId}
+                  maxLength={36}
+                  mono
+                  onInput={(value) => {
+                    setExceptionId(value);
+                    setError(null);
+                    idempotencyKey.current = "";
+                  }}
+                />
+              ) : null}
+              <TextareaField
+                label={t("incidents.intervention.comment")}
+                rows={5}
+                maxLength={500}
+                showCounter
+                value={comment}
+                hint={t("incidents.intervention.commentCount", { count: comment.length })}
+                {...(validation !== null && comment.length > 0 ? { error: validation } : {})}
+                onInput={(value) => {
+                  setComment(value);
+                  setError(null);
+                  idempotencyKey.current = "";
+                }}
+              />
             </div>
           ) : step === "review" ? (
             <div class="incident-intervention-review">
               <p>{t("incidents.intervention.reviewBody")}</p>
-              <dl>
-                <div><dt>{t("incidents.intervention.actionLabel")}</dt><dd>{t(`incidents.intervention.action.${action}`)}</dd></div>
-                <div><dt>{t("incidents.intervention.expectedState")}</dt><dd>{incident.lifecycle_state}</dd></div>
-                {action === "create_development_exception" ? <div><dt>{t("incidents.intervention.durationLabel")}</dt><dd>{t(`incidents.intervention.duration.${duration}`)}</dd></div> : null}
-                <div><dt>{t("incidents.intervention.comment")}</dt><dd>{comment.trim()}</dd></div>
-              </dl>
-              <aside>{t("incidents.intervention.authorityNotice")}</aside>
+              {(() => {
+                const reviewCardProps: ActionProposalCardProps = {
+                  title: t(`incidents.intervention.action.${action}`),
+                  statusTone: "human",
+                  statusLabel: incident.lifecycle_state ?? "-",
+                  authorityLabel: t("incidents.intervention.eyebrow"),
+                  authorityTone: "neutral",
+                  evidenceFacts: [
+                    {
+                      label: t("incidents.intervention.actionLabel"),
+                      value: t(`incidents.intervention.action.${action}`),
+                    },
+                    {
+                      label: t("incidents.intervention.expectedState"),
+                      value: incident.lifecycle_state ?? "-",
+                    },
+                    ...(action === "create_development_exception"
+                      ? [{
+                          label: t("incidents.intervention.durationLabel"),
+                          value: t(`incidents.intervention.duration.${duration}`),
+                        }]
+                      : []),
+                    {
+                      label: t("incidents.intervention.comment"),
+                      value: comment.trim(),
+                    },
+                  ],
+                  authorityNotice: t("incidents.intervention.authorityNotice"),
+                };
+                return <ActionProposalCard {...reviewCardProps} />;
+              })()}
             </div>
           ) : step === "queued" ? (
             <div class="incident-intervention-queued" role="status">

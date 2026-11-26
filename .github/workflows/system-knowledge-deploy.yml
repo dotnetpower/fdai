@@ -199,7 +199,7 @@ jobs:
           )"
           context_digest="$(
             uv run --frozen --package fdai-system-knowledge-service python \
-              scripts/deployment/system_knowledge/prepare_deployment.py \
+              _archive/python/scripts/deployment/system_knowledge/prepare_deployment.py \
               --platform-outputs "$RUNNER_TEMP/system-knowledge-platform.json" \
               --subscription-id "$ARM_SUBSCRIPTION_ID" \
               --region "$AZURE_REGION" \
@@ -244,7 +244,7 @@ jobs:
             "$RUNNER_TEMP/system-knowledge.plan" \
             > "$RUNNER_TEMP/system-knowledge-plan.json"
           uv run --frozen --package fdai-system-knowledge-service python \
-            scripts/deployment/system_knowledge/guard_plan.py \
+            _archive/python/scripts/deployment/system_knowledge/guard_plan.py \
             --plan-json "$RUNNER_TEMP/system-knowledge-plan.json" \
             --transition "${{ inputs.transition }}" \
             --transport "${{ steps.context.outputs.teams_transport }}" \
@@ -317,7 +317,7 @@ jobs:
           cmp "$bundle/system-knowledge-plan.json" \
             "$RUNNER_TEMP/replayed-system-knowledge-plan.json"
           uv run --frozen --package fdai-system-knowledge-service python \
-            scripts/deployment/system_knowledge/guard_plan.py \
+            _archive/python/scripts/deployment/system_knowledge/guard_plan.py \
             --plan-json "$RUNNER_TEMP/replayed-system-knowledge-plan.json" \
             --transition "${{ inputs.transition }}" \
             --transport "${{ steps.context.outputs.teams_transport }}" \
@@ -334,7 +334,7 @@ jobs:
             options+=(--include-outgoing-hmac)
           fi
           uv run --frozen --package fdai-system-knowledge-service python \
-            scripts/deployment/azure/materialize_system_knowledge_secret.py \
+            _archive/python/scripts/deployment/azure/materialize_system_knowledge_secret.py \
             --vault-uri "$vault_uri" \
             "${options[@]}"
 
@@ -400,7 +400,7 @@ jobs:
           if [[ "${{ steps.context.outputs.teams_transport }}" == "bot_framework" ]]; then
             app_id="$(jq -er '.bot.value.app_id' "$RUNNER_TEMP/system-knowledge-outputs.json")"
             uv run --frozen --package fdai-system-knowledge-service python \
-              scripts/deployment/system_knowledge/build_teams_app.py \
+              _archive/python/scripts/deployment/system_knowledge/build_teams_app.py \
               --app-id "$app_id" \
               --bot-id "$app_id" \
               --output "$RUNNER_TEMP/fdai-system-knowledge-teams.zip"
@@ -484,7 +484,7 @@ jobs:
           for index in "${!teams[@]}"; do
             result="$RUNNER_TEMP/system-knowledge-install-${index}.json"
             uv run --frozen --package fdai-system-knowledge-service python \
-              scripts/deployment/system_knowledge/install_teams_app.py \
+              _archive/python/scripts/deployment/system_knowledge/install_teams_app.py \
               --package "$RUNNER_TEMP/fdai-system-knowledge-teams.zip" \
               --team-id "${teams[$index]}" >"$result"
             [[ "$(jq -er '.uploaded | type' "$result")" == "boolean" ]]

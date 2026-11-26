@@ -365,7 +365,7 @@
     {
       "label": "console: wait full stack ready",
       "type": "shell",
-      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/run-bounded-command.py --label console-readiness-check --timeout-seconds 15 --no-progress-seconds 15 -- ${workspaceFolder}/.venv/bin/python scripts/automation/developer-workflow.py local-services --wait-seconds 10",
+      "command": "${workspaceFolder}/.venv/bin/python _archive/python/scripts/automation/run-bounded-command.py --label console-readiness-check --timeout-seconds 15 --no-progress-seconds 15 -- ${workspaceFolder}/.venv/bin/python _archive/python/scripts/automation/developer-workflow.py local-services --wait-seconds 10",
       "problemMatcher": [],
       "presentation": {
         "reveal": "silent",
@@ -530,7 +530,7 @@
     {
       "label": "conversation assurance: start supervisor",
       "type": "shell",
-      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/conversation-assurance.py supervisor",
+      "command": "${workspaceFolder}/.venv/bin/python _archive/python/scripts/automation/conversation-assurance.py supervisor",
       "options": {
         "env": {
           "FDAI_CONVERSATION_ASSURANCE_OPERATOR_URL": "http://127.0.0.1:8010",
@@ -562,7 +562,7 @@
     {
       "label": "conversation assurance: start census",
       "type": "shell",
-      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/conversation-assurance.py start --suite census",
+      "command": "${workspaceFolder}/.venv/bin/python _archive/python/scripts/automation/conversation-assurance.py start --suite census",
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",
@@ -573,7 +573,7 @@
     {
       "label": "conversation assurance: start selected agent",
       "type": "shell",
-      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/conversation-assurance.py start --suite agent --agent ${input:pantheonAgent}",
+      "command": "${workspaceFolder}/.venv/bin/python _archive/python/scripts/automation/conversation-assurance.py start --suite agent --agent ${input:pantheonAgent}",
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",
@@ -584,7 +584,7 @@
     {
       "label": "conversation assurance: status",
       "type": "shell",
-      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/conversation-assurance.py status",
+      "command": "${workspaceFolder}/.venv/bin/python _archive/python/scripts/automation/conversation-assurance.py status",
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",
@@ -595,7 +595,7 @@
     {
       "label": "conversation assurance: stop",
       "type": "shell",
-      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/conversation-assurance.py stop",
+      "command": "${workspaceFolder}/.venv/bin/python _archive/python/scripts/automation/conversation-assurance.py stop",
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",
@@ -606,7 +606,7 @@
     {
       "label": "conversation assurance: open latest report",
       "type": "shell",
-      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/conversation-assurance.py report --top 20",
+      "command": "${workspaceFolder}/.venv/bin/python _archive/python/scripts/automation/conversation-assurance.py report --top 20",
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",
@@ -648,7 +648,7 @@
     {
       "label": "dev discuss: status",
       "type": "shell",
-      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/dev-discuss.py status",
+      "command": "${workspaceFolder}/.venv/bin/python _archive/python/scripts/automation/dev-discuss.py status",
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",
@@ -659,7 +659,7 @@
     {
       "label": "dev discuss: snapshot selected service",
       "type": "shell",
-      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/dev-discuss.py capture --service ${input:diagnosticService}",
+      "command": "${workspaceFolder}/.venv/bin/python _archive/python/scripts/automation/dev-discuss.py capture --service ${input:diagnosticService}",
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",
@@ -670,7 +670,7 @@
     {
       "label": "dev discuss: profile selected service (5s)",
       "type": "shell",
-      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/dev-discuss.py capture --service ${input:diagnosticService} --duration-ms 5000",
+      "command": "${workspaceFolder}/.venv/bin/python _archive/python/scripts/automation/dev-discuss.py capture --service ${input:diagnosticService} --duration-ms 5000",
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",

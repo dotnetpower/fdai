@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
+import { SearchInput } from "../components/form-controls";
 import { ErrorState, LoadingState, StatusPill } from "../components/ui";
 import { formatConsoleTimestamp } from "../time-format";
 import { modelText } from "./settings-models.i18n";
@@ -119,25 +120,23 @@ export function ModelCatalogPanel({ client, active, catalog, onLoaded, selection
             )}
           </p>
           {catalog.available ? <div class="settings-model-catalog-controls">
-            <label for="model-catalog-search">{modelText("searchCatalog")}</label>
-            <input
+            <SearchInput
               id="model-catalog-search"
-              type="search"
+              label={modelText("searchCatalog")}
               value={query}
               placeholder={modelText("searchCatalogPlaceholder")}
               disabled={catalog.models.length === 0}
-              onInput={(event) => {
-                setQuery(event.currentTarget.value);
+              clearLabel={modelText("clearCatalogSearch")}
+              onInput={(value) => {
+                setQuery(value);
                 setPage(0);
               }}
-            />
-            {query ? (
-              <button type="button" class="secondary" onClick={() => {
+              onClear={() => {
                 setQuery("");
                 setPage(0);
                 document.getElementById("model-catalog-search")?.focus();
-              }}>{modelText("clearCatalogSearch")}</button>
-            ) : null}
+              }}
+            />
             <span role="status">
               {modelText("catalogSummary")
                 .replace("{visible}", String(filtered.length))

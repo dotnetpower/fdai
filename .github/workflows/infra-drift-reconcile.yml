@@ -134,9 +134,9 @@ jobs:
           state_json="$RUNNER_TEMP/database-window-platform-state.json"
           trap 'rm -f -- "$state_json"' EXIT
           terraform -chdir=infra show -json >"$state_json"
-          server_id="$(python3 scripts/deployment/service/drift_contract.py \
+          server_id="$(python3 _archive/python/scripts/deployment/service/drift_contract.py \
             platform-database --state-json "$state_json" | jq -er '.server_id')"
-          python3 scripts/deployment/azure/postgres_power_window.py open \
+          python3 _archive/python/scripts/deployment/azure/postgres_power_window.py open \
             --server-id "$server_id" \
             --record "$RUNNER_TEMP/database-power-window.json"
 
@@ -167,7 +167,7 @@ jobs:
           mkdir -m 700 "$work" "$work/plans" "$work/summaries" "$work/vars"
           resolve_bootstrap_inputs() {
             local stored_inputs
-            if stored_inputs="$(python3 scripts/deployment/service/drift_contract.py \
+            if stored_inputs="$(python3 _archive/python/scripts/deployment/service/drift_contract.py \
               bootstrap-inputs --state-json "$1" 2>/dev/null)"; then
               TF_VAR_app_resource_group_name="$(jq -er '.app_resource_group_name' <<<"$stored_inputs")"
               TF_VAR_runner_ssh_public_key="$(jq -er '.runner_ssh_public_key' <<<"$stored_inputs")"
@@ -186,10 +186,10 @@ jobs:
             terraform -chdir="$terraform_root" show -json "$plan_file" >"$plan_json"
             local summary_json regressions
             summary_json="$work/summaries/$(tr ':/' '__' <<<"$root_id").json"
-            python3 scripts/deployment/service/refresh_drift_digest.py summarize \
+            python3 _archive/python/scripts/deployment/service/refresh_drift_digest.py summarize \
               --root-id "$root_id" --plan-json "$plan_json" >"$summary_json"
             rm -f -- "$plan_json"
-            regressions="$(python3 scripts/deployment/service/refresh_drift_digest.py regressions \
+            regressions="$(python3 _archive/python/scripts/deployment/service/refresh_drift_digest.py regressions \
               "$summary_json")"
             if [[ -n "$regressions" ]]; then
               # Applying would overwrite deploy-owned outputs evaluated without the deploy inputs.
@@ -201,7 +201,7 @@ jobs:
           }
 
           terraform -chdir=infra show -json >"$work/vars/platform-state.json"
-          python3 scripts/deployment/service/drift_contract.py platform-output-inputs \
+          python3 _archive/python/scripts/deployment/service/drift_contract.py platform-output-inputs \
             --state-json "$work/vars/platform-state.json" \
             --output "$work/vars/legacy-output-inputs.tfvars.json"
           terraform -chdir=infra plan -refresh-only -input=false -lock-timeout=300s \
@@ -210,7 +210,7 @@ jobs:
           summarize_plan legacy infra "$work/plans/legacy.tfplan"
 
           printf '%s' "$SERVICE_DEPLOY_TFVARS_JSON" >"$work/vars/all-services.json"
-          platform_inputs="$(python3 scripts/deployment/service/drift_contract.py \
+          platform_inputs="$(python3 _archive/python/scripts/deployment/service/drift_contract.py \
             platform-inputs --state-json "$work/vars/platform-state.json")"
           database_host="$(jq -er '.database_host' <<<"$platform_inputs")"
           event_topic="$(jq -er '.event_topic' <<<"$platform_inputs")"
@@ -227,7 +227,7 @@ jobs:
             python3 -c 'import hashlib,json,sys; payload=json.load(sys.stdin); canonical=json.dumps(payload,separators=(",",":"),sort_keys=True).encode(); print(hashlib.sha256(canonical).hexdigest())' \
               <<<"$RESOLVED_MODELS_JSON"
           )"
-          roots_json="$(python3 scripts/deployment/service/drift_contract.py roots \
+          roots_json="$(python3 _archive/python/scripts/deployment/service/drift_contract.py roots \
             --environment "$ENVIRONMENT")"
           [[ "$(jq '[.[] | select(.kind == "service")] | length' <<<"$roots_json")" -eq 5 ]] || {
             echo "Drift root contract must resolve exactly five service roots." >&2
@@ -268,17 +268,17 @@ jobs:
               [[ "$channel_edge_enabled" == "true" || "$channel_edge_enabled" == "false" ]]
               service_feature_args+=(--operator-channel-edge-enabled "$channel_edge_enabled")
             fi
-            image_ref="$(python3 scripts/deployment/service/drift_contract.py stored-image \
+            image_ref="$(python3 _archive/python/scripts/deployment/service/drift_contract.py stored-image \
               --service "$service" \
               --environment "$ENVIRONMENT" \
               --repository "$GITHUB_REPOSITORY" \
               --state-json "$work/vars/$service-state.json")"
-            python3 scripts/deployment/service/hydrate_database_host.py \
+            python3 _archive/python/scripts/deployment/service/hydrate_database_host.py \
                 --service "$service" \
                 --environment "$ENVIRONMENT" \
                 --database-host "$database_host" \
                 <"$work/vars/all-services.json" \
-              | python3 scripts/deployment/service/hydrate_event_topic.py \
+              | python3 _archive/python/scripts/deployment/service/hydrate_event_topic.py \
                   --service "$service" \
                   --environment "$ENVIRONMENT" \
                   --event-topic "$event_topic" \
@@ -290,7 +290,7 @@ jobs:
                 COST_PSEUDONYM_KEY_SECRET_ID="$cost_pseudonym_binding" \
                 OPERATOR_CHANNEL_EDGE_IDENTITY_JSON="$operator_channel_edge_identity_json" \
                 OPERATOR_CHANNEL_EDGE_PROVIDER_JSON="$OPERATOR_CHANNEL_EDGE_PROVIDER_JSON" \
-                python3 scripts/deployment/service/materialize_tfvars.py \
+                python3 _archive/python/scripts/deployment/service/materialize_tfvars.py \
                   --service "$service" \
                   --environment "$ENVIRONMENT" \
                   "${service_feature_args[@]}" \
@@ -321,7 +321,7 @@ jobs:
           summarize_plan bootstrap infra/bootstrap "$work/plans/bootstrap.tfplan"
           rm -rf -- "$work/vars"
 
-          digest="$(python3 scripts/deployment/service/refresh_drift_digest.py digest \
+          digest="$(python3 _archive/python/scripts/deployment/service/refresh_drift_digest.py digest \
             "$work"/summaries/*.json)"
           skipped="$(paste -sd, "$work/skipped-roots.txt" 2>/dev/null || true)"
           {
@@ -332,11 +332,11 @@ jobs:
             echo "Skipped roots: ${skipped:-none}"
             echo
             echo '```text'
-            python3 scripts/deployment/service/refresh_drift_digest.py render \
+            python3 _archive/python/scripts/deployment/service/refresh_drift_digest.py render \
               "$work"/summaries/*.json
             echo '```'
           } >>"$GITHUB_STEP_SUMMARY"
-          python3 scripts/deployment/service/refresh_drift_digest.py render "$work"/summaries/*.json
+          python3 _archive/python/scripts/deployment/service/refresh_drift_digest.py render "$work"/summaries/*.json
           echo "Refresh-only drift digest: $digest (skipped roots: ${skipped:-none})"
           echo "digest=$digest" >>"$GITHUB_OUTPUT"
 
@@ -379,13 +379,13 @@ jobs:
             terraform -chdir="$terraform_root" plan -refresh-only -input=false -lock-timeout=300s \
               -var-file="$work/verify/vars.json" -out="$verify_plan" >/dev/null
             terraform -chdir="$terraform_root" show -json "$verify_plan" >"$work/verify/plan.json"
-            python3 scripts/deployment/service/refresh_drift_digest.py summarize \
+            python3 _archive/python/scripts/deployment/service/refresh_drift_digest.py summarize \
               --root-id "$root_id" --plan-json "$work/verify/plan.json" >"$work/verify/summary.json"
             rm -f -- "$work/verify/plan.json" "$work/verify/vars.json"
             if python3 -c 'import json,sys; s=json.load(open(sys.argv[1])); sys.exit(1 if (s["resource_drift"] or s["output_changes"] or s["moves"]) else 0)' "$work/verify/summary.json"; then
               echo "No drift remains: $root_id"
             else
-              python3 scripts/deployment/service/refresh_drift_digest.py render "$work/verify/summary.json"
+              python3 _archive/python/scripts/deployment/service/refresh_drift_digest.py render "$work/verify/summary.json"
               drift_found=1
             fi
           done <"$work/roots.tsv"
@@ -400,7 +400,7 @@ jobs:
           steps.database_window.outcome != 'skipped'
         working-directory: ${{ github.workspace }}
         run: >-
-          python3 scripts/deployment/azure/postgres_power_window.py close
+          python3 _archive/python/scripts/deployment/azure/postgres_power_window.py close
           --record "$RUNNER_TEMP/database-power-window.json"
 
       - name: Clean reconciliation material

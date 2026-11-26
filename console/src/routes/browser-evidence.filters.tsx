@@ -1,4 +1,6 @@
 import { useState } from "preact/hooks";
+import { DisclosurePanel } from "../components/disclosure-panel";
+import { SearchInput, SelectField, TextInput } from "../components/form-controls";
 import { navigate, routeHref } from "../router";
 import type { BrowserEvidenceHostScope } from "./browser-evidence.model";
 import { t } from "./i18n/browser-evidence";
@@ -53,125 +55,111 @@ export function BrowserEvidenceFilters({ search }: { readonly search: URLSearchP
         }));
       }}
     >
-      <label class="browser-evidence-host-filter">
-        <span>{t("browserEvidence.filters.host")}</span>
-        <input
-          type="search"
-          name="browser-evidence-host"
-          value={host}
-          placeholder={t("browserEvidence.filters.hostPlaceholder")}
-          onInput={(event) => setHost(event.currentTarget.value)}
-        />
-      </label>
-      <label>
-        <span>{t("browserEvidence.filters.retention")}</span>
-        <select
-          value={retention}
-          onChange={(event) => setRetention(event.currentTarget.value)}
-        >
-          <option value="">{t("browserEvidence.filters.allRetention")}</option>
-          {(["retained", "expiring", "expired_pending_purge", "held"] as const)
-            .map((value) => (
-              <option key={value} value={value}>
-                {t(`browserEvidence.retention.${value}`)}
-              </option>
-            ))}
-        </select>
-      </label>
-      <label>
-        <span>{t("browserEvidence.filters.finding")}</span>
-        <select
-          value={finding}
-          onChange={(event) => setFinding(event.currentTarget.value)}
-        >
-          <option value="">{t("browserEvidence.filters.allFindings")}</option>
-          <option value="present">{t("browserEvidence.filters.findingsPresent")}</option>
-          <option value="clear">{t("browserEvidence.filters.findingsClear")}</option>
-        </select>
-      </label>
-      <label>
-        <span>{t("browserEvidence.filters.sort")}</span>
-        <select value={sort} onChange={(event) => setSort(event.currentTarget.value)}>
-          <option value="attention">{t("browserEvidence.filters.attentionFirst")}</option>
-          <option value="newest">{t("browserEvidence.filters.newestFirst")}</option>
-        </select>
-      </label>
+      <SearchInput
+        label={t("browserEvidence.filters.host")}
+        value={host}
+        placeholder={t("browserEvidence.filters.hostPlaceholder")}
+        clearLabel={t("browserEvidence.filters.clear")}
+        className="browser-evidence-host-filter"
+        onInput={setHost}
+      />
+      <SelectField
+        label={t("browserEvidence.filters.retention")}
+        value={retention}
+        options={[
+          { value: "", label: t("browserEvidence.filters.allRetention") },
+          ...(["retained", "expiring", "expired_pending_purge", "held"] as const).map((value) => ({
+            value,
+            label: t(`browserEvidence.retention.${value}`),
+          })),
+        ]}
+        onChange={setRetention}
+      />
+      <SelectField
+        label={t("browserEvidence.filters.finding")}
+        value={finding}
+        options={[
+          { value: "", label: t("browserEvidence.filters.allFindings") },
+          { value: "present", label: t("browserEvidence.filters.findingsPresent") },
+          { value: "clear", label: t("browserEvidence.filters.findingsClear") },
+        ]}
+        onChange={setFinding}
+      />
+      <SelectField
+        label={t("browserEvidence.filters.sort")}
+        value={sort}
+        options={[
+          { value: "attention", label: t("browserEvidence.filters.attentionFirst") },
+          { value: "newest", label: t("browserEvidence.filters.newestFirst") },
+        ]}
+        onChange={setSort}
+      />
       <button type="submit" class="btn primary browser-evidence-apply">
         {t("browserEvidence.filters.apply")}
       </button>
-      <details class="browser-evidence-advanced" open={advancedOpen}>
-        <summary>{t("browserEvidence.filters.more")}</summary>
-        <div>
-          <label>
-            <span>{t("browserEvidence.filters.hostScope")}</span>
-            <select
-              value={hostScope}
-              disabled={!host}
-              onChange={(event) => setHostScope(
-                event.currentTarget.value as BrowserEvidenceHostScope,
-              )}
-            >
-              <option value="either">{t("browserEvidence.filters.hostEither")}</option>
-              <option value="requested">{t("browserEvidence.filters.hostRequested")}</option>
-              <option value="final">{t("browserEvidence.filters.hostFinal")}</option>
-            </select>
-          </label>
-          <label>
-            <span>{t("browserEvidence.filters.artifact")}</span>
-            <input
-              type="search"
-              class="mono"
-              name="browser-evidence-artifact"
-              value={artifact}
-              placeholder="sha256:"
-              onInput={(event) => setArtifact(event.currentTarget.value)}
-            />
-          </label>
-          <label>
-            <span>{t("browserEvidence.filters.policy")}</span>
-            <input
-              value={policy}
-              onInput={(event) => setPolicy(event.currentTarget.value)}
-            />
-          </label>
-          <label>
-            <span>{t("browserEvidence.filters.policyVersion")}</span>
-            <input
-              type="number"
-              min="1"
-              max="2147483647"
-              value={policyVersion}
-              disabled={!policy}
-              onInput={(event) => setPolicyVersion(event.currentTarget.value)}
-            />
-          </label>
-          <label>
-            <span>{t("browserEvidence.filters.custody")}</span>
-            <input
-              class="mono"
-              name="browser-evidence-custody"
-              value={custody}
-              onInput={(event) => setCustody(event.currentTarget.value)}
-            />
-          </label>
+      <DisclosurePanel
+        {...{ title: t("browserEvidence.filters.more") }}
+        className="browser-evidence-advanced"
+        open={advancedOpen}
+        tone="subtle"
+      >
+        <div class="browser-evidence-advanced-grid">
+          <SelectField
+            label={t("browserEvidence.filters.hostScope")}
+            value={hostScope}
+            disabled={!host}
+            options={[
+              { value: "either", label: t("browserEvidence.filters.hostEither") },
+              { value: "requested", label: t("browserEvidence.filters.hostRequested") },
+              { value: "final", label: t("browserEvidence.filters.hostFinal") },
+            ]}
+            onChange={(value) => setHostScope(value as BrowserEvidenceHostScope)}
+          />
+          <SearchInput
+            label={t("browserEvidence.filters.artifact")}
+            value={artifact}
+            mono
+            placeholder="sha256:"
+            clearLabel={t("browserEvidence.filters.clear")}
+            className="browser-evidence-wide-field"
+            onInput={setArtifact}
+          />
+          <TextInput
+            label={t("browserEvidence.filters.policy")}
+            value={policy}
+            onInput={setPolicy}
+          />
+          <TextInput
+            type="number"
+            label={t("browserEvidence.filters.policyVersion")}
+            min={1}
+            max={2147483647}
+            value={policyVersion}
+            disabled={!policy}
+            onInput={setPolicyVersion}
+          />
+          <TextInput
+            label={t("browserEvidence.filters.custody")}
+            name="browser-evidence-custody"
+            mono
+            value={custody}
+            className="browser-evidence-wide-field"
+            onInput={setCustody}
+          />
           <fieldset>
             <legend>{t("browserEvidence.filters.captureWindow")}</legend>
-            <label>
-              <span>{t("browserEvidence.filters.from")}</span>
-              <input
-                type="datetime-local"
-                value={capturedFrom}
-                onInput={(event) => setCapturedFrom(event.currentTarget.value)}
-              />
-            </label>
-            <label>
-              <span>{t("browserEvidence.filters.before")}</span>
-              <input
-                type="datetime-local"
-                value={capturedBefore}
-                onInput={(event) => setCapturedBefore(event.currentTarget.value)}
-              />
-            </label>
+            <TextInput
+              type="datetime-local"
+              label={t("browserEvidence.filters.from")}
+              value={capturedFrom}
+              onInput={setCapturedFrom}
+            />
+            <TextInput
+              type="datetime-local"
+              label={t("browserEvidence.filters.before")}
+              value={capturedBefore}
+              onInput={setCapturedBefore}
+            />
           </fieldset>
           <a href={routeHref("browser-evidence", {
             params: { locale: search.get("locale") },
@@ -179,7 +167,7 @@ export function BrowserEvidenceFilters({ search }: { readonly search: URLSearchP
             {t("browserEvidence.filters.clear")}
           </a>
         </div>
-      </details>
+      </DisclosurePanel>
     </form>
   );
 }

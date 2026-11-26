@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schema/rule-semantic-validation-receipt.schema.json",
+  "title": "Rule semantic surface validation receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "surface_digest",
+    "generation_digest",
+    "catalog_digest",
+    "dataset_digest",
+    "evaluator_ref",
+    "evaluation_policy_digest",
+    "training_query_digests",
+    "evaluation_query_digests",
+    "cohort_metrics",
+    "failure_codes",
+    "decision",
+    "validation_authority"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.1.0"},
+    "surface_digest": {"$ref": "#/$defs/digest"},
+    "generation_digest": {"$ref": "#/$defs/digest"},
+    "catalog_digest": {"$ref": "#/$defs/digest"},
+    "dataset_digest": {"$ref": "#/$defs/digest"},
+    "evaluator_ref": {"type": "string", "minLength": 1, "maxLength": 512},
+    "evaluation_policy_digest": {"$ref": "#/$defs/digest"},
+    "training_query_digests": {"$ref": "#/$defs/digests"},
+    "evaluation_query_digests": {"$ref": "#/$defs/digests"},
+    "cohort_metrics": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["cohort", "metric", "value", "sample_count"],
+        "properties": {
+          "cohort": {"type": "string", "minLength": 1, "maxLength": 512},
+          "metric": {"type": "string", "minLength": 1, "maxLength": 512},
+          "value": {"type": "number"},
+          "sample_count": {"type": "integer", "minimum": 1}
+        }
+      }
+    },
+    "failure_codes": {"type": "array", "maxItems": 0},
+    "decision": {"const": "pass"},
+    "validation_authority": {"const": "validation_only"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "digests": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/digest"}
+    }
+  }
+}

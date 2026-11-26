@@ -209,7 +209,7 @@ jobs:
           set -euo pipefail
           export FDAI_STARTUP_EVIDENCE_DSN="$(cat "$FDAI_STARTUP_EVIDENCE_DSN_FILE")"
           uv run --frozen --package fdai-core-control-plane python \
-            scripts/deployment/azure/capture_t2_startup_proof_evidence.py \
+            _archive/python/scripts/deployment/azure/capture_t2_startup_proof_evidence.py \
               --source-revision "$TARGET_COMMIT_SHA" \
               --image-digest "$T2_STARTUP_IMAGE_DIGEST" \
               --revision-ref-digest "$T2_STARTUP_REVISION_REF_DIGEST" \

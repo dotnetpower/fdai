@@ -1,4 +1,4 @@
-/* FDAI Console v4 - XSS-Safe Full-Stack Live Hydration Engine (65 panels).
+/* FDAI Console v4 — XSS-Safe Full-Stack Live Hydration Engine (65 panels).
    Uses textContent / DOM element creation exclusively (zero untrusted innerHTML).
    Preserves honest not-measured semantics in Live mode without leaking mockup values. */
 (function () {
@@ -98,7 +98,7 @@
       const tr = document.createElement("tr");
       for (const col of columns) {
         const val = item && Object.prototype.hasOwnProperty.call(item, col) ? item[col] : "";
-        tr.appendChild(createTextNodeEl("td", "", val == null ? "-" : String(val)));
+        tr.appendChild(createTextNodeEl("td", "", val == null ? "—" : String(val)));
       }
       frag.appendChild(tr);
     }
@@ -238,11 +238,32 @@
       }
       return;
     }
+    // Clear sample subscription options immediately in Live mode before fetching
+    for (const sel of selects) {
+      const hasSample = Array.from(sel.options).some((o) =>
+        o.value === "prod-core-kr" || o.value === "prod-data-platform" || o.value === "sec-shared-hub"
+      );
+      if (hasSample) {
+        const loadingOpt = document.createElement("option");
+        loadingOpt.value = "all";
+        loadingOpt.textContent = "구독: 실측 구독 조회 중...";
+        sel.replaceChildren(loadingOpt);
+      }
+    }
     const res = await fetchJsonSafe("/api/v4/overview/summary");
     const subs = res && res.ok && res.data && res.data.data && Array.isArray(res.data.data.subscriptions)
       ? res.data.data.subscriptions
       : null;
-    if (!subs || !subs.length) return;
+    if (!isLive()) return;
+    if (!subs || !subs.length) {
+      for (const sel of selects) {
+        const emptyOpt = document.createElement("option");
+        emptyOpt.value = "all";
+        emptyOpt.textContent = "구독: 연결된 실측 구독 없음 (미측정)";
+        sel.replaceChildren(emptyOpt);
+      }
+      return;
+    }
     for (const sel of selects) {
       const prevVal = sel.value || "all";
       const frag = document.createDocumentFragment();
@@ -312,6 +333,224 @@
     return pill;
   }
 
+  const RESOURCE_TYPE_KO = {
+    "compute.container-app-job": "컨테이너 앱 작업",
+    "compute.container-app": "컨테이너 앱",
+    "compute.kubernetes-cluster": "AKS 쿠버네티스 클러스터",
+    "kubernetes-cluster": "AKS 쿠버네티스 클러스터",
+    "compute.virtual-machine": "가상 머신 (VM)",
+    "compute.virtual-machine-scale-set": "가상 머신 확장 집합 (VMSS)",
+    "compute.vm-scale-set": "가상 머신 확장 집합 (VMSS)",
+    "compute.vm": "가상 머신 (VM)",
+    "compute.app-service": "App Service 웹 앱",
+    "compute.function-app": "Azure Function 앱",
+    "database.postgresql-flexible": "PostgreSQL 데이터베이스",
+    "postgresql-flexible": "PostgreSQL 데이터베이스",
+    "database.sql-database": "Azure SQL 데이터베이스",
+    "database.cosmos-db": "Cosmos DB",
+    "cache.redis": "Redis 캐시",
+    "cache-redis": "Redis 캐시",
+    "network.network-security-group": "네트워크 보안 그룹 (NSG)",
+    "network-security-group": "네트워크 보안 그룹 (NSG)",
+    "network.application-gateway": "애플리케이션 게이트웨이",
+    "network.firewall": "Azure 방화벽",
+    "firewall": "Azure 방화벽",
+    "network.virtual-network": "가상 네트워크 (VNet)",
+    "network.vnet": "가상 네트워크 (VNet)",
+    "network.load-balancer": "부하 분산 장치",
+    "network.private-endpoint": "프라이빗 엔드포인트",
+    "security.key-vault": "Key Vault (키 보관소)",
+    "key-vault": "Key Vault (키 보관소)",
+    "storage.storage-account": "스토리지 계정",
+    "data-storage": "스토리지 계정",
+    "messaging.service-bus": "Service Bus 메시지 브로커",
+    "monitoring.log-analytics": "Log Analytics 작업 영역",
+    "ai.openai": "Azure OpenAI 서비스",
+    "container.registry": "컨테이너 레지스트리 (ACR)",
+  };
+
+  const ACTION_KIND_KO = {
+    "hil.requested": "사람 승인 요청 생성",
+    "hil.approved": "사람 승인 완료",
+    "hil.rejected": "사람 승인 반려",
+    "hil.timeout": "승인 요청 기한 만료",
+    "hil.expired": "승인 요청 기한 만료",
+    "measurement.control_loop.v1": "운영 제어 루프 관측 완료",
+    "measurement.control_loop": "운영 제어 루프 관측 완료",
+    "action.executed": "자동 조치 실행 완료",
+    "action.denied": "정책에 의해 조치 차단",
+    "action.blocked": "정책에 의해 조치 차단",
+    "action.dry_run": "사전 드라이런 검증 완료",
+    "action.rolled_back": "자동 롤백 완료",
+    "container.restart": "컨테이너 재시작",
+    "policy.evaluated": "운영 정책 평가",
+    "policy.required": "필수 정책 검증",
+    "policy.violation": "운영 정책 위반 감지",
+    "incident.opened": "운영 이상(인시던트) 감지",
+    "incident.detected": "운영 이상(인시던트) 감지",
+    "incident.resolved": "운영 이상 해결 완료",
+    "inventory.observed": "리소스 인벤토리 스냅샷 갱신",
+    "inventory.upsert": "리소스 상태 정보 갱신",
+    "security.finding": "보안 취약점·기준선 항목 발견",
+    "promotion.approved": "자동화 승격 승인",
+    "promotion.recalled": "자동화 즉시 회수",
+    "conversation.delivered": "운영 알림 메시지 전송",
+  };
+
+  const ACTOR_KO = {
+    "fdai.measurement": "관측 수집기 (Heimdall)",
+    "fdai.core.hil_resume": "승인 워크플로 (Var)",
+    "fdai.core.control_loop": "제어 루프 엔진 (Odin)",
+    "fdai.core.rca": "원인 분석 엔진 (Mimir)",
+    "fdai.scope-draft.v1": "관리 범위 초안",
+    "fdai.policy": "정책 심의 엔진 (Forseti)",
+    "fdai.forseti": "정책 심의 엔진 (Forseti)",
+    "fdai.executor": "격리 실행기 (Thor)",
+    "fdai.inventory": "인벤토리 수집기 (Huginn)",
+    "fdai.huginn": "인벤토리 수집기 (Huginn)",
+    "fdai.ontology": "온톨로지 저장소 (Muninn)",
+    "fdai.muninn": "온톨로지 저장소 (Muninn)",
+    "fdai.audit": "감사 원장 (Saga)",
+    "fdai.saga": "감사 원장 (Saga)",
+    "fdai.operator": "운영자 서비스",
+  };
+
+  const MODE_STATE_KO = {
+    "shadow": "관찰 전용 (Shadow)",
+    "enforce": "자동 적용 (Enforce)",
+    "dry_run": "사전 검증 (Dry-run)",
+    "advisory": "권고 모드",
+    "in_progress": "대응 진행 중",
+    "open": "확인 필요",
+    "resolved": "해결 완료",
+    "closed": "종료됨",
+    "pending": "승인 대기 중",
+    "approved": "승인됨",
+    "rejected": "반려됨",
+    "timeout": "기한 만료",
+    "expired": "기한 만료",
+    "running": "정상 실행 중",
+    "stopped": "중지됨",
+    "degraded": "성능 저하",
+    "healthy": "정상",
+    "critical": "긴급",
+    "high": "높음",
+    "medium": "보통",
+    "low": "낮음",
+    "measured": "실측 연결됨",
+    "not-measured": "미측정",
+  };
+
+  function humanizeResourceType(raw) {
+    const s = String(raw || "").trim();
+    if (!s) return "관측 대상";
+    const key = s.toLowerCase();
+    if (RESOURCE_TYPE_KO[key]) return RESOURCE_TYPE_KO[key];
+    for (const [k, label] of Object.entries(RESOURCE_TYPE_KO)) {
+      if (key.endsWith("." + k) || key.includes(k)) return label;
+    }
+    if (/^[a-z0-9_.-]+$/i.test(s) && (s.includes(".") || s.includes("-") || s.includes("_"))) {
+      const tail = s.split("/").pop().split(".").pop();
+      return tail.replace(/[-_]+/g, " ");
+    }
+    return s;
+  }
+
+  const TABLE_NAME_KO = {
+    "audit_log": "감사 원장",
+    "ontology_resource": "온톨로지 리소스 원장",
+    "inventory_observation_journal": "인벤토리 관측 기록",
+    "operator_incident_projection": "인시던트 운영 원장",
+    "conversation_outbound_delivery": "알림 전송 이력 원장",
+    "document_knowledge_source": "운영 지식 문서 원장",
+  };
+
+  function humanizeTableName(raw) {
+    const s = String(raw || "").trim();
+    if (!s) return "운영 원장";
+    return TABLE_NAME_KO[s.toLowerCase()] || s;
+  }
+
+  function humanizeAction(raw) {
+    const s = String(raw || "").trim();
+    if (!s) return "운영 이벤트 기록";
+    const key = s.toLowerCase();
+    if (ACTION_KIND_KO[key]) return ACTION_KIND_KO[key];
+    if (/^inventory\.[0-9a-f]{8,}$/i.test(key)) return "인벤토리 동기화 작업";
+    if (key.startsWith("hil.")) return "사람 승인 절차 이벤트";
+    if (key.startsWith("measurement.")) return "운영 상태 측정 기록";
+    if (key.startsWith("incident.")) return "장애·이상 대응 이벤트";
+    if (key.startsWith("security.") || key.startsWith("code_security.")) return "보안 점검 이벤트";
+    if (key.startsWith("policy.") || key.startsWith("rule.")) return "운영 정책 평가 이벤트";
+    if (key.startsWith("inventory.") || key.startsWith("ontology.")) return "리소스 상태 갱신";
+    if (key.startsWith("container.")) return "컨테이너 운영 이벤트";
+    if (key.startsWith("action.")) return "운영 조치 처리";
+    return s;
+  }
+
+  function humanizeActor(raw) {
+    const s = String(raw || "").trim();
+    if (!s) return "FDAI 시스템";
+    const key = s.toLowerCase();
+    if (ACTOR_KO[key]) return ACTOR_KO[key];
+    if (key.includes("hil")) return "승인 워크플로 (Var)";
+    if (key.includes("measurement") || key.includes("heimdall")) return "관측 수집기 (Heimdall)";
+    if (key.includes("huginn") || key.includes("inventory")) return "인벤토리 수집기 (Huginn)";
+    if (key.includes("muninn") || key.includes("ontology")) return "온톨로지 저장소 (Muninn)";
+    if (key.includes("forseti") || key.includes("policy")) return "정책 심의 엔진 (Forseti)";
+    if (key.includes("saga") || key.includes("audit")) return "감사 원장 (Saga)";
+    if (key.includes("mimir")) return "규칙 평가기 (Mimir)";
+    if (key.includes("thor") || key.includes("executor")) return "격리 실행기 (Thor)";
+    return s;
+  }
+
+  function humanizeMode(raw) {
+    const s = String(raw || "").trim();
+    if (!s) return "미측정";
+    const key = s.toLowerCase();
+    return MODE_STATE_KO[key] || s;
+  }
+
+  function humanizeTimestamp(isoOrMs) {
+    if (isoOrMs == null || isoOrMs === "") return "미측정";
+    const d = typeof isoOrMs === "number" ? new Date(isoOrMs) : new Date(String(isoOrMs));
+    if (Number.isNaN(d.getTime())) return String(isoOrMs);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getMonth() + 1}월 ${d.getDate()}일 ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+
+  function humanizeEventSummary(ev) {
+    const rawActor = String(ev?.actor || "").trim();
+    const rawAction = String(ev?.action_kind || ev?.action || "").trim();
+    const rawTarget = String(ev?.target || ev?.resource_type || "").trim();
+    const rawMode = String(ev?.mode || ev?.status || "").trim();
+    const actorKo = humanizeActor(rawActor);
+    const actionKo = humanizeAction(rawAction);
+    const targetKo = humanizeResourceType(rawTarget);
+    const modeKo = rawMode ? humanizeMode(rawMode) : "";
+    const title = rawTarget && targetKo !== "관측 대상"
+      ? `${targetKo} — ${actionKo}`
+      : actionKo;
+    const description = `${actorKo}에서 ${targetKo} 대상으로 '${actionKo}' 작업을 처리했습니다.${modeKo ? ` 현재 실행 모드는 ${modeKo}입니다.` : ""}`;
+    const techRows = [];
+    if (ev?.id) techRows.push(["항목 식별자", String(ev.id)]);
+    if (rawAction) techRows.push(["원본 액션 키", rawAction]);
+    if (rawActor) techRows.push(["원본 행위자", rawActor]);
+    if (rawTarget) techRows.push(["원본 대상 키", rawTarget]);
+    if (rawMode) techRows.push(["원본 모드", rawMode]);
+    return { title, actorKo, actionKo, targetKo, modeKo, description, techRows };
+  }
+
+  window.fdaiV4Humanize = {
+    resourceType: humanizeResourceType,
+    action: humanizeAction,
+    actor: humanizeActor,
+    mode: humanizeMode,
+    tableName: humanizeTableName,
+    timestamp: humanizeTimestamp,
+    eventSummary: humanizeEventSummary,
+  };
+
   function renderGlobalPulsePill() {
     const pill = ensureGlobalPulsePill();
     if (!pill) return;
@@ -327,33 +566,34 @@
     pill.hidden = false;
     pill.classList.toggle("is-paused", globalPulsePaused);
     if (globalPulsePaused) {
-      if (lbl) lbl.textContent = "실시간 감지 일시정지";
+      if (lbl) lbl.textContent = "실시간 동기화 일시정지";
       return;
     }
     if (!globalLastPulse) {
       pill.classList.remove("is-offline");
-      if (lbl) lbl.textContent = "실시간 감지 연결 중";
+      if (lbl) lbl.textContent = "실시간 연결 확인 중";
       return;
     }
     const measured = globalLastPulse.measurement_status === "measured";
     pill.classList.toggle("is-offline", !measured);
     if (!measured) {
-      if (lbl) lbl.textContent = "실시간 감지 · 미측정";
+      if (lbl) lbl.textContent = "실시간 미연결";
       return;
     }
     const seq = globalLastPulse.audit_latest_seq || 0;
     const age = formatAgeKo(globalLastPulseRxAt);
     const delta = globalLastPulse.delta_audit || 0;
-    const deltaTxt = delta > 0 ? (" +" + delta) : "";
-    if (lbl) lbl.textContent = "실시간 감지 · #" + seq + deltaTxt + " · " + age;
-    const lat = globalLastPulse.db_latency_ms != null ? (globalLastPulse.db_latency_ms + "ms") : "-";
-    const resTotal = globalLastPulse.ontology_resources_total != null ? Number(globalLastPulse.ontology_resources_total).toLocaleString() : "-";
-    const wm = globalLastPulse.journal_watermark != null ? Number(globalLastPulse.journal_watermark).toLocaleString() : "-";
-    const hil = globalLastPulse.hil_pending != null ? Number(globalLastPulse.hil_pending).toLocaleString() : "-";
-    const target = (globalLastPulse.latest_event && globalLastPulse.latest_event.target) || "관측 원장";
+    const deltaTxt = delta > 0 ? (" · 새 기록 +" + delta + "건") : "";
+    if (lbl) lbl.textContent = "실시간 연결됨" + deltaTxt + " · " + age;
+    const lat = globalLastPulse.db_latency_ms != null ? (globalLastPulse.db_latency_ms + "ms") : "—";
+    const resTotal = globalLastPulse.ontology_resources_total != null ? Number(globalLastPulse.ontology_resources_total).toLocaleString() : "—";
+    const hil = globalLastPulse.hil_pending != null ? Number(globalLastPulse.hil_pending).toLocaleString() : "—";
+    const rawTarget = (globalLastPulse.latest_event && globalLastPulse.latest_event.target) || "";
+    const targetKo = rawTarget ? humanizeResourceType(rawTarget) : "운영 원장";
+    pill.setAttribute("data-ut-title", "실시간 운영 원장 동기화 상태");
     pill.setAttribute(
       "data-ut-body",
-      "DB 응답 " + lat + " · 리소스 " + resTotal + "개 · 계통 워터마크 #" + wm + " · 승인 대기 " + hil + "건 · 최신 감지: " + target + " (클릭: 일시정지/재개)"
+      "관측 리소스 " + resTotal + "개 · 승인 대기 " + hil + "건 · 최근 관측: " + targetKo + " (기술 정보: 원장 #" + seq + ", DB 응답 " + lat + " · 클릭 시 일시정지/재개)"
     );
   }
 
@@ -431,7 +671,12 @@
         }, 40);
       }
     });
+    window.addEventListener("fdai:data-mode-change", () => {
+      hydrateGlobalSubscriptionSelects().catch(() => {});
+      startGlobalLivePulse();
+    });
     window.addEventListener("beforeunload", stopGlobalLivePulse);
+    window.addEventListener("pagehide", stopGlobalLivePulse);
   }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", bootGlobalLiveSubscriptions);
@@ -442,6 +687,7 @@
   window.fdaiV4Live = {
     bootstrap: boot,
     panelContracts: PANEL_CONTRACTS,
+    humanize: window.fdaiV4Humanize,
     fetchJson: fetchJsonSafe,
     openSse: openSseSafe,
     hydratePanel,

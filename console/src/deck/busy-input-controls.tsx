@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
+import { SelectField } from "../components/form-controls";
 import { t } from "../i18n";
 import {
   BusyClientError,
@@ -196,14 +197,19 @@ export function BusyInputControls({
         </p> : null}
       {state && feedback === "ready" ? (
         <div class="deck-busy-actions">
-          <label class="deck-busy-mode">
-            {t("deck.busy.mode")}
-            <select value={state.mode} disabled={viewModel.controlsDisabled}
-              onChange={(event) => changeMode((event.currentTarget as HTMLSelectElement).value as BusyMode)}>
-              {(["queue", "interrupt", "steer"] as const).map((mode) =>
-                <option key={mode} value={mode}>{t(`deck.busy.modes.${mode}`)}</option>)}
-            </select>
-          </label>
+          <div class="deck-busy-mode">
+            <SelectField
+              label={t("deck.busy.mode")}
+              size="sm"
+              value={state.mode}
+              disabled={viewModel.controlsDisabled}
+              options={(["queue", "interrupt", "steer"] as const).map((mode) => ({
+                value: mode,
+                label: t(`deck.busy.modes.${mode}`),
+              }))}
+              onChange={(value) => changeMode(value as BusyMode)}
+            />
+          </div>
           <div class="deck-busy-mode-buttons" role="group" aria-label={t("deck.busy.mode")}>
             {(["queue", "interrupt", "steer"] as const).map((mode) => (
               <button

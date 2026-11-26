@@ -1,3 +1,4 @@
+import { ToggleSwitch } from "../components/form-controls";
 import { t } from "../i18n";
 import type { ConsolePreferences } from "../preferences";
 import type { SettingsController } from "./settings.controller";
@@ -47,47 +48,31 @@ export function SettingsDisplaySections({
             />
           </SettingRow>
           <SettingRow label={t("settings.motion")} hint={t("settings.motionHint")}>
-            <label class="settings-toggle-control">
-              <input
-                type="checkbox"
-                checked={preferences.motion === "reduced"}
-                onChange={(event) => update("motion", event.currentTarget.checked ? "reduced" : "system")}
-              />
-              <span aria-hidden="true" />
-              <strong>{preferences.motion === "reduced" ? t("settings.reduced") : t("settings.system")}</strong>
-            </label>
+            <ToggleSwitch
+              label={preferences.motion === "reduced" ? t("settings.reduced") : t("settings.system")}
+              checked={preferences.motion === "reduced"}
+              onChange={(checked) => update("motion", checked ? "reduced" : "system")}
+            />
           </SettingRow>
           <SettingRow
             label={t("settings.showTokenUsage")}
             hint={t("settings.showTokenUsageHint")}
           >
-            <label class="settings-toggle-control">
-              <input
-                type="checkbox"
-                checked={preferences.showTokenUsage}
-                onChange={(event) => update("showTokenUsage", event.currentTarget.checked)}
-              />
-              <span aria-hidden="true" />
-              <strong>
-                {preferences.showTokenUsage ? t("settings.enabled") : t("settings.disabled")}
-              </strong>
-            </label>
+            <ToggleSwitch
+              label={preferences.showTokenUsage ? t("settings.enabled") : t("settings.disabled")}
+              checked={preferences.showTokenUsage}
+              onChange={(checked) => update("showTokenUsage", checked)}
+            />
           </SettingRow>
           <SettingRow
             label={t("settings.showModelTrace")}
             hint={t("settings.showModelTraceHint")}
           >
-            <label class="settings-toggle-control">
-              <input
-                type="checkbox"
-                checked={preferences.showModelTrace}
-                onChange={(event) => update("showModelTrace", event.currentTarget.checked)}
-              />
-              <span aria-hidden="true" />
-              <strong>
-                {preferences.showModelTrace ? t("settings.enabled") : t("settings.disabled")}
-              </strong>
-            </label>
+            <ToggleSwitch
+              label={preferences.showModelTrace ? t("settings.enabled") : t("settings.disabled")}
+              checked={preferences.showModelTrace}
+              onChange={(checked) => update("showModelTrace", checked)}
+            />
           </SettingRow>
         </div>
       </section>

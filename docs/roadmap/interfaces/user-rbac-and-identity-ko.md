@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 5439f89b397ab0ffb0f14d5aaeae21a2bd6176ea
-translation_revised: 2026-11-10
+translation_source_sha: 617dba16a723b9abfa704f55268a86466d7fec26
+translation_revised: 2026-11-27
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -114,18 +114,18 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 
 | # | 롤 | Entra 보안 그룹 | 유사 | 가능 |
 |---|-----|----------------|------|------|
-| 1 | **읽기 담당** | `aw-readers` | Azure 읽기 담당 | 콘솔 조회: KPI 대시보드, 감사 로그, shadow 결과, HIL 큐 및 읽기 담당 권한으로 허용된 대화 도구 사용 |
-| 2 | **기여자** | `aw-contributors` | Azure 기여자 | 읽기 담당 + 초안 PR 작성 및 범위가 제한된 백그라운드 읽기 조사 시작 |
-| 3 | **Approver** | `aw-approvers` | (검토자) | 읽기 담당 + 거버넌스 PR 리뷰/승인 + 런타임 HIL 요청 승인 + enforce 승격 / exemption / 재정의 승인 (고위험은 quorum - §5 참조) |
-| 4 | **Owner** | `aw-owners` | Azure Owner | Approver + 비상 정지 트리거 + 런타임 설정, 환경 모델 바인딩 초안 및 Entra 그룹 멤버십 관리 + 인프라 IaC 적용 |
-| - | **Break-Glass** | `aw-break-glass` | (별도 비상 계정) | Console 조회, 비상 정지, 비상 접근 권한 부여 기능만 가집니다. 런타임 HIL 승인 기능은 없으며 Owner의 superset이 아닙니다. |
+| 1 | **읽기 담당** | `fdai-readers` | Azure 읽기 담당 | 콘솔 조회: KPI 대시보드, 감사 로그, shadow 결과, HIL 큐 및 읽기 담당 권한으로 허용된 대화 도구 사용 |
+| 2 | **기여자** | `fdai-contributors` | Azure 기여자 | 읽기 담당 + 초안 PR 작성 및 범위가 제한된 백그라운드 읽기 조사 시작 |
+| 3 | **Approver** | `fdai-approvers` | (검토자) | 읽기 담당 + 거버넌스 PR 리뷰/승인 + 런타임 HIL 요청 승인 + enforce 승격 / exemption / 재정의 승인 (고위험은 quorum - §5 참조) |
+| 4 | **Owner** | `fdai-owners` | Azure Owner | Approver + 비상 정지 트리거 + 런타임 설정, 환경 모델 바인딩 초안 및 Entra 그룹 멤버십 관리 + 인프라 IaC 적용 |
+| - | **Break-Glass** | `fdai-break-glass` | (별도 비상 계정) | Console 조회, 비상 정지, 비상 접근 권한 부여 기능만 가집니다. 런타임 HIL 승인 기능은 없으며 Owner의 superset이 아닙니다. |
 
 **티어 추가 없이 모델을 안전하게 유지하는 규칙**
 
 - 사용자는 여러 그룹에 소속 가능(예: 기여자와 Approver 모두), 하지만 **자기승인 없음**
   CI 검사가 여전히 자신의 PR 승인을 블록. 검사는 그룹 멤버십이 아니라 PR 저자 trailer와
   리뷰어의 Entra OID를 비교.
-- **Break-Glass는 Owner 안에 중첩되지 않음.** 별도 관리 그룹; Owner 계정도 `aw-break-glass`
+- **Break-Glass는 Owner 안에 중첩되지 않음.** 별도 관리 그룹; Owner 계정도 `fdai-break-glass`
   에 없으면 break-glass 액션을 authorize하지 않음. 이는 Owner 계정이 손상되어도 영향 범위
   제한.
 - **활성화 시 검증된 자격을 보존합니다.** 토큰 확인 과정은 기존 전역 비상 정지와 비상 접근
@@ -138,7 +138,7 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
   BreakGlass 점유만으로는 여전히 HIL 승인 자격이 생기지 않습니다. persistent activation 저장소와
   TTL 적용 조립은 배포 작업으로 남습니다.
 - **PIM은 선택**. 상류는 요구하지 않음. Entra ID P2 있는 포크는 just-in-time 활성화를 위해
-  `aw-approvers` / `aw-owners` 위에 PIM을 얹을 수 있지만, 기본 모델은 P1에서 작동.
+  `fdai-approvers` / `fdai-owners` 위에 PIM을 얹을 수 있지만, 기본 모델은 P1에서 작동.
 
 ## 3. 페르소나 → 액션 매트릭스
 
@@ -160,7 +160,7 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 | 제한된 런타임 설정 관리 | | | | ✓ | |
 | 환경 T1/T2 바인딩 초안 저장 또는 평가 | | | | ✓ | |
 | 보호된 모델 바인딩 계획 요청 | | | | ✓ | |
-| `aw-*` 그룹 멤버십 관리 | | | | ✓ | |
+| `fdai-*` 그룹 멤버십 관리 | | | | ✓ | |
 | 인프라 IaC 적용 (deployer) | | | | ✓ | |
 | 실행기 Managed Identity 보유 | (절대) - MI는 비-사람 |||||
 
@@ -231,7 +231,7 @@ rbac:
   break_glass: <objectId> # required (may be an empty group but must exist)
 ```
 
-그룹 명명(`aw-readers` 등) 은 권장 관례; 런타임에는 objectId만 소비됨.
+그룹 명명(`fdai-readers` 등)은 권장 관례이며 런타임은 objectId만 사용하므로 레거시 `aw-*` 그룹을 쓰는 기존 테넌트도 그대로 호환됩니다.
 
 ### 4.3 Conditional 접근
 
@@ -239,26 +239,26 @@ CA는 Entra ID P1에서 가능(P2 불필요). 그룹별 권장 정책:
 
 | 대상 그룹 | 요건 |
 |-----------|------|
-| `aw-approvers`, `aw-owners` | **Phishing-resistant MFA** (FIDO2 / Windows Hello for Business / cert-based); 텍스트/phone OTP는 **거부** |
-| `aw-owners` | 추가로 **compliant device** 또는 hybrid Entra-joined 요구 |
-| `aw-break-glass` | Named-location 제한, 전용 하드웨어 토큰, 지속 사인인 알림 |
-| 모든 `aw-*` 그룹 | 레거시 인증 프로토콜 블록 |
+| `fdai-approvers`, `fdai-owners` | **Phishing-resistant MFA** (FIDO2 / Windows Hello for Business / cert-based); 텍스트/phone OTP는 **거부** |
+| `fdai-owners` | 추가로 **compliant device** 또는 hybrid Entra-joined 요구 |
+| `fdai-break-glass` | Named-location 제한, 전용 하드웨어 토큰, 지속 사인인 알림 |
+| 모든 `fdai-*` 그룹 | 레거시 인증 프로토콜 블록 |
 
 ### 4.4 App Roles (토큰 표면)
 
 API는 **App Roles를 정본 토큰 표면으로 우선 사용**합니다. App Roles는 `fdai-api` 앱
-registration에 선언되고 Enterprise Applications 뷰에서 `aw-*` 그룹에 할당되며 접근 토큰의
+registration에 선언되고 Enterprise Applications 뷰에서 `fdai-*` 그룹에 할당되며 접근 토큰의
 `roles` 점유로 전달됩니다. 이행 compatibility를 위해 `roles`가 비어 있고 inline `groups`
 점유가 사용 가능한 경우 `RoleResolver`는 구성된 objectId 대응을 대체 경로로 사용합니다.
 Group-overage 토큰에는 이 대체 경로가 불가능하므로 FDAI App 역할이 반드시 필요합니다.
 
 | App 역할 값 | 할당 대상 (Entra 보안 그룹) |
 |-------------|--------------------------|
-| `Reader` | `aw-readers` |
-| `Contributor` | `aw-contributors` |
-| `Approver` | `aw-approvers` |
-| `Owner` | `aw-owners` |
-| `BreakGlass` | `aw-break-glass` |
+| `Reader` | `fdai-readers` |
+| `Contributor` | `fdai-contributors` |
+| `Approver` | `fdai-approvers` |
+| `Owner` | `fdai-owners` |
+| `BreakGlass` | `fdai-break-glass` |
 
 App Roles를 정본 표면으로 쓰는 이유:
 
@@ -291,22 +291,22 @@ Coarse 롤은 PR과 API 레이어에서 **quorum + justification + 저자≠승�
 > verifier App이 발급한 Entra principal bundle과 결합합니다. Trusted attestation이 없으면 실패
 > 시 닫힙니다. 정족수 2와 제안자, 공동 작성자 및 커미터 분리는 강제 적용 승격, 예외,
 > 재정의 및 A1 라우팅에 적용됩니다. 해당 App 배포, 초안 생성 시 사람 OID trailer 기록 및
-> 완전한 `@aw-approvers` CODEOWNERS 구성은 남아 있습니다.
+> 완전한 `@fdai-approvers` CODEOWNERS 구성은 남아 있습니다.
 
 ### 5.1 목표 CODEOWNERS (단일 승인자 그룹, 경로-기반 리뷰어 카운트)
 
 ```
 # CODEOWNERS
-rule-catalog/rules/**    @aw-approvers
-rule-catalog/assignments/**  @aw-approvers
-rule-catalog/exemptions/**   @aw-approvers
-rule-catalog/overrides/**   @aw-approvers
+rule-catalog/rules/**    @fdai-approvers
+rule-catalog/assignments/**  @fdai-approvers
+rule-catalog/exemptions/**   @fdai-approvers
+rule-catalog/overrides/**   @fdai-approvers
 ```
 
-모든 거버넌스 PR은 최소 하나의 `@aw-approvers` 리뷰어 필요. CI가 **diff 컨텐트** 에 기반해
+모든 거버넌스 PR은 최소 하나의 `@fdai-approvers` 리뷰어 필요. CI가 **diff 컨텐트** 에 기반해
 그 요건을 올림:
 
-| Diff 패턴 (CI 감지) | 필요 승인 (`@aw-approvers`) |
+| Diff 패턴 (CI 감지) | 필요 승인 (`@fdai-approvers`) |
 |--------------------|---------------------------|
 | 규칙 텍스트 또는 룰셋 변경 | **1** |
 | 할당 파라미터 변경 (효과 승격 없음) | **1** |
@@ -475,7 +475,7 @@ API는 다음처럼 모든 요청 검증(거부 by 기본값):
 5. **역할 해석** - `roles` App 역할을 먼저 사용합니다. 이 점유가 비어 있고 inline `groups`
   점유를 사용할 수 있으면 구성된 objectId 대응으로 대체 경로합니다. Group-overage 토큰에
   App 역할이 없으면 실패 시 차단합니다. 어떤 known 역할도 해석되지 않으면 protected 엔드포인트는
-  `403`을 반환합니다. `aw-readers`로 자동 프로비저닝하지 않습니다.
+  `403`을 반환합니다. `fdai-readers`로 자동 프로비저닝하지 않습니다.
 6. **안정 아이덴티티** 는 `oid` (Entra 사용자 objectId). `upn`/이메일은 정보성; 감사와
   자기승인 없음은 `oid` 사용.
 
@@ -497,7 +497,7 @@ JWKS는 지연 fetch 후 프로세스 내 캐시; 요청별 검증은 로컬 RSA
 
 ### 10.3 첫 사인인 (미할당 사용자)
 
-유효한 Entra 자격증명 있지만 `aw-*` 그룹 멤버십 없는 사용자는 콘솔에 도달할 수 있지만 어떤
+유효한 Entra 자격증명 있지만 `fdai-*` 그룹 멤버십 없는 사용자는 콘솔에 도달할 수 있지만 어떤
 기능도 얻어선 안 됨:
 
 - Entra 인증 성공, `roles` 점유 비어 있음.
@@ -522,8 +522,8 @@ Teams SSO OBO 승인에 대한 목표 계약은 다음과 같습니다:
 
 외부 협업자는 **Entra B2B 초대** 로 온보딩, 포크 테넌트에 게스트 `oid` 생성. 권장 포크 정책:
 
-- 게스트는 `aw-readers` 에 추가될 수 있고 - justification과 함께 - `aw-contributors`.
-- 게스트를 `aw-approvers`, `aw-owners`, `aw-break-glass`에 추가하지 않는 것이 좋습니다. 저장소는
+- 게스트는 `fdai-readers` 에 추가될 수 있고 - justification과 함께 - `fdai-contributors`.
+- 게스트를 `fdai-approvers`, `fdai-owners`, `fdai-break-glass`에 추가하지 않는 것이 좋습니다. 저장소는
   현재 이 사람 역할 정책을 검사하는 초기화 구성원 검사를 제공하지 않으므로 포크의 Entra
   관리 프로세스에서 강제해야 합니다.
 - Conditional 접근 정책은 게스트와 멤버에 균일 적용.
@@ -681,7 +681,7 @@ Owner는 ID 및 액세스에서 요청자, 공급자 주체, 역할, 감사 상�
    별도의 포크 소유 아이덴티티 저장소에 저장할지.
 - [ ] Diff-risk 티어별 정확한 `Justification` 최소 길이(현재 config-only).
 - [ ] Owner가 Break-Glass 멤버도 될 수 있는지(기본: **아니오**; 포크 부트스트랩에서 CI로 강제).
-- [ ] `aw-owners` 와 `aw-break-glass` 멤버십 로테이션 주기(수동 접근 리뷰 vs P2 Entra 접근
+- [ ] `fdai-owners` 와 `fdai-break-glass` 멤버십 로테이션 주기(수동 접근 리뷰 vs P2 Entra 접근
    Reviews).
 - [ ] 콘솔의 "초안 변경" UI가 P1(변경 안전성만)에 실릴지 P3(3개 버티컬 모두)에 실릴지
    - [rule-governance-ko.md](../rules-and-detection/rule-governance-ko.md#open-decisions) 저작-UI 결정에 의존.

@@ -1,0 +1,302 @@
+{
+  "schema_version": "1.0.0",
+  "catalog_id": "fdai.azure-iam-permission-groups.v1",
+  "defaults": {
+    "custom_role_scope": "subscription",
+    "allowed_custom_role_scopes": [
+      "subscription",
+      "management_group"
+    ],
+    "pim_required": false,
+    "binding_mode": "direct",
+    "allowed_binding_modes": [
+      "direct",
+      "entra_group"
+    ],
+    "default_workload_group": "reader",
+    "dev_gateway_executor_group": "operator",
+    "dev_gateway_replaces_builtin_roles": [
+      "Network Contributor",
+      "Virtual Machine Contributor",
+      "Tag Contributor"
+    ]
+  },
+  "safety_floor": {
+    "not_actions": [
+      "Microsoft.Authorization/*/Write",
+      "Microsoft.Authorization/*/Delete",
+      "Microsoft.Authorization/elevateAccess/Action",
+      "Microsoft.Blueprint/blueprintAssignments/write",
+      "Microsoft.Blueprint/blueprintAssignments/delete",
+      "Microsoft.Resources/subscriptions/resourceGroups/delete",
+      "Microsoft.Authorization/locks/delete",
+      "Microsoft.Subscription/*",
+      "*/listKeys/action",
+      "*/listSecrets/action",
+      "Microsoft.KeyVault/vaults/purge/action",
+      "Microsoft.Security/policies/write",
+      "Microsoft.Authorization/policyAssignments/delete"
+    ],
+    "not_data_actions": [
+      "Microsoft.KeyVault/vaults/secrets/getSecret/action",
+      "Microsoft.KeyVault/vaults/secrets/setSecret/action",
+      "Microsoft.KeyVault/vaults/secrets/delete/action"
+    ],
+    "forbidden_standing_roles": [
+      "Owner",
+      "Contributor",
+      "User Access Administrator"
+    ]
+  },
+  "groups": [
+    {
+      "id": "reader",
+      "display_name": "FDAI Reader",
+      "role_name_template": "FDAI Reader v1",
+      "version": "1.0.0",
+      "allows_write": false,
+      "single_dedicated_rg_only": false,
+      "default_production_eligible": true,
+      "pim_required": false,
+      "allowed_scopes": [
+        "subscription",
+        "resource_group"
+      ],
+      "summary_en": "Read-only Azure observation for topology, tags, health, and opt-in telemetry, cost, Activity Log, and AKS read sources.",
+      "summary_ko": "토폴로지, 태그, 상태 조회 및 선택한 텔레메트리, 비용, Activity Log, AKS 읽기 전용 권한입니다.",
+      "actions": [
+        "*/read",
+        "Microsoft.ResourceGraph/resources/read",
+        "Microsoft.ResourceHealth/*/read",
+        "Microsoft.Insights/*/read",
+        "Microsoft.OperationalInsights/workspaces/query/*/read",
+        "Microsoft.CostManagement/*/read",
+        "Microsoft.Consumption/*/read",
+        "Microsoft.ContainerService/managedClusters/listClusterUserCredential/action"
+      ],
+      "not_actions": [
+        "Microsoft.Authorization/*/Write",
+        "Microsoft.Authorization/*/Delete",
+        "Microsoft.Authorization/elevateAccess/Action",
+        "Microsoft.Blueprint/blueprintAssignments/write",
+        "Microsoft.Blueprint/blueprintAssignments/delete",
+        "Microsoft.Resources/subscriptions/resourceGroups/delete",
+        "Microsoft.Authorization/locks/delete",
+        "Microsoft.Subscription/*",
+        "*/listKeys/action",
+        "*/listSecrets/action",
+        "Microsoft.KeyVault/vaults/purge/action",
+        "Microsoft.Security/policies/write",
+        "Microsoft.Authorization/policyAssignments/delete"
+      ],
+      "data_actions": [],
+      "not_data_actions": [
+        "Microsoft.KeyVault/vaults/secrets/getSecret/action",
+        "Microsoft.KeyVault/vaults/secrets/setSecret/action",
+        "Microsoft.KeyVault/vaults/secrets/delete/action"
+      ],
+      "assigned_agents": [
+        "Huginn",
+        "Heimdall"
+      ],
+      "non_pantheon_principals": [
+        "task-worker",
+        "evidence-verifier"
+      ],
+      "entra_mi_groups": [
+        "fdai-mi-readers"
+      ]
+    },
+    {
+      "id": "operator",
+      "display_name": "FDAI Operator",
+      "role_name_template": "FDAI Operator v1",
+      "version": "1.0.0",
+      "allows_write": true,
+      "single_dedicated_rg_only": false,
+      "default_production_eligible": true,
+      "pim_required": false,
+      "allowed_scopes": [
+        "resource_group"
+      ],
+      "summary_en": "Safe day-to-day operational fixes (tags, alerts, diagnostics, restart/scale, NSG/TLS/backup, SKU right-sizing) with primary deletion and IAM blocked.",
+      "summary_ko": "태그, 경고, 진단 설정, 재시작/확장, NSG/TLS/백업, SKU 조정 등 안전한 운영 조치만 허용하며 주요 리소스 삭제와 IAM 변경은 차단합니다.",
+      "actions": [
+        "*/read",
+        "Microsoft.ResourceGraph/resources/read",
+        "Microsoft.ResourceHealth/*/read",
+        "Microsoft.Resources/tags/write",
+        "Microsoft.Resources/tags/delete",
+        "Microsoft.Insights/diagnosticSettings/write",
+        "Microsoft.Insights/metricAlerts/write",
+        "Microsoft.Insights/scheduledQueryRules/write",
+        "Microsoft.Insights/activityLogAlerts/write",
+        "Microsoft.Insights/actionGroups/write",
+        "Microsoft.AlertsManagement/actionRules/write",
+        "Microsoft.Compute/virtualMachines/start/action",
+        "Microsoft.Compute/virtualMachines/restart/action",
+        "Microsoft.Compute/virtualMachines/deallocate/action",
+        "Microsoft.Compute/virtualMachines/write",
+        "Microsoft.Compute/virtualMachineScaleSets/write",
+        "Microsoft.Compute/virtualMachineScaleSets/restart/action",
+        "Microsoft.Web/sites/restart/action",
+        "Microsoft.Web/serverfarms/write",
+        "Microsoft.App/containerApps/write",
+        "Microsoft.Cache/Redis/forceReboot/action",
+        "Microsoft.Network/networkSecurityGroups/securityRules/write",
+        "Microsoft.Network/networkSecurityGroups/securityRules/delete",
+        "Microsoft.Storage/storageAccounts/write",
+        "Microsoft.DBforPostgreSQL/flexibleServers/write",
+        "Microsoft.DBforPostgreSQL/flexibleServers/restart/action"
+      ],
+      "not_actions": [
+        "Microsoft.Authorization/*/Write",
+        "Microsoft.Authorization/*/Delete",
+        "Microsoft.Authorization/elevateAccess/Action",
+        "Microsoft.Blueprint/blueprintAssignments/write",
+        "Microsoft.Blueprint/blueprintAssignments/delete",
+        "Microsoft.Resources/subscriptions/resourceGroups/delete",
+        "Microsoft.Authorization/locks/delete",
+        "Microsoft.Subscription/*",
+        "*/listKeys/action",
+        "*/listSecrets/action",
+        "Microsoft.KeyVault/vaults/purge/action",
+        "Microsoft.Security/policies/write",
+        "Microsoft.Authorization/policyAssignments/delete"
+      ],
+      "data_actions": [],
+      "not_data_actions": [
+        "Microsoft.KeyVault/vaults/secrets/getSecret/action",
+        "Microsoft.KeyVault/vaults/secrets/setSecret/action",
+        "Microsoft.KeyVault/vaults/secrets/delete/action"
+      ],
+      "assigned_agents": [
+        "Thor"
+      ],
+      "non_pantheon_principals": [
+        "devgw-executor"
+      ],
+      "entra_mi_groups": [
+        "fdai-mi-exec-change",
+        "fdai-mi-exec-resilience",
+        "fdai-mi-exec-finops"
+      ]
+    },
+    {
+      "id": "contributor",
+      "display_name": "FDAI Contributor",
+      "role_name_template": "FDAI Contributor v1",
+      "version": "1.0.0",
+      "allows_write": true,
+      "single_dedicated_rg_only": true,
+      "default_production_eligible": false,
+      "pim_required": false,
+      "allowed_scopes": [
+        "resource_group"
+      ],
+      "summary_en": "Guarded Contributor ceiling limited to one dedicated dev, test, or sandbox resource group; IAM writes, RG/lock deletes, and secret export stay blocked.",
+      "summary_ko": "단일 전용 개발/테스트/샌드박스 리소스 그룹 한정 Contributor 상한이며, IAM 변경, RG/잠금 삭제, 시크릿 유출은 계속 차단됩니다.",
+      "actions": [
+        "*"
+      ],
+      "not_actions": [
+        "Microsoft.Authorization/*/Write",
+        "Microsoft.Authorization/*/Delete",
+        "Microsoft.Authorization/elevateAccess/Action",
+        "Microsoft.Blueprint/blueprintAssignments/write",
+        "Microsoft.Blueprint/blueprintAssignments/delete",
+        "Microsoft.Resources/subscriptions/resourceGroups/delete",
+        "Microsoft.Authorization/locks/delete",
+        "Microsoft.Subscription/*",
+        "*/listKeys/action",
+        "*/listSecrets/action",
+        "Microsoft.KeyVault/vaults/purge/action",
+        "Microsoft.Security/policies/write",
+        "Microsoft.Authorization/policyAssignments/delete"
+      ],
+      "data_actions": [],
+      "not_data_actions": [
+        "Microsoft.KeyVault/vaults/secrets/getSecret/action",
+        "Microsoft.KeyVault/vaults/secrets/setSecret/action",
+        "Microsoft.KeyVault/vaults/secrets/delete/action"
+      ],
+      "assigned_agents": [
+        "Thor"
+      ],
+      "non_pantheon_principals": [
+        "devgw-executor"
+      ],
+      "entra_mi_groups": [
+        "fdai-mi-exec-change",
+        "fdai-mi-exec-resilience",
+        "fdai-mi-exec-finops"
+      ]
+    }
+  ],
+  "no_target_azure_role_agents": [
+    "Odin",
+    "Forseti",
+    "Var",
+    "Bragi",
+    "Saga",
+    "Mimir",
+    "Muninn",
+    "Norns",
+    "Njord",
+    "Freyr",
+    "Loki",
+    "Vidar"
+  ],
+  "human_admin_groups": [
+    {
+      "role": "Reader",
+      "label_ko": "조회자 / 감사",
+      "entra_group": "fdai-readers",
+      "legacy_entra_group": "aw-readers",
+      "azure_iam_recommendation": "none_or_fdai_reader",
+      "azure_iam_label_ko": "없음 (Console 사용) 또는 FDAI Reader",
+      "pim_required": false,
+      "hil_approval_allowed": false
+    },
+    {
+      "role": "Contributor",
+      "label_ko": "엔지니어",
+      "entra_group": "fdai-contributors",
+      "legacy_entra_group": "aw-contributors",
+      "azure_iam_recommendation": "none_in_prod_optional_dev_operator",
+      "azure_iam_label_ko": "운영 없음 (개발 RG FDAI Operator 선택)",
+      "pim_required": false,
+      "hil_approval_allowed": false
+    },
+    {
+      "role": "Approver",
+      "label_ko": "승인자",
+      "entra_group": "fdai-approvers",
+      "legacy_entra_group": "aw-approvers",
+      "azure_iam_recommendation": "none_or_fdai_reader",
+      "azure_iam_label_ko": "없음 (또는 FDAI Reader)",
+      "pim_required": false,
+      "hil_approval_allowed": true
+    },
+    {
+      "role": "Owner",
+      "label_ko": "플랫폼 관리자 (Owner)",
+      "entra_group": "fdai-owners",
+      "legacy_entra_group": "aw-owners",
+      "azure_iam_recommendation": "app_rg_scoped_deployer_no_standing_sub_owner",
+      "azure_iam_label_ko": "FDAI 앱 RG 한정 배포 역할 (상시 구독 Owner 없음)",
+      "pim_required": false,
+      "hil_approval_allowed": true
+    },
+    {
+      "role": "BreakGlass",
+      "label_ko": "비상 계정 (Break-Glass)",
+      "entra_group": "fdai-break-glass",
+      "legacy_entra_group": "aw-break-glass",
+      "azure_iam_recommendation": "segregated_emergency_subscription_owner",
+      "azure_iam_label_ko": "별도 비상용 구독 Owner (하드웨어 키 보관)",
+      "pim_required": false,
+      "hil_approval_allowed": false
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
 import type { AutonomyPayload } from "../types";
+import { StatusBadge } from "../components/status-badge";
 import {
   KpiCard,
   KpiGrid,
@@ -165,8 +166,10 @@ function AssuranceBanner({
   readonly policyEscapes: number | null;
   readonly pendingApprovals: number;
 }) {
+  const tone = health === "healthy" ? "live" : health === "attention" ? "sre" : "neutral";
   return (
     <section class={`assurance-banner is-${health}`} aria-live="polite">
+      <StatusBadge tone={tone} label={t(`analytics.health.${health}`)} />
       <strong>{t(`analytics.assurance.banner.${health}Title`)}</strong>
       <span>{t(`analytics.assurance.banner.${health}Body`, {
         approvals: pendingApprovals,

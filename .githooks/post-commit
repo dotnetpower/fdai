@@ -1,13 +1,10 @@
 #!/usr/bin/env -S LC_ALL=C LANG=C bash
-# Post-commit hook - record a bounded handover without starting validation.
+# Post-commit hook - Pure-Rust lightweight commit marker (zero Python dependency).
 set -uo pipefail
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$repo_root" || exit 0
 
-handover_script="scripts/automation/session-handover.py"
-if [ -f "$handover_script" ] && ! python3 "$handover_script" record HEAD; then
-  echo "post-commit: warning - failed to record the local session handover" >&2
-fi
-
+mkdir -p .fdai 2>/dev/null || true
+git rev-parse --short HEAD > .fdai/last-commit-sha 2>/dev/null || true
 exit 0

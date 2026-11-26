@@ -344,7 +344,7 @@ jobs:
           IMAGE_REF: ${{ inputs.image_ref }}
         run: |
           set -euo pipefail
-          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/service_contract.py" \
+          python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/service_contract.py" \
             --service "${{ inputs.service }}" \
             --environment "${{ inputs.environment }}" \
             --repository "$GITHUB_REPOSITORY" \
@@ -384,7 +384,7 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT" \
             > "$RUNNER_TEMP/environment.json"
           python3 \
-            "$TRUSTED_CONTROLS/scripts/deployment/azure/verify-github-environment.py" \
+            "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/azure/verify-github-environment.py" \
             "$RUNNER_TEMP/environment.json" \
             --environment "$TARGET_ENVIRONMENT" \
             --dev-required-approvals "$DEV_DEPLOY_REQUIRED_APPROVALS"
@@ -516,7 +516,7 @@ jobs:
           terraform -chdir="$TERRAFORM_ROOT" state pull \
             >"$RUNNER_TEMP/independent-service-state.json"
           mapfile -t migration_coordinates < <(
-            python3 "$TRUSTED_CONTROLS/scripts/deployment/service/state_migration.py" \
+            python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/state_migration.py" \
               coordinates \
               --service "$SERVICE" \
               --environment "$ENVIRONMENT"
@@ -525,7 +525,7 @@ jobs:
             echo "state migration coordinates are incomplete." >&2
             exit 1
           }
-          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/state_migration.py" verify \
+          python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/state_migration.py" verify \
             --source-state "$RUNNER_TEMP/legacy-service-state.json" \
             --destination-state "$RUNNER_TEMP/independent-service-state.json" \
             --source-address "${migration_coordinates[2]}" \
@@ -568,14 +568,14 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -t migration_coordinates < <(
-            python3 "$TRUSTED_CONTROLS/scripts/deployment/service/state_migration.py" \
+            python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/state_migration.py" \
               coordinates --service "$SERVICE" --environment "$ENVIRONMENT"
           )
           terraform -chdir="$TRUSTED_CONTROLS/infra" state pull \
             >"$RUNNER_TEMP/legacy-service-state-after.json"
           terraform -chdir="$TERRAFORM_ROOT" state pull \
             >"$RUNNER_TEMP/independent-service-state-after.json"
-          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/state_migration.py" verify \
+          python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/state_migration.py" verify \
             --source-state "$RUNNER_TEMP/legacy-service-state-after.json" \
             --destination-state "$RUNNER_TEMP/independent-service-state-after.json" \
             --source-address "${migration_coordinates[2]}" \
@@ -948,29 +948,29 @@ jobs:
             }
           fi
           printf '%s' "$SERVICE_TFVARS_JSON" \
-            | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/hydrate_database_host.py" \
+            | python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/hydrate_database_host.py" \
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \
                 --database-host "$database_host" \
-            | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/hydrate_console_origin.py" \
+            | python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/hydrate_console_origin.py" \
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \
                 --console-hostname "$console_hostname" \
-            | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/hydrate_event_topic.py" \
+            | python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/hydrate_event_topic.py" \
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \
                 --event-topic "$event_topic" \
                 --pipeline-stage-topic "$pipeline_stage_topic" \
                 --pantheon-object-topic "$pantheon_object_topic" \
-            | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/hydrate_observation_context.py" \
+            | python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/hydrate_observation_context.py" \
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \
                 --binding-json "$observation_context_binding" \
-            | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/hydrate_operator_request_receipts.py" \
+            | python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/hydrate_operator_request_receipts.py" \
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \
                 --binding-json "$operator_request_receipt_binding" \
-            | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/hydrate_rca_reader_identity.py" \
+            | python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/hydrate_rca_reader_identity.py" \
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \
                 --identity-json "$rca_reader_identity_binding" \
@@ -983,7 +983,7 @@ jobs:
               RUNTIME_CALL_EVIDENCE_JSON="$runtime_call_evidence_binding" \
               COST_PSEUDONYM_KEY_SECRET_ID="$cost_pseudonym_key_secret_id" \
               SOURCE_REVISION="$source_revision_binding" \
-              python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
+              python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/materialize_tfvars.py" \
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \
                 "${channel_edge_args[@]}" \
@@ -1026,7 +1026,7 @@ jobs:
           PYTHONPATH="$TRUSTED_CONTROLS/services/core-control-plane/src:$TRUSTED_CONTROLS/packages/service-contracts/src" \
             uv run --directory "$TRUSTED_CONTROLS" --frozen \
               --package fdai-core-control-plane python \
-              "$TRUSTED_CONTROLS/scripts/deployment/azure/configuration_baseline_evidence.py" \
+              "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/azure/configuration_baseline_evidence.py" \
               prepare \
               --baseline "$RUNNER_TEMP/configuration-baseline.json" \
               --tfvars "$RUNNER_TEMP/service.tfvars.json"
@@ -1129,7 +1129,7 @@ jobs:
           sharepoint_args=()
           [[ "$SHAREPOINT_CONNECTOR_TRANSITION" != "none" ]] \
             && sharepoint_args+=(--sharepoint-connector-transition "$SHAREPOINT_CONNECTOR_TRANSITION")
-          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/guard_plan.py" \
+          python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/guard_plan.py" \
             --plan-json "$RUNNER_TEMP/service-plan.json" \
             --service "${{ inputs.service }}" \
             --environment "${{ inputs.environment }}" \
@@ -1191,7 +1191,7 @@ jobs:
           sharepoint_args=()
           [[ "$SHAREPOINT_CONNECTOR_TRANSITION" != "none" ]] \
             && sharepoint_args+=(--sharepoint-connector-transition "$SHAREPOINT_CONNECTOR_TRANSITION")
-          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/plan_bundle.py" create \
+          python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/plan_bundle.py" create \
             --plan "$RUNNER_TEMP/service.plan" \
             --plan-json "$RUNNER_TEMP/service-plan.json" \
             --context "$RUNNER_TEMP/service-context.json" \
@@ -1289,7 +1289,7 @@ jobs:
             echo "source plan controls are not an ancestor of current protected main." >&2
             exit 1
           }
-          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/deployment_inputs.py" \
+          python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/deployment_inputs.py" \
             --repository "$TRUSTED_CONTROLS" \
             --before "$source_head_sha" \
             --after "$CONTROLS_COMMIT_SHA"
@@ -1326,7 +1326,7 @@ jobs:
             echo "plan controls checkout is not an ancestor of current protected main." >&2
             exit 1
           }
-          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/deployment_inputs.py" \
+          python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/deployment_inputs.py" \
             --repository "$TRUSTED_CONTROLS" \
             --before "$plan_controls_commit_sha" \
             --after "$CONTROLS_COMMIT_SHA"
@@ -1368,7 +1368,7 @@ jobs:
           sharepoint_args=()
           [[ "$SHAREPOINT_CONNECTOR_TRANSITION" != "none" ]] \
             && sharepoint_args+=(--sharepoint-connector-transition "$SHAREPOINT_CONNECTOR_TRANSITION")
-          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/plan_bundle.py" verify \
+          python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/plan_bundle.py" verify \
             --plan "$bundle/service.plan" \
             --plan-json "$bundle/service-plan.json" \
             --context "$bundle/service-context.json" \
@@ -1405,7 +1405,7 @@ jobs:
             echo "binary plan and sealed plan JSON disagree." >&2
             exit 1
           }
-          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/guard_plan.py" \
+          python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/guard_plan.py" \
             --plan-json "$RUNNER_TEMP/replayed-service-plan.json" \
             --service "${{ inputs.service }}" \
             --environment "${{ inputs.environment }}" \
@@ -1531,7 +1531,7 @@ jobs:
           }
           printf '%s' "$SERVICE_TFVARS_JSON" \
             | RUNTIME_CALL_EVIDENCE_JSON="$runtime_call_evidence_binding" \
-              python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
+              python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/materialize_tfvars.py" \
                 --service operator-service \
                 --environment "${{ inputs.environment }}" \
                 --operator-channel-edge-enabled false \
@@ -1548,7 +1548,7 @@ jobs:
             exit 1
           }
           printf '%s' "$SERVICE_TFVARS_JSON" \
-            | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
+            | python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/materialize_tfvars.py" \
                 --service document-ingestion-api \
                 --environment "${{ inputs.environment }}" \
                 --document-channel-intake-enabled false \
@@ -1606,7 +1606,7 @@ jobs:
           [[ "$DEGRADED_RECOVERY" == "true" ]] \
             && recovery_args+=(--allow-degraded-current)
           rollback_revision="$(
-            python3 "$TRUSTED_CONTROLS/scripts/deployment/service/deployment_recovery.py" \
+            python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/deployment_recovery.py" \
               select-baseline \
               --app "$rollback_dir/app.json" \
               --current-revision "$rollback_dir/current-revision.json" \
@@ -1621,7 +1621,7 @@ jobs:
             echo "selected rollback revision does not match the observed candidates." >&2
             exit 1
           fi
-          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/deployment_recovery.py" capture \
+          python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/deployment_recovery.py" capture \
             --context "$bundle/service-context.json" \
             --account "$rollback_dir/account.json" \
             --app "$rollback_dir/app.json" \
@@ -1732,7 +1732,7 @@ jobs:
           echo "::add-mask::$container_url"
           echo "::add-mask::$storage_account"
           export CONFIGURATION_BASELINE_CONTAINER_URL="$container_url"
-          evidence_cli="$TRUSTED_CONTROLS/scripts/deployment/azure/configuration_baseline_evidence.py"
+          evidence_cli="$TRUSTED_CONTROLS/_archive/python/scripts/deployment/azure/configuration_baseline_evidence.py"
           evidence_python=(
             uv run --directory "$TRUSTED_CONTROLS" --frozen
             --package fdai-core-control-plane python "$evidence_cli"
@@ -1790,7 +1790,7 @@ jobs:
           CONTEXT_DIGEST: ${{ inputs.apply && inputs.context_digest || steps.seal.outputs.context_digest }}
         run: |
           set -euo pipefail
-          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/peer_state.py" verify \
+          python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/peer_state.py" verify \
             --before "$RUNNER_TEMP/service-peer-state-before/manifest.json" \
             --after "$RUNNER_TEMP/service-peer-state-after/manifest.json" \
             --mode "$DEPLOYMENT_MODE" \
@@ -1823,7 +1823,7 @@ jobs:
           CONTEXT_DIGEST: ${{ inputs.context_digest }}
         run: |
           set -euo pipefail
-          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/live_observation.py" \
+          python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/live_observation.py" \
             --receipt "$RUNNER_TEMP/service-peer-isolation-receipt.json" \
             --service "${{ inputs.service }}" \
             --commit-sha "${{ inputs.commit_sha }}" \
@@ -1869,7 +1869,7 @@ jobs:
             -var="image=$IMAGE_REF"
           terraform -chdir="$TERRAFORM_ROOT" show \
             -json "$rollback_dir/edge-disable.plan" >"$rollback_dir/edge-disable-plan.json"
-          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/guard_plan.py" \
+          python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/guard_plan.py" \
             --plan-json "$rollback_dir/edge-disable-plan.json" \
             --service operator-service \
             --environment "${{ inputs.environment }}" \
@@ -1913,7 +1913,7 @@ jobs:
             -var="image=$IMAGE_REF"
           terraform -chdir="$TERRAFORM_ROOT" show \
             -json "$rollback_dir/intake-disable.plan" >"$rollback_dir/intake-disable-plan.json"
-          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/guard_plan.py" \
+          python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/guard_plan.py" \
             --plan-json "$rollback_dir/intake-disable-plan.json" \
             --service document-ingestion-api \
             --environment "${{ inputs.environment }}" \
@@ -1939,7 +1939,7 @@ jobs:
           set -euo pipefail
           rollback_dir="$RUNNER_TEMP/service-rollback"
           mapfile -d '' -t rollback_command < <(
-            python3 "$TRUSTED_CONTROLS/scripts/deployment/service/deployment_recovery.py" \
+            python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/deployment_recovery.py" \
               rollback-command \
               --snapshot "$rollback_dir/snapshot.json" \
               --revision-suffix "r${GITHUB_RUN_ID}"
@@ -2069,7 +2069,7 @@ jobs:
             exit 1
           fi
           az account show --only-show-errors --output json >"$rollback_dir/account-after.json"
-          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/deployment_recovery.py" \
+          python3 "$TRUSTED_CONTROLS/_archive/python/scripts/deployment/service/deployment_recovery.py" \
             verify-rollback \
             --snapshot "$rollback_dir/snapshot.json" \
             --account "$rollback_dir/account-after.json" \

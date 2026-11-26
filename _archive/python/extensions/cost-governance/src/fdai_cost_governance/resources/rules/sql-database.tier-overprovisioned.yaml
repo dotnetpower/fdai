@@ -1,0 +1,37 @@
+schema_version: 2.0.0
+id: sql-database.tier-overprovisioned
+version: 1.0.0
+source: azure_advisor
+severity: medium
+category: cost
+resource_type: sql-database
+applies_to:
+- sql-database
+triggered_by:
+- resource.metric.observed
+evaluates:
+- property.sql-database.dtu_p95_percent
+required_interfaces:
+- Evaluable
+- Remediable
+submission_criteria:
+- kind: resource_type_registered
+  value: sql-database
+- kind: property_exists
+  value: property.sql-database.dtu_p95_percent
+check_logic:
+  kind: rego
+  reference: policies/sql_database/tier_overprovisioned.rego
+remediation:
+  template_ref: remediation/sql_database/right_size_tier.tftpl
+  cost_impact_monthly_usd: 0.0
+remediates: remediate.right-size
+parameters:
+  dtu_p95_threshold: 20
+provenance:
+  source_url: https://learn.microsoft.com/azure/advisor/advisor-cost-recommendations
+  resolved_ref: '0000000000000000000000000000000000000000'
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: LicenseRef-reference-only
+  redistribution: reference-only
+  retrieved_at: '2026-07-06T00:00:00Z'

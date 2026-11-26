@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
+import { buildDashboardTelemetry } from "./dashboard";
+import { DASHBOARD_SAMPLE_DATA } from "./dashboard.sample";
 
 function source(name: string): string {
   return readFileSync(fileURLToPath(new URL(name, import.meta.url)), "utf8");
@@ -25,14 +27,19 @@ describe("Dashboard drill-down contract", () => {
     expect(posture).toContain("value === null");
   });
 
-  test("keeps essential sections decision-first and detailed evidence behind disclosure", () => {
+  test("keeps essential KPI + live timeline primary and detailed evidence behind disclosure", () => {
     const dashboard = source("./dashboard.tsx");
+    const kpiIndex = dashboard.indexOf('class="overview-kpi-grid"');
+    const timelineIndex = dashboard.indexOf("<LiveScatterTimeline");
+    const detailsIndex = dashboard.indexOf('<details class="advanced-details overview-details">');
+    expect(kpiIndex).toBeGreaterThan(0);
+    expect(timelineIndex).toBeGreaterThan(kpiIndex);
+    expect(detailsIndex).toBeGreaterThan(timelineIndex);
     const positions = ["attention", "posture", "routing", "outcomes"]
       .map((id) => dashboard.indexOf(`id="${id}"`));
-    expect(positions.every((position) => position > 0)).toBe(true);
+    expect(positions.every((position) => position > detailsIndex)).toBe(true);
     expect(positions).toEqual([...positions].sort((a, b) => a - b));
-    expect(dashboard.indexOf('<details class="advanced-details overview-details">'))
-      .toBeLessThan(dashboard.indexOf("<ExecutiveStatus"));
+    expect(detailsIndex).toBeLessThan(dashboard.indexOf("<ExecutiveStatus"));
     expect(dashboard).not.toContain("overview-section-number");
     expect(source("./dashboard.skeleton.tsx")).toContain('layout="metrics" blocks={4}');
   });
@@ -64,5 +71,75 @@ describe("Dashboard drill-down contract", () => {
     expect(signals.match(/<a class="overview-rules-stat/g)?.length).toBe(3);
     expect(dashboard).toContain("[filterKey]: r.key");
     expect(dashboard.match(/<a href=\{routeHref\("audit"/g)?.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test("derives telemetry buckets, domain rows, and prioritized ticker state honestly", () => {
+    const sampleTelemetry = buildDashboardTelemetry(
+      DASHBOARD_SAMPLE_DATA.kpi,
+      DASHBOARD_SAMPLE_DATA.autonomy,
+      DASHBOARD_SAMPLE_DATA.gates,
+      0,
+    );
+    expect(sampleTelemetry.buckets.length).toBeGreaterThan(0);
+    expect(sampleTelemetry.points.length).toBe(sampleTelemetry.buckets.length);
+    expect(sampleTelemetry.domains.map((row) => row.id)).toEqual([
+      "resilience",
+      "change_safety",
+      "cost",
+      "unattributed",
+    ]);
+    expect(sampleTelemetry.tickerCategory).toBe("human");
+
+    const escapedTelemetry = buildDashboardTelemetry(
+      DASHBOARD_SAMPLE_DATA.kpi,
+      DASHBOARD_SAMPLE_DATA.autonomy,
+      DASHBOARD_SAMPLE_DATA.gates,
+      2,
+    );
+    expect(escapedTelemetry.tickerCategory).toBe("sec");
+    expect(escapedTelemetry.signals.some((item) => item.id === "sig-escapes")).toBe(true);
+
+    const liveOutcomeTelemetry = buildDashboardTelemetry(
+      {
+        ...DASHBOARD_SAMPLE_DATA.kpi,
+        event_count: 74450,
+        hil_pending: 481,
+        by_outcome: {
+          shadow: 68168,
+          started: 2865,
+          completed: 1805,
+          degraded: 1059,
+          retained: 553,
+        },
+      },
+      null,
+      null,
+      null,
+    );
+    expect(liveOutcomeTelemetry.totals.auto).toBe(68168 + 2865 + 1805);
+    expect(liveOutcomeTelemetry.totals.sre).toBe(1059 + 553);
+    expect(liveOutcomeTelemetry.points.some((pt) => pt.category === "sre")).toBe(true);
+    expect(liveOutcomeTelemetry.points.some((pt) => pt.category === "auto")).toBe(true);
+
+    const emptyTelemetry = buildDashboardTelemetry(
+      {
+        ...DASHBOARD_SAMPLE_DATA.kpi,
+        event_count: 0,
+        hil_pending: 0,
+        by_outcome: {},
+        by_action_kind: {},
+        by_tier: {},
+        last_recorded_at: null,
+        audit_sample: null,
+      },
+      null,
+      null,
+      null,
+    );
+    expect(emptyTelemetry.buckets).toEqual([]);
+    expect(emptyTelemetry.points).toEqual([]);
+    expect(emptyTelemetry.domains).toEqual([]);
+    expect(emptyTelemetry.signals).toEqual([]);
+    expect(emptyTelemetry.tickerTime).toBe("-");
   });
 });

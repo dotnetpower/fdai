@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
+import { CheckboxField, SelectField } from "../components/form-controls";
 import { ArchitectureTopologyGraph } from "../components/architecture-topology-graph";
 import { layoutArchitectureImpactPresentation } from "../components/architecture-map-layout";
 import {
@@ -257,44 +258,38 @@ export function BlastRadiusRoute({ client }: Props) {
             selectedId={target}
             onSelect={selectTarget}
           />
-          <label class="impact-query-field is-compact">
-            <span>{t("ontology.blast.depthInput")}</span>
-            <select
-              class="impact-query-input"
-              value={depth}
-              onInput={(e) => {
-                const nextDepth = Number((e.target as HTMLSelectElement).value);
-                setDepth(nextDepth);
-                syncDraft({
-                  target: target.trim() || null,
-                  depth: nextDepth,
-                  links: [...linkSet],
-                  architectureView,
-                });
-              }}
-            >
-              {[1, 2, 3, 4, 5].map((option) => (
-                <option key={option} value={option}>
-                  {option === 1
-                    ? t("ontology.blast.depthOneOption")
-                    : t("ontology.blast.depthOption", { depth: option })}
-                </option>
-              ))}
-            </select>
-          </label>
+          <SelectField
+            label={t("ontology.blast.depthInput")}
+            value={String(depth)}
+            className="impact-query-field is-compact"
+            options={[1, 2, 3, 4, 5].map((option) => ({
+              value: String(option),
+              label: option === 1
+                ? t("ontology.blast.depthOneOption")
+                : t("ontology.blast.depthOption", { depth: option }),
+            }))}
+            onChange={(nextValue) => {
+              const nextDepth = Number(nextValue);
+              setDepth(nextDepth);
+              syncDraft({
+                target: target.trim() || null,
+                depth: nextDepth,
+                links: [...linkSet],
+                architectureView,
+              });
+            }}
+          />
           <fieldset class="impact-query-checks">
             <legend>{t("ontology.blast.linkTypes")}</legend>
             <div class="impact-query-options">
               {BLAST_RADIUS_LINKS.map((name) => (
-                <label key={name} class="impact-query-check">
-                  <input
-                    type="checkbox"
-                    checked={linkSet.has(name)}
-                    onChange={() => toggleLink(name)}
-                  />
-                  <span class="impact-query-check-box" aria-hidden="true" />
-                  <span>{name}</span>
-                </label>
+                <CheckboxField
+                  key={name}
+                  label={name}
+                  checked={linkSet.has(name)}
+                  className="impact-query-check"
+                  onChange={() => toggleLink(name)}
+                />
               ))}
             </div>
           </fieldset>

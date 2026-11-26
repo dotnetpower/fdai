@@ -323,7 +323,7 @@ jobs:
               )
             ' "$batch_file" >/dev/null
             uv run --frozen --package fdai-core-control-plane \
-              python scripts/deployment/azure/record_cost_governance_review_batch.py \
+              python _archive/python/scripts/deployment/azure/record_cost_governance_review_batch.py \
                 --readiness "${{ steps.readiness.outputs.recomputed }}" \
                 --policy .fdai-release-source/config/cost-governance-w7-policy.json \
                 --review-batch-json "$batch_file" \
@@ -348,7 +348,7 @@ jobs:
             [[ -n "${REVIEW_DECISION:-}" ]]
             [[ -n "${REVIEW_RATIONALE:-}" ]]
             uv run --frozen --package fdai-core-control-plane \
-              python scripts/deployment/azure/record_cost_governance_review.py \
+              python _archive/python/scripts/deployment/azure/record_cost_governance_review.py \
                 --readiness "${{ steps.readiness.outputs.recomputed }}" \
                 --policy .fdai-release-source/config/cost-governance-w7-policy.json \
                 --target-kind "$REVIEW_TARGET_KIND" \

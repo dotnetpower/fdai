@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/channel-attachment-admission/1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "handoff_id",
+    "idempotency_key",
+    "origin_digest",
+    "ordinal",
+    "attributed_principal_id",
+    "principal_manifest_digest",
+    "conversation_ref",
+    "requested_purpose",
+    "source_name",
+    "media_type_hint",
+    "declared_size",
+    "requested_at",
+    "request_digest",
+    "execution_authority"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "handoff_id": {"type": "string", "pattern": "^channel-attachment-[a-f0-9]{64}$"},
+    "idempotency_key": {"type": "string", "minLength": 1, "maxLength": 256},
+    "origin_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "ordinal": {"type": "integer", "minimum": 0, "maximum": 7},
+    "attributed_principal_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "principal_manifest_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "conversation_ref": {"type": "string", "minLength": 1, "maxLength": 256},
+    "requested_purpose": {"enum": ["handover_bootstrap", "knowledge_base"]},
+    "source_name": {"type": "string", "minLength": 1, "maxLength": 512},
+    "media_type_hint": {"type": "string", "minLength": 1, "maxLength": 256},
+    "declared_size": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807},
+    "requested_at": {"type": "string", "format": "date-time"},
+    "request_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "execution_authority": {"const": false}
+  }
+}

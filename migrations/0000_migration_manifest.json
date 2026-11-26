@@ -1,0 +1,2068 @@
+{
+  "alembic_extracted": 92,
+  "entries": [
+    {
+      "down_revision": "none",
+      "fnv1a64": "0x0af0e4721b27d107",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260705_0001",
+      "sql_blocks": 14
+    },
+    {
+      "down_revision": "20260705_0001",
+      "fnv1a64": "0x2b93dc66224cab46",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260705_0002",
+      "sql_blocks": 9
+    },
+    {
+      "down_revision": "20260705_0002",
+      "fnv1a64": "0x65ed0584e340d175",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260705_0003",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "20260705_0003",
+      "fnv1a64": "0x534103b07f61a861",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260705_0004",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260705_0004",
+      "fnv1a64": "0xa6560d8d473bd2b2",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260706_0005",
+      "sql_blocks": 4
+    },
+    {
+      "down_revision": "20260706_0005",
+      "fnv1a64": "0x75325fab8326c62d",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260706_0006",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "20260706_0006",
+      "fnv1a64": "0x2f877f9031c4607d",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260708_0007",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "20260708_0007",
+      "fnv1a64": "0xbf7588ff12d9096d",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260708_0008",
+      "sql_blocks": 3
+    },
+    {
+      "down_revision": "20260708_0008",
+      "fnv1a64": "0x649a91b843071280",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260709_0001",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "20260709_0001",
+      "fnv1a64": "0x99bb789e40463428",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260712_0009",
+      "sql_blocks": 4
+    },
+    {
+      "down_revision": "20260712_0009",
+      "fnv1a64": "0xe1145ebbd31560de",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260712_0010",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "20260712_0010",
+      "fnv1a64": "0xb2abc6927e65233f",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260713_0011",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "20260713_0011",
+      "fnv1a64": "0x1c3ddf3e1c88bb54",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260713_0012",
+      "sql_blocks": 4
+    },
+    {
+      "down_revision": "20260713_0012",
+      "fnv1a64": "0x4d783cea1eacc1b8",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260713_0013",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "20260713_0013",
+      "fnv1a64": "0x05ccda880fa53848",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260713_0014",
+      "sql_blocks": 3
+    },
+    {
+      "down_revision": "20260713_0014",
+      "fnv1a64": "0x307893e4db37b1ee",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260714_0015",
+      "sql_blocks": 5
+    },
+    {
+      "down_revision": "20260714_0015",
+      "fnv1a64": "0x0ade33eb283aeac1",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260715_0016",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260715_0016",
+      "fnv1a64": "0x23f91066ee1a5eb4",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260715_0017",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260715_0017",
+      "fnv1a64": "0x9b25da3562d1436c",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260716_0018",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260716_0018",
+      "fnv1a64": "0x387e9b7a051c70d6",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260716_0019",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260716_0019",
+      "fnv1a64": "0xac0c8ab3e5a01bd8",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260716_0020",
+      "sql_blocks": 12
+    },
+    {
+      "down_revision": "20260716_0020",
+      "fnv1a64": "0xd6f909d6c020450f",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260716_0021",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260716_0021",
+      "fnv1a64": "0x1624daf52ab3522b",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260716_0022",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "20260716_0022",
+      "fnv1a64": "0xbe2abbc0bddb8257",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "143566f8b16b",
+      "sql_blocks": 3
+    },
+    {
+      "down_revision": "143566f8b16b",
+      "fnv1a64": "0x7f13112749db1da3",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260717_0023",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "20260717_0023",
+      "fnv1a64": "0x40f1892fd697a7b3",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260717_0024",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "20260717_0024",
+      "fnv1a64": "0xe18c3895dabae4d9",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260717_0025",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260717_0025",
+      "fnv1a64": "0xbd2e3eaac4c9beb8",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260717_0026",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "20260717_0026",
+      "fnv1a64": "0x7aa1f7fe34ec9434",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260717_0027",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "20260717_0027",
+      "fnv1a64": "0x1c929754736352d3",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260717_0028",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "20260717_0028",
+      "fnv1a64": "0xaa87c58c680a7975",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260717_0029",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260717_0029",
+      "fnv1a64": "0x37f0fb19e53047f4",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260717_0030",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260717_0030",
+      "fnv1a64": "0xcfd0a9f45bfd25d2",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260717_0031",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260717_0031",
+      "fnv1a64": "0x89ff79520e0ba526",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260717_0032",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260717_0032",
+      "fnv1a64": "0x1677402aaa30cc69",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260717_0033",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260717_0033",
+      "fnv1a64": "0xafc58ff0ee9bfe33",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260718_0034",
+      "sql_blocks": 0
+    },
+    {
+      "down_revision": "20260718_0034",
+      "fnv1a64": "0x2b927566b555516e",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260718_0035",
+      "sql_blocks": 4
+    },
+    {
+      "down_revision": "20260718_0035",
+      "fnv1a64": "0xecfdd7d7b95a1be5",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260718_0036",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260718_0036",
+      "fnv1a64": "0x7c5f972f1ed550bb",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260720_0037",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260720_0037",
+      "fnv1a64": "0x9937d3807bd9f82a",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260720_0038",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260720_0038",
+      "fnv1a64": "0x712977fef9a39866",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260720_0039",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260720_0039",
+      "fnv1a64": "0x6163ecc3b5ff572b",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260720_0040",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260720_0040",
+      "fnv1a64": "0x745fa29c732a7ec2",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260720_0041",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260720_0041",
+      "fnv1a64": "0x5a101988757dfcbb",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260720_0042",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260720_0042",
+      "fnv1a64": "0xa644414dd9b449c9",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260720_0043",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260720_0043",
+      "fnv1a64": "0x08568c7e6eecc8e1",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260720_0044",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260720_0044",
+      "fnv1a64": "0x56484e8ec6c6d4f1",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260720_0045",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260720_0045",
+      "fnv1a64": "0x1fb3e01ebc7d31aa",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260720_0046",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260720_0046",
+      "fnv1a64": "0x0c0ac5d12a9567b0",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260720_0047",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260720_0047",
+      "fnv1a64": "0xe3d7768e71f32380",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260720_0048",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260720_0048",
+      "fnv1a64": "0x589c149c7431bc97",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260721_0049",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260721_0049",
+      "fnv1a64": "0xa93bd4d53731d53f",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260721_0050",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260721_0050",
+      "fnv1a64": "0xc9b21b8a3fab3b72",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260722_0051",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260722_0051",
+      "fnv1a64": "0x073ce07c13c68623",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260722_0052",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260722_0052",
+      "fnv1a64": "0xe39ff4e77d153fa4",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260723_0053",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260723_0053",
+      "fnv1a64": "0xd3dd5d869c3e8cb2",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260723_0054",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "20260723_0054",
+      "fnv1a64": "0x1510195c2d96c8b3",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260723_0055",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260723_0055",
+      "fnv1a64": "0xf7f293ff9115217d",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260723_0056",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260723_0056",
+      "fnv1a64": "0x5a69f000a9deafe7",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260723_0057",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260723_0057",
+      "fnv1a64": "0x050e9229a0a56f1a",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260723_0058",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260723_0058",
+      "fnv1a64": "0xa0e4eae4fd15552d",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260725_0059",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260725_0059",
+      "fnv1a64": "0x069334258dd23ccc",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260729_0060",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260729_0060",
+      "fnv1a64": "0x84a45598eb1c3713",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260729_0061",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "20260729_0061",
+      "fnv1a64": "0x5fe8f7848b4171e9",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260731_0062",
+      "sql_blocks": 4
+    },
+    {
+      "down_revision": "20260731_0062",
+      "fnv1a64": "0x1411d58085ed0073",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260731_0063",
+      "sql_blocks": 4
+    },
+    {
+      "down_revision": "20260731_0063",
+      "fnv1a64": "0xeb4a3a05d1532add",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260731_0064",
+      "sql_blocks": 5
+    },
+    {
+      "down_revision": "20260731_0064",
+      "fnv1a64": "0xc6f42221d0d73489",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260731_0065",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "20260731_0065",
+      "fnv1a64": "0xc97f67005d6c9106",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260731_0066",
+      "sql_blocks": 3
+    },
+    {
+      "down_revision": "20260731_0066",
+      "fnv1a64": "0xe4594621f23b1905",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260801_0067",
+      "sql_blocks": 6
+    },
+    {
+      "down_revision": "20260801_0067",
+      "fnv1a64": "0xd12abe947020dff5",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260801_0068",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260801_0068",
+      "fnv1a64": "0x87f7638ebf3e94b9",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260801_0069",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260801_0069",
+      "fnv1a64": "0x394055bb7a7f42dc",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260803_0070",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260803_0070",
+      "fnv1a64": "0x57fb689f91775fba",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260804_0071",
+      "sql_blocks": 3
+    },
+    {
+      "down_revision": "20260804_0071",
+      "fnv1a64": "0x9ad206503c9e7f3f",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260805_0072",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260805_0072",
+      "fnv1a64": "0x891246d8468ec827",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260805_0073",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260805_0073",
+      "fnv1a64": "0xa23860287499949e",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260805_0074",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260805_0074",
+      "fnv1a64": "0xfeece98618cfe441",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260806_0075",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260806_0075",
+      "fnv1a64": "0x3e4d47f5f71ba571",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260806_0076",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260806_0076",
+      "fnv1a64": "0xd9db294e4e8a9f54",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260806_0077",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260806_0077",
+      "fnv1a64": "0x288a03e4632b7d30",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260808_0078",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260808_0078",
+      "fnv1a64": "0x0a81ef1a6caa760d",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260808_0079",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260808_0079",
+      "fnv1a64": "0xb8d8cddb866b3065",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260813_0080",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260813_0080",
+      "fnv1a64": "0x10c921c4d9fa668f",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260813_0081",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260813_0081",
+      "fnv1a64": "0xae960364ec6434fd",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260814_0082",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260814_0082",
+      "fnv1a64": "0xf0217bd825319589",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260814_0083",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260814_0083",
+      "fnv1a64": "0xc330ed3fd5ab3ec3",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260814_0084",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260814_0084",
+      "fnv1a64": "0xf53826e7f5358e13",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260817_0085",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260817_0085",
+      "fnv1a64": "0x7265e37c76ff3bf1",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260819_0086",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260819_0086",
+      "fnv1a64": "0x79d79296c7b40c78",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260826_0087",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "20260826_0087",
+      "fnv1a64": "0x9a8bc4d53b82eea7",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260829_0088",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260829_0088",
+      "fnv1a64": "0xcb64b89e6dfa063a",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260831_0089",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "20260831_0089",
+      "fnv1a64": "0x0f744daa0bfbe083",
+      "kind": "alembic",
+      "owner": "alembic",
+      "revision": "20260912_0090",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "none",
+      "fnv1a64": "0x048bd05c68cbc3c6",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_base_20260808",
+      "sql_blocks": 0
+    },
+    {
+      "down_revision": "core_base_20260808",
+      "fnv1a64": "0x611522b55548fd5c",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_shared_data_ownership_20260808",
+      "sql_blocks": 7
+    },
+    {
+      "down_revision": "core_shared_data_ownership_20260808",
+      "fnv1a64": "0x473bfbf3e220d24f",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_runtime_role_20260809",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_runtime_role_20260809",
+      "fnv1a64": "0xd58f375673a8369c",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_inventory_peered_links_20260810",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_topology_history_20260810",
+      "fnv1a64": "0x3c29055879d73b24",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_inventory_routes_links_20260810",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_inventory_peered_links_20260810",
+      "fnv1a64": "0xf27e6f196d6e6ef5",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_topology_history_20260810",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_inventory_routes_links_20260810",
+      "fnv1a64": "0x93133b5406bbf2ba",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_ontology_release_access_20260813",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_ontology_release_access_20260813",
+      "fnv1a64": "0x2019d1003da24294",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_incident_projection_20260819",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_incident_projection_20260819",
+      "fnv1a64": "0xc87aadb66cd3f2ae",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_question_campaign_20260819",
+      "sql_blocks": 11
+    },
+    {
+      "down_revision": "core_question_campaign_20260819",
+      "fnv1a64": "0x87fb1e4a79515990",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_question_assurance_20260820",
+      "sql_blocks": 7
+    },
+    {
+      "down_revision": "core_question_assurance_20260820",
+      "fnv1a64": "0x5c8363656e7c15b6",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_operational_archive_20260822",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_query_index_maintenance_20260825",
+      "fnv1a64": "0x08c407ed8c7d99f9",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_canonical_incident_projection_20260825",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_metering_writer_20260825",
+      "fnv1a64": "0x0532e6fdbae14f8d",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_incident_recovery_index_20260825",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_incident_recovery_index_20260825",
+      "fnv1a64": "0xc11d038d4af3ca13",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_metering_sequence_20260825",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_operational_archive_20260822",
+      "fnv1a64": "0x73c4339d8f2d0336",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_metering_writer_20260825",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_metering_sequence_20260825",
+      "fnv1a64": "0xfe800e27a1ff7e25",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_query_index_maintenance_20260825",
+      "sql_blocks": 7
+    },
+    {
+      "down_revision": "core_canonical_incident_projection_20260825",
+      "fnv1a64": "0xbadfef6ea21c2fe5",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_background_task_runtime_grants_20260826",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_background_task_runtime_grants_20260826",
+      "fnv1a64": "0x72100edce99dda55",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_interactive_read_investigation_20260826",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_interactive_read_investigation_20260826",
+      "fnv1a64": "0x9ab06845df83407e",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_kubernetes_inventory_links_20260826",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_interactive_read_investigation_20260826",
+      "fnv1a64": "0x43f94b204224ef39",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_kubernetes_lifecycle_20260827",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "none",
+      "fnv1a64": "0xc1877238001fad07",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_kubernetes_merge_20260827",
+      "sql_blocks": 0
+    },
+    {
+      "down_revision": "core_cost_governance_runtime_20260828",
+      "fnv1a64": "0x81998129c02ec9e4",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_cost_governance_decision_20260828",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_kubernetes_merge_20260827",
+      "fnv1a64": "0x6855315b687a238c",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_cost_governance_runtime_20260828",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_standing_authority_lifecycle_20260829",
+      "fnv1a64": "0x2583579098a2bf9c",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_background_task_progress_order_20260829",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_background_task_progress_order_20260829",
+      "fnv1a64": "0xbe57cb3d18d47d57",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_catalog_lifecycle_20260829",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_cost_governance_decision_20260828",
+      "fnv1a64": "0x5ecdacf5b3da33be",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_cost_governance_validation_20260829",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_cost_governance_validation_20260829",
+      "fnv1a64": "0x8bc52290f067a0ea",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_standing_authority_lifecycle_20260829",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_catalog_lifecycle_20260829",
+      "fnv1a64": "0xbce6578342bb524a",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_ontology_endpoint_integrity_20260830",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_ontology_endpoint_integrity_20260830",
+      "fnv1a64": "0x780a35b6d53f39d4",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_ontology_property_index_20260830",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "core_ontology_property_index_20260830",
+      "fnv1a64": "0xf76f806281e53c8d",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_cost_governance_settings_20260831",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_cost_governance_settings_20260831",
+      "fnv1a64": "0x6c8ec2b2379cb8cc",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_t2_cache_lifecycle_20260831",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_t2_cache_lifecycle_20260831",
+      "fnv1a64": "0x50324fe097b975b7",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_operational_state_transitions_20260902",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "core_operational_state_transitions_20260902",
+      "fnv1a64": "0x8dacb1e9d8ed83fc",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_inventory_observation_journal_20260905",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_inventory_observation_journal_20260905",
+      "fnv1a64": "0xe4a213ef0a150959",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_operational_history_lifecycle_20260906",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "core_operational_history_lifecycle_20260906",
+      "fnv1a64": "0x0b7c8483492d5cad",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_t2_cache_lookup_repair_20260906",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_t2_cache_lookup_repair_20260906",
+      "fnv1a64": "0x88e3a4d3aaf5cb34",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_oi16_synthetic_retention_20260907",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "core_oi16_synthetic_retention_20260907",
+      "fnv1a64": "0xbfb9d37627405b7f",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_semantic_transport_indexes_20260908",
+      "sql_blocks": 4
+    },
+    {
+      "down_revision": "core_semantic_transport_indexes_20260908",
+      "fnv1a64": "0x800e7a4d7b8b5afe",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_semantic_transport_ordering_20260908",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "core_executor_idempotency_reservation_20260910",
+      "fnv1a64": "0x0eeef185ff90de6b",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_executor_audit_intent_20260910",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_kubernetes_lifecycle_coverage_20260910",
+      "fnv1a64": "0xc454d743d46aebad",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_executor_idempotency_reservation_20260910",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_semantic_transport_ordering_20260908",
+      "fnv1a64": "0x5f88a69b95dbe63e",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_kubernetes_lifecycle_coverage_20260910",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_executor_audit_intent_20260910",
+      "fnv1a64": "0x6ef65bf35f3eee3f",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_target_dispatch_fence_20260910",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_target_dispatch_fence_20260910",
+      "fnv1a64": "0xc6366afdc99a9275",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_safeguard_dispatch_evidence_20260911",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_cost_governance_w7_lifecycle_20260912",
+      "fnv1a64": "0xf68283dd8a26139d",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_cost_governance_release_guard_20260912",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_resource_change_sources_20260912",
+      "fnv1a64": "0xfd413d6667678275",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_cost_governance_w7_lifecycle_20260912",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_safeguard_dispatch_evidence_20260911",
+      "fnv1a64": "0x3ab66c2a36e7ba46",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_post_release_closure_20260912",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_runtime_call_snapshot_links_20260912",
+      "fnv1a64": "0x5199256b37e6aba8",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_recent_resource_changes_20260912",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "core_recent_resource_changes_20260912",
+      "fnv1a64": "0x72c19fed3e470a1d",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_resource_change_receipts_20260912",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_retire_resource_change_receipts_20260912",
+      "fnv1a64": "0x60215980771adbfd",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_resource_change_sources_20260912",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "core_resource_change_receipts_20260912",
+      "fnv1a64": "0x9b93d9069397af5a",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_retire_resource_change_receipts_20260912",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_post_release_closure_20260912",
+      "fnv1a64": "0x4616c23e00510f8f",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_runtime_call_snapshot_links_20260912",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_effect_observation_20260913",
+      "fnv1a64": "0xdfcc2d0f66a175ce",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_cost_governance_review_20260913",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_cost_governance_release_guard_20260912",
+      "fnv1a64": "0x1a9ebc465396e913",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_effect_observation_20260913",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_cost_governance_review_20260913",
+      "fnv1a64": "0x2745ee0f6638b704",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_assignment_receipts_20260914",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_human_access_execution_20260915",
+      "fnv1a64": "0x44bde52920f09b86",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_forecast_closure_observation_20260914",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_assignment_receipts_20260914",
+      "fnv1a64": "0x85cedc4767ac555d",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_handover_admission_20260914",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_handover_admission_20260914",
+      "fnv1a64": "0xa6368d33f8fa5351",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_handover_review_read_20260914",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_handover_review_read_20260914",
+      "fnv1a64": "0x6b8c5f34d6e3ffaf",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_handover_semantics_20260914",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "none",
+      "fnv1a64": "0x743eca1cd12447cb",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_alert_forecast_merge_20260915",
+      "sql_blocks": 0
+    },
+    {
+      "down_revision": "none",
+      "fnv1a64": "0x24cd769acec043ad",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_alert_handover_merge_20260915",
+      "sql_blocks": 0
+    },
+    {
+      "down_revision": "core_handover_semantics_20260914",
+      "fnv1a64": "0x34fcd435b1284342",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_human_access_execution_20260915",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_cost_governance_review_20260913",
+      "fnv1a64": "0xe871272e7a273346",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_process_sequence_20260915",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_inventory_activity_counts_20260917",
+      "fnv1a64": "0x24cb46bf6f1ac0e7",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_inventory_progress_20260916",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_alert_forecast_merge_20260915",
+      "fnv1a64": "0x31a52fc51fab2eeb",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_inventory_temporal_axes_20260916",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_cost_governance_live_20260917",
+      "fnv1a64": "0xc5f0d6d83186e5aa",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_conversation_assurance_writer_20260917",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "none",
+      "fnv1a64": "0x2d8308ef7124eeda",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_cost_governance_live_20260917",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_inventory_temporal_axes_20260916",
+      "fnv1a64": "0x41a2014764eb7c6a",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_inventory_activity_counts_20260917",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_conversation_assurance_writer_20260917",
+      "fnv1a64": "0xf5b681dfe79e09e1",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_knowledge_read_20260917",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_knowledge_read_20260917",
+      "fnv1a64": "0xb14163086c8fa784",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_inventory_coverage_indexes_20260919",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "core_inventory_coverage_indexes_20260919",
+      "fnv1a64": "0x7e8b2a407e898e1e",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_ontology_writer_fence_20260920",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_ontology_writer_fence_20260920",
+      "fnv1a64": "0x8f4e5cac659b27b0",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_canonical_incident_storage_20260921",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_inventory_progress_retention_20260921",
+      "fnv1a64": "0x3e7b5b79eb789f08",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_hil_park_queue_index_20260921",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_canonical_incident_storage_20260921",
+      "fnv1a64": "0x011e4547a36cfd1b",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_inventory_progress_retention_20260921",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_hil_park_queue_index_20260921",
+      "fnv1a64": "0x6fd2f92f81279000",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_ontology_versions_20260921",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_ontology_versions_20260921",
+      "fnv1a64": "0x93700ae0db5bf64c",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_rule_activation_receipts_20260922",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_rule_activation_receipts_20260922",
+      "fnv1a64": "0xdba41359efe898b3",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_operational_evidence_20260928",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_operational_evidence_source_functions_20260929",
+      "fnv1a64": "0xafa2ca982a1e10fb",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_licensing_trial_20260929",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_operational_evidence_20260928",
+      "fnv1a64": "0x11e7103b17cf377f",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_operational_evidence_source_functions_20260929",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_licensing_trial_20260929",
+      "fnv1a64": "0x3ed0f0d3c38eb54e",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_operator_receipt_source_20260930",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_operator_receipt_source_20260930",
+      "fnv1a64": "0x3d5feea3db872a74",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_licensing_entitlement_state_20261001",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_licensing_entitlement_state_20261001",
+      "fnv1a64": "0xe1d040bcc0c10c0c",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_operational_evidence_forecast_sources_20261002",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_operational_evidence_forecast_sources_20261002",
+      "fnv1a64": "0xe796f49f352c9e79",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_workflow_catalog_writer_20261002",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_operational_evidence_action_history_20261003",
+      "fnv1a64": "0xb6433bc4d900dea7",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_current_case_reuse_source_20261003",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_workflow_catalog_writer_20261002",
+      "fnv1a64": "0x1203f122180152ab",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_operational_evidence_action_history_20261003",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_current_case_reuse_source_20261003",
+      "fnv1a64": "0xdc935409e3f7f1c6",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_code_security_role_20261009",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_code_security_role_20261009",
+      "fnv1a64": "0xcbcb4cedc1e5fd4c",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_code_security_automation_20261010",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_code_security_automation_20261010",
+      "fnv1a64": "0x1d49f66d64337708",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_code_security_claim_recovery_20261010",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_code_security_claim_recovery_20261010",
+      "fnv1a64": "0x319450cdf0f2ed04",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_code_security_claim_renewal_20261010",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_code_security_claim_renewal_20261010",
+      "fnv1a64": "0x7733956e82999301",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_canary_age_index_20261019",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_canary_age_index_20261019",
+      "fnv1a64": "0x6f6a429b70a2bf04",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_document_intent_20261019",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_document_intent_20261019",
+      "fnv1a64": "0x15f5b61df102dae0",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_document_intent_ingress_20261020",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_canary_sequence_index_20261021",
+      "fnv1a64": "0x4551e58b64b9988c",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_accepted_entitlement_20261021",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_document_intent_ingress_20261020",
+      "fnv1a64": "0x2acf185da4ee88df",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_canary_sequence_index_20261021",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_accepted_entitlement_20261021",
+      "fnv1a64": "0xb6be1bd44362354d",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_inventory_snapshot_membership_20261029",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_inventory_snapshot_membership_20261029",
+      "fnv1a64": "0x4614296d0896e4f8",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_cache_storage_efficiency_20261030",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "core_cache_storage_efficiency_20261030",
+      "fnv1a64": "0x4d86dcf32adeb7a6",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_inventory_storage_efficiency_20261030",
+      "sql_blocks": 5
+    },
+    {
+      "down_revision": "core_inventory_storage_efficiency_20261030",
+      "fnv1a64": "0x1022a40a9e613951",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_state_storage_efficiency_20261030",
+      "sql_blocks": 7
+    },
+    {
+      "down_revision": "core_state_storage_efficiency_20261030",
+      "fnv1a64": "0x641d1fb0dad6f4a0",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_saga_compact_checkpoint_20261031",
+      "sql_blocks": 5
+    },
+    {
+      "down_revision": "core_saga_compact_checkpoint_20261031",
+      "fnv1a64": "0x439a838c090a88f5",
+      "kind": "service-migrations",
+      "owner": "core-control-plane",
+      "revision": "core_saga_header_storage_20261031",
+      "sql_blocks": 6
+    },
+    {
+      "down_revision": "none",
+      "fnv1a64": "0x8de12be8e7a5870f",
+      "kind": "service-migrations",
+      "owner": "document-ingestion-api",
+      "revision": "ingestion_api_base_20260808",
+      "sql_blocks": 0
+    },
+    {
+      "down_revision": "ingestion_api_base_20260808",
+      "fnv1a64": "0xbbb755468843fe08",
+      "kind": "service-migrations",
+      "owner": "document-ingestion-api",
+      "revision": "ingestion_api_outbox_20260808",
+      "sql_blocks": 3
+    },
+    {
+      "down_revision": "native_sharepoint_resync_state_20260905",
+      "fnv1a64": "0x27a165089b9c7dad",
+      "kind": "service-migrations",
+      "owner": "document-ingestion-api",
+      "revision": "ingestion_lifecycle_axes_20260905",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "ingestion_lifecycle_axes_20260905",
+      "fnv1a64": "0xc2428aad788d1691",
+      "kind": "service-migrations",
+      "owner": "document-ingestion-api",
+      "revision": "document_lifecycle_convergence_20260905",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "power_platform_connector_state_20260905",
+      "fnv1a64": "0x80d678249686b86f",
+      "kind": "service-migrations",
+      "owner": "document-ingestion-api",
+      "revision": "native_sharepoint_connector_state_20260905",
+      "sql_blocks": 4
+    },
+    {
+      "down_revision": "native_sharepoint_connector_state_20260905",
+      "fnv1a64": "0x4fe73840a71a0292",
+      "kind": "service-migrations",
+      "owner": "document-ingestion-api",
+      "revision": "native_sharepoint_resync_state_20260905",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "sharepoint_delta_state_20260905",
+      "fnv1a64": "0xc4fc103a8f56dd50",
+      "kind": "service-migrations",
+      "owner": "document-ingestion-api",
+      "revision": "power_platform_connector_state_20260905",
+      "sql_blocks": 3
+    },
+    {
+      "down_revision": "ingestion_api_outbox_20260808",
+      "fnv1a64": "0x622e13a5949665c7",
+      "kind": "service-migrations",
+      "owner": "document-ingestion-api",
+      "revision": "sharepoint_delta_state_20260905",
+      "sql_blocks": 7
+    },
+    {
+      "down_revision": "document_lifecycle_convergence_20260905",
+      "fnv1a64": "0xb6e02c552eff8118",
+      "kind": "service-migrations",
+      "owner": "document-ingestion-api",
+      "revision": "cloud_knowledge_20260914",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "cloud_knowledge_20260914",
+      "fnv1a64": "0x006c10e20760586c",
+      "kind": "service-migrations",
+      "owner": "document-ingestion-api",
+      "revision": "cloud_application_20261018",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "none",
+      "fnv1a64": "0x5c35ce5420873749",
+      "kind": "service-migrations",
+      "owner": "document-processing-worker",
+      "revision": "document_worker_base_20260808",
+      "sql_blocks": 0
+    },
+    {
+      "down_revision": "document_worker_outbox_20260808",
+      "fnv1a64": "0xcd4093b8bcff3f0a",
+      "kind": "service-migrations",
+      "owner": "document-processing-worker",
+      "revision": "document_worker_effects_20260808",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "document_worker_base_20260808",
+      "fnv1a64": "0x294b09099fe345b9",
+      "kind": "service-migrations",
+      "owner": "document-processing-worker",
+      "revision": "document_worker_outbox_20260808",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "document_worker_effects_20260808",
+      "fnv1a64": "0x158a79dbae178615",
+      "kind": "service-migrations",
+      "owner": "document-processing-worker",
+      "revision": "worker_knowledge_ownership_20260808",
+      "sql_blocks": 4
+    },
+    {
+      "down_revision": "worker_knowledge_ownership_20260808",
+      "fnv1a64": "0xd9b72c59a15be62c",
+      "kind": "service-migrations",
+      "owner": "document-processing-worker",
+      "revision": "document_protection_reconciliation_20260905",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "document_protection_reconciliation_20260905",
+      "fnv1a64": "0xa75342bb480bebfd",
+      "kind": "service-migrations",
+      "owner": "document-processing-worker",
+      "revision": "cloud_knowledge_lexical_20260914",
+      "sql_blocks": 3
+    },
+    {
+      "down_revision": "cloud_knowledge_lexical_20260914",
+      "fnv1a64": "0x7908d41d4c377ff7",
+      "kind": "service-migrations",
+      "owner": "document-processing-worker",
+      "revision": "document_intent_envelope_20261020",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "none",
+      "fnv1a64": "0x3f8ddbb10b44e343",
+      "kind": "service-migrations",
+      "owner": "isolated-executor",
+      "revision": "executor_base_20260808",
+      "sql_blocks": 0
+    },
+    {
+      "down_revision": "executor_base_20260808",
+      "fnv1a64": "0x330eee5c69d835f1",
+      "kind": "service-migrations",
+      "owner": "isolated-executor",
+      "revision": "executor_receipt_outbox_20260808",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "executor_receipt_outbox_20260808",
+      "fnv1a64": "0x5830d557453ef877",
+      "kind": "service-migrations",
+      "owner": "isolated-executor",
+      "revision": "executor_runtime_role_20260808",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "executor_runtime_role_20260808",
+      "fnv1a64": "0x3071587776071339",
+      "kind": "service-migrations",
+      "owner": "isolated-executor",
+      "revision": "executor_outbox_pending_index_20260911",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "executor_outbox_pending_index_20260911",
+      "fnv1a64": "0xc66c530937cd1d09",
+      "kind": "service-migrations",
+      "owner": "isolated-executor",
+      "revision": "executor_safeguard_bundle_read_20260912",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "executor_safeguard_bundle_read_20260912",
+      "fnv1a64": "0xeeb8211de140cd76",
+      "kind": "service-migrations",
+      "owner": "isolated-executor",
+      "revision": "executor_human_access_read_20260915",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "none",
+      "fnv1a64": "0xbf82f288d1134f9f",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_base_20260808",
+      "sql_blocks": 0
+    },
+    {
+      "down_revision": "operator_base_20260808",
+      "fnv1a64": "0x4c6016db268ba23b",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_runtime_role_20260808",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_runtime_role_20260808",
+      "fnv1a64": "0x01c1f4a9bcc50cb6",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_metering_read_20260810",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_metering_read_20260810",
+      "fnv1a64": "0x670b720373450a28",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_activity_read_20260812",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_activity_read_20260812",
+      "fnv1a64": "0xeb6ee7cbfbfb0275",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_conversation_search_read_20260814",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_conversation_search_read_20260814",
+      "fnv1a64": "0x3c3fb0ab464beada",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_browser_evidence_read_20260815",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_browser_evidence_read_20260815",
+      "fnv1a64": "0xa547b0720741b9fb",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_user_context_read_20260815",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_inventory_active_read_20260819",
+      "fnv1a64": "0x29e9e982b0654a70",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_a3_channel_delivery_20260819",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_user_context_read_20260815",
+      "fnv1a64": "0x8c1aac55a62b0fbf",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_incident_projection_read_20260819",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_incident_projection_read_20260819",
+      "fnv1a64": "0xee36e4a0f03ab151",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_inventory_active_read_20260819",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_a3_channel_delivery_20260819",
+      "fnv1a64": "0xfb147b087ae41ab0",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_inventory_realtime_read_20260822",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_inventory_realtime_read_20260822",
+      "fnv1a64": "0x2ba779c860683f61",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_background_task_read_20260823",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_background_task_read_20260823",
+      "fnv1a64": "0x4cb79957a09a2cb2",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_index_maintenance_20260825",
+      "sql_blocks": 2
+    },
+    {
+      "down_revision": "operator_read_investigation_completion_20260826",
+      "fnv1a64": "0xce0dcc4dc35088fc",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_interactive_read_investigation_20260826",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_index_maintenance_20260825",
+      "fnv1a64": "0xc666c957a4c11443",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_read_investigation_completion_20260826",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_runtime_projection_reads_20260827",
+      "fnv1a64": "0xf40dc65b485abff2",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_assurance_read_20260827",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_assurance_read_20260827",
+      "fnv1a64": "0x9eb7f0d820da2bb3",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_console_evidence_reads_20260827",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_interactive_read_investigation_20260826",
+      "fnv1a64": "0x36eaaab9ecec9ba7",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_runtime_projection_reads_20260827",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_console_evidence_reads_20260827",
+      "fnv1a64": "0xd41927c0d5c3a4ae",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_cost_governance_20260828",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_completion_retention_20260829",
+      "fnv1a64": "0xde4ac2c25dd92fda",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_background_task_projection_transport_20260829",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_cost_governance_20260828",
+      "fnv1a64": "0xcd3c1436494a3cc8",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_completion_retention_20260829",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_background_task_projection_transport_20260829",
+      "fnv1a64": "0xd36388116c5bca01",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_projection_update_grants_20260830",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_projection_update_grants_20260830",
+      "fnv1a64": "0x22e55f5a71f44bca",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_cost_governance_settings_read_20260831",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_cost_governance_settings_read_20260831",
+      "fnv1a64": "0x9ea869c7fdcb5c7c",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_handover_document_read_20260905",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_handover_document_read_20260905",
+      "fnv1a64": "0x694683f8d4764115",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_inventory_invalidation_read_20260906",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_inventory_invalidation_read_20260906",
+      "fnv1a64": "0x45977cbd328f0bea",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_conversation_policy_evidence_20260907",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_skill_proposal_evidence_20260912",
+      "fnv1a64": "0x1d6ffc379c60a506",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_cost_disclosure_audit_20260912",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_conversation_policy_evidence_20260907",
+      "fnv1a64": "0x60b54d65fc8bd026",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_skill_proposal_evidence_20260912",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_conversation_document_refs_20260914",
+      "fnv1a64": "0xc14f93bfe4ba6bfa",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_assignment_receipts_20260914",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_cost_disclosure_audit_20260912",
+      "fnv1a64": "0x6851c68b557689e1",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_conversation_document_refs_20260914",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_assignment_receipts_20260914",
+      "fnv1a64": "0xef6536c755f54cc8",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_handover_admission_20260914",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_handover_admission_20260914",
+      "fnv1a64": "0xdd3bb514777e3f88",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_browser_evidence_workspace_20260915",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_browser_evidence_workspace_20260915",
+      "fnv1a64": "0x0cc51531c1181572",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_inventory_progress_read_20260916",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_forecast_retention_20260917",
+      "fnv1a64": "0x411d770ea520d54a",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_cost_governance_live_read_20260917",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_inventory_progress_read_20260916",
+      "fnv1a64": "0x31ec3faba075e168",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_forecast_retention_20260917",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_cost_governance_live_read_20260917",
+      "fnv1a64": "0x31be4fdb70b67586",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_chaos_report_read_20260921",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_chaos_report_read_20260921",
+      "fnv1a64": "0x07e08cdbff08cbca",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_rule_activation_receipts_20260922",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_workflow_authoring_20260929",
+      "fnv1a64": "0x5cda7da84026be55",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_authentication_receipts_20260929",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_workflow_definition_read_20260929",
+      "fnv1a64": "0x3d0429ef67da0db2",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_workflow_authoring_20260929",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_rule_activation_receipts_20260922",
+      "fnv1a64": "0x7ccbfd5c6dbcca5c",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_workflow_definition_read_20260929",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_authentication_receipts_20260929",
+      "fnv1a64": "0xf195921cbd4f7fa0",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_entitlement_state_read_20261001",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_entitlement_state_read_20261001",
+      "fnv1a64": "0xe4628d7a25fdf542",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_automation_blueprint_intent_20261019",
+      "sql_blocks": 1
+    },
+    {
+      "down_revision": "operator_automation_blueprint_intent_20261019",
+      "fnv1a64": "0xe993940b9866943a",
+      "kind": "service-migrations",
+      "owner": "operator-service",
+      "revision": "operator_dialogue_state_snapshot_20261028",
+      "sql_blocks": 1
+    }
+  ],
+  "execution_order_manifest": "0000_execution_order.json",
+  "schema": "sql_migration_ddl_manifest/v1",
+  "service_migrations_extracted": 165,
+  "tables_verified": 250,
+  "total_sql_files": 259,
+  "total_sql_statements": 469,
+  "workspace_prefix": "fdai"
+}

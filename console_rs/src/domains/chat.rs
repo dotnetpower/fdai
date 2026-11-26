@@ -29,7 +29,7 @@ use serde_json::{json, Value};
 use crate::{
     repos::chat::{
         build_db_lineage_value, display_name_for_entity, fetch_chat_context_for_node,
-        fetch_chat_health, fetch_chat_sessions_filtered, query_chat_evidence, short_hash_prefix,
+        fetch_chat_health, fetch_chat_sessions_filtered, query_chat_evidence,
         short_id_label, ChatDbEvidence,
     },
     shell::{finalize_v4_html, html_response},
@@ -298,54 +298,6 @@ async fn api_chat_sessions(
         }
     }
 
-    let reference_sessions: Vec<Value> = default_reference_sessions()
-        .into_iter()
-        .filter(|s| {
-            let unread = s.get("unread").and_then(Value::as_bool).unwrap_or(false);
-            let starred = s.get("starred").and_then(Value::as_bool).unwrap_or(false);
-            let ctx_lower = s
-                .get("context")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_ascii_lowercase();
-            if filter_norm == "incidents" && !ctx_lower.contains("승인") && !ctx_lower.contains("인시던트") {
-                return false;
-            }
-            if filter_norm == "governance"
-                && !ctx_lower.contains("규칙")
-                && !ctx_lower.contains("비용")
-                && !ctx_lower.contains("온톨로지")
-            {
-                return false;
-            }
-            if filter_norm == "unread" && !unread {
-                return false;
-            }
-            if filter_norm == "starred" && !starred {
-                return false;
-            }
-            if !q_norm.is_empty() {
-                let title = s
-                    .get("title")
-                    .and_then(Value::as_str)
-                    .unwrap_or("")
-                    .to_ascii_lowercase();
-                let ctx = s
-                    .get("context")
-                    .and_then(Value::as_str)
-                    .unwrap_or("")
-                    .to_ascii_lowercase();
-                let sub = s
-                    .get("subtitle")
-                    .and_then(Value::as_str)
-                    .unwrap_or("")
-                    .to_ascii_lowercase();
-                return title.contains(&q_norm) || ctx.contains(&q_norm) || sub.contains(&q_norm);
-            }
-            true
-        })
-        .collect();
-
     let mut envelope = state.upstream.not_measured_envelope(
         "chat",
         "/chat/sessions",
@@ -358,7 +310,9 @@ async fn api_chat_sessions(
         obj.insert("filter".to_string(), json!(filter_norm));
         obj.insert("query".to_string(), json!(q_norm));
         obj.insert("upstream_status".to_string(), json!(up.status));
-        obj.insert("reference_sessions".to_string(), json!(reference_sessions));
+        obj.insert("count".to_string(), json!(0));
+        obj.insert("sessions".to_string(), json!([]));
+        obj.insert("reference_sessions".to_string(), json!([]));
     }
     secure_json_response(StatusCode::OK, envelope)
 }
@@ -998,11 +952,11 @@ fn build_chat_sse_events(
                 2_u8,
                 "ontology_policy",
                 if req.mutation_blocked {
-                    "Forseti 조회 전용 경계 검사 - 직접 변경/삭제/승인 우회 차단됨".to_string()
+                    "Forseti 조회 전용 경계 검사 — 직접 변경/삭제/승인 우회 차단됨".to_string()
                 } else if upstream_measured {
                     "온톨로지 2홉 계통 · Forseti 정책 가드 실시간 대조".to_string()
                 } else {
-                    "온톨로지 계통 · 조회 전용 정책 경계 점검 (상위 수집기 미연결 - not-measured)".to_string()
+                    "온톨로지 계통 · 조회 전용 정책 경계 점검 (상위 수집기 미연결 — not-measured)".to_string()
                 },
                 if upstream_measured { 136_u64 } else { 58_u64 },
             ),
@@ -1266,22 +1220,21 @@ fn build_db_grounded_reply(
         })
         .collect();
     let resource_summary = if resource_names.is_empty() {
-        format!("일치 리소스 0건(전체 ontology_resource {}건)", ev.resources_total)
+        format!("일치 리소스 0건(전체 온톨로지 리소스 {}건)", ev.resources_total)
     } else {
         resource_names.join(", ")
     };
 
     let link_summary = if ev.matched_links.is_empty() {
-        format!("연관 링크 0건(전체 ontology_link {}건)", ev.links_total)
+        format!("연관 관계 0건(전체 리소스 관계 {}건)", ev.links_total)
     } else {
         ev.matched_links
             .iter()
             .take(3)
             .map(|l| {
                 format!(
-                    "{} -[{}]-> {}",
+                    "{} → {}",
                     short_id_label(&l.from_id),
-                    l.link_type,
                     short_id_label(&l.to_id)
                 )
             })
@@ -1290,103 +1243,80 @@ fn build_db_grounded_reply(
     };
 
     let incident_summary = if ev.incidents.is_empty() {
-        "활성 인시던트 프로젝션 없음".to_string()
+        "진행 중인 인시던트 없음".to_string()
     } else {
         ev.incidents
             .iter()
             .take(3)
-            .map(|i| format!("{}({}/{}/{})", i.incident_number, i.state, i.vertical, i.severity))
+            .map(|i| format!("{}({})", i.incident_number, i.state))
             .collect::<Vec<_>>()
             .join(", ")
     };
 
     let latest_audit_seq = ev.latest_audit_seq.unwrap_or(0);
     let latest_audit_line = if let Some(first_a) = ev.recent_audits.first() {
-        format!(
-            "#{} {} / {} ({} · sha256:{})",
-            first_a.seq,
-            first_a.actor,
-            first_a.action_kind,
-            first_a.mode,
-            short_hash_prefix(&first_a.entry_hash)
-        )
+        format!("최근 기록 시각 {}", first_a.created_at)
     } else {
-        format!("#{latest_audit_seq} (sha256:{})", ev.latest_audit_hash_prefix)
+        "감사 원장 무결성 검증 완료".to_string()
     };
 
     let match_note = if ev.keyword_matched {
-        format!("추출 키워드({}) 기준 실 DB 일치", ev.keywords.join(", "))
+        format!("추출 키워드({}) 기준 실측 일치", ev.keywords.join(", "))
     } else if ev.keywords.is_empty() {
-        "최신 온톨로지 스냅샷 기준 실 DB 조회".to_string()
+        "최신 온톨로지 스냅샷 기준 실측 조회".to_string()
     } else {
         format!(
-            "키워드({})와 정확히 일치하는 리소스가 없어 최신 ontology_resource 스냅샷을 조회",
+            "키워드({})와 정확히 일치하는 리소스가 없어 최신 온톨로지 스냅샷을 조회",
             ev.keywords.join(", ")
         )
     };
 
     let body = if topic == "help" {
         format!(
-            "[PostgreSQL 실측 근거 · 조회 전용] 로컬 PostgreSQL(source=postgres-direct)에서 ontology_resource {}건, ontology_link {}건, audit_log {}건, operator_incident_projection {}건을 실측 연동 중입니다. 사용 가능한 조회 전용 슬래시 명령: /risks(인시던트·리스크 요약), /approvals(승인·7대 안전장치 경계), /ontology(실측 리소스·관계 조회), /trace(Saga 감사 원장 최신 #{} 검증). 모든 상태 변경은 승인 요청(/operations#tab=hil-queue)을 통해서만 실행됩니다.",
-            ev.resources_total, ev.links_total, ev.audits_total, ev.incidents_total, latest_audit_seq
+            "[실측 근거 · 조회 전용] 로컬 실측 DB에서 온톨로지 리소스 {}건, 관계 {}건, 감사 원장 {}건, 인시던트 {}건을 연동 중입니다. 사용 가능한 조회 전용 슬래시 명령: /risks(인시던트·리스크 요약), /approvals(승인·7대 안전장치 경계), /ontology(실측 리소스·관계 조회), /trace(감사 원장 무결성 검증). 모든 상태 변경은 승인 요청(/operations/hil-queue)을 통해서만 실행됩니다.",
+            ev.resources_total, ev.links_total, ev.audits_total, ev.incidents_total
         )
     } else if topic == "unavailable" {
         let focus_note = if ev.focus_cost_export_count > 0 {
             format!(
-                "ontology_resource 내 focus-cost-export 관련 항목이 {}건 조회되었습니다.",
+                "비용 내보내기 수집기 리소스가 {}건 조회되었습니다.",
                 ev.focus_cost_export_count
             )
         } else {
-            "ontology_resource 조회 결과 focus-cost-export 수집기 리소스는 0건(미수집 · unavailable)으로 확인되었으며, 비용 합계는 절대 0으로 대체하지 않고 미측정 상태로 분리합니다.".to_string()
+            "비용 내보내기 수집기 리소스는 현재 미수집 상태이며, 비용 합계는 0으로 대체하지 않고 미측정 상태로 분리합니다.".to_string()
         };
         format!(
-            "[PostgreSQL 실측 근거 · 미수집 분리] {focus_note} 한편 동일 DB 기준 llm_invocation {}건, ontology_resource {}건, audit_log {}건(최신 {})은 정상 실측 중입니다. 설정(/settings#tab=settings-integrations)에서 Storage SAS 또는 Managed Identity 권한을 확인한 뒤 비용 내보내기 수집을 재개하세요.",
-            ev.llm_invocations_total, ev.resources_total, ev.audits_total, latest_audit_line
+            "[실측 근거 · 미수집 분리] {focus_note} 한편 동일 기준 AI 호출 {}건, 온톨로지 리소스 {}건, 감사 원장 {}건({latest_audit_line})은 정상 실측 중입니다. 설정(/settings/integrations)에서 연동 권한을 확인한 뒤 비용 내보내기 수집을 재개하세요.",
+            ev.llm_invocations_total, ev.resources_total, ev.audits_total
         )
     } else if topic == "rules" {
         let rule_sample = if ev.matched_rules.is_empty() {
-            "샘플 규칙 없음".to_string()
+            "등록 규칙 확인 중".to_string()
         } else {
             ev.matched_rules.iter().take(3).cloned().collect::<Vec<_>>().join(", ")
         };
         format!(
-            "[PostgreSQL 실측 근거 · 운영 규칙/정책] ontology_resource {}건 중 등록 규칙(Rule) {}개와 정책 아티팩트(PolicyArtifact) {}개를 확인했습니다(대표 항목: {rule_sample}). 현재 인시던트 프로젝션은 {incident_summary}이며, Saga 감사 원장은 총 {}건(최신 {latest_audit_line})이 해시 체인으로 기록되어 있습니다. 상세 정책 검증은 거버넌스(/governance#tab=rules)와 감사 원장(/evidence#tab=audit)에서 확인할 수 있습니다.",
+            "[실측 근거 · 운영 규칙/정책] 온톨로지 리소스 {}건 중 활성 규칙 {}개와 정책 {}개를 확인했습니다(대표 항목: {rule_sample}). 현재 인시던트는 {incident_summary}이며, 감사 원장은 총 {}건({latest_audit_line})이 해시 체인으로 검증되어 있습니다. 상세 정책 검증은 거버넌스(/governance/rules)와 감사 원장(/evidence/audit)에서 확인할 수 있습니다.",
             ev.resources_total, ev.rules_total, ev.policies_total, ev.audits_total
         )
     } else if topic == "hil" {
         format!(
-            "[PostgreSQL 실측 근거 · 승인 및 7대 안전장치 경계] AI 채팅은 조회 전용으로 어떤 변경도 직접 실행하지 않습니다. 현재 DB의 operator_incident_projection {}건({incident_summary})과 연관 엔티티({resource_summary})를 대조했으며, 최근 감사 원장 {}건 중 최신 레코드는 {latest_audit_line}입니다. 고위험 변경은 7대 안전장치(중단 조건·롤백 검증·영향 범위 제한·드라이런 통과·논리 타깃 잠금·멱등성 키·2단계 감사) 충족 확인 후 승인 요청(/operations#tab=hil-queue)에서 명시적 사람 승인을 거쳐야 합니다.",
+            "[실측 근거 · 승인 및 7대 안전장치 경계] AI 채팅은 조회 전용으로 어떤 변경도 직접 실행하지 않습니다. 현재 인시던트 {}건({incident_summary})과 연관 리소스({resource_summary})를 대조했으며, 감사 원장 {}건({latest_audit_line})을 확인했습니다. 고위험 변경은 7대 안전장치(중단 조건·롤백 검증·영향 범위 제한·드라이런 통과·논리 타깃 잠금·멱등성 키·2단계 감사) 충족 확인 후 승인 요청(/operations/hil-queue)에서 명시적 사람 승인을 거쳐야 합니다.",
             ev.incidents_total, ev.audits_total
         )
     } else if topic == "trace" {
-        let audit_lines = ev
-            .recent_audits
-            .iter()
-            .take(3)
-            .map(|a| {
-                format!(
-                    "#{} {} · {} ({}, sha256:{})",
-                    a.seq,
-                    a.actor,
-                    a.action_kind,
-                    a.mode,
-                    short_hash_prefix(&a.entry_hash)
-                )
-            })
-            .collect::<Vec<_>>()
-            .join(" | ");
         format!(
-            "[PostgreSQL 실측 근거 · 감사 및 실행 추적] audit_log 총 {}건(최신 시각 {})을 조회했습니다. 최근 기록: {audit_lines}. 인시던트 프로젝션 {}건({incident_summary}) 및 대화 전달 {}건과 교차 대조했으며, 전체 워터폴은 감사·이력(/evidence#tab=trace)에서 확인할 수 있습니다.",
+            "[실측 근거 · 감사 및 실행 추적] 감사 원장 총 {}건(최근 기록 시각 {})을 조회했습니다. 인시던트 {}건({incident_summary}) 및 대화 전달 {}건과 교차 대조했으며, 전체 실행 추적은 감사·이력(/evidence/trace)에서 확인할 수 있습니다.",
             ev.audits_total, ev.latest_audit_at, ev.incidents_total, ev.deliveries_total
         )
     } else if topic == "risks" {
         format!(
-            "[PostgreSQL 실측 근거 · 리스크 우선순위] operator_incident_projection {}건({incident_summary})과 ontology_resource {}건(규칙 {}개 · 정책 {}개)을 실측 대조했습니다. ({match_note}) 주요 리소스: {resource_summary}. 최신 감사 레코드는 {latest_audit_line}이며, 조회 전용 안전 경계가 유지 중입니다.",
-            ev.incidents_total, ev.resources_total, ev.rules_total, ev.policies_total
+            "[실측 근거 · 리스크 우선순위] 인시던트 {}건({incident_summary})과 온톨로지 리소스 {}건(규칙 {}개 · 정책 {}개)을 실측 대조했습니다. ({match_note}) 주요 리소스: {resource_summary}. 감사 원장 {}건({latest_audit_line})을 확인했으며 조회 전용 안전 경계가 유지 중입니다.",
+            ev.incidents_total, ev.resources_total, ev.rules_total, ev.policies_total, ev.audits_total
         )
     } else {
         format!(
-            "[PostgreSQL 실측 근거 · 조회 전용] {match_note} - ontology_resource 총 {}건 중 주요 엔티티({resource_summary})를 확인했습니다. 온톨로지 계통(ontology_link 총 {}건): {link_summary}. 정책·규칙은 Rule {}개 / PolicyArtifact {}개이며, 인시던트 프로젝션 {}건({incident_summary})과 Saga audit_log {}건(최신 {latest_audit_line})을 교차 검증했습니다.",
+            "[실측 근거 · 조회 전용] {match_note} — 온톨로지 리소스 총 {}건 중 주요 대상({resource_summary})을 확인했습니다. 온톨로지 계통(관계 총 {}건): {link_summary}. 정책·규칙은 활성 규칙 {}개 / 정책 {}개이며, 인시던트 {}건({incident_summary})과 감사 원장 {}건({latest_audit_line})을 교차 검증했습니다.",
             ev.resources_total,
             ev.links_total,
             ev.rules_total,
@@ -1396,80 +1326,98 @@ fn build_db_grounded_reply(
         )
     };
 
+    let primary_res_id = ev
+        .matched_resources
+        .first()
+        .map(|r| r.id.clone())
+        .unwrap_or_default();
     let primary_res_ref = ev
         .matched_resources
         .first()
         .map(|r| short_id_label(&r.id))
-        .unwrap_or_else(|| format!("resources:{}", ev.resources_total));
+        .unwrap_or_else(|| format!("전체 리소스 {}건", ev.resources_total));
+    let first_rule_ref = ev.matched_rules.first().cloned().unwrap_or_default();
+    let audit_item_id = ev
+        .latest_audit_seq
+        .map(|s| s.to_string())
+        .unwrap_or_default();
+
     let mut citations = vec![
         json!({
             "id": 1,
             "label": format!(
-                "PostgreSQL ontology_resource 실측 ({}건 · 조회 {}건 · {})",
+                "온톨로지 리소스 실측 ({}건 · 대표 {})",
                 ev.resources_total,
-                ev.matched_resources.len(),
                 primary_res_ref
             ),
             "ref_id": format!("pg:ontology_resource:{}", ev.resources_total),
-            "href": "/governance#tab=ontology"
+            "panel_id": "ontology",
+            "item_id": primary_res_id,
+            "href": "/governance/ontology"
         }),
         json!({
             "id": 2,
             "label": format!(
-                "PostgreSQL ontology_link {}건 · Rule {}개 · PolicyArtifact {}개",
+                "관계 링크 {}건 · 활성 규칙 {}개 · 정책 {}개",
                 ev.links_total, ev.rules_total, ev.policies_total
             ),
             "ref_id": format!("pg:ontology_link:{}", ev.links_total),
-            "href": "/governance#tab=rules"
+            "panel_id": "rules",
+            "item_id": first_rule_ref,
+            "href": "/governance/rules"
         }),
         json!({
             "id": 3,
             "label": format!(
-                "PostgreSQL audit_log {}건 · 최신 #{} (sha256:{})",
-                ev.audits_total, latest_audit_seq, ev.latest_audit_hash_prefix
+                "감사 원장 기록 ({}건 · 무결성 검증됨)",
+                ev.audits_total
             ),
-            "ref_id": format!("audit:#{}", latest_audit_seq),
-            "href": "/evidence#tab=audit"
+            "ref_id": format!("audit:#{} · sha256:{}", latest_audit_seq, ev.latest_audit_hash_prefix),
+            "panel_id": "audit",
+            "item_id": audit_item_id,
+            "href": "/evidence/audit"
         }),
     ];
     if let Some(inc) = ev.incidents.first() {
         citations.push(json!({
             "id": 4,
             "label": format!(
-                "PostgreSQL operator_incident_projection ({} · {} · {})",
-                inc.incident_number, inc.state, inc.severity
+                "인시던트 현황 ({} · {})",
+                inc.incident_number, inc.state
             ),
             "ref_id": inc.correlation_id,
-            "href": "/operations#tab=incidents"
+            "panel_id": "incidents",
+            "item_id": inc.correlation_id,
+            "href": "/operations/incidents"
         }));
     }
 
     let proposal = if topic == "unavailable" || topic == "help" {
         None
-    } else {
+    } else if let Some(inc) = ev.incidents.first() {
         let target_label = ev
             .matched_resources
             .first()
             .map(|r| short_id_label(&r.name))
             .unwrap_or_else(|| req.selected_node.clone());
-        let inc_id = ev
-            .incidents
-            .first()
-            .map(|i| i.incident_number.clone())
-            .unwrap_or_else(|| "HIL-REVIEW".to_string());
         Some(json!({
-            "id": inc_id,
+            "id": inc.incident_number,
+            "item_id": inc.correlation_id,
+            "panel_id": "hil-queue",
             "title": format!("조회 전용 검토 초안 ({target_label})"),
             "action_type": "fdai.readonly.review_proposal",
             "target": target_label,
+            "target_id": primary_res_id,
             "risk_class": "A3",
             "measurement_status": "measured",
             "measurement_state": "measured",
             "source": "postgres-direct",
             "read_only_notice": "AI 채팅은 직접 변경을 실행하지 않으며 Forseti 정책 심사 및 명시적 사람 승인 후에만 실행됩니다.",
-            "href": "/operations#tab=hil-queue",
+            "href": "/operations/hil-queue",
             "safeguards": SEVEN_SAFEGUARDS
         }))
+    } else {
+        None
     };
 
     let top_res_short = ev
@@ -1477,11 +1425,7 @@ fn build_db_grounded_reply(
         .first()
         .map(|r| short_id_label(&r.name))
         .unwrap_or_else(|| req.selected_node.clone());
-    let top_inc = ev
-        .incidents
-        .first()
-        .map(|i| i.incident_number.clone())
-        .unwrap_or_else(|| "INC-1001".to_string());
+    let top_inc = ev.incidents.first().map(|i| i.incident_number.clone());
 
     let followups = match topic {
         "unavailable" => vec![
@@ -1489,7 +1433,10 @@ fn build_db_grounded_reply(
             "/trace 최신 감사 원장 해시 확인".to_string(),
         ],
         "hil" => vec![
-            format!("{top_inc} 인시던트와 감사 원장 이력 대조"),
+            match &top_inc {
+                Some(inc_id) => format!("{inc_id} 인시던트와 감사 원장 이력 대조"),
+                None => "현재 인시던트 프로젝션과 감사 원장 이력 대조".to_string(),
+            },
             "7대 안전장치 충족 조건과 승인 절차 정리".to_string(),
         ],
         "rules" => vec![
@@ -1502,7 +1449,10 @@ fn build_db_grounded_reply(
         ],
         _ => vec![
             format!("/trace 최신 감사 원장 #{} 검증", latest_audit_seq),
-            format!("{top_inc} 인시던트 및 승인 안전장치 확인"),
+            match &top_inc {
+                Some(inc_id) => format!("{inc_id} 인시던트 및 승인 안전장치 확인"),
+                None => "/approvals 7대 안전장치 및 승인 경계 확인".to_string(),
+            },
         ],
     };
 
@@ -1521,16 +1471,15 @@ fn build_db_pantheon_discussion(
     let top_inc = ev
         .incidents
         .first()
-        .map(|i| format!("{}({})", i.incident_number, i.state))
+        .map(|i| i.incident_number.clone())
         .unwrap_or_else(|| "없음".to_string());
-    let latest_seq = ev.latest_audit_seq.unwrap_or(0);
     vec![
         json!({
             "agent": "Muninn",
             "role": "온톨로지 · 계통",
             "icon": "/agent-icons/muninn.svg",
             "stance": format!(
-                "PostgreSQL ontology_resource {}건·ontology_link {}건 기준 대표 대상({})과 연관 링크 {}건을 실측 확인했습니다.",
+                "온톨로지 리소스 {}건·관계 {}건 기준 대표 대상({})과 연관 관계 {}건을 실측 확인했습니다.",
                 ev.resources_total, ev.links_total, top_res, ev.matched_links.len()
             )
         }),
@@ -1539,7 +1488,7 @@ fn build_db_pantheon_discussion(
             "role": "정책 · 거버넌스",
             "icon": "/agent-icons/forseti.svg",
             "stance": format!(
-                "등록 규칙 {}개·정책 아티팩트 {}개 및 조회 전용 안전 경계를 대조했습니다. 어떤 리소스 변경도 직접 실행하지 않습니다.",
+                "등록 규칙 {}개·정책 {}개 및 조회 전용 안전 경계를 대조했습니다. 어떤 리소스 변경도 직접 실행하지 않습니다.",
                 ev.rules_total, ev.policies_total
             )
         }),
@@ -1548,7 +1497,7 @@ fn build_db_pantheon_discussion(
             "role": "승인 · 위험 평가",
             "icon": "/agent-icons/var.svg",
             "stance": format!(
-                "operator_incident_projection {}건(최근 {}) 기준 고위험 변경은 7대 안전장치 확인 및 승인 요청(/operations#tab=hil-queue) 후에만 진행합니다.",
+                "인시던트 {}건(최근 {}) 기준 고위험 변경은 7대 안전장치 확인 및 승인 요청(/operations/hil-queue) 후에만 진행합니다.",
                 ev.incidents_total, top_inc
             )
         }),
@@ -1557,8 +1506,8 @@ fn build_db_pantheon_discussion(
             "role": "운영 요약 · 보고",
             "icon": "/agent-icons/bragi.svg",
             "stance": format!(
-                "Saga audit_log {}건(최신 #{} · sha256:{}) 실측 근거를 포함해 보고하며 미수집 지표는 0으로 대체하지 않습니다.",
-                ev.audits_total, latest_seq, ev.latest_audit_hash_prefix
+                "감사 원장 {}건의 실측 근거를 포함해 보고하며 미수집 지표는 0으로 대체하지 않습니다.",
+                ev.audits_total
             )
         }),
     ]
@@ -1570,37 +1519,37 @@ fn build_offline_read_only_reply(
     let lower = req.prompt.to_ascii_lowercase();
     let (citations, proposal, followups, topic) = build_domain_evidence(req, false);
 
-    let prefix = "[미측정 · 조회 전용 안내] 현재 상위 operator-service(:8010)가 오프라인이거나 미인증 상태이므로 실시간 지표는 not-measured로 유지하며 0으로 대체하지 않습니다.";
+    let prefix = "[미측정 · 조회 전용 안내] 현재 운영 서비스 및 로컬 DB와 연결되지 않아 실시간 지표는 미측정 상태로 유지하며 0이나 예제 데이터로 대체하지 않습니다.";
 
     let body = if lower.starts_with("/help") {
         format!(
-            "{prefix} 사용 가능한 조회 전용 슬래시 명령: /risks(리스크 우선순위), /approvals(A3 승인 대기 점검), /ontology(2홉 계통 조회), /trace(감사·실행 추적). 모든 변경은 승인 요청(/operations#tab=hil-queue)을 통해서만 실행됩니다."
+            "{prefix} 사용 가능한 조회 전용 슬래시 명령: /risks(리스크 우선순위), /approvals(승인·7대 안전장치 점검), /ontology(온톨로지 계통 조회), /trace(감사·실행 추적). 모든 변경은 승인 요청(/operations/hil-queue)을 통해서만 실행됩니다."
         )
     } else if lower.starts_with("/risks") {
         format!(
-            "{prefix} [/risks] 현재 선택 컨텍스트({})의 핵심 리스크와 수집 지연 항목을 조회 전용으로 분류했습니다. 실시간 위험 점수는 상위 서비스 연결 후 measured 상태로 표시됩니다.",
+            "{prefix} [/risks] 현재 선택 컨텍스트({})의 핵심 리스크와 수집 지연 항목은 서비스 또는 DB 연결 후 실측 상태로 분류됩니다.",
             req.context
         )
     } else if lower.starts_with("/ontology") {
         format!(
-            "{prefix} [/ontology] 선택 노드({}) 기준 2홉 계통(pay-settlement-job → {} → pg-orders-db, 보안 연관 kv-prod-kr)은 온톨로지(/governance#tab=ontology)와 변경 영향 분석(/governance#tab=blast-radius)에서 상세 조망할 수 있습니다.",
-            req.selected_node, req.selected_node
+            "{prefix} [/ontology] 선택 대상({})의 온톨로지 관계 및 데이터 계통은 서비스 또는 DB 연결 후 온톨로지(/governance/ontology)와 변경 영향 분석(/governance/blast-radius)에서 실측 근거로 조회됩니다.",
+            req.selected_node
         )
     } else if lower.contains("focus-cost-export")
         || req.prompt.contains("미수집")
         || req.prompt.contains("비용")
     {
         format!(
-            "{prefix} focus-cost-export 수집기가 비활성 또는 미수집 상태일 때 비용 합계는 0으로 합산하지 않고 미측정(not-measured)으로 분리합니다. 설정(/settings#tab=settings-integrations)에서 Storage SAS 또는 Managed Identity 권한을 확인한 뒤 수집을 재개하세요."
+            "{prefix} 비용 내보내기 수집기가 비활성 또는 미수집 상태일 때 비용 합계는 0으로 합산하지 않고 미측정 상태로 분리합니다. 설정(/settings/integrations)에서 연동 권한을 확인한 뒤 수집을 재개하세요."
         )
     } else if lower.contains("/approvals")
-        || lower.contains("hil-8841")
+        || lower.contains("hil")
         || req.prompt.contains("승인")
         || req.prompt.contains("안전장치")
         || req.prompt.contains("롤백")
     {
         format!(
-            "{prefix} 선택 컨텍스트({})의 변경 제안(HIL-8841)은 AI 채팅에서 직접 실행하지 않으며, 7대 안전장치(중단 조건·롤백 검증·영향 범위 제한·드라이런 통과·논리 타깃 잠금·멱등성 키·2단계 감사) 충족 여부를 Forseti·Var 심사 및 승인 요청(/operations#tab=hil-queue)에서 명시적 사람 승인 후에만 실행합니다.",
+            "{prefix} 선택 컨텍스트({})의 상태 변경은 AI 채팅에서 직접 실행하지 않으며, 7대 안전장치(중단 조건·롤백 검증·영향 범위 제한·드라이런 통과·논리 타깃 잠금·멱등성 키·2단계 감사) 충족 여부를 심사하고 승인 요청(/operations/hil-queue)에서 명시적 사람 승인 후에만 실행합니다.",
             req.context
         )
     } else if lower.contains("mcsb")
@@ -1609,29 +1558,29 @@ fn build_offline_read_only_reply(
         || req.prompt.contains("위반")
     {
         format!(
-            "{prefix} 운영 규칙(MCSB/WARA) 정책 평가와 kv-prod-kr 예외 만료 검증은 Forseti 정책 가드 및 Saga 2단계 감사 원장(/evidence#tab=audit)에서 실측 해시로 확인할 수 있습니다. 실시간 위반 건수는 상위 서비스 연결 후 measured 상태로 표시됩니다."
+            "{prefix} 운영 규칙(MCSB/WARA) 정책 평가와 예외 만료 검증은 정책 가드 및 2단계 감사 원장(/evidence/audit)에서 실측 해시로 확인할 수 있습니다. 실시간 위반 건수는 서비스 또는 DB 연결 후 실측 상태로 표시됩니다."
         )
     } else if lower.contains("/trace") || req.prompt.contains("감사") || req.prompt.contains("추적") {
         format!(
-            "{prefix} 실행 추적 워터폴과 2단계 감사 원장 해시 검증은 감사·이력(/evidence#tab=trace)에서 조회할 수 있습니다. 현재 질의 컨텍스트({})에 대한 읽기 전용 경계는 정상 유지 중입니다.",
+            "{prefix} 실행 추적과 2단계 감사 원장 무결성 검증은 감사·이력(/evidence/trace)에서 조회할 수 있습니다. 현재 질의 컨텍스트({})에 대한 읽기 전용 경계는 정상 유지 중입니다.",
             req.context
         )
     } else if req.mode == "discussion" {
         format!(
-            "{prefix} 고정 15개 판테온 중 Muninn(계통)·Forseti(정책)·Var(승인)·Bragi(요약) 관점으로 {} 대상 조회 전용 검토 초안을 구성했습니다. 실제 리소스 상태 변경은 승인 요청을 통해서만 진행됩니다.",
+            "{prefix} 고정 15개 판테온 중 Muninn(계통)·Forseti(정책)·Var(승인)·Bragi(요약) 관점으로 {} 대상 조회 전용 검토 경계를 확인했습니다. 실제 리소스 상태 변경은 승인 요청을 통해서만 진행됩니다.",
             req.selected_node
         )
     } else {
         let q_preview: String = req.prompt.chars().take(72).collect();
         if q_preview.is_empty() {
             format!(
-                "{prefix} 현재 컨텍스트({})와 선택 노드({}) 기준으로 조회 전용 근거 및 계통 드릴다운을 준비했습니다.",
+                "{prefix} 현재 컨텍스트({})와 선택 대상({}) 기준으로 조회 전용 안전 경계가 유지 중입니다.",
                 req.context, req.selected_node
             )
         } else {
             format!(
-                "{prefix} 질의(\"{q_preview}\")에 대해 {} 컨텍스트의 2홉 온톨로지 계통(pay-settlement-job → {} → pg-orders-db)과 조회 전용 안전 경계를 확인했습니다. 실시간 메트릭·승인 원장은 operator-service 연결 시 measured 상태로 자동 전환됩니다.",
-                req.context, req.selected_node
+                "{prefix} 질의(\"{q_preview}\")에 대해 {} 컨텍스트의 조회 전용 안전 경계를 확인했습니다. 실시간 온톨로지·메트릭·승인 원장은 운영 서비스 또는 DB 연결 시 실측 상태로 자동 전환됩니다.",
+                req.context
             )
         }
     };
@@ -1669,39 +1618,32 @@ fn build_domain_evidence(
     let citations = vec![
         json!({
             "id": 1,
-            "label": format!("Freyr 시계열 관측 참조 ({} · {})", req.selected_node, state_tag),
+            "label": format!("실시간 관측 경계 참조 ({} · {})", req.selected_node, state_tag),
             "ref_id": if measured { "obs-live-stream" } else { "obs-not-measured" },
-            "href": "/operations#tab=live"
+            "panel_id": "live",
+            "item_id": req.selected_node,
+            "href": "/operations/live"
         }),
         json!({
             "id": 2,
-            "label": format!("Muninn 온톨로지 2홉 계통 ({} → pg-orders-db)", req.selected_node),
-            "ref_id": "inv-lineage-2hop",
-            "href": "/governance#tab=ontology"
+            "label": format!("온톨로지 계통 경계 ({} · {})", req.selected_node, state_tag),
+            "ref_id": if measured { "inv-lineage-live" } else { "inv-not-measured" },
+            "panel_id": "ontology",
+            "item_id": req.selected_node,
+            "href": "/governance/ontology"
         }),
         json!({
             "id": 3,
-            "label": "Saga 2단계 감사 원장 · Forseti 조회 전용 안전 경계",
+            "label": "2단계 감사 원장 · 조회 전용 안전 경계",
             "ref_id": "audit-boundary-readonly",
-            "href": "/evidence#tab=audit"
+            "panel_id": "audit",
+            "item_id": "",
+            "href": "/evidence/audit"
         }),
     ];
 
-    let proposal = if topic == "unavailable" || topic == "help" {
-        None
-    } else {
-        Some(json!({
-            "id": "HIL-8841",
-            "title": format!("AKS 노드 풀 수평 확장 제안 초안 ({})", req.selected_node),
-            "action_type": "azure.aks.nodepool.scale_out",
-            "target": format!("prod-core-kr / {}", req.selected_node),
-            "risk_class": "A3",
-            "measurement_state": state_tag,
-            "read_only_notice": "AI 채팅은 직접 변경을 실행하지 않으며 Forseti 정책 심사 및 명시적 사람 승인 후에만 실행됩니다.",
-            "href": "/operations#tab=hil-queue",
-            "safeguards": SEVEN_SAFEGUARDS
-        }))
-    };
+    // Never fabricate a sample HIL proposal draft when ungrounded.
+    let proposal: Option<Value> = None;
 
     let followups = match topic {
         "unavailable" => vec![
@@ -1709,11 +1651,11 @@ fn build_domain_evidence(
             "다른 데이터 소스 준비 상태 점검".to_string(),
         ],
         "hil" => vec![
-            "7대 안전장치 세부 증적 표로 정리".to_string(),
-            "롤백 검증 시나리오와 영향 범위 확인".to_string(),
+            "7대 안전장치 세부 증적 항목 확인".to_string(),
+            "승인 요청 대기열 및 롤백 경계 점검".to_string(),
         ],
         "rules" => vec![
-            "kv-prod-kr 예외 만료 회수 초안 검토".to_string(),
+            "운영 규칙(MCSB/WARA) 정책 평가 현황 점검".to_string(),
             "Saga 감사 원장 해시 검증 열기".to_string(),
         ],
         "help" => vec![
@@ -1721,8 +1663,8 @@ fn build_domain_evidence(
             "/approvals 승인 대기 우선순위".to_string(),
         ],
         _ => vec![
-            "pg-orders-db 하류 영향 2홉 상세 분석".to_string(),
-            "HIL-8841 7대 안전장치 충족 여부 확인".to_string(),
+            "/ontology 선택 대상 관계 및 데이터 계통 조회".to_string(),
+            "/approvals 7대 안전장치 및 승인 경계 확인".to_string(),
         ],
     };
 
@@ -1732,33 +1674,10 @@ fn build_domain_evidence(
 fn build_lineage_preview(selected_node: &str) -> Value {
     json!({
         "selected": selected_node,
-        "hops": 2,
-        "nodes": [
-            {
-                "name": "pay-settlement-job",
-                "role": "상류 원인 · 1홉",
-                "icon": "/azure-icons/container-apps.svg",
-                "detail": "Container Apps 배치 작업 (상류 트래픽/부하 유발 경로)"
-            },
-            {
-                "name": selected_node,
-                "role": "대상 노드 · 선택됨",
-                "icon": "/azure-icons/kubernetes-services.svg",
-                "detail": "AKS NodePool (컨텍스트 바인딩 대상)"
-            },
-            {
-                "name": "pg-orders-db",
-                "role": "하류 영향 · 1홉",
-                "icon": "/azure-icons/postgresql.svg",
-                "detail": "PostgreSQL Flexible (하류 커넥션 의존 리소스)"
-            },
-            {
-                "name": "kv-prod-kr",
-                "role": "보안 연관 · 2홉",
-                "icon": "/azure-icons/key-vault.svg",
-                "detail": "Key Vault (임시 IP 예외 회수 검토 연관)"
-            }
-        ]
+        "measurement_state": "not-measured",
+        "hops": 0,
+        "nodes": [],
+        "edges": []
     })
 }
 
@@ -1769,7 +1688,10 @@ fn build_pantheon_discussion(req: &ParsedStreamRequest, measured: bool) -> Vec<V
             "agent": "Muninn",
             "role": "온톨로지 · 계통",
             "icon": "/agent-icons/muninn.svg",
-            "stance": format!("{} 기준 2홉 계통(pay-settlement-job → {} → pg-orders-db) 의존성을 고정했습니다 ({}).", req.context, req.selected_node, state_label)
+            "stance": format!(
+                "{} 기준 선택 대상({})의 온톨로지 계통은 상위 수집기 또는 실측 DB 연결 후 검증합니다 ({}).",
+                req.context, req.selected_node, state_label
+            )
         }),
         json!({
             "agent": "Forseti",
@@ -1787,52 +1709,7 @@ fn build_pantheon_discussion(req: &ParsedStreamRequest, measured: bool) -> Vec<V
             "agent": "Bragi",
             "role": "운영 요약 · 보고",
             "icon": "/agent-icons/bragi.svg",
-            "stance": "미수집 지표는 0으로 대체하지 않고 분리 표기하며, 출처 검증과 계통 링크를 함께 제공합니다."
-        }),
-    ]
-}
-
-fn default_reference_sessions() -> Vec<Value> {
-    vec![
-        json!({
-            "id": "t1",
-            "title": "현재 화면 리스크·근거 요약",
-            "subtitle": "온톨로지 · 방금 전 · 참조 스레드",
-            "context": "온톨로지 · prod-aks-02",
-            "group": "pinned",
-            "unread": false,
-            "starred": true,
-            "measurement_state": "not-measured"
-        }),
-        json!({
-            "id": "t2",
-            "title": "HIL-8841 7대 안전장치 검증",
-            "subtitle": "승인 요청 · Var · 참조 스레드",
-            "context": "승인 요청 · HIL-8841",
-            "group": "other",
-            "unread": true,
-            "starred": true,
-            "measurement_state": "not-measured"
-        }),
-        json!({
-            "id": "t3",
-            "title": "운영 규칙(MCSB/WARA) 위반 여부 점검",
-            "subtitle": "거버넌스 · Forseti · 참조 스레드",
-            "context": "운영 규칙 · MCSB / WARA",
-            "group": "other",
-            "unread": false,
-            "starred": false,
-            "measurement_state": "not-measured"
-        }),
-        json!({
-            "id": "t4",
-            "title": "focus-cost-export 미수집 원인 진단",
-            "subtitle": "비용 거버넌스 · Njord · 미수집",
-            "context": "비용 거버넌스 · focus-cost-export",
-            "group": "agent",
-            "unread": false,
-            "starred": false,
-            "measurement_state": "not-measured"
+            "stance": "미수집 지표는 0이나 예제 데이터로 대체하지 않고 분리 표기하며, 실측 출처가 확인될 때만 인용합니다."
         }),
     ]
 }
@@ -1857,7 +1734,7 @@ fn offline_source_readiness() -> Vec<Value> {
         }),
         json!({
             "id": "hil-queue",
-            "label": "승인 요청 (HIL-8841)",
+            "label": "인시던트 · 승인 연계 프로젝션",
             "agent": "Var",
             "icon": "/agent-icons/var.svg",
             "state": "not-measured",
@@ -1943,6 +1820,7 @@ mod tests {
             Some("nosniff")
         );
         let html = read_body_text(resp).await?;
+        assert!(html.contains("<title>FDAI 운영 콘솔 — AI 채팅</title>"));
         assert!(html.contains("/api/v4/chat/stream"));
         assert!(html.contains("command-deck-chat"));
         assert!(html.contains("safeInternalHref"));
@@ -2332,9 +2210,9 @@ mod tests {
             keywords: vec!["aks-fdai-dev-wus3".to_string(), "aks".to_string()],
             keyword_matched: true,
             step_labels: [
-                "PostgreSQL 실측 스냅샷 조회 - ontology_resource 2213건 중 1건 · 인시던트 1건 확인".to_string(),
-                "온톨로지 계통 · Forseti 정책 대조 - ontology_link 3639건(연관 1건) · 규칙 52개 · 정책 52개".to_string(),
-                "Saga 감사 이력 근거 요약 - audit_log 74450건 · 최신 #86641 (sha256:2d465710971b)".to_string(),
+                "PostgreSQL 실측 스냅샷 조회 — ontology_resource 2213건 중 1건 · 인시던트 1건 확인".to_string(),
+                "온톨로지 계통 · Forseti 정책 대조 — ontology_link 3639건(연관 1건) · 규칙 52개 · 정책 52개".to_string(),
+                "Saga 감사 이력 근거 요약 — audit_log 74450건 · 최신 #86641 (sha256:2d465710971b)".to_string(),
             ],
             step_durations_ms: [11, 14, 9],
             resources_total: 2213,
@@ -2458,5 +2336,150 @@ mod tests {
             ),
             "vm-01"
         );
+    }
+
+    #[tokio::test]
+    async fn chat_live_endpoints_and_initial_dom_never_leak_sample_entities() -> Result<(), String> {
+        let state = offline_test_state();
+        let forbidden = [
+            "prod-aks-02",
+            "prod-core-kr",
+            "pg-orders-db",
+            "kv-prod-kr",
+            "HIL-8841",
+            "pay-settlement-job",
+            "corr-8a91f",
+            "aks-node-04",
+        ];
+
+        // 1. Offline /api/v4/chat/sessions must return empty sessions/reference_sessions with zero sample leaks
+        let sess_req = HttpRequest::builder()
+            .uri("/api/v4/chat/sessions?filter=all")
+            .body(Body::empty())
+            .map_err(|e| e.to_string())?;
+        let sess_resp = oneshot_ok(build_router(state.clone()), sess_req).await;
+        assert_eq!(sess_resp.status(), StatusCode::OK);
+        let sess_txt = read_body_text(sess_resp).await?;
+        let sess_val: Value = serde_json::from_str(&sess_txt).map_err(|e| e.to_string())?;
+        assert_eq!(sess_val["sessions"].as_array().map(Vec::len), Some(0));
+        assert_eq!(
+            sess_val["reference_sessions"].as_array().map(Vec::len),
+            Some(0)
+        );
+        for needle in forbidden {
+            assert!(
+                !sess_txt.contains(needle),
+                "/api/v4/chat/sessions leaked sample entity {needle}"
+            );
+        }
+
+        // 2. Offline /api/v4/chat/context must never leak sample IDs
+        let ctx_req = HttpRequest::builder()
+            .uri("/api/v4/chat/context?panel=command-deck-chat")
+            .body(Body::empty())
+            .map_err(|e| e.to_string())?;
+        let ctx_resp = oneshot_ok(build_router(state.clone()), ctx_req).await;
+        assert_eq!(ctx_resp.status(), StatusCode::OK);
+        let ctx_txt = read_body_text(ctx_resp).await?;
+        for needle in forbidden {
+            assert!(
+                !ctx_txt.contains(needle),
+                "/api/v4/chat/context leaked sample entity {needle}"
+            );
+        }
+
+        // 3. Offline /api/v4/chat/stream must never fabricate sample entities or proposals
+        let stream_req = HttpRequest::builder()
+            .method(Method::POST)
+            .uri("/api/v4/chat/stream")
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(
+                json!({
+                    "message": "현재 리스크와 승인 대기, 온톨로지 계통을 요약해 줘",
+                    "mode": "discussion",
+                    "context": "온톨로지 · 활성 스코프",
+                    "selected_node": "active-scope"
+                })
+                .to_string(),
+            ))
+            .map_err(|e| e.to_string())?;
+        let stream_resp = oneshot_ok(build_router(state.clone()), stream_req).await;
+        assert_eq!(stream_resp.status(), StatusCode::OK);
+        let sse_txt = read_body_text(stream_resp).await?;
+        for needle in forbidden {
+            assert!(
+                !sse_txt.contains(needle),
+                "/api/v4/chat/stream leaked sample entity {needle}"
+            );
+        }
+
+        // 4. Visible Live HTML on /chat (excluding inert <template> and <script>) must contain zero sample entities
+        let page_req = HttpRequest::builder()
+            .uri("/chat")
+            .body(Body::empty())
+            .map_err(|e| e.to_string())?;
+        let page_resp = oneshot_ok(build_router(state), page_req).await;
+        assert_eq!(page_resp.status(), StatusCode::OK);
+        let html = read_body_text(page_resp).await?;
+        let mut visible_html = html.clone();
+        for (open_tag, close_tag) in [("<template", "</template>"), ("<script", "</script>")] {
+            while let Some(start) = visible_html.find(open_tag) {
+                if let Some(rel_end) = visible_html[start..].find(close_tag) {
+                    let end = start + rel_end + close_tag.len();
+                    visible_html.replace_range(start..end, "");
+                } else {
+                    break;
+                }
+            }
+        }
+        for needle in forbidden {
+            assert!(
+                !visible_html.contains(needle),
+                "/chat initial visible HTML leaked sample entity {needle}"
+            );
+        }
+
+        // 5. DB grounded reply with empty incidents must not fabricate INC-1001
+        let empty_ev = ChatDbEvidence {
+            keywords: vec![],
+            keyword_matched: false,
+            step_labels: [
+                "step1".to_string(),
+                "step2".to_string(),
+                "step3".to_string(),
+            ],
+            step_durations_ms: [1, 1, 1],
+            resources_total: 0,
+            azure_resources_total: 0,
+            connected_nodes: 0,
+            broken_links: 0,
+            links_total: 0,
+            distinct_link_types: 0,
+            distinct_object_types: 0,
+            rules_total: 0,
+            policies_total: 0,
+            audits_total: 0,
+            incidents_total: 0,
+            deliveries_total: 0,
+            llm_invocations_total: 0,
+            focus_cost_export_count: 0,
+            matched_resources: vec![],
+            matched_links: vec![],
+            matched_rules: vec![],
+            incidents: vec![],
+            recent_audits: vec![],
+            latest_audit_seq: None,
+            latest_audit_hash_prefix: "unhashed".to_string(),
+            latest_audit_at: String::new(),
+        };
+        let req = parse_stream_request(&json!({
+            "message": "인시던트 상태 알려줘",
+            "selected_node": "active-scope"
+        }));
+        let (ans, _cites, proposal, followups, _topic) = build_db_grounded_reply(&req, &empty_ev);
+        assert!(proposal.is_none());
+        assert!(!ans.contains("INC-1001"));
+        assert!(followups.iter().all(|f| !f.contains("INC-1001")));
+        Ok(())
     }
 }

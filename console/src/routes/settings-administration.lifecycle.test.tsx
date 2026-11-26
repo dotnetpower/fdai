@@ -27,6 +27,7 @@ const hooks = vi.hoisted(() => {
       const cell = cells[cursor++] ??= { value: { current: initial } };
       return cell.value as { current: T };
     },
+    useId: () => `id-${cursor++}`,
     useEffect: (effect: () => void | (() => void), deps?: readonly unknown[]) => {
       const cell = cells[cursor++] ??= {};
       if (!deps || !cell.deps || deps.some((value, index) => !Object.is(value, cell.deps?.[index]))) {
@@ -97,10 +98,23 @@ function deferred<T>() {
 }
 async function settle() { for (let i = 0; i < 12; i += 1) await Promise.resolve(); }
 function render<T>(component: () => T): T { hooks.begin(); const tree = component(); hooks.effects(); return tree; }
+const EXPAND_FORM_CONTROLS = new Set([
+  "SelectField",
+  "TextInput",
+  "SearchInput",
+  "TextareaField",
+  "CheckboxField",
+  "RadioField",
+  "ToggleSwitch",
+]);
 function all(tree: unknown): VNode<Record<string, unknown>>[] {
   if (Array.isArray(tree)) return tree.flatMap(all);
   if (!tree || typeof tree !== "object" || !("props" in tree)) return [];
   const node = tree as VNode<Record<string, unknown>>;
+  if (typeof node.type === "function" && EXPAND_FORM_CONTROLS.has(node.type.name)) {
+    const rendered = (node.type as (props: Record<string, unknown>) => unknown)(node.props);
+    return [node, ...all(rendered)];
+  }
   return [node, ...all(node.props.children)];
 }
 function content(tree: unknown): string {
@@ -377,8 +391,8 @@ describe("integration-owned bounded tools", () => {
     render(run); await settle();
     let tree = render(run);
     const checkboxes = all(tree).filter((node) => node.type === "input" && node.props.type === "checkbox");
-    (checkboxes[0]!.props.onChange as () => void)();
-    (checkboxes[1]!.props.onChange as () => void)();
+    (checkboxes[0]!.props.onChange as (event: unknown) => void)({ currentTarget: { checked: !checkboxes[0]!.props.checked } });
+    (checkboxes[1]!.props.onChange as (event: unknown) => void)({ currentTarget: { checked: !checkboxes[1]!.props.checked } });
     expect(testTeamsWorkflowWebhook).toHaveBeenCalledOnce();
     tree = render(run);
     expect(all(tree).filter((node) => node.type === "input" && node.props.type === "checkbox").every((node) => node.props.disabled)).toBe(true);
@@ -402,7 +416,7 @@ describe("integration-owned bounded tools", () => {
     input(email, "recipient@example.com");
     const recipientRow = all(tree).find((node) => node.props.class === "settings-teams-workflow-email-custom-row")!;
     expect(all(recipientRow).find((node) => node.type === "button")?.props.disabled).toBe(true);
-    const secretInput = all(tree).find((node) => node.type === "input" && node.props.inputMode === "url")!;
+    const secretInput = all(tree).find((node) => node.type === "input" && node.props.id === "teams-workflow-webhook-url")!;
     input(secretInput, "https://example.com/synthetic");
     tree = render(run);
     const form = all(tree).find((node) => node.type === "form")!;
@@ -420,7 +434,9 @@ describe("integration-owned bounded tools", () => {
     const tree = render(run);
     const selected = all(tree).filter((node) => node.type === "input" && node.props.type === "checkbox" && node.props.checked);
     expect(selected).toHaveLength(2);
-    expect(selected.every((node) => node.props.disabled && node.props["aria-describedby"] === "teams-minimum-selection")).toBe(true);
+    expect(selected.every((node) => node.props.disabled)).toBe(true);
+    expect(all(tree).some((node) => node.props.id === "teams-minimum-selection")).toBe(true);
+    expect(all(tree).some((node) => node.props["aria-describedby"] === "teams-minimum-selection")).toBe(true);
   });
   test("N09 failed draft copying reports an error without echoing the draft", async () => {
     const copy = vi.fn().mockRejectedValue(new Error("clipboard unavailable"));
@@ -428,7 +444,7 @@ describe("integration-owned bounded tools", () => {
     const run = () => TeamsWorkflowTestPanel({ auth, operatorApiBaseUrl: "", canManage: true });
     render(run); await settle();
     let tree = render(run);
-    input(all(tree).find((node) => node.type === "input" && node.props.inputMode === "url")!, "https://example.com/synthetic-draft");
+    input(all(tree).find((node) => node.type === "input" && node.props.id === "teams-workflow-webhook-url")!, "https://example.com/synthetic-draft");
     tree = render(run);
     const copyButton = all(tree).find((node) => node.type === "button" && node.props["aria-label"] === "Copy saved URL")!;
     click(copyButton); await settle();

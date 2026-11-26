@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { KnowledgeGithubChange } from "../api";
 import { OperatorApiError } from "../api";
+import { SelectField, TextInput } from "../components/form-controls";
 import { AsyncBoundary, PageHeader, StatusPill, type AsyncState } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary, TERMS } from "../deck/glossary";
@@ -151,16 +152,30 @@ function GithubWorkspace({ client, auth, dataMode }: PanelProps) {
               credential_reference: reference, expected_revision: selected?.revision ?? 0 });
           }}>
             <h3>{text("githubConnect")}</h3>
-            <label>{text("githubAlias")}<input class="form-input" value={alias} disabled={busy || needsRefresh}
-              onInput={(event) => setAlias(event.currentTarget.value)} /></label>
-            <label>{text("githubLocation")}<input class="form-input" value={location} placeholder="owner/repository" disabled={busy || needsRefresh}
-              onInput={(event) => setLocation(event.currentTarget.value)} /></label>
-            <label>{text("githubCredential")}<select class="form-input" value={reference} disabled={busy || needsRefresh}
-              onChange={(event) => setReference(event.currentTarget.value as typeof reference)}>
-              <option value="public">{text("githubPublic")}</option>
-              <option value="deployment-github-app">{text("githubApp")}</option>
-            </select></label>
-            <p class="muted small">{text("githubCredentialHint")}</p>
+            <TextInput
+              label={text("githubAlias")}
+              value={alias}
+              disabled={busy || needsRefresh}
+              onInput={setAlias}
+            />
+            <TextInput
+              label={text("githubLocation")}
+              value={location}
+              placeholder="owner/repository"
+              disabled={busy || needsRefresh}
+              onInput={setLocation}
+            />
+            <SelectField
+              label={text("githubCredential")}
+              value={reference}
+              disabled={busy || needsRefresh}
+              hint={text("githubCredentialHint")}
+              options={[
+                { value: "public", label: text("githubPublic") },
+                { value: "deployment-github-app", label: text("githubApp") },
+              ]}
+              onChange={(next) => setReference(next as typeof reference)}
+            />
             <button class="btn primary" type="submit" disabled={!valid || busy || needsRefresh}>{text("githubConnect")}</button>
           </form> : <p>{text("githubOwnerOnly")}</p>}
         </aside>

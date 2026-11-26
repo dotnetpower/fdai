@@ -5,6 +5,7 @@ import type {
   CostGovernanceProjection,
   CostGovernanceSurface,
 } from "../api-cost-governance";
+import { SegmentedControl } from "../components/form-controls";
 import {
   AsyncBoundary,
   EmptyState,
@@ -120,21 +121,22 @@ export function CostGovernanceRoute({
   return (
     <div class="stack cost-governance-route">
       <PageHeader title={t("costGovernance.title")} subtitle={t("costGovernance.subtitle")} />
-      <nav class="cost-governance-tabs" aria-label={t("costGovernance.title")}>
-        {tabs.map((tab) => (
-          <a
-            key={tab.surface}
-            href={routeHref("cost-governance", {
-              segments: [tab.surface],
-              params: Object.fromEntries(currentRoute().search.entries()),
-            })}
-            aria-current={tab.surface === surface ? "page" : undefined}
-            class={tab.surface === surface ? "active" : ""}
-          >
-            {tab.label}
-          </a>
-        ))}
-      </nav>
+      <div class="cost-governance-tabs">
+        <SegmentedControl
+          ariaLabel={t("costGovernance.title")}
+          role="tablist"
+          value={surface}
+          options={tabs.map((tab) => ({ value: tab.surface, label: tab.label }))}
+          onChange={(next) => {
+            navigate(
+              routeHref("cost-governance", {
+                segments: [next],
+                params: Object.fromEntries(currentRoute().search.entries()),
+              }),
+            );
+          }}
+        />
+      </div>
       {state.status === "unavailable" ? (
         <p><a href={routeHref("settings-runtime")}>{t("costGovernance.configure")}</a></p>
       ) : null}

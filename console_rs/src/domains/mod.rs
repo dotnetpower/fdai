@@ -10,7 +10,12 @@ pub mod operations;
 pub mod overview;
 pub mod settings;
 
-use axum::{extract::State, routing::get, Router};
+use axum::{
+    extract::{OriginalUri, State},
+    response::Redirect,
+    routing::get,
+    Router,
+};
 use serde_json::{json, Value};
 
 use crate::{
@@ -72,27 +77,19 @@ fn register_clean_panel_routes(mut router: Router<AppState>) -> Router<AppState>
             };
             router = router.route(&path, get(handler));
 
-            // Also support flat aliases for settings-* and lab sub-panels so direct links work cleanly
-            if pid.starts_with("settings-") || (dom == "labs" && pid != "labs") {
-                let flat = format!("/{pid}");
-                if flat != path {
-                    let flat_handler = move |State(state): State<AppState>| async move {
-                        let (tpl, all_ids) = domain_template(dom);
-                        let html = finalize_v4_html(
-                            tpl,
-                            dom,
-                            pid,
-                            &state.operator_url,
-                            json!({
-                                "panels": all_ids,
-                                "isolatedSandbox": dom == "labs",
-                                "overlaySupported": dom == "settings"
-                            }),
-                        );
-                        html_response(html)
+            // Legacy flat aliases redirect with 308 Permanent Redirect (preserving query params)
+            // so every panel resolves to exactly one unique canonical domain-scoped URL.
+            let flat = format!("/{pid}");
+            if flat != path && !matches!(flat.as_str(), "/overview" | "/operations" | "/agents" | "/governance" | "/evidence" | "/settings" | "/labs" | "/chat") {
+                let target_canonical = path.clone();
+                let redirect_handler = move |OriginalUri(uri): OriginalUri| {
+                    let dest = match uri.query() {
+                        Some(q) if !q.is_empty() => format!("{target_canonical}?{q}"),
+                        _ => target_canonical.clone(),
                     };
-                    router = router.route(&flat, get(flat_handler));
-                }
+                    async move { Redirect::permanent(&dest) }
+                };
+                router = router.route(&flat, get(redirect_handler));
             }
         }
     }

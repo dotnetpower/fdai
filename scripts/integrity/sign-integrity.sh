@@ -58,14 +58,10 @@ command -v openssl >/dev/null 2>&1 || {
   echo "sign-integrity: ERROR - openssl not found on PATH." >&2
   exit 2
 }
-if command -v uv >/dev/null 2>&1; then
-  python_cmd=(uv run python)
-elif command -v python3 >/dev/null 2>&1; then
-  python_cmd=(python3)
-else
-  echo "sign-integrity: ERROR - uv or python3 not found on PATH." >&2
+command -v cargo >/dev/null 2>&1 || {
+  echo "sign-integrity: ERROR - cargo (Rust toolchain) not found on PATH." >&2
   exit 2
-fi
+}
 
 gen_key=0
 regen=1
@@ -111,9 +107,7 @@ if [ ! -f "$PRIVKEY" ]; then
 fi
 
 if [ "$regen" = "1" ]; then
-  "${python_cmd[@]}" scripts/integrity/gen-integrity-manifest.py \
-    --out "$MANIFEST" \
-    --source "$SOURCE"
+  cargo run --offline -p fdai-xtask -- integrity-manifest --out "$MANIFEST" --source "$SOURCE"
 fi
 
 if [ ! -f "$MANIFEST" ]; then

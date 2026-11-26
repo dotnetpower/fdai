@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/ontology/detection-routing-bounds/1.0.0",
+  "title": "DetectionRoutingThresholdBounds",
+  "description": "Declares provider-neutral hard numeric bounds for production LLM routing and incident detection thresholds. Active values remain versioned configuration inside these bounds. This contract grants no judgment, approval, promotion, or execution authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["llm_routing", "incident_detection"],
+  "properties": {
+    "llm_routing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "quality_gate_confidence_threshold",
+        "quality_gate_quorum",
+        "self_consistency_sample_threshold",
+        "self_consistency_samples",
+        "self_consistency_stability_threshold",
+        "t1_min_success_rate",
+        "t1_similarity_threshold"
+      ],
+      "properties": {
+        "quality_gate_confidence_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "x-fdai-unit": "ratio",
+          "x-fdai-scope": "quality_gate"
+        },
+        "quality_gate_quorum": {
+          "type": "integer",
+          "minimum": 2,
+          "x-fdai-unit": "model_votes",
+          "x-fdai-scope": "quality_gate"
+        },
+        "self_consistency_sample_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "x-fdai-unit": "ratio",
+          "x-fdai-scope": "quality_gate"
+        },
+        "self_consistency_samples": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9,
+          "x-fdai-unit": "samples",
+          "x-fdai-scope": "quality_gate"
+        },
+        "self_consistency_stability_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "x-fdai-unit": "ratio",
+          "x-fdai-scope": "quality_gate"
+        },
+        "t1_min_success_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "x-fdai-unit": "ratio",
+          "x-fdai-scope": "t1_reuse"
+        },
+        "t1_similarity_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "x-fdai-unit": "ratio",
+          "x-fdai-scope": "t1_reuse"
+        }
+      }
+    },
+    "incident_detection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "alert_rate_per_hour",
+        "repeat_threshold",
+        "repeat_window_seconds",
+        "security_high_threshold",
+        "security_window_events"
+      ],
+      "properties": {
+        "alert_rate_per_hour": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "x-fdai-unit": "alerts_per_hour",
+          "x-fdai-scope": "incident_detection"
+        },
+        "repeat_threshold": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 100,
+          "x-fdai-unit": "events",
+          "x-fdai-scope": "incident_detection"
+        },
+        "repeat_window_seconds": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 86400,
+          "x-fdai-unit": "seconds",
+          "x-fdai-scope": "incident_detection"
+        },
+        "security_high_threshold": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "x-fdai-unit": "events",
+          "x-fdai-scope": "security_correlation"
+        },
+        "security_window_events": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000,
+          "x-fdai-unit": "events",
+          "x-fdai-scope": "security_correlation"
+        }
+      }
+    }
+  }
+}

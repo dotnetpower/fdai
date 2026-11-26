@@ -8,10 +8,12 @@ import {
   KpiGrid,
   kpiEvidenceLabel,
   PageHeader,
-  StatusPill,
   type AsyncState,
   type Column,
+  type PillKind,
 } from "../components/ui";
+import { SelectField } from "../components/form-controls";
+import { StatusBadge, type BadgeTone } from "../components/status-badge";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
@@ -164,9 +166,10 @@ export function SchedulerRunsRoute({
         subtitle={schedulerRunsText("subtitle")}
       />
       <form class="scheduler-runs-filter" onSubmit={submit}>
-        <label>
-          <span>{schedulerRunsText("taskId")}</span>
+        <label class="cs-field">
+          <span class="cs-field-label">{schedulerRunsText("taskId")}</span>
           <input
+            class="cs-field-control"
             required
             list="scheduler-task-options"
             value={taskInput}
@@ -179,19 +182,18 @@ export function SchedulerRunsRoute({
             <option value="all" />
           </datalist>
         </label>
-        <label>
-          <span>{schedulerRunsText("status")}</span>
-          <select
-            value={statusInput}
-            onChange={(event) => setStatusInput(event.currentTarget.value as Query["status"])}
-          >
-            <option value="">{schedulerRunsText("allStatuses")}</option>
-            <option value="claimed">{schedulerRunsText("statusClaimed")}</option>
-            <option value="published">{schedulerRunsText("statusPublished")}</option>
-            <option value="failed">{schedulerRunsText("statusFailed")}</option>
-            <option value="lost">{schedulerRunsText("statusLost")}</option>
-          </select>
-        </label>
+        <SelectField
+          label={schedulerRunsText("status")}
+          value={statusInput}
+          options={[
+            { value: "", label: schedulerRunsText("allStatuses") },
+            { value: "claimed", label: schedulerRunsText("statusClaimed") },
+            { value: "published", label: schedulerRunsText("statusPublished") },
+            { value: "failed", label: schedulerRunsText("statusFailed") },
+            { value: "lost", label: schedulerRunsText("statusLost") },
+          ]}
+          onChange={(value) => setStatusInput(value as Query["status"])}
+        />
         <button type="submit" class="btn" disabled={state.status === "loading"}>
           {schedulerRunsText("lookup")}
         </button>
@@ -282,7 +284,7 @@ function SchedulerRunsTable({ page, loadingMore, pageError, onLoadMore }: {
       key: "status",
       header: schedulerRunsText("status"),
       render: (item) => (
-        <StatusPill kind={schedulerRunTone(item.status)} label={schedulerRunStatusLabel(item.status)} />
+        <StatusBadge tone={pillKindToBadgeTone(schedulerRunTone(item.status))} label={schedulerRunStatusLabel(item.status)} />
       ),
     },
     {
@@ -358,7 +360,7 @@ function SchedulerRunsTable({ page, loadingMore, pageError, onLoadMore }: {
                 <h3>{selectedRun.run_id}</h3>
                 <p>{schedulerRunsText("attempt")}: {selectedRun.attempt}</p>
               </div>
-              <StatusPill kind={schedulerRunTone(selectedRun.status)} label={schedulerRunStatusLabel(selectedRun.status)} />
+              <StatusBadge tone={pillKindToBadgeTone(schedulerRunTone(selectedRun.status))} label={schedulerRunStatusLabel(selectedRun.status)} />
             </header>
             <dl class="cs-facts-grid">
               <div><dt>{schedulerRunsText("scheduledFor")}</dt><dd>{formatSchedulerTimestamp(selectedRun.scheduled_for)}</dd></div>
@@ -385,6 +387,15 @@ export function assertSchedulerRunTask(page: SchedulerRunPage, requestedTaskId: 
   if (page.task_id !== requestedTaskId) {
     throw new Error("scheduler runs response task_id does not match the requested task");
   }
+}
+
+function pillKindToBadgeTone(kind: PillKind): BadgeTone {
+  if (kind === "success" || kind === "auto" || kind === "enforce") return "live";
+  if (kind === "danger") return "sec";
+  if (kind === "warning") return "sre";
+  if (kind === "hil") return "human";
+  if (kind === "info") return "info";
+  return "neutral";
 }
 
 function schedulerRunStatusLabel(status: SchedulerRunStatus): string {

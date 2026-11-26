@@ -115,11 +115,11 @@ more roles.
 
 | # | Role | Entra Security Group | Analog | May do |
 |---|------|----------------------|--------|--------|
-| 1 | **Reader** | `aw-readers` | Azure Reader | View console: KPI dashboard, audit log, shadow results, HIL queue, and use Reader-floor conversational tools |
-| 2 | **Contributor** | `aw-contributors` | Azure Contributor | All of Reader + author draft PRs and start bounded background read investigations |
-| 3 | **Approver** | `aw-approvers` | (Reviewer) | All of Reader + review/approve governance PRs + approve runtime HIL requests + approve enforce promotions / exemptions / overrides (quorum applies to high-risk - see §5) |
-| 4 | **Owner** | `aw-owners` | Azure Owner | All of Approver + trigger kill-switch + manage runtime settings, environment model-binding drafts, and Entra group membership + apply infra IaC |
-| - | **Break-Glass** | `aw-break-glass` | (separate emergency account) | Console view, kill-switch, and emergency access-grant capabilities only. It has no runtime HIL approval capability and isn't an Owner superset. |
+| 1 | **Reader** | `fdai-readers` | Azure Reader | View console: KPI dashboard, audit log, shadow results, HIL queue, and use Reader-floor conversational tools |
+| 2 | **Contributor** | `fdai-contributors` | Azure Contributor | All of Reader + author draft PRs and start bounded background read investigations |
+| 3 | **Approver** | `fdai-approvers` | (Reviewer) | All of Reader + review/approve governance PRs + approve runtime HIL requests + approve enforce promotions / exemptions / overrides (quorum applies to high-risk - see §5) |
+| 4 | **Owner** | `fdai-owners` | Azure Owner | All of Approver + trigger kill-switch + manage runtime settings, environment model-binding drafts, and Entra group membership + apply infra IaC |
+| - | **Break-Glass** | `fdai-break-glass` | (separate emergency account) | Console view, kill-switch, and emergency access-grant capabilities only. It has no runtime HIL approval capability and isn't an Owner superset. |
 
 **Rules that keep the model safe without adding tiers**
 
@@ -127,7 +127,7 @@ more roles.
   **no-self-approval** CI check still blocks them from approving their own PR. The check
   compares Entra OIDs on PR author trailer and reviewer, not group membership.
 - **Break-Glass is NOT nested inside Owner**. It is a separately managed group; an Owner
-  account is not authorized for break-glass actions unless also in `aw-break-glass`. This
+  account is not authorized for break-glass actions unless also in `fdai-break-glass`. This
   bounds blast radius even if an Owner account is compromised.
 - **Activation preserves verified entitlement**. Token resolution preserves the existing `BreakGlass` role for its global kill-switch and emergency-access capabilities. The Human approval capability map excludes `BreakGlass`, so this callback path cannot turn emergency entitlement into approval authority.
 - **Current activation boundary.** `RoleResolver.activate_break_glass` is a pure activation
@@ -138,7 +138,7 @@ more roles.
   no HIL approval eligibility. The persistent activation store and TTL-enforcement composition
   remain deployment work.
 - **PIM is optional**. Upstream does not require it. A fork with Entra ID P2 MAY layer PIM
-  on top of `aw-approvers` / `aw-owners` for just-in-time activation, but the default
+  on top of `fdai-approvers` / `fdai-owners` for just-in-time activation, but the default
   model works on P1.
 
 ## 3. Persona → Action Matrix
@@ -161,7 +161,7 @@ more roles.
 | Manage bounded runtime settings | | | | ✓ | |
 | Save or assess an environment T1/T2 binding draft | | | | ✓ | |
 | Request a protected model-binding plan | | | | ✓ | |
-| Manage `aw-*` group membership | | | | ✓ | |
+| Manage `fdai-*` group membership | | | | ✓ | |
 | Apply infra IaC (deployer) | | | | ✓ | |
 | Hold the executor Managed Identity | (never) - the MI is non-human |||||
 
@@ -230,8 +230,8 @@ rbac:
       break_glass:   <objectId>   # required (may be an empty group but must exist)
 ```
 
-Group naming (`aw-readers` etc.) is a recommended convention; only the objectId is
-consumed at runtime.
+Group naming (`fdai-readers` etc.) is a recommended convention; only the objectId is
+consumed at runtime, so existing tenants using legacy `aw-*` group names remain compatible.
 
 ### 4.3 Conditional Access
 
@@ -239,15 +239,15 @@ CA is available on Entra ID P1 (no P2 required). Recommended policies per group:
 
 | Target group | Requirement |
 |--------------|-------------|
-| `aw-approvers`, `aw-owners` | **Phishing-resistant MFA** (FIDO2 / Windows Hello for Business / cert-based); text/phone OTP is **denied** |
-| `aw-owners` | Additionally require **compliant device** or hybrid Entra-joined |
-| `aw-break-glass` | Named-location restriction, dedicated hardware token, and continuous sign-in alert |
-| All `aw-*` groups | Block legacy authentication protocols |
+| `fdai-approvers`, `fdai-owners` | **Phishing-resistant MFA** (FIDO2 / Windows Hello for Business / cert-based); text/phone OTP is **denied** |
+| `fdai-owners` | Additionally require **compliant device** or hybrid Entra-joined |
+| `fdai-break-glass` | Named-location restriction, dedicated hardware token, and continuous sign-in alert |
+| All `fdai-*` groups | Block legacy authentication protocols |
 
 ### 4.4 App Roles (token surface)
 
 The API prefers **App Roles** as its canonical token surface. App Roles are declared on the
-`fdai-api` app registration and assigned to the `aw-*` groups in the Enterprise Applications
+`fdai-api` app registration and assigned to the `fdai-*` groups in the Enterprise Applications
 view; a signed-in user's access token then carries a `roles` claim (for example,
 `"roles": ["Approver"]`). For migration compatibility, `RoleResolver` falls back to configured
 objectId mappings when `roles` is empty and inline `groups` are available. That fallback isn't
@@ -255,11 +255,11 @@ possible for group-overage tokens, which require an FDAI App Role.
 
 | App Role value | Assigned to (Entra security group) |
 |----------------|------------------------------------|
-| `Reader` | `aw-readers` |
-| `Contributor` | `aw-contributors` |
-| `Approver` | `aw-approvers` |
-| `Owner` | `aw-owners` |
-| `BreakGlass` | `aw-break-glass` |
+| `Reader` | `fdai-readers` |
+| `Contributor` | `fdai-contributors` |
+| `Approver` | `fdai-approvers` |
+| `Owner` | `fdai-owners` |
+| `BreakGlass` | `fdai-break-glass` |
 
 Why App Roles over raw group claims:
 
@@ -292,22 +292,22 @@ PR and API layer (a runtime approval takes only an optional reason; its checks b
 > facts to an Entra principal bundle emitted by a configured trusted verifier App. Missing trusted
 > attestation fails closed. Quorum 2 and proposer, co-author, and committer separation cover enforce
 > promotions, exemptions, overrides, and A1 routing. Deploying that App, recording the human OID
-> trailer at draft creation, and the complete `@aw-approvers` CODEOWNERS layout remain open.
+> trailer at draft creation, and the complete `@fdai-approvers` CODEOWNERS layout remain open.
 
 ### 5.1 Target CODEOWNERS (single approver group, path-based reviewer count)
 
 ```
 # CODEOWNERS
-rule-catalog/rules/**              @aw-approvers
-rule-catalog/assignments/**        @aw-approvers
-rule-catalog/exemptions/**         @aw-approvers
-rule-catalog/overrides/**          @aw-approvers
+rule-catalog/rules/**              @fdai-approvers
+rule-catalog/assignments/**        @fdai-approvers
+rule-catalog/exemptions/**         @fdai-approvers
+rule-catalog/overrides/**          @fdai-approvers
 ```
 
-Every governance PR requires at least one `@aw-approvers` reviewer. CI raises that
+Every governance PR requires at least one `@fdai-approvers` reviewer. CI raises that
 requirement based on **diff content**:
 
-| Diff pattern (CI-detected) | Required approvals from `@aw-approvers` |
+| Diff pattern (CI-detected) | Required approvals from `@fdai-approvers` |
 |----------------------------|-----------------------------------------|
 | Rule text or rule-set change | **1** |
 | Assignment parameter change (no effect promotion) | **1** |
@@ -473,7 +473,7 @@ The API validates every request as follows (deny by default):
 5. **Role resolution** - prefer `roles` App Roles. If that claim is empty and inline `groups` are
   available, fall back to configured objectId mappings. Fail closed when an overage token has no
   App Role. If no known role resolves, protected endpoints return `403`. There is **no
-  auto-provisioning** to `aw-readers`.
+  auto-provisioning** to `fdai-readers`.
 6. **Stable identity** is `oid` (Entra user objectId). `upn`/email are informational only;
    audit and no-self-approval use `oid`.
 
@@ -494,7 +494,7 @@ crypto, so the sync `ClaimsVerifier` contract holds without blocking the event l
 
 ### 10.3 First Sign-In (unassigned users)
 
-A user with valid Entra credentials but no `aw-*` group membership can reach the console
+A user with valid Entra credentials but no `fdai-*` group membership can reach the console
 but MUST NOT gain any capability:
 
 - Entra authentication succeeds, `roles` claim is empty.
@@ -520,8 +520,8 @@ The target contract for Teams SSO OBO approval is:
 External collaborators are onboarded via **Entra B2B invitation**, producing a guest
 `oid` in the fork tenant. Recommended fork policy:
 
-- Guests MAY be added to `aw-readers` and - with justification - `aw-contributors`.
-- Guests shouldn't be added to `aw-approvers`, `aw-owners`, or `aw-break-glass`. The repository
+- Guests MAY be added to `fdai-readers` and - with justification - `fdai-contributors`.
+- Guests shouldn't be added to `fdai-approvers`, `fdai-owners`, or `fdai-break-glass`. The repository
   doesn't currently ship a bootstrap membership check for this human-role policy, so a fork must
   enforce it in its Entra administration process.
 - Conditional Access policies apply uniformly to guests and members.
@@ -684,7 +684,7 @@ The [implementation plan](human-agent-assignment-implementation-plan.md#current-
 - [ ] The exact `Justification` minimum length per diff-risk tier (currently config-only).
 - [ ] Whether Owner may also be a Break-Glass member (default: **no**; enforce via CI in
       fork bootstrap).
-- [ ] The rotation cadence for `aw-owners` and `aw-break-glass` membership (manual access
+- [ ] The rotation cadence for `fdai-owners` and `fdai-break-glass` membership (manual access
       review vs P2 Entra Access Reviews).
 - [ ] Whether the console's "draft change" UI ships in P1 (Change domain only) or P3 (all
       three verticals) - depends on

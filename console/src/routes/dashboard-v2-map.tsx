@@ -39,7 +39,7 @@ export interface DashboardResourceMapProps {
   };
 }
 
-const HEXAGON = "12,1 23,7.5 23,20.5 12,27 1,20.5 1,7.5";
+const HEXAGON = "24,2 46,15 46,41 24,54 2,41 2,15";
 
 function axisLabel(
   axis: ReturnType<typeof dashboardStateAxis>,
@@ -168,11 +168,11 @@ export function DashboardResourceMap({
     >
       <svg class="dashboard-v2-map-definitions" aria-hidden="true" focusable="false">
         <defs>
-          <pattern id={`${id}-unknown`} width="4" height="4" patternUnits="userSpaceOnUse">
-            <path d="M-1 1 1-1 M0 4 4 0 M3 5 5 3" fill="none" stroke="currentColor" stroke-width=".5" />
+          <pattern id={`${id}-unknown`} width="8" height="8" patternUnits="userSpaceOnUse">
+            <path d="M-2 2 2-2 M0 8 8 0 M6 10 10 6" fill="none" stroke="currentColor" stroke-width="1" />
           </pattern>
-          <pattern id={`${id}-na`} width="4" height="4" patternUnits="userSpaceOnUse">
-            <circle cx="2" cy="2" r=".6" fill="currentColor" />
+          <pattern id={`${id}-na`} width="8" height="8" patternUnits="userSpaceOnUse">
+            <circle cx="4" cy="4" r="1.2" fill="currentColor" />
           </pattern>
         </defs>
       </svg>
@@ -233,18 +233,18 @@ export function DashboardResourceMap({
               onKeyDown={(event: JSX.TargetedKeyboardEvent<HTMLButtonElement>) => onKeyDown(event, index)}
               onClick={() => { closePreview(); onSelect(resource.id); }}
             >
-              <svg viewBox="0 0 24 28" aria-hidden="true" focusable="false">
+              <svg viewBox="0 0 48 56" aria-hidden="true" focusable="false">
                 <polygon class="dashboard-v2-map-surface" points={HEXAGON} />
                 {pattern
                   ? <polygon class="dashboard-v2-map-pattern" points={HEXAGON} fill={`url(#${pattern})`} />
                   : null}
                 <polygon class="dashboard-v2-map-outline" points={HEXAGON} fill="none" />
                 {cellAxisSymbol
-                  ? <text class="dashboard-v2-map-axis" x="5" y="7" text-anchor="middle" dominant-baseline="central">
+                  ? <text class="dashboard-v2-map-axis" x="10" y="14" text-anchor="middle" dominant-baseline="central">
                     {cellAxisSymbol}
                   </text>
                   : null}
-                <text class="dashboard-v2-map-symbol" x="12" y="14" text-anchor="middle" dominant-baseline="central">
+                <text class="dashboard-v2-map-symbol" x="24" y="28" text-anchor="middle" dominant-baseline="central">
                   {style.symbol}
                 </text>
               </svg>

@@ -68,9 +68,9 @@ export function AlertQualitySettingsEditor({ state, isCurrent, onRefresh, onSave
       event.preventDefault();
       if (editable && isCurrent() && body !== null) onSave(body.enabled, body.expected_revision);
     }}>
-      <label style={{ minWidth: 0, maxWidth: 480, display: "grid", gap: 8 }} htmlFor="alert-quality-enabled">
-        <span>{text("settings.preferenceForm")}</span>
-        <select id="alert-quality-enabled" class="cs-control-select" name="enabled" required disabled={!editable}
+      <label class="cs-field" style={{ minWidth: 0, maxWidth: 480 }} htmlFor="alert-quality-enabled">
+        <span class="cs-field-label">{text("settings.preferenceForm")}</span>
+        <select id="alert-quality-enabled" class="cs-field-select" name="enabled" required disabled={!editable}
           style={{ minHeight: 44, minWidth: 0, width: "100%" }} value={value === null ? "" : String(value)}
           aria-describedby="alert-quality-settings-help" onChange={(event) => {
             const selected = event.currentTarget.value;

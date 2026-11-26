@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "preact/hooks";
 import { architectureHref } from "../components/architecture-map.model";
+import { GraphControlBar } from "../components/graph-control-bar";
 import { StatusPill, type PillKind } from "../components/ui";
 import {
   impactEdgeEvidenceState,
@@ -222,8 +223,10 @@ export function BlastImpact({
     layouts.map(({ node, position }) => [node.resource_id, position]),
   );
   const [selectedId, setSelectedId] = useState(data.target);
+  const [zoomScale, setZoomScale] = useState(1);
   useEffect(() => {
     setSelectedId(data.target);
+    setZoomScale(1);
   }, [data.source_generation, data.target]);
   useEffect(() => {
     if (!graphNodes.some((node) => node.resource_id === selectedId)) {
@@ -285,25 +288,37 @@ export function BlastImpact({
         role="group"
         aria-label={t("ontology.blast.graphLabel")}
       >
-        <div class="blast-impact-legend" aria-label={t("ontology.blast.graphLegend")}>
-          {data.traversal_links.map((linkType) => (
-            <span key={linkType}>
-              <i class={`is-${linkType.replaceAll("_", "-")}`} aria-hidden="true" />
-              {impactRelationshipLabel(linkType)}
-            </span>
-          ))}
-          {evidenceStates.map((evidence) => (
-            <span key={evidence.className}>
-              <i class={evidence.className} aria-hidden="true" />
-              {evidence.label}
-            </span>
-          ))}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
+          <div class="blast-impact-legend" aria-label={t("ontology.blast.graphLegend")}>
+            {data.traversal_links.map((linkType) => (
+              <span key={linkType}>
+                <i class={`is-${linkType.replaceAll("_", "-")}`} aria-hidden="true" />
+                {impactRelationshipLabel(linkType)}
+              </span>
+            ))}
+            {evidenceStates.map((evidence) => (
+              <span key={evidence.className}>
+                <i class={evidence.className} aria-hidden="true" />
+                {evidence.label}
+              </span>
+            ))}
+          </div>
+          <GraphControlBar
+            ariaLabel={t("ontology.instances.graphControls")}
+            scale={zoomScale}
+            minScale={0.75}
+            maxScale={1.5}
+            onZoomOut={() => setZoomScale((s) => Math.max(0.75, Math.round((s - 0.15) * 100) / 100))}
+            onZoomIn={() => setZoomScale((s) => Math.min(1.5, Math.round((s + 0.15) * 100) / 100))}
+            onFit={() => setZoomScale(1)}
+          />
         </div>
         <svg
           class="blast-impact-lines"
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
           aria-hidden="true"
+          style={zoomScale !== 1 ? { transform: `scale(${zoomScale})`, transformOrigin: "50% 50%" } : undefined}
         >
           {data.edges.map((edge) => {
             const source = positionById.get(edge.source);

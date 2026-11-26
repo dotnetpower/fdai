@@ -1,4 +1,8 @@
 import {
+  CorrelationTimeline,
+} from "../components/domain-primitives";
+import type { BadgeTone } from "../components/status-badge";
+import {
   DataTable,
   StatusPill,
   type Column,
@@ -13,6 +17,13 @@ import type {
   TraceActionLifecycle,
   TraceStep,
 } from "./rule-trace";
+
+function lifecycleStepTone(state: TraceActionLifecycle["stages"][number]["state"]): BadgeTone {
+  if (state === "recorded") return "live";
+  if (state === "pending") return "sre";
+  if (state === "failed") return "sec";
+  return "neutral";
+}
 
 export function TraceActionLifecycleSection({
   lifecycles,
@@ -40,31 +51,26 @@ export function TraceActionLifecycleSection({
               ? t("evidence.trace.lifecycle.attemptUnknown")
               : t("evidence.trace.lifecycle.attempt", { attempt: lifecycle.attempt })}</span>
           </h4>
-          <ol class="approval-lifecycle trace-action-lifecycle">
-            {lifecycle.stages.map((item, index) => (
-              <li
-                key={item.id}
-                data-state={item.state === "recorded"
-                  ? "complete"
-                  : item.state === "not_attempted"
-                    ? "not-started"
-                    : item.state}
-                aria-current={item.state === "pending" ? "step" : undefined}
-              >
-                <span aria-hidden="true">{index + 1}</span>
-                <strong>{t(`evidence.trace.lifecycle.${item.id}`)}</strong>
-                <small>
-                  {item.evidence === null
-                    ? t("evidence.trace.lifecycle.notRecorded")
-                    : t("evidence.trace.lifecycle.evidence", {
-                      sequence: item.evidence.seq,
-                      kind: item.evidence.action_kind,
-                      state: t(`evidence.trace.lifecycle.state.${item.state}`),
-                    })}
-                </small>
-              </li>
-            ))}
-          </ol>
+          <div class="approval-lifecycle trace-action-lifecycle">
+            <CorrelationTimeline
+              variant="lifecycle"
+              ariaLabel={lifecycle.actionId}
+              items={lifecycle.stages.map((item, index) => ({
+                id: item.id,
+                title: `${index + 1}. ${t(`evidence.trace.lifecycle.${item.id}`)}`,
+                stateLabel: t(`evidence.trace.lifecycle.state.${item.state}`),
+                tone: lifecycleStepTone(item.state),
+                current: item.state === "pending",
+                detail: item.evidence === null
+                  ? t("evidence.trace.lifecycle.notRecorded")
+                  : t("evidence.trace.lifecycle.evidence", {
+                    sequence: item.evidence.seq,
+                    kind: item.evidence.action_kind,
+                    state: t(`evidence.trace.lifecycle.state.${item.state}`),
+                  }),
+              }))}
+            />
+          </div>
         </article>
       ))}
     </section>

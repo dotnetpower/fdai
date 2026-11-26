@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/core-operator-projection/1.1.0",
+  "title": "CoreOperatorProjectionEnvelope",
+  "description": "Transport-facing bounded projection metadata with an optional evidence digest. It carries no Core implementation object or authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "projection_id",
+    "request_id",
+    "correlation_id",
+    "idempotency_key",
+    "status",
+    "recorded_at",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": {"type": "string", "pattern": "^1\\.\\d+\\.\\d+$"},
+    "projection_id": {"type": "string", "format": "uuid"},
+    "request_id": {"type": "string", "format": "uuid"},
+    "correlation_id": {"type": "string", "minLength": 1, "maxLength": 512},
+    "idempotency_key": {"type": "string", "minLength": 1, "maxLength": 512},
+    "status": {"type": "string", "enum": ["accepted", "available", "unavailable"]},
+    "recorded_at": {"type": "string", "format": "date-time"},
+    "payload": {"type": "object", "additionalProperties": true},
+    "evidence_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+  }
+}

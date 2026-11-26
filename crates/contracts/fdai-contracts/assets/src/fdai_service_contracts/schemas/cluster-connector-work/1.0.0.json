@@ -1,0 +1,140 @@
+{
+  "$defs": {
+    "ConnectorScope": {
+      "additionalProperties": false,
+      "description": "Name the registered deployment and exact cluster without carrying credentials.",
+      "properties": {
+        "deployment_ref": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$",
+          "title": "Deployment Ref",
+          "type": "string"
+        },
+        "cluster_ref": {
+          "maxLength": 512,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$",
+          "title": "Cluster Ref",
+          "type": "string"
+        },
+        "connector_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$",
+          "title": "Connector Id",
+          "type": "string"
+        },
+        "enrollment_revision": {
+          "maximum": 9223372036854775807,
+          "minimum": 1,
+          "title": "Enrollment Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "deployment_ref",
+        "cluster_ref",
+        "connector_id",
+        "enrollment_revision"
+      ],
+      "title": "ConnectorScope",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Reference existing governed work without embedding commands or granting authority.",
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scope": {
+      "$ref": "#/$defs/ConnectorScope"
+    },
+    "work_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$",
+      "title": "Work Id",
+      "type": "string"
+    },
+    "correlation_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$",
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "capability": {
+      "enum": [
+        "diagnostic.read",
+        "governed.execute"
+      ],
+      "title": "Capability",
+      "type": "string"
+    },
+    "namespace": {
+      "maxLength": 63,
+      "minLength": 1,
+      "pattern": "^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?$",
+      "title": "Namespace",
+      "type": "string"
+    },
+    "target_uid": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$",
+      "title": "Target Uid",
+      "type": "string"
+    },
+    "target_revision": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$",
+      "title": "Target Revision",
+      "type": "string"
+    },
+    "artifact_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Artifact Digest",
+      "type": "string"
+    },
+    "issued_at": {
+      "format": "date-time",
+      "title": "Issued At",
+      "type": "string"
+    },
+    "expires_at": {
+      "format": "date-time",
+      "title": "Expires At",
+      "type": "string"
+    },
+    "idempotency_key": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$",
+      "title": "Idempotency Key",
+      "type": "string"
+    }
+  },
+  "required": [
+    "scope",
+    "work_id",
+    "correlation_id",
+    "capability",
+    "namespace",
+    "target_uid",
+    "target_revision",
+    "artifact_digest",
+    "issued_at",
+    "expires_at",
+    "idempotency_key"
+  ],
+  "title": "ConnectorWork",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/cluster-connector-work/1.0.0"
+}

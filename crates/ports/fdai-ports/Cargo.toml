@@ -1,0 +1,11 @@
+[package]
+name = "fdai-ports"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+fdai-contracts = { path = "../../contracts/fdai-contracts" }
+fdai-domain-core = { path = "../../core/fdai-domain-core" }

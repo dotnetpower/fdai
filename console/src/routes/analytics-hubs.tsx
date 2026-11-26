@@ -1,6 +1,8 @@
 import type { OperatorApiClient } from "../api";
 import type { AutonomyPayload } from "../types";
 import { usePublishViewContext } from "../deck/context";
+import { SegmentedControl } from "../components/form-controls";
+import { StatusBadge } from "../components/status-badge";
 import {
   AsyncBoundary,
   DataTable,
@@ -12,7 +14,7 @@ import {
 import { getLocale } from "../i18n";
 import { formatConsoleTimestamp } from "../time-format";
 import { t } from "./i18n/analytics";
-import { currentRoute, routeHref } from "../router";
+import { currentRoute, navigate, routeHref } from "../router";
 import type { ConsoleDataMode } from "../console-data-mode";
 import { formatShare } from "./dashboard.model";
 import {
@@ -79,21 +81,22 @@ function HubTabs({
 }) {
   const search = currentRoute().search;
   return (
-    <nav class="analytics-tabs" aria-label={t("analytics.detailViews")}>
-      {values.map((value) => (
-        <a
-          key={value}
-          href={routeHref(panelId, {
-            segments: [value],
-            params: paramsForValue?.(value, search) ?? searchParamsRecord(search),
-          })}
-          class={value === active ? "active" : undefined}
-          aria-current={value === active ? "page" : undefined}
-        >
-          {label(value)}
-        </a>
-      ))}
-    </nav>
+    <div class="analytics-tabs">
+      <SegmentedControl
+        ariaLabel={t("analytics.detailViews")}
+        role="tablist"
+        value={active}
+        options={values.map((value) => ({ value, label: label(value) }))}
+        onChange={(value) => {
+          navigate(
+            routeHref(panelId, {
+              segments: [value],
+              params: paramsForValue?.(value, search) ?? searchParamsRecord(search),
+            }),
+          );
+        }}
+      />
+    </div>
   );
 }
 
@@ -101,7 +104,10 @@ function EvidenceStrip({ autonomy }: { readonly autonomy: AutonomyPayload }) {
   const locale = getLocale() === "ko" ? "ko-KR" : "en-US";
   return (
     <div class="analytics-evidence">
-      <strong>{autonomy.synthetic ? t("analytics.simulated") : t("analytics.measured")}</strong>
+      <StatusBadge
+        tone={autonomy.synthetic ? "info" : "live"}
+        label={autonomy.synthetic ? t("analytics.simulated") : t("analytics.measured")}
+      />
       <span>{t("analytics.window", { days: autonomy.window_days })}</span>
       <span>{t("analytics.samples", { count: autonomy.sample_size.toLocaleString(locale) })}</span>
       <span>

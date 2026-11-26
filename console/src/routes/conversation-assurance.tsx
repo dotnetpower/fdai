@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { EvidenceRefresh } from "../components/evidence-refresh";
+import { SearchInput, SelectField, TextareaField } from "../components/form-controls";
 import {
   AsyncBoundary,
   DataTable,
@@ -260,24 +261,24 @@ function AssuranceBody({
         <KpiCard evidenceState={evidenceState} href={`${baseHref}#disputes`} label={t("assurance.disputes")} value={data.summary.total ? data.summary.disputes : kpiEvidenceLabel("insufficient-sample")} />
       </KpiGrid>
       <div class="cs-filter-toolbar" role="search">
-        <label class="is-wide">
-          <span>{t("assurance.turn")}</span>
-          <input
-            type="search"
-            value={query}
-            placeholder="turn_id, assessment_id, conversation_id..."
-            onInput={(event) => setQuery(event.currentTarget.value)}
-          />
-        </label>
-        <label>
-          <span>{t("assurance.state")}</span>
-          <select value={verdictFilter} onChange={(event) => setVerdictFilter(event.currentTarget.value as "all" | AssuranceVerdict)}>
-            <option value="all">{t("assurance.total")}</option>
-            <option value="pass">{t("assurance.verdict.pass")}</option>
-            <option value="fail">{t("assurance.verdict.fail")}</option>
-            <option value="inconclusive">{t("assurance.verdict.inconclusive")}</option>
-          </select>
-        </label>
+        <SearchInput
+          className="is-wide"
+          label={t("assurance.turn")}
+          value={query}
+          placeholder="turn_id, assessment_id, conversation_id..."
+          onInput={setQuery}
+        />
+        <SelectField
+          label={t("assurance.state")}
+          value={verdictFilter}
+          options={[
+            { value: "all", label: t("assurance.total") },
+            { value: "pass", label: t("assurance.verdict.pass") },
+            { value: "fail", label: t("assurance.verdict.fail") },
+            { value: "inconclusive", label: t("assurance.verdict.inconclusive") },
+          ]}
+          onChange={(value) => setVerdictFilter(value as "all" | AssuranceVerdict)}
+        />
         <span class="cs-filter-count" role="status" aria-live="polite">
           {filteredAssessments.length} / {data.assessments.length}
         </span>
@@ -488,7 +489,28 @@ function DetailBody({ auth, client, detail, onRefresh }: { readonly auth: AuthCo
   return <div class="stack">
     {detail.turn.available ? <><h3>{t("assurance.question")}</h3><p>{detail.turn.question}</p><h3>{t("assurance.answer")}</h3><div class="prose">{detail.turn.answer}</div></> : <p>{t("assurance.turnUnavailable")}</p>}
     <h3>{t("assurance.criteria")}</h3>{detail.assessment.criteria.length === 0 ? <p>{t("assurance.noCriteria")}</p> : <div class="status-list">{detail.assessment.criteria.map((item) => <div key={item.criterion}><strong>{item.criterion}</strong><span>{item.score}/4</span><p>{item.rationale}</p><small>{item.evidence_refs.join(", ") || t("assurance.evidence")}</small></div>)}</div>}
-    <form class="stack" onSubmit={(event) => void submit(event)}><h3>{t("assurance.reportTitle")}</h3><p>{t("assurance.reportBody")}</p><label>{t("assurance.reason")}<select value={reason} onChange={(event) => setReason(event.currentTarget.value as (typeof REASONS)[number])}>{REASONS.map((item) => <option value={item} key={item}>{t(`assurance.reasonOptions.${item}`)}</option>)}</select></label><label>{t("assurance.detail")}<textarea required maxLength={1000} value={text} placeholder={t("assurance.detailPlaceholder")} onInput={(event) => setText(event.currentTarget.value)} /></label><button type="submit" class="btn primary" disabled={status === "submitting" || text.trim().length === 0}>{t(status === "submitting" ? "assurance.submitting" : "assurance.submit")}</button>{status === "submitted" ? <p role="status">{t("assurance.submitted")}</p> : null}{status === "error" ? <p role="alert">{t("shared.panelFailed")}</p> : null}</form>
+    <form class="stack" onSubmit={(event) => void submit(event)}>
+      <h3>{t("assurance.reportTitle")}</h3>
+      <p>{t("assurance.reportBody")}</p>
+      <SelectField
+        label={t("assurance.reason")}
+        value={reason}
+        options={REASONS.map((item) => ({ value: item, label: t(`assurance.reasonOptions.${item}`) }))}
+        onChange={(value) => setReason(value as (typeof REASONS)[number])}
+      />
+      <TextareaField
+        label={t("assurance.detail")}
+        required
+        maxLength={1000}
+        showCounter
+        value={text}
+        placeholder={t("assurance.detailPlaceholder")}
+        onInput={setText}
+      />
+      <button type="submit" class="btn primary" disabled={status === "submitting" || text.trim().length === 0}>{t(status === "submitting" ? "assurance.submitting" : "assurance.submit")}</button>
+      {status === "submitted" ? <p role="status">{t("assurance.submitted")}</p> : null}
+      {status === "error" ? <p role="alert">{t("shared.panelFailed")}</p> : null}
+    </form>
   </div>;
 }
 

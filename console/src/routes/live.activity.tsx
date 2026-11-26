@@ -6,6 +6,7 @@ import {
   type ObservationSource,
 } from "../hooks/observation-source";
 import { Tooltip } from "../components/tooltip";
+import { SegmentedControl } from "../components/form-controls";
 import { routeHref } from "../router";
 import { t } from "./i18n/live";
 import {
@@ -280,22 +281,15 @@ export function LiveActivityWorkspace({
           ))}
         </div>
         <div class="live-work-actions">
-          <div
-            class="segmented-control"
-            role="group"
-            aria-label={t("live.work.viewModeLabel")}
-          >
-            {(["queue", "flow"] as const).map((mode) => (
-              <button
-                type="button"
-                class={viewMode === mode ? "active" : undefined}
-                aria-pressed={viewMode === mode}
-                onClick={() => onViewMode(mode)}
-              >
-                {mode === "queue" ? t("live.work.queue") : t("live.work.flow")}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            ariaLabel={t("live.work.viewModeLabel")}
+            value={viewMode}
+            options={[
+              { value: "queue", label: t("live.work.queue") },
+              { value: "flow", label: t("live.work.flow") },
+            ]}
+            onChange={onViewMode}
+          />
           <Tooltip content={t(fullscreen.active ? "live.work.exitFullscreen" : "live.work.fullscreen")}>
             <button ref={fullscreen.triggerRef} type="button" class="live-fullscreen-button"
               aria-pressed={fullscreen.active}

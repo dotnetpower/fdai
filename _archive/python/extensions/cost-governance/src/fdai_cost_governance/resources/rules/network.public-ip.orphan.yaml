@@ -1,0 +1,35 @@
+schema_version: 2.0.0
+id: network.public-ip.orphan
+version: 1.0.0
+source: azure_advisor
+severity: low
+category: cost
+resource_type: network.public-ip
+applies_to:
+- network.public-ip
+triggered_by:
+- resource.configuration.observed
+evaluates:
+- property.network.public-ip.associated_resource_id
+required_interfaces:
+- Evaluable
+- Remediable
+submission_criteria:
+- kind: resource_type_registered
+  value: network.public-ip
+- kind: property_exists
+  value: property.network.public-ip.associated_resource_id
+check_logic:
+  kind: rego
+  reference: policies/network/public_ip_orphan.rego
+remediation:
+  template_ref: remediation/network/public_ip_remove_orphan.tftpl
+  cost_impact_monthly_usd: 0.0
+remediates: remediate.remove-orphan-resource
+provenance:
+  source_url: https://learn.microsoft.com/azure/advisor/advisor-cost-recommendations
+  resolved_ref: '0000000000000000000000000000000000000000'
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: LicenseRef-reference-only
+  redistribution: reference-only
+  retrieved_at: '2026-07-06T00:00:00Z'

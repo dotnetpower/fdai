@@ -1,0 +1,4 @@
+-- Migration Revision: document_worker_base_20260808
+-- Down Revision: none
+-- Owner: document-processing-worker
+-- Extracted SQL Blocks: 0

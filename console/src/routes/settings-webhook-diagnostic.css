@@ -170,7 +170,7 @@
 
 .settings-teams-workflow-checkbox-copy small {
   color: var(--fg-muted);
-  font-size: 0.73rem;
+  font-size: 0.75rem;
   line-height: 1.35;
 }
 
@@ -207,7 +207,7 @@
 .settings-teams-workflow-saved-channel-info code {
   overflow-wrap: anywhere;
   color: var(--fg-muted);
-  font-size: 0.74rem;
+  font-size: 0.75rem;
 }
 
 .settings-teams-workflow-label-input {
@@ -376,8 +376,10 @@
 }
 
 .settings-teams-a1-onboarding-note {
-  padding-inline-start: 10px;
-  border-inline-start: 2px solid var(--warning);
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
 }
 
 .settings-teams-a1-onboarding-actions {
@@ -463,7 +465,7 @@
 
 .settings-teams-workflow-identities small {
   color: var(--fg-muted);
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   font-weight: 650;
 }
 
@@ -554,13 +556,15 @@
 .settings-teams-workflow-guide figcaption {
   margin-top: 6px;
   color: var(--fg-muted);
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   line-height: 1.45;
 }
 
 .settings-teams-workflow-guide-body > .settings-teams-workflow-guide-note {
-  padding-inline-start: 10px;
-  border-inline-start: 2px solid var(--warning);
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
 }
 
 @container (max-width: 620px) {

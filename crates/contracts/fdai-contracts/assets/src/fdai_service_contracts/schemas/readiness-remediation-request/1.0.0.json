@@ -1,0 +1,139 @@
+{
+  "additionalProperties": false,
+  "description": "One content-addressed shadow request with no approval or execution authority.",
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "request_id": {
+      "pattern": "^orr-remediation-[a-f0-9]{32}$",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "idempotency_key": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "action_type": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Action Type",
+      "type": "string"
+    },
+    "target_resource_ref": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Target Resource Ref",
+      "type": "string"
+    },
+    "target_revision": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Target Revision",
+      "type": "string"
+    },
+    "params": {
+      "additionalProperties": true,
+      "title": "Params",
+      "type": "object"
+    },
+    "citing_rule_ids": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 32,
+      "minItems": 1,
+      "title": "Citing Rule Ids",
+      "type": "array"
+    },
+    "evidence_refs": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 32,
+      "minItems": 1,
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "submitter": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Submitter",
+      "type": "string"
+    },
+    "approver": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Approver",
+      "type": "string"
+    },
+    "approved_at": {
+      "format": "date-time",
+      "title": "Approved At",
+      "type": "string"
+    },
+    "requested_at": {
+      "format": "date-time",
+      "title": "Requested At",
+      "type": "string"
+    },
+    "severity": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "source_mode": {
+      "const": "shadow",
+      "default": "shadow",
+      "title": "Source Mode",
+      "type": "string"
+    },
+    "request_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Request Digest",
+      "type": "string"
+    },
+    "approval_authority": {
+      "const": false,
+      "default": false,
+      "title": "Approval Authority",
+      "type": "boolean"
+    },
+    "execution_authority": {
+      "const": false,
+      "default": false,
+      "title": "Execution Authority",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "request_id",
+    "idempotency_key",
+    "action_type",
+    "target_resource_ref",
+    "target_revision",
+    "params",
+    "citing_rule_ids",
+    "evidence_refs",
+    "submitter",
+    "approver",
+    "approved_at",
+    "requested_at",
+    "severity",
+    "request_digest"
+  ],
+  "title": "ReadinessRemediationRequest",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/readiness-remediation-request/1.0.0"
+}

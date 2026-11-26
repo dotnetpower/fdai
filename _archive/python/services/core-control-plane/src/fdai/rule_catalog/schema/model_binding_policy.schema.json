@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/rule-catalog/model-binding-policy/1.0.0",
+  "title": "ModelBindingPolicy",
+  "description": "Environment-scoped T1/T2 binding intent. This policy has no activation authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "environment", "revision", "capabilities"],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "environment": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,31}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "expected_active_digest": {
+      "type": ["string", "null"],
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "capabilities": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 64,
+      "propertyNames": {
+        "pattern": "^(t1|t2)\\.[a-z][a-z0-9._-]{1,63}$"
+      },
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["selection_mode"],
+            "properties": {
+              "selection_mode": {"const": "auto"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "selection_mode",
+              "publisher",
+              "family",
+              "version_policy",
+              "sku",
+              "capacity"
+            ],
+            "properties": {
+              "selection_mode": {"const": "pinned"},
+              "publisher": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"},
+              "family": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+              "version_policy": {"const": "latest-compatible"},
+              "sku": {
+                "enum": [
+                  "Standard",
+                  "GlobalStandard",
+                  "ProvisionedManaged",
+                  "GlobalProvisionedManaged",
+                  "DataZoneProvisionedManaged"
+                ]
+              },
+              "capacity": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["unit", "value"],
+                "properties": {
+                  "unit": {"enum": ["tpm", "ptu"]},
+                  "value": {"type": "integer", "minimum": 1, "maximum": 10000000}
+                }
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "sku": {
+                      "enum": ["ProvisionedManaged", "GlobalProvisionedManaged", "DataZoneProvisionedManaged"]
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "capacity": {
+                      "properties": {"unit": {"const": "ptu"}}
+                    }
+                  }
+                },
+                "else": {
+                  "properties": {
+                    "capacity": {
+                      "properties": {
+                        "unit": {"const": "tpm"},
+                        "value": {"minimum": 1000}
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["selection_mode"],
+            "properties": {
+              "selection_mode": {"const": "hil-only"}
+            }
+          }
+        ]
+      }
+    }
+  }
+}

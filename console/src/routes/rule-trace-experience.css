@@ -25,73 +25,39 @@
   font-size: calc(var(--cs-type-section-title-size) + 1px);
 }
 
-.trace-readonly-boundary {
-  display: block;
-  padding: 0;
-}
-
-.trace-readonly-boundary > summary {
-  min-height: 40px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  cursor: pointer;
-}
-
-.trace-readonly-boundary > summary span {
-  color: var(--fg-muted);
-  font-weight: 400;
-}
-
-.trace-readonly-boundary > p {
+.trace-readonly-boundary .cs-disclosure-body > p {
   margin: 0;
-  padding: 0 12px 10px 34px;
+  color: var(--fg-muted);
 }
 
-.trace-discovery {
-  border: 1px solid var(--border);
-  border-radius: var(--cs-radius-sm);
-  background: var(--bg-elevated);
-}
-
-.trace-discovery > summary {
-  min-height: 46px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 8px 12px;
-  cursor: pointer;
-}
-
-.trace-discovery > summary > span:first-child {
+.trace-discovery-heading {
+  display: grid;
   min-width: 0;
 }
 
-.trace-discovery > summary strong,
-.trace-discovery > summary small {
+.trace-discovery-heading strong,
+.trace-discovery-heading small {
   display: block;
 }
 
-.trace-discovery > summary small {
+.trace-discovery-heading small {
   margin-top: 2px;
   overflow: hidden;
   color: var(--fg-muted);
   font-size: var(--cs-type-caption-size);
+  font-weight: 400;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.trace-discovery > summary > span:last-child {
+.trace-discovery-toggle {
   color: var(--accent);
   font-size: var(--cs-type-label-size);
   font-weight: 650;
 }
 
 .trace-discovery-body {
-  padding: 12px;
-  border-top: 1px solid var(--border);
+  padding: 0;
 }
 
 .trace-discovery-state {
@@ -203,14 +169,25 @@
 
 .trace-discovery-state-label small {
   margin-top: 2px;
-  font-size: 9px;
+  font-size: var(--cs-type-label-size);
   font-weight: 400;
+}
+
+.trace-context-details {
+  border: 0;
+  background: transparent;
+  margin-bottom: 16px;
+}
+
+.trace-context-details > .cs-disclosure-body {
+  padding: 0;
+  border-top: 0;
 }
 
 .trace-context-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin: -8px 0 16px;
+  margin: 0;
   border-block: 1px solid var(--border);
 }
 
@@ -285,7 +262,7 @@
 
 .trace-toolbar-links a small {
   color: var(--fg-muted);
-  font-size: 10px;
+  font-size: var(--cs-type-label-size);
   font-weight: 400;
 }
 
@@ -301,7 +278,7 @@
 
 .trace-stage-state small,
 .trace-stage-state strong {
-  max-width: 96px;
+  max-width: 112px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -309,7 +286,7 @@
 
 .trace-stage-state small {
   color: var(--fg-muted);
-  font-size: 9px;
+  font-size: var(--cs-type-label-size);
   font-weight: 500;
   text-transform: uppercase;
 }

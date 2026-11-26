@@ -1,0 +1,8 @@
+# remediate.remove-orphan-resource - Terraform patch template.
+#
+# Referenced by rule `compute.vm.idle-detected`.
+# The remediation PR removes the VM stanza. Rollback via
+provider soft-delete (PITR window).
+
+
+# The remediation PR removes this resource stanza.

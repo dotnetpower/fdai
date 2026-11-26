@@ -354,7 +354,7 @@ jobs:
             --api-version 2024-03-01 \
             --output json \
             --only-show-errors > "$inventory_job_json"
-          python3 scripts/deployment/azure/materialize_inventory_execution.py \
+          python3 _archive/python/scripts/deployment/azure/materialize_inventory_execution.py \
             --job-json "$inventory_job_json" \
             --image "$TF_VAR_core_image" \
             --output "$execution_body"

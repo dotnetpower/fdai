@@ -1,4 +1,5 @@
 import { useMemo } from "preact/hooks";
+import { RuleFacetToolbar } from "../components/rule-facet-toolbar";
 import { Tooltip } from "../components/tooltip";
 import {
   DataTable,
@@ -244,26 +245,35 @@ export function BestPracticeControlsBody({
         <KpiCard evidenceState="not-connected" href={bestPracticeHref({ ...EMPTY_FILTERS, status: "unknown" }, null)} label={t("governance.rules.controls.kpi.unknown")} value={unknown} hint={t("governance.rules.controls.kpi.notConnected")} />
       </KpiGrid>
       <section class="stack-section">
-        <div class="rule-facet-toolbar">
-          <FacetChips label={t("governance.rules.controls.filter.pillar")} value={filters.pillar} counts={data.facets.by_pillar} displayGroup="controlPillar" onChange={(pillar) => onFilter({ pillar })} />
-          <FacetChips label={t("governance.rules.controls.filter.status")} value={filters.status} counts={data.facets.by_status} displayGroup="controlStatus" onChange={(status) => onFilter({ status })} />
-          <label class="rule-facet-search">
-            <span class="sr-only">{t("governance.rules.controls.filter.searchAria")}</span>
-            <input type="search" maxLength={256} value={searchInput} placeholder={t("governance.rules.controls.filter.searchPlaceholder")} onInput={(event) => onSearch((event.target as HTMLInputElement).value)} />
-          </label>
-          {Boolean(filters.pillar || filters.status || filters.q || searchInput) ? (
-            <button
-              type="button"
-              class="btn"
-              onClick={() => {
-                onSearch("");
-                onFilter(EMPTY_FILTERS);
-              }}
-            >
-              {t("governance.common.clearFilter")}
-            </button>
-          ) : null}
-        </div>
+        <RuleFacetToolbar
+          ariaLabel={t("governance.rules.controls.filter.searchAria")}
+          leading={(
+            <>
+              <FacetChips label={t("governance.rules.controls.filter.pillar")} value={filters.pillar} counts={data.facets.by_pillar} displayGroup="controlPillar" onChange={(pillar) => onFilter({ pillar })} />
+              <FacetChips label={t("governance.rules.controls.filter.status")} value={filters.status} counts={data.facets.by_status} displayGroup="controlStatus" onChange={(status) => onFilter({ status })} />
+            </>
+          )}
+          search={{
+            label: t("governance.rules.controls.filter.searchAria"),
+            hideLabel: true,
+            value: searchInput,
+            maxLength: 256,
+            placeholder: t("governance.rules.controls.filter.searchPlaceholder"),
+            clearLabel: t("governance.common.clearFilter"),
+            onInput: onSearch,
+          }}
+          facets={[]}
+          activeFilterCount={
+            (filters.pillar ? 1 : 0)
+            + (filters.status ? 1 : 0)
+            + (filters.q || searchInput ? 1 : 0)
+          }
+          resetLabel={t("governance.common.clearFilter")}
+          onReset={() => {
+            onSearch("");
+            onFilter(EMPTY_FILTERS);
+          }}
+        />
         <div class="table-toolbar">
           <p class="muted">{t("governance.rules.controls.result.showing", { filtered: data.filtered_total, total: data.total })}{loading ? t("governance.rules.result.updating") : ""}</p>
         </div>

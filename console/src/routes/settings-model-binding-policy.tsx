@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { AuthContext } from "../auth";
+import { SelectField, TextInput } from "../components/form-controls";
 import { StatusPill } from "../components/ui";
 import { SegmentedControl } from "./settings.controls";
 import {
@@ -217,17 +218,15 @@ export function ModelBindingPolicyEditor({
         <span>{modelText("bindingNoActivationHint")}</span>
       </div>
       <div class="settings-binding-editor">
-        <label>
-          <span>{modelText("bindingCapability")}</span>
-          <select
-            value={selectedName}
-            onChange={(event) => setSelectedName(event.currentTarget.value)}
-          >
-            {capabilities.map((capability) => (
-              <option key={capability.name} value={capability.name}>{capability.name}</option>
-            ))}
-          </select>
-        </label>
+        <SelectField
+          label={modelText("bindingCapability")}
+          value={selectedName}
+          options={capabilities.map((capability) => ({
+            value: capability.name,
+            label: capability.name,
+          }))}
+          onChange={setSelectedName}
+        />
         {selectedDraft === null ? null : (
           <>
             <SegmentedControl
@@ -238,42 +237,36 @@ export function ModelBindingPolicyEditor({
             />
             {selectedDraft.selectionMode === "pinned" ? (
               <div class="settings-binding-fields">
-                <label>
-                  <span>{modelText("bindingPublisher")}</span>
-                  <input
-                    value={selectedDraft.publisher}
-                    onInput={(event) => updateSelected({ publisher: event.currentTarget.value })}
-                  />
-                </label>
-                <label>
-                  <span>{modelText("bindingFamily")}</span>
-                  <input
-                    value={selectedDraft.family}
-                    onInput={(event) => updateSelected({ family: event.currentTarget.value })}
-                  />
-                </label>
-                <label>
-                  <span>{modelText("bindingSku")}</span>
-                  <select
-                    value={selectedDraft.sku}
-                    onChange={(event) => updateSelected({ sku: event.currentTarget.value })}
-                  >
-                    {SKUS.map((sku) => <option key={sku} value={sku}>{sku}</option>)}
-                  </select>
-                </label>
-                <label>
-                  <span>{isProvisionedSku(selectedDraft.sku) ? "PTU" : "TPM"}</span>
-                  <input
-                    type="number"
-                    min={isProvisionedSku(selectedDraft.sku) ? 1 : 1000}
-                    max={10_000_000}
-                    step={isProvisionedSku(selectedDraft.sku) ? 1 : 1000}
-                    value={selectedDraft.capacityValue}
-                    onInput={(event) => updateSelected({
-                      capacityValue: Math.max(0, event.currentTarget.valueAsNumber || 0),
-                    })}
-                  />
-                </label>
+                <TextInput
+                  label={modelText("bindingPublisher")}
+                  value={selectedDraft.publisher}
+                  onInput={(value) => updateSelected({ publisher: value })}
+                />
+                <TextInput
+                  label={modelText("bindingFamily")}
+                  value={selectedDraft.family}
+                  onInput={(value) => updateSelected({ family: value })}
+                />
+                <SelectField
+                  label={modelText("bindingSku")}
+                  value={selectedDraft.sku}
+                  options={SKUS.map((sku) => ({ value: sku, label: sku }))}
+                  onChange={(value) => updateSelected({ sku: value })}
+                />
+                <TextInput
+                  label={isProvisionedSku(selectedDraft.sku) ? "PTU" : "TPM"}
+                  type="number"
+                  min={isProvisionedSku(selectedDraft.sku) ? 1 : 1000}
+                  max={10_000_000}
+                  step={isProvisionedSku(selectedDraft.sku) ? 1 : 1000}
+                  value={String(selectedDraft.capacityValue)}
+                  onInput={(value) => {
+                    const parsed = Number(value);
+                    updateSelected({
+                      capacityValue: Number.isFinite(parsed) ? Math.max(0, parsed) : 0,
+                    });
+                  }}
+                />
               </div>
             ) : null}
           </>

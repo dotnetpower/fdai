@@ -49,6 +49,132 @@ fn format_pct(numerator: i64, denominator: i64) -> Option<f64> {
     Some((ratio * 10.0).round() / 10.0)
 }
 
+fn humanize_state_ko(raw: &str) -> &'static str {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "available" | "ready" | "running" | "healthy" => "정상 가용",
+        "degraded" => "성능 저하",
+        "stopped" | "unavailable" | "failed" => "중지/장애",
+        "unknown" | "" => "확인 불가",
+        _ => "관측 상태",
+    }
+}
+
+fn humanize_state_type_ko(raw: &str) -> &'static str {
+    match raw.trim() {
+        "resource.availability_state" => "가용성 상태",
+        "resource.health_state" => "헬스 상태",
+        "resource.provisioning_state" => "프로비저닝 상태",
+        _ => "운영 상태 전환",
+    }
+}
+
+fn humanize_mechanism_ko(raw: &str) -> String {
+    match raw.trim() {
+        "kubernetes_dependency_evaluation_provider" => {
+            String::from("쿠버네티스 의존성 평가")
+        }
+        "reasoning_model_completion_compatibility" => {
+            String::from("추론 모델 호환성 검증")
+        }
+        "kubernetes_webhook_failure_source_candidate" => {
+            String::from("웹훅 장애 원인 후보 분석")
+        }
+        "kubernetes_direct_admission_condition_evidence" => {
+            String::from("직접 어드미션 조건 근거")
+        }
+        "kubernetes_bounded_evidence_budgeting" => {
+            String::from("제한 근거 예산 제어")
+        }
+        other => other.replace('_', " "),
+    }
+}
+
+fn humanize_capability_ko(raw: &str) -> String {
+    match raw.trim() {
+        "t1.embedding" => String::from("임베딩 사전 분류 (T1)"),
+        "t2.reasoner.primary" => String::from("고급 추론 분석 (T2)"),
+        "t2.reasoner.fallback" => String::from("보조 추론 분석 (T2)"),
+        "t1.classifier" => String::from("규칙·분류기 (T1)"),
+        other => other.replace(['.', '_'], " "),
+    }
+}
+
+fn humanize_scope_ko(raw: &str) -> &'static str {
+    match raw.trim() {
+        "control_plane" => "제어 평면",
+        "operator" => "운영자 콘솔",
+        "lab-sandbox" => "실험실 격리 샌드박스",
+        _ => "실행 범위",
+    }
+}
+
+fn humanize_resource_type_ko(raw: &str) -> String {
+    let key = raw.trim().to_ascii_lowercase();
+    match key.as_str() {
+        "compute.vm-scale-set" | "vm-scale-set" => String::from("가상 머신 확장 집합 (VMSS)"),
+        "compute.container-app" | "container-app" => String::from("컨테이너 앱"),
+        "compute.container-app-job" | "container-app-job" => String::from("컨테이너 앱 작업"),
+        "compute.virtual-machine" | "virtual-machine" | "vm" => String::from("가상 머신 (VM)"),
+        "kubernetes-cluster" | "compute.kubernetes-cluster" | "aks" => {
+            String::from("쿠버네티스 클러스터 (AKS)")
+        }
+        "managed-identity" | "identity.managed-identity" => String::from("관리 ID"),
+        "subscription" => String::from("Azure 구독"),
+        "cache" | "cache.redis" | "redis" => String::from("캐시 (Redis)"),
+        "postgresql" | "database.postgresql" => String::from("PostgreSQL 데이터베이스"),
+        "key-vault" | "security.key-vault" => String::from("키 볼트 (Key Vault)"),
+        "storage" | "storage.account" => String::from("스토리지 계정"),
+        "network" | "network.virtual-network" => String::from("가상 네트워크"),
+        "resource" | "" => String::from("클라우드 리소스"),
+        other => other.replace(['.', '-', '_'], " "),
+    }
+}
+
+fn humanize_severity_ko(raw: &str) -> &'static str {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "critical" => "긴급",
+        "high" => "높음",
+        "medium" => "보통",
+        "low" => "낮음",
+        _ => "정보",
+    }
+}
+
+fn humanize_signal_ko(raw: &str) -> String {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "container_restart" => String::from("컨테이너 재시작 감지"),
+        "pod_oomkill" | "oomkill" => String::from("컨테이너 메모리 초과 종료"),
+        "high_cpu" | "cpu_spike" => String::from("CPU 사용률 급증"),
+        "latency_spike" => String::from("응답 지연 급증"),
+        other => other.replace(['_', '-', '.'], " "),
+    }
+}
+
+fn humanize_rule_ko(rule_id: &str, rtype: &str) -> String {
+    let rtype_ko = humanize_resource_type_ko(rtype);
+    let lower = rule_id.trim().to_ascii_lowercase();
+    if lower.contains("zone-redundan") {
+        format!("{rtype_ko} 영역 중복 구성 점검")
+    } else if lower.contains("network-policy") {
+        format!("{rtype_ko} 네트워크 정책 적용 점검")
+    } else if lower.contains("private-cluster") {
+        format!("{rtype_ko} 프라이빗 클러스터 격리 점검")
+    } else if lower.contains("no-privileged-subscription-scope") {
+        format!("{rtype_ko} 구독 범위 권한 상승 차단 점검")
+    } else if lower.contains("no-guest-privileged") {
+        format!("{rtype_ko} 게스트 계정 고권한 차단 점검")
+    } else if lower.contains("public") {
+        format!("{rtype_ko} 공용 네트워크 노출 차단 점검")
+    } else {
+        let tail = rule_id
+            .rsplit('.')
+            .next()
+            .unwrap_or(rule_id)
+            .replace(['-', '_'], " ");
+        format!("{rtype_ko} 정책 규칙 ({tail})")
+    }
+}
+
 /// Panel 1 (`labs`): Summary across all 5 sandbox experiment workbenches.
 pub async fn fetch_labs_summary(db: &DbHandle) -> Value {
     let (batches, trans_total, trans, coverage, ontology, llm, conv_eval, kv_counts, extra_counts) =
@@ -224,57 +350,117 @@ pub async fn fetch_labs_summary(db: &DbHandle) -> Value {
             "degraded" | "stopped" => "주의 전환",
             _ => "관측 기록",
         };
+        let from_ko = humanize_state_ko(from_s);
+        let to_ko = humanize_state_ko(to_s);
+        let st_ko = humanize_state_type_ko(st_type);
+        let short_tid = short_digest(tid);
         recent_runs.push(json!({
-            "run_id": short_digest(tid),
+            "run_id": short_tid,
+            "raw_id": tid,
+            "display_title": format!("{subj} · {st_ko}"),
             "module_id": "aks-commerce",
             "module_label": "AKS 데모 환경",
             "sandbox_scope": "lab-sandbox",
-            "summary": format!("{subj} · {st_type} ({from_s} → {to_s})"),
+            "summary": format!("{subj}의 {st_ko}가 '{from_ko}'에서 '{to_ko}' 상태로 관측되었습니다."),
             "side_effects": 0,
             "status_tone": tone,
-            "status_label": label
+            "status_label": label,
+            "tech_details": [
+                ["원본 전환 ID", tid],
+                ["상태 유형 키", st_type],
+                ["원본 상태 전이", format!("{from_s} → {to_s}")],
+                ["격리 범위", "lab-sandbox"]
+            ]
         }));
     }
-    recent_runs.push(json!({
-        "run_id": format!("twin-rev-{ont_revision}"),
-        "module_id": "assurance-twin",
-        "module_label": "사전 검증 시뮬레이션",
-        "sandbox_scope": "lab-sandbox",
-        "summary": twin_summary,
-        "side_effects": 0,
-        "status_tone": if baseline_violated > 0 || active_findings > 0 { "sre" } else { "live" },
-        "status_label": if baseline_violated > 0 || active_findings > 0 { "검토 필요" } else { "통과" }
-    }));
-    recent_runs.push(json!({
-        "run_id": format!("fc-batch-{batch_count}"),
-        "module_id": "forecast-learning",
-        "module_label": "예측 모델 학습",
-        "sandbox_scope": "lab-sandbox",
-        "summary": format!("전환 배치 {batch_count}건 · 커버리지 {coverage_total}건 · 벤치마크 {bench_passed}/{bench_total}"),
-        "side_effects": 0,
-        "status_tone": "live",
-        "status_label": "실측 연결"
-    }));
-    recent_runs.push(json!({
-        "run_id": format!("conv-llm-{llm_total}"),
-        "module_id": "conversation-assurance",
-        "module_label": "대화 품질 점검",
-        "sandbox_scope": "lab-sandbox",
-        "summary": conv_summary,
-        "side_effects": 0,
-        "status_tone": if llm_total > 0 || semantic_results > 0 { "live" } else { "neutral" },
-        "status_label": if llm_total > 0 || semantic_results > 0 { "실측 연결" } else { "미수집" }
-    }));
-    recent_runs.push(json!({
-        "run_id": format!("ctx-meas-{control_loop_measurements}"),
-        "module_id": "context-selection-comparisons",
-        "module_label": "참조 정보 비교",
-        "sandbox_scope": "lab-sandbox",
-        "summary": ctx_summary,
-        "side_effects": 0,
-        "status_tone": "live",
-        "status_label": "실측 연결"
-    }));
+    if rule_count > 0 || baseline_outcomes > 0 || active_findings > 0 || control_loop_measurements > 0 {
+        recent_runs.push(json!({
+            "run_id": format!("twin-rev-{ont_revision}"),
+            "raw_id": format!("ontology-rev-{ont_revision}"),
+            "display_title": format!("온톨로지 리비전 {ont_revision} 정책 포스처 점검"),
+            "module_id": "assurance-twin",
+            "module_label": "사전 검증 시뮬레이션",
+            "sandbox_scope": "lab-sandbox",
+            "summary": twin_summary,
+            "side_effects": 0,
+            "status_tone": if baseline_violated > 0 || active_findings > 0 { "sre" } else { "live" },
+            "status_label": if baseline_violated > 0 || active_findings > 0 { "검토 필요" } else { "통과" },
+            "tech_details": [
+                ["실행 식별자", format!("twin-rev-{ont_revision}")],
+                ["온톨로지 리비전", format!("rev-{ont_revision}")],
+                ["규칙 수", format!("{rule_count}종")],
+                ["격리 범위", "lab-sandbox"]
+            ]
+        }));
+    }
+    if batch_count > 0 || coverage_total > 0 || bench_total > 0 {
+        recent_runs.push(json!({
+            "run_id": format!("fc-batch-{batch_count}"),
+            "raw_id": format!("forecast-batch-{batch_count}"),
+            "display_title": "예측 커버리지 · 벤치마크 보정 집계",
+            "module_id": "forecast-learning",
+            "module_label": "예측 모델 학습",
+            "sandbox_scope": "lab-sandbox",
+            "summary": format!("전환 배치 {batch_count}건 · 커버리지 {coverage_total}건 · 벤치마크 {bench_passed}/{bench_total}"),
+            "side_effects": 0,
+            "status_tone": "live",
+            "status_label": "실측 연결",
+            "tech_details": [
+                ["실행 식별자", format!("fc-batch-{batch_count}")],
+                ["전환 배치", format!("{batch_count}건")],
+                ["커버리지 총계", format!("{coverage_total}건")],
+                ["격리 범위", "lab-sandbox"]
+            ]
+        }));
+    }
+    if llm_total > 0 || semantic_results > 0 || conv_eval_count > 0 {
+        recent_runs.push(json!({
+            "run_id": format!("conv-llm-{llm_total}"),
+            "raw_id": format!("conversation-llm-{llm_total}"),
+            "display_title": "최근 7일 대화 품질 · 모델 호출 점검",
+            "module_id": "conversation-assurance",
+            "module_label": "대화 품질 점검",
+            "sandbox_scope": "lab-sandbox",
+            "summary": conv_summary,
+            "side_effects": 0,
+            "status_tone": "live",
+            "status_label": "실측 연결",
+            "tech_details": [
+                ["실행 식별자", format!("conv-llm-{llm_total}")],
+                ["LLM 호출 수", format!("{llm_total}회")],
+                ["평가 원장", format!("{conv_eval_count}건")],
+                ["격리 범위", "lab-sandbox"]
+            ]
+        }));
+    }
+    if decision_admissions > 0 || control_loop_measurements > 0 || correction_receipts > 0 || llm_total > 0 {
+        recent_runs.push(json!({
+            "run_id": format!("ctx-meas-{control_loop_measurements}"),
+            "raw_id": format!("context-measurement-{control_loop_measurements}"),
+            "display_title": "컨텍스트 선택 · 증거 채택 효율 비교",
+            "module_id": "context-selection-comparisons",
+            "module_label": "참조 정보 비교",
+            "sandbox_scope": "lab-sandbox",
+            "summary": ctx_summary,
+            "side_effects": 0,
+            "status_tone": "live",
+            "status_label": "실측 연결",
+            "tech_details": [
+                ["실행 식별자", format!("ctx-meas-{control_loop_measurements}")],
+                ["제어루프 측정", format!("{control_loop_measurements}건")],
+                ["보정 영수증", format!("{correction_receipts}건")],
+                ["격리 범위", "lab-sandbox"]
+            ]
+        }));
+    }
+
+    let aks_has_data = transition_count > 0 || batch_count > 0 || ont_resources > 0;
+    let twin_has_data =
+        rule_count > 0 || baseline_outcomes > 0 || active_findings > 0 || control_loop_measurements > 0;
+    let fc_has_data = coverage_total > 0 || bench_total > 0 || batch_count > 0;
+    let conv_has_data = llm_total > 0 || semantic_results > 0 || conv_eval_count > 0;
+    let ctx_has_data =
+        decision_admissions > 0 || control_loop_measurements > 0 || correction_receipts > 0 || llm_total > 0;
 
     json!({
         "measurement_status": "measured",
@@ -307,35 +493,92 @@ pub async fn fetch_labs_summary(db: &DbHandle) -> Value {
         "control_loop_measurement_count": control_loop_measurements,
         "active_finding_count": active_findings,
         "module_metrics": {
-            "aks-commerce": {
-                "badge": format!("전환 {transition_count}건"),
-                "badge_tone": "tone-live",
-                "metric_label": "관측 리소스 · 배치",
-                "metric_value": format!("리소스 {ont_resources} · 배치 {batch_count}")
+            "aks-commerce": if aks_has_data {
+                json!({
+                    "badge": format!("전환 {transition_count}건"),
+                    "badge_tone": "tone-live",
+                    "metric_label": "관측 리소스 · 배치",
+                    "metric_value": format!("리소스 {ont_resources} · 배치 {batch_count}"),
+                    "description": format!("PostgreSQL 온톨로지 리소스 {ont_resources}건과 상태 전환 배치 {batch_count}건을 lab-sandbox 경계에서 관측합니다.")
+                })
+            } else {
+                json!({
+                    "badge": "미측정",
+                    "badge_tone": "tone-neutral",
+                    "metric_label": "관측 리소스 · 배치",
+                    "metric_value": "수집된 데이터 없음",
+                    "description": "수집된 AKS 데모 온톨로지 및 상태 전환 기록이 없습니다."
+                })
             },
-            "assurance-twin": {
-                "badge": format!("규칙 {rule_count}종"),
-                "badge_tone": if baseline_violated > 0 || active_findings > 0 { "tone-sre" } else { "tone-live" },
-                "metric_label": if baseline_outcomes > 0 { "기준선 평가" } else { "포스처 · 탐지" },
-                "metric_value": twin_metric_val
+            "assurance-twin": if twin_has_data {
+                json!({
+                    "badge": format!("규칙 {rule_count}종"),
+                    "badge_tone": if baseline_violated > 0 || active_findings > 0 { "tone-sre" } else { "tone-live" },
+                    "metric_label": if baseline_outcomes > 0 { "기준선 평가" } else { "포스처 · 탐지" },
+                    "metric_value": twin_metric_val,
+                    "description": format!("온톨로지 리비전 rev-{ont_revision}({ont_total} 리소스)과 규칙 {rule_count}종 기준 포스처·보안 리뷰 Diff를 무부작용 점검합니다.")
+                })
+            } else {
+                json!({
+                    "badge": "미측정",
+                    "badge_tone": "tone-neutral",
+                    "metric_label": "포스처 · 탐지",
+                    "metric_value": "수집된 데이터 없음",
+                    "description": "수집된 온톨로지 규칙 및 사전 검증 리뷰 기록이 없습니다."
+                })
             },
-            "forecast-learning": {
-                "badge": format!("커버리지 {coverage_total}"),
-                "badge_tone": "tone-live",
-                "metric_label": "벤치마크 검증",
-                "metric_value": format!("{bench_passed} / {bench_total} 통과")
+            "forecast-learning": if fc_has_data {
+                json!({
+                    "badge": format!("커버리지 {coverage_total}"),
+                    "badge_tone": "tone-live",
+                    "metric_label": "벤치마크 검증",
+                    "metric_value": if bench_total > 0 { format!("{bench_passed} / {bench_total} 통과") } else { String::from("벤치마크 미수집") },
+                    "description": format!("전환 커버리지 {coverage_total}건과 SREGym 벤치마크 검증 {bench_total}건의 보정·시간대 분포를 분석합니다.")
+                })
+            } else {
+                json!({
+                    "badge": "미측정",
+                    "badge_tone": "tone-neutral",
+                    "metric_label": "벤치마크 검증",
+                    "metric_value": "수집된 데이터 없음",
+                    "description": "수집된 예측 커버리지 및 벤치마크 검증 기록이 없습니다."
+                })
             },
-            "conversation-assurance": {
-                "badge": conv_badge,
-                "badge_tone": "tone-live",
-                "metric_label": "LLM 호출 (7일)",
-                "metric_value": format!("{llm_total}회 (평가표 {conv_eval_count})")
+            "conversation-assurance": if conv_has_data {
+                json!({
+                    "badge": conv_badge,
+                    "badge_tone": "tone-live",
+                    "metric_label": "LLM 호출 (7일)",
+                    "metric_value": format!("{llm_total}회 (평가표 {conv_eval_count})"),
+                    "description": format!("PostgreSQL LLM 호출 {llm_total}회, 시맨틱 턴 {semantic_results}건, 평가 원장 {conv_eval_count}건을 정직 표기로 점검합니다.")
+                })
+            } else {
+                json!({
+                    "badge": "미측정",
+                    "badge_tone": "tone-neutral",
+                    "metric_label": "LLM 호출 (7일)",
+                    "metric_value": "수집된 데이터 없음",
+                    "description": "수집된 대화 품질 평가 및 LLM 호출 기록이 없습니다."
+                })
             },
-            "context-selection-comparisons": {
-                "badge": ctx_badge,
-                "badge_tone": "tone-live",
-                "metric_label": "T1 / T2 · 관계",
-                "metric_value": format!("T1 {llm_t1} · T2 {llm_t2} · 링크 {ontology_links}")
+            "context-selection-comparisons": if ctx_has_data {
+                let ctx_metric_val = format!("T1 {llm_t1} · T2 {llm_t2} · 링크 {ontology_links}");
+                let ctx_desc = format!("실측 T1/T2 티어, 제어루프 측정 {control_loop_measurements}건, 보정 영수증 {correction_receipts}건 기준 컨텍스트 효율을 비교합니다.");
+                json!({
+                    "badge": ctx_badge,
+                    "badge_tone": "tone-live",
+                    "metric_label": "T1 / T2 · 관계",
+                    "metric_value": ctx_metric_val,
+                    "description": ctx_desc
+                })
+            } else {
+                json!({
+                    "badge": "미측정",
+                    "badge_tone": "tone-neutral",
+                    "metric_label": "T1 / T2 · 관계",
+                    "metric_value": "수집된 데이터 없음",
+                    "description": "수집된 컨텍스트 선택 비교 및 증거 채택 영수증이 없습니다."
+                })
             }
         },
         "recent_transitions": recent_transitions,
@@ -498,23 +741,100 @@ pub async fn fetch_aks_commerce(db: &DbHandle, service_id: &str) -> Value {
         .rows
         .iter()
         .find(|r| cell_str(r, 1).contains("postgresql"))
-        .map(|r| format!("{} → {}", cell_str(r, 3), cell_str(r, 4)))
-        .unwrap_or_else(|| String::from("관측 정상"));
+        .map(|r| {
+            format!(
+                "{} → {}",
+                humanize_state_ko(&cell_str(r, 3)),
+                humanize_state_ko(&cell_str(r, 4))
+            )
+        })
+        .unwrap_or_else(|| {
+            if durable_count > 0 {
+                String::from("전환 기록 없음")
+            } else {
+                String::from("미측정")
+            }
+        });
     let latest_lb_state = tr
         .rows
         .iter()
         .find(|r| cell_str(r, 1).contains("loadbalancers"))
-        .map(|r| format!("{} → {}", cell_str(r, 3), cell_str(r, 4)))
-        .unwrap_or_else(|| String::from("관측 정상"));
+        .map(|r| {
+            format!(
+                "{} → {}",
+                humanize_state_ko(&cell_str(r, 3)),
+                humanize_state_ko(&cell_str(r, 4))
+            )
+        })
+        .unwrap_or_else(|| {
+            if edge_count > 0 {
+                String::from("전환 기록 없음")
+            } else {
+                String::from("미측정")
+            }
+        });
 
-    let scenario_label = if service_id == "catalog-browse" {
+    let has_aks_data = total_resources > 0 || total_batches > 0 || total_transitions > 0;
+    let scenario_label = if !has_aks_data {
+        String::from("수집된 AKS 데모 온톨로지 및 전환 데이터 없음 (미측정)")
+    } else if service_id == "catalog-browse" {
         format!(
-            "실측 시나리오: 카탈로그 조회 · PostgreSQL 온톨로지 {total_resources}개 리소스 · 배치 {total_batches}건"
+            "실측 시나리오: 카탈로그 조회 · 온톨로지 리소스 {total_resources}개 · 관측 배치 {total_batches}건"
         )
     } else {
         format!(
-            "실측 시나리오: 주문 처리 · PostgreSQL 온톨로지 {total_resources}개 리소스 · 배치 {total_batches}건"
+            "실측 시나리오: 주문 처리 · 온톨로지 리소스 {total_resources}개 · 관측 배치 {total_batches}건"
         )
+    };
+
+    let (slo1_tone, slo1_badge) = match availability_ratio {
+        Some(pct) if pct >= 90.0 => ("tone-live", "충족"),
+        Some(_) => ("tone-sre", "주의"),
+        None => ("tone-neutral", "미측정"),
+    };
+    let (slo2_tone, slo2_badge) = match avg_comp {
+        Some(pct) if pct >= 90.0 => ("tone-live", "충족"),
+        Some(_) => ("tone-sre", "주의"),
+        None => ("tone-neutral", "미측정"),
+    };
+
+    let signals = if has_aks_data {
+        vec![
+            json!({
+                "name": "transition_batches",
+                "display_name": "상태 전환 관측 배치",
+                "current": format!("{total_batches}건"),
+                "baseline": format!("커버리지 {coverage_total}건"),
+                "source": "postgres:operational_state_transition_batch",
+                "display_source": "로컬 상태 원장"
+            }),
+            json!({
+                "name": "state_transitions_recent",
+                "display_name": "최근 상태 전환 횟수",
+                "current": format!("{total_transitions}건"),
+                "baseline": format!("정상 회복 {healthy_transitions_i64}건"),
+                "source": "postgres:operational_state_transition",
+                "display_source": "로컬 상태 원장"
+            }),
+            json!({
+                "name": "ontology_resources",
+                "display_name": "온톨로지 관측 리소스",
+                "current": format!("{total_resources}개"),
+                "baseline": "실측 스냅샷 기준",
+                "source": "postgres:ontology_resource",
+                "display_source": "온톨로지 그래프"
+            }),
+            json!({
+                "name": "inventory_replica_lag",
+                "display_name": "재고 복제 지연",
+                "current": "데이터 없음 (미수집)",
+                "baseline": "데이터 없음 (미수집)",
+                "source": "collector_gap",
+                "display_source": "수집기 미응답"
+            }),
+        ]
+    } else {
+        Vec::new()
     };
 
     json!({
@@ -527,48 +847,58 @@ pub async fn fetch_aks_commerce(db: &DbHandle, service_id: &str) -> Value {
         "transition_batch_count": total_batches,
         "transition_count": total_transitions,
         "coverage_total": coverage_total,
+        "overall_status_tone": if has_aks_data { "tone-live" } else { "tone-neutral" },
+        "overall_status_label": if has_aks_data { "실측 관측 중" } else { "미측정" },
+        "effect_badge_tone": if total_transitions > 0 { "tone-live" } else { "tone-neutral" },
+        "effect_badge_label": if total_transitions > 0 { "실측 기준선 관측" } else { "미측정" },
+        "action_name": "없음 (lab-sandbox 읽기 전용 관측)",
+        "effect_text": if total_transitions > 0 {
+            format!("PostgreSQL 전환 원장 {total_transitions}건 · 배치 {total_batches}건 관측 중")
+        } else {
+            String::from("수집된 전환 원장 없음 (미측정)")
+        },
         "topology_nodes": {
             "gateway": {
-                "title": "Storefront GW · Edge / LB",
-                "metric": format!("에지 리소스 {edge_count}개 · {latest_lb_state}"),
-                "status": "준비 완료",
-                "tone": "tone-live",
+                "title": "에지 · 로드밸런서 계층",
+                "metric": if edge_count > 0 { format!("에지 리소스 {edge_count}개 · {latest_lb_state}") } else { String::from("미측정 (에지 리소스 없음)") },
+                "status": if edge_count > 0 { "관측됨" } else { "미측정" },
+                "tone": if edge_count > 0 { "tone-live" } else { "tone-neutral" },
                 "facts": [
-                    ["온톨로지 에지 리소스", format!("{edge_count}건")],
+                    ["온톨로지 에지 리소스", if edge_count > 0 { format!("{edge_count}건") } else { String::from("미측정") }],
                     ["최근 LB 상태 전환", latest_lb_state],
                     ["격리 범위", "lab-sandbox (운영 변이 0건)"]
                 ]
             },
             "orders": {
-                "title": if service_id == "catalog-browse" { "Catalog API · AKS / Compute" } else { "Orders API · AKS / Compute" },
-                "metric": format!("컴퓨트 {compute_count}개 · rev {demo_rev}"),
-                "status": "준비 완료",
-                "tone": "tone-live",
+                "title": if service_id == "catalog-browse" { "카탈로그 · 컴퓨트 계층" } else { "컴퓨트 · AKS 워크로드" },
+                "metric": if compute_count > 0 { format!("컴퓨트 {compute_count}개 · 기준 스냅샷 관측") } else { String::from("미측정 (컴퓨트 리소스 없음)") },
+                "status": if compute_count > 0 { "관측됨" } else { "미측정" },
+                "tone": if compute_count > 0 { "tone-live" } else { "tone-neutral" },
                 "facts": [
-                    ["컴퓨트/컨테이너 리소스", format!("{compute_count}건")],
-                    ["aks-store-demo 리비전", demo_rev.clone()],
-                    ["서비스 시나리오", service_id.to_string()]
+                    ["컴퓨트/컨테이너 리소스", if compute_count > 0 { format!("{compute_count}건") } else { String::from("미측정") }],
+                    ["기준 저장소 리비전", demo_rev.clone()],
+                    ["서비스 시나리오", if service_id == "catalog-browse" { String::from("카탈로그 조회") } else { String::from("주문 처리") }]
                 ]
             },
             "postgres": {
-                "title": "Orders PostgreSQL · Durable",
-                "metric": format!("저장소 {durable_count}개 · {latest_pg_state}"),
-                "status": "준비 완료",
-                "tone": "tone-live",
+                "title": "데이터베이스 · 스토리지 계층",
+                "metric": if durable_count > 0 { format!("저장소 {durable_count}개 · {latest_pg_state}") } else { String::from("미측정 (저장소 리소스 없음)") },
+                "status": if durable_count > 0 { "관측됨" } else { "미측정" },
+                "tone": if durable_count > 0 { "tone-live" } else { "tone-neutral" },
                 "facts": [
-                    ["DB/스토리지 리소스", format!("{durable_count}건")],
-                    ["최근 PG 상태 전환", latest_pg_state],
-                    ["전환 배치 수", format!("{total_batches}건")]
+                    ["DB/스토리지 리소스", if durable_count > 0 { format!("{durable_count}건") } else { String::from("미측정") }],
+                    ["최근 DB 상태 전환", latest_pg_state],
+                    ["전환 배치 수", if total_batches > 0 { format!("{total_batches}건") } else { String::from("미측정") }]
                 ]
             },
             "redis": {
-                "title": "Network & Cache · VNet / DNS",
-                "metric": format!("네트워크/캐시 {network_cache_count}개 · 커버리지 {coverage_total}"),
-                "status": "준비 완료",
-                "tone": "tone-live",
+                "title": "네트워크 · 캐시 계층",
+                "metric": if network_cache_count > 0 || coverage_total > 0 { format!("네트워크/캐시 {network_cache_count}개 · 커버리지 {coverage_total}") } else { String::from("미측정 (네트워크/캐시 없음)") },
+                "status": if network_cache_count > 0 || coverage_total > 0 { "관측됨" } else { "미측정" },
+                "tone": if network_cache_count > 0 || coverage_total > 0 { "tone-live" } else { "tone-neutral" },
                 "facts": [
-                    ["네트워크/DNS/PE 리소스", format!("{network_cache_count}건")],
-                    ["상태 전환 커버리지", format!("{coverage_total}건")],
+                    ["네트워크/DNS/PE 리소스", if network_cache_count > 0 { format!("{network_cache_count}건") } else { String::from("미측정") }],
+                    ["상태 전환 커버리지", if coverage_total > 0 { format!("{coverage_total}건") } else { String::from("미측정") }],
                     ["격리 보증", "lab-sandbox 전용"]
                 ]
             }
@@ -576,6 +906,10 @@ pub async fn fetch_aks_commerce(db: &DbHandle, service_id: &str) -> Value {
         "slo": {
             "availability_pct": availability_ratio,
             "completeness_pct": avg_comp,
+            "slo1_status_tone": slo1_tone,
+            "slo1_status_label": slo1_badge,
+            "slo2_status_tone": slo2_tone,
+            "slo2_status_label": slo2_badge,
             "slo1_label": match availability_ratio {
                 Some(pct) => format!("실측 전환 회복률 {pct:.1}% · 정상 전환 {healthy_transitions_i64}/{total_transitions}건"),
                 None => String::from("데이터 없음 (미수집)")
@@ -584,36 +918,15 @@ pub async fn fetch_aks_commerce(db: &DbHandle, service_id: &str) -> Value {
                 Some(pct) => format!("전환 근거 완전성 {pct:.1}% · 배치 {total_batches}건"),
                 None => String::from("데이터 없음 (미수집)")
             },
-            "unmeasured_gap": format!(
-                "inventory_replica_lag 미수집 · 커버리지 제약 snapshot_interval_only {snapshot_only}건 / initial_state_only {initial_only}건 (0 대체 금지)"
-            )
-        },
-        "signals": [
-            {
-                "name": "transition_batches",
-                "current": format!("{total_batches} batches"),
-                "baseline": format!("{coverage_total} coverage"),
-                "source": "postgres:operational_state_transition_batch"
-            },
-            {
-                "name": "state_transitions_recent",
-                "current": format!("{total_transitions} transitions"),
-                "baseline": format!("{healthy_transitions_i64} healthy"),
-                "source": "postgres:operational_state_transition"
-            },
-            {
-                "name": "ontology_resources",
-                "current": format!("{total_resources} resources"),
-                "baseline": format!("rev {demo_rev}"),
-                "source": "postgres:ontology_resource"
-            },
-            {
-                "name": "inventory_replica_lag",
-                "current": "데이터 없음 (미수집)",
-                "baseline": "데이터 없음 (미수집)",
-                "source": "collector_gap"
+            "unmeasured_gap": if coverage_total > 0 {
+                format!(
+                    "inventory_replica_lag 미수집 · 커버리지 제약 snapshot_interval_only {snapshot_only}건 / initial_state_only {initial_only}건 (0 대체 금지)"
+                )
+            } else {
+                String::from("수집된 재고 복제 지연 및 커버리지 근거가 없습니다 (미수집 · 0 대체 금지)")
             }
-        ],
+        },
+        "signals": signals,
         "recent_transitions": recent_transitions
     })
 }
@@ -752,19 +1065,27 @@ pub async fn fetch_assurance_twin(db: &DbHandle, review_key: Option<&str>) -> Va
         abstained_total = audit_abstained;
     }
 
+    let has_audit_window =
+        !audit_hash.is_empty() || compliant_total > 0 || violated_total > 0 || abstained_total > 0;
     let audit_ref = cm
         .rows
         .first()
         .map(|r| cell_str(r, 0))
         .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| String::from("audit:postgres-7d-window"));
+        .unwrap_or_else(|| {
+            if has_audit_window {
+                String::from("audit:postgres-7d-window")
+            } else {
+                String::from("—")
+            }
+        });
     let audit_digest = cm
         .rows
         .first()
         .map(|r| cell_str(r, 1))
         .filter(|s| !s.is_empty())
         .or_else(|| (!audit_hash.is_empty()).then_some(audit_hash))
-        .unwrap_or_else(|| String::from("sha256:recorded"));
+        .unwrap_or_else(|| String::from("미측정"));
     let completed_at = cm
         .rows
         .first()
@@ -891,10 +1212,14 @@ pub async fn fetch_assurance_twin(db: &DbHandle, review_key: Option<&str>) -> Va
             .collect();
         let rk = format!("finding/{signal}#{fid}");
         let is_high = sev.eq_ignore_ascii_case("high") || sev.eq_ignore_ascii_case("critical");
+        let sig_ko = humanize_signal_ko(&signal);
+        let sev_ko = humanize_severity_ko(&sev);
         reviews.push(json!({
             "id": format!("af-{idx}"),
             "review_key": rk,
-            "title": format!("{signal}#{fid} · 활성 탐지 ({sev} · {assessed_by})"),
+            "display_ref": format!("{sig_ko} (#{})", idx + 1),
+            "raw_resource_type": signal,
+            "title": format!("{sig_ko} · 활성 탐지 ({sev_ko} · {assessed_by})"),
             "verdict": "needs_review",
             "verdict_label": "검토 필요 (needs_review)",
             "verdict_tone": if is_high { "tone-sec" } else { "tone-sre" },
@@ -902,21 +1227,21 @@ pub async fn fetch_assurance_twin(db: &DbHandle, review_key: Option<&str>) -> Va
             "finding_count": 1,
             "freshness": "최신 (fresh)",
             "before": [
-                format!("- baseline_signal: {signal} (정상 기준선)"),
-                format!("- ontology_revision: rev-{max_rev} (규칙 {rule_count}종)"),
-                format!("- assessed_by: {assessed_by}")
+                format!("- 기준선 신호: {sig_ko} (정상 기준선)"),
+                format!("- 온톨로지 기준선: 리비전 {max_rev} (규칙 {rule_count}종)"),
+                format!("- 평가 주체: {assessed_by}")
             ],
             "after": [
-                format!("+ analyzer_finding: {signal} [{sev}] · status={status}"),
-                format!("+ recorded_at: {updated}"),
-                "+ blocks_action: false (lab-sandbox 사전 검증 전용)"
+                format!("+ 활성 탐지: {sig_ko} [{sev_ko}] · 상태: {status}"),
+                format!("+ 기록 시각: {updated}"),
+                "+ 운영 차단 여부: 없음 (격리 사전 검증 전용)"
             ],
             "resources": [
                 {
                     "ico": "/azure-icons/container-apps.svg",
-                    "name": format!("signal:{signal} / {fid}"),
+                    "name": format!("{sig_ko} · 활성 탐지"),
                     "sub": format!("탐지 주체: {assessed_by} · 상태: {status}"),
-                    "sev": sev,
+                    "sev": sev_ko,
                     "cls": if is_high { "tone-sec" } else { "tone-sre" }
                 }
             ],
@@ -1013,32 +1338,37 @@ pub async fn fetch_assurance_twin(db: &DbHandle, review_key: Option<&str>) -> Va
             } else {
                 "/azure-icons/monitor.svg"
             };
+            let rtype_ko = humanize_resource_type_ko(&rtype);
+            let sev_ko = humanize_severity_ko(&sev);
+            let rule_ko = humanize_rule_ko(&rule_id, &rtype);
             reviews.push(json!({
                 "id": format!("ont-rule-{idx}"),
                 "review_key": rule_id.clone(),
-                "title": format!("{rule_id} · 온톨로지 규칙 [{sev}] ({rtype})"),
+                "display_ref": rule_ko.clone(),
+                "raw_resource_type": rtype,
+                "title": format!("{rule_ko} · 심각도 {sev_ko} ({rtype_ko})"),
                 "verdict": if is_high { "needs_review" } else { "clear" },
-                "verdict_label": if is_high { "고위험 규칙 (Shadow 검증)" } else { "기준선 규칙 (정상)" },
+                "verdict_label": if is_high { "고위험 규칙 (그림자 검증)" } else { "기준선 규칙 (정상)" },
                 "verdict_tone": if is_high { "tone-sre" } else { "tone-live" },
                 "mode": "shadow",
                 "finding_count": 0,
                 "freshness": "최신 (fresh)",
                 "before": [
-                    format!("- ontology_rule: {rule_id}"),
-                    format!("- target_resource_type: {rtype}"),
-                    format!("- ontology_revision: rev-{max_rev} (총 규칙 {rule_count}종)")
+                    format!("- 대상 규칙: {rule_ko}"),
+                    format!("- 대상 리소스 유형: {rtype_ko}"),
+                    format!("- 온톨로지 기준선: 리비전 {max_rev} (총 규칙 {rule_count}종)")
                 ],
                 "after": [
-                    format!("+ severity: {sev} · remediation: {remediates}"),
-                    format!("+ updated_at: {updated}"),
-                    "+ blocks_action: false (lab-sandbox 정책 시뮬레이션)"
+                    format!("+ 심각도: {sev_ko} · 권장 조치: {remediates}"),
+                    format!("+ 최근 갱신: {updated}"),
+                    "+ 운영 차단 여부: 없음 (격리 정책 시뮬레이션)"
                 ],
                 "resources": [
                     {
                         "ico": icon,
-                        "name": format!("{rule_id} ({rtype})"),
+                        "name": format!("{rule_ko} ({rtype_ko})"),
                         "sub": format!("권장 조치: {remediates} · 온톨로지 규칙 카탈로그"),
-                        "sev": sev,
+                        "sev": sev_ko,
                         "cls": if is_high { "tone-sre" } else { "tone-live" }
                     }
                 ],
@@ -1156,8 +1486,14 @@ pub async fn fetch_forecast_learning(db: &DbHandle) -> Value {
 
     let batch_count = br.rows.first().and_then(|r| cell_i64(r, 0)).unwrap_or(0);
     let transition_count = tr.rows.first().and_then(|r| cell_i64(r, 0)).unwrap_or(0);
-    let avg_comp_bps = tr.rows.first().and_then(|r| cell_f64(r, 1)).unwrap_or(0.0);
-    let avg_comp_pct = ((avg_comp_bps / 100.0) * 10.0).round() / 10.0;
+    let avg_comp_pct: Option<f64> = if transition_count > 0 {
+        tr.rows
+            .first()
+            .and_then(|r| cell_f64(r, 1))
+            .map(|bps| ((bps / 100.0) * 10.0).round() / 10.0)
+    } else {
+        None
+    };
 
     let cov_total = cs.rows.first().and_then(|r| cell_i64(r, 0)).unwrap_or(0);
     let cov_complete = cs.rows.first().and_then(|r| cell_i64(r, 1)).unwrap_or(0);
@@ -1174,6 +1510,7 @@ pub async fn fetch_forecast_learning(db: &DbHandle) -> Value {
         let rate = format_pct(pass, tot).unwrap_or(0.0);
         calibration_bins.push(json!({
             "mechanism": mech,
+            "display_label": humanize_mechanism_ko(&mech),
             "total": tot,
             "passed": pass,
             "pass_rate_pct": rate
@@ -1249,7 +1586,7 @@ pub async fn fetch_forecast_learning(db: &DbHandle) -> Value {
         vec![
             json!({
                 "key": "compliant",
-                "label": "compliant (기준선 정상 준수)",
+                "label": "기준선 정상 준수",
                 "count": compliant_cnt,
                 "pct": format_pct(compliant_cnt, baseline_total).unwrap_or(0.0),
                 "tone": "live",
@@ -1257,7 +1594,7 @@ pub async fn fetch_forecast_learning(db: &DbHandle) -> Value {
             }),
             json!({
                 "key": "violated",
-                "label": "violated (정책 편차 탐지)",
+                "label": "정책 편차 탐지",
                 "count": violated_cnt,
                 "pct": format_pct(violated_cnt, baseline_total).unwrap_or(0.0),
                 "tone": "sre",
@@ -1265,7 +1602,7 @@ pub async fn fetch_forecast_learning(db: &DbHandle) -> Value {
             }),
             json!({
                 "key": "abstained",
-                "label": "abstained (근거 부족 정직 보류)",
+                "label": "근거 부족 정직 보류",
                 "count": abstained_cnt,
                 "pct": format_pct(abstained_cnt, baseline_total).unwrap_or(0.0),
                 "tone": "neutral",
@@ -1273,18 +1610,18 @@ pub async fn fetch_forecast_learning(db: &DbHandle) -> Value {
             }),
             json!({
                 "key": "snapshot_interval_only",
-                "label": "coverage_gap (snapshot_interval_only)",
+                "label": "스냅샷 구간 한정 커버리지",
                 "count": cov_snapshot_only,
                 "pct": format_pct(cov_snapshot_only, cov_total).unwrap_or(0.0),
                 "tone": "sec",
                 "note": format!("초기 스냅샷 한정 {cov_initial_only}건 포함")
             }),
         ]
-    } else {
+    } else if bench_total > 0 || cov_total > 0 {
         vec![
             json!({
                 "key": "benchmark_passed",
-                "label": "benchmark_passed (SREGym 검증 통과)",
+                "label": "벤치마크 검증 통과",
                 "count": bench_passed,
                 "pct": format_pct(bench_passed, bench_total).unwrap_or(0.0),
                 "tone": "live",
@@ -1292,7 +1629,7 @@ pub async fn fetch_forecast_learning(db: &DbHandle) -> Value {
             }),
             json!({
                 "key": "benchmark_failed",
-                "label": "benchmark_failed (SREGym 보정 대상)",
+                "label": "벤치마크 보정 대상",
                 "count": bench_failed,
                 "pct": format_pct(bench_failed, bench_total).unwrap_or(0.0),
                 "tone": "sre",
@@ -1300,26 +1637,48 @@ pub async fn fetch_forecast_learning(db: &DbHandle) -> Value {
             }),
             json!({
                 "key": "snapshot_interval_only",
-                "label": "coverage_gap (snapshot_interval_only)",
+                "label": "스냅샷 구간 한정 커버리지",
                 "count": cov_snapshot_only,
                 "pct": format_pct(cov_snapshot_only, cov_total).unwrap_or(0.0),
                 "tone": "sec",
-                "note": "스냅샷 구간 한정 커버리지"
+                "note": "스냅샷 구간 한정 관측"
             }),
             json!({
                 "key": "initial_state_only",
-                "label": "coverage_gap (initial_state_only)",
+                "label": "초기 상태 한정 커버리지",
                 "count": cov_initial_only,
                 "pct": format_pct(cov_initial_only, cov_total).unwrap_or(0.0),
                 "tone": "neutral",
-                "note": "초기 상태 한정 · 0 대체 금지"
+                "note": "초기 스냅샷만 기록 · 0 대체 금지"
             }),
         ]
+    } else {
+        Vec::new()
     };
     let outcomes_total = if baseline_total > 0 {
         baseline_total
     } else {
         bench_total + cov_total
+    };
+
+    let completeness_text = match avg_comp_pct {
+        Some(pct) => format!("{pct:.1}% (전환 {transition_count}건 · 배치 {batch_count}건)"),
+        None => String::from("미측정 (전환 기록 없음)"),
+    };
+    let coverage_text = if cov_total > 0 {
+        format!("{cov_total}건 (완전 {cov_complete} · 스냅샷 구간 {cov_snapshot_only})")
+    } else {
+        String::from("미측정 (커버리지 없음)")
+    };
+    let initial_only_text = if cov_total > 0 {
+        format!("{cov_initial_only}건 (initial_state_only)")
+    } else {
+        String::from("미측정")
+    };
+    let benchmark_text = if bench_total > 0 {
+        format!("{bench_passed} / {bench_total} 통과")
+    } else {
+        String::from("미측정 (벤치마크 기록 없음)")
     };
 
     json!({
@@ -1339,10 +1698,11 @@ pub async fn fetch_forecast_learning(db: &DbHandle) -> Value {
         },
         "debt_inspector": {
             "durable_store": "PostgreSQL Durable",
-            "completeness_text": format!("{avg_comp_pct:.1}% (전환 {transition_count}건 · 배치 {batch_count}건)"),
-            "coverage_text": format!("{cov_total}건 (완전 {cov_complete} · 스냅샷 구간 {cov_snapshot_only})"),
-            "initial_only_text": format!("{cov_initial_only}건 (initial_state_only)"),
-            "benchmark_text": format!("{bench_passed} / {bench_total} 통과"),
+            "completeness_text": completeness_text,
+            "coverage_text": coverage_text,
+            "initial_only_text": initial_only_text,
+            "retention_text": "미측정 (만료 추적기 미연결)",
+            "benchmark_text": benchmark_text,
             "unmeasured_policy": "표본 0건 시간대는 0% 대체 없이 미수집 점선 표기"
         },
         "calibration_bins": calibration_bins,
@@ -1443,6 +1803,7 @@ pub async fn fetch_conversation_assurance(db: &DbHandle) -> Value {
             let total_tok = cell_i64(r, 7).unwrap_or(0);
             json!({
                 "capability_id": cap,
+                "display_capability": humanize_capability_ko(&cap),
                 "model_key": model,
                 "tier": tier,
                 "mode": mode,
@@ -1534,12 +1895,22 @@ pub async fn fetch_conversation_assurance(db: &DbHandle) -> Value {
         };
 
         let cache_pct = format_pct(cached_tok, total_tok).unwrap_or(0.0);
+        let hallucination_label = if assessment_count > 0 {
+            "평가표 기록"
+        } else {
+            "미측정"
+        };
+        let boundary_rubric = if assessment_count > 0 {
+            "안전 경계: lab-sandbox (평가 원장 확인)"
+        } else {
+            "안전 경계: 평가 원장 미기록 (0 대체 금지)"
+        };
         cases.push(json!({
             "case_id": format!("sem_{short_id}"),
             "agent": agent_name,
             "agent_icon": agent_ico,
             "score_text": format!("{latency_ms} ms"),
-            "hallucination_text": "0건 (검증)",
+            "hallucination_text": hallucination_label,
             "boundary_text": if status == "held" { "보류 준수" } else { "통과" },
             "verdict": verdict,
             "verdict_badge": badge,
@@ -1552,7 +1923,7 @@ pub async fn fetch_conversation_assurance(db: &DbHandle) -> Value {
             "rubric": [
                 format!("실측 모델 호출: {calls}회"),
                 format!("상태 판정: {status}"),
-                "안전 경계: lab-sandbox (하드 제로 0건)",
+                boundary_rubric,
                 format!("캐시 적중률: {cache_pct:.1}%")
             ]
         }));
@@ -1577,26 +1948,54 @@ pub async fn fetch_conversation_assurance(db: &DbHandle) -> Value {
             } else {
                 ("pass", "통과 (T1)", "tone-live", "Bragi", "/agent-icons/bragi.svg")
             };
+            let hallucination_label = if assessment_count > 0 {
+                "평가표 기록"
+            } else {
+                "미측정"
+            };
+            let boundary_rubric = if assessment_count > 0 {
+                "안전 경계: lab-sandbox (평가 원장 확인)"
+            } else {
+                "안전 경계: 평가 원장 미기록 (0 대체 금지)"
+            };
+            let cap_ko = humanize_capability_ko(&cap);
+            let scope_ko = humanize_scope_ko(&scope);
+            let mode_ko = match mode.as_str() {
+                "enforce" => "강제 적용",
+                "shadow" => "그림자 검증",
+                "advisory" => "권고 모드",
+                _ => mode.as_str(),
+            };
             cases.push(json!({
                 "case_id": format!("llm_{inv_id}"),
+                "display_label": format!("{cap_ko} · {scope_ko}"),
                 "agent": agent_name,
                 "agent_icon": agent_ico,
                 "score_text": format!("{} tok", p_tok + c_tok),
-                "hallucination_text": "0건 (검증)",
-                "boundary_text": format!("{tier} · {mode}"),
+                "hallucination_text": hallucination_label,
+                "boundary_text": format!("{tier} · {mode_ko}"),
                 "verdict": verdict,
                 "verdict_badge": badge,
                 "verdict_tone": tone,
                 "meta": format!("모델 {model} · 입력 {p_tok} / 출력 {c_tok} tok · {ts}"),
-                "question": format!("[실측 LLM 호출 #{inv_id}] 기능: {cap} · 범위: {scope} · 상관 ID: {}", short_digest(&corr)),
+                "recorded_at": ts.clone(),
+                "question": format!("{scope_ko}에서 실행된 '{cap_ko}' 모델 호출 기록입니다."),
                 "answer": format!(
-                    "최근 7일 PostgreSQL `llm_invocation` 실측 기록: 티어 `{tier}`, 모델 `{model}`, 모드 `{mode}`, 입력 {p_tok} / 출력 {c_tok} 토큰. `conversation_assurance_assessment` 평가 원장은 현재 {assessment_count}건입니다."
+                    "최근 7일 실측 기록 기준 {tier} 단계({model})가 '{mode_ko}' 모드로 호출되어 입력 {p_tok}토큰, 출력 {c_tok}토큰을 사용했습니다. 현재 대화 품질 평가 원장에는 {assessment_count}건이 기록되어 있습니다."
                 ),
                 "rubric": [
-                    format!("호출 티어: {tier} ({cap})"),
-                    format!("실행 모드: {mode} · 범위 {scope}"),
-                    "안전 경계: lab-sandbox (하드 제로 0건)",
+                    format!("호출 단계: {tier} ({cap_ko})"),
+                    format!("실행 모드: {mode_ko} · {scope_ko}"),
+                    boundary_rubric,
                     format!("평가 원장: {assessment_count}건 (정직 표기)")
+                ],
+                "tech_details": [
+                    ["호출 식별자", format!("llm_{inv_id}")],
+                    ["원본 기능 키", cap],
+                    ["모델 키", model],
+                    ["실행 범위 키", scope],
+                    ["상관 ID", corr],
+                    ["기록 시각", ts]
                 ]
             }));
         }
@@ -1708,48 +2107,71 @@ pub async fn fetch_context_comparisons(db: &DbHandle) -> Value {
 
     let mut comparisons: Vec<Value> = Vec::new();
 
-    // Comparison 1: T2 Primary Reasoner vs T1 Embedding Prefilter (real llm_invocation table)
-    let tok_reduction_pct = if t2_avg_tok > 0.0 {
-        (((t1_avg_tok - t2_avg_tok) / t2_avg_tok) * 100.0 * 10.0).round() / 10.0
-    } else {
-        0.0
-    };
-    let bar_pct = if t2_avg_tok > 0.0 {
-        ((t1_avg_tok / t2_avg_tok) * 100.0).clamp(5.0, 100.0).round() as i64
-    } else {
-        50
-    };
-    let receipt_summary = if admission_total > 0 {
-        format!("증거 채택 {admission_total}건")
-    } else {
-        format!("보정 영수증 {corr_receipts}건")
-    };
-    comparisons.push(json!({
-        "id": "pg-llm-t2-vs-t1",
-        "status": "pass",
-        "badge": "불변식 통과",
-        "cls": "tone-live",
-        "title": "실측 LLM 티어 비교 · T2 추론(A) vs T1 임베딩 선택(B)",
-        "policy_pair": format!("{t2_model} → {t1_model}"),
-        "acc_delta": format!("T2 {t2_calls}회 → T1 {t1_calls}회"),
-        "tok_delta": format!("{t2_avg_tok:.1} → {t1_avg_tok:.1} tok"),
-        "lat_delta": "PostgreSQL 실측",
-        "miss_delta": format!("{receipt_summary} · 충돌 0건"),
-        "base_name": t2_model,
-        "base_acc": format!("호출 {t2_calls}회 (T2)"),
-        "base_tok": format!("{t2_avg_tok:.1} tok/call"),
-        "base_lat": "데이터 없음 (미수집)",
-        "base_miss": "충돌 0건",
-        "cand_name": t1_model,
-        "cand_acc": format!("호출 {t1_calls}회 (T1 우선 처리)"),
-        "cand_tok": format!("{t1_avg_tok:.1} tok/call ({tok_reduction_pct:+.1}%)"),
-        "cand_pct": format!("{bar_pct}%"),
-        "cand_lat": "저지연 임베딩 필터",
-        "cand_miss": format!("{receipt_summary} 보존"),
-        "overlap": format!("{receipt_summary} · 온톨로지 링크 {ont_links}건"),
-        "omissions": "없음 (0건)",
-        "saved_src": format!("PostgreSQL `llm_invocation` 최근 7일 {llm_total}건 집계 기반")
-    }));
+    // Comparison 1: T2 Primary Reasoner vs T1 Embedding Prefilter (only when real llm_invocation rows exist)
+    if t1_calls > 0 || t2_calls > 0 {
+        let receipt_summary = if admission_total > 0 {
+            format!("증거 채택 {admission_total}건")
+        } else if corr_receipts > 0 {
+            format!("보정 영수증 {corr_receipts}건")
+        } else {
+            String::from("영수증 미수집")
+        };
+        let (tok_delta, base_tok_str, cand_tok_str, bar_pct) = if t2_calls > 0 && t1_calls > 0 && t2_avg_tok > 0.0 {
+            let tok_reduction_pct =
+                (((t1_avg_tok - t2_avg_tok) / t2_avg_tok) * 100.0 * 10.0).round() / 10.0;
+            let pct = ((t1_avg_tok / t2_avg_tok) * 100.0).clamp(5.0, 100.0).round() as i64;
+            (
+                format!("{t2_avg_tok:.1} → {t1_avg_tok:.1} tok"),
+                format!("{t2_avg_tok:.1} tok/call"),
+                format!("{t1_avg_tok:.1} tok/call ({tok_reduction_pct:+.1}%)"),
+                pct,
+            )
+        } else if t2_calls > 0 {
+            (
+                format!("{t2_avg_tok:.1} tok → 미측정"),
+                format!("{t2_avg_tok:.1} tok/call"),
+                String::from("데이터 없음 (T1 미수집)"),
+                0_i64,
+            )
+        } else {
+            (
+                format!("미측정 → {t1_avg_tok:.1} tok"),
+                String::from("데이터 없음 (T2 미수집)"),
+                format!("{t1_avg_tok:.1} tok/call"),
+                50_i64,
+            )
+        };
+        comparisons.push(json!({
+            "id": "pg-llm-t2-vs-t1",
+            "display_label": "LLM 단계 비교 (고급 추론 vs 임베딩 사전 선택)",
+            "display_pair": "고급 추론(T2) → 임베딩 사전 선택(T1)",
+            "status": if t1_calls > 0 && t2_calls > 0 { "pass" } else { "unmeasured" },
+            "badge": if t1_calls > 0 && t2_calls > 0 { "불변식 통과" } else { "단일 티어 실측" },
+            "cls": if t1_calls > 0 && t2_calls > 0 { "tone-live" } else { "tone-neutral" },
+            "title": "실측 LLM 단계 비교 · 고급 추론(A) vs 임베딩 사전 선택(B)",
+            "policy_pair": format!("{t2_model} → {t1_model}"),
+            "acc_delta": format!("T2 {t2_calls}회 → T1 {t1_calls}회"),
+            "tok_delta": tok_delta,
+            "lat_delta": "로컬 원장 실측",
+            "miss_delta": format!("{receipt_summary} · 충돌 0건"),
+            "base_name": t2_model,
+            "base_display_name": "고급 추론 모델 (T2)",
+            "base_acc": if t2_calls > 0 { format!("호출 {t2_calls}회 (T2)") } else { String::from("미측정 (T2 호출 없음)") },
+            "base_tok": base_tok_str,
+            "base_lat": "데이터 없음 (미수집)",
+            "base_miss": if t2_calls > 0 { "충돌 0건" } else { "—" },
+            "cand_name": t1_model,
+            "cand_display_name": "임베딩 사전 선택 (T1)",
+            "cand_acc": if t1_calls > 0 { format!("호출 {t1_calls}회 (T1 우선 처리)") } else { String::from("미측정 (T1 호출 없음)") },
+            "cand_tok": cand_tok_str,
+            "cand_pct": format!("{bar_pct}%"),
+            "cand_lat": if t1_calls > 0 { "저지연 임베딩 필터" } else { "데이터 없음 (미수집)" },
+            "cand_miss": format!("{receipt_summary} 보존"),
+            "overlap": format!("{receipt_summary} · 온톨로지 관계 {ont_links}건"),
+            "omissions": "없음 (0건)",
+            "saved_src": format!("최근 7일 모델 호출 {llm_total}건 실측 집계 기반")
+        }));
+    }
 
     // Comparison 2..N: Semantic turn groups (narrator-mini vs t2.reasoner.primary from state_kv)
     let baseline_sem = sem
@@ -1870,21 +2292,25 @@ pub async fn fetch_context_comparisons(db: &DbHandle) -> Value {
         let t1_pct = format_pct(t1_cnt, ctrl_total).unwrap_or(0.0);
         comparisons.push(json!({
             "id": "pg-ctrl-t1-vs-t0",
+            "display_label": "제어루프 단계 비교 (임베딩·규칙 vs 결정론 우선)",
+            "display_pair": "규칙+임베딩(T1) → 결정론 규칙(T0)",
             "status": "pass",
             "badge": "불변식 통과",
             "cls": "tone-live",
-            "title": "제어루프 티어 실측 비교 · T1 평가(A) vs T0 결정론(B)",
+            "title": "제어루프 단계 실측 비교 · 임베딩 평가(A) vs 결정론 규칙(B)",
             "policy_pair": "control-loop:t1 → control-loop:t0",
             "acc_delta": format!("T1 {t1_cnt}건 ({t1_pct:.1}%) → T0 {t0_cnt}건 ({t0_pct:.1}%)"),
             "tok_delta": format!("{t1_avg_tok:.1} → 0.0 tok"),
             "lat_delta": "결정론적 즉시 평가",
             "miss_delta": format!("온톨로지 관계 {ont_links}건 보존"),
             "base_name": "control-loop:t1 (shadow)",
+            "base_display_name": "제어루프 임베딩 평가 (T1)",
             "base_acc": format!("{t1_cnt}건 ({t1_pct:.1}%)"),
             "base_tok": format!("{t1_avg_tok:.1} tok/call"),
             "base_lat": "임베딩·규칙 평가",
             "base_miss": format!("준수 {compliant_7d}건"),
             "cand_name": "control-loop:t0 (shadow)",
+            "cand_display_name": "제어루프 결정론 규칙 (T0)",
             "cand_acc": format!("{t0_cnt}건 ({t0_pct:.1}% · 결정론 우선)"),
             "cand_tok": "0 tok (-100.0%)",
             "cand_pct": "12%",
@@ -1892,60 +2318,72 @@ pub async fn fetch_context_comparisons(db: &DbHandle) -> Value {
             "cand_miss": format!("관계 {ont_links}건 · 누락 0건"),
             "overlap": format!("제어루프 측정 총 {ctrl_total}건"),
             "omissions": "없음 (0건)",
-            "saved_src": format!("최근 7일 `measurement:control-loop:v1:*` {ctrl_total}건 실측")
+            "saved_src": format!("최근 7일 제어루프 측정 {ctrl_total}건 실측 집계")
         }));
-        comparisons.push(json!({
-            "id": "pg-correction-receipts",
-            "status": "pass",
-            "badge": "보정 영수증 보존",
-            "cls": "tone-live",
-            "title": "관측 보정 영수증 · 온톨로지 컨텍스트 정합성",
-            "policy_pair": "inventory-snapshot → ontology-2hop-graph",
-            "acc_delta": format!("보정 영수증 {corr_receipts}건 · 링크 {ont_links}건"),
-            "tok_delta": "결정론적 0 tok",
-            "lat_delta": "로컬 PostgreSQL 직결",
-            "miss_delta": format!("정직 보류 {abstain_7d}건 분리"),
-            "base_name": "raw-inventory-snapshot",
-            "base_acc": "데이터 없음 (미수집)",
-            "base_tok": "데이터 없음 (미수집)",
-            "base_lat": "-",
-            "base_miss": "-",
-            "cand_name": "ontology-graph-context",
-            "cand_acc": format!("관계 {ont_links}건 · 보정 {corr_receipts}건"),
-            "cand_tok": "0 tok (그래프 직결)",
-            "cand_pct": "18%",
-            "cand_lat": "PostgreSQL 인덱스 조회",
-            "cand_miss": "누락 0건 (고정 근거 보존)",
-            "overlap": format!("보정 영수증 {corr_receipts}건 확인"),
-            "omissions": "없음 (0건)",
-            "saved_src": format!("PostgreSQL `inventory_observation_correction_receipt` ({corr_receipts}건) · `ontology_link` ({ont_links}건)")
-        }));
-        comparisons.push(json!({
-            "id": "pg-abstain-honesty",
-            "status": "unmeasured",
-            "badge": "정직 보류 (abstained)",
-            "cls": "tone-neutral",
-            "title": "근거 부족 구간 정직 보류 감사 · 0 대체 차단",
-            "policy_pair": "force-guess → honest-abstain",
-            "acc_delta": format!("보류 {abstain_7d}건 (준수 {compliant_7d}건)"),
-            "tok_delta": "불필요 T2 호출 차단",
-            "lat_delta": "즉시 보류 반환",
-            "miss_delta": "환각 0건 · 0 대체 금지",
-            "base_name": "unverified-guess-policy",
-            "base_acc": "데이터 없음 (미수집)",
-            "base_tok": "데이터 없음 (미수집)",
-            "base_lat": "-",
-            "base_miss": "-",
-            "cand_name": "fdai-honest-abstention",
-            "cand_acc": format!("보류 {abstain_7d}건 정직 분리"),
-            "cand_tok": "0 tok (근거 부재 시 T2 차단)",
-            "cand_pct": "8%",
-            "cand_lat": "결정론적 게이트",
-            "cand_miss": "환각 0건",
-            "overlap": format!("감사 원장 제어루프 보류 {abstain_7d}건"),
-            "omissions": "근거 부족 구간 정직 보류 (0으로 대체하지 않음)",
-            "saved_src": "PostgreSQL `audit_log` (`control_loop.abstain` / `control_loop.compliant`) 실측"
-        }));
+        if corr_receipts > 0 || ont_links > 0 {
+            comparisons.push(json!({
+                "id": "pg-correction-receipts",
+                "display_label": "관측 보정 영수증 · 온톨로지 정합성",
+                "display_pair": "원시 인벤토리 → 온톨로지 2-Hop 그래프",
+                "status": "pass",
+                "badge": "보정 영수증 보존",
+                "cls": "tone-live",
+                "title": "관측 보정 영수증 · 온톨로지 컨텍스트 정합성",
+                "policy_pair": "inventory-snapshot → ontology-2hop-graph",
+                "acc_delta": format!("보정 영수증 {corr_receipts}건 · 관계 {ont_links}건"),
+                "tok_delta": "결정론적 0 tok",
+                "lat_delta": "로컬 원장 직결",
+                "miss_delta": format!("정직 보류 {abstain_7d}건 분리"),
+                "base_name": "raw-inventory-snapshot",
+                "base_display_name": "원시 인벤토리 스냅샷",
+                "base_acc": "데이터 없음 (미수집)",
+                "base_tok": "데이터 없음 (미수집)",
+                "base_lat": "-",
+                "base_miss": "-",
+                "cand_name": "ontology-graph-context",
+                "cand_display_name": "온톨로지 그래프 컨텍스트",
+                "cand_acc": format!("관계 {ont_links}건 · 보정 {corr_receipts}건"),
+                "cand_tok": "0 tok (그래프 직결)",
+                "cand_pct": "18%",
+                "cand_lat": "로컬 인덱스 조회",
+                "cand_miss": "누락 0건 (고정 근거 보존)",
+                "overlap": format!("보정 영수증 {corr_receipts}건 확인"),
+                "omissions": "없음 (0건)",
+                "saved_src": format!("관측 보정 영수증 {corr_receipts}건 · 온톨로지 관계 {ont_links}건 실측")
+            }));
+        }
+        if abstain_7d > 0 || compliant_7d > 0 {
+            comparisons.push(json!({
+                "id": "pg-abstain-honesty",
+                "display_label": "근거 부족 구간 정직 보류 감사",
+                "display_pair": "추정 강제 → 정직 보류 게이트",
+                "status": "unmeasured",
+                "badge": "정직 보류 (abstained)",
+                "cls": "tone-neutral",
+                "title": "근거 부족 구간 정직 보류 감사 · 0 대체 차단",
+                "policy_pair": "force-guess → honest-abstain",
+                "acc_delta": format!("보류 {abstain_7d}건 (준수 {compliant_7d}건)"),
+                "tok_delta": "불필요 T2 호출 차단",
+                "lat_delta": "즉시 보류 반환",
+                "miss_delta": "0 대체 차단 · 미측정 보류",
+                "base_name": "unverified-guess-policy",
+                "base_display_name": "미검증 추정 정책",
+                "base_acc": "데이터 없음 (미수집)",
+                "base_tok": "데이터 없음 (미수집)",
+                "base_lat": "-",
+                "base_miss": "-",
+                "cand_name": "fdai-honest-abstention",
+                "cand_display_name": "FDAI 정직 보류 게이트",
+                "cand_acc": format!("보류 {abstain_7d}건 정직 분리"),
+                "cand_tok": "0 tok (근거 부재 시 T2 차단)",
+                "cand_pct": "8%",
+                "cand_lat": "결정론적 게이트",
+                "cand_miss": "미측정 보류 준수",
+                "overlap": format!("감사 원장 제어루프 보류 {abstain_7d}건"),
+                "omissions": "근거 부족 구간 정직 보류 (0으로 대체하지 않음)",
+                "saved_src": "감사 원장 제어루프 정직 보류·준수 실측 집계"
+            }));
+        }
     }
 
     let evidence_badge_count = if admission_total > 0 {
@@ -1967,3 +2405,4 @@ pub async fn fetch_context_comparisons(db: &DbHandle) -> Value {
         "comparisons": comparisons
     })
 }
+

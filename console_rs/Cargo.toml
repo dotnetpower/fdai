@@ -1,20 +1,3 @@
-[workspace]
-resolver = "2"
-members = [
-    ".",
-    "crates/fdai-adapter-postgres",
-]
-
-[workspace.lints.rust]
-unsafe_code = "forbid"
-
-[workspace.lints.clippy]
-all = "deny"
-unwrap_used = "deny"
-expect_used = "deny"
-panic = "deny"
-todo = "deny"
-
 [package]
 name = "fdai-console-v4"
 version = "0.1.0"
@@ -26,16 +9,18 @@ description = "Pure-Rust Axum server for FDAI Console v4 (zero Python, zero Node
 workspace = true
 
 [dependencies]
-axum = { version = "0.8", features = ["json", "tokio", "http1"] }
-fdai-adapter-postgres = { path = "crates/fdai-adapter-postgres" }
-futures-util = "0.3"
-http-body-util = "0.1"
-hyper = { version = "1", features = ["client", "http1"] }
-hyper-util = { version = "0.1", features = ["client", "client-legacy", "http1", "tokio"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-tokio = { version = "1", features = ["rt-multi-thread", "net", "macros", "sync", "time", "signal", "process", "io-util", "fs"] }
-tower-http = { version = "0.6", features = ["cors"] }
+axum = { workspace = true }
+fdai-adapter-postgres = { path = "../crates/adapters/fdai-adapter-postgres" }
+fdai-contracts = { path = "../crates/contracts/fdai-contracts" }
+fdai-domain-core = { path = "../crates/core/fdai-domain-core" }
+futures-util = { workspace = true }
+http-body-util = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tower-http = { workspace = true }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

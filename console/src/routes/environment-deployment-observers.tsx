@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import { EvidenceRefresh } from "../components/evidence-refresh";
+import { SearchInput, SelectField } from "../components/form-controls";
 import { AsyncBoundary, type AsyncState } from "../components/ui";
 import type { ConsoleDataMode } from "../console-data-mode";
 import { usePublishViewContext } from "../deck/context";
@@ -99,14 +100,23 @@ export function EnvironmentDeploymentObservers({ client, dataMode }: {
         <p class="observer-proposals-empty-source">{t("observerProposals.sourceDescription")}</p>
       </section> : <>
         <div class="settings-filter-bar">
-          <label><span>{environmentUxText("search")}</span><input type="search" class="form-input" value={search}
-            onInput={(event) => setSearch(event.currentTarget.value)} /></label>
-          <label><span>{environmentUxText("status")}</span><select class="form-input" value={status}
-            onChange={(event) => setStatus(event.currentTarget.value)}>
-            <option value="">{environmentUxText("all")}</option>
-            {["ready_for_review", "needs_evidence", "blocked", "not_applicable", "expired", "unavailable"].map((value) =>
-              <option key={value} value={value}>{statusLabel(value)}</option>)}
-          </select></label>
+          <SearchInput
+            label={environmentUxText("search")}
+            value={search}
+            onInput={setSearch}
+          />
+          <SelectField
+            label={environmentUxText("status")}
+            value={status}
+            options={[
+              { value: "", label: environmentUxText("all") },
+              ...["ready_for_review", "needs_evidence", "blocked", "not_applicable", "expired", "unavailable"].map((value) => ({
+                value,
+                label: statusLabel(value),
+              })),
+            ]}
+            onChange={setStatus}
+          />
           <button type="button" class="btn secondary" disabled={!search && !status}
             onClick={() => { setSearch(""); setStatus(""); }}>{environmentUxText("clear")}</button>
         </div>

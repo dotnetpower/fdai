@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
+import { SelectField, TextInput } from "../components/form-controls";
 import { loadConfig } from "../config";
 import {
   IngestionApiClient,
@@ -275,49 +276,55 @@ export function HandoverProposalEditor({ client, auth }: Props) {
         <div class="handover-editor__rows">
           {rows.map((row) => (
             <div class="handover-editor__row" key={row.id}>
-              <label>
-                <span>{t("handover.editor.agent")}</span>
-                <select
-                  value={row.agent}
-                  disabled={submitting}
-                  onChange={(event) => updateRow(row.id, { agent: event.currentTarget.value })}
-                >
-                  {PANTHEON.map((agent) => <option value={agent.name}>{agent.name}</option>)}
-                </select>
-              </label>
-              <label>
-                <span>{t("handover.editor.identity")}</span>
-                <input
-                  value={row.identity}
-                  maxLength={256}
-                  disabled={submitting}
-                  placeholder={t("handover.editor.identityPlaceholder")}
-                  aria-invalid={attempted && !row.identity.trim() ? "true" : undefined}
-                  onInput={(event) => updateRow(row.id, { identity: event.currentTarget.value })}
-                />
-              </label>
-              <label>
-                <span>{t("handover.editor.kind")}</span>
-                <select
-                  value={row.kind}
-                  disabled={submitting}
-                  onChange={(event) => updateRow(row.id, { kind: event.currentTarget.value as HandoverSubjectKind })}
-                >
-                  <option value="user">{t("handover.editor.user")}</option>
-                  <option value="group">{t("handover.editor.group")}</option>
-                </select>
-              </label>
-              <label>
-                <span>{t("handover.editor.responsibility")}</span>
-                <select
-                  value={row.responsibility}
-                  disabled={submitting}
-                  onChange={(event) => updateRow(row.id, { responsibility: event.currentTarget.value as HandoverResponsibility })}
-                >
-                  <option value="accountable">{t("handover.editor.accountable")}</option>
-                  <option value="informed">{t("handover.editor.informed")}</option>
-                </select>
-              </label>
+              <SelectField
+                label={t("handover.editor.agent")}
+                hideLabel
+                ariaLabel={t("handover.editor.agent")}
+                value={row.agent}
+                disabled={submitting}
+                size="sm"
+                options={PANTHEON.map((agent) => ({ value: agent.name, label: agent.name }))}
+                onChange={(value) => updateRow(row.id, { agent: value })}
+              />
+              <TextInput
+                label={t("handover.editor.identity")}
+                hideLabel
+                value={row.identity}
+                maxLength={256}
+                disabled={submitting}
+                size="sm"
+                placeholder={t("handover.editor.identityPlaceholder")}
+                {...(attempted && !row.identity.trim()
+                  ? { error: t("handover.editor.validation") }
+                  : {})}
+                onInput={(value) => updateRow(row.id, { identity: value })}
+              />
+              <SelectField
+                label={t("handover.editor.kind")}
+                hideLabel
+                ariaLabel={t("handover.editor.kind")}
+                value={row.kind}
+                disabled={submitting}
+                size="sm"
+                options={[
+                  { value: "user", label: t("handover.editor.user") },
+                  { value: "group", label: t("handover.editor.group") },
+                ]}
+                onChange={(value) => updateRow(row.id, { kind: value as HandoverSubjectKind })}
+              />
+              <SelectField
+                label={t("handover.editor.responsibility")}
+                hideLabel
+                ariaLabel={t("handover.editor.responsibility")}
+                value={row.responsibility}
+                disabled={submitting}
+                size="sm"
+                options={[
+                  { value: "accountable", label: t("handover.editor.accountable") },
+                  { value: "informed", label: t("handover.editor.informed") },
+                ]}
+                onChange={(value) => updateRow(row.id, { responsibility: value as HandoverResponsibility })}
+              />
               <button
                 type="button"
                 class="handover-editor__remove"

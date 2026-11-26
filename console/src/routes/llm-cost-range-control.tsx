@@ -1,4 +1,5 @@
 import { useState } from "preact/hooks";
+import { TextInput } from "../components/form-controls";
 import { getLocale } from "../i18n";
 import { t } from "./i18n/llm-cost";
 import {
@@ -86,28 +87,24 @@ export function LlmCostRangeControl({ range, onChange }: Props) {
         {open ? (
           <div class="llm-cost-range-popover">
             <div class="llm-cost-date-fields">
-              <label>
-                <span>{t("llmCost.startDate")}</span>
-                <input
-                  type="date"
-                  value={fromDate}
-                  max={today}
-                  aria-invalid={error !== ""}
-                  onInput={(event) => setFromDate(event.currentTarget.value)}
-                />
-              </label>
-              <label>
-                <span>{t("llmCost.endDate")}</span>
-                <input
-                  type="date"
-                  value={toDate}
-                  max={today}
-                  aria-invalid={error !== ""}
-                  onInput={(event) => setToDate(event.currentTarget.value)}
-                />
-              </label>
+              <TextInput
+                type="date"
+                size="sm"
+                label={t("llmCost.startDate")}
+                value={fromDate}
+                max={today}
+                onInput={setFromDate}
+              />
+              <TextInput
+                type="date"
+                size="sm"
+                label={t("llmCost.endDate")}
+                value={toDate}
+                max={today}
+                {...(error ? { error } : {})}
+                onInput={setToDate}
+              />
             </div>
-            <p class="llm-cost-range-error" role="alert">{error}</p>
             <div class="llm-cost-range-actions">
               <button type="button" onClick={() => setOpen(false)}>{t("llmCost.cancel")}</button>
               <button class="is-primary" type="button" onClick={applyCustom}>{t("llmCost.apply")}</button>

@@ -1,7 +1,15 @@
+import { useState } from "preact/hooks";
 import type { ObservationSource } from "../hooks/observation-source";
 import { observationSourceLabel } from "../hooks/observation-source";
 import { useContentUpdatePulse } from "../hooks/use-content-update-pulse";
-import { t } from "../i18n";
+import {
+  AgentRosterTable,
+  type AgentRosterStateKind,
+  type AgentRosterTableRow,
+} from "../components/agent-roster-table";
+import { FilterToolbar, SearchInput, SegmentedControl } from "../components/form-controls";
+import { StatusBadge } from "../components/status-badge";
+import { getLocale, t } from "../i18n";
 import { routeHref } from "../router";
 import { openDeckWithContext } from "../deck/open-deck";
 import {
@@ -10,6 +18,7 @@ import {
   agentChatContext,
   agentConversationBriefing,
   incidentsForAgent,
+  isEngaged,
   type AgentNode,
   type AgentsState,
 } from "./agents.model";
@@ -25,6 +34,46 @@ import {
   type RosterLayer,
   type RosterState,
 } from "./agents.view-model";
+
+type RosterDisplayMode = "table" | "cards";
+
+function rosterStateKindOf(node: AgentNode): AgentRosterStateKind {
+  if (!node.observed) return "unobserved";
+  if (isEngaged(node)) return "engaged";
+  if (node.state === "watching") return "watching";
+  return "idle";
+}
+
+function rosterDisplayCopy(): {
+  readonly viewModeLabel: string;
+  readonly tableMode: string;
+  readonly cardsMode: string;
+  readonly clearSearch: string;
+  readonly tableAria: string;
+  readonly agentColumn: string;
+  readonly actionsColumn: string;
+} {
+  if (getLocale() === "ko") {
+    return {
+      viewModeLabel: "에이전트 표시 형식",
+      tableMode: "표",
+      cardsMode: "카드",
+      clearSearch: "검색어 지우기",
+      tableAria: "에이전트 현황 목록 표",
+      agentColumn: "에이전트",
+      actionsColumn: "작업",
+    };
+  }
+  return {
+    viewModeLabel: "Agent display mode",
+    tableMode: "Table",
+    cardsMode: "Cards",
+    clearSearch: "Clear search",
+    tableAria: "Agent fleet table",
+    agentColumn: "Agent",
+    actionsColumn: "Actions",
+  };
+}
 
 export function AgentRoster({
   agents,
@@ -59,6 +108,69 @@ export function AgentRoster({
   readonly onQueryChange: (value: string) => void;
   readonly onOpen: (name: string) => void;
 }) {
+  const [displayMode, setDisplayMode] = useState<RosterDisplayMode>("table");
+  const displayCopy = rosterDisplayCopy();
+  const activeFilters = (layer !== "all" ? 1 : 0)
+    + (stateFilter !== "all" ? 1 : 0)
+    + (query.trim().length > 0 ? 1 : 0);
+
+  const openAgentConversation = (node: AgentNode) => {
+    const agentIncidents = incidentsForAgent(state, node.name);
+    openDeckWithContext({
+      sessionLabel: node.name,
+      newConversation: true,
+      targetAgent: node.name,
+      contextNote: agentChatContext(node, agentIncidents),
+      openingBriefing: agentConversationBriefing(node, agentIncidents),
+      prompt: `What has ${node.name} been working on?`,
+    });
+  };
+
+  const tableRows: readonly AgentRosterTableRow[] = agents.map((node) => {
+    const role = AGENT_ROLE[node.name];
+    const contract = AGENT_CONTRACT[node.name];
+    const incident = node.correlationId ? state.incidents[node.correlationId] : undefined;
+    const agentIncidents = incidentsForAgent(state, node.name);
+    const flags: string[] = [];
+    if (contract?.hotPathLlm) flags.push(t("pantheon.hotPathLlm"));
+    if (contract?.offPathLlm) flags.push(t("pantheon.offPathLlm"));
+    if (contract?.hardDependency) flags.push(t("pantheon.hardDependency"));
+    return {
+      name: node.name,
+      layerKey: node.layer,
+      layerLabel: t(`agents.layer.${rosterLayerOf(node.name)}`),
+      roleTitle: agentRoleTitle(node.name) ?? node.layer,
+      roleSummary: agentRoleSummary(node.name) ?? null,
+      stateKind: rosterStateKindOf(node),
+      stateLabel: agentStateLabel(node),
+      observed: node.observed,
+      currentWork: currentTask(node),
+      activeIncident: incident?.ticketId || t("agents.common.none"),
+      stateSince: stateTime(node.since),
+      reportsTo: `${role?.reportsTo ?? "-"}${role?.staff ? ` (${t("agents.common.staff")})` : ""}`,
+      runtimeBinding: agentRuntimeBindingLabel(node.name),
+      authorityLabel: node.name === "Thor"
+        ? t("agents.authority.execute")
+        : node.name === "Var"
+          ? t("agents.authority.approve")
+          : t("agents.authority.advise"),
+      recentEventsCount: agentIncidents.length,
+      owns: contract?.owns ?? [],
+      flags,
+      iconUrl: agentIconUrl(node.name),
+      activityHref: routeHref("agent-activity", { params: { agent: node.name } }),
+      openRoleLabel: t("agents.action.open"),
+      activityLabel: t("agents.workspace.activity"),
+      askLabel: t("agents.action.ask", { agent: node.name }),
+    };
+  });
+
+  const clearAllFilters = () => {
+    onLayerChange("all");
+    onStateChange("all");
+    onQueryChange("");
+  };
+
   return (
     <div class="agent-roster">
       <section class="agent-roster-context" aria-label={t("agents.roster.interpretationLabel")}>
@@ -73,7 +185,24 @@ export function AgentRoster({
         <RosterSummary href={routeHref("agents", { params: { state: "unobserved" } })} label={t("agents.roster.metric.unobserved")} value={unobserved} detail={t("agents.roster.metric.noRuntimeSignal")} kind="idle" />
       </section>
 
-      <section class="agent-roster-toolbar" aria-label={t("agents.filter.toolbarLabel")}>
+      <FilterToolbar
+        ariaLabel={t("agents.filter.toolbarLabel")}
+        activeFilterCount={activeFilters}
+        onReset={clearAllFilters}
+        resetLabel={t("agents.filter.clear")}
+        className="agent-roster-toolbar"
+        actions={(
+          <SegmentedControl
+            ariaLabel={displayCopy.viewModeLabel}
+            value={displayMode}
+            options={[
+              { value: "table", label: displayCopy.tableMode },
+              { value: "cards", label: displayCopy.cardsMode },
+            ]}
+            onChange={setDisplayMode}
+          />
+        )}
+      >
         <RosterFilter
           label={t("agents.filter.layer")}
           values={["all", "governance", "pipeline", "domain"]}
@@ -86,35 +215,64 @@ export function AgentRoster({
           selected={stateFilter}
           onSelect={(value) => onStateChange(value as RosterState)}
         />
-        <label class="agent-roster-search">
-          <span class="sr-only">{t("agents.filter.searchLabel")}</span>
-          <input
-            type="search"
-            value={query}
-            placeholder={t("agents.filter.searchPlaceholder")}
-            onInput={(event) => onQueryChange(event.currentTarget.value)}
-          />
-        </label>
-      </section>
+        <SearchInput
+          label={t("agents.filter.searchLabel")}
+          hideLabel
+          value={query}
+          placeholder={t("agents.filter.searchPlaceholder")}
+          clearLabel={displayCopy.clearSearch}
+          size="sm"
+          className="agent-roster-search"
+          onInput={onQueryChange}
+        />
+      </FilterToolbar>
 
       {agents.length === 0 ? (
         <div class="agent-roster-empty">
           <strong>{t("agents.filter.empty")}</strong>
           <button
             type="button"
-            onClick={() => {
-              onLayerChange("all");
-              onStateChange("all");
-              onQueryChange("");
-            }}
+            class="cs-control-button"
+            onClick={clearAllFilters}
           >
             {t("agents.filter.clear")}
           </button>
         </div>
+      ) : displayMode === "table" ? (
+        <AgentRosterTable
+          ariaLabel={displayCopy.tableAria}
+          rows={tableRows}
+          labels={{
+            agent: displayCopy.agentColumn,
+            layer: t("agents.filter.layer"),
+            state: t("agents.filter.state"),
+            currentWork: t("agents.card.currentWork"),
+            activeIncident: t("agents.card.activeIncident"),
+            stateSince: t("agents.card.stateSince"),
+            actions: displayCopy.actionsColumn,
+            details: t("agents.card.details"),
+            owns: t("agents.card.owns"),
+            reportsTo: t("agents.card.reportsTo"),
+            runtimeBinding: t("agents.card.runtimeBinding"),
+            authority: t("agents.card.authority"),
+            recentEvents: t("agents.card.recentEvents"),
+          }}
+          onOpenRole={onOpen}
+          onAskAgent={(agentName) => {
+            const target = agents.find((node) => node.name === agentName);
+            if (target) openAgentConversation(target);
+          }}
+        />
       ) : (
         <div class="agent-roster-grid">
           {agents.map((node) => (
-            <AgentRosterCard key={node.name} node={node} state={state} onOpen={onOpen} />
+            <AgentRosterCard
+              key={node.name}
+              node={node}
+              state={state}
+              onOpen={onOpen}
+              onAsk={() => openAgentConversation(node)}
+            />
           ))}
         </div>
       )}
@@ -126,10 +284,12 @@ function AgentRosterCard({
   node,
   state,
   onOpen,
+  onAsk,
 }: {
   readonly node: AgentNode;
   readonly state: AgentsState;
   readonly onOpen: (name: string) => void;
+  readonly onAsk: () => void;
 }) {
   const role = AGENT_ROLE[node.name];
   const contract = AGENT_CONTRACT[node.name];
@@ -143,6 +303,13 @@ function AgentRosterCard({
     incident?.ticketId ?? "",
     agentIncidents.length,
   ].join("|"));
+  const stateTone = !node.observed
+    ? "neutral"
+    : isEngaged(node)
+      ? "live"
+      : node.state === "watching"
+        ? "info"
+        : "neutral";
 
   return (
     <article class={`agent-roster-card layer-${node.layer}${contentUpdated ? " is-content-updated" : ""}`}>
@@ -157,9 +324,7 @@ function AgentRosterCard({
           <h3>{node.name}</h3>
           <p>{agentRoleTitle(node.name) ?? node.layer} - {t(`agents.layer.${rosterLayerOf(node.name)}`)}</p>
         </div>
-        <span class={`agent-roster-state state-${node.state}`}>
-          {agentStateLabel(node)}
-        </span>
+        <StatusBadge tone={stateTone} label={agentStateLabel(node)} />
       </header>
       <p class="agent-roster-task">
         <span>{t("agents.card.currentWork")}</span>
@@ -172,7 +337,7 @@ function AgentRosterCard({
         </div>
         <div>
           <dt>{t("agents.card.stateSince")}</dt>
-          <dd>{stateTime(node.since)}</dd>
+          <dd>{node.observed ? stateTime(node.since) : "-"}</dd>
         </div>
       </dl>
       <details class="agent-roster-details">
@@ -187,7 +352,7 @@ function AgentRosterCard({
           </div>
           <div>
             <dt>{t("agents.card.recentEvents")}</dt>
-            <dd>{agentIncidents.length}</dd>
+            <dd>{node.observed ? agentIncidents.length : "-"}</dd>
           </div>
           <div>
             <dt>{t("agents.card.reportsTo")}</dt>
@@ -216,16 +381,7 @@ function AgentRosterCard({
         <button
           type="button"
           class="is-primary"
-          onClick={() =>
-            openDeckWithContext({
-              sessionLabel: node.name,
-              newConversation: true,
-              targetAgent: node.name,
-              contextNote: agentChatContext(node, agentIncidents),
-              openingBriefing: agentConversationBriefing(node, agentIncidents),
-              prompt: `What has ${node.name} been working on?`,
-            })
-          }
+          onClick={onAsk}
         >
           {t("agents.action.ask", { agent: node.name })}
         </button>
@@ -270,20 +426,16 @@ function RosterFilter({
 }) {
   return (
     <div class="agent-roster-filter">
-      <span>{label}</span>
-      <div role="group" aria-label={t("agents.filter.groupLabel", { label })}>
-        {values.map((value) => (
-          <button
-            type="button"
-            key={value}
-            class={selected === value ? "is-active" : undefined}
-            aria-pressed={selected === value}
-            onClick={() => onSelect(value)}
-          >
-            {t(`agents.filter.option.${value}`)}
-          </button>
-        ))}
-      </div>
+      <span class="cs-field-label">{label}</span>
+      <SegmentedControl
+        ariaLabel={t("agents.filter.groupLabel", { label })}
+        value={selected}
+        options={values.map((value) => ({
+          value,
+          label: t(`agents.filter.option.${value}`),
+        }))}
+        onChange={onSelect}
+      />
     </div>
   );
 }

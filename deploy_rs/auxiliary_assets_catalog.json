@@ -1,0 +1,13 @@
+{
+  "archive_root": "_archive/python",
+  "directories": {
+    "rule-catalog": [
+      "rule-catalog/code-security/prove/fdai_prove.py",
+      "rule-catalog/code-security/prove/fdai_prove_managed.py",
+      "rule-catalog/code-security/prove/fdai_prove_native.py",
+      "rule-catalog/code-security/rules/python.py"
+    ]
+  },
+  "schema": "rust_auxiliary_assets_catalog/v1",
+  "total_cataloged_files": 4
+}

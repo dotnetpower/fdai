@@ -1,5 +1,6 @@
 /** Accessible single-axis proposal forms; baseline entries and acknowledgements grant no authority. */
 import { useState } from "preact/hooks";
+import { ActionProposalCard, type ActionProposalCardProps } from "../components/domain-primitives";
 import { alertTreatmentCandidates, type AlertQualityPayload } from "./alert-quality.model";
 import {
   alertProposalEvidenceReady, initialAlertProposal, validateAlertProposal,
@@ -37,47 +38,61 @@ export function AlertQualityProposalEditor({ data, scope, held, now, onSubmit, d
   const { body, errors } = validateAlertProposal(data, scope, draft, now);
   const blocked = held || !ready;
   const candidates = data.assessment === null ? [] : alertTreatmentCandidates(data.assessment, draft.kind);
-  return <form class="stack" style={{ gap: 24 }} aria-labelledby="alert-quality-proposal-title" onSubmit={(event) => {
-    event.preventDefault();
-    if (!blocked && body !== null) onSubmit(draft);
-  }}>
-    <div class="stack-section">
-      <h3 id="alert-quality-proposal-title">{text("proposal")}</h3>
-      <p>{text("proposalHelp")}</p>
-      <p class="muted">{text("noChange")}</p>
-    </div>
-    <label style={{ minWidth: 0, maxWidth: 480, display: "grid", gap: 8 }}>
-      <span>{text("treatment")}</span>
-      <select class="cs-control-select" name="treatment_kind" value={draft.kind} disabled={held} style={control}
-        aria-describedby="alert-quality-axis-help" onChange={(event) => {
-          const kind = event.currentTarget.value;
-          if (kind === "routing" || kind === "suppression" || kind === "evaluation") onDraft(initialAlertProposal(kind));
-        }}>
-        {(["routing", "suppression", "evaluation"] as const).map((kind) => <option key={kind} value={kind}>{text(`kind.${kind}`)}</option>)}
-      </select>
-    </label>
-    <p id="alert-quality-axis-help" class="muted">{text("otherTreatments")}</p>
-    <p id="alert-quality-proposal-help" class="muted">{text(ready ? "proposalFields" : "proposalHold")}</p>
-    <fieldset class="stack" disabled={blocked} aria-describedby="alert-quality-proposal-help" style={fieldset}>
-      <legend class="sr-only">{text("proposal")}</legend>
-      <SelectField field="target_ref" label="rule" value={draft.target_ref} error={errors.target_ref}
-        choices={candidates.map((value) => ({ value, label: value }))} placeholder="chooseRule"
-        onValue={(target_ref) => onDraft({ ...draft, target_ref })} />
-      {draft.kind === "routing" ? <>
-        <p class="muted">{text("routingFieldsHelp")}</p>
-        <div class="form-grid" style={grid}>
-          <InputField field="remove_group_ref" label="removeGroup" value={draft.remove_group_ref} error={errors.remove_group_ref}
-            onValue={(remove_group_ref) => onDraft({ ...draft, remove_group_ref })} />
-          <InputField field="replacement_group_ref" label="replacementGroup" value={draft.replacement_group_ref} error={errors.replacement_group_ref}
-            onValue={(replacement_group_ref) => onDraft({ ...draft, replacement_group_ref })} />
+  const proposalCardProps: ActionProposalCardProps = {
+    title: text("proposal"),
+    statusTone: ready ? "human" : "neutral",
+    statusLabel: text(`kind.${draft.kind}`),
+    authorityLabel: text("shadow"),
+    authorityTone: "neutral",
+    evidenceFacts: [
+      { label: text("scope"), value: <span class="mono">{scope}</span> },
+      { label: text("treatment"), value: text(`kind.${draft.kind}`) },
+    ],
+    authorityNotice: text("noChange"),
+    proposalSlot: (
+      <form class="stack" style={{ gap: 24 }} aria-labelledby="alert-quality-proposal-title" onSubmit={(event) => {
+        event.preventDefault();
+        if (!blocked && body !== null) onSubmit(draft);
+      }}>
+        <div class="stack-section">
+          <h3 id="alert-quality-proposal-title">{text("proposal")}</h3>
+          <p>{text("proposalHelp")}</p>
         </div>
-      </> : draft.kind === "suppression" ? <SuppressionFields draft={draft} errors={errors} onDraft={onDraft} />
-        : <EvaluationFields draft={draft} errors={errors} onDraft={onDraft} />}
-    </fieldset>
-    {body !== null ? <DraftPreview draft={draft} body={body} /> : null}
-    <button class="btn" type="submit" style={{ minHeight: 44, alignSelf: "start" }}
-      aria-describedby="alert-quality-proposal-help" disabled={blocked || body === null}>{text("submitProposal")}</button>
-  </form>;
+        <label class="cs-field" style={{ minWidth: 0, maxWidth: 480 }}>
+          <span class="cs-field-label">{text("treatment")}</span>
+          <select class="cs-field-select" name="treatment_kind" value={draft.kind} disabled={held} style={control}
+            aria-describedby="alert-quality-axis-help" onChange={(event) => {
+              const kind = event.currentTarget.value;
+              if (kind === "routing" || kind === "suppression" || kind === "evaluation") onDraft(initialAlertProposal(kind));
+            }}>
+            {(["routing", "suppression", "evaluation"] as const).map((kind) => <option key={kind} value={kind}>{text(`kind.${kind}`)}</option>)}
+          </select>
+        </label>
+        <p id="alert-quality-axis-help" class="muted">{text("otherTreatments")}</p>
+        <p id="alert-quality-proposal-help" class="muted">{text(ready ? "proposalFields" : "proposalHold")}</p>
+        <fieldset class="stack" disabled={blocked} aria-describedby="alert-quality-proposal-help" style={fieldset}>
+          <legend class="sr-only">{text("proposal")}</legend>
+          <SelectField field="target_ref" label="rule" value={draft.target_ref} error={errors.target_ref}
+            choices={candidates.map((value) => ({ value, label: value }))} placeholder="chooseRule"
+            onValue={(target_ref) => onDraft({ ...draft, target_ref })} />
+          {draft.kind === "routing" ? <>
+            <p class="muted">{text("routingFieldsHelp")}</p>
+            <div class="form-grid" style={grid}>
+              <InputField field="remove_group_ref" label="removeGroup" value={draft.remove_group_ref} error={errors.remove_group_ref}
+                onValue={(remove_group_ref) => onDraft({ ...draft, remove_group_ref })} />
+              <InputField field="replacement_group_ref" label="replacementGroup" value={draft.replacement_group_ref} error={errors.replacement_group_ref}
+                onValue={(replacement_group_ref) => onDraft({ ...draft, replacement_group_ref })} />
+            </div>
+          </> : draft.kind === "suppression" ? <SuppressionFields draft={draft} errors={errors} onDraft={onDraft} />
+            : <EvaluationFields draft={draft} errors={errors} onDraft={onDraft} />}
+        </fieldset>
+        {body !== null ? <DraftPreview draft={draft} body={body} /> : null}
+        <button class="btn" type="submit" style={{ minHeight: 44, alignSelf: "start" }}
+          aria-describedby="alert-quality-proposal-help" disabled={blocked || body === null}>{text("submitProposal")}</button>
+      </form>
+    ),
+  };
+  return <ActionProposalCard {...proposalCardProps} />;
 }
 
 function FieldError({ field, error, visible }: {
@@ -93,9 +108,9 @@ function InputField({ field, label, value, error, onValue, format = "reference" 
   readonly format?: "reference" | "timestamp" | "number" | "seconds";
 }) {
   const invalid = value !== "" && error !== undefined;
-  return <label style={{ minWidth: 0, display: "grid", gap: 8 }} htmlFor={fieldId(field)}>
-    <span>{text(label)}</span>
-    <input class="cs-control-input" id={fieldId(field)} name={field} type="text" required value={value} style={control}
+  return <label class="cs-field" style={{ minWidth: 0 }} htmlFor={fieldId(field)}>
+    <span class="cs-field-label">{text(label)}</span>
+    <input class="cs-field-control" id={fieldId(field)} name={field} type="text" required value={value} style={control}
       maxLength={format === "reference" ? 160 : format === "timestamp" ? 40 : 128}
       autoComplete="off" spellcheck={false} inputMode={format === "seconds" ? "numeric" : "text"}
       aria-invalid={invalid} aria-describedby={invalid ? `${fieldId(field)}-error` : undefined}
@@ -113,9 +128,9 @@ function SelectField({ field, label, value, error, choices, onValue, placeholder
   readonly placeholder?: AlertQualityMessage;
 }) {
   const invalid = value !== "" && error !== undefined;
-  return <label style={{ minWidth: 0, display: "grid", gap: 8 }} htmlFor={fieldId(field)}>
-    <span>{text(label)}</span>
-    <select class="cs-control-select" id={fieldId(field)} name={field} required style={control} value={value} aria-invalid={invalid}
+  return <label class="cs-field" style={{ minWidth: 0 }} htmlFor={fieldId(field)}>
+    <span class="cs-field-label">{text(label)}</span>
+    <select class="cs-field-select" id={fieldId(field)} name={field} required style={control} value={value} aria-invalid={invalid}
       aria-describedby={invalid ? `${fieldId(field)}-error` : undefined} onChange={(event) => onValue(event.currentTarget.value)}>
       <option value="" disabled={value !== ""}>{text(placeholder)}</option>
       {choices.map((choice) => <option key={choice.value} value={choice.value}>{choice.label}</option>)}
@@ -132,11 +147,11 @@ function SuppressionFields({ draft, errors, onDraft }: {
     <p id="alert-quality-processing-help" class="muted">{text("suppressionPrerequisite")}</p>
     <InputField field="processing_rule_ref" label="processingRule" value={draft.processing_rule_ref} error={errors.processing_rule_ref}
       onValue={(processing_rule_ref) => onDraft({ ...draft, processing_rule_ref })} />
-    <label style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 44 }}>
-      <input name="preprovisioned" type="checkbox" required checked={draft.preprovisioned}
-        aria-describedby="alert-quality-processing-help" style={{ minWidth: 24, minHeight: 24 }}
+    <label class="cs-choice-row" style={{ minHeight: 44 }}>
+      <input class="cs-choice-input" name="preprovisioned" type="checkbox" required checked={draft.preprovisioned}
+        aria-describedby="alert-quality-processing-help"
         onChange={(event) => onDraft({ ...draft, preprovisioned: event.currentTarget.checked })} />
-      <span>{text("preprovisionedConfirm")}</span>
+      <span class="cs-choice-copy">{text("preprovisionedConfirm")}</span>
     </label>
     <div class="form-grid" style={grid}>
       <InputField field="starts_at" label="starts" format="timestamp" value={draft.starts_at} error={errors.starts_at}

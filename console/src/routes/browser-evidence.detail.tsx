@@ -1,5 +1,8 @@
 import {
-  CopyButton,
+  HashChainBadge,
+  type HashChainStatus,
+} from "../components/domain-primitives";
+import {
   StatusPill,
   type PillKind,
 } from "../components/ui";
@@ -7,6 +10,14 @@ import { currentRoute, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { t } from "./i18n/browser-evidence";
 import type { BrowserEvidenceItem } from "./browser-evidence.model";
+
+function browserEvidenceHashStatus(item: BrowserEvidenceItem): HashChainStatus {
+  if (item.prompt_injection_finding_count > 0 || item.retention_state === "expired_pending_purge") {
+    return "gap";
+  }
+  if (item.isolation_verified) return "verified";
+  return "unverified";
+}
 
 export function BrowserEvidenceDetail({ item }: { readonly item: BrowserEvidenceItem }) {
   const deepLink = routeHref("browser-evidence", {
@@ -147,12 +158,14 @@ export function BrowserEvidenceDetail({ item }: { readonly item: BrowserEvidence
         <section>
           <h3>{t("browserEvidence.detail.identity")}</h3>
           <div class="browser-evidence-identity">
+            <HashChainBadge
+              status={browserEvidenceHashStatus(item)}
+              label={browserEvidenceAttentionLabel(item)}
+              entryHash={item.artifact_id}
+              copyLabel={t("browserEvidence.detail.copyIdentity")}
+            />
             <code>{item.artifact_id}</code>
             <div>
-              <CopyButton
-                text={item.artifact_id}
-                label={t("browserEvidence.detail.copyIdentity")}
-              />
               <a class="btn" href={deepLink}>
                 {t("browserEvidence.detail.openDeepLink")}
               </a>

@@ -1,0 +1,178 @@
+{
+  "$defs": {
+    "ObserverDeploymentFact": {
+      "additionalProperties": false,
+      "description": "One target-bound preflight result; unknown never satisfies a deployment prerequisite.",
+      "properties": {
+        "target_ref": {
+          "maxLength": 512,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+          "title": "Target Ref",
+          "type": "string"
+        },
+        "name": {
+          "enum": [
+            "azure_policy",
+            "kubernetes_read",
+            "admission",
+            "capacity",
+            "artifact_verified",
+            "persistent_storage",
+            "mtls_gateway",
+            "ownership_known",
+            "public_egress",
+            "private_egress",
+            "gitops_authorized",
+            "existing_host_authorized",
+            "managed_host_authorized",
+            "run_command_authorized",
+            "managed_host_budget",
+            "managed_host_plan_feasible"
+          ],
+          "title": "Name",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "allowed",
+            "denied",
+            "unknown"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "azure_management",
+            "kubernetes_api",
+            "deployment_profile",
+            "network_probe",
+            "operator_review"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "evidence_digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Digest"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "title": "Observed At",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_ref",
+        "name",
+        "state",
+        "source",
+        "observed_at",
+        "expires_at"
+      ],
+      "title": "ObserverDeploymentFact",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Input assembled by authenticated read adapters, never a permission grant.",
+  "properties": {
+    "target_ref": {
+      "maxLength": 512,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+      "title": "Target Ref",
+      "type": "string"
+    },
+    "discovery_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Discovery Digest",
+      "type": "string"
+    },
+    "observed_at": {
+      "format": "date-time",
+      "title": "Observed At",
+      "type": "string"
+    },
+    "expires_at": {
+      "format": "date-time",
+      "title": "Expires At",
+      "type": "string"
+    },
+    "private_cluster": {
+      "title": "Private Cluster",
+      "type": "boolean"
+    },
+    "facts": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ObserverDeploymentFact"
+      },
+      "maxItems": 16,
+      "title": "Facts",
+      "type": "array"
+    },
+    "existing_method": {
+      "anyOf": [
+        {
+          "enum": [
+            "gitops",
+            "existing_host",
+            "managed_host",
+            "run_command"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Existing Method"
+    },
+    "requested_method": {
+      "anyOf": [
+        {
+          "enum": [
+            "gitops",
+            "existing_host",
+            "managed_host",
+            "run_command"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Requested Method"
+    }
+  },
+  "required": [
+    "target_ref",
+    "discovery_digest",
+    "observed_at",
+    "expires_at",
+    "private_cluster"
+  ],
+  "title": "ObserverDeploymentContext",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/observer-deployment-context/1.0.0"
+}

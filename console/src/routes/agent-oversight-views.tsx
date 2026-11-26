@@ -10,6 +10,7 @@ import {
   StatusPill,
   type AsyncState,
 } from "../components/ui";
+import { FilterToolbar, SearchInput, SelectField } from "../components/form-controls";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
@@ -377,27 +378,35 @@ function HumanDependencies({ data }: { readonly data: StewardshipResponse }) {
             label={ownershipText(`readiness.${ownership.deployment_readiness}`)}
           />
         </header>
-        <div class="ownership-filters" role="group" aria-label={ownershipText("filtersLabel")}>
-          <input
-            type="search"
+        <FilterToolbar
+          ariaLabel={ownershipText("filtersLabel")}
+          className="ownership-filters"
+          actions={<span>{ownershipText("filteredAgents", { count: agents.length })}</span>}
+        >
+          <SearchInput
+            label={ownershipText("searchOwners")}
+            hideLabel
             value={query}
-            aria-label={ownershipText("searchOwners")}
             placeholder={ownershipText("searchOwners")}
-            onInput={(event) => setQuery(event.currentTarget.value)}
+            size="sm"
+            onInput={setQuery}
           />
-          <select
+          <SelectField
+            label={ownershipText("statusFilter")}
+            hideLabel
+            ariaLabel={ownershipText("statusFilter")}
             value={status}
-            aria-label={ownershipText("statusFilter")}
-            onChange={(event) => setStatus(event.currentTarget.value as typeof status)}
-          >
-            <option value="all">{ownershipText("statusFilterValue.all")}</option>
-            <option value="ready">{ownershipText("statusFilterValue.ready")}</option>
-            <option value="attention">{ownershipText("statusFilterValue.attention")}</option>
-            <option value="autonomous">{ownershipText("statusFilterValue.autonomous")}</option>
-            <option value="proposal">{ownershipText("statusFilterValue.proposal")}</option>
-          </select>
-          <span>{ownershipText("filteredAgents", { count: agents.length })}</span>
-        </div>
+            size="sm"
+            options={[
+              { value: "all", label: ownershipText("statusFilterValue.all") },
+              { value: "ready", label: ownershipText("statusFilterValue.ready") },
+              { value: "attention", label: ownershipText("statusFilterValue.attention") },
+              { value: "autonomous", label: ownershipText("statusFilterValue.autonomous") },
+              { value: "proposal", label: ownershipText("statusFilterValue.proposal") },
+            ]}
+            onChange={(value) => setStatus(value as typeof status)}
+          />
+        </FilterToolbar>
         {agents.length === 0 ? (
           <div class="state-block state-empty">{ownershipText("noOwnersMatch")}</div>
         ) : (

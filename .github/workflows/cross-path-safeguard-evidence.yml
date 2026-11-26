@@ -119,7 +119,7 @@ jobs:
       - name: Validate the predeclared cross-path matrix
         run: |
           set -euo pipefail
-          uv run python scripts/quality/repository/validate-cross-path-safeguard-evidence.py
+          uv run python _archive/python/scripts/quality/repository/validate-cross-path-safeguard-evidence.py
 
       - name: Retain the contract validation receipt
         run: |

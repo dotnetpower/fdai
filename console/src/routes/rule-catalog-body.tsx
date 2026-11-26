@@ -1,4 +1,8 @@
 import { useMemo } from "preact/hooks";
+import {
+  RuleFacetToolbar,
+  buildFacetSelectOptions,
+} from "../components/rule-facet-toolbar";
 import { Tooltip } from "../components/tooltip";
 import {
   DataTable,
@@ -13,7 +17,6 @@ import { getLocale } from "../i18n";
 import { currentRoute, routeHref } from "../router";
 import { displayValue, t } from "./i18n/governance";
 import { isRuleEffectiveEnabled } from "./rule-catalog-activation";
-import { FacetSelect } from "./rule-catalog-components";
 import { buildRuleGuidance, formatRuleResourceType, ruleDisplayTitle } from "./rule-catalog-guidance";
 import { PINNED_MSRC_CSAF_CATALOG } from "./msrc-csaf-controls.model";
 import { RulesCatalogRail } from "./rule-catalog-rail";
@@ -364,34 +367,68 @@ export function RuleCatalogBody({
       </KpiGrid>
 
       <section class="stack-section">
-        <div class="rule-facet-toolbar">
-          <label class="rule-facet-search">
-            <span>{t("governance.rules.filter.searchAria")}</span>
-            <input
-              type="search"
-              maxLength={256}
-              value={searchInput}
-              placeholder={t("governance.rules.filter.searchPlaceholder")}
-              onInput={(event) => onSearch((event.target as HTMLInputElement).value)}
-            />
-          </label>
-          <FacetSelect label={t("governance.rules.filter.origin")} value={filters.origin} counts={data.facets.by_origin} displayGroup="origin" onChange={(value) => onFilter({ origin: value })} />
-          <FacetSelect label={t("governance.rules.filter.category")} value={filters.category} counts={data.facets.by_category} displayGroup="category" onChange={(value) => onFilter({ category: value })} />
-          <FacetSelect label={t("governance.rules.filter.severity")} value={filters.severity} counts={data.facets.by_severity} displayGroup="severity" onChange={(value) => onFilter({ severity: value })} />
-          <FacetSelect label={t("governance.rules.filter.source")} value={filters.source} counts={data.facets.by_source} displayGroup="ruleSource" onChange={(value) => onFilter({ source: value })} />
-          {Boolean(filters.origin || filters.category || filters.severity || filters.source || filters.q || searchInput) ? (
-            <button
-              type="button"
-              class="btn"
-              onClick={() => {
-                onSearch("");
-                onFilter({ origin: "", category: "", severity: "", source: "", q: "" });
-              }}
-            >
-              {t("governance.common.clearFilter")}
-            </button>
-          ) : null}
-        </div>
+        <RuleFacetToolbar
+          ariaLabel={t("governance.rules.filter.searchAria")}
+          search={{
+            label: t("governance.rules.filter.searchAria"),
+            value: searchInput,
+            maxLength: 256,
+            placeholder: t("governance.rules.filter.searchPlaceholder"),
+            clearLabel: t("governance.common.clearFilter"),
+            onInput: onSearch,
+          }}
+          facets={[
+            {
+              id: "rule-facet-origin",
+              label: t("governance.rules.filter.origin"),
+              value: filters.origin,
+              options: buildFacetSelectOptions(
+                data.facets.by_origin,
+                t("governance.common.all"),
+                (key) => displayValue("origin", key),
+              ),
+              onChange: (value) => onFilter({ origin: value }),
+            },
+            {
+              id: "rule-facet-category",
+              label: t("governance.rules.filter.category"),
+              value: filters.category,
+              options: buildFacetSelectOptions(
+                data.facets.by_category,
+                t("governance.common.all"),
+                (key) => displayValue("category", key),
+              ),
+              onChange: (value) => onFilter({ category: value }),
+            },
+            {
+              id: "rule-facet-severity",
+              label: t("governance.rules.filter.severity"),
+              value: filters.severity,
+              options: buildFacetSelectOptions(
+                data.facets.by_severity,
+                t("governance.common.all"),
+                (key) => displayValue("severity", key),
+              ),
+              onChange: (value) => onFilter({ severity: value }),
+            },
+            {
+              id: "rule-facet-source",
+              label: t("governance.rules.filter.source"),
+              value: filters.source,
+              options: buildFacetSelectOptions(
+                data.facets.by_source,
+                t("governance.common.all"),
+                (key) => displayValue("ruleSource", key),
+              ),
+              onChange: (value) => onFilter({ source: value }),
+            },
+          ]}
+          resetLabel={t("governance.common.clearFilter")}
+          onReset={() => {
+            onSearch("");
+            onFilter({ origin: "", category: "", severity: "", source: "", q: "" });
+          }}
+        />
 
         <div class="rules-catalog-workbench">
           <RulesCatalogRail

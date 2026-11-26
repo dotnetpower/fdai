@@ -12,10 +12,15 @@ import type {
 import {
   AsyncBoundary,
   PageHeader,
-  StatusPill,
   type AsyncState,
-  type PillKind,
 } from "../components/ui";
+import {
+  FilterToolbar,
+  SearchInput,
+  SegmentedControl,
+  SelectField,
+} from "../components/form-controls";
+import { StatusBadge, type BadgeTone } from "../components/status-badge";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { currentRoute, navigate, routeHref, ROUTE_STATE_EVENT } from "../router";
@@ -608,20 +613,24 @@ export function IncidentsRoute({ client, dataMode }: Props) {
       {verticalFilter ? (
         <div class="filter-summary"><span>{t("evidence.incidents.verticalFilter")}: <strong>{incidentVerticalDisplayLabel(verticalFilter)}</strong></span></div>
       ) : null}
-      <div class="segmented-control" role="group" aria-label={t("incidents.filterLabel")}>
-        {FILTERS.map((value) => (
-          <button
-            key={value}
-            type="button"
-            class={filter === value ? "active" : undefined}
-            aria-pressed={filter === value}
-            onClick={() => openRoute(value, null)}
-          >
-            {t(`incidents.filter.${value}`)}
-          </button>
-        ))}
-      </div>
-      <div class="incident-scope-filters">
+      <SegmentedControl
+        ariaLabel={t("incidents.filterLabel")}
+        value={filter}
+        options={FILTERS.map((value) => ({
+          value,
+          label: t(`incidents.filter.${value}`),
+        }))}
+        onChange={(value) => openRoute(value, null)}
+      />
+      <FilterToolbar
+        ariaLabel={t("incidents.filterLabel")}
+        className="incident-scope-filters"
+        activeFilterCount={
+          (searchFilter ? 1 : 0) + (verticalFilter ? 1 : 0) + (severityFilter ? 1 : 0)
+        }
+        onReset={() => openFilters(null, null, "")}
+        resetLabel={t("incidents.filter.clearScope")}
+      >
         <form
           class="incident-search-filter"
           onSubmit={(event: JSX.TargetedSubmitEvent<HTMLFormElement>) => {
@@ -629,54 +638,44 @@ export function IncidentsRoute({ client, dataMode }: Props) {
             openFilters(verticalFilter, severityFilter, normalizeIncidentSearch(searchDraft));
           }}
         >
-          <label>
-            <span>{t("incidents.filter.searchLabel")}</span>
-            <input
-              type="search"
-              maxLength={SEARCH_MAX_LENGTH}
-              placeholder={t("incidents.filter.searchPlaceholder")}
-              value={searchDraft}
-              onInput={(event) => setSearchDraft(event.currentTarget.value)}
-            />
-          </label>
-          <button type="submit">{t("incidents.filter.search")}</button>
+          <SearchInput
+            label={t("incidents.filter.searchLabel")}
+            maxLength={SEARCH_MAX_LENGTH}
+            placeholder={t("incidents.filter.searchPlaceholder")}
+            value={searchDraft}
+            onInput={(value) => setSearchDraft(value)}
+            onClear={() => {
+              setSearchDraft("");
+              openFilters(verticalFilter, severityFilter, "");
+            }}
+          />
+          <button type="submit" class="btn secondary btn-sm">{t("incidents.filter.search")}</button>
         </form>
-        <label>
-          <span>{t("incidents.verticalLabel")}</span>
-          <select
-            value={verticalFilter ?? ""}
-            onChange={(event) => openFilters(
-              parseIncidentVertical((event.currentTarget as HTMLSelectElement).value),
-              severityFilter,
-            )}
-          >
-            <option value="">{t("incidents.filter.anyVertical")}</option>
-            {INCIDENT_VERTICALS.map((value) => (
-              <option key={value} value={value}>{localized("vertical", value)}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>{t("incidents.overview.severity")}</span>
-          <select
-            value={severityFilter ?? ""}
-            onChange={(event) => openFilters(
-              verticalFilter,
-              parseIncidentSeverity((event.currentTarget as HTMLSelectElement).value),
-            )}
-          >
-            <option value="">{t("incidents.filter.anySeverity")}</option>
-            {INCIDENT_SEVERITIES.map((value) => (
-              <option key={value} value={value}>{localized("severity", value)}</option>
-            ))}
-          </select>
-        </label>
-        {searchFilter || verticalFilter || severityFilter ? (
-          <button type="button" onClick={() => openFilters(null, null, "")}>
-            {t("incidents.filter.clearScope")}
-          </button>
-        ) : null}
-      </div>
+        <SelectField
+          label={t("incidents.verticalLabel")}
+          value={verticalFilter ?? ""}
+          options={[
+            { value: "", label: t("incidents.filter.anyVertical") },
+            ...INCIDENT_VERTICALS.map((value) => ({
+              value,
+              label: localized("vertical", value),
+            })),
+          ]}
+          onChange={(value) => openFilters(parseIncidentVertical(value), severityFilter)}
+        />
+        <SelectField
+          label={t("incidents.overview.severity")}
+          value={severityFilter ?? ""}
+          options={[
+            { value: "", label: t("incidents.filter.anySeverity") },
+            ...INCIDENT_SEVERITIES.map((value) => ({
+              value,
+              label: localized("severity", value),
+            })),
+          ]}
+          onChange={(value) => openFilters(verticalFilter, parseIncidentSeverity(value))}
+        />
+      </FilterToolbar>
       <AsyncBoundary state={state} resourceLabel={t("route.incidents")}>
         {(data) => (
           <IncidentBody
@@ -801,7 +800,7 @@ function IncidentBody({
                     </span>
                   ) : null}
                   <span class="incident-roster-meta">
-                    <StatusPill kind={severityPill(item.severity)} label={localized("severity", item.severity)} />
+                    <StatusBadge tone={severityTone(item.severity)} label={localized("severity", item.severity)} />
                     <span class={`incident-status-dot status-${item.status}`} aria-hidden="true" />
                     <span>{localized("status", item.status)}</span>
                     <span aria-hidden="true">/</span>
@@ -987,8 +986,8 @@ function IncidentDetail({
             </span>
             <strong class="mono">{incidentDisplayIdentifier(incident)}</strong>
           </div>
-          <StatusPill kind={severityPill(incident.severity)} label={localized("severity", incident.severity)} />
-          <StatusPill kind={statusPill(incident.status)} label={localized("status", incident.status)} />
+          <StatusBadge tone={severityTone(incident.severity)} label={localized("severity", incident.severity)} />
+          <StatusBadge tone={statusTone(incident.status)} label={localized("status", incident.status)} />
           {dataMode === "live" ? (
             <IncidentIntervention
               client={client}
@@ -1011,7 +1010,7 @@ function IncidentDetail({
             <div><dt>{t("incidents.incidentId")}</dt><dd class="mono">{incident.incident_id ?? t("incidents.none")}</dd></div>
             <div><dt>{t("incidents.ticketId")}</dt><dd class="mono">{incident.ticket_id ?? t("incidents.none")}</dd></div>
             <div><dt>{t("incidents.currentDisposition")}</dt><dd>{localized("disposition", incident.disposition)}</dd></div>
-            <div><dt>{t("incidents.currentVerdict")}</dt><dd><StatusPill kind={verdictPill(incident.verdict)} label={localized("verdict", incident.verdict)} /></dd></div>
+            <div><dt>{t("incidents.currentVerdict")}</dt><dd><StatusBadge tone={verdictTone(incident.verdict)} label={localized("verdict", incident.verdict)} /></dd></div>
             <div><dt>{t("incidents.verticalLabel")}</dt><dd>{localized("vertical", incident.vertical)}</dd></div>
             <div><dt>{t("incidents.statusSource")}</dt><dd class="mono">{incident.status_source}</dd></div>
             <div><dt>{t("incidents.titleSource")}</dt><dd class="mono">{incident.title_source}</dd></div>
@@ -1113,7 +1112,7 @@ function IncidentCurrentState({
           <span class="incident-section-label">{t("incidents.overview.label")}</span>
           <h3 id="incident-current-state-title">{t(`incidents.overview.headline.${overview.phase}`)}</h3>
         </div>
-        <StatusPill kind={phasePill(overview.phase)} label={t(`incidents.overview.badge.${overview.phase}`)} />
+        <StatusBadge tone={phaseTone(overview.phase)} label={t(`incidents.overview.badge.${overview.phase}`)} />
       </header>
       <p>{t(`incidents.overview.body.${overview.phase}`)}</p>
       {overview.approvalDeliveryUnavailable && overview.phase !== "approval_delivery_unavailable" ? (
@@ -1281,10 +1280,10 @@ function humanizeIncidentToken(value: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-function statusPill(status: IncidentSummary["status"]): PillKind {
-  if (status === "resolved") return "success";
+function statusTone(status: IncidentSummary["status"]): BadgeTone {
+  if (status === "resolved") return "live";
   if (status === "in_progress") return "info";
-  return "hil";
+  return "human";
 }
 
 /**
@@ -1344,27 +1343,27 @@ function NotificationDeliveryEvidence(
   );
 }
 
-function severityPill(severity: string): PillKind {
-  if (severity === "critical" || severity === "high") return "danger";
-  if (severity === "medium") return "hil";
+function severityTone(severity: string): BadgeTone {
+  if (severity === "critical" || severity === "high") return "sec";
+  if (severity === "medium") return "sre";
   if (severity === "low" || severity === "info") return "info";
   return "neutral";
 }
 
-function verdictPill(verdict: string): PillKind {
-  if (verdict === "auto") return "auto";
-  if (verdict === "hil") return "hil";
-  if (verdict === "deny") return "danger";
+function verdictTone(verdict: string): BadgeTone {
+  if (verdict === "auto") return "live";
+  if (verdict === "hil") return "human";
+  if (verdict === "deny") return "sec";
   return "neutral";
 }
 
-function phasePill(phase: IncidentOperationalOverview["phase"]): PillKind {
-  if (phase === "resolved") return "success";
+function phaseTone(phase: IncidentOperationalOverview["phase"]): BadgeTone {
+  if (phase === "resolved") return "live";
   if (
     phase === "notification_failed"
     || phase === "approval_delivery_unavailable"
     || phase === "response_failed"
-  ) return "danger";
-  if (phase === "approval_required") return "hil";
+  ) return "sec";
+  if (phase === "approval_required") return "human";
   return "info";
 }

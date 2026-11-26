@@ -1,0 +1,87 @@
+.conversation-search-view .conversation-search-form {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+  padding: 16px;
+  border: 1px solid var(--cs-hairline, var(--border));
+  border-radius: var(--cs-radius);
+  background: var(--cs-card, var(--bg-elevated));
+}
+
+.conversation-search-view .conversation-search-form > .cs-field {
+  grid-column: span 4;
+}
+
+.conversation-search-view .conversation-search-form > .conversation-search-query {
+  grid-column: span 6;
+}
+
+.conversation-search-view .conversation-search-form > .conversation-search-compact {
+  grid-column: span 3;
+}
+
+.conversation-search-view .conversation-search-submit {
+  grid-column: span 4;
+  min-height: 36px;
+  justify-content: center;
+}
+
+.conversation-search-view .conversation-search-result {
+  display: grid;
+  gap: 10px;
+  padding: 16px 0;
+  border-top: 1px solid var(--cs-hairline, var(--border));
+  background: transparent;
+}
+
+.conversation-search-view .conversation-search-context {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 12px 0 0;
+  border-top: 1px dashed var(--cs-hairline, var(--border));
+  background: transparent;
+}
+
+.conversation-search-view .conversation-search-context-group {
+  display: grid;
+  gap: 10px;
+}
+
+.conversation-search-view .conversation-search-actions {
+  margin-top: 6px;
+}
+
+.conversation-search-view .conversation-search-actions code {
+  padding: 2px 7px;
+  border: 1px solid var(--cs-hairline, var(--border));
+  border-radius: var(--cs-radius-badge, 5px);
+  background: var(--cs-shade);
+  font-size: var(--cs-type-label-size, 12px);
+}
+
+@media (max-width: 900px) {
+  .conversation-search-view .conversation-search-form > .cs-field,
+  .conversation-search-view .conversation-search-form > .conversation-search-compact,
+  .conversation-search-view .conversation-search-submit {
+    grid-column: span 6;
+  }
+
+  .conversation-search-view .conversation-search-form > .conversation-search-query {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .conversation-search-view .conversation-search-form {
+    padding: 12px;
+  }
+
+  .conversation-search-view .conversation-search-form > .cs-field,
+  .conversation-search-view .conversation-search-form > .conversation-search-query,
+  .conversation-search-view .conversation-search-form > .conversation-search-compact,
+  .conversation-search-view .conversation-search-submit {
+    grid-column: 1 / -1;
+  }
+}

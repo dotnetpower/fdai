@@ -8,34 +8,17 @@ import {
 } from "../router";
 import { t } from "../i18n";
 
-const AGENT_WORKSPACE_ITEMS = [
-  {
-    id: "fleet",
-    labelKey: "agents.workspace.fleet",
-    href: (route = currentRoute()) => routeHref("agents", {
-      params: { data: route.search.get("data") === "sample" ? "sample" : null },
-    }),
-    active: (route = currentRoute()) => route.panelId === "agents" &&
-      route.search.get("view") !== "org" &&
-      route.search.get("view") !== "constellation",
-  },
-  {
-    id: "activity",
-    labelKey: "agents.workspace.activity",
-    href: (route = currentRoute()) => routeHref("agent-activity", {
-      params: { data: route.search.get("data") === "sample" ? "sample" : null },
-    }),
-    active: (route = currentRoute()) => route.panelId === "agent-activity",
-  },
-] as const;
-
-export function rolesHref(route = currentRoute()): string {
-  const data = route.search.get("data") === "sample" ? "sample" : null;
-  if (route.panelId === "pantheon" || (
+export function isRolesPanelRoute(route = currentRoute()): boolean {
+  return route.panelId === "pantheon" || (
     route.panelId === "agents" && (
       route.search.get("view") === "org" || route.search.get("view") === "constellation"
     )
-  )) {
+  );
+}
+
+export function rolesHref(route = currentRoute()): string {
+  const data = route.search.get("data") === "sample" ? "sample" : null;
+  if (isRolesPanelRoute(route)) {
     return routeHref("pantheon", { params: { data, agent: route.search.get("agent") } });
   }
   if (route.panelId !== "agent-activity") {
@@ -55,6 +38,13 @@ export function rolesHref(route = currentRoute()): string {
   });
 }
 
+/**
+ * Compact quick-access trigger for the route-backed Roles and ownership overlay.
+ *
+ * Hub switching across Agents routes is owned by NavigationShell and PanelHubTabs,
+ * so this bar never duplicates Fleet/Activity tabs and renders nothing on Pantheon
+ * where PanelHubTabs already owns hub tabs.
+ */
 export function AgentWorkspaceNav() {
   const [, setRouteRevision] = useState(0);
   const popstateCleanupRef = useRef<(() => void) | null>(null);
@@ -72,43 +62,20 @@ export function AgentWorkspaceNav() {
     };
   }, []);
   const route = currentRoute();
-  const rolesActive = route.panelId === "pantheon" || (
-    route.panelId === "agents" && (
-      route.search.get("view") === "org" || route.search.get("view") === "constellation"
-    )
-  ) || (
-    route.panelId === "agent-activity" && route.search.get("roles") === "1"
-  );
-  const rolesFallback = route.panelId === "pantheon" || (
-    route.panelId === "agents" && (
-      route.search.get("view") === "org" || route.search.get("view") === "constellation"
-    )
-  );
+  if (isRolesPanelRoute(route)) {
+    return null;
+  }
+  const rolesActive = route.panelId === "agent-activity" && route.search.get("roles") === "1";
   return (
-    <nav class="agent-workspace-nav" aria-label={t("agents.workspace.label")}>
-      {AGENT_WORKSPACE_ITEMS.map((item) => {
-        const active = item.active(route);
-        return (
-          <a
-            key={item.id}
-            href={item.href(route)}
-            class={active ? "is-active" : undefined}
-            aria-current={active ? "page" : undefined}
-          >
-            {t(item.labelKey)}
-          </a>
-        );
-      })}
+    <nav class="agent-workspace-nav agent-workspace-nav--compact" aria-label={t("agents.workspace.label")}>
       <a
         id="agent-roles-trigger"
         href={rolesHref(route)}
-        class={`agent-workspace-roles${rolesActive ? " is-active" : ""}`}
-        aria-current={rolesFallback ? "page" : undefined}
-        aria-haspopup={rolesFallback ? undefined : "dialog"}
-        aria-expanded={rolesFallback ? undefined : rolesActive}
+        class={`cs-control-button agent-workspace-roles${rolesActive ? " is-active" : ""}`}
+        aria-haspopup="dialog"
+        aria-expanded={rolesActive}
         onClick={(event) => {
           if (
-            rolesFallback ||
             event.defaultPrevented ||
             event.button !== 0 ||
             event.metaKey ||

@@ -8,11 +8,12 @@ import {
   KpiCard,
   KpiGrid,
   PageHeader,
-  StatusPill,
   kpiEvidenceLabel,
   type AsyncState,
   type Column,
 } from "../components/ui";
+import { FilterToolbar, SearchInput, SelectField } from "../components/form-controls";
+import { StatusBadge } from "../components/status-badge";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
 import { getLocale } from "../i18n";
@@ -177,7 +178,7 @@ function ratio(value: Readonly<Record<string, unknown>>, key: string): number {
 export function automationBlueprintColumns(): readonly Column<BlueprintCard>[] {
   return [
     { key: "intent", header: t("evidence.blueprints.column.automation"), render: (item) => <div><strong>{item.normalized_task_intent}</strong><small>{item.schedule_expression}</small></div> },
-    { key: "state", header: t("evidence.blueprints.column.state"), render: (item) => <StatusPill kind={item.state === "draft" ? "shadow" : item.state === "materialized" ? "success" : "warning"} label={presentationLabel("status", item.state)} /> },
+    { key: "state", header: t("evidence.blueprints.column.state"), render: (item) => <StatusBadge tone={item.state === "draft" ? "neutral" : item.state === "materialized" ? "live" : "sre"} label={presentationLabel("status", item.state)} /> },
     { key: "scope", header: t("evidence.blueprints.column.scope"), render: (item) => <code>{item.resource_scope}</code> },
     { key: "evidence", header: t("evidence.blueprints.column.evidence"), render: (item) => item.evidence_fingerprints.length },
     { key: "tools", header: t("evidence.blueprints.column.tools"), render: (item) => item.required_tools.join(", ") || t("evidence.common.none") },
@@ -262,29 +263,39 @@ function BlueprintBody({ data }: { readonly data: AutomationBlueprintResponse })
           value={data.count === 0 ? kpiEvidenceLabel("insufficient-sample") : `${(data.metrics.candidate_precision * 100).toFixed(1)}%`}
         />
       </KpiGrid>
-      <div class="cs-filter-toolbar" role="search">
-        <label class="is-wide">
-          <span>{t("evidence.blueprints.column.automation")}</span>
-          <input
-            type="search"
-            value={query}
-            placeholder={getLocale() === "ko" ? "후보 ID, 작업 의도, 범위, 도구..." : "candidate, intent, scope, tool..."}
-            onInput={(event) => setQuery(event.currentTarget.value)}
-          />
-        </label>
-        <label>
-          <span>{t("evidence.blueprints.column.state")}</span>
-          <select value={stateFilter} onChange={(event) => setStateFilter(event.currentTarget.value)}>
-            <option value="all">{getLocale() === "ko" ? "전체" : "All"}</option>
-            {states.map((state) => (
-              <option key={state} value={state}>{presentationLabel("status", state)}</option>
-            ))}
-          </select>
-        </label>
-        <span class="cs-filter-count" role="status" aria-live="polite">
-          {filtered.length} / {data.candidates.length}
-        </span>
-      </div>
+      <FilterToolbar
+        ariaLabel={t("route.automationBlueprints")}
+        activeFilterCount={(query ? 1 : 0) + (stateFilter !== "all" ? 1 : 0)}
+        onReset={() => {
+          setQuery("");
+          setStateFilter("all");
+        }}
+        actions={
+          <span class="cs-filter-count" role="status" aria-live="polite">
+            {filtered.length} / {data.candidates.length}
+          </span>
+        }
+      >
+        <SearchInput
+          className="is-wide"
+          label={t("evidence.blueprints.column.automation")}
+          value={query}
+          placeholder={getLocale() === "ko" ? "후보 ID, 작업 의도, 범위, 도구..." : "candidate, intent, scope, tool..."}
+          onInput={(value) => setQuery(value)}
+        />
+        <SelectField
+          label={t("evidence.blueprints.column.state")}
+          value={stateFilter}
+          options={[
+            { value: "all", label: getLocale() === "ko" ? "전체" : "All" },
+            ...states.map((state) => ({
+              value: state,
+              label: presentationLabel("status", state),
+            })),
+          ]}
+          onChange={(value) => setStateFilter(value)}
+        />
+      </FilterToolbar>
       <div id="automation-blueprint-candidates" class={`cs-workspace-split${selected ? " has-selection" : ""}`}>
         <div class="cs-workspace-main">
           <DataTable
@@ -307,8 +318,8 @@ function BlueprintBody({ data }: { readonly data: AutomationBlueprintResponse })
                 <h3>{selected.normalized_task_intent}</h3>
                 <p>{selected.schedule_expression} / {selected.delivery_intent}</p>
               </div>
-              <StatusPill
-                kind={selected.state === "draft" ? "shadow" : selected.state === "materialized" ? "success" : "warning"}
+              <StatusBadge
+                tone={selected.state === "draft" ? "neutral" : selected.state === "materialized" ? "live" : "sre"}
                 label={presentationLabel("status", selected.state)}
               />
             </header>

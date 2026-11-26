@@ -1,7 +1,11 @@
 import type { JSX } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
-import { Tooltip } from "../components/tooltip";
+import {
+  GraphControlBar,
+  GraphLegendSwatch,
+  type GraphLegendSwatchKind,
+} from "../components/graph-control-bar";
 import { recordedStateValueText, recordedText } from "../components/recorded-state-text";
 import { routeHref } from "../router";
 import { formatDateTime, formatNumber, t } from "./i18n/ontology";
@@ -61,6 +65,24 @@ interface InstanceGraphPanState {
 
 const AKS_INITIAL_GRAPH_SCALE = 0.68;
 const AKS_INITIAL_HORIZONTAL_ANCHOR = 0.02;
+
+function instanceLinkTypeSwatch(linkType: string): {
+  readonly kind: GraphLegendSwatchKind;
+  readonly stroke: string;
+} {
+  switch (linkType) {
+    case "attached_to":
+      return { kind: "dashed", stroke: "#72888c" };
+    case "depends_on":
+      return { kind: "solid", stroke: "#637c93" };
+    case "peered_with":
+      return { kind: "dotted", stroke: "#777583" };
+    case "contains":
+      return { kind: "solid", stroke: "#8b8175" };
+    default:
+      return { kind: "solid", stroke: "#7d8992" };
+  }
+}
 
 /** Renders one bounded Resource neighborhood and its authority-preserving audit history. */
 export function OntologyInstanceGraph({ data, onSelect }: Props) {
@@ -328,27 +350,30 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
             <i aria-hidden="true" />
           </summary>
           <div class="ontology-instance-legend-body">
-            <div class="ontology-instance-graph-key" aria-label={t("ontology.instances.graphLegend") }>
-              <span><i class="is-direction" aria-hidden="true" />{t("ontology.instances.storedDirection")}</span>
-              <span><i class="is-traffic" aria-hidden="true" />{t("ontology.instances.verifiedTrafficPath")}</span>
-              <span><i class="is-runtime" aria-hidden="true" />{t("ontology.instances.runtimeContext")}</span>
-              <span><i class="is-access" aria-hidden="true" />{t("ontology.instances.accessContext")}</span>
-              <span><i class="is-containment" aria-hidden="true" />{t("ontology.instances.containmentContext")}</span>
+            <div class="ontology-instance-graph-key" aria-label={t("ontology.instances.graphLegend")}>
+              <span><GraphLegendSwatch kind="arrow" stroke="#637c93" />{t("ontology.instances.storedDirection")}</span>
+              <span><GraphLegendSwatch kind="thick" stroke="var(--accent)" />{t("ontology.instances.verifiedTrafficPath")}</span>
+              <span><GraphLegendSwatch kind="dotted" stroke="#4f7a69" />{t("ontology.instances.runtimeContext")}</span>
+              <span><GraphLegendSwatch kind="dashed" stroke="#72888c" />{t("ontology.instances.accessContext")}</span>
+              <span><GraphLegendSwatch kind="solid" stroke="#8b8175" />{t("ontology.instances.containmentContext")}</span>
             </div>
             {!showEdgeLabels ? (
-              <div class="ontology-instance-dense-legend" aria-label={t("ontology.instances.relationshipTypes") }>
+              <div class="ontology-instance-dense-legend" aria-label={t("ontology.instances.relationshipTypes")}>
                 <span>
-                  {t("ontology.instances.relationshipTypes")} ·{" "}
+                  {t("ontology.instances.relationshipTypes")} /{" "}
                   {layout.edges.length + nested.absorbedLinks.length}/{data.links.length}
                 </span>
                 <ul id="ontology-instance-relationship-types">
-                  {visibleLinkTypeCounts.map((item) => (
-                    <li key={item.linkType}>
-                      <i class={`is-${item.linkType}`} aria-hidden="true" />
-                      <strong>{t(`ontology.instances.link.${item.linkType}`)}</strong>
-                      <span>{item.displayed}/{item.count}</span>
-                    </li>
-                  ))}
+                  {visibleLinkTypeCounts.map((item) => {
+                    const swatch = instanceLinkTypeSwatch(item.linkType);
+                    return (
+                      <li key={item.linkType}>
+                        <GraphLegendSwatch kind={swatch.kind} stroke={swatch.stroke} width={18} />
+                        <strong>{t(`ontology.instances.link.${item.linkType}`)}</strong>
+                        <span>{item.displayed}/{item.count}</span>
+                      </li>
+                    );
+                  })}
                 </ul>
                 {hiddenLinkTypeCount > 0 ? (
                   <button
@@ -368,21 +393,20 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
             ) : null}
           </div>
         </details>
-        <div class="ontology-instance-graph-tools" aria-label={t("ontology.instances.graphControls") }>
-          <Tooltip content={t(fullscreen
-            ? "ontology.instances.exitFullscreen"
-            : "ontology.instances.fullscreen")}>
-            <button
-              type="button"
-              aria-label={t(fullscreen
-                ? "ontology.instances.exitFullscreen"
-                : "ontology.instances.fullscreen")}
-              aria-pressed={fullscreen}
-              onClick={() => void toggleFullscreen()}
-            >
-              <span aria-hidden="true">{fullscreen ? "×" : "⛶"}</span>
-            </button>
-          </Tooltip>
+        <div class="ontology-instance-graph-tools">
+          <GraphControlBar
+            ariaLabel={t("ontology.instances.graphControls")}
+            scale={graphScale}
+            minScale={minScaleRef.current}
+            maxScale={2.5}
+            onZoomOut={() => changeScale(graphScaleRef.current / 1.2)}
+            onZoomIn={() => changeScale(graphScaleRef.current * 1.2)}
+            onFit={() => changeScale(minScaleRef.current, true)}
+            fullscreen={fullscreen}
+            onToggleFullscreen={() => void toggleFullscreen()}
+            fullscreenLabel={t("ontology.instances.fullscreen")}
+            exitFullscreenLabel={t("ontology.instances.exitFullscreen")}
+          />
         </div>
         <div
           class={`ontology-instance-graph-scroll${isPanning ? " is-panning" : ""}`}

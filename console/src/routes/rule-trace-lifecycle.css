@@ -1,10 +1,11 @@
 .trace-action-lifecycle {
+  margin: 14px 0 0;
+}
+
+.trace-action-lifecycle > .cs-corr-timeline {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin: 16px 0;
-  padding: 0;
-  list-style: none;
+  gap: 10px;
 }
 
 .trace-action-lifecycle-group + .trace-action-lifecycle-group {
@@ -33,66 +34,14 @@
   font-weight: 500;
 }
 
-.trace-action-lifecycle li {
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  grid-template-rows: auto auto;
-  min-width: 0;
-  gap: 1px 8px;
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--cs-radius-sm);
-  background: var(--bg-elevated);
-}
-
-.trace-action-lifecycle li[data-state="complete"] {
-  border-color: color-mix(in oklab, var(--success) 28%, var(--border));
-  background: color-mix(in oklab, var(--success) 5%, var(--bg-elevated));
-}
-
-.trace-action-lifecycle li[data-state="pending"] {
-  border-color: color-mix(in oklab, var(--cs-terracotta) 42%, var(--border));
-  background: color-mix(in oklab, var(--cs-terracotta) 6%, var(--bg-elevated));
-}
-
-.trace-action-lifecycle li[data-state="failed"] {
-  border-color: color-mix(in oklab, var(--danger) 36%, var(--border));
-  background: color-mix(in oklab, var(--danger) 5%, var(--bg-elevated));
-}
-
-.trace-action-lifecycle li > span {
-  grid-row: 1 / 3;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--bg-subtle);
-  color: var(--fg);
-  font-size: var(--cs-type-label-size);
-  font-weight: 650;
-}
-
-.trace-action-lifecycle strong,
-.trace-action-lifecycle small {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.trace-action-lifecycle strong {
-  font-size: var(--cs-type-compact-size);
-  line-height: var(--cs-type-compact-line-height);
-}
-
-.trace-action-lifecycle small {
-  color: var(--fg-muted);
-  font-size: var(--cs-type-label-size);
-  line-height: var(--cs-type-label-line-height);
+@container (max-width: 720px) {
+  .trace-action-lifecycle > .cs-corr-timeline {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @container (max-width: 520px) {
-  .trace-action-lifecycle {
+  .trace-action-lifecycle > .cs-corr-timeline {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -104,7 +53,7 @@
 }
 
 @media (forced-colors: active) {
-  .trace-action-lifecycle li {
+  .trace-action-lifecycle .cs-corr-step {
     border: 1px solid CanvasText;
   }
 }

@@ -164,9 +164,9 @@ jobs:
           state_json="$RUNNER_TEMP/database-window-platform-state.json"
           trap 'rm -f -- "$state_json"' EXIT
           terraform -chdir=infra show -json >"$state_json"
-          server_id="$(python3 scripts/deployment/service/drift_contract.py \
+          server_id="$(python3 _archive/python/scripts/deployment/service/drift_contract.py \
             platform-database --state-json "$state_json" | jq -er '.server_id')"
-          python3 scripts/deployment/azure/postgres_power_window.py open \
+          python3 _archive/python/scripts/deployment/azure/postgres_power_window.py open \
             --server-id "$server_id" \
             --record "$RUNNER_TEMP/database-power-window.json"
 
@@ -236,10 +236,10 @@ jobs:
           ontology_log="$RUNNER_TEMP/cost-governance-ontology-qualification.txt"
           parity_log="$RUNNER_TEMP/cost-governance-parity-qualification.txt"
           uv run --frozen --extra dev python \
-            scripts/quality/architecture/check-cost-governance-semantic-profile.py \
+            _archive/python/scripts/quality/architecture/check-cost-governance-semantic-profile.py \
             | tee "$ontology_log"
           uv run --frozen --extra dev pytest -q --no-cov \
-            extensions/cost-governance/tests/test_parity.py \
+            extensions/cost-governance/_archive/python/tests/test_parity.py \
             | tee "$parity_log"
           qualification="$RUNNER_TEMP/cost-governance-release-qualification.json"
           python3 - \
@@ -455,7 +455,7 @@ jobs:
           always() && steps.protected-source.outcome == 'success' &&
           steps.database_window.outcome != 'skipped'
         run: >-
-          python3 scripts/deployment/azure/postgres_power_window.py close
+          python3 _archive/python/scripts/deployment/azure/postgres_power_window.py close
           --record "$RUNNER_TEMP/database-power-window.json"
 
       - name: Clean private state material

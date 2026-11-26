@@ -156,7 +156,7 @@ jobs:
         run: |
           set -euo pipefail
           uv run --frozen --package fdai-core-control-plane \
-            python scripts/deployment/azure/export_wara_database_context.py \
+            python _archive/python/scripts/deployment/azure/export_wara_database_context.py \
             --github-env "$GITHUB_ENV"
       - name: Run governed WAF and CAF shadow assessments
         run: |

@@ -1,0 +1,145 @@
+/* CapabilityDetailDrawer: unified split-pane inspector for Skills and Capabilities (>= 12px, no accent rails). */
+.cs-cap-drawer {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  padding: 18px 20px;
+  border: 1px solid var(--cs-hairline, var(--border));
+  border-radius: var(--cs-radius, 8px);
+  background: var(--cs-card, var(--bg-elevated));
+  box-shadow: var(--cs-shadow-card, none);
+  color: var(--cs-text, var(--fg));
+}
+
+.cs-cap-drawer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cs-cap-drawer-heading {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 200px;
+}
+
+.cs-cap-drawer-kicker {
+  color: var(--cs-text-soft, var(--fg-muted));
+  font-size: var(--cs-type-label-size, 12px);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.cs-cap-drawer-title {
+  margin: 0;
+  font-size: var(--cs-type-panel-title-size, 16px);
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.cs-cap-drawer-id {
+  display: inline-block;
+  max-width: 100%;
+  padding: 2px 6px;
+  border: 1px solid var(--cs-hairline, var(--border));
+  border-radius: 4px;
+  background: var(--cs-shade, var(--bg-subtle));
+  color: var(--cs-text-soft, var(--fg-muted));
+  font-family: var(--cs-font-mono, monospace);
+  font-size: var(--cs-type-label-size, 12px);
+  overflow-wrap: anywhere;
+}
+
+.cs-cap-drawer-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cs-cap-drawer-summary {
+  margin: 0;
+  color: var(--cs-text-soft, var(--fg-muted));
+  font-size: var(--cs-type-body-size, 14px);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.cs-cap-drawer-states {
+  display: grid;
+  gap: 8px;
+  padding: 12px 0;
+  border-block: 1px solid var(--cs-hairline, var(--border));
+}
+
+.cs-cap-drawer-state-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: var(--cs-type-compact-size, 13px);
+}
+
+.cs-cap-drawer-state-label {
+  color: var(--cs-text-soft, var(--fg-muted));
+  font-size: var(--cs-type-label-size, 12px);
+  font-weight: 600;
+}
+
+.cs-cap-drawer-facts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px 16px;
+  margin: 0;
+}
+
+.cs-cap-drawer-facts > div {
+  min-width: 0;
+}
+
+.cs-cap-drawer-facts dt {
+  color: var(--cs-text-soft, var(--fg-muted));
+  font-size: var(--cs-type-label-size, 12px);
+  font-weight: 600;
+}
+
+.cs-cap-drawer-facts dd {
+  margin: 3px 0 0;
+  color: var(--cs-text, var(--fg));
+  font-size: var(--cs-type-compact-size, 13px);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.cs-cap-drawer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--cs-hairline, var(--border));
+  font-size: var(--cs-type-compact-size, 13px);
+}
+
+.cs-cap-drawer-links a {
+  color: var(--cs-steel, var(--accent));
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cs-cap-drawer-provenance {
+  padding-top: 12px;
+  border-top: 1px solid var(--cs-hairline, var(--border));
+  font-size: var(--cs-type-compact-size, 13px);
+}
+
+@media (max-width: 720px) {
+  .cs-cap-drawer-actions button {
+    min-height: 44px;
+  }
+}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
+import { SearchInput, SelectField } from "../components/form-controls";
 import { Tooltip } from "../components/tooltip";
 import { currentRoute, pushRouteState, routeHref, ROUTE_STATE_EVENT } from "../router";
 import type {
@@ -199,41 +200,33 @@ export function BuiltInList({
             </a>
           ))}
         </nav>
-        <label class="workflow-filter-field">
-          <span>{t("workflow.catalog.filterLabel")}</span>
-          <input
-            class="form-input"
-            type="search"
-            value={filter.text}
-            placeholder={t("workflow.catalog.filterPlaceholder")}
-            aria-label={t("workflow.catalog.filterAria")}
-            onInput={(event) => setFilter({ ...filter, text: (event.target as HTMLInputElement).value })}
-          />
-        </label>
-        <label class="workflow-filter-field">
-          <span>{t("workflow.catalog.categoryFilter")}</span>
-          <select
-            class="form-input"
-            value={filter.category}
-            onChange={(event) => setFilter({ ...filter, category: (event.target as HTMLSelectElement).value })}
-          >
-            <option value="">{t("workflow.catalog.allCategories")}</option>
-            {categories.map((value) => <option key={value} value={value}>{value}</option>)}
-          </select>
-        </label>
-        <label class="workflow-filter-field">
-          <span>{t("workflow.catalog.stepKindFilter")}</span>
-          <select
-            class="form-input"
-            value={filter.stepKind}
-            onChange={(event) => setFilter({ ...filter, stepKind: (event.target as HTMLSelectElement).value })}
-          >
-            <option value="">{t("workflow.catalog.allStepKinds")}</option>
-            {stepKinds.map((value) => (
-              <option key={value} value={value}>{t(`workflow.stepKind.${value}`)}</option>
-            ))}
-          </select>
-        </label>
+        <SearchInput
+          label={t("workflow.catalog.filterLabel")}
+          value={filter.text}
+          placeholder={t("workflow.catalog.filterPlaceholder")}
+          className="workflow-filter-field"
+          onInput={(next) => setFilter({ ...filter, text: next })}
+        />
+        <SelectField
+          label={t("workflow.catalog.categoryFilter")}
+          value={filter.category}
+          className="workflow-filter-field"
+          options={[
+            { value: "", label: t("workflow.catalog.allCategories") },
+            ...categories.map((value) => ({ value, label: value })),
+          ]}
+          onChange={(next) => setFilter({ ...filter, category: next })}
+        />
+        <SelectField
+          label={t("workflow.catalog.stepKindFilter")}
+          value={filter.stepKind}
+          className="workflow-filter-field"
+          options={[
+            { value: "", label: t("workflow.catalog.allStepKinds") },
+            ...stepKinds.map((value) => ({ value, label: t(`workflow.stepKind.${value}`) })),
+          ]}
+          onChange={(next) => setFilter({ ...filter, stepKind: next })}
+        />
         <div class="workflow-filter-summary">
           <span role="status">
             {t("workflow.catalog.filterSummary", {

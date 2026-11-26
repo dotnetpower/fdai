@@ -1,0 +1,143 @@
+{
+  "$defs": {
+    "BaselineEvaluationTerminalOutcome": {
+      "description": "Terminal states Forseti can assign to one Resource and Rule pair.",
+      "enum": [
+        "compliant",
+        "violated",
+        "abstained"
+      ],
+      "title": "BaselineEvaluationTerminalOutcome",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One per-Rule terminal result for one Resource in a complete inventory generation.",
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "generation_id": {
+      "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+      "title": "Generation Id",
+      "type": "string"
+    },
+    "generation_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Generation Digest",
+      "type": "string"
+    },
+    "inventory_observation_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Inventory Observation Digest",
+      "type": "string"
+    },
+    "resource_ref": {
+      "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+      "title": "Resource Ref",
+      "type": "string"
+    },
+    "resource_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Resource Digest",
+      "type": "string"
+    },
+    "catalog_revision": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Catalog Revision",
+      "type": "string"
+    },
+    "rule_ref": {
+      "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+      "title": "Rule Ref",
+      "type": "string"
+    },
+    "rule_revision": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Rule Revision",
+      "type": "string"
+    },
+    "expected_denominator": {
+      "maximum": 10000000,
+      "minimum": 1,
+      "title": "Expected Denominator",
+      "type": "integer"
+    },
+    "outcome": {
+      "$ref": "#/$defs/BaselineEvaluationTerminalOutcome"
+    },
+    "reason_code": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason Code"
+    },
+    "evaluation_receipt_ref": {
+      "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+      "title": "Evaluation Receipt Ref",
+      "type": "string"
+    },
+    "evaluation_receipt_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Evaluation Receipt Digest",
+      "type": "string"
+    },
+    "saga_audit_ref": {
+      "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+      "title": "Saga Audit Ref",
+      "type": "string"
+    },
+    "saga_audit_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Saga Audit Digest",
+      "type": "string"
+    },
+    "evaluated_at": {
+      "format": "date-time",
+      "title": "Evaluated At",
+      "type": "string"
+    },
+    "execution_authority": {
+      "const": false,
+      "default": false,
+      "title": "Execution Authority",
+      "type": "boolean"
+    },
+    "outcome_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Outcome Digest",
+      "type": "string"
+    }
+  },
+  "required": [
+    "generation_id",
+    "generation_digest",
+    "inventory_observation_digest",
+    "resource_ref",
+    "resource_digest",
+    "catalog_revision",
+    "rule_ref",
+    "rule_revision",
+    "expected_denominator",
+    "outcome",
+    "evaluation_receipt_ref",
+    "evaluation_receipt_digest",
+    "saga_audit_ref",
+    "saga_audit_digest",
+    "evaluated_at",
+    "outcome_digest"
+  ],
+  "title": "BaselineEvaluationOutcome",
+  "type": "object",
+  "$id": "https://fdai.dev/service-contracts/baseline-evaluation-outcome/1.0.0"
+}

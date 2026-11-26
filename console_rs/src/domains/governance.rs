@@ -246,6 +246,10 @@ pub fn router() -> Router<AppState> {
             get(api_governance_knowledge),
         )
         .route(
+            "/api/v4/governance/knowledge/{provider}",
+            get(api_governance_knowledge_provider),
+        )
+        .route(
             "/api/v4/governance/documents",
             get(api_governance_documents),
         )
@@ -1198,7 +1202,7 @@ async fn api_governance_architecture(
     headers: HeaderMap,
     RawQuery(query): RawQuery,
 ) -> Response {
-    let allowed = ["subscription", "vnet", "subnet", "layer"];
+    let allowed = ["scope", "subscription", "vnet", "subnet", "layer"];
     let primary = build_upstream_path("/inventory/graph", query.as_deref(), &allowed);
     let fallback = build_upstream_path("/ontology/instances", query.as_deref(), &allowed);
     let params = parse_query_params(query.as_deref());
@@ -1212,13 +1216,17 @@ async fn api_governance_architecture(
         json!({
             "panel": "architecture",
             "views": ["topo", "netpath"],
-            "nested_boundaries": ["subscription", "vnet", "subnet"],
+            "nested_boundaries": ["subscription", "vnet", "subnet", "resource_group"],
+            "dynamic_svg_schema": ["views", "containers", "nodes", "edges", "summary"],
             "read_only": true
         }),
         move || async move {
-            let sub = params.get("subscription").map(String::as_str);
+            let scope = params
+                .get("scope")
+                .or_else(|| params.get("subscription"))
+                .map(String::as_str);
             let layer = params.get("layer").map(String::as_str);
-            gov_repo::fetch_architecture(&db, sub, layer).await
+            gov_repo::fetch_architecture(&db, scope, layer).await
         },
     )
     .await
@@ -1332,9 +1340,52 @@ async fn api_governance_knowledge(
     headers: HeaderMap,
     RawQuery(query): RawQuery,
 ) -> Response {
-    let auth = extract_auth(&headers);
     let provider_filter = sanitize_query_string(query.as_deref(), &["provider"]);
     let params = parse_query_params(query.as_deref());
+    let p_filter = params.get("provider").map(String::as_str);
+    handle_governance_knowledge(
+        &state,
+        &headers,
+        "/api/v4/governance/knowledge",
+        &provider_filter,
+        p_filter,
+    )
+    .await
+}
+
+async fn api_governance_knowledge_provider(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    AxumPath(provider): AxumPath<String>,
+) -> Response {
+    let norm = provider.trim().to_ascii_lowercase();
+    if !matches!(norm.as_str(), "github" | "gitlab" | "azure-devops") {
+        return json_no_store_status(
+            StatusCode::BAD_REQUEST,
+            json!({
+                "domain": "governance",
+                "error": {
+                    "code": "invalid_knowledge_provider",
+                    "message": "supported providers are github, gitlab, azure-devops"
+                },
+                "execution_authority": false,
+                "no_store": true
+            }),
+        );
+    }
+    let endpoint = format!("/api/v4/governance/knowledge/{norm}");
+    let filter_str = format!("provider={norm}");
+    handle_governance_knowledge(&state, &headers, &endpoint, &filter_str, Some(norm.as_str())).await
+}
+
+async fn handle_governance_knowledge(
+    state: &AppState,
+    headers: &HeaderMap,
+    endpoint: &str,
+    provider_filter: &str,
+    p_filter: Option<&str>,
+) -> Response {
+    let auth = extract_auth(headers);
     let (cloud_up, github_up) = tokio::join!(
         state.upstream.get_json("/ingestion/cloud-knowledge", auth),
         state.upstream.get_json("/knowledge/github/sources", auth),
@@ -1352,7 +1403,7 @@ async fn api_governance_knowledge(
     };
 
     let contract = json!({
-        "panel": "knowledge",
+        "panel": p_filter.unwrap_or("knowledge"),
         "providers": ["documents", "github", "gitlab", "azure-devops"],
         "provider_filter": provider_filter,
         "read_only_retrieval": true,
@@ -1361,17 +1412,12 @@ async fn api_governance_knowledge(
 
     if cloud_data.is_none() && github_data.is_none() {
         if state.db.is_configured() {
-            let p_filter = params.get("provider").map(String::as_str);
             let db_payload = gov_repo::fetch_knowledge(&state.db, p_filter).await;
             if is_repo_measured(&db_payload) {
-                return postgres_measured_envelope(
-                    "/api/v4/governance/knowledge",
-                    db_payload,
-                    contract,
-                );
+                return postgres_measured_envelope(endpoint, db_payload, contract);
             }
         }
-        return not_measured_response(&state, "/ingestion/cloud-knowledge", &cloud_up, contract);
+        return not_measured_response(state, "/ingestion/cloud-knowledge", &cloud_up, contract);
     }
 
     let measurement_state = if cloud_data.is_some() && github_data.is_some() {
@@ -1383,7 +1429,7 @@ async fn api_governance_knowledge(
     json_no_store_response(json!({
         "source": "operator-service",
         "domain": "governance",
-        "endpoint": "/api/v4/governance/knowledge",
+        "endpoint": endpoint,
         "measurement_state": measurement_state,
         "measurement_status": measurement_state,
         "execution_authority": false,
@@ -2254,6 +2300,84 @@ mod tests {
         assert_eq!(rc, "검토 케이스 #cf98713f (open)");
         assert_eq!(gov_repo::ontology_type_label_ko("BenchmarkValidation"), "벤치마크 검증");
         assert_eq!(gov_repo::ontology_type_label_ko("Resource"), "클라우드 리소스");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn governance_architecture_forwards_scope_and_returns_dynamic_graph_schema(
+    ) -> Result<(), String> {
+        let mock_upstream = Router::new().route(
+            "/inventory/graph",
+            get(|RawQuery(q): RawQuery| async move {
+                Json(json!({
+                    "active_scope": q.unwrap_or_default(),
+                    "views": [{ "id": "all", "label": "전체 실측 스코프", "count": 808 }],
+                    "containers": [{ "id": "rg:demo", "kind": "resource_group", "name": "demo", "subtitle": "westus3", "parent_id": null, "resource_count": 2 }],
+                    "nodes": [
+                        { "id": "n1", "name": "vnet-1", "display_name": "vnet-1", "resource_type": "network.vnet", "container_id": "rg:demo", "status": "observed" },
+                        { "id": "n2", "name": "pe-1", "display_name": "pe-1", "resource_type": "network.private-endpoint", "container_id": "rg:demo", "status": "observed" }
+                    ],
+                    "edges": [
+                        { "id": "e1", "source": "n2", "target": "n1", "link_type": "attached_to", "category": "pe" }
+                    ],
+                    "summary": {
+                        "vnet_count": 1,
+                        "subnet_count": 0,
+                        "private_endpoint_count": 1,
+                        "nsg_count": 0,
+                        "firewall_count": 0,
+                        "peering_count": 0,
+                        "route_count": 0,
+                        "total_resources": 2,
+                        "total_links": 1
+                    }
+                }))
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .map_err(|e| format!("bind failed: {e}"))?;
+        let addr = listener
+            .local_addr()
+            .map_err(|e| format!("local_addr failed: {e}"))?;
+        let server_handle = tokio::spawn(async move {
+            let _ = axum::serve(listener, mock_upstream).await;
+        });
+
+        let mut st = AppState::from_repo_root(repo_root(), format!("http://{addr}"));
+        st.db = crate::db::DbHandle::from_dsn_opt(None, false);
+        let app = build_router(st);
+
+        let req = Request::builder()
+            .uri("/api/v4/governance/architecture?scope=rg:demo")
+            .body(Body::empty())
+            .map_err(|e| format!("req error: {e}"))?;
+        let Ok(resp) = app.oneshot(req).await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let parsed: Value = serde_json::from_str(&read_body_string(resp).await?)
+            .map_err(|e| format!("json error: {e}"))?;
+        assert_eq!(
+            parsed.get("measurement_state").and_then(Value::as_str),
+            Some("measured")
+        );
+        let data = parsed.get("data").ok_or("missing data")?;
+        assert!(data.get("views").and_then(Value::as_array).is_some());
+        assert!(data.get("containers").and_then(Value::as_array).is_some());
+        assert_eq!(
+            data.get("nodes").and_then(Value::as_array).map(Vec::len),
+            Some(2)
+        );
+        assert_eq!(
+            data.get("edges").and_then(Value::as_array).map(Vec::len),
+            Some(1)
+        );
+        assert_eq!(
+            data.get("summary")
+                .and_then(|s| s.get("private_endpoint_count"))
+                .and_then(Value::as_u64),
+            Some(1)
+        );
+        server_handle.abort();
         Ok(())
     }
 }

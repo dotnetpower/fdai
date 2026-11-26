@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/execution-safeguard-proof-bundle/1.0.0",
+  "title": "Execution Safeguard Proof Bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "action_id",
+    "execution_path",
+    "execution_fingerprint",
+    "source_revision",
+    "recorded_at",
+    "proofs",
+    "effect_verified",
+    "execution_authority",
+    "approval_authority",
+    "promotion_authority",
+    "bundle_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "action_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "execution_path": {
+      "enum": [
+        "pr_native",
+        "direct_api",
+        "pr_manual",
+        "tool_call"
+      ]
+    },
+    "execution_fingerprint": {
+      "$ref": "#/$defs/digest"
+    },
+    "source_revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "proofs": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "prefixItems": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/proof"
+            },
+            {
+              "properties": {
+                "kind": {
+                  "const": "stop_condition"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/proof"
+            },
+            {
+              "properties": {
+                "kind": {
+                  "const": "rollback"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/proof"
+            },
+            {
+              "properties": {
+                "kind": {
+                  "const": "impact_scope"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/proof"
+            },
+            {
+              "properties": {
+                "kind": {
+                  "const": "dry_run"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/proof"
+            },
+            {
+              "properties": {
+                "kind": {
+                  "const": "logical_target_lock"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/proof"
+            },
+            {
+              "properties": {
+                "kind": {
+                  "const": "idempotency"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/proof"
+            },
+            {
+              "properties": {
+                "kind": {
+                  "const": "audit_intent"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "items": false
+    },
+    "effect_verified": {
+      "const": false
+    },
+    "execution_authority": {
+      "const": false
+    },
+    "approval_authority": {
+      "const": false
+    },
+    "promotion_authority": {
+      "const": false
+    },
+    "bundle_digest": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "kind",
+        "proof_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0"
+        },
+        "kind": {
+          "enum": [
+            "stop_condition",
+            "rollback",
+            "impact_scope",
+            "dry_run",
+            "logical_target_lock",
+            "idempotency",
+            "audit_intent"
+          ]
+        },
+        "proof_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    }
+  }
+}

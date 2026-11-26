@@ -1,5 +1,5 @@
 import type { AuditItem, IncidentOutcomeCohort, IncidentOutcomeMetrics, IncidentSummary } from "../types";
-import { StatusPill, type PillKind } from "../components/ui";
+import { StatusBadge, type BadgeTone } from "../components/status-badge";
 import { currentRoute, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { t } from "./i18n/incidents";
@@ -109,7 +109,7 @@ export function IncidentMilestones({ items }: { readonly items: readonly AuditIt
           return (
             <li key={milestone.item.seq}>
               <div class="incident-milestone-heading">
-                <StatusPill kind={milestonePill(milestone.status)} label={t(`incidents.milestones.status.${milestone.status}`)} />
+                <StatusBadge tone={milestoneTone(milestone.status)} label={t(`incidents.milestones.status.${milestone.status}`)} />
                 <strong>{presentation.title}</strong>
                 <time dateTime={milestone.item.recorded_at}>{formatConsoleTimestamp(milestone.item.recorded_at)}</time>
               </div>
@@ -153,9 +153,9 @@ export function IncidentSourceContext({ incident }: { readonly incident: Inciden
   );
 }
 
-function milestonePill(status: IncidentMilestoneStatus): PillKind {
-  if (status === "resolved" || status === "success") return "success";
-  if (status === "issue") return "danger";
-  if (status === "initial") return "hil";
+function milestoneTone(status: IncidentMilestoneStatus): BadgeTone {
+  if (status === "resolved" || status === "success") return "live";
+  if (status === "issue") return "sec";
+  if (status === "initial") return "human";
   return "info";
 }

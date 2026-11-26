@@ -1,0 +1,383 @@
+{
+  "$defs": {
+    "OperatorAuthenticationEvidenceClass": {
+      "description": "Whether the receipt came from a verified live token or the loopback CLI session.",
+      "enum": [
+        "live",
+        "local-loopback"
+      ],
+      "title": "OperatorAuthenticationEvidenceClass",
+      "type": "string"
+    },
+    "OperatorAuthenticationReceipt": {
+      "additionalProperties": false,
+      "description": "Immutable, token-free authentication facts; possession grants no authority.",
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "evidence_class": {
+          "$ref": "#/$defs/OperatorAuthenticationEvidenceClass"
+        },
+        "issuer": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Issuer",
+          "type": "string"
+        },
+        "audience": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Audience",
+          "type": "string"
+        },
+        "tenant_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Tenant Digest",
+          "type": "string"
+        },
+        "subject_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Subject Id",
+          "type": "string"
+        },
+        "principal_kind": {
+          "enum": [
+            "human",
+            "workload"
+          ],
+          "title": "Principal Kind",
+          "type": "string"
+        },
+        "groups": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Groups",
+          "type": "array"
+        },
+        "group_overage": {
+          "const": false,
+          "default": false,
+          "title": "Group Overage",
+          "type": "boolean"
+        },
+        "token_id_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Token Id Digest",
+          "type": "string"
+        },
+        "issued_at": {
+          "format": "date-time",
+          "title": "Issued At",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "roles": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Roles",
+          "type": "array"
+        },
+        "role_mapping_revision": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Role Mapping Revision",
+          "type": "string"
+        },
+        "token_retained": {
+          "const": false,
+          "default": false,
+          "title": "Token Retained",
+          "type": "boolean"
+        },
+        "receipt_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Receipt Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_class",
+        "issuer",
+        "audience",
+        "tenant_digest",
+        "subject_id",
+        "principal_kind",
+        "token_id_digest",
+        "issued_at",
+        "expires_at",
+        "role_mapping_revision",
+        "receipt_digest"
+      ],
+      "title": "OperatorAuthenticationReceipt",
+      "type": "object"
+    },
+    "OperatorRequestReceipt": {
+      "additionalProperties": false,
+      "description": "Signed immutable receipt. Possession alone grants no execution authority.",
+      "properties": {
+        "schema_version": {
+          "default": "1.1.0",
+          "enum": [
+            "1.0.0",
+            "1.1.0",
+            "1.2.0"
+          ],
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "idempotency_key": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Idempotency Key",
+          "type": "string"
+        },
+        "correlation_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "initiator_principal": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Initiator Principal",
+          "type": "string"
+        },
+        "action_type": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Action Type",
+          "type": "string"
+        },
+        "canonical_params_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Canonical Params Digest",
+          "type": "string"
+        },
+        "resource_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Resource Id",
+          "type": "string"
+        },
+        "canonical_workflow_action_digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Canonical Workflow Action Digest"
+        },
+        "producer_service_identity": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Producer Service Identity",
+          "type": "string"
+        },
+        "issued_at": {
+          "format": "date-time",
+          "title": "Issued At",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "authenticated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Authenticated At"
+        },
+        "principal_roles": {
+          "default": [],
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Principal Roles",
+          "type": "array"
+        },
+        "max_auth_age_seconds": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Auth Age Seconds"
+        },
+        "receipt_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Receipt Digest",
+          "type": "string"
+        },
+        "signature_alg": {
+          "const": "Ed25519",
+          "default": "Ed25519",
+          "title": "Signature Alg",
+          "type": "string"
+        },
+        "signature": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Signature",
+          "type": "string"
+        }
+      },
+      "required": [
+        "idempotency_key",
+        "correlation_id",
+        "initiator_principal",
+        "action_type",
+        "canonical_params_digest",
+        "resource_id",
+        "producer_service_identity",
+        "issued_at",
+        "expires_at",
+        "receipt_digest",
+        "signature"
+      ],
+      "title": "OperatorRequestReceipt",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Typed request Var consumes; possession grants no execution authority.",
+  "properties": {
+    "engaged": {
+      "title": "Engaged",
+      "type": "boolean"
+    },
+    "reason": {
+      "maxLength": 500,
+      "minLength": 20,
+      "title": "Reason",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "event_type": {
+      "const": "kill_switch_request",
+      "default": "kill_switch_request",
+      "title": "Event Type",
+      "type": "string"
+    },
+    "request_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "correlation_id": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "idempotency_key": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "initiator_principal": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Initiator Principal",
+      "type": "string"
+    },
+    "requested_at": {
+      "format": "date-time",
+      "title": "Requested At",
+      "type": "string"
+    },
+    "authentication_receipt_ref": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Authentication Receipt Ref",
+      "type": "string"
+    },
+    "authentication_receipt": {
+      "$ref": "#/$defs/OperatorAuthenticationReceipt"
+    },
+    "operator_request_receipt": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OperatorRequestReceipt"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "request_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Request Digest",
+      "type": "string"
+    },
+    "accountable_agent": {
+      "const": "Var",
+      "default": "Var",
+      "title": "Accountable Agent",
+      "type": "string"
+    },
+    "execution_authority": {
+      "const": false,
+      "default": false,
+      "title": "Execution Authority",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "engaged",
+    "reason",
+    "request_id",
+    "correlation_id",
+    "idempotency_key",
+    "initiator_principal",
+    "requested_at",
+    "authentication_receipt_ref",
+    "authentication_receipt",
+    "request_digest"
+  ],
+  "title": "KillSwitchRequestEvent",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/kill-switch-request/1.0.0"
+}

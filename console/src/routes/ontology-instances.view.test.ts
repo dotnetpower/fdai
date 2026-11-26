@@ -26,6 +26,10 @@ const inspectorSource = readFileSync(
   fileURLToPath(new URL("./ontology-instances-inspector.tsx", import.meta.url)),
   "utf8",
 );
+const graphControlBarSource = readFileSync(
+  fileURLToPath(new URL("../components/graph-control-bar.tsx", import.meta.url)),
+  "utf8",
+);
 const styles = readFileSync(
   fileURLToPath(new URL("./ontology-instances.css", import.meta.url)),
   "utf8",
@@ -51,7 +55,7 @@ describe("Ontology Instances view controls", () => {
     expect(styles).toMatch(/\.ontology-instance-legend-dock\s*\{[^}]*position:\s*absolute[^}]*bottom:\s*12px[^}]*left:\s*12px[^}]*max-width:/s);
     expect(styles).toMatch(/\.ontology-instance-legend-dock > summary\s*\{[^}]*min-height:\s*36px[^}]*cursor:\s*pointer/s);
     expect(styles).not.toMatch(/\.ontology-instance-legend-dock\s*\{[^}]*overflow-x:\s*auto/s);
-    expect(styles).toMatch(/\.ontology-instance-graph-key i\.is-direction::after\s*\{[^}]*right:\s*-1px[^}]*border-left:\s*6px solid #637c93[^}]*content:\s*""/s);
+    expect(graphSource).toContain("<GraphControlBar");
     expect(styles).not.toContain('content: ">"');
     expect(styles).toMatch(/\.ontology-instance-graph-tools\s*\{[^}]*position:\s*absolute[^}]*top:\s*12px[^}]*right:\s*12px/s);
     expect(graphSource).toContain('class="ontology-instance-graph-viewport"');
@@ -121,7 +125,7 @@ describe("Ontology Instances view controls", () => {
     expect(graphSource).toContain('class="ontology-instance-legend-body"');
     expect(styles).toMatch(/\.ontology-instance-graph-tools\s*\{[^}]*position:\s*absolute[^}]*top:\s*12px[^}]*right:\s*12px\s*;/s);
     expect(styles).not.toMatch(/\.ontology-instance-graph-tools\s*\{[^}]*border:/s);
-    expect(styles).toMatch(/\.ontology-instance-graph-tools button\s*\{[^}]*width:\s*36px[^}]*height:\s*36px/s);
+    expect(graphSource).toContain("<GraphControlBar");
     expect(instancesSource).toContain('<details');
     expect(instancesSource).toContain('class="ontology-instance-aks-lanes"');
     expect(instancesSource).not.toMatch(/class="ontology-instance-aks-lanes"[^>]*open/);
@@ -254,7 +258,8 @@ describe("Ontology Instances view controls", () => {
   it("uses one fullscreen command while wheel input owns graph zoom", () => {
     expect(graphSource).toContain("requestFullscreen");
     expect(graphSource).toContain('document.addEventListener("fullscreenchange", sync)');
-    expect(graphSource).toContain("aria-pressed={fullscreen}");
+    expect(graphSource).toContain("fullscreen={fullscreen}");
+    expect(graphControlBarSource).toContain("aria-pressed={fullscreen}");
     expect(graphSource).toContain("instanceGraphWheelScale");
     expect(graphSource).not.toContain('t("ontology.instances.zoomOut")');
     expect(graphSource).not.toContain('t("ontology.instances.zoomIn")');

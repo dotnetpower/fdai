@@ -1,6 +1,7 @@
 import { useState } from "preact/hooks";
 import { OperatorApiError } from "../api";
 import type { OperatorApiClient, CodeSecurityRepositoryChange } from "../api";
+import { SelectField, TextInput } from "../components/form-controls";
 import { t } from "./i18n/code-security";
 
 const ALIAS = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
@@ -161,27 +162,18 @@ export function RepositoryRegistrationForm({
           aria-describedby="code-security-register-description"
           onSubmit={submit}
         >
-          <div class="code-security-register-primary">
-            <label class="cs-control-field code-security-register-location">
-              <span class="cs-control-label">{t("codeSecurity.register.location")}</span>
-              <input
-                class="cs-control-input"
-                value={location}
-                required
-                disabled={submitting}
-                aria-label={t("codeSecurity.register.location")}
-                placeholder={t("codeSecurity.register.locationPlaceholder")}
-                autoCapitalize="none"
-                autoComplete="off"
-                spellcheck={false}
-                aria-describedby="code-security-location-hint"
-                onBlur={normalizeLocationField}
-                onInput={(event) => updateLocation((event.currentTarget as HTMLInputElement).value)}
-              />
-            </label>
-            <small id="code-security-location-hint" class="cs-control-help code-security-location-hint">
-              {t("codeSecurity.register.locationHint")}
-            </small>
+          <div class="code-security-register-primary" onFocusOut={normalizeLocationField}>
+            <TextInput
+              className="code-security-register-location"
+              label={t("codeSecurity.register.location")}
+              value={location}
+              required
+              disabled={submitting}
+              placeholder={t("codeSecurity.register.locationPlaceholder")}
+              autoComplete="off"
+              hint={t("codeSecurity.register.locationHint")}
+              onInput={(value) => updateLocation(value)}
+            />
             <button type="submit" class="btn primary code-security-register-submit" disabled={!valid || submitting}>
               {submitting ? t("codeSecurity.scan.submitting") : t("codeSecurity.register.submit")}
             </button>
@@ -192,55 +184,41 @@ export function RepositoryRegistrationForm({
               <small>{t("codeSecurity.register.settingsSummary")}</small>
             </summary>
             <div class="code-security-register-settings-grid">
-              <label class="cs-control-field code-security-register-alias">
-                <span class="cs-control-label">{t("codeSecurity.register.alias")}</span>
-                <input
-                  class="cs-control-input"
-                  value={alias}
-                  required
-                  disabled={submitting}
-                  aria-label={t("codeSecurity.register.alias")}
-                  autoComplete="off"
-                  aria-describedby="code-security-alias-hint"
-                  onInput={(event) => {
-                    setAliasEdited(true);
-                    setAlias((event.currentTarget as HTMLInputElement).value);
-                  }}
-                />
-                <small id="code-security-alias-hint" class="cs-control-help">
-                  {t("codeSecurity.register.aliasHint")}
-                </small>
-              </label>
-              <label class="cs-control-field code-security-register-ref">
-                <span class="cs-control-label">{t("codeSecurity.register.defaultRef")}</span>
-                <input
-                  class="cs-control-input"
-                  value={ref}
-                  disabled={submitting}
-                  aria-label={t("codeSecurity.register.defaultRef")}
-                  placeholder="HEAD"
-                  autoCapitalize="none"
-                  autoComplete="off"
-                  spellcheck={false}
-                  aria-describedby="code-security-default-ref-hint"
-                  onInput={(event) => setRef((event.currentTarget as HTMLInputElement).value)}
-                />
-                <small id="code-security-default-ref-hint" class="cs-control-help">
-                  {t("codeSecurity.register.defaultRefHint")}
-                </small>
-              </label>
-              <label class="cs-control-field code-security-register-exposure">
-                <span class="cs-control-label">{t("codeSecurity.register.exposure")}</span>
-                <select
-                  class="cs-control-select"
-                  aria-label={t("codeSecurity.register.exposure")}
-                  value={exposure}
-                  disabled={submitting}
-                  onChange={(event) => setExposure(event.currentTarget.value as (typeof EXPOSURES)[number])}
-                >
-                  {EXPOSURES.map((item) => <option key={item} value={item}>{t(`codeSecurity.exposure.${item}`)}</option>)}
-                </select>
-              </label>
+              <TextInput
+                className="code-security-register-alias"
+                label={t("codeSecurity.register.alias")}
+                value={alias}
+                required
+                disabled={submitting}
+                autoComplete="off"
+                hint={t("codeSecurity.register.aliasHint")}
+                onInput={(value) => {
+                  setAliasEdited(true);
+                  setAlias(value);
+                }}
+              />
+              <TextInput
+                className="code-security-register-ref"
+                label={t("codeSecurity.register.defaultRef")}
+                value={ref}
+                disabled={submitting}
+                placeholder="HEAD"
+                autoComplete="off"
+                hint={t("codeSecurity.register.defaultRefHint")}
+                onInput={(value) => setRef(value)}
+              />
+              <SelectField
+                className="code-security-register-exposure"
+                label={t("codeSecurity.register.exposure")}
+                ariaLabel={t("codeSecurity.register.exposure")}
+                value={exposure}
+                disabled={submitting}
+                options={EXPOSURES.map((item) => ({
+                  value: item,
+                  label: t(`codeSecurity.exposure.${item}`),
+                }))}
+                onChange={(value) => setExposure(value as (typeof EXPOSURES)[number])}
+              />
             </div>
           </details>
           <FeedbackLine feedback={feedback} />

@@ -1,0 +1,3 @@
+# Promoted static UI bundle under `dist/` is tracked for Pure-Rust runtime asset parity.
+node_modules/
+.vite/

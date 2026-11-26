@@ -1,0 +1,207 @@
+{
+  "$defs": {
+    "ObserverDeploymentCandidate": {
+      "additionalProperties": false,
+      "description": "A supported snapshot profile evaluated against named evidence requirements.",
+      "properties": {
+        "method": {
+          "enum": [
+            "gitops",
+            "existing_host",
+            "managed_host",
+            "run_command"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "egress": {
+          "enum": [
+            "private",
+            "public"
+          ],
+          "title": "Egress",
+          "type": "string"
+        },
+        "profile": {
+          "const": "observer.snapshot.mtls-pvc.v1",
+          "default": "observer.snapshot.mtls-pvc.v1",
+          "title": "Profile",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "eligible",
+            "blocked",
+            "unknown"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "blockers": {
+          "items": {
+            "anyOf": [
+              {
+                "enum": [
+                  "azure_policy",
+                  "kubernetes_read",
+                  "admission",
+                  "capacity",
+                  "artifact_verified",
+                  "persistent_storage",
+                  "mtls_gateway",
+                  "ownership_known",
+                  "public_egress",
+                  "private_egress",
+                  "gitops_authorized",
+                  "existing_host_authorized",
+                  "managed_host_authorized",
+                  "run_command_authorized",
+                  "managed_host_budget",
+                  "managed_host_plan_feasible"
+                ],
+                "type": "string"
+              },
+              {
+                "enum": [
+                  "existing_owner_preserved",
+                  "operator_method_pinned",
+                  "run_command_requires_explicit_selection"
+                ],
+                "type": "string"
+              }
+            ]
+          },
+          "maxItems": 19,
+          "title": "Blockers",
+          "type": "array"
+        },
+        "missing": {
+          "items": {
+            "enum": [
+              "azure_policy",
+              "kubernetes_read",
+              "admission",
+              "capacity",
+              "artifact_verified",
+              "persistent_storage",
+              "mtls_gateway",
+              "ownership_known",
+              "public_egress",
+              "private_egress",
+              "gitops_authorized",
+              "existing_host_authorized",
+              "managed_host_authorized",
+              "run_command_authorized",
+              "managed_host_budget",
+              "managed_host_plan_feasible"
+            ],
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Missing",
+          "type": "array"
+        }
+      },
+      "required": [
+        "method",
+        "egress",
+        "state",
+        "blockers",
+        "missing"
+      ],
+      "title": "ObserverDeploymentCandidate",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Read-only recommendation; acceptance, approval and execution are separate contracts.",
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "proposal_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Proposal Digest",
+      "type": "string"
+    },
+    "target_ref": {
+      "maxLength": 512,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+      "title": "Target Ref",
+      "type": "string"
+    },
+    "context_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Context Digest",
+      "type": "string"
+    },
+    "evaluated_at": {
+      "format": "date-time",
+      "title": "Evaluated At",
+      "type": "string"
+    },
+    "expires_at": {
+      "format": "date-time",
+      "title": "Expires At",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "ready_for_review",
+        "needs_evidence",
+        "blocked",
+        "not_applicable"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "candidates": {
+      "items": {
+        "$ref": "#/$defs/ObserverDeploymentCandidate"
+      },
+      "maxItems": 8,
+      "title": "Candidates",
+      "type": "array"
+    },
+    "recommended": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ObserverDeploymentCandidate"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "approval_required": {
+      "const": true,
+      "default": true,
+      "title": "Approval Required",
+      "type": "boolean"
+    },
+    "execution_authority": {
+      "const": false,
+      "default": false,
+      "title": "Execution Authority",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "proposal_digest",
+    "target_ref",
+    "context_digest",
+    "evaluated_at",
+    "expires_at",
+    "status",
+    "candidates",
+    "recommended"
+  ],
+  "title": "ObserverDeploymentProposal",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/observer-deployment-proposal/1.0.0"
+}

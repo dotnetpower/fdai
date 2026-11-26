@@ -270,7 +270,7 @@ jobs:
           mkdir -p "$azure_config_dir"
           echo "AZURE_CONFIG_DIR=$azure_config_dir" >> "$GITHUB_ENV"
           git -C "$GITHUB_WORKSPACE/.fdai-protected-workflow-verifier" show \
-            "HEAD:scripts/deployment/azure/verify-github-environment.py" \
+            "HEAD:_archive/python/scripts/deployment/azure/verify-github-environment.py" \
             > "$RUNNER_TEMP/verify-github-environment.py"
           chmod 0600 "$RUNNER_TEMP/verify-github-environment.py"
       - name: Checkout
@@ -332,7 +332,7 @@ jobs:
           RUNTIME_IMAGE_REVISION: ${{ inputs.runtime_image_revision }}
         run: |
           set -euo pipefail
-          python3 scripts/deployment/azure/validate_deploy_request.py
+          python3 _archive/python/scripts/deployment/azure/validate_deploy_request.py
           [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" != "true" ]] || echo "TF_VAR_operational_history_legacy_deployer_principal_id=" >> "$GITHUB_ENV"
           if [[ "$APPLY" != "true" && -n "$RUNTIME_IMAGE_REVISION" ]]; then
             bash scripts/deployment/azure/bind_core_runtime_image.sh --verify-only
@@ -354,7 +354,7 @@ jobs:
         if: inputs.environment == 'prod'
         run: >-
           uv run --frozen --package fdai-core-control-plane python
-          scripts/governance/check-arb-readiness.py --require-production-ready
+          _archive/python/scripts/governance/check-arb-readiness.py --require-production-ready
         working-directory: ${{ github.workspace }}
       - name: Bind production Terraform inputs
         if: inputs.environment == 'prod'
@@ -441,13 +441,13 @@ jobs:
           verified_at="$(git show -s --format=%cI '${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}')"
           PYTHONPATH="$GITHUB_WORKSPACE/services/core-control-plane/src:$GITHUB_WORKSPACE/packages/service-contracts/src" \
             uv run --frozen --package fdai-core-control-plane python \
-              scripts/deployment/azure/seal_model_endpoint_bindings.py \
+              _archive/python/scripts/deployment/azure/seal_model_endpoint_bindings.py \
               --input "$resolved" \
               --output "$resolved" \
               --partner-account-name "aif-fdai-models-${{ inputs.environment }}-${TF_VAR_region_short}" \
               --verified-at "$verified_at"
           if [[ "$VALIDATE_CHATOPS_CHANNELS" == "true" ]]; then
-            PYTHONPATH="$GITHUB_WORKSPACE/services/core-control-plane/src:$GITHUB_WORKSPACE/packages/service-contracts/src" uv run --frozen --package fdai-core-control-plane python scripts/deployment/azure/require_resolved_capability.py --resolved "$resolved" --endpoint-ref "azure-foundry:aif-fdai-models-${{ inputs.environment }}-${TF_VAR_region_short}"
+            PYTHONPATH="$GITHUB_WORKSPACE/services/core-control-plane/src:$GITHUB_WORKSPACE/packages/service-contracts/src" uv run --frozen --package fdai-core-control-plane python _archive/python/scripts/deployment/azure/require_resolved_capability.py --resolved "$resolved" --endpoint-ref "azure-foundry:aif-fdai-models-${{ inputs.environment }}-${TF_VAR_region_short}"
           fi
           python3 - "$resolved" "$manifest" <<'PY'
           import json
@@ -515,7 +515,7 @@ jobs:
             -backend-config="container_name=tfstate" \
             -backend-config="key=fdai-${{ inputs.environment }}.tfstate"
           bash ../scripts/deployment/azure/resolve-document-ocr-desired-state.sh
-          [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" != "true" ]] || python3 ../scripts/deployment/azure/guard_deploy_identity_plan.py state-env --terraform-dir . >> "$GITHUB_ENV"
+          [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" != "true" ]] || python3 ../_archive/python/scripts/deployment/azure/guard_deploy_identity_plan.py state-env --terraform-dir . >> "$GITHUB_ENV"
       - name: Verify model binding policy active digest
         if: ${{ !inputs.apply && env.MODEL_BINDING_ONLY == 'true' }}
         env:
@@ -536,7 +536,7 @@ jobs:
           az containerapp revision show --resource-group "$resource_group" \
             --name "$core_app" --revision "$active_revision" --output json \
             > "$RUNNER_TEMP/active-core-revision.json"
-          binding="$(python3 ../scripts/deployment/azure/verify_active_core_revision.py \
+          binding="$(python3 ../_archive/python/scripts/deployment/azure/verify_active_core_revision.py \
             --revision "$RUNNER_TEMP/active-core-revision.json" --require-model-binding)"
           active_image="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["image"])' \
             <<< "$binding")"
@@ -550,7 +550,7 @@ jobs:
             echo "Active Core model attestation verification failed." >&2
             exit 1
           fi
-          current="$(python3 ../scripts/deployment/azure/verify_active_model_attestation.py \
+          current="$(python3 ../_archive/python/scripts/deployment/azure/verify_active_model_attestation.py \
             --attestations "$RUNNER_TEMP/active-model-attestations.json")"
           [[ "$runtime_digest" == "$current" ]] || {
             echo "Active Core runtime and image attestation model digests disagree." >&2
@@ -676,8 +676,8 @@ jobs:
           if [[ "$RCA_READER_IDENTITY_ONLY" == "true" ]]; then
             bash ../scripts/deployment/azure/reconcile_rca_bootstrap_state.sh
           fi
-          [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" != "true" ]] || python3 ../scripts/deployment/azure/reconcile_deploy_identity_state.py --terraform-dir .
-          [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" != "true" ]] || python3 ../scripts/deployment/azure/guard_deploy_identity_plan.py target-env --terraform-dir . >> "$GITHUB_ENV"
+          [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" != "true" ]] || python3 ../_archive/python/scripts/deployment/azure/reconcile_deploy_identity_state.py --terraform-dir .
+          [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" != "true" ]] || python3 ../_archive/python/scripts/deployment/azure/guard_deploy_identity_plan.py target-env --terraform-dir . >> "$GITHUB_ENV"
       - name: Terraform format check
         if: ${{ !inputs.apply }}
         run: terraform fmt -check -recursive
@@ -688,7 +688,7 @@ jobs:
       - name: Build development operations gateway source artifact
         if: ${{ !inputs.apply && inputs.deploy_dev_operations_gateway }}
         run: >-
-          python3 ../scripts/deployment/azure/build_dev_gateway_artifact.py
+          python3 ../_archive/python/scripts/deployment/azure/build_dev_gateway_artifact.py
           ../delivery/dev_operations_gateway fdai-dev-operations-gateway.zip
 
       - name: Run runner egress preflight
@@ -704,7 +704,7 @@ jobs:
           )
           [[ "$TF_VAR_enable_private_networking" == "true" ]] && args+=(--private-networking)
           [[ "${TF_VAR_acr_sku:-Basic}" == "Premium" ]] && args+=(--premium-acr)
-          python3 scripts/deployment/azure/run_runner_preflight.py "${args[@]}"
+          python3 _archive/python/scripts/deployment/azure/run_runner_preflight.py "${args[@]}"
 
       - name: Terraform plan
         if: ${{ !inputs.apply }}
@@ -717,8 +717,8 @@ jobs:
           git -C "$GITHUB_WORKSPACE" fetch --no-tags origin \
             "+refs/heads/main:refs/remotes/origin/main"
           for protected_path in \
-            scripts/deployment/service/state_migration.py \
-            scripts/deployment/service/service_contract.py \
+            _archive/python/scripts/deployment/service/state_migration.py \
+            _archive/python/scripts/deployment/service/service_contract.py \
             scripts/deployment/service/service-matrix.json \
             infra/services/state-migration.json; do
             protected_digest="$(
@@ -733,7 +733,7 @@ jobs:
             }
           done
           terraform show -json dev.plan > "$RUNNER_TEMP/legacy-runtime-plan.json"
-          python3 ../scripts/deployment/service/state_migration.py guard-legacy-plan \
+          python3 ../_archive/python/scripts/deployment/service/state_migration.py guard-legacy-plan \
             --plan-json "$RUNNER_TEMP/legacy-runtime-plan.json"
       - name: Enforce bounded Terraform plan scope
         if: ${{ !inputs.apply && (env.CORE_MODEL_QUORUM_ONLY == 'true' || inputs.deploy_design_mocks || env.MONITORING_ONLY == 'true' || env.OPERATIONAL_HISTORY_ONLY == 'true' || env.PROVIDER_SCHEMA_ONLY == 'true' || env.RCA_READER_IDENTITY_ONLY == 'true' || env.MODEL_BINDING_ONLY == 'true' || env.DEPLOY_IDENTITY_MIGRATION_ONLY == 'true' || env.RUNTIME_IMAGE_PROFILE == 'cost-governance' || startsWith(inputs.request_id, 'plan-observability-') || startsWith(inputs.request_id, 'plan-runtime-')) }}
@@ -763,7 +763,7 @@ jobs:
             echo "bounded plan scope mode is unavailable" >&2
             exit 1
           fi
-          PYTHONPATH="$GITHUB_WORKSPACE" python3 scripts/deployment/azure/enforce_plan_scope.py \
+          PYTHONPATH="$GITHUB_WORKSPACE" python3 _archive/python/scripts/deployment/azure/enforce_plan_scope.py \
             --plan infra/dev.plan --mode "$mode" "${extra[@]}"
 
       - name: Reject destructive protected plan
@@ -774,8 +774,8 @@ jobs:
           set -euo pipefail
           trap 'rm -f dev.plan.review.json' EXIT
           terraform show -json dev.plan > dev.plan.review.json
-          python3 ../scripts/deployment/azure/guard_operator_role_plan.py --plan dev.plan.review.json
-          python3 ../scripts/deployment/azure/guard_platform_migration_plan.py --plan dev.plan.review.json
+          python3 ../_archive/python/scripts/deployment/azure/guard_operator_role_plan.py --plan dev.plan.review.json
+          python3 ../_archive/python/scripts/deployment/azure/guard_platform_migration_plan.py --plan dev.plan.review.json
           python3 - <<'PY'
           import json
           import os
@@ -1057,7 +1057,7 @@ jobs:
           terraform show -json dev.plan > dev.plan.json
           trap 'rm -f dev.plan.json runner-live-preflight-input.json runner-environment.json' EXIT
           set +e
-          python3 ../scripts/deployment/azure/run_live_preflight.py \
+          python3 ../_archive/python/scripts/deployment/azure/run_live_preflight.py \
           --input runner-live-preflight-input.json \
           --terraform-plan dev.plan.json \
           --environment-config runner-environment.json \
@@ -1116,7 +1116,7 @@ jobs:
             --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
             --container-name deployment-plans --auth-mode login \
             --num-results 1001 --only-show-errors --output json > plan-blobs.json
-          python3 ../scripts/deployment/azure/cleanup-deployment-plans.py plan-blobs.json > expired-plan-blobs.txt
+          python3 ../_archive/python/scripts/deployment/azure/cleanup-deployment-plans.py plan-blobs.json > expired-plan-blobs.txt
           deleted="$(wc -l < expired-plan-blobs.txt)"
           if [ "$deleted" -gt 0 ]; then
             xargs -r -P 8 -I '{}' az storage blob delete \
@@ -1150,7 +1150,7 @@ jobs:
           umask 077
           terraform show -json dev.plan > "$private_dir/deployment-plan.json"
           PYTHONPATH=../packages/deployment-cli/src python3 \
-            ../scripts/deployment/azure/genesis_private_plan_summary.py \
+            ../_archive/python/scripts/deployment/azure/genesis_private_plan_summary.py \
             --plan-json "$private_dir/deployment-plan.json" \
             --output "$private_dir/deployment-plan-summary.json"
           created_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
@@ -1160,7 +1160,7 @@ jobs:
             PREFLIGHT_EVIDENCE_DIGEST="$preflight_evidence_digest" CREATED_AT="$created_at" \
             AZURE_PREFLIGHT_EVIDENCE_DIGEST="$azure_preflight_evidence_digest" \
             EXPIRES_AT="$expires_at"
-          python3 ../scripts/deployment/azure/build_deployment_plan_metadata.py \
+          python3 ../_archive/python/scripts/deployment/azure/build_deployment_plan_metadata.py \
             --plan-summary "$private_dir/deployment-plan-summary.json" \
             --output plan-metadata.json
           blob_prefix="${TF_VAR_env}/${plan_id}"
@@ -1312,8 +1312,8 @@ jobs:
               echo "FDAI_DEPLOYMENT_MODELS_PATH=$PWD/deployment-models.json"
             } >> "$GITHUB_ENV"
           fi
-          [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" != "true" ]] || python3 ../scripts/deployment/azure/guard_deploy_identity_plan.py target-env --terraform-dir . >> "$GITHUB_ENV"
-          python3 ../scripts/deployment/azure/verify-deployment-plan.py \
+          [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" != "true" ]] || python3 ../_archive/python/scripts/deployment/azure/guard_deploy_identity_plan.py target-env --terraform-dir . >> "$GITHUB_ENV"
+          python3 ../_archive/python/scripts/deployment/azure/verify-deployment-plan.py \
             --plan dev.plan --source-artifact fdai-dev-operations-gateway.zip \
             --metadata plan-metadata.json \
             --preflight-evidence plan-preflight-evidence.json \
@@ -1321,7 +1321,7 @@ jobs:
             --plan-id "$APPLY_PLAN_ID" --plan-digest "$APPLY_PLAN_DIGEST" \
             --context-digest "$APPLY_CONTEXT_DIGEST" --commit-sha "$APPLY_COMMIT_SHA" \
             --request-kind "$apply_request_kind" --environment "$APPLY_ENVIRONMENT"
-          [[ "$resolved_models_digest" == "-" ]] || PYTHONPATH="$GITHUB_WORKSPACE/services/core-control-plane/src:$GITHUB_WORKSPACE/packages/service-contracts/src" uv run --frozen --package fdai-core-control-plane python ../scripts/deployment/azure/require_resolved_capability.py --resolved resolved-models.json --endpoint-ref "azure-foundry:aif-fdai-models-${APPLY_ENVIRONMENT}-${TF_VAR_region_short}" --plan-metadata plan-metadata.json --requested-validation "$VALIDATE_CHATOPS_CHANNELS"
+          [[ "$resolved_models_digest" == "-" ]] || PYTHONPATH="$GITHUB_WORKSPACE/services/core-control-plane/src:$GITHUB_WORKSPACE/packages/service-contracts/src" uv run --frozen --package fdai-core-control-plane python ../_archive/python/scripts/deployment/azure/require_resolved_capability.py --resolved resolved-models.json --endpoint-ref "azure-foundry:aif-fdai-models-${APPLY_ENVIRONMENT}-${TF_VAR_region_short}" --plan-metadata plan-metadata.json --requested-validation "$VALIDATE_CHATOPS_CHANNELS"
           if [[ "$apply_request_kind" == "model" ]]; then
             policy_digest="$(python3 -c 'import json; evidence=json.load(open("plan-metadata.json", encoding="utf-8"))["model_resolution"]; print(evidence["binding_policy_digest"].removeprefix("sha256:"))')"
             [[ "$APPLY_REQUEST_ID" == "apply-model-${policy_digest}" ]] || {
@@ -1376,7 +1376,7 @@ jobs:
           fi
           if [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" == "true" ]]; then
             terraform show -json dev.plan > "$RUNNER_TEMP/deploy-identity-applied-plan.json"
-            python3 ../scripts/deployment/azure/guard_deploy_identity_plan.py \
+            python3 ../_archive/python/scripts/deployment/azure/guard_deploy_identity_plan.py \
               validate --plan "$RUNNER_TEMP/deploy-identity-applied-plan.json"
           fi
           if [[ "$PROVIDER_SCHEMA_ONLY" == "true" ]]; then bash ../scripts/deployment/azure/verify-provider-schema-core-baseline.sh --verify-receipt provider-schema-core-baseline-plan.json "$runtime_revision" "$runtime_digest"; bash ../scripts/deployment/azure/verify-provider-schema-core-baseline.sh "$runtime_revision" "$runtime_digest" . provider-schema-core-baseline.json; fi
@@ -1395,7 +1395,7 @@ jobs:
           az containerapp revision show --resource-group "$resource_group" \
             --name "$core_app" --revision "$active_revision" --output json \
             > "$RUNNER_TEMP/apply-active-core-revision.json"
-          binding="$(python3 ../scripts/deployment/azure/verify_active_core_revision.py \
+          binding="$(python3 ../_archive/python/scripts/deployment/azure/verify_active_core_revision.py \
             --revision "$RUNNER_TEMP/apply-active-core-revision.json" --require-model-binding)"
           active_image="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["image"])' \
             <<< "$binding")"
@@ -1407,7 +1407,7 @@ jobs:
             echo "Active Core model attestation verification failed at apply." >&2
             exit 1
           fi
-          observed_model="$(python3 ../scripts/deployment/azure/verify_active_model_attestation.py \
+          observed_model="$(python3 ../_archive/python/scripts/deployment/azure/verify_active_model_attestation.py \
             --attestations "$RUNNER_TEMP/apply-active-model-attestations.json")"
           export OBSERVED_CORE_BINDING="$binding" OBSERVED_CORE_MODEL="$observed_model"
           python3 - <<'PY'
@@ -1563,7 +1563,7 @@ jobs:
             --url "https://management.azure.com${resource_id}/deployments?api-version=2024-10-01" \
             --output json > "$RUNNER_TEMP/model-deployments.json"
           uv run --frozen --package fdai-core-control-plane python \
-            ../scripts/deployment/azure/verify_model_deployments.py \
+            ../_archive/python/scripts/deployment/azure/verify_model_deployments.py \
             --resolved resolved-models.json \
             --provider "$RUNNER_TEMP/model-deployments.json" \
             --out model-binding-readback.json \
@@ -1715,7 +1715,7 @@ jobs:
             echo "console hostname is unavailable after console deployment." >&2
             exit 1
           fi
-          python3 ../scripts/deployment/azure/sync-entra-spa-redirect.py \
+          python3 ../_archive/python/scripts/deployment/azure/sync-entra-spa-redirect.py \
             --tenant-id "$EXPECTED_AZURE_TENANT_ID" \
             --spa-client-id "$ENTRA_CONSOLE_SPA_CLIENT_ID" \
             --origin "https://$hostname"
@@ -1723,7 +1723,7 @@ jobs:
       - name: Build allowlisted design-mocks artifact
         if: ${{ inputs.apply && inputs.deploy_design_mocks }}
         working-directory: ${{ github.workspace }}
-        run: python3 scripts/deployment/azure/build_design_mocks_artifact.py tmp/design-mocks-dist
+        run: python3 _archive/python/scripts/deployment/azure/build_design_mocks_artifact.py tmp/design-mocks-dist
 
       - name: Read design-mocks deployment token
         if: ${{ inputs.apply && inputs.deploy_design_mocks }}
@@ -2246,7 +2246,7 @@ jobs:
           applied_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
           export APPLIED_AT="$applied_at" APPLY_PLAN_ID APPLY_PLAN_DIGEST \
             APPLY_REQUEST_ID APPLY_CONTEXT_DIGEST APPLY_SOURCE_COMMIT
-          python3 ../scripts/deployment/azure/build_deployment_apply_receipt.py --cost-governance-readback "$RUNNER_TEMP/cost-governance-job-image-readback.json" \
+          python3 ../_archive/python/scripts/deployment/azure/build_deployment_apply_receipt.py --cost-governance-readback "$RUNNER_TEMP/cost-governance-job-image-readback.json" \
             --output apply-receipt.json
           az storage blob upload \
             --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
@@ -2257,7 +2257,7 @@ jobs:
           candidate="$RUNNER_TEMP/deployment-apply-artifact"
           container_url="$(terraform output -raw decision_evidence_container_url 2>/dev/null || true)"
           if [[ -n "$container_url" ]]; then
-            python3 ../scripts/deployment/azure/prepare_decision_evidence_candidate.py \
+            python3 ../_archive/python/scripts/deployment/azure/prepare_decision_evidence_candidate.py \
               --plan-metadata plan-metadata.json --preflight-evidence plan-preflight-evidence.json \
               --azure-preflight-evidence plan-azure-preflight-evidence.json \
               --apply-claim apply-claim.json --apply-receipt apply-receipt.json \

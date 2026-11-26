@@ -1,5 +1,6 @@
 /** Offline cloud-knowledge package preparation and governed intake presentation. */
 import type { RefObject } from "preact";
+import { CheckboxField } from "../components/form-controls";
 import { StatusPill } from "../components/ui";
 import { cloudKnowledgeText as text, type CloudKnowledgeMessageKey } from "./cloud-knowledge.i18n";
 import {
@@ -159,15 +160,13 @@ export function PackageIntake({
           <div class="cloud-knowledge-step-body">
             <h5>{text("submitStepTitle")}</h5>
             <p>{text("submitStepBody")}</p>
-            <label class="cloud-knowledge-confirm">
-              <input
-                type="checkbox"
-                checked={confirmed}
-                disabled={!permissions.import || !inspected}
-                onChange={(event) => onConfirm(event.currentTarget.checked)}
-              />
-              <span>{text("confirmImport")}</span>
-            </label>
+            <CheckboxField
+              label={text("confirmImport")}
+              checked={confirmed}
+              disabled={!permissions.import || !inspected}
+              className="cloud-knowledge-confirm"
+              onChange={onConfirm}
+            />
             <ActionButton
               disabled={!canImportCloudKnowledgePackage(
                 file,

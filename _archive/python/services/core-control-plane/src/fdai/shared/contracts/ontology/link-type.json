@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/ontology/link-type/1.0.0",
+  "title": "OntologyLinkType",
+  "description": "Declares a directed relationship between two ObjectTypes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "name",
+    "version",
+    "from_type",
+    "to_type",
+    "cardinality"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "from_type": {
+      "type": "string",
+      "description": "Source ObjectType name."
+    },
+    "to_type": {
+      "type": "string",
+      "description": "Target ObjectType name."
+    },
+    "cardinality": {
+      "type": "string",
+      "enum": [
+        "one_to_one",
+        "one_to_many",
+        "many_to_one",
+        "many_to_many"
+      ]
+    },
+    "is_transitive": {
+      "type": "boolean",
+      "default": false,
+      "description": "True when a chain of this link may be walked recursively (e.g. `contains` from subscription to a leaf resource). The traversal engine only recurses when this is true."
+    },
+    "is_causal": {
+      "type": "boolean",
+      "default": false,
+      "description": "True when this link carries causal semantics (Rule -> Outcome `causes`/`prevents`). T2 reasoning may cite it; deterministic tiers must not treat causality as certainty."
+    },
+    "temporal_order": {
+      "type": "boolean",
+      "default": false,
+      "description": "True when links of this type are returned in target-property order. Requires order_by_property."
+    },
+    "order_by_property": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Target ObjectType property used to order temporal links. The catalog loader verifies that it exists and has an ordered scalar type."
+    },
+    "forward_role": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "description": "Role name when traversing from_type to to_type."
+    },
+    "reverse_role": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "description": "Role name when traversing from to_type to from_type without creating an inverse edge."
+    },
+    "semantic_traits": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "attachment",
+          "authorization",
+          "classification",
+          "composition",
+          "connectivity",
+          "containment",
+          "dependency",
+          "evidence",
+          "ownership",
+          "reciprocal",
+          "taxonomy",
+          "traffic"
+        ]
+      },
+      "default": []
+    },
+    "description": {
+      "type": "string"
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"temporal_order": {"const": true}},
+        "required": ["temporal_order"]
+      },
+      "then": {"required": ["order_by_property"]}
+    },
+    {
+      "if": {"required": ["forward_role"]},
+      "then": {"required": ["reverse_role"]}
+    },
+    {
+      "if": {"required": ["reverse_role"]},
+      "then": {"required": ["forward_role"]}
+    }
+  ],
+  "$defs": {
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_url", "resolved_ref", "content_hash", "license", "retrieved_at"],
+      "properties": {
+        "source_url": {"type": "string", "minLength": 1},
+        "resolved_ref": {"type": "string", "minLength": 1},
+        "content_hash": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "license": {"type": "string", "minLength": 1},
+        "retrieved_at": {"type": "string", "format": "date-time"}
+      }
+    }
+  }
+}

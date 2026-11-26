@@ -3,16 +3,49 @@
 
 /* Lifecycle Hub operator UI composition. Read-only; see lifecycle/hub/README.md. */
 :root {
-  --lc-chrome: #f6f5f3;
-  --lc-select-border: #cfd6de;
-  --lc-row-sel: #f3f6f9;
-  --lc-rule: #efedea;
-  --lc-control-border: #c9cdd1;
-  /* The Hub's own accent, distinct from Console's --cs-steel, so an operator who has both open
-   * can tell them apart at a glance instead of reading them as the same product. */
-  --lc-accent: var(--lc-accent-dark);
-  --lc-accent-dark: #3c655f;
-  --lc-accent-tint: #e8f0ef;
+  --lc-bg: #fafafa;
+  --lc-chrome: #ffffff;
+  --lc-select-border: #e4e7ec;
+  --lc-row-sel: #f4f5f7;
+  --lc-rule: #eef0f3;
+  --lc-control-border: #d4d9e2;
+  --lc-accent: #0f766e;
+  --lc-accent-dark: #0f5f59;
+  --lc-accent-tint: rgba(15, 118, 110, 0.08);
+  --lc-shadow-xs: 0 1px 2px rgba(17, 24, 39, 0.04);
+  --lc-shadow-sm: 0 1px 3px rgba(17, 24, 39, 0.04), 0 4px 12px rgba(17, 24, 39, 0.035);
+  --lc-focus-ring: rgba(15, 118, 110, 0.22);
+  --lc-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 4.5L6 8L9.5 4.5' stroke='%234b5563' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --cs-card: #ffffff;
+  --cs-shade: #f4f5f7;
+  --cs-hairline: #e4e7ec;
+  --cs-text: #111827;
+  --cs-text-soft: #4b5563;
+  --cs-radius-sm: 6px;
+  --cs-font: "Segoe UI Variable Text", "Segoe UI", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  --cs-font-mono: "Cascadia Code", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --lc-bg: #111418;
+  --lc-chrome: #181c22;
+  --lc-select-border: #2a313c;
+  --lc-row-sel: #20252d;
+  --lc-rule: #232932;
+  --lc-control-border: #363f4d;
+  --lc-accent: #2dd4bf;
+  --lc-accent-dark: #5eead4;
+  --lc-accent-tint: rgba(45, 212, 191, 0.11);
+  --lc-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.24);
+  --lc-shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.28);
+  --lc-focus-ring: rgba(45, 212, 191, 0.28);
+  --lc-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 4.5L6 8L9.5 4.5' stroke='%23a1aab6' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --cs-card: #181c22;
+  --cs-shade: #20252d;
+  --cs-hairline: #2a313c;
+  --cs-text: #f1f3f5;
+  --cs-text-soft: #a1aab6;
 }
 
 * {
@@ -24,9 +57,42 @@ body {
 }
 body {
   margin: 0;
-  background: var(--cs-card);
+  background: var(--lc-bg);
   color: var(--cs-text);
   font: var(--cs-type-body-size) / var(--cs-type-body-line-height) var(--cs-font);
+  -webkit-font-smoothing: antialiased;
+}
+select.input {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 34px;
+  background-image: var(--lc-select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 12px 12px;
+}
+.side-locale-actions { display: inline-flex; align-items: center; gap: 6px; }
+.btn.side-theme-btn { width: 32px; min-width: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.catalog-panel, .quick-provision-card, .quick-provision-box {
+  background: var(--cs-card);
+  border-color: var(--cs-hairline);
+  border-radius: 8px;
+  box-shadow: var(--lc-shadow-xs);
+}
+.btn {
+  font-weight: 600;
+  transition: background-color 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+}
+.btn:hover:not(:disabled) {
+  background: var(--cs-shade);
+  border-color: var(--lc-accent);
+}
+:root[data-theme="dark"] .btn.primary {
+  color: #0b1617;
+}
+.btn:focus-visible, .input:focus-visible, .side a.it:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--lc-focus-ring);
 }
 a {
   color: var(--lc-accent);

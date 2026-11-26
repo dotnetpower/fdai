@@ -1,0 +1,277 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/authority/full-authority-development/1.0.0",
+  "title": "DevelopmentAuthorityEnvelope",
+  "description": "Per-action Owner confirmation, trusted binding verification, and derived development-only grant carried on runtime events.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "confirmation",
+    "binding_verification",
+    "grant"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "confirmation": {"$ref": "#/$defs/confirmation"},
+    "binding_verification": {"$ref": "#/$defs/binding_verification"},
+    "grant": {"$ref": "#/$defs/grant"}
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+    },
+    "principal": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenant_digest",
+        "subscription_digest",
+        "resource_group_digests"
+      ],
+      "properties": {
+        "tenant_digest": {"$ref": "#/$defs/digest"},
+        "subscription_digest": {"$ref": "#/$defs/digest"},
+        "resource_group_digests": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/digest"}
+        }
+      }
+    },
+    "registered_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_type", "version", "action_type_digest"],
+      "properties": {
+        "action_type": {"$ref": "#/$defs/identifier"},
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "action_type_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "profile_id",
+        "scope",
+        "classification",
+        "owner_principal",
+        "executor_principal",
+        "valid_from",
+        "valid_until",
+        "source_revision",
+        "catalog_revision",
+        "policy_revision",
+        "registered_actions"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "profile_id": {"$ref": "#/$defs/identifier"},
+        "scope": {"$ref": "#/$defs/scope"},
+        "classification": {"const": "disposable_development"},
+        "owner_principal": {"$ref": "#/$defs/principal"},
+        "executor_principal": {"$ref": "#/$defs/principal"},
+        "valid_from": {"type": "string", "format": "date-time"},
+        "valid_until": {"type": "string", "format": "date-time"},
+        "source_revision": {"$ref": "#/$defs/revision"},
+        "catalog_revision": {"$ref": "#/$defs/revision"},
+        "policy_revision": {"$ref": "#/$defs/revision"},
+        "registered_actions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/registered_action"}
+        }
+      }
+    },
+    "safeguards": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stop_condition_digest",
+        "rollback_contract_digest",
+        "rollback_test_digest",
+        "blast_radius_digest",
+        "logical_target_lock_digest",
+        "idempotency_key",
+        "two_phase_audit",
+        "audit_contract_digest",
+        "observer_principal",
+        "observer_source_digest"
+      ],
+      "properties": {
+        "stop_condition_digest": {"$ref": "#/$defs/digest"},
+        "rollback_contract_digest": {"$ref": "#/$defs/digest"},
+        "rollback_test_digest": {"$ref": "#/$defs/digest"},
+        "blast_radius_digest": {"$ref": "#/$defs/digest"},
+        "logical_target_lock_digest": {"$ref": "#/$defs/digest"},
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "two_phase_audit": {"const": true},
+        "audit_contract_digest": {"$ref": "#/$defs/digest"},
+        "observer_principal": {"$ref": "#/$defs/principal"},
+        "observer_source_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_type",
+        "action_type_version",
+        "action_type_digest",
+        "action_id",
+        "target_digest",
+        "target_revision",
+        "scope",
+        "source_revision",
+        "catalog_revision",
+        "policy_revision",
+        "params_digest",
+        "action_digest",
+        "dry_run_digest",
+        "requester_principal",
+        "executor_principal",
+        "safeguards"
+      ],
+      "properties": {
+        "action_type": {"$ref": "#/$defs/identifier"},
+        "action_type_version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "action_type_digest": {"$ref": "#/$defs/digest"},
+        "action_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "target_digest": {"$ref": "#/$defs/digest"},
+        "target_revision": {"$ref": "#/$defs/revision"},
+        "scope": {"$ref": "#/$defs/scope"},
+        "source_revision": {"$ref": "#/$defs/revision"},
+        "catalog_revision": {"$ref": "#/$defs/revision"},
+        "policy_revision": {"$ref": "#/$defs/revision"},
+        "params_digest": {"$ref": "#/$defs/digest"},
+        "action_digest": {"$ref": "#/$defs/digest"},
+        "dry_run_digest": {"$ref": "#/$defs/digest"},
+        "requester_principal": {"$ref": "#/$defs/principal"},
+        "executor_principal": {"$ref": "#/$defs/principal"},
+        "safeguards": {"$ref": "#/$defs/safeguards"}
+      }
+    },
+    "confirmation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "confirmation_id",
+        "profile_digest",
+        "binding",
+        "authenticated_principal",
+        "authenticated_role",
+        "authentication_evidence_digest",
+        "authenticated_at",
+        "confirmed_by",
+        "confirmed_at",
+        "expires_at",
+        "explicit_confirmation"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "confirmation_id": {"$ref": "#/$defs/identifier"},
+        "profile_digest": {"$ref": "#/$defs/digest"},
+        "binding": {"$ref": "#/$defs/binding"},
+        "authenticated_principal": {"$ref": "#/$defs/principal"},
+        "authenticated_role": {"const": "Owner"},
+        "authentication_evidence_digest": {"$ref": "#/$defs/digest"},
+        "authenticated_at": {"type": "string", "format": "date-time"},
+        "confirmed_by": {"$ref": "#/$defs/principal"},
+        "confirmed_at": {"type": "string", "format": "date-time"},
+        "expires_at": {"type": "string", "format": "date-time"},
+        "explicit_confirmation": {"const": true}
+      }
+    },
+    "binding_verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "binding",
+        "source_id",
+        "source_revision",
+        "verification_receipt_digest",
+        "verified_at",
+        "expires_at",
+        "authoritative"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "binding": {"$ref": "#/$defs/binding"},
+        "source_id": {"$ref": "#/$defs/identifier"},
+        "source_revision": {"$ref": "#/$defs/revision"},
+        "verification_receipt_digest": {"$ref": "#/$defs/digest"},
+        "verified_at": {"type": "string", "format": "date-time"},
+        "expires_at": {"type": "string", "format": "date-time"},
+        "authoritative": {"const": true}
+      }
+    },
+    "grant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "profile_id",
+        "profile_digest",
+        "confirmation_id",
+        "confirmation_digest",
+        "action_binding_digest",
+        "binding_verification_digest",
+        "owner_principal",
+        "executor_principal",
+        "original_quorum",
+        "effective_quorum",
+        "development_only",
+        "valid_until"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "profile_id": {"$ref": "#/$defs/identifier"},
+        "profile_digest": {"$ref": "#/$defs/digest"},
+        "confirmation_id": {"$ref": "#/$defs/identifier"},
+        "confirmation_digest": {"$ref": "#/$defs/digest"},
+        "action_binding_digest": {"$ref": "#/$defs/digest"},
+        "binding_verification_digest": {"$ref": "#/$defs/digest"},
+        "owner_principal": {"$ref": "#/$defs/principal"},
+        "executor_principal": {"$ref": "#/$defs/principal"},
+        "original_quorum": {"type": "integer", "minimum": 1},
+        "effective_quorum": {"const": 1},
+        "development_only": {"const": true},
+        "valid_until": {"type": "string", "format": "date-time"}
+      }
+    }
+  }
+}

@@ -142,7 +142,7 @@ jobs:
           evaluated_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
           export UV_CACHE_DIR="$RUNNER_TEMP/uv-cache"
           uv run --frozen --package fdai-core-control-plane \
-            python scripts/deployment/azure/deployment_decision_evidence.py \
+            python _archive/python/scripts/deployment/azure/deployment_decision_evidence.py \
               --evidence-dir "$RUNNER_TEMP/source-evidence" \
               --source-run-json "$RUNNER_TEMP/source-run.json" \
               --commit-sha "$TARGET_COMMIT_SHA" \
@@ -152,7 +152,7 @@ jobs:
               --policy config/decision-evidence-deployment-policy.json \
               --output-dir "$RUNNER_TEMP/decision-evidence-inputs"
           uv run --frozen --package fdai-core-control-plane \
-            python scripts/deployment/azure/decision_evidence_bundle.py \
+            python _archive/python/scripts/deployment/azure/decision_evidence_bundle.py \
               --receipt "$RUNNER_TEMP/decision-evidence-inputs/receipt.json" \
               --requirement "$RUNNER_TEMP/decision-evidence-inputs/requirement.json" \
               --authentication-proof \

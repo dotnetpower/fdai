@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/executor-command/1.0.0",
+  "title": "ExecutorCommand",
+  "description": "Versioned isolated-Executor command envelope. It transports an already-gated Action but grants no execution authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "command_id", "action_schema_version", "action_id", "event_id",
+    "idempotency_key", "target_resource_ref", "partition_key", "execution_path",
+    "requested_mode", "attempt", "issued_at", "deadline_at", "action_payload_digest",
+    "action_payload"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "command_id": {"type": "string", "format": "uuid"},
+    "action_schema_version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "action_id": {"type": "string", "format": "uuid"},
+    "event_id": {"type": "string", "format": "uuid"},
+    "idempotency_key": {"type": "string", "minLength": 1, "maxLength": 512},
+    "target_resource_ref": {"type": "string", "minLength": 1, "maxLength": 512},
+    "partition_key": {"type": "string", "minLength": 1, "maxLength": 512},
+    "execution_path": {"type": "string", "enum": ["pr_native", "direct_api", "pr_manual", "tool_call"]},
+    "requested_mode": {"type": "string", "enum": ["shadow", "enforce"]},
+    "attempt": {"type": "integer", "minimum": 1, "maximum": 100},
+    "issued_at": {"type": "string", "format": "date-time"},
+    "deadline_at": {"type": "string", "format": "date-time"},
+    "action_payload_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "action_payload": {
+      "type": "object",
+      "required": ["schema_version", "action_id", "event_id", "idempotency_key", "target_resource_ref", "mode"],
+      "additionalProperties": true
+    }
+  }
+}

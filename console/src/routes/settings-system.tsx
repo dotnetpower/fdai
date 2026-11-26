@@ -5,6 +5,11 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import "./settings-email-template.css";
 import "./settings-webhook-diagnostic.css";
 import {
+  CheckboxField,
+  RadioField,
+  TextInput,
+} from "../components/form-controls";
+import {
   AsyncBoundary,
   CopyButton,
   ExternalLink,
@@ -1109,22 +1114,24 @@ export function TeamsWorkflowTestPanel({
                 <small>{t("settings.teamsWorkflowTest.fdaiAccount")}</small>
                 <code>{auth.account?.username ?? t("settings.teamsWorkflowTest.accountUnavailable")}</code>
               </span>
-              <label>
-                <small>{settingsIntegrationsText("m365Account")}</small>
+              <div class="settings-teams-workflow-account-field">
                 <span class="settings-teams-workflow-account-control">
-                  <input
-                    class="form-input"
+                  <TextInput
+                    label={settingsIntegrationsText("m365Account")}
                     type="email"
-                    autocomplete="username"
-                    maxlength={254}
-                    aria-invalid={!accountIsValid ? "true" : undefined}
-                    aria-describedby="teams-workflow-account-note"
+                    autoComplete="username"
+                    maxLength={254}
                     value={canManage ? accountHint : ""}
                     disabled={!canManage}
                     placeholder={canManage
                       ? t("settings.teamsWorkflowTest.accountPlaceholder")
                       : t("settings.teamsWorkflowTest.ownerOnly")}
-                    onInput={(event) => setAccountHint(event.currentTarget.value)}
+                    {...(canManage
+                      ? !accountIsValid
+                        ? { error: settingsIntegrationsText("accountInvalid") }
+                        : { hint: settingsIntegrationsText("accountUsageHint") }
+                      : {})}
+                    onInput={setAccountHint}
                   />
                   {canManage && accountHint.trim() ? (
                     <CopyButton
@@ -1133,14 +1140,7 @@ export function TeamsWorkflowTestPanel({
                     />
                   ) : null}
                 </span>
-                {canManage ? (
-                  <small id="teams-workflow-account-note">
-                    {!accountIsValid
-                      ? settingsIntegrationsText("accountInvalid")
-                      : settingsIntegrationsText("accountUsageHint")}
-                  </small>
-                ) : null}
-              </label>
+              </div>
             </div>
           </div>
         </li>
@@ -1343,21 +1343,26 @@ export function TeamsWorkflowTestPanel({
                 onSubmit={(event) => { void submit(event); }}
               >
                 <div class="settings-webhook-diagnostic-field">
-                  <label for="teams-workflow-webhook-url">
-                    {settingsIntegrationsText("saveUrlLabel")}
-                  </label>
-                  <div class="settings-teams-workflow-url-control">
-                    <input
+                  <div
+                    class="settings-teams-workflow-url-control"
+                    onFocusIn={() => {
+                      if (canManage && !isUrlRevealed && !webhookUrl) {
+                        setIsEditingUrl(true);
+                      }
+                    }}
+                    onFocusOut={() => {
+                      if (!webhookUrl.trim()) {
+                        setIsEditingUrl(false);
+                      }
+                    }}
+                  >
+                    <TextInput
                       id="teams-workflow-webhook-url"
-                      class="form-input"
-                      type="text"
-                      inputMode="url"
-                      autocomplete="off"
-                      data-1p-ignore
-                      data-bwignore
-                      data-lpignore="true"
-                      spellcheck={false}
-                      maxlength={4096}
+                      label={settingsIntegrationsText("saveUrlLabel")}
+                      type="url"
+                      autoComplete="off"
+                      mono
+                      maxLength={4096}
                       value={displayedWebhookUrl}
                       readOnly={!canManage}
                       disabled={testing}
@@ -1365,20 +1370,10 @@ export function TeamsWorkflowTestPanel({
                         bindingSaved?.endpointIdentifier
                         ?? t("settings.teamsWorkflowTest.urlPlaceholder")
                       }
-                      onFocus={() => {
-                        if (canManage && !isUrlRevealed && !webhookUrl) {
-                          setIsEditingUrl(true);
-                        }
-                      }}
-                      onBlur={() => {
-                        if (!webhookUrl.trim()) {
-                          setIsEditingUrl(false);
-                        }
-                      }}
-                      onInput={(event) => {
+                      onInput={(value) => {
                         setIsUrlRevealed(false);
                         setIsEditingUrl(true);
-                        setWebhookUrl(event.currentTarget.value);
+                        setWebhookUrl(value);
                       }}
                     />
                     {canInspectSavedUrl ? (
@@ -1567,32 +1562,21 @@ export function TeamsWorkflowTestPanel({
                 <p id="teams-minimum-selection" class="muted">{settingsIntegrationsText("minimumSelection")}</p>
                 {savingPreferences ? <p role="status">{settingsIntegrationsText("preferenceSaving")}</p> : null}
                 {preferenceNotice ? <p role="status">{settingsIntegrationsText("preferenceSaved")}</p> : null}
-                <div class="settings-teams-workflow-checkbox-grid">
+                <div class="settings-teams-workflow-checkbox-grid" aria-describedby="teams-minimum-selection">
                   {ALL_TEAMS_NOTIFICATION_DELIVERY_TARGETS.map((targetKey) => {
                     const checked = selectedTargets.includes(targetKey);
                     return (
-                      <label
+                      <CheckboxField
                         key={targetKey}
-                        class={`settings-teams-workflow-checkbox-option${
+                        className={`settings-teams-workflow-checkbox-option${
                           checked ? " is-checked" : ""
                         }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          disabled={!canManage || testing || savingPreferences || (checked && selectedTargets.length === 1)}
-                          aria-describedby="teams-minimum-selection"
-                          onChange={() => toggleDeliveryTarget(targetKey)}
-                        />
-                        <span class="settings-teams-workflow-checkbox-copy">
-                          <strong>
-                            {settingsIntegrationsText(`target.${targetKey}.label`)}
-                          </strong>
-                          <small>
-                            {settingsIntegrationsText(`target.${targetKey}.hint`)}
-                          </small>
-                        </span>
-                      </label>
+                        checked={checked}
+                        disabled={!canManage || testing || savingPreferences || (checked && selectedTargets.length === 1)}
+                        label={<strong>{settingsIntegrationsText(`target.${targetKey}.label`)}</strong>}
+                        hint={settingsIntegrationsText(`target.${targetKey}.hint`)}
+                        onChange={() => toggleDeliveryTarget(targetKey)}
+                      />
                     );
                   })}
                 </div>
@@ -1612,49 +1596,42 @@ export function TeamsWorkflowTestPanel({
                     <p class="muted">{settingsIntegrationsText("recipientDraft")}</p>
                   ) : null}
                   <div class="settings-teams-workflow-email-modes">
-                    <label>
-                      <input
-                        type="radio"
-                        name="teams-workflow-email-recipient-mode"
-                        checked={emailRecipientMode === "login"}
-                        disabled={!canManage || testing || savingPreferences}
-                        onChange={() => selectEmailRecipientMode("login")}
-                      />
-                      <span>
-                        {settingsIntegrationsText("emailRecipientModeLogin", {
-                          email: loginEmail,
-                        })}
-                      </span>
-                    </label>
-                    <label>
-                      <input
-                        type="radio"
-                        name="teams-workflow-email-recipient-mode"
-                        checked={emailRecipientMode === "custom"}
-                        disabled={!canManage || testing || savingPreferences}
-                        onChange={() => selectEmailRecipientMode("custom")}
-                      />
-                      <span>{settingsIntegrationsText("emailRecipientModeCustom")}</span>
-                    </label>
+                    <RadioField
+                      name="teams-workflow-email-recipient-mode"
+                      value="login"
+                      checked={emailRecipientMode === "login"}
+                      disabled={!canManage || testing || savingPreferences}
+                      label={settingsIntegrationsText("emailRecipientModeLogin", {
+                        email: loginEmail,
+                      })}
+                      onChange={() => selectEmailRecipientMode("login")}
+                    />
+                    <RadioField
+                      name="teams-workflow-email-recipient-mode"
+                      value="custom"
+                      checked={emailRecipientMode === "custom"}
+                      disabled={!canManage || testing || savingPreferences}
+                      label={settingsIntegrationsText("emailRecipientModeCustom")}
+                      onChange={() => selectEmailRecipientMode("custom")}
+                    />
                   </div>
                   {emailRecipientMode === "custom" ? (
                     <>
                     <div class="settings-teams-workflow-email-custom-row">
-                      <input
-                        class="form-input"
+                      <TextInput
+                        label={settingsIntegrationsText("emailRecipientCustomLabel")}
+                        hideLabel
                         type="email"
-                        maxlength={254}
-                        aria-label={settingsIntegrationsText("emailRecipientCustomLabel")}
-                        aria-invalid={!customEmailIsValid ? "true" : undefined}
-                        aria-describedby="teams-recipient-help"
+                        maxLength={254}
                         value={customEmail}
                         disabled={!canManage || testing || savingPreferences}
                         placeholder={settingsIntegrationsText(
                           "emailRecipientCustomPlaceholder",
                         )}
-                        onInput={(event) => {
+                        {...(!customEmailIsValid ? { error: settingsIntegrationsText("accountInvalid") } : {})}
+                        onInput={(value) => {
                           setEmailTestNotice(null);
-                          setCustomEmail(event.currentTarget.value);
+                          setCustomEmail(value);
                         }}
                       />
                       {canManage ? (
@@ -1752,18 +1729,15 @@ export function TeamsWorkflowTestPanel({
                     <p>{settingsIntegrationsText("savedTeamsChannelsHint")}</p>
                     {canManage ? (
                       <div class="settings-teams-workflow-label-input">
-                        <label for="teams-workflow-channel-label">
-                          {settingsIntegrationsText("channelLabelInput")}
-                        </label>
-                        <input
+                        <TextInput
                           id="teams-workflow-channel-label"
-                          class="form-input"
+                          label={settingsIntegrationsText("channelLabelInput")}
                           type="text"
-                          maxlength={80}
+                          maxLength={80}
                           disabled={testing}
                           value={channelLabel}
                           placeholder={settingsIntegrationsText("channelLabelPlaceholder")}
-                          onInput={(event) => setChannelLabel(event.currentTarget.value)}
+                          onInput={setChannelLabel}
                         />
                       </div>
                     ) : null}
@@ -1778,28 +1752,24 @@ export function TeamsWorkflowTestPanel({
                             channel.enabled ? " is-checked" : ""
                           }`}
                         >
-                          <input
-                            type="checkbox"
+                          <CheckboxField
                             checked={channel.enabled}
                             disabled={!canManage || testing || savingPreferences || (channel.enabled && bindingSaved.channels.filter((item) => item.enabled).length === 1)}
-                            aria-describedby="teams-minimum-selection"
-                            aria-label={channel.label}
+                            label={<span class="sr-only">{channel.label}</span>}
                             onChange={() => toggleSavedChannel(channel.channelId)}
                           />
                           <div class="settings-teams-workflow-saved-channel-info">
                             {isRenaming ? (
                               <div class="settings-teams-workflow-email-custom-row">
-                                <input
-                                  class="form-input"
-                                  type="text"
-                                  maxlength={80}
-                                  aria-label={settingsIntegrationsText("renameChannel", {
+                                <TextInput
+                                  label={settingsIntegrationsText("renameChannel", {
                                     label: channel.label,
                                   })}
+                                  hideLabel
+                                  type="text"
+                                  maxLength={80}
                                   value={editingChannelLabel}
-                                  onInput={(event) =>
-                                    setEditingChannelLabel(event.currentTarget.value)
-                                  }
+                                  onInput={setEditingChannelLabel}
                                 />
                                 <button
                                   type="button"
@@ -2186,24 +2156,19 @@ function SlackWebhookTestPanel({
         <p>{t("settings.slackWebhookTest.boundary")}</p>
       </div>
       <form class="settings-webhook-diagnostic-form" onSubmit={(event) => { void submit(event); }}>
-        <label class="settings-webhook-diagnostic-field">
-          <span>{t("settings.slackWebhookTest.urlLabel")}</span>
-          <input
-            class="form-input"
+        <div class="settings-webhook-diagnostic-field">
+          <TextInput
+            label={t("settings.slackWebhookTest.urlLabel")}
             type="password"
-            inputMode="url"
-            autocomplete="off"
-            data-1p-ignore
-            data-bwignore
-            data-lpignore="true"
-            spellcheck={false}
-            maxlength={2048}
+            autoComplete="off"
+            mono
+            maxLength={2048}
             value={webhookUrl}
             disabled={!canManage || testing}
             placeholder={t("settings.slackWebhookTest.urlPlaceholder")}
-            onInput={(event) => setWebhookUrl(event.currentTarget.value)}
+            onInput={setWebhookUrl}
           />
-        </label>
+        </div>
         <button
           type="submit"
           class="btn primary"
@@ -2214,18 +2179,15 @@ function SlackWebhookTestPanel({
       </form>
       {canManage ? (
         <div class="settings-teams-workflow-label-input">
-          <label for="slack-webhook-channel-label">
-            {settingsIntegrationsText("slackChannelLabel")}
-          </label>
-          <input
+          <TextInput
             id="slack-webhook-channel-label"
-            class="form-input"
+            label={settingsIntegrationsText("slackChannelLabel")}
             type="text"
-            maxlength={80}
+            maxLength={80}
             disabled={testing}
             value={slackChannelLabel}
             placeholder={settingsIntegrationsText("slackChannelLabelPlaceholder")}
-            onInput={(event) => setSlackChannelLabel(event.currentTarget.value)}
+            onInput={setSlackChannelLabel}
           />
         </div>
       ) : null}
@@ -2256,11 +2218,10 @@ function SlackWebhookTestPanel({
                 ch.enabled ? " is-checked" : ""
               }`}
             >
-              <input
-                type="checkbox"
+              <CheckboxField
                 checked={ch.enabled}
                 disabled={!canManage || testing}
-                aria-label={ch.label}
+                label={<span class="sr-only">{ch.label}</span>}
                 onChange={() => toggleSlackChannel(ch.channelId)}
               />
               <div class="settings-teams-workflow-saved-channel-info">

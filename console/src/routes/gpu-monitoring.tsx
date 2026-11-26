@@ -5,10 +5,9 @@ import {
   KpiCard,
   KpiGrid,
   PageHeader,
-  StatusPill,
   UnavailableState,
-  type PillKind,
 } from "../components/ui";
+import { StatusBadge, type BadgeTone } from "../components/status-badge";
 import { loadConfig } from "../config";
 import type { ConsoleDataMode } from "../console-data-mode";
 import { useLiveStream, type LiveConnectionStatus } from "../hooks/use-live-stream";
@@ -107,8 +106,8 @@ export function GpuMonitoringRoute({ client, dataMode }: Props) {
         subtitle={gpuMonitoringText("subtitle")}
         actions={(
           <div class="gpu-monitoring-mode">
-            <StatusPill
-              kind={dataMode === "sample" ? "info" : streamTone(stream.status)}
+            <StatusBadge
+              tone={dataMode === "sample" ? "info" : streamTone(stream.status)}
               label={modeLabel}
             />
             <a class="btn btn-secondary" href={gpuLiveStreamHref(dataMode)}>{gpuMonitoringText("openLive")}</a>
@@ -180,6 +179,6 @@ export function GpuMonitoringRoute({ client, dataMode }: Props) {
   );
 }
 
-function streamTone(status: LiveConnectionStatus): PillKind {
-  return status === "open" ? "success" : status === "connecting" ? "info" : "warning";
+function streamTone(status: LiveConnectionStatus): BadgeTone {
+  return status === "open" ? "live" : status === "connecting" ? "info" : "sre";
 }

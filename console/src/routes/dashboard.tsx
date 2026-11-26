@@ -1,5 +1,21 @@
 import { useEffect, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
+import { DetailDrawer, type DetailDrawerProps } from "../components/detail-drawer";
+import {
+  LiveDecisionTicker,
+  LiveScatterTimeline,
+  SignalRail,
+  SparkMetricCard,
+  type DomainBreakdownRow,
+  type EvidenceState,
+  type LiveScatterTimelineProps,
+  type SignalRailItem,
+  type TelemetryCategory,
+  type TimelineBucket,
+  type TimelinePoint,
+  type TimelineView,
+  type TimelineWindow,
+} from "../components/overview-telemetry";
 import {
   AsyncBoundary,
   DataTable,
@@ -11,8 +27,10 @@ import {
 } from "../components/ui";
 import { type ViewFact, usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
-import { t } from "../i18n";
-import { isPanelRegistered, routeHref } from "../router";
+import { getLocale, t } from "../i18n";
+import { isPanelRegistered, navigate, routeHref } from "../router";
+import { formatConsoleCompactTimestamp } from "../time-format";
+import type { AutonomyPayload, DashboardKpi } from "../types";
 import {
   auditSampleParams,
   formatShare,
@@ -21,6 +39,7 @@ import {
   overviewCostEvidence,
   overviewHealth,
   overviewT0Share,
+  type GatesSummary,
 } from "./dashboard.model";
 import { RequiredAttention, RoutingControl } from "./dashboard.distributions";
 import {
@@ -115,6 +134,7 @@ export function DashboardRoute({ client, dataMode }: Props) {
           <OverviewBody
             chaosResults={dataMode === "live" ? chaosResults : null}
             data={data}
+            dataMode={dataMode}
           />
         )}
       </AsyncBoundary>
@@ -150,16 +170,223 @@ function ResourceDashboardIcon() {
   );
 }
 
+type OverviewDrawerKind = "events" | "risks" | "human" | "governance";
+
+export interface DashboardTelemetryModel {
+  readonly points: readonly TimelinePoint[];
+  readonly buckets: readonly TimelineBucket[];
+  readonly domains: readonly DomainBreakdownRow[];
+  readonly signals: readonly SignalRailItem[];
+  readonly totals: Readonly<Record<TelemetryCategory, number>>;
+  readonly tickerCategory: TelemetryCategory;
+  readonly tickerMessage: string;
+  readonly tickerTime: string;
+}
+
+function classifyOutcome(outcome: string): TelemetryCategory {
+  const key = outcome.toLowerCase();
+  if (
+    key.includes("den")
+    || key.includes("block")
+    || key.includes("fail")
+    || key.includes("escape")
+    || key.includes("sec")
+    || key.includes("reject")
+    || key.includes("violat")
+  ) {
+    return "sec";
+  }
+  if (
+    key.includes("approval")
+    || key.includes("hil")
+    || key.includes("human")
+    || key.includes("escalat")
+    || key.includes("pending")
+  ) {
+    return "human";
+  }
+  if (
+    key.includes("degrad")
+    || key.includes("held")
+    || key.includes("retain")
+    || key.includes("retry")
+    || key.includes("timeout")
+    || key.includes("warn")
+    || key.includes("stall")
+  ) {
+    return "sre";
+  }
+  return "auto";
+}
+
+export function buildDashboardTelemetry(
+  kpi: DashboardKpi,
+  autonomy: AutonomyPayload | null,
+  gates: GatesSummary | null,
+  policyEscapes: number | null,
+  onSelectSignal?: (kind: OverviewDrawerKind) => void,
+): DashboardTelemetryModel {
+  const autoTrend = autonomy?.trend?.auto_resolution_rate ?? [];
+  const touchTrend = autonomy?.trend?.human_touchpoints ?? [];
+  const bucketCount = Math.max(autoTrend.length, touchTrend.length);
+  const failedGuards = autonomy && !autonomy.synthetic
+    ? autonomy.guards.filter((guard) => !guard.ok).length
+    : 0;
+  const openRisks = autonomy
+    ? autonomy.verticals.reduce((sum, vertical) => sum + vertical.open_risks, 0)
+    : 0;
+  const secCount = (policyEscapes ?? 0) + failedGuards;
+
+  const buckets: TimelineBucket[] = bucketCount > 0
+    ? Array.from({ length: bucketCount }, (_, index) => {
+      const autoVal = Math.round((autoTrend[index] ?? 0) * 100);
+      const humanVal = Math.round(touchTrend[index] ?? 0);
+      const isLast = index === bucketCount - 1;
+      return {
+        label: `T-${bucketCount - index}`,
+        auto: autoVal,
+        sre: isLast ? openRisks : Math.max(0, Math.round(openRisks / Math.max(bucketCount, 1))),
+        sec: isLast ? secCount : 0,
+        human: humanVal,
+      };
+    })
+    : Object.entries(kpi.by_outcome)
+      .filter(([, count]) => count > 0)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 8)
+      .map(([outcome, count]) => {
+        const category = classifyOutcome(outcome);
+        return {
+          label: outcome,
+          auto: category === "auto" ? count : 0,
+          sre: category === "sre" ? count : 0,
+          sec: category === "sec" ? count : 0,
+          human: category === "human" ? count : 0,
+        };
+      });
+
+  const totals = buckets.reduce(
+    (acc, bucket) => ({
+      auto: acc.auto + bucket.auto,
+      sre: acc.sre + bucket.sre,
+      sec: acc.sec + bucket.sec,
+      human: acc.human + bucket.human,
+    }),
+    { auto: 0, sre: 0, sec: 0, human: 0 },
+  );
+
+  const points: TimelinePoint[] = buckets.map((bucket, index) => {
+    const category: TelemetryCategory = bucket.sec > 0
+      ? "sec"
+      : bucket.sre > 0
+      ? "sre"
+      : bucket.human > 0
+      ? "human"
+      : "auto";
+    const total = Math.max(bucket.auto + bucket.sre + bucket.sec + bucket.human, 1);
+    const riskScore = category === "sec"
+      ? Math.min(94, 70 + Math.min(24, bucket.sec * 4))
+      : category === "sre"
+      ? Math.min(82, 52 + Math.min(30, Math.round(Math.log10(bucket.sre + 1) * 10)))
+      : category === "human"
+      ? Math.min(72, 42 + Math.min(30, Math.round(Math.log10(bucket.human + 1) * 10)))
+      : Math.max(12, Math.min(36, 14 + Math.round((bucket.auto / total) * 18)));
+    return {
+      id: `pt-${index}`,
+      timeLabel: bucket.label,
+      riskScore,
+      category,
+      summary: tDashboard("timelinePointSummary", {
+        auto: bucket.auto,
+        sre: bucket.sre,
+        sec: bucket.sec,
+        human: bucket.human,
+      }),
+    };
+  });
+
+  const domains: DomainBreakdownRow[] = autonomy
+    ? autonomy.verticals.map((vertical) => ({
+      id: vertical.key,
+      label: vertical.key,
+      auto: vertical.auto_resolved,
+      sre: vertical.open_risks,
+      sec: 0,
+      human: Math.max(0, vertical.events - vertical.auto_resolved - vertical.open_risks),
+    }))
+    : [];
+
+  const signals: SignalRailItem[] = [
+    ...(kpi.hil_pending > 0 ? [{
+      id: "sig-hil",
+      category: "human" as const,
+      label: tDashboard("pendingCount", { count: kpi.hil_pending }),
+      ...(onSelectSignal ? { onSelect: () => onSelectSignal("human") } : {}),
+    }] : []),
+    ...(policyEscapes !== null && policyEscapes > 0 ? [{
+      id: "sig-escapes",
+      category: "sec" as const,
+      label: tDashboard("kpiRisksDeltaEscapes", { count: policyEscapes }),
+      ...(onSelectSignal ? { onSelect: () => onSelectSignal("risks") } : {}),
+    }] : []),
+    ...(gates && gates.blocked_count > 0 ? [{
+      id: "sig-gates",
+      category: "sre" as const,
+      label: tDashboard("kpiRisksFooterRight", { count: gates.blocked_count }),
+      ...(onSelectSignal ? { onSelect: () => onSelectSignal("governance") } : {}),
+    }] : []),
+    ...(kpi.event_count > 0 ? [{
+      id: "sig-events",
+      category: "auto" as const,
+      label: tDashboard("kpiEventsFooterLeft", { count: kpi.audit_sample?.row_count ?? kpi.event_count }),
+      ...(onSelectSignal ? { onSelect: () => onSelectSignal("events") } : {}),
+    }] : []),
+  ];
+
+  const tickerCategory: TelemetryCategory = policyEscapes !== null && policyEscapes > 0
+    ? "sec"
+    : kpi.hil_pending > 0
+    ? "human"
+    : openRisks > 0 || totals.sre > 0
+    ? "sre"
+    : "auto";
+  const tickerMessage = policyEscapes !== null && policyEscapes > 0
+    ? `${tDashboard("escapes")}: ${policyEscapes}`
+    : kpi.hil_pending > 0
+    ? `${tDashboard("kpiHumanLabel")}: ${tDashboard("pendingCount", { count: kpi.hil_pending })}`
+    : kpi.event_count > 0
+    ? `${tDashboard("kpiEventsLabel")}: ${kpi.event_count} (${tDashboard("kpiEventsFooterRight", { share: formatShare(kpi.shadow_share) })})`
+    : tDashboard("tickerFallbackMessage");
+  const tickerTime = kpi.last_recorded_at
+    ? formatConsoleCompactTimestamp(kpi.last_recorded_at)
+    : "-";
+
+  return { points, buckets, domains, signals, totals, tickerCategory, tickerMessage, tickerTime };
+}
+
 function OverviewBody({
   chaosResults,
   data,
+  dataMode,
 }: {
   readonly chaosResults: AsyncState<ChaosResultSummary> | null;
   readonly data: DashboardOverviewData;
+  readonly dataMode: ConsoleDataMode;
 }) {
   const { kpi, cost, gates, autonomy, optionalPending = false } = data;
+  const [drawerKind, setDrawerKind] = useState<OverviewDrawerKind | null>(null);
+  const [timelineView, setTimelineView] = useState<TimelineView>("scatter");
+  const [timelineWindow, setTimelineWindow] = useState<TimelineWindow>("15m");
+  const [paused, setPaused] = useState(false);
+  const [visibleSeries, setVisibleSeries] = useState<Record<TelemetryCategory, boolean>>({
+    auto: true,
+    sre: true,
+    sec: true,
+    human: true,
+  });
   const comparisonExpired = useCohortExpiry(autonomy?.comparison?.valid_until);
   const sampleParams = auditSampleParams(kpi);
+  const locale = getLocale() === "ko" ? "ko-KR" : "en-US";
 
   const t0Share = overviewT0Share(kpi.by_tier);
   const policyEscapes = gates ? gates.rows.reduce((sum, r) => sum + r.policy_escapes, 0) : null;
@@ -171,6 +398,186 @@ function OverviewBody({
   const attentionCount = overviewAttentionCount(kpi, policyEscapes, autonomy);
   const costEvidence = overviewCostEvidence(cost);
   const savings = costEvidence.monthlySavings;
+  const failedGuards = autonomy && !autonomy.synthetic
+    ? autonomy.guards.filter((guard) => !guard.ok).length
+    : null;
+  const openRisks = autonomy
+    ? autonomy.verticals.reduce((sum, vertical) => sum + vertical.open_risks, 0)
+    : null;
+  const autoResolvedTotal = autonomy
+    ? autonomy.verticals.reduce((sum, vertical) => sum + vertical.auto_resolved, 0)
+    : null;
+  const autoResRate = autonomy?.success.auto_resolution_rate.value ?? null;
+  const riskEvidenceState: EvidenceState = policyEscapes === null && openRisks === null
+    ? "unavailable"
+    : autonomy?.synthetic
+    ? "simulated"
+    : "measured";
+  const riskCount = riskEvidenceState === "unavailable"
+    ? "-"
+    : (policyEscapes ?? 0) + (failedGuards ?? 0) + (openRisks ?? 0);
+  const govEvidenceState: EvidenceState = health === "unknown"
+    ? "unavailable"
+    : autonomy?.synthetic
+    ? "simulated"
+    : "measured";
+  const govValue = health === "healthy"
+    ? tDashboard("kpiGovStatusHealthy")
+    : health === "attention"
+    ? tDashboard("kpiGovStatusAttention")
+    : tDashboard("kpiGovStatusUnknown");
+  const telemetry = buildDashboardTelemetry(kpi, autonomy, gates, policyEscapes, setDrawerKind);
+  const timelineStreamState: LiveScatterTimelineProps["streamState"] =
+    telemetry.points.length === 0 && telemetry.domains.length === 0
+      ? "unavailable"
+      : paused
+      ? "paused"
+      : dataMode === "sample"
+      ? "static"
+      : "live";
+  const timelineTotal =
+    telemetry.totals.auto + telemetry.totals.sre + telemetry.totals.sec + telemetry.totals.human;
+  const timelineSummary = timelineTotal > 0
+    ? tDashboard("timelineSummary", {
+      window: timelineWindow,
+      total: timelineTotal.toLocaleString(locale),
+      auto: telemetry.totals.auto.toLocaleString(locale),
+      sre: telemetry.totals.sre.toLocaleString(locale),
+      sec: telemetry.totals.sec.toLocaleString(locale),
+      human: telemetry.totals.human.toLocaleString(locale),
+    })
+    : undefined;
+  const timelineProps: LiveScatterTimelineProps = {
+    title: tDashboard("timelineTitle"),
+    subtitle: tDashboard("timelineSubtitle"),
+    streamState: timelineStreamState,
+    view: timelineView,
+    onViewChange: setTimelineView,
+    window: timelineWindow,
+    onWindowChange: setTimelineWindow,
+    ...(timelineStreamState !== "unavailable"
+      ? { onTogglePause: () => setPaused((value) => !value) }
+      : {}),
+    points: telemetry.points,
+    buckets: telemetry.buckets,
+    domains: telemetry.domains,
+    visibleSeries,
+    onToggleSeries: (category) => setVisibleSeries((current) => ({
+      ...current,
+      [category]: !current[category],
+    })),
+    ...(timelineSummary ? { summaryText: timelineSummary } : {}),
+    labels: {
+      scatter: tDashboard("timelineScatter"),
+      stacked: tDashboard("timelineStacked"),
+      domain: tDashboard("timelineDomain"),
+      auto: tDashboard("timelineSeriesAuto"),
+      sre: tDashboard("timelineSeriesSre"),
+      sec: tDashboard("timelineSeriesSec"),
+      human: tDashboard("timelineSeriesHuman"),
+      now: tDashboard("timelineNow"),
+      unavailable: tDashboard("timelineUnavailable"),
+      pause: tDashboard("timelinePause"),
+      resume: tDashboard("timelineResume"),
+      timeWindowAria: tDashboard("timelineWindowAria"),
+      seriesFiltersAria: tDashboard("timelineSeriesAria"),
+      riskAxis: tDashboard("timelineRiskAxis"),
+      forecastZone: tDashboard("timelineForecastZone"),
+      streamLive: tDashboard("timelineStreamLive"),
+      streamPaused: tDashboard("timelineStreamPaused"),
+      streamStatic: tDashboard("timelineStreamStatic"),
+      streamUnavailable: tDashboard("timelineStreamUnavailable"),
+    },
+  };
+  const tickerCategoryLabel = telemetry.tickerCategory === "sec"
+    ? tDashboard("timelineSeriesSec")
+    : telemetry.tickerCategory === "sre"
+    ? tDashboard("timelineSeriesSre")
+    : telemetry.tickerCategory === "human"
+    ? tDashboard("timelineSeriesHuman")
+    : tDashboard("timelineSeriesAuto");
+  const drawerConfig = drawerKind === "events"
+    ? {
+      title: tDashboard("drawerEventsTitle"),
+      subtitle: tDashboard("drawerEventsSubtitle"),
+      href: routeHref("audit", { params: sampleParams }),
+      actionLabel: tDashboard("drawerOpenAudit"),
+      facts: [
+        { label: tDashboard("drawerMetricSample"), value: (kpi.audit_sample?.row_count ?? kpi.event_count).toLocaleString(locale) },
+        { label: tDashboard("drawerMetricT0"), value: t0Share === "unavailable" ? tDashboard("kpiUnmeasured") : t0Share },
+        { label: tDashboard("observation"), value: formatShare(kpi.shadow_share) },
+        { label: tDashboard("drawerMetricEnforce"), value: formatShare(kpi.enforce_share) },
+      ],
+    }
+    : drawerKind === "risks"
+    ? {
+      title: tDashboard("drawerRisksTitle"),
+      subtitle: tDashboard("drawerRisksSubtitle"),
+      href: routeHref("promotion-gates", { params: { status: "blocked" } }),
+      actionLabel: tDashboard("drawerOpenGates"),
+      facts: [
+        { label: tDashboard("drawerMetricEscapes"), value: policyEscapes === null ? tDashboard("kpiUnmeasured") : String(policyEscapes) },
+        { label: tDashboard("drawerMetricGuards"), value: failedGuards === null ? tDashboard("kpiUnmeasured") : String(failedGuards) },
+        { label: tDashboard("drawerMetricGates"), value: readyCount !== null && gateTotal !== null ? `${readyCount}/${gateTotal}` : tDashboard("kpiUnmeasured") },
+      ],
+    }
+    : drawerKind === "human"
+    ? {
+      title: tDashboard("drawerHumanTitle"),
+      subtitle: tDashboard("drawerHumanSubtitle"),
+      href: routeHref("hil-queue"),
+      actionLabel: tDashboard("drawerOpenApprovals"),
+      facts: [
+        { label: tDashboard("drawerMetricPending"), value: kpi.hil_pending.toLocaleString(locale) },
+        { label: tDashboard("drawerMetricAutoRate"), value: autoResRate === null ? tDashboard("kpiUnmeasured") : formatShare(autoResRate) },
+        { label: tDashboard("drawerMetricSavings"), value: savings === null ? tDashboard("kpiUnmeasured") : formatUsd(savings) },
+      ],
+    }
+    : drawerKind === "governance"
+    ? {
+      title: tDashboard("drawerGovTitle"),
+      subtitle: tDashboard("drawerGovSubtitle"),
+      href: routeHref("operating-outcomes"),
+      actionLabel: tDashboard("drawerOpenOutcomes"),
+      facts: [
+        { label: tDashboard("kpiGovLabel"), value: govValue },
+        { label: tDashboard("drawerMetricEscapes"), value: policyEscapes === null ? tDashboard("kpiUnmeasured") : String(policyEscapes) },
+        { label: tDashboard("drawerMetricRules"), value: autonomy && autonomy.rules_evidence !== "unavailable" ? String(autonomy.rules.active) : tDashboard("kpiUnmeasured") },
+        { label: tDashboard("drawerMetricEnforce"), value: formatShare(kpi.enforce_share) },
+      ],
+    }
+    : null;
+  const drawerProps: DetailDrawerProps = {
+    open: drawerConfig !== null,
+    title: drawerConfig?.title ?? "",
+    ...(drawerConfig?.subtitle !== undefined ? { subtitle: drawerConfig.subtitle } : {}),
+    onClose: () => setDrawerKind(null),
+    closeLabel: tDashboard("drawerClose"),
+    ...(drawerConfig ? {
+      footer: (
+        <div class="overview-drawer-actions">
+          <a class="cs-control-button" href={drawerConfig.href}>
+            {drawerConfig.actionLabel}
+          </a>
+          {isPanelRegistered("verticals") ? (
+            <a class="cs-control-button" href={routeHref("verticals")}>
+              {tDashboard("drawerOpenVerticals")}
+            </a>
+          ) : null}
+        </div>
+      ),
+    } : {}),
+    children: drawerConfig ? (
+      <dl class="overview-drawer-facts">
+        {drawerConfig.facts.map((fact) => (
+          <div key={fact.label} class="overview-drawer-fact">
+            <dt>{fact.label}</dt>
+            <dd>{fact.value}</dd>
+          </div>
+        ))}
+      </dl>
+    ) : null,
+  };
 
   usePublishViewContext(
     () => {
@@ -415,37 +822,130 @@ function OverviewBody({
 
   return (
     <div class="stack overview-report">
-      <OverviewSection
-        id="attention"
-        title={tDashboard("attention")}
-        description={tDashboard("attentionHint")}
-      >
-        <RequiredAttention kpi={kpi} gates={gates} autonomy={autonomy} policyEscapes={policyEscapes} optionalPending={optionalPending} compact />
-      </OverviewSection>
+      <section class="overview-kpi-grid" aria-label={t("route.dashboard")}>
+        <SparkMetricCard
+          id="overview-kpi-events"
+          label={tDashboard("kpiEventsLabel")}
+          value={kpi.event_count.toLocaleString(locale)}
+          unit={tDashboard("kpiEventsUnit")}
+          {...(t0Share !== "unavailable" ? { delta: tDashboard("kpiEventsDelta", { share: t0Share }) } : {})}
+          deltaTone="live"
+          evidenceState={autonomy?.synthetic ? "simulated" : "measured"}
+          unmeasuredLabel={tDashboard("kpiUnmeasured")}
+          {...(Object.values(kpi.by_action_kind).length > 0 ? {
+            spark: {
+              kind: "area" as const,
+              values: Object.values(kpi.by_action_kind),
+              ariaLabel: tDashboard("kpiEventsSpark"),
+            },
+          } : {})}
+          footerLeft={tDashboard("kpiEventsFooterLeft", {
+            count: (kpi.audit_sample?.row_count ?? kpi.event_count).toLocaleString(locale),
+          })}
+          footerRight={tDashboard("kpiEventsFooterRight", { share: formatShare(kpi.shadow_share) })}
+          onOpenDetail={() => setDrawerKind("events")}
+        />
+        <SparkMetricCard
+          id="overview-kpi-risks"
+          label={tDashboard("kpiRisksLabel")}
+          value={riskCount}
+          {...(riskEvidenceState !== "unavailable" ? { unit: tDashboard("kpiRisksUnit") } : {})}
+          {...(policyEscapes !== null ? {
+            delta: policyEscapes > 0
+              ? tDashboard("kpiRisksDeltaEscapes", { count: policyEscapes })
+              : tDashboard("kpiRisksDeltaClear"),
+          } : {})}
+          deltaTone={policyEscapes !== null && policyEscapes > 0 ? "sec" : "sre"}
+          evidenceState={riskEvidenceState}
+          unmeasuredLabel={tDashboard("kpiUnmeasured")}
+          {...(autonomy && autonomy.verticals.length > 0 ? {
+            spark: {
+              kind: "dual-bar" as const,
+              values: autonomy.verticals.map((vertical) => vertical.open_risks),
+              secondaryValues: autonomy.verticals.map(() => policyEscapes ?? 0),
+              color: "var(--sig-sre, #c86d18)",
+              secondaryColor: "var(--sig-sec, #a63446)",
+              ariaLabel: tDashboard("kpiRisksSpark"),
+            },
+          } : {})}
+          footerLeft={tDashboard("kpiRisksFooterLeft", {
+            count: failedGuards === null ? "-" : failedGuards,
+          })}
+          footerRight={tDashboard("kpiRisksFooterRight", {
+            count: gates ? gates.blocked_count : "-",
+          })}
+          onOpenDetail={() => setDrawerKind("risks")}
+        />
+        <SparkMetricCard
+          id="overview-kpi-human"
+          label={tDashboard("kpiHumanLabel")}
+          value={kpi.hil_pending.toLocaleString(locale)}
+          unit={tDashboard("kpiHumanUnit")}
+          {...(autoResRate !== null ? { delta: tDashboard("kpiHumanDelta", { share: formatShare(autoResRate) }) } : {})}
+          deltaTone={kpi.hil_pending > 0 ? "human" : "live"}
+          evidenceState={autonomy?.synthetic ? "simulated" : "measured"}
+          unmeasuredLabel={tDashboard("kpiUnmeasured")}
+          {...(autonomy?.trend?.human_touchpoints && autonomy.trend.human_touchpoints.length > 0 ? {
+            spark: {
+              kind: "line" as const,
+              values: autonomy.trend.human_touchpoints,
+              color: "var(--sig-human, #4a2574)",
+              ariaLabel: tDashboard("kpiHumanSpark"),
+            },
+          } : {})}
+          footerLeft={tDashboard("kpiHumanFooterLeft", { count: kpi.hil_pending })}
+          footerRight={tDashboard("kpiHumanFooterRight", {
+            count: autoResolvedTotal === null ? "-" : autoResolvedTotal.toLocaleString(locale),
+          })}
+          onOpenDetail={() => setDrawerKind("human")}
+        />
+        <SparkMetricCard
+          id="overview-kpi-governance"
+          label={tDashboard("kpiGovLabel")}
+          value={govValue}
+          {...(policyEscapes !== null ? {
+            delta: policyEscapes > 0
+              ? tDashboard("kpiRisksDeltaEscapes", { count: policyEscapes })
+              : tDashboard("kpiRisksDeltaClear"),
+          } : {})}
+          deltaTone={health === "healthy" ? "live" : health === "attention" ? "sre" : "neutral"}
+          evidenceState={govEvidenceState}
+          unmeasuredLabel={tDashboard("kpiUnmeasured")}
+          {...(autonomy?.trend?.auto_resolution_rate && autonomy.trend.auto_resolution_rate.length > 0 ? {
+            spark: {
+              kind: "step" as const,
+              values: autonomy.trend.auto_resolution_rate.map((value) => Math.round(value * 100)),
+              color: "var(--sig-live, #0f766e)",
+              ariaLabel: tDashboard("kpiGovSpark"),
+            },
+          } : {})}
+          footerLeft={tDashboard("kpiGovFooterLeft", {
+            count: autonomy && autonomy.rules_evidence !== "unavailable" ? autonomy.rules.active : "-",
+          })}
+          footerRight={tDashboard("kpiGovFooterRight", { share: formatShare(kpi.enforce_share) })}
+          onOpenDetail={() => setDrawerKind("governance")}
+        />
+      </section>
 
-      <OverviewSection
-        id="posture"
-        title={tDashboard("posture")}
-        description={tDashboard("postureHint")}
-      >
-        <CurrentPosture kpi={kpi} autonomy={autonomy} policyEscapes={policyEscapes} pending={optionalPending} />
-      </OverviewSection>
+      <div class="overview-timeline-section">
+        <LiveScatterTimeline {...timelineProps}>
+          {telemetry.signals.length > 0 ? (
+            <SignalRail caption={tDashboard("signalRailCaption")} items={telemetry.signals} />
+          ) : null}
+          <LiveDecisionTicker
+            timestamp={telemetry.tickerTime}
+            category={telemetry.tickerCategory}
+            categoryLabel={tickerCategoryLabel}
+            message={telemetry.tickerMessage}
+            actionLabel={tDashboard("tickerHistory")}
+            onOpenHistory={() => navigate(routeHref("audit", { params: sampleParams }))}
+          />
+        </LiveScatterTimeline>
+      </div>
 
-      <OverviewSection
-        id="routing"
-        title={t("overview.section.routing")}
-        description={tDashboard("routingHint")}
-      >
-        <RoutingControl kpi={kpi} compact />
-      </OverviewSection>
-
-      <OverviewSection
-        id="outcomes"
-        title={t("overview.section.outcomes")}
-        description={tDashboard("outcomesHint")}
-      >
-        <SuccessMetrics success={autonomy?.success ?? null} pending={optionalPending} />
-      </OverviewSection>
+      <div class="overview-principle-strip" role="note">
+        <span>{tDashboard("principleNote")}</span>
+      </div>
 
       <details class="advanced-details overview-details">
         <summary>
@@ -453,6 +953,38 @@ function OverviewBody({
           <span class="muted">{tDashboard("evidenceHint")}</span>
         </summary>
         <div class="stack overview-details-body">
+          <OverviewSection
+            id="attention"
+            title={tDashboard("attention")}
+            description={tDashboard("attentionHint")}
+          >
+            <RequiredAttention kpi={kpi} gates={gates} autonomy={autonomy} policyEscapes={policyEscapes} optionalPending={optionalPending} compact />
+          </OverviewSection>
+
+          <OverviewSection
+            id="posture"
+            title={tDashboard("posture")}
+            description={tDashboard("postureHint")}
+          >
+            <CurrentPosture kpi={kpi} autonomy={autonomy} policyEscapes={policyEscapes} pending={optionalPending} />
+          </OverviewSection>
+
+          <OverviewSection
+            id="routing"
+            title={t("overview.section.routing")}
+            description={tDashboard("routingHint")}
+          >
+            <RoutingControl kpi={kpi} compact />
+          </OverviewSection>
+
+          <OverviewSection
+            id="outcomes"
+            title={t("overview.section.outcomes")}
+            description={tDashboard("outcomesHint")}
+          >
+            <SuccessMetrics success={autonomy?.success ?? null} pending={optionalPending} />
+          </OverviewSection>
+
           <CohortComparison comparison={autonomy?.comparison} />
           <ExecutiveStatus
             health={health}
@@ -461,9 +993,6 @@ function OverviewBody({
             attentionCount={attentionCount}
             policyEscapes={policyEscapes}
           />
-          <OverviewSection id="controls" title={t("overview.section.attention")} description={t("overview.section.attentionHint")}>
-            <RequiredAttention kpi={kpi} gates={gates} autonomy={autonomy} policyEscapes={policyEscapes} optionalPending={optionalPending} />
-          </OverviewSection>
           {chaosResults ? (
             <OverviewSection
               id="chaos-validation"
@@ -516,6 +1045,7 @@ function OverviewBody({
           </div>
         </div>
       </details>
+      <DetailDrawer {...drawerProps} />
     </div>
   );
 }

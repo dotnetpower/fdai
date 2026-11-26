@@ -105,7 +105,7 @@
 
 .llm-cost-timezone {
   color: var(--overview-muted);
-  font-size: 11px;
+  font-size: var(--cs-type-label-size, 12px);
   font-weight: 650;
 }
 
@@ -132,7 +132,7 @@
   display: grid;
   gap: 5px;
   color: var(--overview-muted);
-  font-size: 11.5px;
+  font-size: var(--cs-type-label-size, 12px);
 }
 
 .llm-cost-date-fields input {
@@ -160,7 +160,7 @@
   min-height: 16px;
   margin: 8px 0 0;
   color: var(--overview-red);
-  font-size: 11.5px;
+  font-size: var(--cs-type-label-size, 12px);
 }
 
 .llm-cost-range-actions {
@@ -237,7 +237,7 @@
 .llm-cost-trend-meta > span {
   display: grid;
   color: var(--overview-muted);
-  font-size: 11px;
+  font-size: var(--cs-type-label-size, 12px);
   white-space: nowrap;
 }
 
@@ -267,7 +267,7 @@
 
 .llm-cost-chart-axis {
   fill: var(--overview-muted);
-  font-size: 10px;
+  font-size: var(--cs-type-label-size, 12px);
 }
 
 .llm-cost-chart-area {
@@ -333,7 +333,7 @@
   justify-content: space-between;
   gap: 16px;
   color: var(--overview-muted);
-  font-size: 11.5px;
+  font-size: var(--cs-type-label-size, 12px);
 }
 
 .llm-cost-chart-tooltip b {
@@ -345,7 +345,7 @@
   display: grid;
   margin: -8px 12px 0 42px;
   color: var(--overview-muted);
-  font-size: 10.5px;
+  font-size: var(--cs-type-label-size, 12px);
   text-align: center;
 }
 
@@ -371,7 +371,7 @@
   display: inline-block;
   padding: 1px 6px;
   border-radius: 4px;
-  font-size: 10.5px;
+  font-size: var(--cs-type-label-size, 12px);
   font-weight: 700;
 }
 

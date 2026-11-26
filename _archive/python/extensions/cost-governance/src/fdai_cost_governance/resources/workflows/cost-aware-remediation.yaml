@@ -1,0 +1,28 @@
+schema_version: "1.0.0"
+name: cost-aware-remediation
+version: "1.0.0"
+description: >-
+  Annotate an SRE right-size remediation with its cost impact so the verdict
+  reflects reliability and finance together.
+trigger:
+  kind: signal
+  signal_type: object.drift
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 14
+  min_samples: 100
+  min_accuracy: 0.95
+  max_policy_escapes: 0
+steps:
+  - id: annotate_cost
+    action_type_ref: remediate.tag-add
+    guard_rule_ref: null
+    compensated_by: null
+    on_failure: null
+  - id: apply_rightsize
+    action_type_ref: remediate.right-size
+    guard_rule_ref: null
+    compensated_by: null
+    on_failure: null
+anti_scope: >-
+  Not a budget enforcement path; it only annotates SRE actions with cost.

@@ -13,12 +13,17 @@ import {
   KpiCard,
   KpiGrid,
   PageHeader,
-  StatusPill,
   UnavailableState,
   type AsyncState,
   type Column,
-  type PillKind,
 } from "../components/ui";
+import {
+  FilterToolbar,
+  SearchInput,
+  SelectField,
+  TextInput,
+} from "../components/form-controls";
+import { StatusBadge, type BadgeTone } from "../components/status-badge";
 import { architectureHref } from "../components/architecture-map.model";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
@@ -1149,7 +1154,7 @@ function KubernetesCoverageDetail({
           <dl class="details-list">
             <div>
               <dt>{t("column.decision")}</dt>
-              <dd><StatusPill kind={decisionKind(snapshot.decision)} label={t(`decision.${snapshot.decision}`)} /></dd>
+              <dd><StatusBadge tone={decisionTone(snapshot.decision)} label={t(`decision.${snapshot.decision}`)} /></dd>
             </div>
             <div><dt>{t("column.evidence")}</dt><dd>{snapshot.observations.length}/{DIMENSIONS.length}</dd></div>
             <div><dt>{t("column.gaps")}</dt><dd>{t("gapSummary", { missing: snapshot.missing_dimensions.length, stale: snapshot.stale_dimensions.length })}</dd></div>
@@ -1166,8 +1171,8 @@ function KubernetesCoverageDetail({
               return (
                 <li key={dimension}>
                   <span>{t(`dimension.${dimension}`)}</span>
-                  <StatusPill
-                    kind={isHealthy ? "success" : "warning"}
+                  <StatusBadge
+                    tone={isHealthy ? "live" : "sre"}
                     label={stale
                       ? t("decision.stale")
                       : observation === undefined || missing
@@ -1287,88 +1292,78 @@ function DetectionLifecycle({
           tone={evidenceCounts.conflicting > 0 ? "danger" : "positive"}
         />
       </KpiGrid> : null}
-      <div class="detection-finding-toolbar" role="group" aria-label={t("analyzerLifecycle.filters")}>
-        <label>
-          <span>{t("analyzerLifecycle.search")}</span>
-          <input
-            class="form-input"
-            type="search"
-            aria-label={t("analyzerLifecycle.search")}
-            value={query}
-            placeholder={t("analyzerLifecycle.searchPlaceholder")}
-            onInput={(event) => setQuery(event.currentTarget.value)}
-          />
-        </label>
-        <label>
-          <span>{t("analyzerLifecycle.evidenceFilter")}</span>
-          <select
-            class="form-input"
-            aria-label={t("analyzerLifecycle.evidenceFilter")}
-            value={evidence}
-            onChange={(event) => setEvidence(event.currentTarget.value as "all" | EvidenceState)}
-          >
-            <option value="all">{t("analyzerLifecycle.allEvidence")}</option>
-            {EVIDENCE_STATES.map((state) => (
-              <option key={state} value={state}>{t(`analyzerLifecycle.evidence.${state}`)}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>{t("analyzerLifecycle.deliveryFilter")}</span>
-          <select
-            class="form-input"
-            aria-label={t("analyzerLifecycle.deliveryFilter")}
-            value={delivery}
-            onChange={(event) => setDelivery(event.currentTarget.value as "all" | PublicationState)}
-          >
-            <option value="all">{t("analyzerLifecycle.allDelivery")}</option>
-            {PUBLICATION_STATES.map((state) => (
-              <option key={state} value={state}>{t(`analyzerLifecycle.publication.${state}`)}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>{t("analyzerLifecycle.fromDate")}</span>
-          <input
-            class="form-input"
-            type="date"
-            aria-label={t("analyzerLifecycle.fromDate")}
-            value={fromDate}
-            onInput={(event) => setFromDate(event.currentTarget.value)}
-          />
-        </label>
-        <label>
-          <span>{t("analyzerLifecycle.toDate")}</span>
-          <input
-            class="form-input"
-            type="date"
-            aria-label={t("analyzerLifecycle.toDate")}
-            value={toDate}
-            onInput={(event) => setToDate(event.currentTarget.value)}
-          />
-        </label>
-        <button
-          type="button"
-          class="btn secondary"
-          onClick={() => {
-            setQuery("");
-            setEvidence("all");
-            setDelivery("all");
-            setFromDate("");
-            setToDate("");
-          }}
-        >
-          {t("analyzerLifecycle.clearFilters")}
-        </button>
-      </div>
+      <FilterToolbar
+        className="detection-finding-toolbar"
+        ariaLabel={t("analyzerLifecycle.filters")}
+        activeFilterCount={
+          (query ? 1 : 0)
+          + (evidence !== "all" ? 1 : 0)
+          + (delivery !== "all" ? 1 : 0)
+          + (fromDate ? 1 : 0)
+          + (toDate ? 1 : 0)
+        }
+        onReset={() => {
+          setQuery("");
+          setEvidence("all");
+          setDelivery("all");
+          setFromDate("");
+          setToDate("");
+        }}
+        resetLabel={t("analyzerLifecycle.clearFilters")}
+      >
+        <SearchInput
+          label={t("analyzerLifecycle.search")}
+          value={query}
+          placeholder={t("analyzerLifecycle.searchPlaceholder")}
+          onInput={(value) => setQuery(value)}
+        />
+        <SelectField
+          label={t("analyzerLifecycle.evidenceFilter")}
+          ariaLabel={t("analyzerLifecycle.evidenceFilter")}
+          value={evidence}
+          options={[
+            { value: "all", label: t("analyzerLifecycle.allEvidence") },
+            ...EVIDENCE_STATES.map((state) => ({
+              value: state,
+              label: t(`analyzerLifecycle.evidence.${state}`),
+            })),
+          ]}
+          onChange={(value) => setEvidence(value as "all" | EvidenceState)}
+        />
+        <SelectField
+          label={t("analyzerLifecycle.deliveryFilter")}
+          ariaLabel={t("analyzerLifecycle.deliveryFilter")}
+          value={delivery}
+          options={[
+            { value: "all", label: t("analyzerLifecycle.allDelivery") },
+            ...PUBLICATION_STATES.map((state) => ({
+              value: state,
+              label: t(`analyzerLifecycle.publication.${state}`),
+            })),
+          ]}
+          onChange={(value) => setDelivery(value as "all" | PublicationState)}
+        />
+        <TextInput
+          type="date"
+          label={t("analyzerLifecycle.fromDate")}
+          value={fromDate}
+          onInput={(value) => setFromDate(value)}
+        />
+        <TextInput
+          type="date"
+          label={t("analyzerLifecycle.toDate")}
+          value={toDate}
+          onInput={(value) => setToDate(value)}
+        />
+      </FilterToolbar>
       {historyClient ? <nav class="detection-history-pager" aria-label={t("history.navigation")}>
-        <label>
-          {t("history.pageSize")}
-          <select class="form-input" value={history.pageSize}
-            onChange={event => history.setPageSize(Number(event.currentTarget.value))}>
-            {[25, 50, 100].map(size => <option key={size} value={size}>{size}</option>)}
-          </select>
-        </label>
+        <SelectField
+          label={t("history.pageSize")}
+          size="sm"
+          value={String(history.pageSize)}
+          options={[25, 50, 100].map((size) => ({ value: String(size), label: String(size) }))}
+          onChange={(value) => history.setPageSize(Number(value))}
+        />
         <button type="button" class="btn secondary" disabled={pending || history.index === 0} onClick={history.previous}>{t("history.previous")}</button>
         <span role="status">{paged && !pending ? t("history.range", {
           from: paged.totalAssessments === 0 ? 0 : paged.offset + 1,
@@ -1438,8 +1433,8 @@ function DetectionLifecycle({
                     >
                       <span class="detection-resource-row-head">
                         <strong>{findingAssessmentTitle(target.current)}</strong>
-                        <StatusPill
-                          kind={evidenceKind(target.current.evidence_state)}
+                        <StatusBadge
+                          tone={evidenceTone(target.current.evidence_state)}
                           label={t(`analyzerLifecycle.evidence.${target.current.evidence_state}`)}
                         />
                       </span>
@@ -1646,8 +1641,8 @@ function PodLifecycleSection({ lifecycle }: { readonly lifecycle: LifecycleView 
               >
                 <h4 class="panel-title mono">{selected.resource_ref}</h4>
                 <div class="detection-lifecycle-status">
-                  <StatusPill kind={currentStateKind(selected.current_state)} label={t(`lifecycle.state.${selected.current_state}`)} />
-                  <StatusPill kind={podRecoveryKind(selected.recovery_state)} label={t(`lifecycle.recovery.${selected.recovery_state}`)} />
+                  <StatusBadge tone={currentStateTone(selected.current_state)} label={t(`lifecycle.state.${selected.current_state}`)} />
+                  <StatusBadge tone={podRecoveryTone(selected.recovery_state)} label={t(`lifecycle.recovery.${selected.recovery_state}`)} />
                   <span class="small">{t("lifecycle.failureCount", { count: selected.failure_count })}</span>
                 </div>
                 <dl class="details-list">
@@ -1686,7 +1681,7 @@ function PodLifecycleSection({ lifecycle }: { readonly lifecycle: LifecycleView 
                   <ul class="detection-lifecycle-gaps">
                     {selected.evidence_gaps.map((gap) => (
                       <li key={gap}>
-                        <StatusPill kind="warning" label={t(`lifecycle.gap.${gap}`)} />
+                        <StatusBadge tone="sre" label={t(`lifecycle.gap.${gap}`)} />
                       </li>
                     ))}
                   </ul>
@@ -1714,11 +1709,11 @@ function LifecycleAssessment({ assessment }: { readonly assessment: DetectionLif
   return (
     <div class="detection-lifecycle-assessment">
       <div class="detection-lifecycle-status">
-        <StatusPill kind={evidenceKind(assessment.evidence_state)} label={t(`analyzerLifecycle.evidence.${assessment.evidence_state}`)} />
+        <StatusBadge tone={evidenceTone(assessment.evidence_state)} label={t(`analyzerLifecycle.evidence.${assessment.evidence_state}`)} />
         {recoveryCapable ? (
-          <StatusPill kind={analyzerRecoveryKind(assessment.recovery_state)} label={t(`analyzerLifecycle.recovery.${assessment.recovery_state}`)} />
+          <StatusBadge tone={analyzerRecoveryTone(assessment.recovery_state)} label={t(`analyzerLifecycle.recovery.${assessment.recovery_state}`)} />
         ) : null}
-        <StatusPill kind={publicationKind(assessment.publication.current)} label={t(`analyzerLifecycle.publication.${assessment.publication.current}`)} />
+        <StatusBadge tone={publicationTone(assessment.publication.current)} label={t(`analyzerLifecycle.publication.${assessment.publication.current}`)} />
       </div>
       <dl class="details-list detection-lifecycle-facts">
         <div>
@@ -1840,40 +1835,40 @@ function observationLabel(status: string): string {
     : status;
 }
 
-function evidenceKind(state: EvidenceState): PillKind {
-  if (state === "complete") return "success";
-  if (state === "conflicting") return "danger";
-  return "warning";
+function evidenceTone(state: EvidenceState): BadgeTone {
+  if (state === "complete") return "live";
+  if (state === "conflicting") return "sec";
+  return "sre";
 }
 
-function currentStateKind(state: CurrentState): PillKind {
-  if (state === "recovered") return "success";
-  if (state === "failing") return "danger";
+function currentStateTone(state: CurrentState): BadgeTone {
+  if (state === "recovered") return "live";
+  if (state === "failing") return "sec";
   return "neutral";
 }
 
-function analyzerRecoveryKind(state: AnalyzerRecoveryState): PillKind {
-  if (state === "verified") return "success";
-  if (state === "open") return "warning";
+function analyzerRecoveryTone(state: AnalyzerRecoveryState): BadgeTone {
+  if (state === "verified") return "live";
+  if (state === "open") return "sre";
   return "neutral";
 }
 
-function publicationKind(state: PublicationState): PillKind {
-  if (state === "published" || state === "duplicate_suppressed" || state === "reconciled_duplicate") return "success";
-  if (state === "failed" || state === "published_receipt_unrecorded") return "danger";
-  if (state === "publish_uncertain" || state === "awaiting_reconciliation") return "warning";
+function publicationTone(state: PublicationState): BadgeTone {
+  if (state === "published" || state === "duplicate_suppressed" || state === "reconciled_duplicate") return "live";
+  if (state === "failed" || state === "published_receipt_unrecorded") return "sec";
+  if (state === "publish_uncertain" || state === "awaiting_reconciliation") return "sre";
   return "neutral";
 }
 
-function podRecoveryKind(state: PodRecoveryState): PillKind {
-  if (state === "verified") return "success";
-  if (state === "not_verified") return "warning";
+function podRecoveryTone(state: PodRecoveryState): BadgeTone {
+  if (state === "verified") return "live";
+  if (state === "not_verified") return "sre";
   return "neutral";
 }
 
-function decisionKind(decision: Decision): PillKind {
-  if (decision === "ready") return "success";
-  if (decision === "blocked" || decision === "unauthorized") return "danger";
-  if (decision === "partial" || decision === "stale") return "warning";
+function decisionTone(decision: Decision): BadgeTone {
+  if (decision === "ready") return "live";
+  if (decision === "blocked" || decision === "unauthorized") return "sec";
+  if (decision === "partial" || decision === "stale") return "sre";
   return "neutral";
 }

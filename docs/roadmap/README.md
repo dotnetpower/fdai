@@ -68,6 +68,7 @@ cap, narrow its owner set or split a multi-responsibility owner instead of addin
 | 5g | [aks-diagnostic-evidence-plane.md](architecture/aks-diagnostic-evidence-plane.md) | exact multi-cluster bindings, workload evidence, deterministic diagnosis, and no-authority AKS projection |
 | 5h | [aks-outbound-connector.md](architecture/aks-outbound-connector.md) | cluster-initiated evidence and governed work transport with separate optional network segmentation |
 | 6 | [security-and-identity.md](architecture/security-and-identity.md) | least-privilege identity, secrets, safety invariants |
+| 6a | [azure-iam-permission-groups.md](architecture/azure-iam-permission-groups.md) | three pre-defined Azure IAM custom roles (`FDAI Reader`, `FDAI Operator`, `FDAI Contributor`), agent and human admin mappings, direct/group binding, and 3-step pure-Rust plan |
 | 7 | [deployment.md](deployment/deployment.md) | IaC, CI/CD, environments, release / rollback |
 | 7a | [architecture-review-board.md](architecture/architecture-review-board.md) | canonical ARB index: decision boundary plus focused ontology-agent, evidence-authority, and delivery-plan documents |
 | 7b | [data-governance.md](architecture/data-governance.md) | data inventory, classification, lifecycle, privacy assessment, model-provider and compliance evidence |

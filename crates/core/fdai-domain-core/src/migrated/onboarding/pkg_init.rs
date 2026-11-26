@@ -1,0 +1,1 @@
+pub const PUBLIC_EXPORTS: &[&str] = &["EmptyResourceProbe", "ExpectedResource", "ExpectedRoleAssignment", "ObservedResource", "ObservedRoleAssignment", "OnboardingProbeError", "OnboardingReport", "OnboardingResourceKind", "OnboardingSpec", "OnboardingVerifier", "ResourceProbe", "default_onboarding_spec"];

@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "preact/compat";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
+import { CheckboxField, SelectField, TextInput } from "../components/form-controls";
 import { PageHeader } from "../components/ui";
 import { loadConfig } from "../config";
 import { usePublishViewContext } from "../deck/context";
@@ -493,67 +494,88 @@ export function DocumentIngestionRoute({ client }: Props) {
           <h3 id="document-policy-title">{t("documents.visibilityTitle")}</h3>
           <p>{t("documents.visibilityNotice", { collection: collection || t("documents.collectionFallback") })}</p>
         </div>
-        <label class="document-consent">
-          <input type="checkbox" checked={consent} disabled={uploading} onChange={(event) => setConsent(event.currentTarget.checked)} />
-          <span>{t("documents.visibilityConfirm")}</span>
-        </label>
+        <CheckboxField
+          label={t("documents.visibilityConfirm")}
+          checked={consent}
+          disabled={uploading}
+          className="document-consent"
+          onChange={setConsent}
+        />
       </section>
 
-      <section class="document-upload-settings" aria-label={t("documents.settings") }>
-        <label>
-          <span>{knowledgeText("disposition")}</span>
-          <select
-            value={disposition}
-            disabled={uploading}
-            onChange={(event) => {
-              const value = event.currentTarget.value;
-              if (value === "governed_knowledge" || value === "workspace_draft") {
-                setDisposition(value);
-                setConsent(false);
-              }
-            }}
-          >
-            <option value="governed_knowledge">{knowledgeText("dispositionKnowledge")}</option>
-            <option value="workspace_draft">{knowledgeText("dispositionDraft")}</option>
-          </select>
-          <small>{knowledgeText(
+      <section class="document-upload-settings" aria-label={t("documents.settings")}>
+        <SelectField
+          label={knowledgeText("disposition")}
+          value={disposition}
+          disabled={uploading}
+          options={[
+            { value: "governed_knowledge", label: knowledgeText("dispositionKnowledge") },
+            { value: "workspace_draft", label: knowledgeText("dispositionDraft") },
+          ]}
+          hint={knowledgeText(
             disposition === "workspace_draft"
               ? "dispositionHintDraft"
               : "dispositionHintKnowledge",
-          )}</small>
-        </label>
-        <label>
-          <span>{t("documents.collection")}</span>
-          {capabilities?.collections && capabilities.collections.length > 0 ? (
-            <select
-              value={collection}
-              disabled={uploading}
-              onChange={(event) => {
-                setCollection(event.currentTarget.value);
-                setConsent(false);
-              }}
-            >
-              {capabilities.collections.map((item) => <option value={item}>{item}</option>)}
-            </select>
-          ) : (
-            <input value={collection} maxLength={256} disabled={uploading} onInput={(event) => { setCollection(event.currentTarget.value); setConsent(false); }} />
           )}
-          <small>{knowledgeText("collectionHint")}</small>
-        </label>
-        <label>
-          <span>{t("documents.purpose")}</span>
-          <select value={purpose} disabled={uploading} onChange={(event) => { setPurpose(event.currentTarget.value); setConsent(false); }}>
-            <option value="knowledge_base">{t("documents.knowledgeBase")}</option>
-            <option value="manual_distillation">{t("documents.manualDistillation")}</option>
-            <option value="handover_bootstrap">{t("documents.handoverBootstrap")}</option>
-          </select>
-        </label>
-        <label>
-          <span>{t("documents.storageMode")}</span>
-          <select value={storageMode} disabled={uploading} onChange={(event) => { setStorageMode(event.currentTarget.value); setConsent(false); }}>
-            {(capabilities?.storage_modes ?? ["managed_copy"]).map((mode) => <option value={mode}>{mode}</option>)}
-          </select>
-        </label>
+          onChange={(value) => {
+            if (value === "governed_knowledge" || value === "workspace_draft") {
+              setDisposition(value);
+              setConsent(false);
+            }
+          }}
+        />
+        {capabilities?.collections && capabilities.collections.length > 0 ? (
+          <SelectField
+            label={t("documents.collection")}
+            value={collection}
+            disabled={uploading}
+            options={capabilities.collections.map((item) => ({ value: item, label: item }))}
+            hint={knowledgeText("collectionHint")}
+            onChange={(next) => {
+              setCollection(next);
+              setConsent(false);
+            }}
+          />
+        ) : (
+          <TextInput
+            label={t("documents.collection")}
+            value={collection}
+            maxLength={256}
+            disabled={uploading}
+            hint={knowledgeText("collectionHint")}
+            onInput={(next) => {
+              setCollection(next);
+              setConsent(false);
+            }}
+          />
+        )}
+        <SelectField
+          label={t("documents.purpose")}
+          value={purpose}
+          disabled={uploading}
+          options={[
+            { value: "knowledge_base", label: t("documents.knowledgeBase") },
+            { value: "manual_distillation", label: t("documents.manualDistillation") },
+            { value: "handover_bootstrap", label: t("documents.handoverBootstrap") },
+          ]}
+          onChange={(next) => {
+            setPurpose(next);
+            setConsent(false);
+          }}
+        />
+        <SelectField
+          label={t("documents.storageMode")}
+          value={storageMode}
+          disabled={uploading}
+          options={(capabilities?.storage_modes ?? ["managed_copy"]).map((mode) => ({
+            value: mode,
+            label: mode,
+          }))}
+          onChange={(next) => {
+            setStorageMode(next);
+            setConsent(false);
+          }}
+        />
       </section>
 
       <section

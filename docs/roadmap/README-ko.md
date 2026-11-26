@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 3efdba6f6e9765a8cde2dbed0f22a56cdb386239
-translation_revised: 2026-10-31
+translation_source_sha: f945d8de829ac00d2c5b5a5b2401596bf2f4f2ee
+translation_revised: 2026-11-27
 ---
 # FDAI 로드맵
 
@@ -65,6 +65,7 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 | 5g | [aks-diagnostic-evidence-plane-ko.md](architecture/aks-diagnostic-evidence-plane-ko.md) | 정확한 다중 클러스터 연결, 워크로드 근거, 결정론적 진단 및 권한 없는 AKS 변환 결과 |
 | 5h | [aks-outbound-connector-ko.md](architecture/aks-outbound-connector-ko.md) | 클러스터가 시작하는 근거 및 승인 작업 전송과 별도로 관리하는 선택적 네트워크 분리 |
 | 6 | [security-and-identity-ko.md](architecture/security-and-identity-ko.md) | 최소 권한 신원, 시크릿, 안전 불변식 |
+| 6a | [azure-iam-permission-groups-ko.md](architecture/azure-iam-permission-groups-ko.md) | 사전 정의된 Azure IAM 사용자 지정 역할 3단계(`FDAI Reader`, `FDAI Operator`, `FDAI Contributor`), 에이전트 및 사람 관리자 매핑, 직접/그룹 바인딩, 3단계 순수 Rust 계획 |
 | 7 | [deployment-ko.md](deployment/deployment-ko.md) | IaC, CI/CD, 환경, 릴리스 / 롤백 |
 | 7a | [architecture-review-board-ko.md](architecture/architecture-review-board-ko.md) | 정본 ARB 색인: 결정 경계와 온톨로지 에이전트, 근거 권한, 전달 계획 문서 |
 | 7b | [data-governance-ko.md](architecture/data-governance-ko.md) | 데이터 인벤토리, 분류, 수명 주기, 개인정보 평가, 모델 공급자 및 규정 준수 근거 |

@@ -1,0 +1,266 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/rule/2.0.0",
+  "title": "Rule",
+  "description": "Normalized, CSP-neutral rule entry in the catalog. Sources map into this shape; runtime never reads a source-specific format.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "version",
+    "source",
+    "severity",
+    "category",
+    "resource_type",
+    "check_logic",
+    "remediation",
+    "remediates",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$",
+      "description": "Globally unique, source-independent rule identity (basis for dedup)."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Rule semver; a bad set is revertible by version."
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "waf",
+        "aks_baseline",
+        "mcsb",
+        "azure_policy",
+        "azure_advisor",
+        "cis",
+        "opa_gatekeeper",
+        "checkov",
+        "tfsec",
+        "kics",
+        "trivy",
+        "kube_bench",
+        "custom"
+      ]
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "security",
+        "reliability",
+        "cost",
+        "config_drift",
+        "compliance"
+      ]
+    },
+    "resource_type": {
+      "type": "string",
+      "description": "Normalized CSP-neutral type, e.g. compute.vm, database.postgres, network.public_ip."
+    },
+    "target_object_type": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Za-z0-9]{0,63}$",
+      "description": "Optional ontology ObjectType name targeted by this rule (e.g. ChangeSummary, GovernanceProposal). Cross-referenced against registered ObjectTypes at load time."
+    },
+    "check_logic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "rego",
+            "expression"
+          ]
+        },
+        "reference": {
+          "type": "string",
+          "description": "policies/ path or inline expression id."
+        }
+      },
+      "description": "Deterministic predicate. T0 loads and evaluates this without engine changes."
+    },
+    "remediation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "template_ref"
+      ],
+      "properties": {
+        "template_ref": {
+          "type": "string",
+          "description": "IaC/PR remediation template id."
+        },
+        "cost_impact_monthly_usd": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Estimated monthly cost impact. null \u2192 treated as unknown by the risk gate \u2192 HIL."
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_url",
+        "resolved_ref",
+        "content_hash",
+        "license",
+        "redistribution",
+        "retrieved_at"
+      ],
+      "properties": {
+        "source_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "source_version": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable upstream tag or release (e.g. v1.4.0); paired with `resolved_ref` for reproducibility."
+        },
+        "resolved_ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Immutable commit / digest the fetch pinned to (rename of the legacy `resolved_revision`; docs/roadmap/rules-and-detection/rule-catalog-collection.md § YAML Normalization)."
+        },
+        "content_hash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "license": {
+          "type": "string",
+          "description": "SPDX identifier (e.g. `Apache-2.0`) or `LicenseRef-reference-only` for restricted sources."
+        },
+        "redistribution": {
+          "type": "string",
+          "enum": ["embeddable", "reference-only"],
+          "description": "Redistribution posture - `embeddable` allows verbatim source text in this repo; `reference-only` allows only authored logic plus a citation."
+        },
+        "retrieved_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "RFC 3339 UTC timestamp when the source was fetched (rename of the legacy `imported_at`)."
+        },
+        "mapped_by": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Role or pipeline id that mapped the source into the normalized schema (never a person)."
+        }
+      },
+      "description": "Auditable origin. Missing provenance = rule is rejected at load."
+    },
+    "applies_to": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true,
+      "description": "Resource types this rule may evaluate. MUST include resource_type."
+    },
+    "triggered_by": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^(\\*|[a-z0-9][a-z0-9._-]{0,127})$"
+      },
+      "uniqueItems": true,
+      "description": "Event types that trigger evaluation. '*' is an explicit legacy catch-all."
+    },
+    "evaluates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true,
+      "description": "Resource properties read by the policy; '*' is an explicit legacy baseline."
+    },
+    "required_interfaces": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "enum": ["Evaluable", "Remediable"]},
+      "uniqueItems": true
+    },
+    "submission_criteria": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "value"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["resource_type_registered", "object_type_registered", "property_exists", "link_exists"]
+          },
+          "value": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "scope_predicates": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Optional labels, tags, and tenant-neutral scope filters."
+    },
+    "remediates": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_\\.\\-]{0,79}$",
+      "description": "Ontology dispatch: the ActionType `name` this rule proposes on match (M:1). MUST resolve to a registered `rule-catalog/action-types/*.yaml` instance; the loader enforces cross-reference at load time. See docs/roadmap/architecture/llm-strategy.md § Rule as Ontology Artifact."
+    },
+    "alternatives": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_\\.\\-]{0,79}$"
+      },
+      "uniqueItems": true,
+      "description": "Alternative ActionType names ranked by preference. T0 always uses `remediates`; only the T2 quality gate may swap in an alternative. Every entry MUST resolve to a registered ActionType."
+    },
+    "parameters": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Optional typed inputs to `check_logic` (e.g. retention thresholds, CVSS version). Defaults live on the rule; per-assignment overrides live in rule-governance."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"schema_version": {"const": "2.0.0"}},
+        "required": ["schema_version"]
+      },
+      "then": {
+        "required": [
+          "applies_to",
+          "triggered_by",
+          "evaluates",
+          "required_interfaces",
+          "submission_criteria"
+        ],
+        "properties": {
+          "applies_to": {"minItems": 1},
+          "submission_criteria": {"minItems": 1}
+        }
+      }
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
+import { SearchInput, SelectField, TextareaField } from "../components/form-controls";
 import { DataTable, StatusPill } from "../components/ui";
 import { t } from "../i18n";
 import { routeHref } from "../router";
@@ -73,7 +74,6 @@ export function DirectoryUserSearch({
   const searchGeneration = useRef(0);
   const assignmentPending = useRef(false);
   const rosterSearch = useRef<HTMLInputElement>(null);
-  const draftReason = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => () => {
     searchGeneration.current += 1;
@@ -143,7 +143,7 @@ export function DirectoryUserSearch({
     setJustification("");
     setError(null);
     assignmentIntent.current = null;
-    requestAnimationFrame(() => draftReason.current?.focus());
+    requestAnimationFrame(() => document.getElementById("iam-role-justification")?.focus());
   };
 
   return (
@@ -178,19 +178,16 @@ export function DirectoryUserSearch({
 
       <div class="settings-user-picker">
         <form class="settings-directory-search-form" onSubmit={search}>
-          <label for="iam-user-search">{settingsIamText("findUser")}</label>
           <div>
-            <input
+            <SearchInput
               id="iam-user-search"
-              type="search"
-              minLength={2}
+              label={settingsIamText("findUser")}
               maxLength={128}
-              required
               value={query}
               placeholder={t("settings.iam.aliasPlaceholder")}
-              onInput={(event) => {
+              onInput={(value) => {
                 searchGeneration.current += 1;
-                setQuery(event.currentTarget.value);
+                setQuery(value);
                 setResults([]);
                 setSearching(false);
                 setSearched(false);
@@ -235,20 +232,19 @@ export function DirectoryUserSearch({
             </strong>
             <small>{settingsIamText("roleRequestHint")}</small>
           </div>
-          <label for="iam-role-justification">{t("settings.iam.roleRequestJustification")}</label>
-          <textarea
-            ref={draftReason}
+          <TextareaField
             id="iam-role-justification"
-            aria-describedby="iam-role-justification-help"
-            aria-invalid={justification.length > 0 && justification.trim().length < 20}
+            label={t("settings.iam.roleRequestJustification")}
             disabled={pendingSubject !== null}
-            minLength={20}
             maxLength={2000}
             value={justification}
             placeholder={t("settings.iam.roleRequestJustification")}
-            onInput={(event) => setJustification(event.currentTarget.value)}
+            hint={settingsIamText("reasonLength", { count: justification.trim().length })}
+            {...(justification.length > 0 && justification.trim().length < 20
+              ? { error: settingsIamText("reasonLength", { count: justification.trim().length }) }
+              : {})}
+            onInput={setJustification}
           />
-          <small id="iam-role-justification-help">{settingsIamText("reasonLength", { count: justification.trim().length })}</small>
           <div>
             <button
               type="button"
@@ -278,9 +274,13 @@ export function DirectoryUserSearch({
       ) : null}
       {!rosterAvailable ? <p class="muted">{settingsIamText("referenceBoundary")}</p> : null}
 
-      <label for="iam-roster-filter">{settingsIamText("filterRoster")}</label>
-      <input ref={rosterSearch} id="iam-roster-filter" type="search" value={rosterQuery}
-        onInput={(event) => setRosterQuery(event.currentTarget.value)} />
+      <SearchInput
+        id="iam-roster-filter"
+        inputRef={rosterSearch}
+        label={settingsIamText("filterRoster")}
+        value={rosterQuery}
+        onInput={setRosterQuery}
+      />
       <p role="status">{settingsIamText("shownCount", { count: visibleRoster.length, total: source.length })}</p>
       {rosterQuery || filter !== "all" ? <button type="button" class="secondary" onClick={() => {
         setRosterQuery(""); setFilter("all"); rosterSearch.current?.focus();
@@ -364,20 +364,23 @@ function RoleDropdown({ id, label, disabled, onSelect }: {
   readonly onSelect: (role: AssignableRole) => void;
 }) {
   return (
-    <select
-      id={id}
-      class="settings-role-select"
-      aria-label={label}
+    <SelectField
+      {...(id !== undefined ? { id } : {})}
+      className="settings-role-select"
+      label={label}
+      hideLabel
+      size="sm"
       disabled={disabled}
       value=""
-      onChange={(event) => {
-        const role = event.currentTarget.value as AssignableRole;
+      options={[
+        { value: "", label },
+        ...ASSIGNABLE_ROLES.map((role) => ({ value: role, label: role })),
+      ]}
+      onChange={(value) => {
+        const role = value as AssignableRole;
         if (role) onSelect(role);
       }}
-    >
-      <option value="">{label}</option>
-      {ASSIGNABLE_ROLES.map((role) => <option key={role} value={role}>{role}</option>)}
-    </select>
+    />
   );
 }
 

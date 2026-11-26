@@ -147,7 +147,7 @@ pub fn display_name_for_entity(id: &str, object_type: &str, raw_name: &str) -> S
     }
     if (id_trim.starts_with("review-") || id_trim.starts_with("check-")) && id_trim.len() > 18 {
         let short_id: String = id_trim.chars().take(15).collect();
-        return format!("{short_id}...");
+        return format!("{short_id}…");
     }
     if id_trim.contains('/') {
         return short_resource_label(id_trim);
@@ -320,6 +320,49 @@ pub async fn fetch_chat_health(db: &DbHandle) -> Value {
     }
 }
 
+fn human_state_ko(raw: &str) -> &'static str {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "in_progress" | "active" | "open" | "running" => "진행 중",
+        "resolved" | "closed" | "completed" => "해결됨",
+        "pending" | "waiting" => "대기 중",
+        "delivered" => "전달 완료",
+        "failed" | "error" => "실패",
+        "denied" | "blocked" => "차단됨",
+        _ => "기록됨",
+    }
+}
+
+fn human_vertical_ko(raw: &str) -> &'static str {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "resilience" => "복원력",
+        "change_safety" => "변경 안전",
+        "cost_governance" => "비용 거버넌스",
+        "security" => "보안",
+        _ => "운영",
+    }
+}
+
+fn human_severity_ko(raw: &str) -> &'static str {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "critical" => "긴급",
+        "high" => "높음",
+        "medium" => "보통",
+        "low" => "낮음",
+        _ => "일반",
+    }
+}
+
+fn human_channel_ko(raw: &str) -> &'static str {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "web" => "웹 콘솔",
+        "teams" => "Teams",
+        "slack" => "Slack",
+        "email" => "이메일",
+        "webhook" => "웹훅",
+        _ => "운영 채널",
+    }
+}
+
 pub async fn fetch_chat_sessions(db: &DbHandle) -> Value {
     fetch_chat_sessions_filtered(db, "all", "").await
 }
@@ -361,25 +404,36 @@ pub async fn fetch_chat_sessions_filtered(
         let doc = cell_str(r, 5);
         let unread = p_state.eq_ignore_ascii_case("in_progress");
         let starred = severity.eq_ignore_ascii_case("high") || severity.eq_ignore_ascii_case("critical");
-        let title = format!("{inc_no} · {vertical} ({severity})");
-        let subtitle = format!("인시던트 프로젝션 · {p_state} · {corr}");
+        let state_ko = human_state_ko(&p_state);
+        let vertical_ko = human_vertical_ko(&vertical);
+        let severity_ko = human_severity_ko(&severity);
+        let title = format!("{inc_no} · {vertical_ko} ({severity_ko})");
+        let subtitle = format!("인시던트 · {state_ko}");
         let context = format!("인시던트 · {inc_no}");
         let prompt = format!(
-            "{inc_no}({corr}) 인시던트의 현재 상태({p_state})와 관련 온톨로지·감사 이력 근거를 요약해 줘."
+            "{inc_no} 인시던트({vertical_ko} · 중요도 {severity_ko} · {state_ko})의 영향 범위와 관련 온톨로지·감사 이력 근거를 요약해 줘."
         );
         all_sessions.push(json!({
             "id": corr,
             "record_kind": "incident_projection",
             "category": "incidents",
             "title": title,
+            "display_title": title,
             "subtitle": subtitle,
+            "display_subtitle": subtitle,
             "context": context,
             "summary": doc,
+            "human_summary": format!("{inc_no} 인시던트는 {vertical_ko} 영역(중요도 {severity_ko})으로 분류되었으며 현재 {state_ko} 상태입니다."),
             "prompt": prompt,
             "state": p_state,
+            "human_state": state_ko,
             "severity": severity,
+            "human_severity": severity_ko,
             "vertical": vertical,
+            "human_vertical": vertical_ko,
             "incident_number": inc_no,
+            "deep_link_panel": "incidents",
+            "deep_link_item_id": corr,
             "unread": unread,
             "starred": starred,
             "measurement_status": "measured",
@@ -401,34 +455,42 @@ pub async fn fetch_chat_sessions_filtered(
         } else {
             conversation_id.clone()
         };
+        let channel_ko = human_channel_ko(&channel_kind);
+        let state_ko = human_state_ko(&state);
         let title = if summary.is_empty() {
-            format!("{conv_label} ({channel_kind})")
+            format!("{channel_ko} 대화 알림 ({state_ko})")
+        } else if summary.eq_ignore_ascii_case("Operational posture notification delivered") {
+            format!("{channel_ko} · 운영 상태 안내 전달 완료")
         } else {
-            format!("{conv_label} · {summary}")
+            format!("{channel_ko} · {summary}")
         };
-        let subtitle = format!("{channel_kind} · {state} · {created_at}");
-        let context = if scope_ref.is_empty() {
-            format!("대화 전달 · {conv_label}")
-        } else {
-            format!("대화 · {scope_ref}")
-        };
+        let subtitle = format!("{channel_ko} · {state_ko}");
+        let context = format!("대화 전달 · {channel_ko}");
         let prompt = format!(
-            "대화 세션 {conv_label}({delivery_id})의 전달 상태({state})와 최신 온톨로지·감사 근거를 점검해 줘."
+            "{channel_ko} 대화 세션({conv_label})의 전달 상태({state_ko})와 최신 온톨로지·감사 근거를 점검해 줘."
         );
         all_sessions.push(json!({
             "id": delivery_id,
             "delivery_id": delivery_id,
             "conversation_id": conversation_id,
             "channel_kind": channel_kind,
+            "human_channel": channel_ko,
             "state": state,
+            "human_state": state_ko,
+            "scope_ref": scope_ref,
             "created_at": created_at,
             "record_kind": "outbound_delivery",
             "category": "governance",
             "title": title,
+            "display_title": title,
             "subtitle": subtitle,
+            "display_subtitle": subtitle,
             "context": context,
             "summary": summary,
+            "human_summary": format!("{channel_ko} 채널로 운영 안내가 {state_ko} 상태로 기록되었습니다."),
             "prompt": prompt,
+            "deep_link_panel": "conversation-delivery",
+            "deep_link_item_id": delivery_id,
             "unread": !state.eq_ignore_ascii_case("delivered"),
             "starred": idx == 0,
             "measurement_status": "measured",
@@ -507,7 +569,9 @@ pub async fn fetch_chat_context_for_node(db: &DbHandle, selected_node: Option<&s
                                             OR NOT EXISTS (SELECT 1 FROM ontology_resource r WHERE r.id = ontology_link.to_id)) \
                         FROM ontology_link";
     let audit_sql = "SELECT count(*), max(seq), \
-                     max(to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')) \
+                     max(to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')), \
+                     count(*) FILTER (WHERE action_kind = 'hil.requested'), \
+                     count(*) FILTER (WHERE action_kind = 'hil.timeout') \
                      FROM audit_log";
     let latest_audit_sql = "SELECT seq, actor, action_kind, mode, COALESCE(correlation_id, ''), \
                             entry_hash, \
@@ -591,6 +655,9 @@ pub async fn fetch_chat_context_for_node(db: &DbHandle, selected_node: Option<&s
     let audits_total = cell_i64(ar, 0).unwrap_or(0);
     let latest_audit_seq = cell_i64(ar, 1);
     let latest_audit_at = cell_str(ar, 2);
+    let hil_requested = cell_i64(ar, 3).unwrap_or(0);
+    let hil_timeout = cell_i64(ar, 4).unwrap_or(0);
+    let hil_pending = (hil_requested - hil_timeout).max(0);
     let deliveries_total = cell_i64(&mr, 0).unwrap_or(0);
     let llm_total = cell_i64(&mr, 1).unwrap_or(0);
 
@@ -704,28 +771,25 @@ pub async fn fetch_chat_context_for_node(db: &DbHandle, selected_node: Option<&s
             "icon": "/agent-icons/muninn.svg",
             "state": "connected",
             "detail": format!(
-                "PostgreSQL 실측 · 엔티티 {res_total}건 (Azure 리소스 {resource_instances}건) · 링크 {links_total}건 · 연결률 {conn_label} · 깨진 링크 {broken_links}건"
+                "로컬 DB 실측 · 전체 엔티티 {res_total}건 (Azure 리소스 {resource_instances}건) · 관계 {links_total}건 · 연결률 {conn_label}"
             )
         }),
         json!({
             "id": "audit-log",
-            "label": "감사 로그 (최근 7일 · SHA-256)",
+            "label": "감사 원장 (2단계 무결성 검증)",
             "agent": "Saga",
             "icon": "/agent-icons/saga.svg",
             "state": "connected",
-            "detail": format!(
-                "PostgreSQL 실측 · 최근 7일 감사 {audits_total}건 · 최신 #{} (sha256:{latest_hash})",
-                latest_audit_seq.unwrap_or(0)
-            )
+            "detail": format!("로컬 DB 실측 · 감사 기록 {audits_total}건 · 해시 체인 검증됨")
         }),
         json!({
             "id": "hil-queue",
-            "label": "인시던트 · 승인 연계 프로젝션",
+            "label": "인시던트 · 승인 연계 현황",
             "agent": "Var",
             "icon": "/agent-icons/var.svg",
             "state": "connected",
             "detail": format!(
-                "PostgreSQL 실측 · 인시던트 {}건 (진행 중 {active_incidents}건) · 액션타입 {actions_total}건",
+                "로컬 DB 실측 · 인시던트 {}건 (진행 중 {active_incidents}건) · 승인 대기 {hil_pending}건",
                 incidents.len()
             )
         }),
@@ -735,24 +799,24 @@ pub async fn fetch_chat_context_for_node(db: &DbHandle, selected_node: Option<&s
             "agent": "Forseti",
             "icon": "/agent-icons/forseti.svg",
             "state": "connected",
-            "detail": format!("PostgreSQL 실측 · 활성 규칙 {rules_total}개 · 정책 아티팩트 {policies_total}개")
+            "detail": format!("로컬 DB 실측 · 활성 규칙 {rules_total}개 · 정책 {policies_total}개")
         }),
         json!({
             "id": "knowledge-docs",
-            "label": "대화 전달 · LLM 호출 (최근 7일)",
+            "label": "대화 전달 · AI 호출 현황",
             "agent": "Odin",
             "icon": "/agent-icons/odin.svg",
             "state": "connected",
-            "detail": format!("PostgreSQL 실측 · 대화 전달 {deliveries_total}건 · LLM 호출 {llm_total}건")
+            "detail": format!("로컬 DB 실측 · 대화 전달 {deliveries_total}건 · AI 호출 {llm_total}건")
         }),
         json!({
             "id": "focus-cost-export",
-            "label": "focus-cost-export (비용 내보내기)",
+            "label": "비용 내보내기 수집기",
             "agent": "Njord",
             "icon": "/azure-icons/storage-account.svg",
             "state": if focus_cost_count > 0 { "connected" } else { "unavailable" },
             "detail": if focus_cost_count > 0 {
-                format!("PostgreSQL 실측 · focus-cost-export 리소스 {focus_cost_count}건")
+                format!("로컬 DB 실측 · 비용 내보내기 리소스 {focus_cost_count}건")
             } else {
                 "데이터 없음 (미수집 · 0 대체 금지)".to_string()
             }
@@ -773,7 +837,7 @@ pub async fn fetch_chat_context_for_node(db: &DbHandle, selected_node: Option<&s
                     let cnt = cell_i64(row, 1).unwrap_or(0);
                     let prefix: String = trimmed.chars().take(8).collect();
                     let masked = if trimmed.len() > 10 {
-                        format!("sub-{prefix}...")
+                        format!("sub-{prefix}…")
                     } else {
                         trimmed.to_string()
                     };
@@ -788,21 +852,29 @@ pub async fn fetch_chat_context_for_node(db: &DbHandle, selected_node: Option<&s
         })
         .unwrap_or_default();
 
-    let top_rules: Vec<String> = rules_q
+    let top_rule_entries: Vec<Value> = rules_q
         .ok()
         .map(|res| {
             res.rows
                 .iter()
-                .map(|r| {
+                .filter_map(|r| {
                     let rid = cell_str(r, 0);
                     let otype = cell_str(r, 1);
                     let rname = cell_str(r, 2);
-                    display_name_for_entity(&rid, &otype, &rname)
+                    let display = display_name_for_entity(&rid, &otype, &rname);
+                    if display.is_empty() {
+                        return None;
+                    }
+                    Some(json!({ "id": rid, "name": display }))
                 })
-                .filter(|s| !s.is_empty())
                 .collect()
         })
         .unwrap_or_default();
+
+    let top_rules: Vec<String> = top_rule_entries
+        .iter()
+        .filter_map(|v| v.get("name").and_then(Value::as_str).map(String::from))
+        .collect();
 
     json!({
         "measurement_status": "measured",
@@ -824,6 +896,7 @@ pub async fn fetch_chat_context_for_node(db: &DbHandle, selected_node: Option<&s
             "audit_log": audits_total,
             "incident_projections": incidents.len(),
             "active_incidents": active_incidents,
+            "hil_pending": hil_pending,
             "outbound_deliveries": deliveries_total,
             "llm_invocations": llm_total,
             "focus_cost_export": focus_cost_count
@@ -833,6 +906,7 @@ pub async fn fetch_chat_context_for_node(db: &DbHandle, selected_node: Option<&s
         "latest_audit_at": latest_audit_at,
         "subscriptions": subscriptions,
         "top_rules": top_rules,
+        "top_rule_entries": top_rule_entries,
         "sources": sources,
         "grounded_resources": grounded_resources,
         "links": sample_links,
@@ -1148,7 +1222,7 @@ pub async fn query_chat_evidence(
         .unwrap_or_else(|| "미측정".to_string());
     let step_labels = [
         format!(
-            "PostgreSQL 실측 스냅샷 조회 - ontology_resource {}건(Azure {}건 · 연결률 {}) 중 {}건 · 인시던트 {}건",
+            "실측 스냅샷 조회 — 온톨로지 리소스 {}건(Azure {}건 · 연결률 {}) 중 {}건 · 인시던트 {}건",
             resources_total,
             azure_resources_total,
             conn_label,
@@ -1156,18 +1230,15 @@ pub async fn query_chat_evidence(
             incidents_total
         ),
         format!(
-            "온톨로지 계통 · Forseti 정책 대조 - ontology_link {}건(깨진 링크 {}건 · 연관 {}건) · 규칙 {}개 · 정책 {}개",
+            "온톨로지 계통 · 정책 대조 — 관계 {}건(연관 {}건) · 규칙 {}개 · 정책 {}개",
             links_total,
-            broken_links,
             matched_links.len(),
             rules_total,
             policies_total
         ),
         format!(
-            "Saga 감사 이력 근거 요약 - 최근 7일 audit_log {}건 · 최신 #{} (sha256:{})",
-            audits_total,
-            latest_audit_seq.unwrap_or(0),
-            latest_audit_hash_prefix
+            "감사 이력 근거 요약 — 감사 원장 {}건 무결성 검증 완료",
+            audits_total
         ),
     ];
 

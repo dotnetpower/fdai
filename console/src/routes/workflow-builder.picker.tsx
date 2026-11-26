@@ -6,6 +6,7 @@
  */
 
 import { useMemo, useState } from "preact/hooks";
+import { SearchInput, SelectField } from "../components/form-controls";
 import type { ActionTypePaletteEntry } from "../workflow/validate";
 import { humanizeActionName } from "./workflow-builder.helpers";
 import { filterActionTypes, paletteCategories } from "./workflow-builder.palette";
@@ -42,23 +43,23 @@ export function ActionTypePicker({
         </p>
       </div>
       <div class="wf-action-picker-controls">
-        <input
-          class="form-input"
-          type="search"
+        <SearchInput
+          label={t("workflow.chat.picker.searchAria")}
+          hideLabel
           value={query}
           placeholder={t("workflow.chat.picker.placeholder")}
-          aria-label={t("workflow.chat.picker.searchAria")}
-          onInput={(event) => setQuery((event.target as HTMLInputElement).value)}
+          onInput={setQuery}
         />
-        <select
-          class="form-input"
+        <SelectField
+          label={t("workflow.chat.picker.categoryAria")}
+          hideLabel
           value={category}
-          aria-label={t("workflow.chat.picker.categoryAria")}
-          onChange={(event) => setCategory((event.target as HTMLSelectElement).value)}
-        >
-          <option value="">{t("workflow.chat.picker.allCategories")}</option>
-          {categories.map((value) => <option key={value} value={value}>{value}</option>)}
-        </select>
+          options={[
+            { value: "", label: t("workflow.chat.picker.allCategories") },
+            ...categories.map((value) => ({ value, label: value })),
+          ]}
+          onChange={setCategory}
+        />
       </div>
       {shown.length === 0 ? (
         <p class="wf-action-picker-empty">{t("workflow.chat.picker.empty")}</p>

@@ -1,0 +1,1410 @@
+{
+  "$defs": {
+    "AlertChangePlan": {
+      "additionalProperties": false,
+      "description": "Immutable no-authority commitment, reconstructed before every admission.",
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "action_type": {
+          "enum": [
+            "ops.update-alert-routing",
+            "ops.set-alert-notification-window",
+            "ops.tune-alert-evaluation",
+            "ops.restore-alert-configuration"
+          ],
+          "title": "Action Type",
+          "type": "string"
+        },
+        "tenant_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Tenant Ref",
+          "type": "string"
+        },
+        "scope_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Scope Ref",
+          "type": "string"
+        },
+        "requester_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Requester Ref",
+          "type": "string"
+        },
+        "evidence_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Evidence Digest",
+          "type": "string"
+        },
+        "policy_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Policy Digest",
+          "type": "string"
+        },
+        "target_revision": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Target Revision",
+          "type": "string"
+        },
+        "treatment": {
+          "$ref": "#/$defs/AlertTreatment"
+        },
+        "service_refs": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Service Refs",
+          "type": "array"
+        },
+        "lock_refs": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+            "type": "string"
+          },
+          "maxItems": 256,
+          "minItems": 1,
+          "title": "Lock Refs",
+          "type": "array"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "max_execution_seconds": {
+          "maximum": 86400,
+          "minimum": 1,
+          "title": "Max Execution Seconds",
+          "type": "integer"
+        },
+        "max_observation_seconds": {
+          "maximum": 86400,
+          "minimum": 1,
+          "title": "Max Observation Seconds",
+          "type": "integer"
+        },
+        "max_recovery_seconds": {
+          "maximum": 86400,
+          "minimum": 1,
+          "title": "Max Recovery Seconds",
+          "type": "integer"
+        },
+        "rollback_ref": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Rollback Ref",
+          "type": "string"
+        },
+        "evaluation_receipt_digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evaluation Receipt Digest"
+        },
+        "execution_path": {
+          "const": "pr_manual",
+          "default": "pr_manual",
+          "title": "Execution Path",
+          "type": "string"
+        },
+        "default_mode": {
+          "const": "shadow",
+          "default": "shadow",
+          "title": "Default Mode",
+          "type": "string"
+        },
+        "quorum_required": {
+          "const": 2,
+          "default": 2,
+          "title": "Quorum Required",
+          "type": "integer"
+        },
+        "execution_authority": {
+          "const": false,
+          "default": false,
+          "title": "Execution Authority",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "action_type",
+        "tenant_ref",
+        "scope_ref",
+        "requester_ref",
+        "evidence_digest",
+        "policy_digest",
+        "target_revision",
+        "treatment",
+        "service_refs",
+        "lock_refs",
+        "created_at",
+        "expires_at",
+        "max_execution_seconds",
+        "max_observation_seconds",
+        "max_recovery_seconds",
+        "rollback_ref"
+      ],
+      "title": "AlertChangePlan",
+      "type": "object"
+    },
+    "AlertNoiseCommand": {
+      "additionalProperties": false,
+      "description": "A principal-bound request with no supplied facts, approvals or provider endpoints.",
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "operation": {
+          "enum": [
+            "alert_noise.assess",
+            "alert_noise.propose"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "request_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Request Ref",
+          "type": "string"
+        },
+        "requester_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Requester Ref",
+          "type": "string"
+        },
+        "scope_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Scope Ref",
+          "type": "string"
+        },
+        "requested_at": {
+          "format": "date-time",
+          "title": "Requested At",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "evidence_digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Digest"
+        },
+        "treatment": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlertTreatment"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "execution_authority": {
+          "const": false,
+          "default": false,
+          "title": "Execution Authority",
+          "type": "boolean"
+        },
+        "period_seconds": {
+          "anyOf": [
+            {
+              "maximum": 604800,
+              "minimum": 3600,
+              "multipleOf": 3600,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Period Seconds"
+        }
+      },
+      "required": [
+        "operation",
+        "request_ref",
+        "requester_ref",
+        "scope_ref",
+        "requested_at",
+        "expires_at"
+      ],
+      "title": "AlertNoiseCommand",
+      "type": "object"
+    },
+    "AlertNoiseResult": {
+      "additionalProperties": false,
+      "description": "Exact command result consumed only by the matching Operator durable request.",
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "producer": {
+          "const": "Forseti",
+          "default": "Forseti",
+          "title": "Producer",
+          "type": "string"
+        },
+        "command": {
+          "$ref": "#/$defs/AlertNoiseCommand"
+        },
+        "command_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Command Digest",
+          "type": "string"
+        },
+        "recorded_at": {
+          "format": "date-time",
+          "title": "Recorded At",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "assessment_ready",
+            "proposal_ready",
+            "held"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "assessment": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NoiseAssessment"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "plan": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlertChangePlan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlertProposalDetail"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "execution_authority": {
+          "const": false,
+          "default": false,
+          "title": "Execution Authority",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "command",
+        "command_digest",
+        "recorded_at",
+        "status"
+      ],
+      "title": "AlertNoiseResult",
+      "type": "object"
+    },
+    "AlertProcessLink": {
+      "additionalProperties": false,
+      "description": "Recorded invocation reference, never a substitute for the current canonical journal.",
+      "properties": {
+        "process_id": {
+          "pattern": "^[A-Za-z0-9_.:-]{1,200}$",
+          "title": "Process Id",
+          "type": "string"
+        },
+        "workflow_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Workflow Ref",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "running",
+            "waiting",
+            "compensating",
+            "compensated",
+            "succeeded",
+            "failed",
+            "cancelled",
+            "timed_out"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "shadow",
+            "enforce"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "process_id",
+        "workflow_ref",
+        "status",
+        "mode"
+      ],
+      "title": "AlertProcessLink",
+      "type": "object"
+    },
+    "AlertProposalDetail": {
+      "additionalProperties": false,
+      "description": "Safe baseline values and measured detector guards with exact retained-plan commitments.",
+      "properties": {
+        "plan_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Plan Digest",
+          "type": "string"
+        },
+        "baseline": {
+          "$ref": "#/$defs/AlertRollbackBaseline"
+        },
+        "evaluation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvaluationReceipt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "process": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlertProcessLink"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "recorded_at": {
+          "format": "date-time",
+          "title": "Recorded At",
+          "type": "string"
+        },
+        "execution_authority": {
+          "const": false,
+          "default": false,
+          "title": "Execution Authority",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "plan_digest",
+        "baseline",
+        "recorded_at"
+      ],
+      "title": "AlertProposalDetail",
+      "type": "object"
+    },
+    "AlertRollbackBaseline": {
+      "additionalProperties": false,
+      "description": "Exact pre-change configuration for the changed object, not its dependency.",
+      "properties": {
+        "rule": {
+          "$ref": "#/$defs/AlertRule"
+        },
+        "processing_rule": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProcessingRule"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "rule"
+      ],
+      "title": "AlertRollbackBaseline",
+      "type": "object"
+    },
+    "AlertRule": {
+      "additionalProperties": false,
+      "description": "Exact observed configuration linked to service and policy, not caller labels.",
+      "properties": {
+        "ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Ref",
+          "type": "string"
+        },
+        "resource_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Resource Ref",
+          "type": "string"
+        },
+        "service_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Service Ref",
+          "type": "string"
+        },
+        "revision": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Revision",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "metric",
+            "log",
+            "activity",
+            "processing",
+            "unknown"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "severity": {
+          "anyOf": [
+            {
+              "maximum": 4,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Severity"
+        },
+        "classification": {
+          "default": "unknown",
+          "enum": [
+            "informational",
+            "operational",
+            "security",
+            "compliance",
+            "slo",
+            "recovery",
+            "service_health",
+            "telemetry_loss",
+            "approval",
+            "unknown"
+          ],
+          "title": "Classification",
+          "type": "string"
+        },
+        "group_refs": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+            "type": "string"
+          },
+          "maxItems": 5,
+          "title": "Group Refs",
+          "type": "array"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "stateful": {
+          "default": true,
+          "title": "Stateful",
+          "type": "boolean"
+        },
+        "evaluation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Evaluation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "active_incident": {
+          "default": false,
+          "title": "Active Incident",
+          "type": "boolean"
+        },
+        "iac_owned": {
+          "default": false,
+          "title": "Iac Owned",
+          "type": "boolean"
+        },
+        "ownership_verified": {
+          "default": false,
+          "title": "Ownership Verified",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ref",
+        "resource_ref",
+        "service_ref",
+        "revision",
+        "kind"
+      ],
+      "title": "AlertRule",
+      "type": "object"
+    },
+    "AlertTreatment": {
+      "additionalProperties": false,
+      "description": "Exactly one operator-selected treatment, never a provider path or script.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "routing",
+            "suppression",
+            "evaluation"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "target_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Target Ref",
+          "type": "string"
+        },
+        "replacement_group_ref": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Replacement Group Ref"
+        },
+        "remove_group_ref": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Remove Group Ref"
+        },
+        "processing_rule_ref": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Processing Rule Ref"
+        },
+        "starts_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Starts At"
+        },
+        "ends_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ends At"
+        },
+        "evaluation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Evaluation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "kind",
+        "target_ref"
+      ],
+      "title": "AlertTreatment",
+      "type": "object"
+    },
+    "Evaluation": {
+      "additionalProperties": false,
+      "description": "Supported threshold semantics; complex native criteria remain unsupported.",
+      "properties": {
+        "metric_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Metric Ref",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "above",
+            "below"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "threshold": {
+          "title": "Threshold",
+          "type": "number"
+        },
+        "window_seconds": {
+          "maximum": 86400,
+          "minimum": 1,
+          "title": "Window Seconds",
+          "type": "integer"
+        },
+        "frequency_seconds": {
+          "maximum": 86400,
+          "minimum": 1,
+          "title": "Frequency Seconds",
+          "type": "integer"
+        },
+        "aggregation": {
+          "enum": [
+            "average",
+            "maximum",
+            "minimum"
+          ],
+          "title": "Aggregation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "metric_ref",
+        "operator",
+        "threshold",
+        "window_seconds",
+        "frequency_seconds",
+        "aggregation"
+      ],
+      "title": "Evaluation",
+      "type": "object"
+    },
+    "EvaluationCaseResult": {
+      "additionalProperties": false,
+      "description": "Paired detection for one labeled temporal case; absence is never zero latency.",
+      "properties": {
+        "ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Ref",
+          "type": "string"
+        },
+        "actionable": {
+          "title": "Actionable",
+          "type": "boolean"
+        },
+        "baseline_detected": {
+          "title": "Baseline Detected",
+          "type": "boolean"
+        },
+        "treatment_detected": {
+          "title": "Treatment Detected",
+          "type": "boolean"
+        },
+        "baseline_latency_seconds": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Baseline Latency Seconds"
+        },
+        "treatment_latency_seconds": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Treatment Latency Seconds"
+        }
+      },
+      "required": [
+        "ref",
+        "actionable",
+        "baseline_detected",
+        "treatment_detected",
+        "baseline_latency_seconds",
+        "treatment_latency_seconds"
+      ],
+      "title": "EvaluationCaseResult",
+      "type": "object"
+    },
+    "EvaluationReceipt": {
+      "additionalProperties": false,
+      "description": "Measured replay result bound to the exact target, baseline and treatment.",
+      "properties": {
+        "rule_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Rule Ref",
+          "type": "string"
+        },
+        "rule_revision": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Rule Revision",
+          "type": "string"
+        },
+        "scenario_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Scenario Digest",
+          "type": "string"
+        },
+        "baseline": {
+          "$ref": "#/$defs/Evaluation"
+        },
+        "treatment": {
+          "$ref": "#/$defs/Evaluation"
+        },
+        "evaluated_at": {
+          "format": "date-time",
+          "title": "Evaluated At",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "baseline_true_positive": {
+          "maximum": 10000000,
+          "minimum": 0,
+          "title": "Baseline True Positive",
+          "type": "integer"
+        },
+        "treatment_true_positive": {
+          "maximum": 10000000,
+          "minimum": 0,
+          "title": "Treatment True Positive",
+          "type": "integer"
+        },
+        "baseline_false_positive": {
+          "maximum": 10000000,
+          "minimum": 0,
+          "title": "Baseline False Positive",
+          "type": "integer"
+        },
+        "treatment_false_positive": {
+          "maximum": 10000000,
+          "minimum": 0,
+          "title": "Treatment False Positive",
+          "type": "integer"
+        },
+        "baseline_false_negative": {
+          "maximum": 10000000,
+          "minimum": 0,
+          "title": "Baseline False Negative",
+          "type": "integer"
+        },
+        "treatment_false_negative": {
+          "maximum": 10000000,
+          "minimum": 0,
+          "title": "Treatment False Negative",
+          "type": "integer"
+        },
+        "accepted": {
+          "title": "Accepted",
+          "type": "boolean"
+        },
+        "reason": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Reason",
+          "type": "string"
+        },
+        "replay_method": {
+          "default": "same-bucket-threshold-v1",
+          "enum": [
+            "same-bucket-threshold-v1",
+            "uniform-metric-series-v1"
+          ],
+          "title": "Replay Method",
+          "type": "string"
+        },
+        "baseline_max_latency_seconds": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseline Max Latency Seconds"
+        },
+        "treatment_max_latency_seconds": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Treatment Max Latency Seconds"
+        },
+        "case_results": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EvaluationCaseResult"
+          },
+          "maxItems": 128,
+          "title": "Case Results",
+          "type": "array"
+        },
+        "execution_authority": {
+          "const": false,
+          "default": false,
+          "title": "Execution Authority",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "rule_ref",
+        "rule_revision",
+        "scenario_digest",
+        "baseline",
+        "treatment",
+        "evaluated_at",
+        "expires_at",
+        "baseline_true_positive",
+        "treatment_true_positive",
+        "baseline_false_positive",
+        "treatment_false_positive",
+        "baseline_false_negative",
+        "treatment_false_negative",
+        "accepted",
+        "reason"
+      ],
+      "title": "EvaluationReceipt",
+      "type": "object"
+    },
+    "NoiseAssessment": {
+      "additionalProperties": false,
+      "description": "Privacy-minimized report binding counts and findings to a frozen input.",
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source": {
+          "const": "alert-noise-evidence",
+          "default": "alert-noise-evidence",
+          "title": "Source",
+          "type": "string"
+        },
+        "evidence_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Evidence Digest",
+          "type": "string"
+        },
+        "policy_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Policy Digest",
+          "type": "string"
+        },
+        "tenant_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Tenant Ref",
+          "type": "string"
+        },
+        "scope_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Scope Ref",
+          "type": "string"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "title": "Observed At",
+          "type": "string"
+        },
+        "valid_until": {
+          "format": "date-time",
+          "title": "Valid Until",
+          "type": "string"
+        },
+        "window_start": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Window Start"
+        },
+        "window_end": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Window End"
+        },
+        "coverage": {
+          "enum": [
+            "complete",
+            "partial",
+            "unavailable"
+          ],
+          "title": "Coverage",
+          "type": "string"
+        },
+        "reasons": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Reasons",
+          "type": "array"
+        },
+        "source_episodes": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Source Episodes"
+        },
+        "notification_attempts": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Notification Attempts"
+        },
+        "confirmed_deliveries": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Confirmed Deliveries"
+        },
+        "acknowledgements": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Acknowledgements"
+        },
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/NoiseFinding"
+          },
+          "maxItems": 10000,
+          "title": "Findings",
+          "type": "array"
+        },
+        "execution_authority": {
+          "const": false,
+          "default": false,
+          "title": "Execution Authority",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "evidence_digest",
+        "policy_digest",
+        "tenant_ref",
+        "scope_ref",
+        "observed_at",
+        "valid_until",
+        "coverage",
+        "reasons",
+        "source_episodes",
+        "notification_attempts",
+        "confirmed_deliveries",
+        "acknowledgements",
+        "findings"
+      ],
+      "title": "NoiseAssessment",
+      "type": "object"
+    },
+    "NoiseFinding": {
+      "additionalProperties": false,
+      "description": "A bounded explanation keyed to evidence, never a mutation instruction.",
+      "properties": {
+        "rule_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Rule Ref",
+          "type": "string"
+        },
+        "service_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Service Ref",
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "storm",
+            "flapping",
+            "overlap",
+            "broad_role",
+            "unowned",
+            "protected",
+            "incomplete"
+          ],
+          "title": "Reason",
+          "type": "string"
+        },
+        "guidance": {
+          "enum": [
+            "review-routing",
+            "review-evaluation",
+            "review-ownership",
+            "retain-protected",
+            "collect-evidence"
+          ],
+          "title": "Guidance",
+          "type": "string"
+        },
+        "source_episodes": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Source Episodes"
+        },
+        "observed_deliveries": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Observed Deliveries"
+        },
+        "potential_recipients_lower": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Potential Recipients Lower"
+        },
+        "potential_recipients_upper": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Potential Recipients Upper"
+        },
+        "duplicate_paths": {
+          "default": 0,
+          "maximum": 10000000,
+          "minimum": 0,
+          "title": "Duplicate Paths",
+          "type": "integer"
+        },
+        "protected": {
+          "title": "Protected",
+          "type": "boolean"
+        },
+        "team_refs": {
+          "anyOf": [
+            {
+              "items": {
+                "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+                "type": "string"
+              },
+              "maxItems": 32,
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Team Refs"
+        },
+        "audience_kinds": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "direct",
+                  "group",
+                  "role",
+                  "channel",
+                  "oncall"
+                ],
+                "type": "string"
+              },
+              "maxItems": 5,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Audience Kinds"
+        }
+      },
+      "required": [
+        "rule_ref",
+        "service_ref",
+        "reason",
+        "guidance",
+        "source_episodes",
+        "observed_deliveries",
+        "protected"
+      ],
+      "title": "NoiseFinding",
+      "type": "object"
+    },
+    "ProcessingRule": {
+      "additionalProperties": false,
+      "description": "Exact finite effective-rule projection; unknown filters fail closed.",
+      "properties": {
+        "ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Ref",
+          "type": "string"
+        },
+        "revision": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Revision",
+          "type": "string"
+        },
+        "rule_refs": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+            "type": "string"
+          },
+          "maxItems": 2000,
+          "title": "Rule Refs",
+          "type": "array"
+        },
+        "action": {
+          "enum": [
+            "suppress",
+            "add"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "group_refs": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+            "type": "string"
+          },
+          "maxItems": 5,
+          "title": "Group Refs",
+          "type": "array"
+        },
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "effective_from": {
+          "format": "date-time",
+          "title": "Effective From",
+          "type": "string"
+        },
+        "effective_to": {
+          "format": "date-time",
+          "title": "Effective To",
+          "type": "string"
+        },
+        "semantics_complete": {
+          "default": false,
+          "title": "Semantics Complete",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ref",
+        "revision",
+        "rule_refs",
+        "action",
+        "enabled",
+        "effective_from",
+        "effective_to"
+      ],
+      "title": "ProcessingRule",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A signed no-authority result, independently matched to the original request.",
+  "properties": {
+    "result": {
+      "$ref": "#/$defs/AlertNoiseResult"
+    },
+    "signature": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Signature",
+      "type": "string"
+    }
+  },
+  "required": [
+    "result",
+    "signature"
+  ],
+  "title": "SignedAlertResult",
+  "type": "object",
+  "$id": "https://fdai.dev/service-contracts/alert-noise-result/1.0.0"
+}

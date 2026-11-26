@@ -1,5 +1,11 @@
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { AuditItem, AuditSummary } from "../types";
+import { DisclosurePanel } from "../components/disclosure-panel";
+import {
+  CorrelationTimeline,
+  HashChainBadge,
+  type HashChainStatus,
+} from "../components/domain-primitives";
 import { StatusPill } from "../components/ui";
 import { currentRoute, routeHref } from "../router";
 import { formatConsoleCompactTimestamp, formatConsoleTimestamp } from "../time-format";
@@ -16,6 +22,17 @@ const w = (key: string, params?: Record<string, string | number>) =>
   t(`evidence.audit.workspace.${key}`, params);
 const valueOrMissing = (value: string | null) => value ?? w("notRecorded");
 const formatCount = (value: number) => new Intl.NumberFormat().format(value);
+
+function auditIntegrityStatus(summary: AuditSummary | null): HashChainStatus {
+  if (summary === null) return "unavailable";
+  if (summary.integrity.status === "verified" && summary.integrity.current_link_gap_count === 0) {
+    return "verified";
+  }
+  if (summary.integrity.status === "failed" || summary.integrity.current_link_gap_count > 0) {
+    return "gap";
+  }
+  return "unverified";
+}
 
 function Mode({ mode }: { readonly mode: string }) {
   return <StatusPill kind={mode === "shadow" || mode === "enforce" ? mode : "neutral"}
@@ -143,13 +160,20 @@ function AuditMetrics({ summary }: { readonly summary: AuditSummary | null }) {
   if (summary === null) {
     return (
       <section class="audit-metrics" aria-label={w("metrics")}>
-        {["closed", "humanReview", "rollbacks", "integrity"].map((key) => (
+        {(["closed", "humanReview", "rollbacks"] as const).map((key) => (
           <a key={key} href="#audit-record-review">
             <span>{w(`metric.${key}`)}</span>
             <strong>{w("metricUnavailableValue")}</strong>
             <small>{w("metricUnavailable")}</small>
           </a>
         ))}
+        <a href="#audit-record-review" data-status="unavailable">
+          <span>{w("metric.integrity")}</span>
+          <div class="audit-integrity-metric">
+            <HashChainBadge status="unavailable" label={w("metricUnavailableValue")} />
+          </div>
+          <small>{w("metricUnavailable")}</small>
+        </a>
       </section>
     );
   }
@@ -169,7 +193,12 @@ function AuditMetrics({ summary }: { readonly summary: AuditSummary | null }) {
       ))}
       <a href="#audit-record-review" data-status={summary.integrity.status}>
         <span>{w("metric.integrity")}</span>
-        <strong>{w(`integrityStatus.${summary.integrity.status}`)}</strong>
+        <div class="audit-integrity-metric">
+          <HashChainBadge
+            status={auditIntegrityStatus(summary)}
+            label={w(`integrityStatus.${summary.integrity.status}`)}
+          />
+        </div>
         <small>{w(`integrityDetail.${summary.integrity.status}`, {
           count: formatCount(summary.integrity.current_link_gap_count),
           time: summary.integrity.verified_at
@@ -245,15 +274,24 @@ function AuditRecordDetail({ item, summary }: {
             <p class="audit-note">{w("sourceObservationNote")}</p>
           </> : <>
             <h4 id="audit-path-title">{w("path")}</h4>
-            <ol class="audit-phases">
-              {(["intent", "dispatch", "observe", "close"] as const).map((key, index) => (
-                <li key={key} data-recorded={phase === key}>
-                  <span>{index + 1} / {w(`phase.${key}`)}</span>
-                  <strong>{phase === key ? w("stageRecorded") : w("notInRecord")}</strong>
-                  <small>{w(`phase.${key}Hint`)}</small>
-                </li>
-              ))}
-            </ol>
+            <div class="audit-phases">
+              <CorrelationTimeline
+                variant="phases"
+                ariaLabel={w("path")}
+                items={(["intent", "dispatch", "observe", "close"] as const).map((key, index) => ({
+                  id: key,
+                  title: `${index + 1} / ${w(`phase.${key}`)}`,
+                  stateLabel: phase === key ? w("stageRecorded") : w("notInRecord"),
+                  tone: phase === key ? "live" : "neutral",
+                  current: phase === key,
+                  detail: (
+                    <span data-recorded={phase === key ? "true" : "false"}>
+                      {w(`phase.${key}Hint`)}
+                    </span>
+                  ),
+                }))}
+              />
+            </div>
             <p class="audit-note">{w("effectNote")}</p>
             <dl class="audit-decision-facts">
               {([
@@ -270,10 +308,13 @@ function AuditRecordDetail({ item, summary }: {
               ))}
             </dl>
           </>}
-          <details class="audit-json-disclosure" open>
-            <summary>{w("recordShape")}</summary>
+          <DisclosurePanel
+            {...{ title: w("recordShape") }}
+            className="audit-json-disclosure"
+            defaultOpen
+          >
             <pre class="audit-json" tabIndex={0} aria-label={t("evidence.audit.viewJson")}>{JSON.stringify(item.entry, null, 2)}</pre>
-          </details>
+          </DisclosurePanel>
         </section>
         <aside class="audit-ledger" aria-labelledby="audit-properties-title">
           <h4 id="audit-properties-title">{w("guarantees")}</h4>
@@ -294,8 +335,20 @@ function AuditRecordDetail({ item, summary }: {
               </li>
             ))}
           </ul>
-          <details class="audit-provenance">
-            <summary>{w("provenance")}</summary>
+          <DisclosurePanel
+            {...{ title: w("provenance") }}
+            className="audit-provenance"
+            tone="subtle"
+          >
+            <div class="audit-provenance-hash">
+              <HashChainBadge
+                status={auditIntegrityStatus(summary)}
+                label={summary === null
+                  ? w("notVerified")
+                  : w(`integrityStatus.${summary.integrity.status}`)}
+                entryHash={item.entry_hash}
+              />
+            </div>
             <dl>
               <div><dt>{t("evidence.audit.column.recordedAt")}</dt><dd><time dateTime={item.recorded_at}>{formatConsoleTimestamp(item.recorded_at)}</time></dd></div>
               <div><dt>{t("evidence.audit.column.eventId")}</dt><dd class="mono">{item.event_id}</dd></div>
@@ -303,7 +356,7 @@ function AuditRecordDetail({ item, summary }: {
               <div><dt>{w("previousHash")}</dt><dd class="mono">{valueOrMissing(item.previous_hash)}</dd></div>
             </dl>
             <p class="audit-note">{w("integrityNote")}</p>
-          </details>
+          </DisclosurePanel>
           <nav class="audit-evidence-links" aria-label={t("evidence.audit.column.evidence")}>
             <a href={entryHref}>{w("permalink")}</a>
             {correlation ? <>

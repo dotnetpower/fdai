@@ -68,7 +68,7 @@ describe("Settings controls", () => {
 
   test("maps the approved controls into the production Settings route", () => {
     expect(controls).toContain('class="settings-segmented"');
-    expect(display).toContain('class="settings-toggle-control"');
+    expect(display).toContain("<ToggleSwitch");
     expect(styles).toMatch(/\.settings-segmented button \{[^}]*font: inherit;/s);
     expect(styles).toContain(".settings-route button.secondary");
     expect(styles).toContain(".settings-route .form-input");
@@ -80,14 +80,15 @@ describe("Settings controls", () => {
     expect(styles).toContain(".settings-iam-route .settings-iam-panel");
     expect(styles).toContain(".operator-memory-route .data-table td > span > strong");
     expect(controls).toContain('class="settings-section-head"');
-    expect(context).toContain('aria-label={t("settings.timezone")}');
+    expect(context).toContain('label={t("settings.timezone")}');
     expect(models).toContain('class="settings-domain-list cs-control-policy-list"');
     expect(models).toContain('class="settings-domain-add"');
     expect(styles.indexOf("/* Console settings")).toBeGreaterThan(styles.length * 0.7);
   });
 
   test("uses shared controls across production Settings workspaces", () => {
-    expect(memory.match(/class="form-input"/g)).toHaveLength(2);
+    expect(memory).toContain("<SelectField");
+    expect(memory).toContain("<TextInput");
     expect(models).toMatch(/class="settings-domain-add"[\s\S]*?class="secondary"/);
     expect(iamUsers).toContain('<button type="submit" class="secondary" disabled={searching}>');
     expect(iamUsers).toContain('class="btn primary"');
