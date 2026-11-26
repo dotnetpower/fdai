@@ -1,0 +1,1976 @@
+<!doctype html>
+<html lang="ko" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FDAI Console - 전체 현황 / 컴포넌트 카탈로그 (Deep Amethyst &amp; Teal)</title>
+  <link rel="icon" type="image/svg+xml" href="/brand/fdai-favicon.svg" />
+  <style>
+    /* =====================================================================
+       FDAI Console Component Catalog - Enterprise Precision Edition
+       Neutral Canvas Surface Depth + #19 Deep Amethyst & Teal
+       Web-Standard Typography Floor: >= 12px everywhere, 14px base body
+       ===================================================================== */
+    :root {
+      color-scheme: light;
+      --cs-bg: #f5f6f7;
+      --cs-rail: #ffffff;
+      --cs-surface: #ffffff;
+      --cs-card: #ffffff;
+      --cs-card-subtle: #f9fafb;
+      --cs-hairline: #e4e7ec;
+      --cs-hairline-soft: #eef0f4;
+      --cs-hairline-strong: #cdd3dc;
+      --cs-shade: #f1f3f5;
+      --cs-shade-hover: #e7eaef;
+
+      --cs-text: #111827;
+      --cs-text-soft: #4b5563;
+      --cs-text-faint: #667085;
+
+      --cs-steel: #1f5359;
+      --cs-steel-soft: rgba(15, 118, 110, 0.08);
+      --cs-focus-ring: rgba(15, 118, 110, 0.22);
+
+      /* #19 Deep Amethyst & Teal Telemetry Spectrum */
+      --sig-auto-top: #b2ccc7;
+      --sig-auto-bot: #d3e4e0;
+      --sig-sre: #c86d18;
+      --sig-sre-text: #9a4f0a;
+      --sig-sre-soft: rgba(200, 109, 24, 0.09);
+      --sig-sec: #a63446;
+      --sig-sec-text: #882233;
+      --sig-sec-soft: rgba(166, 52, 70, 0.09);
+      --sig-human: #4a2574;
+      --sig-human-text: #4a2574;
+      --sig-human-soft: rgba(74, 37, 116, 0.085);
+      --sig-live: #0f766e;
+      --sig-live-text: #0b5d56;
+      --sig-live-soft: rgba(15, 118, 110, 0.085);
+
+      --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%234b5563' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+      --check-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16' fill='none' stroke='%23ffffff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.2 8.4 6.5 11.6 13 4.6'/%3E%3C/svg%3E");
+
+      --header-height: 52px;
+      --rail-width: 56px;
+      --cs-radius: 8px;
+      --cs-radius-sm: 6px;
+      --cs-radius-badge: 5px;
+      --cs-shadow-card: 0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 3px rgba(16, 24, 40, 0.03);
+      --cs-shadow-control: 0 1px 2px rgba(16, 24, 40, 0.05);
+      --cs-shadow-inset: inset 0 1px 2px rgba(16, 24, 40, 0.045);
+      --cs-shadow-popover: 0 12px 32px -4px rgba(16, 24, 40, 0.14), 0 4px 10px -2px rgba(16, 24, 40, 0.06);
+
+      --cs-font: "Segoe UI Variable Text", "Segoe UI", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      --cs-font-mono: "Cascadia Code", "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+    }
+
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --cs-bg: #0f1318;
+      --cs-rail: #141920;
+      --cs-surface: #151b22;
+      --cs-card: #181f27;
+      --cs-card-subtle: #141a21;
+      --cs-hairline: #28313d;
+      --cs-hairline-soft: #202832;
+      --cs-hairline-strong: #394554;
+      --cs-shade: #202730;
+      --cs-shade-hover: #28313c;
+
+      --cs-text: #f1f3f5;
+      --cs-text-soft: #a3aebc;
+      --cs-text-faint: #84909f;
+
+      --cs-steel: #5eead4;
+      --cs-steel-soft: rgba(45, 212, 191, 0.14);
+      --cs-focus-ring: rgba(45, 212, 191, 0.28);
+
+      --sig-auto-top: #3b5957;
+      --sig-auto-bot: #243838;
+      --sig-sre: #e69545;
+      --sig-sre-text: #f4b272;
+      --sig-sre-soft: rgba(230, 149, 69, 0.14);
+      --sig-sec: #d96275;
+      --sig-sec-text: #f08e9d;
+      --sig-sec-soft: rgba(217, 98, 117, 0.15);
+      --sig-human: #a78bfa;
+      --sig-human-text: #cbbef9;
+      --sig-human-soft: rgba(167, 139, 250, 0.16);
+      --sig-live: #2dd4bf;
+      --sig-live-text: #5eead4;
+      --sig-live-soft: rgba(45, 212, 191, 0.14);
+
+      --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a3aebc' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+
+      --cs-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.25);
+      --cs-shadow-control: 0 1px 2px rgba(0, 0, 0, 0.3);
+      --cs-shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.32);
+      --cs-shadow-popover: 0 16px 40px rgba(0, 0, 0, 0.56);
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: var(--cs-bg);
+      color: var(--cs-text);
+      font-family: var(--cs-font);
+      font-size: 14px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input, select, textarea { font: inherit; color: inherit; }
+    a { color: inherit; text-decoration: none; }
+    button:focus-visible, a:focus-visible, summary:focus-visible {
+      outline: 2px solid var(--sig-live);
+      outline-offset: 2px;
+    }
+    .inline-code {
+      font-family: var(--cs-font-mono);
+      font-size: 12px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: var(--cs-shade);
+      border: 1px solid var(--cs-hairline);
+      color: var(--cs-text);
+      white-space: nowrap;
+    }
+
+    /* Shell & Topbar */
+    .shell { display: grid; grid-template-rows: var(--header-height) minmax(0, 1fr); height: 100dvh; overflow: hidden; }
+    .topbar {
+      height: var(--header-height);
+      background: var(--cs-surface);
+      border-bottom: 1px solid var(--cs-hairline);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px 0 12px; gap: 12px; z-index: 40;
+    }
+    .brand-lockup { display: inline-flex; align-items: center; gap: 9px; padding: 4px 6px; border-radius: var(--cs-radius-sm); }
+    .brand-logo { width: 22px; height: 22px; object-fit: contain; }
+    .brand-wordmark { font-weight: 700; font-size: 15px; letter-spacing: -0.01em; }
+    .brand-sep { width: 1px; height: 14px; background: var(--cs-hairline-strong); }
+    .brand-product { font-size: 13px; color: var(--cs-text-soft); font-weight: 500; }
+    .topbar-right { display: flex; align-items: center; gap: 10px; }
+    .data-mode {
+      display: inline-flex; background: var(--cs-shade);
+      border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm);
+      padding: 2px; gap: 2px;
+    }
+    .data-mode button {
+      border: 0; background: transparent; padding: 3px 11px; min-height: 26px;
+      border-radius: 4px; font-size: 12px; font-weight: 600;
+      color: var(--cs-text-soft); cursor: pointer;
+    }
+    .data-mode button.is-active {
+      background: var(--cs-card); color: var(--cs-text);
+      box-shadow: var(--cs-shadow-control);
+    }
+    .topbar-icon-btn {
+      width: 32px; height: 32px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: var(--cs-radius-sm); border: 1px solid var(--cs-hairline);
+      background: var(--cs-card); cursor: pointer; box-shadow: var(--cs-shadow-control);
+    }
+    .topbar-icon-btn:hover { background: var(--cs-shade); border-color: var(--cs-hairline-strong); }
+    .account-chip {
+      display: inline-flex; align-items: center; gap: 8px; min-height: 32px;
+      padding: 3px 11px 3px 5px; border-radius: var(--cs-radius-sm);
+      border: 1px solid var(--cs-hairline); background: var(--cs-card);
+      font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: var(--cs-shadow-control);
+    }
+    .account-chip:hover { background: var(--cs-shade); border-color: var(--cs-hairline-strong); }
+    .account-avatar {
+      width: 22px; height: 22px; border-radius: 5px;
+      background: var(--cs-steel-soft); color: var(--cs-steel);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+    }
+
+    /* Left Activity Rail */
+    .shell-body { display: grid; grid-template-columns: auto minmax(0, 1fr); min-height: 0; position: relative; }
+    .activity-bar {
+      width: var(--rail-width); background: var(--cs-rail);
+      border-right: 1px solid var(--cs-hairline);
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 10px 0; z-index: 30;
+    }
+    .rail-group { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .rail-btn {
+      width: 38px; height: 38px; border: 1px solid transparent; border-radius: 7px;
+      background: transparent; color: var(--cs-text-soft);
+      display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+    }
+    .rail-btn:hover { background: var(--cs-shade); color: var(--cs-text); }
+    .rail-btn.active { background: var(--cs-steel-soft); color: var(--cs-steel); border-color: rgba(15, 118, 110, 0.24); }
+    .rail-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* Workspace Canvas */
+    .workspace { overflow-y: auto; padding: 24px 32px 56px; min-width: 0; }
+    .workspace-inner { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+
+    .page-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 16px; flex-wrap: wrap;
+    }
+    .page-header-title {
+      margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.3;
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .page-header-domain { color: var(--cs-text-soft); font-weight: 600; }
+    .page-header-domain:hover { color: var(--cs-steel); }
+    .page-header-sep { color: var(--cs-text-faint); font-weight: 400; }
+    .page-header-sub { margin: 5px 0 0; color: var(--cs-text-soft); font-size: 14px; }
+    .page-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+    /* Enterprise Tactile Buttons */
+    .cs-btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      min-height: 36px; padding: 0 14px;
+      border-radius: var(--cs-radius-sm);
+      border: 1px solid var(--cs-hairline-strong);
+      background: var(--cs-card); color: var(--cs-text);
+      font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+      box-shadow: var(--cs-shadow-control);
+      transition: background-color 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease, transform 0.08s ease;
+    }
+    .cs-btn:hover:not(:disabled) { background: var(--cs-card-subtle); border-color: var(--cs-text-faint); }
+    .cs-btn:active:not(:disabled) { transform: translateY(0.5px); }
+    .cs-btn:disabled { opacity: 0.48; cursor: not-allowed; box-shadow: none; }
+    .cs-btn-primary {
+      background: var(--sig-live); border-color: #0b5d56; color: #ffffff;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 1px 2px rgba(15, 118, 110, 0.25);
+    }
+    .cs-btn-primary:hover:not(:disabled) { background: #0c635c; border-color: #094f49; color: #ffffff; }
+    .cs-btn-steel {
+      background: var(--cs-card); border-color: rgba(15, 118, 110, 0.38); color: var(--cs-steel);
+    }
+    .cs-btn-steel:hover:not(:disabled) { background: var(--cs-steel-soft); border-color: var(--cs-steel); }
+    .cs-btn-ghost { background: transparent; border-color: transparent; color: var(--cs-text-soft); box-shadow: none; }
+    .cs-btn-ghost:hover:not(:disabled) { background: var(--cs-shade); border-color: transparent; color: var(--cs-text); }
+    .cs-btn-danger {
+      background: var(--cs-card); border-color: rgba(166, 52, 70, 0.42); color: var(--sig-sec-text);
+    }
+    .cs-btn-danger:hover:not(:disabled) { background: var(--sig-sec-soft); border-color: var(--sig-sec); }
+    .cs-btn-sm { min-height: 30px; padding: 0 10px; font-size: 12px; }
+
+    /* Enterprise Form Controls (Custom SVG Chevron, Inset Depth, Soft Focus Ring) */
+    .cs-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .cs-label { font-size: 13px; font-weight: 600; color: var(--cs-text); }
+    .cs-help { font-size: 12px; color: var(--cs-text-faint); margin: 0; line-height: 1.45; }
+    .cs-help.is-error { color: var(--sig-sec-text); font-weight: 500; }
+    .cs-input, .cs-select, .cs-textarea {
+      width: 100%; min-width: 0;
+      border-radius: var(--cs-radius-sm);
+      border: 1px solid var(--cs-hairline-strong);
+      background-color: var(--cs-card);
+      color: var(--cs-text);
+      font-size: 13.5px; line-height: 1.45;
+      box-shadow: var(--cs-shadow-inset);
+      transition: border-color 0.14s ease, box-shadow 0.14s ease, background-color 0.14s ease;
+    }
+    .cs-input { min-height: 38px; padding: 7px 12px; }
+    .cs-select {
+      appearance: none; -webkit-appearance: none; -moz-appearance: none;
+      min-height: 38px;
+      padding: 0 38px 0 12px;
+      background-image: var(--select-chevron);
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 16px 16px;
+      cursor: pointer;
+    }
+    .cs-select-compact {
+      min-height: 32px;
+      padding: 0 34px 0 10px;
+      font-size: 12.5px;
+      background-position: right 10px center;
+      background-size: 15px 15px;
+    }
+    .cs-textarea { min-height: 82px; padding: 9px 12px; resize: vertical; }
+    .cs-input:hover:not(:disabled), .cs-select:hover:not(:disabled), .cs-textarea:hover:not(:disabled) {
+      border-color: var(--cs-text-faint);
+    }
+    .cs-input:focus, .cs-select:focus, .cs-textarea:focus {
+      outline: none;
+      border-color: var(--sig-live);
+      box-shadow: 0 0 0 3px var(--cs-focus-ring);
+    }
+    .cs-input:disabled, .cs-select:disabled {
+      opacity: 0.65; cursor: not-allowed; background-color: var(--cs-shade); box-shadow: none;
+    }
+    .cs-input.is-error {
+      border-color: var(--sig-sec); background-color: var(--sig-sec-soft);
+    }
+    .cs-input.is-error:focus {
+      box-shadow: 0 0 0 3px rgba(166, 52, 70, 0.2);
+    }
+
+    /* Search Input with crisp SVG icon */
+    .cs-search-wrap { position: relative; display: flex; align-items: center; }
+    .cs-search-wrap .cs-input { padding-left: 36px; padding-right: 34px; }
+    .cs-search-icon {
+      position: absolute; left: 11px; color: var(--cs-text-faint);
+      pointer-events: none; display: inline-flex; align-items: center;
+    }
+    .cs-search-clear {
+      position: absolute; right: 7px; width: 24px; height: 24px;
+      border: 0; border-radius: 5px; background: transparent; color: var(--cs-text-faint);
+      cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+    }
+    .cs-search-clear:hover { background: var(--cs-shade); color: var(--cs-text); }
+
+    /* SearchableSelect Combobox with crisp SVG Chevron */
+    .ss-root { position: relative; }
+    .ss-input-wrap { position: relative; }
+    .ss-input-wrap .cs-input { padding-right: 38px; }
+    .ss-chevron {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      color: var(--cs-text-soft); pointer-events: none; display: inline-flex;
+      transition: transform 0.16s ease;
+    }
+    .ss-root.is-open .ss-chevron { transform: translateY(-50%) rotate(180deg); color: var(--sig-live); }
+    .ss-popup {
+      position: absolute; left: 0; right: 0; top: calc(100% + 5px); z-index: 60;
+      background: var(--cs-card); border: 1px solid var(--cs-hairline-strong);
+      border-radius: 8px; box-shadow: var(--cs-shadow-popover);
+      display: none; flex-direction: column; overflow: hidden;
+    }
+    .ss-popup.is-open { display: flex; }
+    .ss-results-bar {
+      padding: 7px 12px; font-size: 12px; color: var(--cs-text-soft);
+      border-bottom: 1px solid var(--cs-hairline-soft); background: var(--cs-card-subtle);
+      font-weight: 500;
+    }
+    .ss-list { list-style: none; margin: 0; padding: 5px; max-height: 230px; overflow-y: auto; }
+    .ss-option {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 8px 10px; border-radius: 6px; cursor: pointer;
+    }
+    .ss-option:hover, .ss-option.is-active { background: var(--cs-steel-soft); }
+    .ss-option-title { font-size: 13px; font-weight: 600; display: block; color: var(--cs-text); }
+    .ss-option-desc { font-size: 12px; color: var(--cs-text-soft); display: block; }
+    .ss-option-count {
+      font-family: var(--cs-font-mono); font-size: 12px; color: var(--cs-text-soft);
+      background: var(--cs-shade); padding: 2px 7px; border-radius: 4px; white-space: nowrap;
+    }
+
+    /* Custom Enterprise Checkboxes, Radios & Toggle Switch */
+    .choice-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+    .choice-label {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 13px; font-weight: 500; cursor: pointer; color: var(--cs-text);
+    }
+    .choice-label input[type="checkbox"],
+    .choice-label input[type="radio"] {
+      appearance: none; -webkit-appearance: none;
+      width: 17px; height: 17px; margin: 0; flex: 0 0 auto;
+      border: 1.5px solid var(--cs-hairline-strong);
+      background: var(--cs-card); cursor: pointer;
+      display: inline-grid; place-content: center;
+      transition: background-color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+    }
+    .choice-label input[type="checkbox"] { border-radius: 4px; }
+    .choice-label input[type="radio"] { border-radius: 50%; }
+    .choice-label input[type="checkbox"]:checked {
+      background-color: var(--sig-live); border-color: var(--sig-live);
+      background-image: var(--check-mark); background-repeat: no-repeat; background-position: center; background-size: 12px 12px;
+    }
+    .choice-label input[type="radio"]:checked { border-color: var(--sig-live); }
+    .choice-label input[type="radio"]:checked::after {
+      content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--sig-live);
+    }
+    .choice-label input:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--cs-focus-ring); }
+
+    .switch-btn {
+      display: inline-flex; align-items: center; gap: 9px; border: 0; background: transparent;
+      padding: 0; cursor: pointer; font-size: 13px; font-weight: 500;
+    }
+    .switch-track {
+      width: 36px; height: 20px; border-radius: 999px;
+      background: var(--cs-hairline-strong); position: relative; transition: background-color 0.15s ease;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+    }
+    .switch-track::after {
+      content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+      border-radius: 50%; background: #ffffff; transition: transform 0.15s ease;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+    }
+    .switch-btn[aria-checked="true"] .switch-track { background: var(--sig-live); }
+    .switch-btn[aria-checked="true"] .switch-track::after { transform: translateX(16px); }
+
+    /* Summary KPI Grid (Restrained Executive Cards) */
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+    .kpi-card {
+      background: var(--cs-card); border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius); padding: 16px 18px;
+      box-shadow: var(--cs-shadow-card); display: flex; flex-direction: column; gap: 8px;
+    }
+    .kpi-label { font-size: 13px; color: var(--cs-text-soft); font-weight: 600; }
+    .kpi-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+    .kpi-num { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.15; }
+    .kpi-unit { font-size: 13px; color: var(--cs-text-soft); margin-left: 3px; font-weight: 500; }
+    .kpi-meta { font-size: 12px; color: var(--cs-steel); font-weight: 600; white-space: nowrap; }
+    .kpi-foot {
+      font-size: 12px; color: var(--cs-text-faint);
+      display: flex; justify-content: space-between; gap: 8px; flex-wrap: nowrap;
+      padding-top: 8px; border-top: 1px solid var(--cs-hairline-soft);
+    }
+    .kpi-foot span { white-space: nowrap; }
+
+    /* Precision Underline Category Tabs (Replaces 10 oval pills; zero vertical scrollbar) */
+    .cat-tabs {
+      display: flex; align-items: center; gap: 2px;
+      overflow-x: auto; overflow-y: hidden;
+      scrollbar-width: none;
+      box-shadow: inset 0 -1px 0 var(--cs-hairline);
+    }
+    .cat-tabs::-webkit-scrollbar { display: none; }
+    .cat-tab {
+      border: 0; background: transparent; cursor: pointer;
+      padding: 10px 13px;
+      border-bottom: 2px solid transparent;
+      color: var(--cs-text-soft); font-size: 13px; font-weight: 600;
+      white-space: nowrap; display: inline-flex; align-items: center; gap: 6px;
+      flex: 0 0 auto;
+      transition: color 0.14s ease, border-color 0.14s ease;
+    }
+    .cat-tab:hover { color: var(--cs-text); }
+    .cat-tab.is-active { color: var(--cs-steel); border-bottom-color: var(--cs-steel); }
+    .cat-tab-count {
+      font-family: var(--cs-font-mono); font-size: 12px; font-weight: 500;
+      color: var(--cs-text-faint);
+    }
+    .cat-tab.is-active .cat-tab-count { color: var(--cs-steel); }
+
+    /* Open Sections (Eliminates Nested Double Cards) */
+    .cat-section {
+      display: flex; flex-direction: column; gap: 16px;
+      padding-top: 24px;
+      border-top: 1px solid var(--cs-hairline);
+    }
+    .cat-section.is-first-visible { padding-top: 4px; border-top: 0; }
+    .cat-section.is-hidden { display: none; }
+    .sec-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .sec-head h3 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -0.015em; }
+    .sec-head p { margin: 4px 0 0; font-size: 13.5px; color: var(--cs-text-soft); }
+    .sec-src { font-family: var(--cs-font-mono); font-size: 12px; color: var(--cs-text-faint); white-space: nowrap; }
+
+    /* Single-Layer Crisp Specimen Cards on Neutral Canvas */
+    .specimen-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .specimen-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .specimen-box {
+      background: var(--cs-card);
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius);
+      padding: 18px 20px;
+      box-shadow: var(--cs-shadow-card);
+      display: flex; flex-direction: column; gap: 14px; min-width: 0;
+    }
+    .specimen-title {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      font-size: 14px; font-weight: 700; letter-spacing: -0.01em;
+      padding-bottom: 10px; border-bottom: 1px solid var(--cs-hairline-soft);
+    }
+    .specimen-src { font-family: var(--cs-font-mono); font-size: 12px; color: var(--cs-text-faint); font-weight: 500; white-space: nowrap; }
+
+    /* Token Swatches */
+    .swatch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+    .swatch {
+      border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); padding: 12px 14px;
+      display: flex; align-items: center; gap: 12px; background: var(--cs-card);
+      box-shadow: var(--cs-shadow-card); cursor: pointer; text-align: left;
+      transition: border-color 0.14s ease, transform 0.08s ease;
+    }
+    .swatch:hover { border-color: var(--cs-hairline-strong); transform: translateY(-1px); }
+    .swatch-dot { width: 32px; height: 32px; border-radius: 6px; border: 1px solid rgba(15, 23, 42, 0.12); flex: 0 0 auto; }
+    .swatch-meta { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+    .swatch-name { font-size: 13px; font-weight: 650; color: var(--cs-text); }
+    .swatch-token { font-family: var(--cs-font-mono); font-size: 12px; color: var(--cs-text-faint); }
+
+    /* Unified Enterprise Command Deck Chat UI */
+    .deck-shell {
+      display: grid; grid-template-columns: 236px minmax(0, 1fr);
+      border: 1px solid var(--cs-hairline); border-radius: 10px;
+      background: var(--cs-card); box-shadow: var(--cs-shadow-card);
+      overflow: hidden; min-height: 440px;
+    }
+    .deck-sidebar {
+      border-right: 1px solid var(--cs-hairline); background: var(--cs-card-subtle);
+      display: flex; flex-direction: column; padding: 12px; gap: 6px;
+    }
+    .deck-session-item {
+      width: 100%; text-align: left; border: 1px solid transparent; background: transparent;
+      border-radius: 6px; padding: 9px 10px; cursor: pointer;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .deck-session-item:hover { background: var(--cs-shade); }
+    .deck-session-item.is-active {
+      background: var(--cs-card); border-color: var(--cs-hairline);
+      box-shadow: var(--cs-shadow-control);
+    }
+    .deck-session-title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--cs-text); }
+    .deck-session-meta { font-size: 12px; color: var(--cs-text-faint); }
+    .deck-main { display: flex; flex-direction: column; min-width: 0; background: var(--cs-card); }
+    .deck-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+      padding: 12px 16px; border-bottom: 1px solid var(--cs-hairline);
+    }
+    .deck-readiness {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 8px 16px; border-bottom: 1px solid var(--cs-hairline-soft);
+      background: var(--cs-card-subtle); font-size: 12px;
+    }
+    .deck-thread {
+      flex: 1 1 auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px;
+      max-height: 310px; overflow-y: auto;
+    }
+    .chat-msg { display: flex; flex-direction: column; gap: 6px; max-width: 92%; }
+    .chat-msg.is-user { align-self: flex-end; align-items: flex-end; max-width: 82%; }
+    .chat-bubble {
+      padding: 2px 0; border-radius: 0; font-size: 14px; line-height: 1.6;
+      border: 0; background: transparent; color: var(--cs-text);
+    }
+    .chat-msg.is-user .chat-bubble {
+      padding: 11px 15px; border-radius: 10px; font-size: 13.5px; line-height: 1.55;
+      background: var(--cs-shade); border: 1px solid var(--cs-hairline); color: var(--cs-text);
+    }
+    .chat-meta { font-size: 12px; color: var(--cs-text-faint); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .trace-details {
+      border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card);
+      padding: 8px 12px; font-size: 13px;
+    }
+    .trace-details summary { cursor: pointer; font-weight: 600; color: var(--cs-text-soft); }
+    .trace-steps { margin: 8px 0 2px; padding-left: 18px; color: var(--cs-text-soft); font-size: 12.5px; display: flex; flex-direction: column; gap: 4px; }
+    .busy-bar {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+      padding: 9px 16px; border-top: 1px solid var(--cs-hairline);
+      background: var(--cs-card-subtle); font-size: 13px;
+    }
+    .busy-bar.is-hidden { display: none; }
+
+    /* Unified Single-Frame Composer */
+    .deck-composer-wrap {
+      padding: 12px 16px 14px; border-top: 1px solid var(--cs-hairline);
+      background: var(--cs-card-subtle); position: relative;
+    }
+    .composer-frame {
+      background: var(--cs-card);
+      border: 1px solid var(--cs-hairline-strong);
+      border-radius: 8px;
+      box-shadow: var(--cs-shadow-control);
+      overflow: hidden;
+      transition: border-color 0.14s ease, box-shadow 0.14s ease;
+    }
+    .composer-frame:focus-within {
+      border-color: var(--sig-live);
+      box-shadow: 0 0 0 3px var(--cs-focus-ring);
+    }
+    .composer-textarea {
+      width: 100%; border: 0; background: transparent; color: var(--cs-text);
+      padding: 11px 14px 6px; font-size: 13.5px; line-height: 1.5;
+      resize: none; min-height: 52px; outline: none;
+    }
+    .composer-toolbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+      padding: 8px 10px 8px 12px;
+      border-top: 1px solid var(--cs-hairline-soft);
+      background: var(--cs-card-subtle);
+    }
+    .slash-palette {
+      position: absolute; left: 16px; right: 16px; bottom: calc(100% - 4px); z-index: 50;
+      background: var(--cs-card); border: 1px solid var(--cs-hairline-strong);
+      border-radius: 8px; box-shadow: var(--cs-shadow-popover);
+      list-style: none; margin: 0; padding: 5px; display: none;
+    }
+    .slash-palette.is-open { display: block; }
+    .slash-item {
+      display: flex; justify-content: space-between; gap: 12px; padding: 8px 10px;
+      border-radius: 6px; cursor: pointer; font-size: 13px;
+    }
+    .slash-item:hover { background: var(--cs-steel-soft); }
+
+    /* Hub Tabs Preview */
+    .panel-hub-tabs {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 18px;
+      box-shadow: inset 0 -1px 0 var(--cs-hairline);
+    }
+    .panel-hub-tabs button {
+      border: 0; background: transparent; cursor: pointer; padding: 7px 0 9px;
+      border-bottom: 2px solid transparent; color: var(--cs-text-soft);
+      font-size: 13px; font-weight: 500; white-space: nowrap;
+    }
+    .panel-hub-tabs button.is-active { border-bottom-color: var(--cs-steel); color: var(--cs-text); font-weight: 700; }
+    .hub-tab-preview-body {
+      font-size: 13px; color: var(--cs-text-soft); background: var(--cs-card-subtle);
+      border: 1px solid var(--cs-hairline); border-radius: 6px; padding: 11px 14px;
+    }
+
+    /* Restrained Precision Badges (5px radius + semantic dot, >= 12px, single-line) */
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 3px 9px; border-radius: var(--cs-radius-badge);
+      font-size: 12px; font-weight: 600; line-height: 1.35;
+      border: 1px solid transparent;
+      white-space: nowrap; flex-shrink: 0; word-break: keep-all;
+    }
+    .status-pill::before {
+      content: ""; width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto;
+      background: currentColor; opacity: 0.85;
+    }
+    .status-pill.no-dot::before { display: none; }
+    .pill-live { background: var(--sig-live-soft); color: var(--sig-live-text); border-color: rgba(15, 118, 110, 0.22); }
+    .pill-sre { background: var(--sig-sre-soft); color: var(--sig-sre-text); border-color: rgba(200, 109, 24, 0.24); }
+    .pill-sec { background: var(--sig-sec-soft); color: var(--sig-sec-text); border-color: rgba(166, 52, 70, 0.24); }
+    .pill-human { background: var(--sig-human-soft); color: var(--sig-human-text); border-color: rgba(74, 37, 116, 0.24); }
+    .pill-neutral { background: var(--cs-shade); color: var(--cs-text-soft); border-color: var(--cs-hairline); }
+    .pill-neutral::before { opacity: 0.45; }
+
+    /* Segmented State Switcher */
+    .seg-group {
+      display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px;
+      background: var(--cs-shade); border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-sm); width: fit-content;
+    }
+    .seg-btn {
+      border: 0; background: transparent; padding: 5px 12px; border-radius: 4px;
+      font-size: 12.5px; font-weight: 600; color: var(--cs-text-soft); cursor: pointer; white-space: nowrap;
+    }
+    .seg-btn:hover { color: var(--cs-text); }
+    .seg-btn.is-active { background: var(--cs-card); color: var(--cs-text); box-shadow: var(--cs-shadow-control); }
+
+    /* AsyncBoundary Interactive States */
+    .state-block {
+      display: flex; align-items: center; justify-content: space-between; gap: 14px;
+      padding: 14px 16px; border-radius: 8px; border: 1px solid var(--cs-hairline);
+      background: var(--cs-card); box-shadow: var(--cs-shadow-card);
+    }
+    .state-block.is-error { border-color: rgba(166, 52, 70, 0.35); background: var(--sig-sec-soft); }
+    .state-block.is-unavailable { border-style: dashed; background: var(--cs-card-subtle); }
+    .skeleton-stack { display: flex; flex-direction: column; gap: 9px; width: 100%; }
+    .skel-bar {
+      height: 12px; border-radius: 4px;
+      background: linear-gradient(90deg, var(--cs-shade) 25%, var(--cs-shade-hover) 50%, var(--cs-shade) 75%);
+      background-size: 200% 100%; animation: shimmer 1.4s infinite linear;
+    }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    @media (prefers-reduced-motion: reduce) { .skel-bar { animation: none; } }
+
+    /* DataTable & Inventory Table */
+    .table-wrap {
+      width: 100%; overflow-x: auto;
+      border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius);
+      background: var(--cs-card); box-shadow: var(--cs-shadow-card);
+    }
+    table.cs-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.cs-table th, table.cs-table td {
+      padding: 10px 13px; text-align: left;
+      border-bottom: 1px solid var(--cs-hairline-soft);
+      vertical-align: middle;
+    }
+    table.cs-table th {
+      background: var(--cs-card-subtle); color: var(--cs-text-soft);
+      font-size: 12px; font-weight: 700; white-space: nowrap;
+      border-bottom: 1px solid var(--cs-hairline);
+    }
+    table.cs-table tbody tr:hover { background: var(--cs-card-subtle); }
+    table.cs-table tbody tr.row-active { background: var(--cs-steel-soft); }
+    .col-nowrap { white-space: nowrap; width: 1%; }
+    .col-num { white-space: nowrap; width: 1%; text-align: right; font-variant-numeric: tabular-nums; }
+    .mono { font-family: var(--cs-font-mono); font-size: 12.5px; }
+    .sym-chip {
+      display: inline-block; margin: 2px 5px 2px 0; padding: 2px 7px;
+      border-radius: 4px; background: var(--cs-shade); border: 1px solid var(--cs-hairline);
+      font-family: var(--cs-font-mono); font-size: 12px; white-space: nowrap;
+    }
+
+    /* Tracker & Distribution Bar */
+    .tracker-row { display: flex; gap: 3px; align-items: stretch; height: 24px; }
+    .tracker-block { flex: 1 1 0; border-radius: 3px; background: var(--sig-live); opacity: 0.85; }
+    .tracker-block.is-warn { background: var(--sig-sre); }
+    .tracker-block.is-err { background: var(--sig-sec); }
+    .dist-bar { display: flex; height: 10px; border-radius: 4px; overflow: hidden; background: var(--cs-shade); }
+
+    /* Modal Dialog Specimen */
+    .modal-scrim {
+      position: fixed; inset: 0; background: rgba(15, 23, 42, 0.48); z-index: 100;
+      display: none; align-items: center; justify-content: center; padding: 20px;
+      backdrop-filter: blur(2px);
+    }
+    .modal-scrim.is-open { display: flex; }
+    .modal-dialog {
+      width: min(560px, 100%); background: var(--cs-card); border: 1px solid var(--cs-hairline-strong);
+      border-radius: 10px; box-shadow: var(--cs-shadow-popover); overflow: hidden;
+    }
+    .modal-head {
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+      padding: 16px 20px; border-bottom: 1px solid var(--cs-hairline);
+    }
+    .modal-body { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+    .modal-foot {
+      padding: 12px 20px; border-top: 1px solid var(--cs-hairline);
+      display: flex; justify-content: flex-end; gap: 8px; background: var(--cs-card-subtle);
+    }
+
+    .toast {
+      position: fixed; bottom: 20px; right: 22px; z-index: 120;
+      padding: 9px 15px; border-radius: 7px; background: var(--cs-text); color: var(--cs-surface);
+      font-size: 13px; font-weight: 600; opacity: 0; pointer-events: none; transition: opacity 0.16s ease;
+      box-shadow: var(--cs-shadow-popover);
+    }
+    .toast.is-visible { opacity: 1; }
+
+    .workspace-foot {
+      display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+      font-size: 12px; color: var(--cs-text-faint);
+      padding-top: 16px; border-top: 1px solid var(--cs-hairline);
+    }
+
+    @media (max-width: 1060px) {
+      .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .specimen-grid, .specimen-grid-3 { grid-template-columns: 1fr; }
+      .deck-shell { grid-template-columns: 1fr; }
+      .deck-sidebar { border-right: 0; border-bottom: 1px solid var(--cs-hairline); flex-direction: row; overflow-x: auto; }
+    }
+    @media (max-width: 680px) {
+      .workspace { padding: 16px; }
+      .kpi-grid { grid-template-columns: 1fr; }
+    }
+    .skip-link {
+      position: fixed; left: 10px; top: -64px; z-index: 1200;
+      padding: 8px 14px; border-radius: 6px;
+      background: var(--cs-steel); color: #ffffff;
+      font-size: 13px; font-weight: 700; text-decoration: none;
+      transition: top 120ms ease;
+    }
+    .skip-link:focus, .skip-link:focus-visible { top: 8px; outline: 2px solid var(--cs-focus-ring); }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#fdaiMain">본문으로 바로가기</a>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand-lockup" href="/overview">
+        <img class="brand-logo" src="/brand/fdai-logo.png" alt="" />
+        <span class="brand-wordmark">FDAI</span>
+        <span class="brand-sep" aria-hidden="true"></span>
+        <span class="brand-product">운영 콘솔</span>
+      </a>
+
+      <div class="topbar-right">
+        <div class="data-mode" role="group" aria-label="데이터 모드">
+          <button type="button" class="is-active" data-mode="live">Live</button>
+          <button type="button" data-mode="sample">Sample</button>
+        </div>
+
+        <button type="button" class="topbar-icon-btn" id="themeBtn" data-ut-tip="라이트 / 다크 테마 전환" aria-label="테마 전환">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+          </svg>
+        </button>
+
+        <button type="button" class="account-chip" id="accountChipBtn">
+          <span class="account-avatar">MC</span>
+          <span>Operator</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="shell-body">
+      <nav class="activity-bar" aria-label="기본 탐색">
+        <div class="rail-group">
+          <a class="rail-btn active" aria-current="page" href="/overview" data-ut-tip="전체 현황" aria-label="전체 현황">
+            <svg viewBox="0 0 24 24"><path d="M4 21 L4 3"/><path d="M4 21 L21 21"/><rect x="7" y="12" width="3" height="7"/><rect x="12" y="8" width="3" height="11"/><rect x="17" y="14" width="3" height="5"/></svg>
+          </a>
+          <a class="rail-btn" href="/overview" data-ut-tip="운영" aria-label="운영">
+            <svg viewBox="0 0 24 24"><path d="M13 2 L3 14 L11 14 L11 22 L21 10 L13 10 Z"/></svg>
+          </a>
+          <a class="rail-btn" href="/overview" data-ut-tip="에이전트" aria-label="에이전트">
+            <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2"/><path d="M3 20 C3 16 6 13 9 13 C12 13 15 16 15 20"/><path d="M14 15 C17 15 19 17 19 20"/></svg>
+          </a>
+          <a class="rail-btn" href="/overview" data-ut-tip="거버넌스" aria-label="거버넌스">
+            <svg viewBox="0 0 24 24"><path d="M12 3 L4 6 V12 C4 17 8 20.5 12 21.5 C16 20.5 20 17 20 12 V6 Z"/><path d="M9 12 L11 14 L15 10"/></svg>
+          </a>
+          <a class="rail-btn" href="/overview" data-ut-tip="감사·증적" aria-label="감사·증적">
+            <svg viewBox="0 0 24 24"><path d="M12 4 A8 8 0 1 1 4.6 15.5"/><path d="M4 4 L4 9 L9 9"/><path d="M12 8 L12 12 L15 14"/></svg>
+          </a>
+        </div>
+        <div class="rail-group">
+          <button type="button" class="rail-btn" id="openModalQuickBtn" data-ut-tip="설정 모달 프리뷰" aria-label="설정 모달 프리뷰">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
+          </button>
+        </div>
+      </nav>
+
+      <main class="workspace" id="fdaiMain" tabindex="-1">
+        <div class="workspace-inner">
+          <header class="page-header">
+            <div>
+              <h1 class="page-header-title">
+                <a class="page-header-domain" href="/overview">전체 현황</a>
+                <span class="page-header-sep" aria-hidden="true">/</span>
+                <span>컴포넌트 카탈로그</span>
+              </h1>
+              <p class="page-header-sub">FDAI 콘솔 전 화면에서 실제 사용되는 입력상자, 드롭다운, 채팅 UI(Command Deck), 모달, KPI, 차트 및 디자인 토큰 표준</p>
+            </div>
+            <div class="page-actions">
+              <div class="cs-search-wrap" style="min-width:250px;">
+                <span class="cs-search-icon" aria-hidden="true">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                </span>
+                <input type="search" id="componentSearch" class="cs-input" placeholder="컴포넌트, 파일명, 심볼 검색..." aria-label="컴포넌트 검색" />
+                <button type="button" class="cs-search-clear" id="clearGlobalSearch" aria-label="검색 지우기" style="display:none;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                </button>
+              </div>
+              <a class="cs-btn cs-btn-steel" href="/overview">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                <span>대시보드</span>
+              </a>
+            </div>
+          </header>
+
+          <!-- Summary Metrics -->
+          <section class="kpi-grid" aria-label="컴포넌트 카탈로그 요약">
+            <div class="kpi-card">
+              <span class="kpi-label">전체 UI 컴포넌트 모듈</span>
+              <div class="kpi-row">
+                <div><span class="kpi-num">93</span><span class="kpi-unit">개 파일</span></div>
+                <span class="kpi-meta">실소스 스캔</span>
+              </div>
+              <div class="kpi-foot"><span>components 52 · deck 41</span><span>심볼 149개</span></div>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">입력 · 드롭다운 · 폼 컨트롤</span>
+              <div class="kpi-row">
+                <div><span class="kpi-num">51</span><span class="kpi-unit">개 사용</span></div>
+                <span class="kpi-meta">콤보박스 3곳</span>
+              </div>
+              <div class="kpi-foot"><span>input 22 · select 13</span><span>textarea 6 · check 7</span></div>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">채팅 UI (Command Deck)</span>
+              <div class="kpi-row">
+                <div><span class="kpi-num">41</span><span class="kpi-unit">개 모듈</span></div>
+                <span class="kpi-meta">근거 추적 · 제어</span>
+              </div>
+              <div class="kpi-foot"><span>console/src/deck</span><span>details 139곳</span></div>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">디자인 토큰 · 모달</span>
+              <div class="kpi-row">
+                <div><span class="kpi-num">82</span><span class="kpi-unit">개 토큰</span></div>
+                <span class="kpi-meta">최소 12px 준수</span>
+              </div>
+              <div class="kpi-foot"><span>dialog 14곳 · AA 대비</span><span>Light · Dark</span></div>
+            </div>
+          </section>
+
+          <!-- Precision Underline Category Tabs -->
+          <nav class="cat-tabs" role="tablist" aria-label="컴포넌트 카테고리">
+            <button type="button" class="cat-tab is-active" data-cat="all" aria-selected="true">전체 보기</button>
+            <button type="button" class="cat-tab" data-cat="forms_inputs" aria-selected="false">입력 · 드롭다운 · 폼</button>
+            <button type="button" class="cat-tab" data-cat="chat_deck" aria-selected="false">채팅 UI <span class="cat-tab-count">41</span></button>
+            <button type="button" class="cat-tab" data-cat="tokens" aria-selected="false">디자인 토큰</button>
+            <button type="button" class="cat-tab" data-cat="shell_nav" aria-selected="false">셸 · 탐색 <span class="cat-tab-count">9</span></button>
+            <button type="button" class="cat-tab" data-cat="primitives" aria-selected="false">KPI · 데이터 <span class="cat-tab-count">11</span></button>
+            <button type="button" class="cat-tab" data-cat="states" aria-selected="false">상태 · 모달 <span class="cat-tab-count">4</span></button>
+            <button type="button" class="cat-tab" data-cat="charts_graphs" aria-selected="false">차트 · 그래프 <span class="cat-tab-count">17</span></button>
+            <button type="button" class="cat-tab" data-cat="attention_inbox" aria-selected="false">알림 · 협업 <span class="cat-tab-count">9</span></button>
+            <button type="button" class="cat-tab" data-cat="inventory" aria-selected="false">인벤토리 <span class="cat-tab-count">93</span></button>
+          </nav>
+
+          <!-- 1. Forms, Inputs, Dropdowns, Buttons -->
+          <section class="cat-section is-first-visible" data-section="forms_inputs">
+            <div class="sec-head">
+              <div>
+                <h3>입력상자 · 드롭다운 · 폼 · 버튼</h3>
+                <p>콘솔 전 화면에서 사용하는 입력 필드(22), 드롭다운(13), 검색형 콤보박스 <code class="inline-code">SearchableSelect</code>, 멀티라인(6), 선택 컨트롤(7) 및 버튼 계층입니다.</p>
+              </div>
+              <span class="sec-src">searchable-select.tsx · ui.tsx · calm-slate-primitives.css</span>
+            </div>
+            <div class="specimen-grid">
+              <div class="specimen-box">
+                <div class="specimen-title"><span>텍스트 · 검색 · 검증 오류 · 비활성 입력상자</span><span class="specimen-src">&lt;input&gt; · 22곳</span></div>
+                <div class="cs-field">
+                  <label class="cs-label" for="specTextInput">기본 텍스트 입력 (저장소 별칭)</label>
+                  <input id="specTextInput" class="cs-input" type="text" value="prod-core-runbooks" placeholder="예: prod-core-runbooks" />
+                </div>
+                <div class="cs-field">
+                  <label class="cs-label" for="specSearchInput">검색 입력상자 (SVG 아이콘 · 지우기 버튼)</label>
+                  <div class="cs-search-wrap">
+                    <span class="cs-search-icon" aria-hidden="true">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                    </span>
+                    <input id="specSearchInput" class="cs-input" type="search" value="aks-node-pressure" placeholder="리소스, 규칙 ID 또는 상관관계 ID 검색" />
+                    <button type="button" class="cs-search-clear" id="specSearchClear" aria-label="입력 지우기">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                  <div class="cs-field">
+                    <label class="cs-label" for="specErrInput">검증 오류 상태</label>
+                    <input id="specErrInput" class="cs-input is-error" type="text" value="Invalid_ID!" aria-invalid="true" />
+                    <p class="cs-help is-error">소문자 kebab-case 형식만 허용됩니다.</p>
+                  </div>
+                  <div class="cs-field">
+                    <label class="cs-label" for="specDisInput">읽기 전용 / 비활성</label>
+                    <input id="specDisInput" class="cs-input" type="text" value="shadow (권한 고정)" disabled />
+                    <p class="cs-help">승급 게이트를 통해서만 변경됩니다.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="specimen-box">
+                <div class="specimen-title"><span>드롭다운 &amp; 검색형 콤보박스</span><span class="specimen-src">&lt;select&gt; 13 · SearchableSelect 3</span></div>
+                <div class="cs-field">
+                  <label class="cs-label" for="specNativeSelect">표준 드롭다운 (커스텀 SVG 화살표 · 우측 여백 38px)</label>
+                  <select id="specNativeSelect" class="cs-select">
+                    <option value="all">전체 Azure 구독 (3)</option>
+                    <option value="prod-core-kr">prod-core-kr (프로덕션 핵심)</option>
+                    <option value="prod-data-platform">prod-data-platform (데이터 플랫폼)</option>
+                    <option value="sec-shared-hub">sec-shared-hub (보안 허브)</option>
+                  </select>
+                </div>
+                <div class="cs-field ss-root" id="ssDemoRoot">
+                  <label class="cs-label" for="ssDemoInput">검색형 드롭박스 (클릭 또는 타이핑으로 필터링)</label>
+                  <div class="ss-input-wrap">
+                    <input id="ssDemoInput" class="cs-input" type="text" role="combobox" aria-expanded="false" aria-controls="ssDemoList" value="prod-orders-api (AKS Deployment)" placeholder="리소스 이름 또는 유형 검색..." autocomplete="off" />
+                    <span class="ss-chevron" aria-hidden="true">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                    </span>
+                  </div>
+                  <div class="ss-popup" id="ssDemoPopup">
+                    <div class="ss-results-bar" id="ssDemoCount">6개 중 6개 표시</div>
+                    <ul class="ss-list" id="ssDemoList" role="listbox"></ul>
+                  </div>
+                  <p class="cs-help">확정된 값: <code class="inline-code" id="ssDemoSelected">prod-orders-api</code> · 항목 클릭 또는 Enter로 선택</p>
+                </div>
+              </div>
+
+              <div class="specimen-box">
+                <div class="specimen-title"><span>멀티라인 입력 · 커스텀 체크박스 · 라디오 · 스위치</span><span class="specimen-src">&lt;textarea&gt; 6 · check 7</span></div>
+                <div class="cs-field">
+                  <label class="cs-label" for="specTextarea">승인 사유 / 운영자 메모</label>
+                  <textarea id="specTextarea" class="cs-textarea" maxlength="240" placeholder="근거 링크와 검토 의견을 입력하세요...">prod-orders-api 연결 풀 포화 예측(82%) 확인 후 선제 자동 확장 제안 검토 완료.</textarea>
+                  <p class="cs-help"><span id="specTaCount">47</span> / 240자</p>
+                </div>
+                <div class="choice-row">
+                  <label class="choice-label"><input type="checkbox" checked /> SRE 이상 포함</label>
+                  <label class="choice-label"><input type="checkbox" checked /> 보안 취약점 포함</label>
+                  <label class="choice-label"><input type="checkbox" /> 자동 소화 숨기기</label>
+                </div>
+                <div class="choice-row">
+                  <label class="choice-label"><input type="radio" name="specScope" checked /> Shadow 관찰</label>
+                  <label class="choice-label"><input type="radio" name="specScope" /> Enforce 적용</label>
+                  <button type="button" class="switch-btn" id="specSwitch" role="switch" aria-checked="true">
+                    <span class="switch-track" aria-hidden="true"></span>
+                    <span>브라우저 알림 활성</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="specimen-box">
+                <div class="specimen-title"><span>버튼 계층 · CopyButton · 다이얼로그 호출</span><span class="specimen-src">ui.tsx · tooltip.tsx</span></div>
+                <div class="pill-row">
+                  <button type="button" class="cs-btn cs-btn-primary">기본 액션</button>
+                  <button type="button" class="cs-btn cs-btn-steel">보조 강조</button>
+                  <button type="button" class="cs-btn">표준 버튼</button>
+                  <button type="button" class="cs-btn cs-btn-ghost">고스트</button>
+                  <button type="button" class="cs-btn cs-btn-danger">철회 / 중단</button>
+                  <button type="button" class="cs-btn" disabled>비활성</button>
+                </div>
+                <div class="pill-row">
+                  <button type="button" class="cs-btn cs-btn-sm" id="specCopyBtn" data-copy-text="corr-2026-1125-prod-orders-84">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    <span>상관관계 ID 복사</span>
+                  </button>
+                  <button type="button" class="cs-btn cs-btn-sm cs-btn-steel" id="specOpenModalBtn">설정 모달 열기</button>
+                </div>
+                <p class="cs-help">콘솔의 모든 버튼은 읽기 전용 조회 또는 서버 RBAC 검증을 거치는 제안(Proposal) 제출만 수행합니다.</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- 2. Chat UI (Command Deck) -->
+          <section class="cat-section" data-section="chat_deck">
+            <div class="sec-head">
+              <div>
+                <h3>채팅 UI - Command Deck</h3>
+                <p><code class="inline-code">console/src/deck/</code>(41개 모듈)의 운영자 대화 워크스페이스입니다. 통합 컴포저, 슬래시 명령, 근거 추적 타임라인, 진행 중 턴 제어를 직접 테스트해 보세요.</p>
+              </div>
+              <span class="sec-src">command-deck-view.tsx · busy-input-controls.tsx · retrieval-trace.tsx</span>
+            </div>
+
+            <div class="deck-shell" aria-label="Command Deck 채팅 UI 인터랙티브 프리뷰">
+              <aside class="deck-sidebar" aria-label="대화 세션 목록">
+                <button type="button" class="cs-btn cs-btn-steel cs-btn-sm" id="deckNewChatBtn">+ 새 대화</button>
+                <button type="button" class="deck-session-item is-active" data-deck-session="s1">
+                  <span class="deck-session-title">prod-orders-api 지연 급증 원인</span>
+                  <span class="deck-session-meta">화면 컨텍스트 · 방금 전</span>
+                </button>
+                <button type="button" class="deck-session-item" data-deck-session="s2">
+                  <span class="deck-session-title">kv-prod-payments 임시 예외 감사</span>
+                  <span class="deck-session-meta">보안 검토 · 14분 전</span>
+                </button>
+                <button type="button" class="deck-session-item" data-deck-session="s3">
+                  <span class="deck-session-title">승인 대기 12건 우선순위 요약</span>
+                  <span class="deck-session-meta">일반 대화 · 1시간 전</span>
+                </button>
+              </aside>
+
+              <div class="deck-main">
+                <div class="deck-head">
+                  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                    <strong id="deckTitle" style="font-size:14px;">에이전트 대화 · 대시보드 컨텍스트</strong>
+                    <span class="status-pill pill-live">화면 컨텍스트 첨부</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <select class="cs-select cs-select-compact" id="deckModelSelect" aria-label="대화 모델 티어" style="width:auto;">
+                      <option value="t1">T1 · 빠른 사실 조회</option>
+                      <option value="t2" selected>T2 · 근거 기반 심층 추론</option>
+                    </select>
+                    <button type="button" class="cs-btn cs-btn-sm" id="deckToggleBusyBtn">진행 중 턴 시뮬레이션</button>
+                  </div>
+                </div>
+
+                <div class="deck-readiness" aria-label="소스 준비 상태">
+                  <span style="color:var(--cs-text-soft);font-weight:600;">소스 준비 상태</span>
+                  <span class="status-pill pill-live">인벤토리</span>
+                  <span class="status-pill pill-live">인시던트</span>
+                  <span class="status-pill pill-live">감사 로그</span>
+                  <span class="status-pill pill-live">지식</span>
+                  <span class="status-pill pill-neutral">자동화 Shadow</span>
+                </div>
+
+                <div class="deck-thread" id="deckThread" aria-live="polite">
+                  <div class="chat-msg is-user">
+                    <div class="chat-bubble">현재 <code class="inline-code">prod-orders-api</code>의 SRE 포화 예측 근거와 권장 조치를 알려줘.</div>
+                    <div class="chat-meta"><span>Operator</span><span>15:08</span></div>
+                  </div>
+                  <div class="chat-msg">
+                    <div class="chat-bubble">
+                      <strong>검증된 근거 요약</strong> - 최근 10분간 연결 풀 대기율이 +42% 상승했고, 14일 동일 시간대 주기 대비 임계치 도달까지 약 18분이 남아 있습니다.
+                      <div class="pill-row" style="margin-top:10px;">
+                        <span class="status-pill pill-sre">metrics/prod-orders-api</span>
+                        <span class="status-pill pill-live">감사 해시 Verified</span>
+                        <span class="status-pill pill-human">제안 전용 · 실행 권한 없음</span>
+                      </div>
+                      <details class="trace-details" style="margin-top:10px;">
+                        <summary>실행 · 근거 추적 타임라인 (3단계 · 420ms)</summary>
+                        <ol class="trace-steps">
+                          <li><strong>온톨로지 조회</strong>: <code class="inline-code">prod-orders-api</code> 및 하위 Redis·PostgreSQL 의존성 확인</li>
+                          <li><strong>규칙 평가(T0)</strong>: <code class="inline-code">sre.pool-saturation-forecast</code> 규칙 일치 (신뢰도 82%)</li>
+                          <li><strong>응답 검증</strong>: 인용 근거 2건 확인, 변경 권한 미부여 상태 유지</li>
+                        </ol>
+                      </details>
+                    </div>
+                    <div class="chat-meta"><span>Bragi · T2 검증됨</span><span>15:08</span><span>인용 2건</span></div>
+                  </div>
+                </div>
+
+                <div class="busy-bar is-hidden" id="deckBusyBar">
+                  <span style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;"><span class="status-pill pill-sre">응답 생성 중</span><span>추가 지시를 현재 턴에 반영(Steer)하거나 다음 턴으로 예약(Queue)할 수 있습니다.</span></span>
+                  <div class="pill-row">
+                    <button type="button" class="cs-btn cs-btn-sm" id="deckSteerBtn">Steer</button>
+                    <button type="button" class="cs-btn cs-btn-sm" id="deckQueueBtn">Queue</button>
+                    <button type="button" class="cs-btn cs-btn-sm cs-btn-danger" id="deckStopBtn">중지</button>
+                  </div>
+                </div>
+
+                <div class="deck-composer-wrap">
+                  <ul class="slash-palette" id="deckSlashPalette" aria-label="슬래시 명령 목록">
+                    <li class="slash-item" data-slash="/status "><strong>/status</strong><span style="color:var(--cs-text-soft)">현재 화면 기준 운영 상태 요약</span></li>
+                    <li class="slash-item" data-slash="/incidents "><strong>/incidents</strong><span style="color:var(--cs-text-soft)">활성 SRE 인시던트 근거 조회</span></li>
+                    <li class="slash-item" data-slash="/approvals "><strong>/approvals</strong><span style="color:var(--cs-text-soft)">사람 승인 대기 항목 검토</span></li>
+                    <li class="slash-item" data-slash="/rules "><strong>/rules</strong><span style="color:var(--cs-text-soft)">연관 거버넌스 규칙 및 정책 확인</span></li>
+                  </ul>
+                  <div class="composer-frame">
+                    <textarea id="deckInput" class="composer-textarea" rows="2" aria-label="에이전트에게 질문 입력" placeholder="질문을 입력하거나 '/' 로 슬래시 명령을 여세요..."></textarea>
+                    <div class="composer-toolbar">
+                      <div class="pill-row">
+                        <button type="button" class="cs-btn cs-btn-sm cs-btn-ghost" data-quick-prompt="/">/ 명령</button>
+                        <button type="button" class="cs-btn cs-btn-sm cs-btn-ghost" data-quick-prompt="보안 취약점 8건 중 긴급 항목만 추려줘">보안 긴급 요약</button>
+                        <button type="button" class="cs-btn cs-btn-sm cs-btn-ghost" data-quick-prompt="정책 우회 0건 감사 증적 상태를 확인해줘">정책 우회 감사</button>
+                      </div>
+                      <div style="display:flex;align-items:center;gap:10px;">
+                        <span class="cs-help">Enter 전송 · Shift+Enter 줄바꿈</span>
+                        <button type="button" class="cs-btn cs-btn-sm cs-btn-primary" id="deckSendBtn">전송</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 3. Design Tokens & Palette -->
+          <section class="cat-section" data-section="tokens">
+            <div class="sec-head">
+              <div>
+                <h3>디자인 토큰 &amp; Deep Amethyst &amp; Teal 팔레트</h3>
+                <p>뉴트럴 캔버스(<code class="inline-code">#f5f6f7</code>) 위에 순백 카드(<code class="inline-code">#ffffff</code>)를 올리고, 의미 색상은 상태 데이터에만 국소 적용합니다. 클릭 시 변수명이 복사됩니다.</p>
+              </div>
+              <span class="sec-src">ui/calm-slate-tokens.css · 82개 변수</span>
+            </div>
+            <div class="swatch-grid">
+              <button type="button" class="swatch" data-copy="var(--cs-bg)"><span class="swatch-dot" style="background:var(--cs-bg)"></span><span class="swatch-meta"><span class="swatch-name">캔버스 배경</span><span class="swatch-token">--cs-bg</span></span></button>
+              <button type="button" class="swatch" data-copy="var(--cs-card)"><span class="swatch-dot" style="background:var(--cs-card)"></span><span class="swatch-meta"><span class="swatch-name">카드 표면</span><span class="swatch-token">--cs-card</span></span></button>
+              <button type="button" class="swatch" data-copy="var(--sig-auto-top)"><span class="swatch-dot" style="background:var(--sig-auto-top)"></span><span class="swatch-meta"><span class="swatch-name">자동 소화 · 바탕</span><span class="swatch-token">--sig-auto-top</span></span></button>
+              <button type="button" class="swatch" data-copy="var(--sig-sre)"><span class="swatch-dot" style="background:var(--sig-sre)"></span><span class="swatch-meta"><span class="swatch-name">SRE 이상 · 예측</span><span class="swatch-token">--sig-sre</span></span></button>
+              <button type="button" class="swatch" data-copy="var(--sig-sec)"><span class="swatch-dot" style="background:var(--sig-sec)"></span><span class="swatch-meta"><span class="swatch-name">잠재 보안 취약점</span><span class="swatch-token">--sig-sec</span></span></button>
+              <button type="button" class="swatch" data-copy="var(--sig-human)"><span class="swatch-dot" style="background:var(--sig-human)"></span><span class="swatch-meta"><span class="swatch-name">사람 알림 · 승인</span><span class="swatch-token">--sig-human</span></span></button>
+              <button type="button" class="swatch" data-copy="var(--sig-live)"><span class="swatch-dot" style="background:var(--sig-live)"></span><span class="swatch-meta"><span class="swatch-name">LIVE · 예측 구간</span><span class="swatch-token">--sig-live</span></span></button>
+              <button type="button" class="swatch" data-copy="var(--cs-steel)"><span class="swatch-dot" style="background:var(--cs-steel)"></span><span class="swatch-meta"><span class="swatch-name">선택 강조 (Steel)</span><span class="swatch-token">--cs-steel</span></span></button>
+            </div>
+          </section>
+
+          <!-- 4. Shell & Navigation -->
+          <section class="cat-section" data-section="shell_nav">
+            <div class="sec-head">
+              <div>
+                <h3>셸 &amp; 내비게이션</h3>
+                <p>5+1 도메인 Activity Rail, 인라인 브레드크럼 <code class="inline-code">PageHeader</code>, 그리고 통합 허브 화면의 <code class="inline-code">PanelHubTabs</code> 패턴입니다.</p>
+              </div>
+              <span class="sec-src">shell.tsx · navigation-shell.tsx · panel-hub-tabs.tsx</span>
+            </div>
+            <div class="specimen-grid">
+              <div class="specimen-box">
+                <div class="specimen-title"><span>허브 탭 바 (PanelHubTabs)</span><span class="specimen-src">거버넌스 / 지식·문서</span></div>
+                <div class="panel-hub-tabs" id="demoHubTabs" role="tablist" aria-label="지식·문서 허브 탭 프리뷰">
+                  <button type="button" class="is-active" data-hub-tab="knowledge">지식 개요</button>
+                  <button type="button" data-hub-tab="documents">문서</button>
+                  <button type="button" data-hub-tab="github">GitHub</button>
+                  <button type="button" data-hub-tab="gitlab">GitLab</button>
+                  <button type="button" data-hub-tab="azure-devops">Azure DevOps</button>
+                </div>
+                <div class="hub-tab-preview-body" id="demoHubBody">
+                  <strong>/knowledge</strong> - 거버넌스 적용 문서와 읽기 전용 저장소 지식 원본의 연결 경계를 한눈에 확인합니다.
+                </div>
+              </div>
+              <div class="specimen-box">
+                <div class="specimen-title"><span>인라인 브레드크럼 &amp; 데이터 모드</span><span class="specimen-src">ui-shell.tsx · data-mode-control.tsx</span></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                  <div style="font-size:16px;font-weight:700;display:flex;align-items:center;gap:7px;">
+                    <span style="color:var(--cs-text-soft)">운영</span>
+                    <span style="color:var(--cs-text-faint)">/</span>
+                    <span>승인·알림 품질</span>
+                  </div>
+                  <div class="pill-row">
+                    <span class="status-pill pill-live">Live 권위 소스</span>
+                    <span class="status-pill pill-neutral">Sample 격리 모드</span>
+                  </div>
+                </div>
+                <p class="cs-help">상위 도메인 클릭 시 좌측 탐색기를 열고, Sample 모드는 명시적 전환 시에만 GET 전용 픽스처를 표시합니다.</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- 5. Primitives -->
+          <section class="cat-section" data-section="primitives">
+            <div class="sec-head">
+              <div>
+                <h3>핵심 KPI · 상태 배지 · 데이터 테이블</h3>
+                <p>데이터가 담긴 모든 카드는 최좁은 상세 라우트로 드릴다운하며, 미측정 상태 <code class="inline-code">not-measured</code>는 절대 0으로 대체하지 않습니다.</p>
+              </div>
+              <span class="sec-src">ui.tsx · recorded-state-facts.tsx</span>
+            </div>
+            <div class="specimen-grid">
+              <div class="specimen-box">
+                <div class="specimen-title"><span>상태 배지 (StatusPill) &amp; 근거 상태</span><span class="specimen-src">ui.tsx · 5px radius</span></div>
+                <div class="pill-row">
+                  <span class="status-pill pill-live">정상 · Verified</span>
+                  <span class="status-pill pill-sre">SRE 이상 · 예측</span>
+                  <span class="status-pill pill-sec">보안 취약점 · 높음</span>
+                  <span class="status-pill pill-human">사람 승인 필요</span>
+                  <span class="status-pill pill-neutral">미측정 (not-measured)</span>
+                  <span class="status-pill pill-neutral">표본 부족 (insufficient-sample)</span>
+                  <span class="status-pill pill-neutral">미연결 (not-connected)</span>
+                </div>
+              </div>
+              <div class="specimen-box">
+                <div class="specimen-title"><span>인터랙티브 데이터 테이블 (DataTable)</span><span class="specimen-src">행 선택 지원</span></div>
+                <div class="table-wrap" style="box-shadow:none;">
+                  <table class="cs-table" id="demoTable">
+                    <thead>
+                      <tr><th>리소스</th><th>도메인</th><th class="col-num">위험도</th><th class="col-nowrap">처리 상태</th></tr>
+                    </thead>
+                    <tbody>
+                      <tr class="row-active" data-row="1" tabindex="0"><td class="mono">prod-orders-api</td><td>SRE</td><td class="mono col-num">84</td><td class="col-nowrap"><span class="status-pill pill-sre">사전 예측</span></td></tr>
+                      <tr data-row="2" tabindex="0"><td class="mono">kv-prod-payments</td><td>보안</td><td class="mono col-num">78</td><td class="col-nowrap"><span class="status-pill pill-sec">검토 필요</span></td></tr>
+                      <tr data-row="3" tabindex="0"><td class="mono">prod-aks-02</td><td>변경 추적</td><td class="mono col-num">24</td><td class="col-nowrap"><span class="status-pill pill-live">자동 소화</span></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 6. AsyncBoundary, Modals & Disclosures -->
+          <section class="cat-section" data-section="states">
+            <div class="sec-head">
+              <div>
+                <h3>상태 경계 (AsyncBoundary) · 모달 · 접이식 상세</h3>
+                <p>첫 로딩 프레임 스켈레톤, 미측정·빈·오류 상태 분리, 설정 모달(<code class="inline-code">role="dialog"</code> 14곳) 및 접이식 상세(139곳) 패턴입니다.</p>
+              </div>
+              <span class="sec-src">ui.tsx · settings-overlay.tsx · panel-error-boundary.tsx</span>
+            </div>
+            <div class="seg-group" id="stateSwitcher" role="tablist" aria-label="AsyncBoundary 상태 전환">
+              <button type="button" class="seg-btn is-active" data-state="ready">Ready (정상)</button>
+              <button type="button" class="seg-btn" data-state="loading">Loading (스켈레톤)</button>
+              <button type="button" class="seg-btn" data-state="empty">Empty (항목 없음)</button>
+              <button type="button" class="seg-btn" data-state="unavailable">Unavailable (미측정)</button>
+              <button type="button" class="seg-btn" data-state="error">Error (오류 + 재시도)</button>
+            </div>
+            <div id="statePreviewStage"></div>
+            <div class="specimen-box" style="margin-top:12px;">
+              <div class="specimen-title"><span>사전 렌더링 스켈레톤 Shimmer (cs-skeleton · reduced-motion 준수)</span><span class="specimen-src">fdai-console-shared.css · fdaiSkeleton</span></div>
+              <div class="cs-skel-kpi-row" aria-label="KPI 스켈레톤 프리뷰" style="margin-bottom:10px;">
+                <div class="cs-skel-kpi-cell"><span class="cs-skeleton cs-skel-line is-short"></span><span class="cs-skeleton cs-skel-line is-med" style="height:22px;"></span></div>
+                <div class="cs-skel-kpi-cell"><span class="cs-skeleton cs-skel-line is-short"></span><span class="cs-skeleton cs-skel-line is-med" style="height:22px;"></span></div>
+                <div class="cs-skel-kpi-cell"><span class="cs-skeleton cs-skel-line is-short"></span><span class="cs-skeleton cs-skel-line is-med" style="height:22px;"></span></div>
+                <div class="cs-skel-kpi-cell"><span class="cs-skeleton cs-skel-line is-short"></span><span class="cs-skeleton cs-skel-line is-med" style="height:22px;"></span></div>
+              </div>
+              <span class="cs-skeleton cs-skel-chart" style="height:84px;" aria-label="차트 스켈레톤 프리뷰"></span>
+            </div>
+            <details class="trace-details">
+              <summary>접이식 상세 영역 (&lt;details&gt; - 콘솔 내 139곳 사용)</summary>
+              <p class="cs-help" style="margin-top:8px;">세부 감사 메타데이터, 원본 다이제스트, 규칙 평가 근거처럼 1차 요약 뒤에 두는 정보를 기본 접힘 상태로 정리합니다.</p>
+            </details>
+          </section>
+
+          <!-- 7. Charts & Visuals -->
+          <section class="cat-section" data-section="charts_graphs">
+            <div class="sec-head">
+              <div>
+                <h3>차트 &amp; 토폴로지 시각화</h3>
+                <p>산점도 + 예측 다이아몬드, 스파크 에어리어, 분포 바, 가동률 트래커 등 대시보드와 상세 화면이 공유하는 시각화 컴포넌트입니다.</p>
+              </div>
+              <span class="sec-src">charts-scatter.tsx · charts-compact.tsx · charts.tsx · ontology-graph.tsx</span>
+            </div>
+            <div class="specimen-grid-3">
+              <div class="specimen-box">
+                <div class="specimen-title"><span>스파크 에어리어</span><span class="specimen-src">SparkAreaChart</span></div>
+                <svg viewBox="0 0 300 60" width="100%" height="60" aria-label="스파크 에어리어 프리뷰">
+                  <defs>
+                    <linearGradient id="sparkDemoGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="var(--sig-live)" stop-opacity="0.24" />
+                      <stop offset="100%" stop-color="var(--sig-live)" stop-opacity="0.02" />
+                    </linearGradient>
+                  </defs>
+                  <path d="M4,46 L36,40 L68,44 L100,30 L132,34 L164,20 L196,26 L228,14 L260,18 L296,12 L296,56 L4,56 Z" fill="url(#sparkDemoGrad)" />
+                  <polyline points="4,46 36,40 68,44 100,30 132,34 164,20 196,26 228,14 260,18 296,12" fill="none" stroke="var(--sig-live)" stroke-width="2" />
+                </svg>
+              </div>
+              <div class="specimen-box">
+                <div class="specimen-title"><span>산점도 &amp; 예측 마커</span><span class="specimen-src">ScatterChart</span></div>
+                <svg viewBox="0 0 300 60" width="100%" height="60" aria-label="산점도 및 예측 프리뷰">
+                  <line x1="8" y1="16" x2="236" y2="16" stroke="var(--cs-hairline-strong)" stroke-dasharray="3 3" />
+                  <line x1="236" y1="4" x2="236" y2="56" stroke="var(--sig-live)" stroke-width="1.4" />
+                  <circle cx="32" cy="46" r="3" fill="var(--sig-auto-top)" />
+                  <circle cx="66" cy="40" r="3" fill="var(--sig-auto-top)" />
+                  <circle cx="102" cy="44" r="3" fill="var(--sig-auto-top)" />
+                  <circle cx="136" cy="32" r="4" fill="var(--sig-sre)" />
+                  <circle cx="168" cy="26" r="4" fill="var(--sig-sec)" />
+                  <circle cx="204" cy="14" r="5" fill="var(--sig-human)" />
+                  <circle cx="270" cy="18" r="9" fill="var(--sig-sre)" fill-opacity="0.10" stroke="var(--sig-sre)" stroke-dasharray="2.5 2.5" />
+                  <polygon points="270,13 275,18 270,23 265,18" fill="var(--cs-card)" stroke="var(--sig-sre)" stroke-width="2" />
+                </svg>
+              </div>
+              <div class="specimen-box">
+                <div class="specimen-title"><span>분포 바 &amp; 상태 트래커</span><span class="specimen-src">DistributionBar · Tracker</span></div>
+                <div class="dist-bar" aria-label="처리 비율 분포">
+                  <span style="width:74%;background:var(--sig-auto-top)"></span>
+                  <span style="width:12%;background:var(--sig-sre)"></span>
+                  <span style="width:9%;background:var(--sig-sec)"></span>
+                  <span style="width:5%;background:var(--sig-human)"></span>
+                </div>
+                <div class="tracker-row" aria-label="최근 14구간 상태 트래커">
+                  <span class="tracker-block"></span><span class="tracker-block"></span><span class="tracker-block"></span>
+                  <span class="tracker-block is-warn"></span><span class="tracker-block"></span><span class="tracker-block"></span>
+                  <span class="tracker-block"></span><span class="tracker-block is-err"></span><span class="tracker-block"></span>
+                  <span class="tracker-block"></span><span class="tracker-block is-warn"></span><span class="tracker-block"></span>
+                  <span class="tracker-block"></span><span class="tracker-block"></span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 8. Attention & Collaboration -->
+          <section class="cat-section" data-section="attention_inbox">
+            <div class="sec-head">
+              <div>
+                <h3>알림 · 주의 · 인수인계 체크리스트</h3>
+                <p>노이즈를 억제하고 운영자가 직접 확인해야 하는 인시던트·승인·감지 알림만 상단 바와 인박스로 노출합니다.</p>
+              </div>
+              <span class="sec-src">incident-attention.tsx · console-inbox.tsx · handover-goal-checklist.tsx</span>
+            </div>
+            <div class="specimen-box">
+              <div class="pill-row">
+                <span class="status-pill pill-sre">인시던트 주의 · 6건</span>
+                <span class="status-pill pill-sec">보안 검토 · 8건</span>
+                <span class="status-pill pill-human">승인 대기 · 12건</span>
+                <span class="status-pill pill-live">브라우저 알림 활성</span>
+                <span class="status-pill pill-neutral">인수인계 체크리스트</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- 8b. Full-Viewport 3-Tier Workbench, Collapsible Left Rail & Floating/Pinned Detail Drawer -->
+          <section class="cat-section" data-section="attention_inbox">
+            <div class="sec-head">
+              <div>
+                <h3>풀 뷰포트 3-Tier 워크벤치 · 좌측 레일 접기 · 우측 플로팅/핀 고정 드로어</h3>
+                <p>온톨로지·시스템 구성도·운영 규칙 등 고밀도 워크벤치에 <code class="inline-code">data-layout-tier="fullbleed"</code>(1줄 44px 헤더 + ? 설명 팝오버 + 100dvh 1px 헤어라인 분할), 좌측 탐색 레일 <code class="inline-code">[◀ 접기]</code>, 우측 상세 드로어 <code class="inline-code">.cs-float-drawer</code> + <code class="inline-code">[핀 고정]</code>(1520px 이상 도킹 · 1520px 미만 자동 플로팅 · AI 채팅과 우측 1슬롯 상호 배타)을 공용 셸에서 제공합니다.</p>
+              </div>
+              <span class="sec-src">fdai-console-shared.css · fdai-console-shell.js</span>
+            </div>
+            <div class="specimen-box">
+              <div class="pill-row">
+                <span class="status-pill pill-live">Tier 1 · fullbleed (100% · 12개 워크벤치)</span>
+                <span class="status-pill pill-live">Tier 2 · fullwide / fluid (max 1920px)</span>
+                <span class="status-pill pill-neutral">Tier 3 · readable (폼 내부 max 860px)</span>
+                <span class="status-pill pill-human">우측 드로어 · 플로팅 기본 / &ge;1520px 핀 고정</span>
+                <span class="status-pill pill-sre">좌측 레일 · ◀ 접기 / ▶ 탐색 패널</span>
+                <span class="status-pill pill-live">SVG 1:1 정배율 가드 · 12px &le; 폰트 &le; 16px</span>
+                <span class="status-pill pill-human" data-ut-title="초고속 툴팁 (Ultra-Fast Tooltip)" data-ut-val="0ms" data-ut-body="단일 싱글턴 GPU translate3d 레이어로 차트 크로스헤어·그래프 노드·히트맵·배지·말줄임을 즉각 표시합니다." data-ut-tone="human">초고속 툴팁 · 0ms GPU 싱글턴</span>
+                <span class="status-pill pill-live" data-ut-title="심플 내비게이션 (Mode A)" data-ut-body="기본 56px 접힘 아이콘 레일 + 본문 클릭 시 닫히는 플로팅 플라이아웃 + 상단 2줄 탭 제거 + 톱바 4요소 다이어트" data-ut-tone="live">심플 내비게이션 · 기본 56px 접힘 + A형 플라이아웃</span>
+                <span class="status-pill pill-neutral" data-ut-title="다이어그램 캔버스 UX" data-ut-body="Google Maps 방식 Ctrl+스크롤 줌 안내 레이어 + 빈 캔버스 클릭/Esc 선택 해제 + 줌 상태 드래그 팬" data-ut-tone="auto">다이어그램 UX · Ctrl+스크롤 줌 &amp; 빈 캔버스 선택 해제</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- 8b. Component-First Ultra-Fast Tooltip Standard -->
+          <section class="cat-section" data-section="primitives">
+            <div class="sec-head">
+              <div>
+                <h3>초고속 툴팁 시스템 (<code class="inline-code">.cs-ut-tip</code> · <code class="inline-code">window.fdaiTip</code>)</h3>
+                <p>지연 없는 0ms 오픈, GPU <code class="inline-code">translate3d</code> 커서 추종, 뷰포트 자동 회피, 좌측/상단 컬러 액센트 바 0건, 12px 이상 타이포그래피를 강제하는 공용 컴포넌트입니다. SVG 차트 크로스헤어·Canvas 2D 지식 그래프·히트맵·워터폴·배지 용어 사전·말줄임 원문 감지를 전 화면에서 통합 지원합니다.</p>
+              </div>
+              <span class="sec-src">fdai-console-shared.css · fdai-console-shell.js</span>
+            </div>
+            <div class="specimen-grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));">
+              <div class="specimen-box">
+                <div class="specimen-title"><span>단축키 &amp; 아이콘 액션 툴팁</span><span class="specimen-src">data-ut-kbd</span></div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+                  <button type="button" class="cs-btn cs-btn-sm" data-ut-title="전체 메뉴 빠른 검색" data-ut-body="63개 운영 화면과 리소스를 키보드로 즉시 이동합니다." data-ut-kbd="Ctrl+K" data-ut-tone="auto">빠른 검색</button>
+                  <button type="button" class="cs-btn cs-btn-sm" data-ut-title="AI 운영 어시스턴트 채팅" data-ut-body="현재 화면 근거와 연동된 우측 AI 채팅 패널을 열고 닫습니다." data-ut-kbd="Ctrl+J" data-ut-tone="human">AI 채팅 토글</button>
+                  <button type="button" class="cs-btn cs-btn-sm" data-ut-title="우측 상세 인스펙터 핀 고정" data-ut-body="1520px 이상에서는 도킹, 미만에서는 자동 플로팅으로 전환됩니다." data-ut-tone="live">핀 고정</button>
+                </div>
+              </div>
+              <div class="specimen-box">
+                <div class="specimen-title"><span>도메인 약어 배지 자동 사전</span><span class="specimen-src">GLOSSARY</span></div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+                  <span class="status-pill pill-live" tabindex="0">T0 규칙 자동</span>
+                  <span class="status-pill pill-human" tabindex="0">A3-H 승인 필수</span>
+                  <span class="status-pill pill-sre" tabindex="0">Shadow 관찰</span>
+                  <span class="status-pill pill-neutral" tabindex="0">미수집 (데이터 없음)</span>
+                </div>
+              </div>
+              <div class="specimen-box">
+                <div class="specimen-title"><span>말줄임 원문 자동 감지</span><span class="specimen-src">scrollWidth &gt; clientWidth</span></div>
+                <div class="ut-trunc-demo" style="margin-top:8px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--cs-font-mono);font-size:12.5px;color:var(--cs-text);border:1px solid var(--cs-hairline);border-radius:6px;padding:6px 9px;background:var(--cs-card-subtle);">prod-core-kr/subscriptions/aks-orders-batch-pool-east-09</div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 9. Live-Scanned Full Console Component Inventory -->
+          <section class="cat-section" data-section="inventory">
+            <div class="sec-head">
+              <div>
+                <h3>실제 콘솔 컴포넌트 인벤토리 (<span id="invVisibleCount">93</span> / 93개)</h3>
+                <p><code class="inline-code">console/src/components/*.tsx</code>(52개) + <code class="inline-code">console/src/deck/**/*.tsx</code>(41개)에서 자동 추출된 파일, 카테고리, Export 심볼 및 참조 현황입니다.</p>
+              </div>
+              <span class="sec-src">FNV-1a64: 0x822a20aca734684d</span>
+            </div>
+            <div class="table-wrap">
+              <table class="cs-table">
+                <thead>
+                  <tr>
+                    <th class="col-nowrap">파일</th>
+                    <th class="col-nowrap">영역</th>
+                    <th class="col-nowrap">카테고리</th>
+                    <th>Export 컴포넌트 심볼</th>
+                    <th>사용처</th>
+                    <th class="col-num">줄 수</th>
+                  </tr>
+                </thead>
+                <tbody id="inventoryTbody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <footer class="workspace-foot">
+            <span>FDAI Console Component Catalog · Neutral Canvas + Deep Amethyst &amp; Teal (#19)</span>
+            <span>Web-Standard Min Font &ge; 12px · WCAG 2.1 AA · Reduced-Motion Ready</span>
+          </footer>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- SettingsOverlay Modal Specimen (Console Web 5-Group 2-Column Parity) -->
+  <div class="modal-scrim" id="demoModalScrim" role="presentation">
+    <section class="modal-dialog" style="width:min(920px,96vw);" role="dialog" aria-modal="true" aria-labelledby="demoModalTitle">
+      <header class="modal-head">
+        <div>
+          <strong id="demoModalTitle" style="font-size:16px;">설정 (SettingsOverlay)</strong>
+          <div style="font-size:13px;color:var(--cs-text-soft);margin-top:2px;">일반, 사용자 권한, 외부 연동 및 운영 정책 설정 · 배경 화면 유지 모달</div>
+        </div>
+        <button type="button" class="cs-btn cs-btn-sm cs-btn-ghost" id="closeModalBtn" aria-label="설정 닫기">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </header>
+      <div class="modal-body" style="display:grid;grid-template-columns:220px minmax(0,1fr);gap:16px;padding:16px 20px;">
+        <nav aria-label="설정 섹션" style="display:grid;gap:4px;align-content:start;border-right:1px solid var(--cs-hairline);padding-right:12px;">
+          <div style="padding:8px 10px;border:1px solid var(--cs-hairline);border-radius:6px;background:var(--cs-card);font-size:13px;"><strong>일반 · 실행 환경</strong><div style="font-size:12px;color:var(--cs-text-soft);">표시, 접근성 및 브라우저 로컬 환경 설정</div></div>
+          <div style="padding:8px 10px;border-radius:6px;font-size:13px;color:var(--cs-text-soft);"><strong>AI 모델 · 운영 정책</strong><div style="font-size:12px;">T1 및 T2 모델, 프로비저닝 및 라우팅</div></div>
+          <div style="padding:8px 10px;border-radius:6px;font-size:13px;color:var(--cs-text-soft);"><strong>사용자 · 권한</strong><div style="font-size:12px;">사용자 역할, 기능 및 액세스 요청</div></div>
+          <div style="padding:8px 10px;border-radius:6px;font-size:13px;color:var(--cs-text-soft);"><strong>외부 연동</strong><div style="font-size:12px;">Teams, Slack, 이메일 및 OCR 채널</div></div>
+          <div style="padding:8px 10px;border-radius:6px;font-size:13px;color:var(--cs-text-soft);"><strong>상태 진단 · 운영 메모</strong><div style="font-size:12px;">읽기 전용 런타임 및 인증 진단</div></div>
+        </nav>
+        <div style="display:grid;gap:12px;align-content:start;">
+          <div class="cs-field">
+            <label class="cs-label" for="modalLocaleSel">표시 언어 (이 브라우저)</label>
+            <select id="modalLocaleSel" class="cs-select">
+              <option value="ko" selected>한국어 (ko)</option>
+              <option value="en">English (en)</option>
+            </select>
+          </div>
+          <p class="cs-help">좌측 레일 하단 설정(⚙️) 버튼 또는 Ctrl+, 입력 시 어느 화면에서나 5개 그룹·8개 하위 설정을 모달 오버레이로 즉시 열 수 있습니다.</p>
+        </div>
+      </div>
+      <footer class="modal-foot">
+        <button type="button" class="cs-btn" id="cancelModalBtn">닫기</button>
+        <button type="button" class="cs-btn cs-btn-primary" id="saveModalBtn">변경 적용</button>
+      </footer>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      const INVENTORY = [{"file":"access-grant-attention.tsx","path":"console/src/components/access-grant-attention.tsx","area":"components","cat":"attention_inbox","catLabel":"알림 · 협업","lines":199,"exports":["AccessGrantAttention"],"types":0,"usageCount":0,"routes":[]},{"file":"account-menu.tsx","path":"console/src/components/account-menu.tsx","area":"components","cat":"shell_nav","catLabel":"셸 · 탐색","lines":223,"exports":["AccountMenu"],"types":0,"usageCount":0,"routes":[]},{"file":"agent-org-chart.tsx","path":"console/src/components/agent-org-chart.tsx","area":"components","cat":"charts_graphs","catLabel":"차트 · 그래프","lines":195,"exports":["AgentOrgChart"],"types":0,"usageCount":1,"routes":["pantheon"]},{"file":"agent-roster-table.tsx","path":"console/src/components/agent-roster-table.tsx","area":"components","cat":"primitives","catLabel":"KPI · 데이터","lines":205,"exports":["AgentRosterTable"],"types":4,"usageCount":1,"routes":["agents.roster"]},{"file":"agent-workspace-nav.tsx","path":"console/src/components/agent-workspace-nav.tsx","area":"components","cat":"shell_nav","catLabel":"셸 · 탐색","lines":109,"exports":["AgentWorkspaceNav"],"types":0,"usageCount":2,"routes":["agent-activity","agents"]},{"file":"architecture-inspector.tsx","path":"console/src/components/architecture-inspector.tsx","area":"components","cat":"charts_graphs","catLabel":"차트 · 그래프","lines":244,"exports":["ArchitectureInspector"],"types":0,"usageCount":1,"routes":["architecture-workbench"]},{"file":"architecture-network-path-panel.tsx","path":"console/src/components/architecture-network-path-panel.tsx","area":"components","cat":"charts_graphs","catLabel":"차트 · 그래프","lines":102,"exports":["ArchitectureNetworkPathPanel"],"types":0,"usageCount":1,"routes":["architecture-workbench"]},{"file":"architecture-topology-controls.tsx","path":"console/src/components/architecture-topology-controls.tsx","area":"components","cat":"charts_graphs","catLabel":"차트 · 그래프","lines":70,"exports":["ArchitectureTopologyControls"],"types":0,"usageCount":0,"routes":[]},{"file":"architecture-topology-graph.tsx","path":"console/src/components/architecture-topology-graph.tsx","area":"components","cat":"charts_graphs","catLabel":"차트 · 그래프","lines":466,"exports":["ArchitectureTopologyGraph"],"types":0,"usageCount":2,"routes":["architecture-workbench","blast-radius"]},{"file":"browser-notification-control.tsx","path":"console/src/components/browser-notification-control.tsx","area":"components","cat":"attention_inbox","catLabel":"알림 · 협업","lines":474,"exports":["BrowserNotificationControl"],"types":0,"usageCount":1,"routes":["settings-system"]},{"file":"capability-detail-drawer.tsx","path":"console/src/components/capability-detail-drawer.tsx","area":"components","cat":"primitives","catLabel":"KPI · 데이터","lines":133,"exports":["CapabilityDetailDrawer"],"types":4,"usageCount":2,"routes":["capabilities.detail","skills"]},{"file":"charts-compact.tsx","path":"console/src/components/charts-compact.tsx","area":"components","cat":"charts_graphs","catLabel":"차트 · 그래프","lines":282,"exports":["DonutChart","SparkAreaChart","SparkLineChart","SparkBarChart","ProgressBar","ProgressCircle","Tracker"],"types":3,"usageCount":0,"routes":[]},{"file":"charts-composed.tsx","path":"console/src/components/charts-composed.tsx","area":"components","cat":"charts_graphs","catLabel":"차트 · 그래프","lines":158,"exports":["MetricChartFrame","MetricSeriesChart","MetricDonutChart"],"types":1,"usageCount":0,"routes":[]},{"file":"charts-scatter.tsx","path":"console/src/components/charts-scatter.tsx","area":"components","cat":"charts_graphs","catLabel":"차트 · 그래프","lines":74,"exports":["ScatterChart"],"types":1,"usageCount":0,"routes":[]},{"file":"charts-series.tsx","path":"console/src/components/charts-series.tsx","area":"components","cat":"charts_graphs","catLabel":"차트 · 그래프","lines":512,"exports":["AreaChart","LineChart","BarChart","ComboChart"],"types":8,"usageCount":0,"routes":[]},{"file":"charts.tsx","path":"console/src/components/charts.tsx","area":"components","cat":"charts_graphs","catLabel":"차트 · 그래프","lines":364,"exports":["TrendChart","ComparisonBarChart","DistributionBar","BarList","CategoryBar","DensityHeatmap"],"types":7,"usageCount":4,"routes":["gpu-monitoring.view","operating-outcomes","process-view-renderer","process-view-widgets.graphs"]},{"file":"console-inbox.tsx","path":"console/src/components/console-inbox.tsx","area":"components","cat":"attention_inbox","catLabel":"알림 · 협업","lines":323,"exports":["ConsoleInboxAttention","ConsoleInbox"],"types":0,"usageCount":1,"routes":["detection-readiness"]},{"file":"data-mode-control.tsx","path":"console/src/components/data-mode-control.tsx","area":"components","cat":"states","catLabel":"상태 · 모달","lines":31,"exports":["DataModeControl"],"types":0,"usageCount":0,"routes":[]},{"file":"detail-drawer.tsx","path":"console/src/components/detail-drawer.tsx","area":"components","cat":"primitives","catLabel":"KPI · 데이터","lines":104,"exports":["DetailDrawer"],"types":1,"usageCount":1,"routes":["dashboard"]},{"file":"disclosure-panel.tsx","path":"console/src/components/disclosure-panel.tsx","area":"components","cat":"primitives","catLabel":"KPI · 데이터","lines":66,"exports":["DisclosurePanel"],"types":1,"usageCount":7,"routes":["audit.filters","audit.workspace","browser-evidence.filters","reports.presentation","rule-trace"]},{"file":"domain-primitives.tsx","path":"console/src/components/domain-primitives.tsx","area":"components","cat":"primitives","catLabel":"KPI · 데이터","lines":267,"exports":["ActionProposalCard","HashChainBadge","CorrelationTimeline","KnowledgeSourceCard","TimelineStepList","ConversationTurnItem"],"types":11,"usageCount":11,"routes":["agent-activity-groups","alert-quality.forms","audit.workspace","browser-evidence.detail","code-security-requests"]},{"file":"entitlement-watermark.tsx","path":"console/src/components/entitlement-watermark.tsx","area":"components","cat":"shell_nav","catLabel":"셸 · 탐색","lines":180,"exports":["EntitlementWatermark"],"types":1,"usageCount":0,"routes":[]},{"file":"evidence-refresh.tsx","path":"console/src/components/evidence-refresh.tsx","area":"components","cat":"states","catLabel":"상태 · 모달","lines":23,"exports":["EvidenceRefresh"],"types":0,"usageCount":14,"routes":["assurance-twin","automation-blueprints","configuration-baselines","context-selection-comparisons","conversation-assurance"]},{"file":"finding-attention.tsx","path":"console/src/components/finding-attention.tsx","area":"components","cat":"attention_inbox","catLabel":"알림 · 협업","lines":651,"exports":["FindingAttention","CurrentFindings"],"types":0,"usageCount":1,"routes":["detection-readiness"]},{"file":"finding-notifications.tsx","path":"console/src/components/finding-notifications.tsx","area":"components","cat":"attention_inbox","catLabel":"알림 · 협업","lines":22,"exports":["FindingNotifications"],"types":0,"usageCount":0,"routes":[]},{"file":"form-controls.tsx","path":"console/src/components/form-controls.tsx","area":"components","cat":"forms_inputs","catLabel":"입력 · 폼","lines":664,"exports":["SelectField","TextInput","SearchInput","TextareaField","CheckboxField","RadioField","ToggleSwitch","FilterToolbar","SegmentedControl"],"types":12,"usageCount":70,"routes":["agent-activity","agent-activity-trajectory","agent-live-activity","agent-oversight-views","agents.roster"]},{"file":"graph-control-bar.tsx","path":"console/src/components/graph-control-bar.tsx","area":"components","cat":"charts_graphs","catLabel":"차트 · 그래프","lines":258,"exports":["GraphLegendSwatch","GraphControlBar"],"types":4,"usageCount":2,"routes":["blast-radius-impact","ontology-instance-graph"]},{"file":"handover-goal-checklist.tsx","path":"console/src/components/handover-goal-checklist.tsx","area":"components","cat":"attention_inbox","catLabel":"알림 · 협업","lines":171,"exports":["HandoverGoalChecklist"],"types":0,"usageCount":1,"routes":["document-ingestion"]},{"file":"help-center.tsx","path":"console/src/components/help-center.tsx","area":"components","cat":"attention_inbox","catLabel":"알림 · 협업","lines":554,"exports":["HelpCenter"],"types":3,"usageCount":0,"routes":[]},{"file":"incident-attention.tsx","path":"console/src/components/incident-attention.tsx","area":"components","cat":"attention_inbox","catLabel":"알림 · 협업","lines":67,"exports":["IncidentAttention"],"types":0,"usageCount":0,"routes":[]},{"file":"mermaid-diagram.tsx","path":"console/src/components/mermaid-diagram.tsx","area":"components","cat":"charts_graphs","catLabel":"차트 · 그래프","lines":132,"exports":["MermaidDiagram"],"types":0,"usageCount":1,"routes":["ontology"]},{"file":"navigation-shell.tsx","path":"console/src/components/navigation-shell.tsx","area":"components","cat":"shell_nav","catLabel":"셸 · 탐색","lines":847,"exports":["NavigationShell"],"types":0,"usageCount":0,"routes":[]},{"file":"navigation-title.tsx","path":"console/src/components/navigation-title.tsx","area":"components","cat":"shell_nav","catLabel":"셸 · 탐색","lines":60,"exports":["NavigationTitleProvider"],"types":0,"usageCount":0,"routes":[]},{"file":"nebula-background.tsx","path":"console/src/components/nebula-background.tsx","area":"components","cat":"charts_graphs","catLabel":"차트 · 그래프","lines":279,"exports":["NebulaBackground"],"types":0,"usageCount":2,"routes":["access-required","login"]},{"file":"notification-bell-icon.tsx","path":"console/src/components/notification-bell-icon.tsx","area":"components","cat":"attention_inbox","catLabel":"알림 · 협업","lines":8,"exports":["NotificationBellIcon"],"types":0,"usageCount":0,"routes":[]},{"file":"ontology-graph.focus.tsx","path":"console/src/components/ontology-graph.focus.tsx","area":"components","cat":"charts_graphs","catLabel":"차트 · 그래프","lines":86,"exports":["FocusCard"],"types":0,"usageCount":0,"routes":[]},{"file":"ontology-graph.tsx","path":"console/src/components/ontology-graph.tsx","area":"components","cat":"charts_graphs","catLabel":"차트 · 그래프","lines":428,"exports":["OntologyGraph"],"types":1,"usageCount":4,"routes":["ontology","ontology-links","ontology-object-type-detail","ontology.types"]},{"file":"ontology-knowledge-graph.tsx","path":"console/src/components/ontology-knowledge-graph.tsx","area":"components","cat":"charts_graphs","catLabel":"차트 · 그래프","lines":263,"exports":["OntologyKnowledgeGraphExplorer"],"types":0,"usageCount":1,"routes":["ontology-knowledge-map"]},{"file":"ontology-semantic-map.tsx","path":"console/src/components/ontology-semantic-map.tsx","area":"components","cat":"charts_graphs","catLabel":"차트 · 그래프","lines":273,"exports":["OntologySemanticMap"],"types":0,"usageCount":1,"routes":["ontology"]},{"file":"overview-telemetry.tsx","path":"console/src/components/overview-telemetry.tsx","area":"components","cat":"primitives","catLabel":"KPI · 데이터","lines":726,"exports":["SparkMetricCard","LiveScatterTimeline","SignalRail","LiveDecisionTicker"],"types":14,"usageCount":1,"routes":["dashboard"]},{"file":"panel-error-boundary.tsx","path":"console/src/components/panel-error-boundary.tsx","area":"components","cat":"states","catLabel":"상태 · 모달","lines":36,"exports":[],"types":0,"usageCount":0,"routes":[]},{"file":"panel-hub-tabs.tsx","path":"console/src/components/panel-hub-tabs.tsx","area":"components","cat":"shell_nav","catLabel":"셸 · 탐색","lines":36,"exports":["PanelHubTabs"],"types":0,"usageCount":0,"routes":[]},{"file":"rail-icons.tsx","path":"console/src/components/rail-icons.tsx","area":"components","cat":"shell_nav","catLabel":"셸 · 탐색","lines":147,"exports":[],"types":0,"usageCount":0,"routes":[]},{"file":"recorded-state-facts.tsx","path":"console/src/components/recorded-state-facts.tsx","area":"components","cat":"primitives","catLabel":"KPI · 데이터","lines":48,"exports":["RecordedStateFacts"],"types":0,"usageCount":2,"routes":["dashboard-v2","ontology-instances-inspector"]},{"file":"rule-facet-toolbar.tsx","path":"console/src/components/rule-facet-toolbar.tsx","area":"components","cat":"primitives","catLabel":"KPI · 데이터","lines":137,"exports":["RuleFacetToolbar"],"types":4,"usageCount":5,"routes":["best-practice-controls-body","caf-controls","ontology-actions","rule-catalog-body","rule-catalog-components"]},{"file":"searchable-select.tsx","path":"console/src/components/searchable-select.tsx","area":"components","cat":"forms_inputs","catLabel":"입력 · 폼","lines":388,"exports":["SearchableSelect"],"types":2,"usageCount":3,"routes":["architecture-workbench","blast-radius-resource-picker","dashboard-v2"]},{"file":"settings-overlay.tsx","path":"console/src/components/settings-overlay.tsx","area":"components","cat":"states","catLabel":"상태 · 모달","lines":198,"exports":["SettingsOverlay"],"types":0,"usageCount":0,"routes":[]},{"file":"shell.tsx","path":"console/src/components/shell.tsx","area":"components","cat":"shell_nav","catLabel":"셸 · 탐색","lines":200,"exports":["Shell"],"types":0,"usageCount":0,"routes":[]},{"file":"status-badge.tsx","path":"console/src/components/status-badge.tsx","area":"components","cat":"primitives","catLabel":"KPI · 데이터","lines":90,"exports":["StatusBadge","PromotionReadinessBadge"],"types":4,"usageCount":27,"routes":["agent-activity-groups","agent-activity-trajectory","agents","agents.roster","analytics-hubs"]},{"file":"tooltip.tsx","path":"console/src/components/tooltip.tsx","area":"components","cat":"primitives","catLabel":"KPI · 데이터","lines":202,"exports":["Tooltip"],"types":0,"usageCount":31,"routes":["agent-activity-trajectory","agent-live-activity","architecture-workbench","best-practice-controls-body","caf-controls"]},{"file":"ui-shell.tsx","path":"console/src/components/ui-shell.tsx","area":"components","cat":"shell_nav","catLabel":"셸 · 탐색","lines":89,"exports":["PageHeader","ErrorState"],"types":1,"usageCount":0,"routes":[]},{"file":"ui.tsx","path":"console/src/components/ui.tsx","area":"components","cat":"primitives","catLabel":"KPI · 데이터","lines":512,"exports":["AsyncBoundary","LoadingState","EmptyState","UnavailableState","KpiCard","KpiGrid","DataTable","StatusPill","ExternalLink","CopyButton"],"types":11,"usageCount":136,"routes":["access-required","agent-activity","agent-activity-semantics","agent-oversight-views","agents"]},{"file":"adaptive-answer-sources.tsx","path":"console/src/deck/adaptive-answer-sources.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":42,"exports":["AdaptiveAnswerSources"],"types":0,"usageCount":1,"routes":["deck/grounded-reply"]},{"file":"agent-activity-timeline.tsx","path":"console/src/deck/agent-activity-timeline.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":68,"exports":["AgentActivityTimeline"],"types":0,"usageCount":1,"routes":["deck/rich-content"]},{"file":"agent-discussion-reply.tsx","path":"console/src/deck/agent-discussion-reply.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":105,"exports":["AgentDiscussionReply"],"types":0,"usageCount":1,"routes":["deck/grounded-reply"]},{"file":"busy-input-controls.tsx","path":"console/src/deck/busy-input-controls.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":251,"exports":["BusyInputControls"],"types":0,"usageCount":1,"routes":["deck/command-deck-view"]},{"file":"command-deck-digest.tsx","path":"console/src/deck/command-deck-digest.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":143,"exports":["DigestList"],"types":0,"usageCount":0,"routes":[]},{"file":"command-deck-header.tsx","path":"console/src/deck/command-deck-header.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":304,"exports":["CommandDeckHeader"],"types":0,"usageCount":1,"routes":["deck/command-deck-view"]},{"file":"command-deck-launcher.tsx","path":"console/src/deck/command-deck-launcher.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":52,"exports":["CommandDeckLauncher"],"types":0,"usageCount":1,"routes":["deck/command-deck-view"]},{"file":"command-deck-presenters.tsx","path":"console/src/deck/command-deck-presenters.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":878,"exports":["DeckLayoutIcon","ConversationSidebar","TurnBubble","BackendBadge","IntroPanel"],"types":2,"usageCount":4,"routes":["deck/command-deck","deck/command-deck-header","deck/command-deck-launcher","deck/command-deck-view"]},{"file":"command-deck-view.tsx","path":"console/src/deck/command-deck-view.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":763,"exports":["CommandDeckView"],"types":0,"usageCount":1,"routes":["deck/command-deck"]},{"file":"command-deck.tsx","path":"console/src/deck/command-deck.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":515,"exports":["CommandDeck"],"types":0,"usageCount":1,"routes":["deck/deferred-command-deck"]},{"file":"composer-attachments.view.tsx","path":"console/src/deck/composer-attachments.view.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":383,"exports":["ComposerAttachments"],"types":0,"usageCount":1,"routes":["deck/command-deck-view"]},{"file":"context-freshness.tsx","path":"console/src/deck/context-freshness.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":66,"exports":["ContextFreshnessIndicator"],"types":1,"usageCount":0,"routes":[]},{"file":"context.tsx","path":"console/src/deck/context.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":294,"exports":["ViewContextProvider"],"types":7,"usageCount":72,"routes":["agent-activity","agent-oversight-views","agents","analytics-hubs","analytics-hubs.view"]},{"file":"conversation-execution-timeline-view.tsx","path":"console/src/deck/conversation-execution-timeline-view.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":167,"exports":["ConversationExecutionTimelineView","RunTrack"],"types":0,"usageCount":2,"routes":["deck/conversation-trajectory-view","deck/model-trace-waterfall"]},{"file":"conversation-history-state.tsx","path":"console/src/deck/conversation-history-state.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":43,"exports":["ConversationHistoryState"],"types":0,"usageCount":1,"routes":["deck/command-deck-view"]},{"file":"conversation-trajectory-decision-context.tsx","path":"console/src/deck/conversation-trajectory-decision-context.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":104,"exports":["TrajectoryDecisionContext","TrajectoryCoverage"],"types":0,"usageCount":2,"routes":["deck/conversation-execution-timeline-view","deck/conversation-trajectory-view"]},{"file":"conversation-trajectory-view.tsx","path":"console/src/deck/conversation-trajectory-view.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":739,"exports":["ConversationTrajectoryView"],"types":0,"usageCount":1,"routes":["deck/command-deck-presenters"]},{"file":"conversation-turn-attachments.tsx","path":"console/src/deck/conversation-turn-attachments.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":179,"exports":["ConversationTurnAttachments"],"types":0,"usageCount":1,"routes":["deck/command-deck-presenters"]},{"file":"deferred-command-deck.tsx","path":"console/src/deck/deferred-command-deck.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":90,"exports":["DeferredCommandDeck"],"types":0,"usageCount":0,"routes":[]},{"file":"document-artifact-view.tsx","path":"console/src/deck/document-artifact-view.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":93,"exports":["DocumentArtifactView"],"types":0,"usageCount":1,"routes":["deck/grounded-reply"]},{"file":"general-conversation-intro.tsx","path":"console/src/deck/general-conversation-intro.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":32,"exports":["GeneralConversationIntro"],"types":0,"usageCount":1,"routes":["deck/command-deck-view"]},{"file":"grounded-reply.tsx","path":"console/src/deck/grounded-reply.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":1066,"exports":["GroundedReply"],"types":1,"usageCount":1,"routes":["deck/command-deck-presenters"]},{"file":"investigation-roles.tsx","path":"console/src/deck/investigation-roles.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":167,"exports":["TurnBudgetLimits","ContextReceiptDisclosure","MilestoneLine"],"types":1,"usageCount":2,"routes":["deck/command-deck-presenters","deck/investigation-timeline"]},{"file":"investigation-timeline.tsx","path":"console/src/deck/investigation-timeline.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":1040,"exports":["InvestigationTimeline"],"types":0,"usageCount":1,"routes":["deck/command-deck-presenters"]},{"file":"json-code-block.tsx","path":"console/src/deck/json-code-block.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":109,"exports":["JsonCodeBlock"],"types":2,"usageCount":4,"routes":["deck/conversation-execution-timeline-view","deck/conversation-trajectory-view","deck/investigation-timeline","deck/model-trace-waterfall"]},{"file":"leave-consent.tsx","path":"console/src/deck/leave-consent.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":130,"exports":["DeckLeaveConsent"],"types":2,"usageCount":1,"routes":["deck/command-deck-view"]},{"file":"model-trace-waterfall.tsx","path":"console/src/deck/model-trace-waterfall.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":279,"exports":["ModelTraceWaterfall"],"types":3,"usageCount":2,"routes":["deck/command-deck-presenters","deck/conversation-trajectory-view"]},{"file":"callout.tsx","path":"console/src/deck/presentation-modules/callout.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":31,"exports":["CalloutModule"],"types":0,"usageCount":1,"routes":["deck/registry"]},{"file":"charts.tsx","path":"console/src/deck/presentation-modules/charts.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":244,"exports":["ChartModule","ExactTableDisclosure"],"types":0,"usageCount":7,"routes":["deck/registry","deck/rich-content","deck/timeline","gpu-monitoring.view","operating-outcomes"]},{"file":"evidence.tsx","path":"console/src/deck/presentation-modules/evidence.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":16,"exports":["EvidenceModule"],"types":0,"usageCount":1,"routes":["deck/registry"]},{"file":"list.tsx","path":"console/src/deck/presentation-modules/list.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":26,"exports":["ListModule"],"types":0,"usageCount":1,"routes":["deck/registry"]},{"file":"registry.tsx","path":"console/src/deck/presentation-modules/registry.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":73,"exports":["PresentationModuleView"],"types":0,"usageCount":1,"routes":["deck/structured-reply"]},{"file":"summary.tsx","path":"console/src/deck/presentation-modules/summary.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":35,"exports":["SummaryModule"],"types":0,"usageCount":1,"routes":["deck/registry"]},{"file":"table.tsx","path":"console/src/deck/presentation-modules/table.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":89,"exports":["TableModule","PresentationTable"],"types":0,"usageCount":2,"routes":["deck/charts","deck/registry"]},{"file":"timeline.tsx","path":"console/src/deck/presentation-modules/timeline.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":35,"exports":["TimelineModule"],"types":0,"usageCount":1,"routes":["deck/registry"]},{"file":"value.tsx","path":"console/src/deck/presentation-modules/value.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":98,"exports":["PresentationValue"],"types":0,"usageCount":4,"routes":["deck/evidence","deck/list","deck/summary","deck/table"]},{"file":"retrieval-trace.tsx","path":"console/src/deck/retrieval-trace.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":310,"exports":["RetrievalTrace","PendingReplyIndicator"],"types":0,"usageCount":1,"routes":["deck/command-deck-view"]},{"file":"rich-content.tsx","path":"console/src/deck/rich-content.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":493,"exports":["CodeBlock","RichContent"],"types":0,"usageCount":5,"routes":["deck/agent-discussion-reply","deck/conversation-trajectory-view","deck/document-artifact-view","deck/grounded-reply","deck/json-code-block"]},{"file":"source-readiness-view.tsx","path":"console/src/deck/source-readiness-view.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":160,"exports":["SourceReadinessStrip"],"types":0,"usageCount":1,"routes":["deck/command-deck-view"]},{"file":"structured-reply.tsx","path":"console/src/deck/structured-reply.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":97,"exports":["StructuredReply"],"types":0,"usageCount":1,"routes":["deck/grounded-reply"]},{"file":"test-context-review.tsx","path":"console/src/deck/test-context-review.tsx","area":"deck","cat":"chat_deck","catLabel":"채팅 UI","lines":192,"exports":["TestContextReview"],"types":0,"usageCount":1,"routes":["deck/command-deck-presenters"]}];
+      const $ = (id) => document.getElementById(id);
+
+      const THEME_KEY = "fdai-overview-theme";
+      function applyTheme(theme) {
+        const next = theme === "dark" ? "dark" : "light";
+        document.documentElement.setAttribute("data-theme", next);
+        try { localStorage.setItem(THEME_KEY, next); } catch {}
+      }
+      try {
+        const saved = localStorage.getItem(THEME_KEY);
+        if (saved === "dark" || saved === "light") applyTheme(saved);
+      } catch {}
+      $("themeBtn").addEventListener("click", () => {
+        const cur = document.documentElement.getAttribute("data-theme") || "light";
+        applyTheme(cur === "dark" ? "light" : "dark");
+      });
+
+      let toastTimer = null;
+      function showToast(msg) {
+        const el = $("toast");
+        el.textContent = msg;
+        el.classList.add("is-visible");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.classList.remove("is-visible"), 1900);
+      }
+
+      document.querySelectorAll(".data-mode button").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".data-mode button").forEach((b) => b.classList.remove("is-active"));
+          btn.classList.add("is-active");
+          showToast(btn.dataset.mode === "sample" ? "Sample 프리뷰 모드 활성화" : "Live 권위 모드 활성화");
+        });
+      });
+      $("accountChipBtn").addEventListener("click", () => showToast("운영자 계정 메뉴 (Entra ID · Reader/Owner RBAC)"));
+
+      document.querySelectorAll(".swatch[data-copy]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const val = btn.getAttribute("data-copy");
+          if (navigator.clipboard && val) navigator.clipboard.writeText(val).catch(() => {});
+          showToast(`복사됨: ${val}`);
+        });
+      });
+      $("specCopyBtn").addEventListener("click", () => {
+        const val = $("specCopyBtn").getAttribute("data-copy-text") || "";
+        if (navigator.clipboard && val) navigator.clipboard.writeText(val).catch(() => {});
+        showToast(`복사됨: ${val}`);
+      });
+
+      const specSearch = $("specSearchInput");
+      const specSearchClear = $("specSearchClear");
+      const syncClearBtn = () => { specSearchClear.style.display = specSearch.value ? "inline-flex" : "none"; };
+      specSearch.addEventListener("input", syncClearBtn);
+      specSearchClear.addEventListener("click", () => { specSearch.value = ""; syncClearBtn(); specSearch.focus(); });
+      syncClearBtn();
+
+      const specTa = $("specTextarea");
+      const syncTaCount = () => { $("specTaCount").textContent = String(specTa.value.length); };
+      specTa.addEventListener("input", syncTaCount);
+      syncTaCount();
+
+      const specSwitch = $("specSwitch");
+      specSwitch.addEventListener("click", () => {
+        const next = specSwitch.getAttribute("aria-checked") !== "true";
+        specSwitch.setAttribute("aria-checked", String(next));
+      });
+
+      // Interactive SearchableSelect combobox
+      const SS_OPTIONS = [
+        { value: "prod-orders-api", label: "prod-orders-api (AKS Deployment)", desc: "prod-core-kr · 연결 풀 포화 예측", count: 84 },
+        { value: "kv-prod-payments", label: "kv-prod-payments (Key Vault)", desc: "sec-shared-hub · 임시 접근 예외 만료 임박", count: 78 },
+        { value: "prod-aks-02", label: "prod-aks-02 (AKS Cluster)", desc: "prod-core-kr · 노드 자동 확장 정상", count: 24 },
+        { value: "kr-central-redis", label: "kr-central-redis (Azure Cache)", desc: "prod-core-kr · 지연 급증 자동 회복", count: 31 },
+        { value: "pg-orders-primary", label: "pg-orders-primary (PostgreSQL)", desc: "prod-data-platform · 커넥션 풀 안정", count: 19 },
+        { value: "apim-edge-kr", label: "apim-edge-kr (API Management)", desc: "prod-core-kr · 게이트웨이 정상", count: 14 }
+      ];
+      const ssRoot = $("ssDemoRoot");
+      const ssInput = $("ssDemoInput");
+      const ssPopup = $("ssDemoPopup");
+      const ssList = $("ssDemoList");
+      const ssCount = $("ssDemoCount");
+      const ssSelected = $("ssDemoSelected");
+      let ssCommitted = SS_OPTIONS[0];
+      let ssOpen = false;
+
+      function renderSsOptions(query) {
+        const q = String(query || "").trim().toLowerCase();
+        const matches = SS_OPTIONS.filter((o) =>
+          !q || `${o.value} ${o.label} ${o.desc}`.toLowerCase().includes(q)
+        );
+        ssCount.textContent = `${SS_OPTIONS.length}개 중 ${matches.length}개 표시`;
+        if (matches.length === 0) {
+          ssList.innerHTML = `<li style="padding:10px;color:var(--cs-text-faint);font-size:13px;">일치하는 리소스가 없습니다.</li>`;
+          return;
+        }
+        ssList.innerHTML = matches.map((o) => `
+          <li class="ss-option${o.value === ssCommitted.value ? " is-active" : ""}" role="option" data-val="${o.value}">
+            <div>
+              <span class="ss-option-title">${o.label}</span>
+              <span class="ss-option-desc">${o.desc}</span>
+            </div>
+            <span class="ss-option-count">위험도 ${o.count}</span>
+          </li>
+        `).join("");
+        ssList.querySelectorAll(".ss-option[data-val]").forEach((li) => {
+          li.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            const found = SS_OPTIONS.find((o) => o.value === li.getAttribute("data-val"));
+            if (found) {
+              ssCommitted = found;
+              ssInput.value = found.label;
+              ssSelected.textContent = found.value;
+              closeSs();
+              showToast(`선택됨: ${found.value}`);
+            }
+          });
+        });
+      }
+      function openSs(query = "") {
+        ssOpen = true;
+        ssRoot.classList.add("is-open");
+        ssPopup.classList.add("is-open");
+        ssInput.setAttribute("aria-expanded", "true");
+        renderSsOptions(query);
+      }
+      function closeSs() {
+        ssOpen = false;
+        ssRoot.classList.remove("is-open");
+        ssPopup.classList.remove("is-open");
+        ssInput.setAttribute("aria-expanded", "false");
+        ssInput.value = ssCommitted.label;
+      }
+      ssInput.addEventListener("click", () => { ssInput.select(); openSs(""); });
+      ssInput.addEventListener("input", () => openSs(ssInput.value));
+      ssInput.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeSs();
+        if (e.key === "ArrowDown" && !ssOpen) openSs("");
+      });
+      document.addEventListener("pointerdown", (e) => {
+        if (ssOpen && !ssRoot.contains(e.target)) closeSs();
+      });
+
+      // Command Deck interactive Chat UI
+      const deckThread = $("deckThread");
+      const deckInput = $("deckInput");
+      const slashPalette = $("deckSlashPalette");
+      const deckBusyBar = $("deckBusyBar");
+
+      function appendChatTurn(promptText) {
+        const now = new Date().toTimeString().slice(0, 5);
+        const tier = $("deckModelSelect").value === "t1" ? "T1 · 빠른 조회" : "T2 · 검증 추론";
+        const uDiv = document.createElement("div");
+        uDiv.className = "chat-msg is-user";
+        uDiv.innerHTML = `<div class="chat-bubble"></div><div class="chat-meta"><span>Operator</span><span>${now}</span></div>`;
+        uDiv.querySelector(".chat-bubble").textContent = promptText;
+        deckThread.appendChild(uDiv);
+
+        const replyText = promptText.includes("보안")
+          ? "보안 취약점 8건 중 즉시 검토가 필요한 항목은 kv-prod-payments 임시 접근 예외 만료 임박(위험도 78)과 NSG 0.0.0.0/0 포트 노출 후보 2건입니다."
+          : promptText.includes("정책 우회")
+            ? "감사 로그 해시 체인 검증 상태는 Verified이며 최근 24시간 정책 우회 건수는 0건입니다."
+            : `현재 화면 컨텍스트(대시보드 · 2,213개 리소스) 기준으로 "${promptText.slice(0, 48)}"에 대한 읽기 전용 근거를 조회했습니다.`;
+
+        const aDiv = document.createElement("div");
+        aDiv.className = "chat-msg";
+        aDiv.innerHTML = `
+          <div class="chat-bubble">
+            <strong>근거 기반 응답</strong> - ${replyText}
+            <div class="pill-row" style="margin-top:10px;">
+              <span class="status-pill pill-live">감사 Verified</span>
+              <span class="status-pill pill-neutral">${tier}</span>
+            </div>
+          </div>
+          <div class="chat-meta"><span>Bragi</span><span>${now}</span></div>`;
+        deckThread.appendChild(aDiv);
+        deckThread.scrollTop = deckThread.scrollHeight;
+      }
+
+      function submitDeckPrompt() {
+        const txt = deckInput.value.trim();
+        if (!txt) return;
+        deckInput.value = "";
+        slashPalette.classList.remove("is-open");
+        appendChatTurn(txt);
+      }
+      $("deckSendBtn").addEventListener("click", submitDeckPrompt);
+      deckInput.addEventListener("input", () => {
+        slashPalette.classList.toggle("is-open", deckInput.value.startsWith("/"));
+      });
+      deckInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitDeckPrompt(); }
+        if (e.key === "Escape") slashPalette.classList.remove("is-open");
+      });
+      slashPalette.querySelectorAll(".slash-item[data-slash]").forEach((item) => {
+        item.addEventListener("click", () => {
+          deckInput.value = item.getAttribute("data-slash") || "";
+          slashPalette.classList.remove("is-open");
+          deckInput.focus();
+        });
+      });
+      document.querySelectorAll("[data-quick-prompt]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const q = btn.getAttribute("data-quick-prompt") || "";
+          if (q === "/") {
+            deckInput.value = "/";
+            slashPalette.classList.add("is-open");
+            deckInput.focus();
+          } else {
+            appendChatTurn(q);
+          }
+        });
+      });
+      document.querySelectorAll(".deck-session-item").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".deck-session-item").forEach((b) => b.classList.remove("is-active"));
+          btn.classList.add("is-active");
+          $("deckTitle").textContent = `에이전트 대화 · ${btn.querySelector(".deck-session-title").textContent}`;
+        });
+      });
+      $("deckNewChatBtn").addEventListener("click", () => {
+        deckThread.innerHTML = `<div class="chat-msg"><div class="chat-bubble">새 대화를 시작했습니다. 현재 화면의 리소스·리스크·규칙에 대해 질문해 보세요.</div></div>`;
+      });
+      $("deckToggleBusyBtn").addEventListener("click", () => deckBusyBar.classList.toggle("is-hidden"));
+      $("deckSteerBtn").addEventListener("click", () => showToast("진행 중 턴에 Steer 지시 전달"));
+      $("deckQueueBtn").addEventListener("click", () => showToast("다음 턴 대기열(Queue)에 예약됨"));
+      $("deckStopBtn").addEventListener("click", () => { deckBusyBar.classList.add("is-hidden"); showToast("응답 스트림 중지됨"); });
+
+      // Modal
+      const modalScrim = $("demoModalScrim");
+      const openModal = () => modalScrim.classList.add("is-open");
+      const closeModal = () => modalScrim.classList.remove("is-open");
+      $("specOpenModalBtn").addEventListener("click", openModal);
+      $("openModalQuickBtn").addEventListener("click", openModal);
+      $("closeModalBtn").addEventListener("click", closeModal);
+      $("cancelModalBtn").addEventListener("click", closeModal);
+      $("saveModalBtn").addEventListener("click", () => { closeModal(); showToast("모달 설정이 적용되었습니다."); });
+      modalScrim.addEventListener("click", (e) => { if (e.target === modalScrim) closeModal(); });
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+
+      // Hub tabs
+      const HUB_COPY = {
+        knowledge: "<strong>/knowledge</strong> - 거버넌스 적용 문서와 읽기 전용 저장소 지식 원본의 연결 경계를 한눈에 확인합니다.",
+        documents: "<strong>/documents</strong> - 업로드된 문서의 격리·검사·추출·인덱싱 파이프라인과 버전을 조회합니다.",
+        github: "<strong>/github</strong> - 읽기 전용 GitHub 저장소 연결과 커밋·README 출처 증적을 확인합니다.",
+        gitlab: "<strong>/gitlab</strong> - 거버넌스 범위 내 GitLab 프로젝트 지식 연결 경계를 확인합니다.",
+        "azure-devops": "<strong>/azure-devops</strong> - Azure DevOps 저장소 지식 원본의 동기화 정책과 상태를 확인합니다."
+      };
+      $("demoHubTabs").querySelectorAll("button[data-hub-tab]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          $("demoHubTabs").querySelectorAll("button").forEach((b) => b.classList.remove("is-active"));
+          btn.classList.add("is-active");
+          $("demoHubBody").innerHTML = HUB_COPY[btn.dataset.hubTab] || "";
+        });
+      });
+
+      // Demo DataTable
+      $("demoTable").querySelectorAll("tbody tr").forEach((tr) => {
+        tr.style.cursor = "pointer";
+        tr.addEventListener("click", () => {
+          $("demoTable").querySelectorAll("tbody tr").forEach((r) => r.classList.remove("row-active"));
+          tr.classList.add("row-active");
+        });
+      });
+
+      // AsyncBoundary 5-state interactive switcher
+      const STATE_HTML = {
+        ready: `<div class="state-block"><div><strong>정상 측정 데이터 수신 완료</strong><div style="font-size:13px;color:var(--cs-text-soft);margin-top:2px;">권위 소스(operator-api)에서 최신 스냅샷을 정상 렌더링했습니다.</div></div><span class="status-pill pill-live">measured</span></div>`,
+        loading: `<div class="state-block" role="status" aria-busy="true"><div class="skeleton-stack"><div class="skel-bar" style="width:42%"></div><div class="skel-bar" style="width:88%"></div><div class="skel-bar" style="width:66%"></div></div></div>`,
+        empty: `<div class="state-block"><div><strong>표시할 항목이 없습니다</strong><div style="font-size:13px;color:var(--cs-text-soft);margin-top:2px;">선택한 구독과 시간 범위에서 대기 중인 승인 항목이 0건입니다.</div></div><span class="status-pill pill-neutral">empty</span></div>`,
+        unavailable: `<div class="state-block is-unavailable"><div><strong>근거 미측정 (not-measured)</strong><div style="font-size:13px;color:var(--cs-text-soft);margin-top:2px;">원본 수집기가 아직 완료되지 않아 0으로 대체하지 않고 미측정 상태를 명시합니다.</div></div><span class="status-pill pill-neutral">unavailable</span></div>`,
+        error: `<div class="state-block is-error"><div><strong>원본 응답을 불러오지 못했습니다</strong><div style="font-size:13px;color:var(--cs-text-soft);margin-top:2px;">일시적 네트워크 오류 또는 권한 불일치가 발생했습니다.</div></div><button type="button" class="cs-btn cs-btn-sm" id="demoRetryBtn">다시 시도</button></div>`
+      };
+      function renderAsyncState(kind) {
+        $("statePreviewStage").innerHTML = STATE_HTML[kind] || STATE_HTML.ready;
+        const retry = $("demoRetryBtn");
+        if (retry) retry.addEventListener("click", () => { setAsyncState("loading"); setTimeout(() => setAsyncState("ready"), 450); });
+      }
+      function setAsyncState(kind) {
+        $("stateSwitcher").querySelectorAll("button").forEach((b) => b.classList.toggle("is-active", b.dataset.state === kind));
+        renderAsyncState(kind);
+      }
+      $("stateSwitcher").querySelectorAll("button[data-state]").forEach((btn) => {
+        btn.addEventListener("click", () => setAsyncState(btn.dataset.state));
+      });
+      renderAsyncState("ready");
+
+      // Inventory rendering + underline category tabs + live search
+      let activeCat = "all";
+      let searchQuery = "";
+      const globalSearch = $("componentSearch");
+      const clearGlobal = $("clearGlobalSearch");
+
+      function renderInventory() {
+        const q = searchQuery.trim().toLowerCase();
+        const rows = INVENTORY.filter((item) => {
+          if (activeCat !== "all" && activeCat !== "inventory" && activeCat !== "tokens" && item.cat !== activeCat) return false;
+          if (!q) return true;
+          const hay = `${item.file} ${item.area} ${item.catLabel} ${item.exports.join(" ")} ${item.routes.join(" ")}`.toLowerCase();
+          return hay.includes(q);
+        });
+        $("invVisibleCount").textContent = String(rows.length);
+        const tbody = $("inventoryTbody");
+        if (rows.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" style="color:var(--cs-text-soft);text-align:center;padding:20px;">검색 조건에 일치하는 컴포넌트가 없습니다.</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = rows.map((item) => {
+          const syms = item.exports.length > 0
+            ? item.exports.map((s) => `<span class="sym-chip">${s}</span>`).join("")
+            : `<span style="color:var(--cs-text-faint);font-size:12px;">내부/기본 Export</span>`;
+          const areaPill = item.area === "deck"
+            ? `<span class="status-pill no-dot pill-human">deck</span>`
+            : `<span class="status-pill no-dot pill-live">components</span>`;
+          const usage = item.usageCount > 0
+            ? `<strong>${item.usageCount}</strong>곳 <span class="mono" style="color:var(--cs-text-faint)">(${item.routes.join(", ")})</span>`
+            : `<span style="color:var(--cs-text-faint)">셸/공용</span>`;
+          return `<tr>
+            <td class="mono col-nowrap"><strong>${item.file}</strong></td>
+            <td class="col-nowrap">${areaPill}</td>
+            <td class="col-nowrap"><span class="status-pill no-dot pill-neutral">${item.catLabel}</span></td>
+            <td>${syms}</td>
+            <td>${usage}</td>
+            <td class="mono col-num">${item.lines}L</td>
+          </tr>`;
+        }).join("");
+      }
+
+      function applySectionFilter() {
+        let firstShown = false;
+        document.querySelectorAll(".cat-section[data-section]").forEach((sec) => {
+          const secId = sec.getAttribute("data-section");
+          const show = activeCat === "all"
+            || secId === activeCat
+            || (secId === "inventory" && ["shell_nav", "forms_inputs", "chat_deck", "primitives", "states", "charts_graphs", "attention_inbox"].includes(activeCat));
+          sec.classList.toggle("is-hidden", !show);
+          sec.classList.toggle("is-first-visible", show && !firstShown);
+          if (show && !firstShown) firstShown = true;
+        });
+        renderInventory();
+      }
+
+      document.querySelectorAll(".cat-tabs .cat-tab[data-cat]").forEach((tab) => {
+        tab.addEventListener("click", () => {
+          activeCat = tab.getAttribute("data-cat") || "all";
+          document.querySelectorAll(".cat-tabs .cat-tab[data-cat]").forEach((c) => {
+            const active = c === tab;
+            c.classList.toggle("is-active", active);
+            c.setAttribute("aria-selected", String(active));
+          });
+          applySectionFilter();
+        });
+      });
+
+      globalSearch.addEventListener("input", () => {
+        searchQuery = globalSearch.value || "";
+        clearGlobal.style.display = searchQuery ? "inline-flex" : "none";
+        if (searchQuery.trim() && activeCat === "tokens") {
+          activeCat = "all";
+          applySectionFilter();
+        } else {
+          renderInventory();
+        }
+      });
+      clearGlobal.addEventListener("click", () => {
+        globalSearch.value = "";
+        searchQuery = "";
+        clearGlobal.style.display = "none";
+        renderInventory();
+        globalSearch.focus();
+      });
+
+      renderInventory();
+
+      // Standalone Ultra-Fast Tooltip Engine for Component Catalog (matches fdai-console-shared.css/.js contract)
+      (function initCatalogUltraTips() {
+        const style = document.createElement("style");
+        style.textContent = `
+          .cs-ut-tip{position:fixed;top:0;left:0;z-index:9999;max-width:min(340px,calc(100vw - 20px));padding:8px 11px;border:1px solid var(--cs-hairline);border-radius:8px;background:var(--cs-card);color:var(--cs-text);font-family:var(--cs-font,inherit);font-size:12px;line-height:1.45;box-shadow:0 10px 28px rgba(15,23,30,.16),0 2px 6px rgba(15,23,30,.08);pointer-events:none;opacity:0;visibility:hidden;transform:translate3d(-9999px,-9999px,0);will-change:transform,opacity;contain:layout style paint;transition:opacity .06s ease-out}
+          :root[data-theme="dark"] .cs-ut-tip{background:#1b1d20;border-color:#32363c;box-shadow:0 12px 32px rgba(0,0,0,.48)}
+          .cs-ut-tip.is-visible{opacity:1;visibility:visible}
+          .cs-ut-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+          .cs-ut-title-wrap{display:inline-flex;align-items:center;gap:6px;min-width:0}
+          .cs-ut-dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;background:var(--cs-text-soft)}
+          .cs-ut-dot[data-tone="live"]{background:var(--sig-live)}
+          .cs-ut-dot[data-tone="auto"]{background:var(--sig-auto-top,#5a9a92)}
+          .cs-ut-dot[data-tone="sre"]{background:var(--sig-sre)}
+          .cs-ut-dot[data-tone="sec"]{background:var(--sig-sec)}
+          .cs-ut-dot[data-tone="human"]{background:var(--sig-human)}
+          .cs-ut-title{font-size:12.5px;font-weight:700;color:var(--cs-text)}
+          .cs-ut-val{font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--cs-text);white-space:nowrap}
+          .cs-ut-kbd{padding:1px 6px;border:1px solid var(--cs-hairline);border-radius:4px;background:var(--cs-shade);color:var(--cs-text-soft);font-family:var(--cs-font-mono,monospace);font-size:12px;font-weight:600}
+          .cs-ut-body{margin-top:3px;font-size:12px;color:var(--cs-text)}
+          .cs-ut-meta{margin-top:3px;font-size:12px;color:var(--cs-text-soft)}
+          .cs-ut-crosshair{stroke:var(--cs-text-soft);stroke-width:1;stroke-dasharray:3 3;opacity:.72;pointer-events:none}
+          .cs-ut-halo{fill:var(--cs-card);stroke:var(--sig-live);stroke-width:2.2;pointer-events:none}
+        `;
+        document.head.appendChild(style);
+        const tip = document.createElement("div");
+        tip.id = "fdaiUltraTip";
+        tip.className = "cs-ut-tip";
+        tip.setAttribute("role", "tooltip");
+        tip.setAttribute("aria-hidden", "true");
+        document.body.appendChild(tip);
+        const escT = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        let shown = false, tw = 220, th = 44;
+        const pos = (x, y) => {
+          const pad = 10, off = 14;
+          let tx = x + off, ty = y - th - off;
+          if (tx + tw + pad > window.innerWidth) tx = x - tw - off;
+          if (tx < pad) tx = pad;
+          if (ty < pad) ty = y + off + 4;
+          if (ty + th + pad > window.innerHeight) ty = Math.max(pad, y - th - off);
+          tip.style.transform = `translate3d(${Math.round(tx)}px,${Math.round(ty)}px,0)`;
+        };
+        const show = (p, pt) => {
+          if (!p || (!p.title && !p.body)) return hide();
+          const dot = p.tone ? `<span class="cs-ut-dot" data-tone="${escT(p.tone)}"></span>` : "";
+          const val = p.val ? `<span class="cs-ut-val">${escT(p.val)}</span>` : "";
+          const kbd = p.kbd ? `<kbd class="cs-ut-kbd">${escT(p.kbd)}</kbd>` : "";
+          tip.innerHTML = `<div class="cs-ut-head"><span class="cs-ut-title-wrap">${dot}<span class="cs-ut-title">${escT(p.title || "")}</span></span>${val}${kbd}</div>`
+            + (p.body ? `<div class="cs-ut-body">${escT(p.body)}</div>` : "")
+            + (p.meta ? `<div class="cs-ut-meta">${escT(p.meta)}</div>` : "");
+          if (!shown) { shown = true; tip.classList.add("is-visible"); tip.setAttribute("aria-hidden", "false"); }
+          const r = tip.getBoundingClientRect(); tw = r.width || 220; th = r.height || 44;
+          pos(pt.x, pt.y);
+        };
+        const hide = () => { if (!shown) return; shown = false; tip.classList.remove("is-visible"); tip.setAttribute("aria-hidden", "true"); };
+        window.fdaiTip = { show, move: pos, hide };
+
+        // Wire SparkArea & Scatter SVG previews
+        const NS = "http://www.w3.org/2000/svg";
+        const sparkSvg = document.querySelector('svg[aria-label="스파크 에어리어 프리뷰"]');
+        if (sparkSvg) {
+          const pts = (sparkSvg.querySelector("polyline")?.getAttribute("points") || "").trim().split(/\s+/).map((s, i) => {
+            const [x, y] = s.split(",").map(Number); return { x, y, i };
+          });
+          const ln = document.createElementNS(NS, "line"); ln.setAttribute("class", "cs-ut-crosshair"); ln.style.display = "none"; sparkSvg.appendChild(ln);
+          const hl = document.createElementNS(NS, "circle"); hl.setAttribute("class", "cs-ut-halo"); hl.setAttribute("r", "3.8"); hl.style.display = "none"; sparkSvg.appendChild(hl);
+          sparkSvg.style.cursor = "crosshair";
+          sparkSvg.addEventListener("pointermove", (e) => {
+            const r = sparkSvg.getBoundingClientRect();
+            const sx = ((e.clientX - r.left) / r.width) * 300;
+            let best = pts[0];
+            pts.forEach((p) => { if (Math.abs(p.x - sx) < Math.abs(best.x - sx)) best = p; });
+            ln.setAttribute("x1", best.x); ln.setAttribute("x2", best.x); ln.setAttribute("y1", "4"); ln.setAttribute("y2", "56"); ln.style.display = "";
+            hl.setAttribute("cx", best.x); hl.setAttribute("cy", best.y); hl.style.display = "";
+            const val = Math.round(((60 - best.y) / 60) * 100);
+            show({ title: `스파크 에어리어 · 구간 ${best.i + 1}/${pts.length}`, val: `${val}%`, tone: "live", meta: "1:1 크로스헤어 실시간 스냅" }, { x: e.clientX, y: e.clientY });
+          });
+          sparkSvg.addEventListener("pointerleave", () => { ln.style.display = "none"; hl.style.display = "none"; hide(); });
+        }
+        const scatSvg = document.querySelector('svg[aria-label="산점도 및 예측 프리뷰"]');
+        if (scatSvg) {
+          const labels = [
+            ["자동 처리 #1", "위험도 23 · 정상", "auto"],
+            ["자동 처리 #2", "위험도 33 · 정상", "auto"],
+            ["자동 처리 #3", "위험도 27 · 정상", "auto"],
+            ["SRE 주의", "위험도 47 · 임계 접근", "sre"],
+            ["보안 탐지", "위험도 57 · 정책 검증", "sec"],
+            ["사람 확인 (HIL)", "위험도 77 · 승인 대기", "human"],
+            ["SRE 예측 반경 (+5분)", "EWMA 포화 신뢰 구간", "sre"]
+          ];
+          scatSvg.querySelectorAll("circle").forEach((c, idx) => {
+            const m = labels[idx] || ["관측 지점", "실시간 위험도", "live"];
+            c.style.cursor = "pointer";
+            c.setAttribute("data-ut-title", m[0]);
+            c.setAttribute("data-ut-body", m[1]);
+            c.setAttribute("data-ut-tone", m[2]);
+          });
+          const poly = scatSvg.querySelector("polygon");
+          if (poly) {
+            poly.style.cursor = "pointer";
+            poly.setAttribute("data-ut-title", "SRE 포화 예측 마커 (+5분)");
+            poly.setAttribute("data-ut-body", "EWMA 추세 기반 임계치 도달 선행 예측");
+            poly.setAttribute("data-ut-tone", "sre");
+          }
+        }
+        document.querySelectorAll(".dist-bar > span").forEach((sp, i) => {
+          const names = [["자동 처리", "auto"], ["SRE 주의", "sre"], ["보안 통제", "sec"], ["사람 승인", "human"]][i] || ["항목", "live"];
+          sp.setAttribute("data-ut-title", names[0]);
+          sp.setAttribute("data-ut-val", sp.style.width || "");
+          sp.setAttribute("data-ut-tone", names[1]);
+        });
+
+        const GLOSS = [
+          [/\bT0\b/, "T0 결정론적 규칙 계층", "LLM 호출 없이 검증된 규칙·정책으로 즉시 처리합니다.", "live"],
+          [/\bA3-H\b/, "A3-H 고위험 승인 필수 등급", "운영자의 명시적 승인 없이 절대 실행되지 않습니다.", "human"],
+          [/\bShadow\b/, "Shadow (관찰·모의 검증 모드)", "실제 인프라 변경 없이 판단만 시뮬레이션하고 감사 기록합니다.", "sre"],
+          [/미수집|데이터 없음/, "미측정 · 데이터 없음 보존 원칙", "수집되지 않은 값은 0으로 대체하지 않고 미수집으로 명시합니다.", "neutral"]
+        ];
+        const resolve = (start) => {
+          let el = start;
+          for (let d = 0; el && el !== document.body && d < 5; d++, el = el.parentElement) {
+            const t = el.getAttribute("data-ut-title") || el.getAttribute("data-ut-tip");
+            if (t) return { el, p: { title: t, val: el.getAttribute("data-ut-val") || "", body: el.getAttribute("data-ut-body") || "", meta: el.getAttribute("data-ut-meta") || "", kbd: el.getAttribute("data-ut-kbd") || "", tone: el.getAttribute("data-ut-tone") || "" } };
+            if (el.matches(".status-pill")) {
+              const tx = (el.textContent || "").trim();
+              for (const [re, tt, bd, tn] of GLOSS) if (re.test(tx)) return { el, p: { title: tt, body: bd, tone: tn } };
+            }
+            if (d === 0 && el.children.length === 0 && el.scrollWidth > el.clientWidth + 2 && (el.textContent || "").trim().length > 4) {
+              return { el, p: { title: (el.textContent || "").trim(), meta: "말줄임 전체 원문" } };
+            }
+          }
+          return null;
+        };
+        let active = null;
+        document.addEventListener("pointerover", (e) => {
+          if (!(e.target instanceof Element) || e.target.closest('svg[aria-label="스파크 에어리어 프리뷰"]')) return;
+          const r = resolve(e.target);
+          if (r) { active = r.el; show(r.p, { x: e.clientX, y: e.clientY }); }
+          else if (active) { active = null; hide(); }
+        }, true);
+        document.addEventListener("pointermove", (e) => { if (active && shown) pos(e.clientX, e.clientY); }, { passive: true });
+        document.addEventListener("pointerout", (e) => { if (active && !(e.relatedTarget instanceof Node && active.contains(e.relatedTarget))) { active = null; hide(); } }, true);
+        window.addEventListener("scroll", hide, { capture: true, passive: true });
+        window.addEventListener("keydown", (e) => { if (e.key === "Escape") hide(); });
+      })();
+    })();
+  </script>
+</body>
+</html>
