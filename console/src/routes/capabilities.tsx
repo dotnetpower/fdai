@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
+import { SearchInput, SelectField } from "../components/form-controls";
 import {
   AsyncBoundary,
   CopyButton,
@@ -284,7 +285,15 @@ function CapabilitiesBody({
         <KpiCard href={visibleCapabilitiesHref} label={t("governance.capabilities.kpi.shown")} value={filtered.length.toLocaleString()} />
       </KpiGrid>
       <section class="capabilities-filterbar" aria-label={t("governance.capabilities.filter.aria")}>
-        <input id="capability-search" type="search" aria-label={t("governance.capabilities.filter.searchAria")} value={query} placeholder={t("governance.capabilities.filter.searchPlaceholder")} onInput={(event) => updateRoute({ query: event.currentTarget.value, page: 1, selectedId: null })} />
+        <SearchInput
+          id="capability-search"
+          label={t("governance.capabilities.filter.searchAria")}
+          hideLabel
+          value={query}
+          placeholder={t("governance.capabilities.filter.searchPlaceholder")}
+          size="sm"
+          onInput={(value) => updateRoute({ query: value, page: 1, selectedId: null })}
+        />
         <CapabilitySelect label={t("governance.capabilities.filter.category")} value={category} options={optionValues("category")} onChange={(value) => updateRoute({ category: value, page: 1, selectedId: null })} />
         <CapabilitySelect label={t("governance.capabilities.filter.sideEffect")} value={effect} options={optionValues("side_effect_class")} onChange={(value) => updateRoute({ effect: value, page: 1, selectedId: null })} />
         <CapabilitySelect label={t("governance.capabilities.filter.role")} value={role} options={optionValues("required_role")} onChange={(value) => updateRoute({ role: value, page: 1, selectedId: null })} />
@@ -366,7 +375,18 @@ function CapabilitySelect({ label, value, options, onChange }: {
   readonly options: readonly string[];
   readonly onChange: (value: string) => void;
 }) {
-  return <label><span>{label}</span><select value={value} onChange={(event) => onChange(event.currentTarget.value)}><option value="all">{t("governance.common.all")}</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>;
+  return (
+    <SelectField
+      label={label}
+      value={value}
+      size="sm"
+      options={[
+        { value: "all", label: t("governance.common.all") },
+        ...options.map((option) => ({ value: option, label: option })),
+      ]}
+      onChange={onChange}
+    />
+  );
 }
 
 function CapabilitySortSelect({
@@ -378,15 +398,16 @@ function CapabilitySortSelect({
 }) {
   const options: readonly CapabilitySort[] = ["category", "name", "effect", "role"];
   return (
-    <label class="capabilities-sort">
-      <span>{t("governance.capabilities.sort.label")}</span>
-      <select value={value} onChange={(event) => onChange(event.currentTarget.value as CapabilitySort)}>
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {t(`governance.capabilities.sort.${option}`)}
-          </option>
-        ))}
-      </select>
-    </label>
+    <SelectField
+      label={t("governance.capabilities.sort.label")}
+      value={value}
+      size="sm"
+      className="capabilities-sort"
+      options={options.map((option) => ({
+        value: option,
+        label: t(`governance.capabilities.sort.${option}`),
+      }))}
+      onChange={(next) => onChange(next as CapabilitySort)}
+    />
   );
 }

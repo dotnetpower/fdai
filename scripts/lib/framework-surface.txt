@@ -17,25 +17,13 @@
 #   - an entry ending in '/' is a DIRECTORY PREFIX (matches any file beneath it)
 #   - any other entry is matched EXACTLY (so 'composition.py' never matches
 #     'composition.py.bak')
-services/core-control-plane/src/fdai/core/
-services/core-control-plane/src/fdai/composition.py
-services/core-control-plane/src/fdai/composition/
-services/core-control-plane/src/fdai/shared/providers/
-services/core-control-plane/src/fdai/shared/contracts/
-services/core-control-plane/src/fdai/agents/
-# Capability licensing: the runtime binding, the trust verifier, and the packaged
-# upstream integrity public key that verifies every license and entitlement, plus
-# the durable Trial store adapter and the one writer that opens a Trial window.
-services/core-control-plane/src/fdai/runtime/licensing.py
-services/core-control-plane/src/fdai/runtime/licensing_trial_activation.py
-services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_trial.py
-services/core-control-plane/src/fdai/delivery/trust/
-# Trial expiry watermark: Core's entitlement-state publisher and its single writer,
-# the Operator stamp that carries the notice to every authenticated response, and
-# the Console state contract and component that render it on every view.
-services/core-control-plane/src/fdai/runtime/licensing_state.py
-services/core-control-plane/src/fdai/delivery/persistence/postgres_licensing_entitlement_state.py
-services/operator-service/src/fdai_operator_service/entitlement_stamp.py
+crates/core/fdai-domain-core/
+crates/contracts/fdai-contracts/
+crates/ports/fdai-ports/
+services_rs/core-control-plane/
+services_rs/operator-service/
+tools_rs/fdai-xtask/
+console_rs/
 console/src/entitlement-state.ts
 console/src/components/entitlement-watermark.tsx
 rule-catalog/schema/

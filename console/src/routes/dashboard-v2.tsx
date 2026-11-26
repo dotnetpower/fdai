@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import { AsyncBoundary, EmptyState, PageHeader, type AsyncState } from "../components/ui";
+import { SearchInput, SelectField } from "../components/form-controls";
 import { SearchableSelect, type SearchableSelectOption } from "../components/searchable-select";
 import { RecordedStateFacts } from "../components/recorded-state-facts";
 import { recordedStateValueText } from "../components/recorded-state-text";
@@ -447,10 +448,38 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
         </div>{view === "honeycomb" && <div class="dv2-controls" role="group" aria-label={t("dense")}>{(["dense", "comfortable"] as const).map((key) =>
           <button type="button" class="cs-control-button" key={key} aria-pressed={effectiveDensity === key} disabled={key === "dense" && touch} onClick={() => { setDensity(key); setPage(0); }}>{t(key)}</button>)}</div>}</div>
         <div class="dv2-filters">
-          <label>{t("subscription")}<select class="cs-control-select" value={filters.subscription} onChange={(event) => update("subscription", event.currentTarget.value)}><option value="">{t("allSubscriptions")}</option>{options("subscription").map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          <label>{t("group")}<select class="cs-control-select" value={filters.group === null ? "missing" : `group:${filters.group}`} onChange={(event) => update("group", event.currentTarget.value === "missing" ? null : event.currentTarget.value.slice(6))}><option value="group:">{t("allGroups")}</option><option value="missing">{t("missing")}</option>{options("group").map(([value, label]) => <option key={value} value={`group:${value}`}>{label}</option>)}</select></label>
+          <SelectField
+            size="sm"
+            label={t("subscription")}
+            value={filters.subscription}
+            options={[
+              { value: "", label: t("allSubscriptions") },
+              ...options("subscription").map(([value, label]) => ({ value, label })),
+            ]}
+            onChange={(value) => update("subscription", value)}
+          />
+          <SelectField
+            size="sm"
+            label={t("group")}
+            value={filters.group === null ? "missing" : `group:${filters.group}`}
+            options={[
+              { value: "group:", label: t("allGroups") },
+              { value: "missing", label: t("missing") },
+              ...options("group").map(([value, label]) => ({ value: `group:${value}`, label })),
+            ]}
+            onChange={(value) => update("group", value === "missing" ? null : value.slice(6))}
+          />
           <SearchableSelect label={t("type")} value={filters.type} options={types} onChange={(value) => update("type", value)} placeholder={t("typePlaceholder")} emptyLabel={t("typeEmpty")} helpText={t("typeHelp")} resultsLabel={(shown, total) => t("typeResults", { shown, total })} />
-          <label>{t("find")}<input type="search" class="cs-control-input" value={filters.query} maxLength={256} placeholder={t("searchPlaceholder")} onInput={(event) => update("query", event.currentTarget.value)} /></label>
+          <SearchInput
+            size="sm"
+            label={t("find")}
+            value={filters.query}
+            maxLength={256}
+            placeholder={t("searchPlaceholder")}
+            clearLabel={t("clear")}
+            onInput={(value) => update("query", value)}
+            onClear={() => update("query", "")}
+          />
         </div>
         <div class="dv2-meta"><span role="status">{view === "groups" ? t("groupShown", { shown: Math.min(6, Math.max(0, groups.length - currentPage * 6)), matches: number(matches.length) }) : t("shown", { shown: number(displayed.length), matches: number(matches.length), received: number(snapshot.resources.length) })}</span><button type="button" class={`cs-control-button is-quiet${hasActiveFilters ? " is-active" : ""}`} onClick={() => { setFilters(EMPTY_DASHBOARD_FILTERS); setPage(0); syncRouteState("", lens); }}>{t("clear")}</button></div>
         <div class="dv2-legend" role="group" aria-label={t("allStates")} data-filtered={filters.status ? "true" : undefined}><button type="button" class="cs-control-button" aria-pressed={!filters.status} onClick={() => update("status", "")}>{t("allStates")} {number(scoped.length)}</button>

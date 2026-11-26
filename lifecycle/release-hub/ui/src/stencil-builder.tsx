@@ -19,21 +19,21 @@ const GROUP_ORDER = [
   "operations",
   "agents",
   "governance",
-  "knowledge",
   "evidence",
+  "chat",
   "labs",
   "settings",
 ] as const;
 
 const GROUP_LABELS: Record<string, { en: string; ko: string }> = {
-  overview: { en: "Overview", ko: "개요 (Overview)" },
-  operations: { en: "Operations (Live, Drift, Incidents, Alerts)", ko: "운영 (실시간·드리프트·장애·알림)" },
-  agents: { en: "Agents (15-Agent Pantheon & Activity)", ko: "에이전트 (15-에이전트 판테온 및 활동)" },
-  governance: { en: "Governance (Rules, Topology, Scope)", ko: "거버넌스 (규칙·토폴로지·범위)" },
-  knowledge: { en: "Knowledge (Documents & Git Connectors)", ko: "지식 (문서 수집 및 Git 연동)" },
-  evidence: { en: "Evidence (Audit, Trace, RCA, Reports)", ko: "증적 (감사·추적·RCA·리포트)" },
-  labs: { en: "Labs", ko: "실험실 (Labs)" },
-  settings: { en: "Settings", ko: "설정 (Settings)" },
+  overview: { en: "Overview (Dashboard, Outcomes & Cost)", ko: "전체 현황 (대시보드·운영 성과·비용)" },
+  operations: { en: "Operations (Live, Security, Approvals & Automation)", ko: "운영 (실시간·코드 보안·승인·자동화)" },
+  agents: { en: "Agents (15-Agent Pantheon, Activity & Skills)", ko: "에이전트 (현황·역할·작업 이력·도구)" },
+  governance: { en: "Governance & Knowledge (Rules, Ontology, Documents & Git)", ko: "거버넌스 · 지식 (규칙·온톨로지·지식·문서·Git)" },
+  evidence: { en: "Evidence (Audit, Trace, RCA & Reports)", ko: "감사 · 이력 (감사 로그·실행 추적·RCA·보고서)" },
+  chat: { en: "AI Chat (Command Deck)", ko: "AI 채팅 (운영 대화)" },
+  labs: { en: "Labs (Simulation, Forecast & Evals)", ko: "실험실 (AKS 데모·사전 검증·예측 학습·품질 점검)" },
+  settings: { en: "Settings (General, Models, IAM & Diagnostics)", ko: "설정 (일반·실행 환경·AI 모델·권한·진단)" },
 };
 
 const STENCIL_ID_RE = /^[a-z][a-z0-9-]{0,62}$/;
@@ -811,8 +811,9 @@ export function StencilBuilder({
                           applyPreset(preset);
                           setComposed(null);
                         }}
+                        aria-label={t(`Load ${preset.stencil_id}`, `${preset.stencil_id} 불러오기`)}
                       >
-                        {t(`Load ${preset.stencil_id}`, `${preset.stencil_id} 불러오기`)}
+                        {t("Load preset", "프리셋 적용")}
                       </button>
                     </div>
                   </article>

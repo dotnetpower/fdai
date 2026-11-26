@@ -1,0 +1,14 @@
+# remediate.right-size - Terraform patch template.
+#
+# Referenced by rule `compute.vm-scale-set.over-provisioned`. Renders the
+# target replica count. `${target_capacity}` MUST be >=
+# rule.parameters.min_headroom_replicas (verifier enforced upstream); a
+# missing headroom causes the executor to abstain and escalate to HIL,
+# never partially apply.
+
+resource "azurerm_linux_virtual_machine_scale_set" "${resource_id}" {
+  # Downscale to the observed steady-state need. Rollback path is a
+  # single PR reverting to `${previous_capacity}` recorded in the shadow
+  # PR body.
+  instances = ${target_capacity}
+}

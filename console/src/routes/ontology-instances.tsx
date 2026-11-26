@@ -4,6 +4,7 @@ import { AsyncBoundary, UnavailableState, type AsyncState } from "../components/
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary, TERMS } from "../deck/glossary";
 import { Tooltip } from "../components/tooltip";
+import { getLocale } from "../i18n";
 import { currentRoute, replaceRouteState, routeHref, ROUTE_STATE_EVENT } from "../router";
 import { formatDateTime, formatNumber, t } from "./i18n/ontology";
 import {
@@ -269,9 +270,23 @@ export function OntologyInstancesView({ client }: Props) {
               <label class="ontology-instance-search">
                 <span>{t("ontology.instances.search")}</span>
                 <span class="ontology-instance-search-controls">
-                  <span class="ontology-instance-combobox">
+                  <span class="ontology-instance-combobox cs-search-wrap">
+                    <svg
+                      class="cs-search-icon"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.6"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <circle cx="7" cy="7" r="4.8" />
+                      <path d="M10.7 10.7L14 14" />
+                    </svg>
                     <input
                       role="combobox"
+                      class="cs-field-control cs-search-input"
                       aria-autocomplete="list"
                       aria-controls="ontology-instance-search-options"
                       aria-expanded={autocompleteVisible}
@@ -305,6 +320,31 @@ export function OntologyInstancesView({ client }: Props) {
                         }
                       }}
                     />
+                    {searchDraft.length > 0 ? (
+                      <button
+                        type="button"
+                        class="cs-search-clear"
+                        aria-label={getLocale() === "ko" ? "검색어 지우기" : "Clear search"}
+                        onClick={() => {
+                          setSearchDraft("");
+                          setSearch("");
+                          setAutocompleteOpen(false);
+                        }}
+                      >
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.6"
+                          stroke-linecap="round"
+                          aria-hidden="true"
+                        >
+                          <path d="M2.5 2.5L9.5 9.5M9.5 2.5L2.5 9.5" />
+                        </svg>
+                      </button>
+                    ) : null}
                     {autocompleteVisible ? (
                       <ul id="ontology-instance-search-options" role="listbox">
                         {autocompleteSuggestions.map((option, index) => (

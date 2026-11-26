@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
+import { SelectField, TextInput } from "../components/form-controls";
 import { AsyncBoundary, DataTable, KpiCard, KpiGrid, PageHeader, StatusPill, type AsyncState, type Column } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary, TERMS } from "../deck/glossary";
@@ -75,18 +76,22 @@ export function OperatorMemoryRoute({ client }: { readonly client: OperatorApiCl
     <PageHeader title={t("route.operatorMemory")} subtitle={t("settings.operatorMemory.subtitle")} />
     {initial.invalid ? <p role="note">{memoryUxText("invalidFilters")}</p> : null}
     <form class="settings-filter-bar" onSubmit={(event) => { event.preventDefault(); applyFilters(filters); }}>
-      <label><span>{t("settings.operatorMemory.scopeKind")}</span>
-        <select class="form-input" value={filters.scopeKind}
-          onChange={(event) => setFilters({ ...filters, scopeKind: event.currentTarget.value as OperatorMemoryFilters["scopeKind"] })}>
-          <option value="">{t("settings.operatorMemory.allScopes")}</option>
-          <option value="resource-group">{memoryScopeLabel("resource-group")}</option>
-          <option value="resource">{memoryScopeLabel("resource")}</option>
-        </select>
-      </label>
-      <label><span>{t("settings.operatorMemory.scopeRef")}</span>
-        <input class="form-input" maxLength={256} value={filters.scopeRef}
-          onInput={(event) => setFilters({ ...filters, scopeRef: event.currentTarget.value })} />
-      </label>
+      <SelectField
+        label={t("settings.operatorMemory.scopeKind")}
+        value={filters.scopeKind}
+        options={[
+          { value: "", label: t("settings.operatorMemory.allScopes") },
+          { value: "resource-group", label: memoryScopeLabel("resource-group") },
+          { value: "resource", label: memoryScopeLabel("resource") },
+        ]}
+        onChange={(value) => setFilters({ ...filters, scopeKind: value as OperatorMemoryFilters["scopeKind"] })}
+      />
+      <TextInput
+        label={t("settings.operatorMemory.scopeRef")}
+        maxLength={256}
+        value={filters.scopeRef}
+        onInput={(value) => setFilters({ ...filters, scopeRef: value })}
+      />
       <button type="submit" class="btn" disabled={loading}>{t("settings.operatorMemory.filter")}</button>
       <button type="button" class="btn secondary" disabled={loading || (operatorMemoryFiltersEqual(filters, EMPTY_FILTERS)
         && operatorMemoryFiltersEqual(applied, EMPTY_FILTERS))}

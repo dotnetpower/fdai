@@ -19,6 +19,7 @@ import { useEffect, useMemo, useReducer, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import type { AuditItem } from "../types";
 import { AgentWorkspaceNav, rolesHref } from "../components/agent-workspace-nav";
+import { SegmentedControl } from "../components/form-controls";
 import {
   AsyncBoundary,
   PageHeader,
@@ -582,24 +583,16 @@ function ActivityBody({
           </details>
         </div>
       </section>
-      <div class="view-toggle" role="group" aria-label={t("agentActivity.main.viewLabel")}>
-        <button
-          type="button"
-          class="view-toggle-btn"
-          aria-pressed={view === "trajectory"}
-          onClick={() => openActivity(selected, "trajectory")}
-        >
-          {t("agentActivity.trajectory.view")}
-        </button>
-        <button
-          type="button"
-          class="view-toggle-btn"
-          aria-pressed={view === "activity"}
-          onClick={() => openActivity(selected, "activity")}
-        >
-          {t("agentActivity.trajectory.logView")}
-        </button>
-      </div>
+      <SegmentedControl
+        ariaLabel={t("agentActivity.main.viewLabel")}
+        value={view}
+        className="view-toggle"
+        options={[
+          { value: "trajectory", label: t("agentActivity.trajectory.view") },
+          { value: "activity", label: t("agentActivity.trajectory.logView") },
+        ]}
+        onChange={(nextView) => openActivity(selected, nextView)}
+      />
       {selected && selectionValid ? (
         <div class="aa-selection" role="status">
           <span>

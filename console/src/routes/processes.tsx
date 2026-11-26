@@ -4,9 +4,10 @@ import {
   AsyncBoundary,
   EmptyState,
   PageHeader,
-  StatusPill,
   type AsyncState,
+  type PillKind,
 } from "../components/ui";
+import { StatusBadge, type BadgeTone } from "../components/status-badge";
 import { Tooltip } from "../components/tooltip";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
@@ -383,7 +384,7 @@ function ProcessDetail({
           <div><dt>{t("processesView.process")}</dt><dd><code>{process.id}</code></dd></div>
           <div><dt>{t("processesView.workflow")}</dt><dd><code>{process.workflow_ref}@{process.workflow_version}</code></dd></div>
           <div><dt>{t("processesView.target")}</dt><dd><code>{process.target_resource_id}</code></dd></div>
-          <div><dt>{t("processesView.state")}</dt><dd><StatusPill kind={processTone(process.status)} label={statusLabel(process.status)} /></dd></div>
+          <div><dt>{t("processesView.state")}</dt><dd><StatusBadge tone={pillKindToBadgeTone(processTone(process.status))} label={statusLabel(process.status)} /></dd></div>
           <div><dt>{t("processesView.currentStep")}</dt><dd><code>{process.current_step || t("processesView.terminal")}</code></dd></div>
           <div><dt>{t("processesView.revision")}</dt><dd>{process.revision}</dd></div>
           <div><dt>{t("processesView.started")}</dt><dd>{formatConsoleTimestamp(process.started_at)}</dd></div>
@@ -449,8 +450,8 @@ function InvestigationRoom({
             <p class="muted">{investigation.closure.reason}</p>
           ) : null}
         </div>
-        <StatusPill
-          kind={effectiveStatus === "converged" ? "success" : processTone(effectiveStatus)}
+        <StatusBadge
+          tone={effectiveStatus === "converged" ? "live" : pillKindToBadgeTone(processTone(effectiveStatus))}
           label={effectiveStatus === "running" ? t("processesView.investigationRunning") : effectiveStatus}
         />
       </div>
@@ -550,7 +551,7 @@ function PlanningRoom({ planning }: { readonly planning: PlanningRoomData }) {
           <h3 id="planning-room-title">{t("processesView.planningTitle")}</h3>
           <p class="muted">{t("processesView.planningBody")}</p>
         </div>
-        <StatusPill kind={plan?.complete ? "success" : "warning"} label={planning.current_phase} />
+        <StatusBadge tone={plan?.complete ? "live" : "sre"} label={planning.current_phase} />
       </div>
       <ol class="planning-phase-list" aria-label={t("processesView.planningPhases")}>
         {planning.phases.map((phase) => (
@@ -585,7 +586,7 @@ function PlanningRoom({ planning }: { readonly planning: PlanningRoomData }) {
                     <td><strong>{candidate.candidate_id}</strong>{candidate.reasons.length ? <small>{candidate.reasons.join(", ")}</small> : null}</td>
                     <td>{candidate.proposing_agents.join(", ") || "-"}</td>
                     <td><code>{candidate.action_type ?? "hold"}</code></td>
-                    <td><StatusPill kind={candidate.disposition === "selected" ? "success" : candidate.disposition === "ineligible" ? "danger" : "info"} label={candidate.disposition} /></td>
+                    <td><StatusBadge tone={candidate.disposition === "selected" ? "live" : candidate.disposition === "ineligible" ? "sec" : "info"} label={candidate.disposition} /></td>
                     <td>{candidate.expected_effects.map((effect) => `${effect.metric}: ${effect.expected_min ?? "?"}..${effect.expected_max ?? "?"}`).join("; ")}</td>
                     <td>{candidate.logic_receipt_refs.length + candidate.simulation_receipt_refs.length + candidate.constraint_evaluation_refs.length}</td>
                   </tr>
@@ -659,7 +660,7 @@ function RenderedProcess({ view, compactHeader = false }: { readonly view: Rende
     <div class="stack process-domain-view">
       <header class={compactHeader ? "process-section-heading" : "process-view-header"}>
         <div><span class="eyebrow">{view.process.workflow_ref}</span><h2>{view.name}</h2><p class="muted">{view.description}</p></div>
-        {!compactHeader ? <div class="process-view-status"><StatusPill kind={processTone(view.process.status)} label={view.process.status} /><span class="mono">{view.process.current_step || t("processesView.terminal")}</span></div> : null}
+        {!compactHeader ? <div class="process-view-status"><StatusBadge tone={pillKindToBadgeTone(processTone(view.process.status))} label={view.process.status} /><span class="mono">{view.process.current_step || t("processesView.terminal")}</span></div> : null}
       </header>
       <div class="process-region-grid">
         {view.regions.map((region) => (
@@ -672,4 +673,13 @@ function RenderedProcess({ view, compactHeader = false }: { readonly view: Rende
       </div>
     </div>
   );
+}
+
+function pillKindToBadgeTone(kind: PillKind): BadgeTone {
+  if (kind === "success" || kind === "auto" || kind === "enforce") return "live";
+  if (kind === "danger") return "sec";
+  if (kind === "warning") return "sre";
+  if (kind === "hil") return "human";
+  if (kind === "info") return "info";
+  return "neutral";
 }

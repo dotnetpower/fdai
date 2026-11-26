@@ -8,11 +8,11 @@ import {
   KpiCard,
   KpiGrid,
   PageHeader,
-  StatusPill,
   kpiEvidenceLabel,
   type AsyncState,
   type Column,
 } from "../components/ui";
+import { StatusBadge } from "../components/status-badge";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
 import { currentRoute, routeHref } from "../router";
@@ -169,8 +169,8 @@ function DeliveryBody({ data }: { readonly data: ConversationDeliveryResponse })
       key: "state",
       header: t("evidence.delivery.breakers"),
       render: ([name]) => (
-        <StatusPill
-          kind={name === "closed" ? "success" : "warning"}
+        <StatusBadge
+          tone={name === "closed" ? "live" : "sre"}
           label={presentationLabel("status", name)}
         />
       ),
@@ -220,8 +220,8 @@ function DeliveryBody({ data }: { readonly data: ConversationDeliveryResponse })
                     : "";
                 return (
                   <div class="cs-ratio-row" key={name}>
-                    <StatusPill
-                      kind={name === "delivered" ? "success" : name === "ambiguous" || name === "abandoned" ? "warning" : "neutral"}
+                    <StatusBadge
+                      tone={name === "delivered" ? "live" : name === "ambiguous" || name === "abandoned" ? "sre" : "neutral"}
                       label={presentationLabel("status", name)}
                     />
                     <div class="cs-ratio-track" aria-hidden="true">
@@ -249,7 +249,7 @@ function DeliveryBody({ data }: { readonly data: ConversationDeliveryResponse })
               <h3>{t("route.conversationDelivery")}</h3>
               <p>{t("evidence.delivery.viewPurpose")}</p>
             </div>
-            <StatusPill kind="neutral" label={t("evidence.common.readOnly")} />
+            <StatusBadge tone="neutral" label={t("evidence.common.readOnly")} />
           </header>
           <dl class="cs-facts-grid">
             <div><dt>{t("evidence.delivery.deliveries")}</dt><dd>{data.delivery_count.toLocaleString()}</dd></div>

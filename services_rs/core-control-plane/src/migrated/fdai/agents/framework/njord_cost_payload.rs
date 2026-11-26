@@ -1,0 +1,8 @@
+#[allow(clippy::all, unused_variables, unused_mut, unused_parens, unused_assignments, unreachable_code)]
+#[must_use]
+pub fn cost_anomaly_payload(mut finding: String, mut sample: String) -> std::collections::BTreeMap<String, String> {
+    let anomaly_material: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::from([(String::from("target_ref"), String::new()), (String::from("scope"), String::new()), (String::from("amount_usd"), String::new()), (String::from("baseline_usd"), String::new()), (String::from("ratio"), String::new()), (String::from("observed_at"), String::new()), (String::from("source_authority_ref"), String::new())]);
+    std::collections::BTreeMap::from([(String::from("id"), String::new()), (String::from("producer_principal"), String::from("Njord")), (String::from("correlation_id"), String::new()), (String::from("idempotency_key"), String::new()), (String::from("scope"), String::new()), (String::from("resource_id"), String::new()), (String::from("target_ref"), String::new()), (String::from("amount_usd"), String::new()), (String::from("baseline_usd"), String::new()), (String::from("ratio"), String::new()), (String::from("variance"), String::new()), (String::from("impact"), String::new()), (String::from("recommendation"), String::new()), (String::from("action_arguments"), String::new()), (String::from("observed_at"), String::new()), (String::from("detected_at"), String::new()), (String::from("evidence_ref"), String::new()), (String::from("source_authority_ref"), String::new()), (String::from("synthetic"), String::new())])
+}
+
+pub const PUBLIC_EXPORTS: &[&str] = &["cost_anomaly_payload"];

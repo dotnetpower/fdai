@@ -51,12 +51,18 @@ pub async fn fetch_summary(db: &DbHandle) -> Value {
     let snap_sql = "SELECT id, status, COALESCE(resource_count, 0), COALESCE(link_count, 0), \
                     COALESCE(to_char(completed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), '') \
                     FROM inventory_snapshot WHERE status = 'active' ORDER BY started_at DESC LIMIT 1";
-    let (Ok(inc), Ok(hil), Ok(find), Ok(cov), Ok(snap)) = tokio::join!(
+    let cs_sql = "SELECT value::text FROM state_kv \
+                  WHERE key LIKE 'runtime:code-security-issues:%' AND key NOT LIKE '%:artifacts%' \
+                  ORDER BY updated_at DESC LIMIT 10";
+    let scope_sql = "SELECT value::text FROM state_kv WHERE key = 'operator-projection:operations:scope.effective' LIMIT 1";
+    let (Ok(inc), Ok(hil), Ok(find), Ok(cov), Ok(snap), cs_res, scope_res) = tokio::join!(
         db.query_single_readonly(inc_sql),
         db.query_single_readonly(hil_sql),
         db.query_single_readonly(find_sql),
         db.query_single_readonly(cov_sql),
         db.query_single_readonly(snap_sql),
+        db.query_single_readonly(cs_sql),
+        db.query_single_readonly(scope_sql),
     ) else {
         return db.not_measured("operations", "/api/v4/operations/summary", "postgres_unreachable");
     };
@@ -67,6 +73,26 @@ pub async fn fetch_summary(db: &DbHandle) -> Value {
     let active_findings = find.rows.first().and_then(|r| cell_i64(r, 0)).unwrap_or(0);
     let cov_total = cov.rows.first().and_then(|r| cell_i64(r, 0)).unwrap_or(0);
     let cov_complete = cov.rows.first().and_then(|r| cell_i64(r, 1)).unwrap_or(0);
+    let mut cs_total: i64 = 0;
+    let mut cs_crit_high: i64 = 0;
+    if let Ok(cs) = cs_res {
+        for row in &cs.rows {
+            let parsed = parse_json_cell(row, 0);
+            if let Some(arr) = parsed.get("issues").and_then(Value::as_array) {
+                for item in arr.iter().take(60) {
+                    cs_total += 1;
+                    let sev = str_field(item, &["severity"]).to_ascii_lowercase();
+                    if sev == "critical" || sev == "high" {
+                        cs_crit_high += 1;
+                    }
+                }
+            }
+        }
+    }
+    let effective_scope = scope_res
+        .ok()
+        .and_then(|r| r.rows.first().map(|row| parse_json_cell(row, 0)))
+        .unwrap_or(Value::Null);
     let active_snap = snap.rows.first().map(|r| {
         json!({
             "snapshot_id": cell_str(r, 0),
@@ -87,6 +113,10 @@ pub async fn fetch_summary(db: &DbHandle) -> Value {
         "hil_queue": {
             "pending_total": hil_total
         },
+        "code_security": {
+            "total": cs_total,
+            "critical_high": cs_crit_high
+        },
         "findings": {
             "active_count": active_findings
         },
@@ -94,6 +124,7 @@ pub async fn fetch_summary(db: &DbHandle) -> Value {
             "coverage_records": cov_total,
             "complete_records": cov_complete
         },
+        "effective_scope": effective_scope,
         "active_snapshot": active_snap
     })
 }
@@ -225,6 +256,11 @@ pub async fn fetch_live_inventory(db: &DbHandle) -> Value {
         })
         .collect();
 
+    let heatmap_total_events: i64 = hm
+        .rows
+        .iter()
+        .map(|r| cell_i64(r, 2).unwrap_or(0))
+        .sum();
     let heatmap_buckets: Vec<Value> = hm
         .rows
         .iter()
@@ -276,6 +312,8 @@ pub async fn fetch_live_inventory(db: &DbHandle) -> Value {
             "recorded_at": cell_str(r, 8)
         })).collect::<Vec<_>>(),
         "heatmap_buckets": heatmap_buckets,
+        "heatmap_timezone": "UTC",
+        "heatmap_total_events": heatmap_total_events,
         "outbound_deliveries": dlv.rows.iter().map(|r| json!({
             "delivery_id": cell_str(r, 0),
             "channel_kind": cell_str(r, 1),
@@ -410,6 +448,8 @@ pub async fn fetch_gpu_observations(db: &DbHandle) -> Value {
             "utilization_pct": num_field(detail, &["utilization_pct"]),
             "temperature_c": num_field(detail, &["temperature_c"]),
             "power_w": num_field(detail, &["power_w"]),
+            "power_limit_w": num_field(detail, &["power_limit_w"]).or_else(|| num_field(detail, &["max_power_w"])),
+            "queue_depth": num_field(detail, &["queue_depth"]).or_else(|| num_field(detail, &["inference_queue"])),
             "xid_code": num_field(detail, &["xid_code"]),
             "memory_used_mib": mem_used,
             "memory_total_mib": mem_total,
@@ -471,14 +511,20 @@ pub async fn fetch_incidents_filtered(
                          to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
                          FROM state_kv WHERE key LIKE 'console_v4:operations:intervention:%' \
                          ORDER BY updated_at DESC LIMIT 50";
+    let scope_sql = "SELECT value::text FROM state_kv WHERE key = 'operator-projection:operations:scope.effective' LIMIT 1";
 
-    let (Ok(res), local_inc_res, local_int_res) = tokio::join!(
+    let (Ok(res), local_inc_res, local_int_res, scope_res) = tokio::join!(
         db.query_single_readonly(&sql),
         db.query_single_readonly(local_inc_sql),
         db.query_single_readonly(local_int_sql),
+        db.query_single_readonly(scope_sql),
     ) else {
         return db.not_measured("operations", "/api/v4/operations/incidents", "postgres_unreachable");
     };
+    let effective_scope = scope_res
+        .ok()
+        .and_then(|r| r.rows.first().map(|row| parse_json_cell(row, 0)))
+        .unwrap_or(Value::Null);
 
     let mut interventions_by_corr: BTreeMap<String, Vec<Value>> = BTreeMap::new();
     if let Ok(int_rows) = local_int_res {
@@ -573,6 +619,7 @@ pub async fn fetch_incidents_filtered(
     json!({
         "measurement_status": "measured",
         "source": "postgres-direct",
+        "effective_scope": effective_scope,
         "count": items.len(),
         "items": items
     })
@@ -587,13 +634,34 @@ pub async fn fetch_hil_queue(db: &DbHandle) -> Value {
                    to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
                    FROM state_kv WHERE key LIKE 'console_v4:operations:hil_decision:%' \
                    ORDER BY updated_at DESC LIMIT 60";
-    let (Ok(cnt_res), Ok(res), dec_res) = tokio::join!(
+    let audit_sql = "SELECT seq, COALESCE(correlation_id, ''), COALESCE(target, '') \
+                     FROM audit_log WHERE action_kind LIKE 'hil.%' OR action_kind LIKE 'approval%' \
+                     ORDER BY seq DESC LIMIT 120";
+    let (Ok(cnt_res), Ok(res), dec_res, audit_res) = tokio::join!(
         db.query_single_readonly(cnt_sql),
         db.query_single_readonly(sql),
         db.query_single_readonly(dec_sql),
+        db.query_single_readonly(audit_sql),
     ) else {
         return db.not_measured("operations", "/api/v4/operations/hil-queue", "postgres_unreachable");
     };
+
+    let mut audit_seq_by_corr: BTreeMap<String, i64> = BTreeMap::new();
+    let mut audit_seq_by_target: BTreeMap<String, i64> = BTreeMap::new();
+    if let Ok(arows) = audit_res {
+        for r in &arows.rows {
+            if let Some(seq) = cell_i64(r, 0) {
+                let corr = cell_str(r, 1);
+                if !corr.is_empty() {
+                    audit_seq_by_corr.entry(corr).or_insert(seq);
+                }
+                let tgt = cell_str(r, 2);
+                if !tgt.is_empty() {
+                    audit_seq_by_target.entry(tgt).or_insert(seq);
+                }
+            }
+        }
+    }
 
     let total_count = cnt_res
         .rows
@@ -641,17 +709,24 @@ pub async fn fetch_hil_queue(db: &DbHandle) -> Value {
             } else {
                 str_field(&parsed, &["status"])
             };
+            let correlation_id = str_field(&parsed, &["correlation_id"]);
+            let target_ref = str_field(&parsed, &["action", "target_resource_ref"]);
+            let audit_seq = audit_seq_by_corr
+                .get(&correlation_id)
+                .copied()
+                .or_else(|| audit_seq_by_target.get(&target_ref).copied());
             json!({
                 "key": key,
                 "approval_id": approval_id,
+                "audit_seq": audit_seq,
                 "rule_id": str_field(&parsed, &["rule_id"]),
                 "category": str_field(&parsed, &["category"]),
                 "severity": str_field(&parsed, &["severity"]),
                 "status": if status.is_empty() { "pending".to_string() } else { status },
                 "action_type": str_field(&parsed, &["action_type"]),
                 "mode": str_field(&parsed, &["action", "mode"]),
-                "target_resource_ref": str_field(&parsed, &["action", "target_resource_ref"]),
-                "correlation_id": str_field(&parsed, &["correlation_id"]),
+                "target_resource_ref": target_ref,
+                "correlation_id": correlation_id,
                 "submitter_oid": str_field(&parsed, &["submitter_oid"]),
                 "parked_at": str_field(&parsed, &["parked_at"]),
                 "quorum_required": str_field(&parsed, &["effective_quorum_required"]),
@@ -741,9 +816,16 @@ pub async fn fetch_security(db: &DbHandle) -> Value {
         .map(|r| parse_json_cell(r, 0))
         .unwrap_or(Value::Null);
 
+    let latest_observed_at = cs
+        .rows
+        .first()
+        .map(|r| cell_str(r, 2))
+        .unwrap_or_default();
+
     json!({
         "measurement_status": "measured",
         "source": "postgres-direct",
+        "latest_observed_at": latest_observed_at,
         "code_security_count": code_issues.len(),
         "code_security_issues": code_issues,
         "analyzer_findings_count": analyzer_findings.len(),
@@ -1547,3 +1629,4 @@ pub async fn fetch_onboarding(db: &DbHandle) -> Value {
         "startup_readiness": readiness
     })
 }
+

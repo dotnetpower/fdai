@@ -1,0 +1,1 @@
+pub const PUBLIC_EXPORTS: &[&str] = &["ComponentKind", "ComponentSelfUpgradeController", "ComponentSlotFence", "RoleFencingError", "SchemaDowngradeError", "SelfUpgradeTransitionRecord", "SlotId", "SlotRole", "TrialContinuityViolationError"];

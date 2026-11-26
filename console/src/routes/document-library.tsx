@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { triggerBlobDownload } from "../blob-download";
+import { SearchInput, SelectField } from "../components/form-controls";
 import { Tooltip } from "../components/tooltip";
 import {
   type DocumentVersionSummary,
@@ -232,31 +233,26 @@ export function DocumentLibrary({
           ) : null}
           {documents.length > 0 ? (
             <div class="document-library-tools">
-              <label>
-                <span>{knowledgeText("searchDocuments")}</span>
-                <input
-                  type="search"
-                  value={query}
-                  placeholder={knowledgeText("searchPlaceholder")}
-                  onInput={(event) => setQuery(event.currentTarget.value)}
-                />
-              </label>
-              <label>
-                <span>{knowledgeText("filterIndexStatus")}</span>
-                <select
-                  value={indexFilter}
-                  onChange={(event) => {
-                    const value = event.currentTarget.value;
-                    if (value === "all" || value === "indexed" || value === "attention") {
-                      setIndexFilter(value);
-                    }
-                  }}
-                >
-                  <option value="all">{knowledgeText("filterAll")}</option>
-                  <option value="indexed">{knowledgeText("filterIndexed")}</option>
-                  <option value="attention">{knowledgeText("filterAttention")}</option>
-                </select>
-              </label>
+              <SearchInput
+                label={knowledgeText("searchDocuments")}
+                value={query}
+                placeholder={knowledgeText("searchPlaceholder")}
+                onInput={setQuery}
+              />
+              <SelectField
+                label={knowledgeText("filterIndexStatus")}
+                value={indexFilter}
+                options={[
+                  { value: "all", label: knowledgeText("filterAll") },
+                  { value: "indexed", label: knowledgeText("filterIndexed") },
+                  { value: "attention", label: knowledgeText("filterAttention") },
+                ]}
+                onChange={(value) => {
+                  if (value === "all" || value === "indexed" || value === "attention") {
+                    setIndexFilter(value);
+                  }
+                }}
+              />
               <span>{knowledgeText("groupSummary", {
                 files: groups.length,
                 uploads: groups.reduce((total, group) => total + group.documents.length, 0),

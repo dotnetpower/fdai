@@ -124,8 +124,8 @@ jobs:
           ref: main
           fetch-depth: 1
           sparse-checkout: |
-            scripts/deployment/azure/validate_protected_service_apply_request.py
-            scripts/deployment/azure/verify-github-environment.py
+            _archive/python/scripts/deployment/azure/validate_protected_service_apply_request.py
+            _archive/python/scripts/deployment/azure/verify-github-environment.py
           path: .fdai-protected-environment-verifier
 
       - name: Verify required CI
@@ -169,7 +169,7 @@ jobs:
             gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT" \
               > "$RUNNER_TEMP/environment.json"
             python3 \
-              .fdai-protected-environment-verifier/scripts/deployment/azure/verify-github-environment.py \
+              .fdai-protected-environment-verifier/_archive/python/scripts/deployment/azure/verify-github-environment.py \
               "$RUNNER_TEMP/environment.json" \
               --environment "$TARGET_ENVIRONMENT" \
               --dev-required-approvals "$DEV_DEPLOY_REQUIRED_APPROVALS"
@@ -218,7 +218,7 @@ jobs:
               unzip -p "$RUNNER_TEMP/service-plan.zip" service-plan-metadata.json \
                 > "$RUNNER_TEMP/service-plan-metadata.json"
               python3 \
-                .fdai-protected-environment-verifier/scripts/deployment/azure/validate_protected_service_apply_request.py \
+                .fdai-protected-environment-verifier/_archive/python/scripts/deployment/azure/validate_protected_service_apply_request.py \
                 --repository "$GITHUB_REPOSITORY" \
                 --service "$service_name" \
                 --environment "$TARGET_ENVIRONMENT" \

@@ -1,5 +1,5 @@
 import { MetricSeriesChart } from "../components/charts";
-import { StatusPill, type PillKind } from "../components/ui";
+import { StatusBadge, type BadgeTone } from "../components/status-badge";
 import type { ConsoleDataMode } from "../console-data-mode";
 import { formatConsoleTimestamp } from "../time-format";
 import type {
@@ -63,8 +63,8 @@ export function GpuSelectedHeader({
         <p>{device.resourceRef}</p>
       </div>
       <div>
-        <StatusPill
-          kind={evidenceTone(device.evidenceState)}
+        <StatusBadge
+          tone={evidenceTone(device.evidenceState)}
           label={evidenceLabel(device.evidenceState)}
         />
         <p class="muted small">
@@ -200,8 +200,8 @@ export function GpuFindings({ findings }: { readonly findings: readonly GpuFindi
           {findings.map((finding, index) => (
             <li key={`${finding.kind}-${finding.status}-${index}`}>
               <span>{gpuMonitoringText(`findings.${finding.kind}`)}</span>
-              <StatusPill
-                kind={finding.status === "open" ? severityTone(finding.severity) : "success"}
+              <StatusBadge
+                tone={finding.status === "open" ? severityTone(finding.severity) : "live"}
                 label={gpuMonitoringText(`findings.${finding.status}`)}
               />
             </li>
@@ -237,7 +237,7 @@ export function GpuPipeline({ observation }: { readonly observation: GpuObservat
               {index < path.length - 1 ? (
                 <span class="gpu-pipeline-arrow" aria-hidden="true">→</span>
               ) : (
-                <StatusPill kind="success" label={gpuMonitoringText("pipeline.verified")} />
+                <StatusBadge tone="live" label={gpuMonitoringText("pipeline.verified")} />
               )}
             </li>
           ))}
@@ -385,15 +385,15 @@ function evidenceLabel(state: GpuEvidenceState): string {
   return gpuMonitoringText(`evidence.${state}`);
 }
 
-function evidenceTone(state: GpuEvidenceState): PillKind {
-  if (state === "fresh") return "success";
-  if (state === "stale") return "warning";
-  if (state === "conflicting") return "danger";
+function evidenceTone(state: GpuEvidenceState): BadgeTone {
+  if (state === "fresh") return "live";
+  if (state === "stale") return "sre";
+  if (state === "conflicting") return "sec";
   return "neutral";
 }
 
-function severityTone(severity: GpuFinding["severity"]): PillKind {
-  if (severity === "high") return "danger";
-  if (severity === "medium") return "warning";
+function severityTone(severity: GpuFinding["severity"]): BadgeTone {
+  if (severity === "high") return "sec";
+  if (severity === "medium") return "sre";
   return "info";
 }

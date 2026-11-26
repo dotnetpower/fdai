@@ -1,0 +1,25 @@
+# Zero-Python Multi-Stage Distroless Container (fdai)
+FROM rust:1.86-bookworm AS builder
+WORKDIR /src
+COPY Cargo.toml Cargo.lock deny.toml ./
+COPY crates ./crates
+COPY services_rs ./services_rs
+COPY lifecycle_rs ./lifecycle_rs
+COPY extensions_rs ./extensions_rs
+COPY benchmarks_rs ./benchmarks_rs
+COPY tools_rs ./tools_rs
+COPY console_rs ./console_rs
+COPY migrations ./migrations
+RUN cargo build --release --workspace --locked
+
+FROM gcr.io/distroless/cc-debian12:nonroot
+WORKDIR /app
+COPY --from=builder /src/target/release/fdai-operator-service /app/fdai-operator-service
+COPY --from=builder /src/target/release/fdai-document-ingestion-api /app/fdai-document-ingestion-api
+COPY --from=builder /src/target/release/fdai-core-control-plane /app/fdai-core-control-plane
+COPY --from=builder /src/target/release/fdai-console-v4 /app/fdai-console-v4
+COPY --from=builder /src/console_rs/assets /app/console_rs/assets
+COPY --from=builder /src/migrations /app/migrations
+USER nonroot:nonroot
+EXPOSE 8010 8011 8012 5290
+ENTRYPOINT ["/app/fdai-console-v4", "--host", "0.0.0.0", "--port", "5290"]

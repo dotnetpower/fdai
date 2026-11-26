@@ -1,29 +1,14 @@
-# Convenience targets:
-#   `dev-*`   - local dev stack (pgvector + Redpanda), see `infra/local/`.
-#   `lint`, `format`, `test`, `gates`, `check` - local validation entry points.
-#     `check` is an explicitly requested broad local run, not complete Actions
-#     parity. Prefer owning tests during development.
-# Real deployment lives under `infra/` (Terraform); see the roadmap.
+# Convenience targets (100% Pure-Rust workspace & local dev stack):
+#   `dev-*`            - local dev stack (pgvector + Redpanda), see `infra/local/`.
+#   `rust-fullstack-*` - Pure-Rust Axum services + Console v4, see `deploy_rs/`.
+#   `lint`, `format`, `test`, `gates`, `xtask`, `check` - Pure-Rust validation entry points.
 
-
-.PHONY: dev-up dev-down dev-logs dev-nuke help workflow-status workflow-preflight \
-	lint format test test-changed ci-preflight service-test service-test-all operator gates check derived-refresh derived-check \
-	validation-status validation-run \
-	validation-all worktree-maintenance worktree-cleanup artifact-maintenance artifact-cleanup \
-	roadmap-verification-sync roadmap-verification-status \
-	roadmap-verification-report roadmap-verification-retry roadmap-verification-apply \
-	roadmap-implementation-start roadmap-implementation-status roadmap-implementation-stop \
-	roadmap-implementation-remove pre-commit-install hooks-install \
-        azd-up genesis-up
+.PHONY: dev-up dev-down dev-logs dev-nuke help rust-fullstack-up rust-fullstack-down \
+	console-v4-up lint format test xtask check-migrations gates check \
+	pre-commit-install hooks-install azd-up genesis-up
 
 help: ## show this help
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
-
-workflow-status: ## show bounded read-only developer workflow diagnostics
-	@python3 scripts/automation/developer-workflow.py status
-
-workflow-preflight: ## fail on focused-check environment contamination
-	@python3 scripts/automation/developer-workflow.py preflight
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 dev-up: ## start pgvector + Redpanda locally (waits for healthchecks)
 	@scripts/deployment/local/dev-up.sh
@@ -37,6 +22,15 @@ dev-logs: ## tail postgres + redpanda logs (optional: SERVICE=postgres)
 dev-nuke: ## stop the stack AND drop its volumes (fresh state next `dev-up`)
 	@docker compose -f infra/local/docker-compose.yml down -v
 
+rust-fullstack-up: ## build and start all 8 Pure-Rust Axum services + Hubs
+	@bash deploy_rs/start-fullstack-rust.sh
+
+rust-fullstack-down: ## stop the local Pure-Rust fullstack services
+	@bash deploy_rs/stop-fullstack-rust.sh
+
+console-v4-up: ## run Pure-Rust FDAI Console v4 server on 127.0.0.1:5290
+	cargo run --offline -p fdai-console-v4 -- --host 127.0.0.1 --port 5290
+
 azd-up: ## deploy public dev Core from the active az login; asks for region
 	@scripts/deployment/azure/azd-up.sh
 
@@ -44,100 +38,28 @@ genesis-up: ## explain the retired Terraform-stream prototype and canonical fdai
 	@scripts/deployment/azure/genesis-up.sh
 
 # ---------------------------------------------------------------------------
-# Local counterparts of individual CI checks. They do not replace remote
-# integration, supply-chain evidence, or protected deployment preflight.
+# Pure-Rust workspace quality & verification gates (zero Python dependency)
 # ---------------------------------------------------------------------------
 
-lint: ## ruff check + ruff format --check + mypy --strict
-	uv run ruff format --check services packages tests extensions/code-assurance
-	uv run ruff check services packages tests extensions/code-assurance
-	uv run mypy
+lint: ## cargo check across the full Pure-Rust workspace
+	cargo check --workspace --offline
 
-format: ## apply ruff format + ruff --fix (mutates files)
-	uv run ruff format services packages tests extensions/code-assurance
-	uv run ruff check --fix services packages tests extensions/code-assurance
+format: ## format Rust sources across the workspace
+	cargo fmt --all
 
-test: ## pytest with safety-core branch coverage (--cov-fail-under=90 matches CI)
-	bash scripts/quality/ci/run-python-tests.sh
+test: ## run all Pure-Rust workspace unit and integration tests
+	cargo test --workspace --offline
 
-test-changed: ## pytest paths affected by changes (optional: DIFF=origin/main...HEAD)
-	@bash scripts/automation/tests-for-diff.sh --run $(DIFF)
+xtask: ## run Zero-Python, Hexagonal Core, Zero-Attribution & hollow-fn ratchet gates
+	cargo run --offline -p fdai-xtask -- verify
 
-ci-preflight: ## run the CI jobs this diff triggers locally before push (optional: BASE=origin/main)
-	@bash scripts/quality/ci/local-preflight.sh --base $(or $(BASE),origin/main)
+check-migrations: ## verify all 259 SQL migration files and execution order manifest
+	cargo run --offline -p fdai-xtask -- check-migrations
 
-service-test: ## run one service-owned suite (SERVICE=<service-id>)
-	@test -n "$(SERVICE)" || (echo "SERVICE is required" >&2; exit 2)
-	@uv run --extra dev python scripts/automation/run-service-tests.py "$(SERVICE)"
+gates: xtask check-migrations ## run all Pure-Rust architectural, Zero-Python, hygiene, and SQL gates
+	cargo run --offline -p fdai-xtask -- check-hygiene
 
-service-test-all: ## run all service-owned suites in canonical order
-	@uv run --extra dev python scripts/automation/run-service-tests.py --all
-
-operator: ## console + CLI tests, typecheck, build, and entry-bundle budget
-	bash scripts/quality/ci/run-operator-surfaces.sh
-
-gates: ## repo hygiene: punctuation / guids / translations / core-imports / risk table
-	bash scripts/quality/repository/check-punctuation.sh
-	bash scripts/quality/repository/check-guids.sh
-	bash scripts/quality/localization/check-translations.sh
-	bash scripts/quality/architecture/check-core-imports.sh
-	python3 scripts/quality/architecture/check-risk-table-change.py
-
-check: lint gates test operator ## explicit broad local checks (not all GitHub Actions jobs)
-
-derived-refresh: ## regenerate every contract- and catalog-derived artifact after a contract or catalog change
-	bash scripts/automation/refresh-derived-artifacts.sh
-
-derived-check: ## verify every contract- and catalog-derived artifact is current
-	bash scripts/automation/refresh-derived-artifacts.sh --check
-
-validation-status: ## show commits waiting for centralized integration validation
-	@python3 scripts/automation/validation_queue.py status
-
-validation-run: ## validate the pending batch with changed tests + fast gates
-	@python3 scripts/automation/validation_queue.py run
-
-validation-all: ## validate the pending batch with whole-repository gates
-	@python3 scripts/automation/validation_queue.py run --all
-
-worktree-maintenance: ## preview clean completed worktrees eligible for removal
-	@python3 scripts/automation/worktree-maintenance.py --min-age-hours "$(or $(MIN_AGE_HOURS),24)"
-
-worktree-cleanup: ## remove eligible worktrees (optional: MIN_AGE_HOURS=48)
-	@python3 scripts/automation/worktree-maintenance.py --min-age-hours "$(or $(MIN_AGE_HOURS),24)" --apply
-
-artifact-maintenance: ## preview disposable local cache, kit, and state artifacts eligible for removal
-	@python3 scripts/deployment/local/prune-local-artifacts.py
-
-artifact-cleanup: ## remove disposable local cache, kit, and state artifacts while preserving audit evidence
-	@python3 scripts/deployment/local/prune-local-artifacts.py --apply
-
-roadmap-verification-sync: ## discover canonical roadmap documents and refresh queue freshness
-	@python3 scripts/automation/roadmap_verification_cli.py sync
-
-roadmap-verification-status: ## show durable roadmap verification job counts
-	@python3 scripts/automation/roadmap_verification_cli.py status
-
-roadmap-verification-report: ## audit one roadmap document without repository writes
-	@python3 scripts/automation/roadmap_verification_worker.py
-
-roadmap-verification-retry: ## retry one failed roadmap audit without claiming queued work
-	@python3 scripts/automation/roadmap_verification_worker.py --retry-failed
-
-roadmap-verification-apply: ## apply one job in a clean campaign worktree and fast-forward it
-	@python3 scripts/automation/roadmap_verification_worker.py --apply --integrate
-
-roadmap-implementation-start: ## start explicit randomized repeat campaign with automatic issue discovery
-	@python3 scripts/automation/install_roadmap_implementation_campaign.py start
-
-roadmap-implementation-status: ## show randomized repeat campaign timer state
-	@python3 scripts/automation/install_roadmap_implementation_campaign.py status
-
-roadmap-implementation-stop: ## stop repeat campaign while preserving worktree and state
-	@python3 scripts/automation/install_roadmap_implementation_campaign.py stop
-
-roadmap-implementation-remove: ## remove repeat campaign units while preserving worktree and state
-	@python3 scripts/automation/install_roadmap_implementation_campaign.py remove
+check: lint gates test ## run full local Pure-Rust workspace verification
 
 pre-commit-install: hooks-install ## backwards-compatible alias for hooks-install
 	@echo "pre-commit-install is configured through the tracked .githooks/pre-commit hook."
@@ -145,4 +67,4 @@ pre-commit-install: hooks-install ## backwards-compatible alias for hooks-instal
 hooks-install: ## enable the shared tracked git hooks (git config core.hooksPath .githooks)
 	git config core.hooksPath .githooks
 	chmod +x .githooks/* scripts/automation/git-auto-pull.sh 2>/dev/null || true
-	@echo "pre-commit and pre-push hooks enabled (core.hooksPath=.githooks)."
+	@echo "Pure-Rust pre-commit and pre-push hooks enabled (core.hooksPath=.githooks)."

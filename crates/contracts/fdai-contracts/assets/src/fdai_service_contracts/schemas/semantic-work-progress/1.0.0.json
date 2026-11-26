@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.example/schemas/semantic-work-progress/1.0.0.json",
+  "title": "SemanticWorkProgress",
+  "description": "One plan-time work progress pin published before the pinned plan's first query-node progress. It selects presentation density only and carries no evidence or execution authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_kind",
+    "request_id",
+    "session_id",
+    "turn_id",
+    "turn_sequence",
+    "progress_sequence",
+    "work_progress_shape",
+    "execution_authority"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "record_kind": {"const": "work_progress_shape"},
+    "request_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "session_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "turn_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "turn_sequence": {"type": "integer", "minimum": 0},
+    "progress_sequence": {"type": "integer", "minimum": 1, "maximum": 256},
+    "work_progress_shape": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "density", "waves", "planned_reads"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "density": {"enum": ["compact", "procedural"]},
+        "waves": {"type": "integer", "minimum": 1, "maximum": 8},
+        "planned_reads": {"type": "integer", "minimum": 0, "maximum": 64}
+      },
+      "if": {"properties": {"density": {"const": "compact"}}},
+      "then": {
+        "properties": {
+          "waves": {"const": 1},
+          "planned_reads": {"maximum": 1}
+        }
+      }
+    },
+    "execution_authority": {"const": false}
+  }
+}

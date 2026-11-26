@@ -1450,11 +1450,45 @@ mod tests {
         }
         assert!(!html.contains("mockup-governance.html"));
         assert!(!html.contains("mockup-operations.html"));
-        assert!(html.contains("\"/ontology\""));
-        assert!(html.contains("\"/hil-queue\""));
-        assert!(html.contains("\"/incidents\""));
+        assert!(html.contains("\"/governance/ontology\""));
+        assert!(html.contains("\"/operations/hil-queue\""));
+        assert!(html.contains("\"/operations/incidents\""));
         assert!(html.contains("data-ut-title"));
         assert!(html.contains("/api/v4/evidence/audit"));
+        assert!(TEMPLATE.contains("<title>FDAI 운영 콘솔 — 감사 · 이력</title>"));
+        assert!(!TEMPLATE.contains("공유 디자인 시스템(fdai-console-shared.css)"));
+        assert!(!TEMPLATE.contains("innerHTML"), "evidence.html must not use innerHTML");
+        assert!(TEMPLATE.contains("fdaiV4Humanize"), "evidence.html must use fdaiV4Humanize");
+        assert!(TEMPLATE.contains("fdaiV4Selection"), "evidence.html must use fdaiV4Selection");
+        assert!(TEMPLATE.contains("drawer-summary-card"));
+        assert!(TEMPLATE.contains("drawer-kv-grid"));
+        assert!(TEMPLATE.contains("drawer-tech-details"));
+        let markup = TEMPLATE
+            .split("<script>")
+            .next()
+            .ok_or("missing inline script boundary in evidence.html")?;
+        for leaked_sample in [
+            "14,210",
+            "481건",
+            "12건 롤백",
+            "김운영",
+            "prod-aks-02",
+            "corr-8a91f",
+            "12,840",
+            "RCA-2026-441",
+            "92.8%",
+            "Withheld 2건",
+            "1,084턴",
+            "2026-W48",
+            "prod-core-kr",
+            "prod-data-platform",
+            "sec-shared-hub",
+        ] {
+            assert!(
+                !markup.contains(leaked_sample),
+                "sample value leaked into static HTML markup: {leaked_sample}"
+            );
+        }
         Ok(())
     }
 

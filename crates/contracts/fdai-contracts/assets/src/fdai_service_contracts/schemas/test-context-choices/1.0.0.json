@@ -1,0 +1,128 @@
+{
+  "$defs": {
+    "TestContextPolicyChoice": {
+      "additionalProperties": false,
+      "description": "Server-owned scope and policy choice; display only, no browser authority.",
+      "properties": {
+        "case_scope_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Case Scope Id",
+          "type": "string"
+        },
+        "access_scope_digest": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Access Scope Digest",
+          "type": "string"
+        },
+        "target_selectors": {
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Target Selectors",
+          "type": "array"
+        },
+        "policy_revision": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Policy Revision",
+          "type": "string"
+        },
+        "source_revision": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Source Revision",
+          "type": "string"
+        },
+        "allowed_operations": {
+          "items": {
+            "enum": [
+              "propose",
+              "review",
+              "revoke"
+            ],
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Allowed Operations",
+          "type": "array"
+        },
+        "execution_authority": {
+          "const": false,
+          "default": false,
+          "title": "Execution Authority",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "case_scope_id",
+        "access_scope_digest",
+        "target_selectors",
+        "policy_revision",
+        "source_revision",
+        "allowed_operations"
+      ],
+      "title": "TestContextPolicyChoice",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Authenticated principal-scoped choices from the reviewed grant registry.",
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_revision": {
+      "anyOf": [
+        {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Revision"
+    },
+    "choices": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/TestContextPolicyChoice"
+      },
+      "maxItems": 128,
+      "title": "Choices",
+      "type": "array"
+    },
+    "unavailable_reasons": {
+      "default": [],
+      "items": {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 16,
+      "title": "Unavailable Reasons",
+      "type": "array"
+    },
+    "execution_authority": {
+      "const": false,
+      "default": false,
+      "title": "Execution Authority",
+      "type": "boolean"
+    }
+  },
+  "title": "TestContextChoiceProjection",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/test-context-choices/1.0.0"
+}

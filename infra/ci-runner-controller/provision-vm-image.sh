@@ -41,7 +41,7 @@ chmod 0440 /etc/sudoers.d/fdai-ci-trivy
 printf '[global]\nbreak-system-packages = true\n' > /etc/pip.conf
 chmod 0644 /etc/pip.conf
 install -m 0644 "$source_root/infra/ci-runner/toolchain.json" /opt/fdai-ci/toolchain.json
-install -m 0755 "$source_root/infra/ci-runner/verify-toolchain.py" /opt/fdai-ci/verify-toolchain.py
+install -m 0755 "$source_root/_archive/python/infra/ci-runner/verify-toolchain.py" /opt/fdai-ci/verify-toolchain.py
 install -m 0755 "$source_root/infra/ci-runner/provision-toolchain.sh" /opt/fdai-ci/provision-toolchain.sh
 timeout 2400 /opt/fdai-ci/provision-toolchain.sh
 
@@ -59,7 +59,7 @@ tar -xzf "$archive" -C /opt/actions-runner
 rm -f -- "$archive"
 /opt/actions-runner/bin/installdependencies.sh
 chown -R runner:runner /opt/actions-runner
-install -o root -g root -m 0755 "$source_root/infra/ci-runner-aca/broker-entrypoint.py" \
+install -o root -g root -m 0755 "$source_root/_archive/python/infra/ci-runner-aca/broker-entrypoint.py" \
   /opt/fdai-ci/broker-entrypoint.py
 systemctl enable --now docker
 systemctl is-active --quiet docker

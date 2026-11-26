@@ -68,15 +68,14 @@ async function geometry(page: Page) {
   return page.evaluate(() => {
     const main = document.querySelector("main")!;
     const overview = document.querySelector(".overview-essential")!;
-    const sections = [...document.querySelectorAll(".overview-report > .overview-section")].map((section) => {
-      const box = section.getBoundingClientRect();
-      return { className: section.className, x: box.x, y: box.y, width: box.width, bottom: box.bottom };
-    });
+    const kpiGrid = document.querySelector(".overview-kpi-grid")!.getBoundingClientRect();
+    const timeline = document.querySelector(".overview-timeline-section")!.getBoundingClientRect();
     return {
       document: [document.documentElement.clientWidth, document.documentElement.scrollWidth],
       main: [main.clientWidth, main.scrollWidth],
       overview: [overview.clientWidth, overview.scrollWidth],
-      sections,
+      kpiBottom: kpiGrid.bottom,
+      timelineTop: timeline.top,
       disclosure: document.querySelector(".overview-details > summary")!.getBoundingClientRect().bottom,
       launcher: document.querySelector(".deck-invoke")!.getBoundingClientRect().top,
     };
@@ -90,64 +89,52 @@ function expectNoOverflow(result: Awaited<ReturnType<typeof geometry>>) {
 }
 
 for (const locale of ["en", "ko"]) {
-  test(`desktop ${locale}: essential hierarchy, charts and keyboard disclosure`, async ({ page }, testInfo) => {
+  test(`desktop ${locale}: finalized 4 KPI + live timeline hierarchy, drawer and keyboard disclosure`, async ({ page }, testInfo) => {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     const writes = await mockApi(page);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto(`/overview?data=sample&locale=${locale}`);
-    await expect(page.locator(".overview-progress-ring strong")).toHaveText("72%");
-    const ring = (await page.locator(".overview-ring-value").getAttribute("stroke-dasharray"))!
-      .split(" ")
-      .map(Number);
-    expect(ring[0]).toBeCloseTo((922 / 1280) * 100);
-    expect(ring[1]).toBeCloseTo((1 - 922 / 1280) * 100);
-    const rotation = await page.locator(".overview-ring-baseline").getAttribute("transform");
-    expect(Number(rotation!.match(/rotate\(([\d.]+)/)![1])).toBeCloseTo(0.48 * 360);
-    await expect(page.locator(".overview-report > .overview-section")).toHaveCount(4);
-    await expect(page.locator(".overview-metric")).toHaveCount(4);
-    await expect(page.locator(".overview-section-attention .overview-attention-card")).toHaveCount(3);
+    await expect(page.locator(".overview-kpi-grid .cs-spark-panel")).toHaveCount(4);
+    await expect(page.locator(".overview-timeline-section .cs-timeline-panel")).toBeVisible();
+    await expect(page.locator(".overview-report > .overview-section")).toHaveCount(0);
     await expect(page.locator(".overview-details")).not.toHaveAttribute("open");
-    await expect(page.locator(".overview-posture-facts a").last()).toHaveAttribute("href", "/audit?from_seq=1001&through_seq=2280");
-    await expect(page.locator(".overview-posture-facts a").last()).toContainText(/1,?280/);
-    await expect(page.locator(".overview-section-routing a[href*='outcome=']")).toHaveCount(8);
     const desktop = await geometry(page);
     expectNoOverflow(desktop);
-    expect(desktop.sections[1]!.y).toBe(desktop.sections[2]!.y);
-    // Reading space takes priority over forcing secondary evidence into one viewport.
-    expect(desktop.sections[0]!.bottom).toBeLessThan(desktop.launcher);
-    expect(desktop.sections[1]!.bottom).toBeLessThan(desktop.launcher);
-    await expect(page.locator(".overview-section-attention small")).toHaveCount(0);
-    await expect(page.locator(".overview-section-attention .overview-attention-value").first())
-      .toHaveText(locale === "ko" ? "대기 3건" : "Pending: 3");
-    const rhythm = await page.locator(".overview-section-attention .overview-attention-card").first()
-      .evaluate((element) => {
-        const style = getComputedStyle(element);
-        return { padding: style.paddingTop, gap: style.gap };
-      });
-    expect(rhythm).toEqual({ padding: "16px", gap: "8px" });
+    expect(desktop.kpiBottom).toBeLessThanOrEqual(desktop.timelineTop + 1);
     await testInfo.attach(`desktop-${locale}.json`, { body: JSON.stringify(desktop), contentType: "application/json" });
     await page.screenshot({ path: testInfo.outputPath(`desktop-${locale}.png`) });
 
+    // Switch timeline views: scatter -> stacked -> domain -> scatter
+    const tabs = page.locator(".overview-timeline-section [role=tab]");
+    await expect(tabs).toHaveCount(3);
+    await tabs.nth(1).click();
+    await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
+    await tabs.nth(2).click();
+    await expect(page.locator(".cs-domain-bars")).toBeVisible();
+    await tabs.nth(0).click();
+    await expect(tabs.nth(0)).toHaveAttribute("aria-selected", "true");
+
+    // Clicking a KPI card opens the detail drawer; Escape closes it
+    await page.locator("#overview-kpi-human").click();
+    await expect(page.locator(".cs-drawer-panel[role=dialog]")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".cs-drawer-panel")).toHaveCount(0);
+
+    // Detailed evidence remains accessible via keyboard disclosure
     const summary = page.locator(".overview-details > summary");
     await summary.focus();
-    const focusedSummary = await summary.boundingBox();
-    const launcher = await page.locator(".deck-invoke").boundingBox();
-    expect(focusedSummary!.y + focusedSummary!.height).toBeLessThanOrEqual(launcher!.y);
-    await page.keyboard.press("Enter");
+    await summary.press("Enter");
     await expect(page.locator(".overview-details")).toHaveAttribute("open", "");
+    await expect(page.locator(".overview-progress-ring strong")).toHaveText("72%");
     await expect(page.locator(".overview-status-meta")).toBeVisible();
     await expect(page.locator(".overview-verticals")).toBeVisible();
-    await expect(page.locator(".overview-details .overview-attention-card")).toHaveCount(3);
     expectNoOverflow(await geometry(page));
-    await page.keyboard.press("Enter");
+    await summary.focus();
+    await summary.press("Enter");
     await expect(page.locator(".overview-details")).not.toHaveAttribute("open");
     await expect(summary).toBeFocused();
-    expect(await summary.evaluate((element) => getComputedStyle(element).outlineStyle)).toBe("solid");
-    await page.locator(".overview-metric").first().focus();
-    await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(/\/operating-outcomes\/human-touchpoints/);
     expect(writes).toEqual([]);
     expect(errors).toEqual([]);
   });
@@ -157,20 +144,17 @@ test("live fixture: unavailable, measured zero, loading and error stay distinct"
   await page.setViewportSize({ width: 1440, height: 900 });
   await mockApi(page);
   await page.goto("/overview?locale=en");
-  await expect(page.locator(".overview-posture.is-summary .overview-evidence-state")).toHaveText("Evidence unavailable");
-  await expect(page.locator(".overview-metrics.is-summary .overview-evidence-row")).toHaveCount(4);
-  await expect(page.locator(".overview-progress-ring")).toHaveCount(0);
-  await expect(page.locator(".overview-section-routing .overview-evidence-row")).toHaveCount(2);
-  await expect(page.locator(".overview-section-attention")).toContainText("Pending: 0");
-  expect(await page.locator(".overview-metrics.is-summary .overview-evidence-state").first()
-    .evaluate((element) => getComputedStyle(element).fontWeight)).toBe("400");
-  expect((await page.locator(".overview-routing-grid").boundingBox())!.height).toBeLessThanOrEqual(144);
-  expect((await page.locator(".overview-posture").boundingBox())!.height).toBeLessThanOrEqual(220);
-  await expect(page.locator(".overview-primary-metric")).toHaveCount(0);
+  await expect(page.locator(".overview-kpi-grid .cs-spark-panel")).toHaveCount(4);
+  await expect(page.locator("#overview-kpi-risks")).toContainText("Unmeasured");
+  await expect(page.locator("#overview-kpi-risks .cs-spark-value")).toHaveText("-");
+  await expect(page.locator("#overview-kpi-events .cs-spark-value")).toHaveText("280");
+  await expect(page.locator("#overview-kpi-human .cs-spark-value")).toHaveText("0");
 
   await page.unrouteAll();
   await mockApi(page, 200, true);
   await page.reload();
+  await expect(page.locator("#overview-kpi-risks .cs-spark-value")).toHaveText("1");
+  await page.locator(".overview-details > summary").click();
   await expect(page.locator(".overview-progress-ring strong")).toHaveText("0%");
   await expect(page.locator(".overview-ring-value")).toHaveAttribute("stroke-dasharray", "0 100");
   await expect(page.locator(".overview-ring-baseline")).toHaveAttribute("transform", "rotate(0 50 50)");
@@ -197,7 +181,7 @@ test("live fixture: unavailable, measured zero, loading and error stay distinct"
   await expect(page.getByRole("link", { name: "View diagnostics" })).toHaveAttribute("href", "/settings/diagnostics");
   fail = false;
   await page.getByRole("button", { name: "Retry", exact: true }).click();
-  await expect(page.locator(".overview-posture.is-summary")).toBeVisible();
+  await expect(page.locator(".overview-kpi-grid .cs-spark-panel")).toHaveCount(4);
   await expect(page.locator(".overview-essential [role=alert]")).toHaveCount(0);
 });
 
@@ -246,6 +230,7 @@ test("partial measurements and explicit empty distributions remain distinct", as
   await page.setViewportSize({ width: 1440, height: 900 });
   await mockApi(page, 200, false, { kpi: { by_tier: { t0: 8, t1: 2 } } });
   await page.goto("/overview?locale=en");
+  await page.locator(".overview-details > summary").click();
   await expect(page.locator(".overview-routing-grid .overview-distribution-bar")).toHaveCount(1);
   await expect(page.locator(".overview-routing-grid .overview-evidence-row")).toHaveCount(1);
   await expect(page.locator(".overview-routing-grid.is-summary")).toHaveCount(0);
@@ -266,6 +251,7 @@ test("partial measurements and explicit empty distributions remain distinct", as
     },
   });
   await page.reload();
+  await page.locator(".overview-details > summary").click();
   await expect(page.locator(".overview-routing-grid [data-evidence-state=empty]")).toHaveCount(2);
   await expect(page.locator(".overview-routing-grid")).toContainText("0 recorded entries");
   await expect(page.locator(".overview-routing-grid .overview-distribution-bar")).toHaveCount(0);
@@ -285,6 +271,7 @@ test("optional reads show skeletons before collapsing to unavailable summaries",
     await route.fulfill({ status: 404, json: { detail: "Measurement source unavailable" } });
   });
   await page.goto("/overview?locale=en");
+  await page.locator(".overview-details > summary").click();
   await expect(page.locator(".overview-metrics.is-loading [aria-busy=true]")).toHaveCount(4);
   await expect(page.locator(".overview-primary-metric [aria-busy=true]")).toBeVisible();
   await expect(page.locator(".overview-section-attention [aria-busy=true]")).toHaveCount(2);
@@ -301,14 +288,12 @@ for (const locale of ["en", "ko"]) {
     await mockApi(page);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`/overview?locale=${locale}`);
-    await expect(page.locator(".overview-metrics.is-summary")).toBeVisible();
+    await expect(page.locator(".overview-kpi-grid .cs-spark-panel")).toHaveCount(4);
     expectNoOverflow(await geometry(page));
     await page.screenshot({ path: testInfo.outputPath(`unavailable-desktop-${locale}.png`) });
     for (const width of [993, 390, 320]) {
       await page.setViewportSize({ width, height: 844 });
       expectNoOverflow(await geometry(page));
-      const row = page.locator(".overview-metrics .overview-evidence-row").first();
-      expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       const disclosure = page.locator(".overview-details > summary");
       await disclosure.click();
       expectNoOverflow(await geometry(page));
@@ -320,6 +305,7 @@ for (const locale of ["en", "ko"]) {
       .overview-essential * { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; }
     ` });
     expectNoOverflow(await geometry(page));
+    await page.locator(".overview-details > summary").click();
     const metric = page.locator(".overview-metrics .overview-evidence-row").first();
     await expect(metric).toHaveAttribute("href", "/operating-outcomes/human-touchpoints");
     await metric.focus();
@@ -333,7 +319,7 @@ test("responsive: container reflow, expanded evidence and enlarged text", async 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 993, height: 641 });
   await page.goto("/overview?data=sample&locale=ko");
-  await expect(page.locator(".overview-progress-ring")).toBeVisible();
+  await expect(page.locator(".overview-kpi-grid .cs-spark-panel")).toHaveCount(4);
   expectNoOverflow(await geometry(page));
   await page.screenshot({ path: testInfo.outputPath("constrained.png") });
   for (const width of [390, 320]) {
@@ -345,9 +331,9 @@ test("responsive: container reflow, expanded evidence and enlarged text", async 
     await summary.click();
     await expect(page.locator(".overview-details")).toHaveAttribute("open", "");
     expectNoOverflow(await geometry(page));
-    await summary.click();
     const target = await page.locator(".overview-distribution-legend a").first().boundingBox();
     expect(target!.height).toBeGreaterThanOrEqual(44);
+    await summary.click();
     await page.screenshot({ path: testInfo.outputPath(`mobile-${width}.png`) });
   }
   await page.setViewportSize({ width: 993, height: 641 });
@@ -365,7 +351,7 @@ test("appearance: text contrast, focus, navigation-open and user preferences", a
   await mockApi(page);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/overview?data=sample&locale=en");
-  await expect(page.locator(".overview-progress-ring")).toBeVisible();
+  await expect(page.locator(".overview-kpi-grid .cs-spark-panel")).toHaveCount(4);
   for (const theme of ["light", "dark"]) {
     await page.evaluate((value) => document.documentElement.setAttribute("data-theme", value), theme);
     const contrast = await page.evaluate(() => {
@@ -377,9 +363,8 @@ test("appearance: text contrast, focus, navigation-open and user preferences", a
         });
         return values[0]! * 0.2126 + values[1]! * 0.7152 + values[2]! * 0.0722;
       }
-      return [".overview-metric-label", ".overview-section-head p", ".overview-panel-kicker",
-        ".overview-attention-state", ".overview-primary-metric small", ".overview-metric-value",
-        ".overview-posture-fact strong"].flatMap((selector) =>
+      return [".cs-spark-label", ".cs-spark-value", ".cs-spark-foot", ".cs-timeline-title",
+        ".cs-timeline-subtitle"].flatMap((selector) =>
         [...document.querySelectorAll(selector)].filter((element) => element.checkVisibility()).map((element) => {
           const ancestors: Element[] = [];
           for (let current: Element | null = element; current; current = current.parentElement) ancestors.unshift(current);
@@ -396,8 +381,6 @@ test("appearance: text contrast, focus, navigation-open and user preferences", a
     });
     expect(contrast.every((item) => item.ratio >= 4.5), JSON.stringify(contrast)).toBe(true);
     await testInfo.attach(`contrast-${theme}.json`, { body: JSON.stringify(contrast), contentType: "application/json" });
-    await page.locator(".overview-primary-metric").focus();
-    expect(await page.locator(".overview-primary-metric").evaluate((element) => getComputedStyle(element).outlineStyle)).toBe("solid");
   }
   await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
   await page.locator(".page-header-domain-trigger").click();
@@ -408,8 +391,6 @@ test("appearance: text contrast, focus, navigation-open and user preferences", a
   await page.locator(".activity-bar").getByRole("button", { name: "Overview", exact: true }).click();
   await page.keyboard.press("Tab");
   await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
-  await page.locator(".overview-primary-metric").focus();
-  await expect(page.locator(".overview-progress-ring strong")).toHaveText("72%");
+  await expect(page.locator(".overview-kpi-grid .cs-spark-panel")).toHaveCount(4);
   expectNoOverflow(await geometry(page));
-  expect(await page.locator(".overview-primary-metric").evaluate((element) => getComputedStyle(element).outlineStyle)).toBe("solid");
 });

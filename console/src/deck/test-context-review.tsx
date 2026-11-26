@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "preact/hooks";
+import { SelectField, TextInput } from "../components/form-controls";
 import { t } from "../i18n";
 import { type TestContextDraft } from "./test-context";
 import {
@@ -97,13 +98,17 @@ export function TestContextReview({ draft }: { readonly draft: TestContextDraft 
         event.preventDefault();
         void submit("propose");
       }}>
-        <label for={choiceId}>{t("deck.testContext.choice")}</label>
-        <select id={choiceId} value={selected} disabled={loading || !availableChoices.length}
-          onChange={(event) => setSelected(event.currentTarget.value)}>
-          {availableChoices.map((choice) => <option value={choiceKey(choice)}>
-            {choice.caseScopeId} - {choice.policyRevision}
-          </option>)}
-        </select>
+        <SelectField
+          id={choiceId}
+          label={t("deck.testContext.choice")}
+          value={selected}
+          disabled={loading || !availableChoices.length}
+          options={availableChoices.map((choice) => ({
+            value: choiceKey(choice),
+            label: `${choice.caseScopeId} - ${choice.policyRevision}`,
+          }))}
+          onChange={setSelected}
+        />
         {choices?.kind === "ready" && choices.choices.sourceRevision
           ? <p>{t("deck.testContext.sourceRevision")} <code>{choices.choices.sourceRevision}</code></p> : null}
         {choices?.kind === "ready" && !availableChoices.length
@@ -118,16 +123,20 @@ export function TestContextReview({ draft }: { readonly draft: TestContextDraft 
         event.preventDefault();
         if (proposalId) void lookupSubmitted(proposalId);
       }}>
-        <label for={statusId}>{t("deck.testContext.commandId")}</label>
         <p>{t("deck.testContext.manualLookupBoundary")}</p>
         <div>
-          <input id={statusId} value={proposalId} maxLength={256}
-            onInput={(event) => {
+          <TextInput
+            id={statusId}
+            label={t("deck.testContext.commandId")}
+            value={proposalId}
+            maxLength={256}
+            onInput={(value) => {
               lookupPending.current?.abort();
               setLoading(false);
-              setProposalId(event.currentTarget.value);
+              setProposalId(value);
               setResult(null);
-            }} />
+            }}
+          />
           <button type="submit" disabled={loading || !proposalId}>{t("deck.testContext.lookup")}</button>
         </div>
       </form>

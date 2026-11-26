@@ -1,6 +1,7 @@
 /** Evidence and plan presentation; absent projections never become inferred operational facts. */
 import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
+import { FilterToolbar, SelectField } from "../components/form-controls";
 import { EmptyState, LoadingState, UnavailableState, type AsyncState } from "../components/ui";
 import { getLocale } from "../i18n";
 import { navigate, routeHref } from "../router";
@@ -91,9 +92,9 @@ export function AlertQualityRequestControls({ state, command, onRefresh, onAsses
   const held = waiting || command === "unknown" || command === "rejected" || command === "blocked";
   const requestable = !held && !preferenceHeld && state.status === "ready" && alertQualityRequestable(state.data);
   return <section class="stack-section" aria-label={text("assessmentRequests")}>
-    <label style={{ minWidth: 0, display: "grid", gap: 8 }}>
-      <span>{text("requestedPeriod")}</span>
-      <select class="cs-control-select" name="period_seconds" value={periodSeconds} disabled={waiting}
+    <label class="cs-field" style={{ minWidth: 0 }}>
+      <span class="cs-field-label">{text("requestedPeriod")}</span>
+      <select class="cs-field-select" name="period_seconds" value={periodSeconds} disabled={waiting}
         style={{ minHeight: 44, minWidth: 0, width: "100%" }} aria-describedby="alert-quality-period-help"
         onChange={(event) => onPeriodChange(Number(event.currentTarget.value))}>
         {[3600, 86400, 604800].map((seconds) => <option key={seconds} value={seconds}>{text(`period.${seconds}` as AlertQualityMessage)}</option>)}
@@ -197,41 +198,67 @@ export function AlertQualityFindings({ report, rule, invalidRule }: {
         <p>{text("findingsHelp")}</p>
       </div>
     </header>
-    <div class="form-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))" }}>
-      <label style={{ minWidth: 0 }}><span>{text("rule")}</span>
-        <select style={{ minHeight: 44, minWidth: 0, width: "100%" }} value={rule ?? ""}
-          aria-invalid={invalidRule} onChange={(event) => navigate(routeHref("alert-quality", {
-            params: { scope_ref: report.scope_ref, ...(event.currentTarget.value ? { rule_ref: event.currentTarget.value } : {}) },
-          }))}>
-          <option value="">{text("allRules")}</option>
-          {rule !== null && !rules.includes(rule) ? <option value={rule}>{rule}</option> : null}
-          {rules.map((value) => <option key={value} value={value}>{value}</option>)}
-        </select>
-      </label>
-      <label style={{ minWidth: 0 }}><span>{text("service")}</span>
-        <select style={{ minHeight: 44, minWidth: 0, width: "100%" }} value={service}
-          onChange={(event) => { setService(event.currentTarget.value); setPage(0); }}>
-          <option value="">{text("allServices")}</option>
-          {services.map((value) => <option key={value} value={value}>{value}</option>)}
-        </select>
-      </label>
-      <label style={{ minWidth: 0 }}><span>{text("team")}</span>
-        <select name="team_ref" style={{ minHeight: 44, minWidth: 0, width: "100%" }} value={team}
-          onChange={(event) => { setTeam(event.currentTarget.value); setPage(0); }}>
-          <option value="">{text("allTeams")}</option>
-          <option value={ALERT_UNKNOWN_FACET}>{text("unknown")}</option>
-          {teams.map((value) => <option key={value} value={value}>{value}</option>)}
-        </select>
-      </label>
-      <label style={{ minWidth: 0 }}><span>{text("audienceKind")}</span>
-        <select name="audience_kind" style={{ minHeight: 44, minWidth: 0, width: "100%" }} value={audience}
-          onChange={(event) => { setAudience(event.currentTarget.value); setPage(0); }}>
-          <option value="">{text("allAudienceKinds")}</option>
-          <option value={ALERT_UNKNOWN_FACET}>{text("unknown")}</option>
-          {audiences.map((value) => <option key={value} value={value}>{text(`audience.${value}`)}</option>)}
-        </select>
-      </label>
-    </div>
+    <FilterToolbar
+      ariaLabel={text("findings")}
+      activeFilterCount={
+        (rule !== null ? 1 : 0) + (service !== "" ? 1 : 0) + (team !== "" ? 1 : 0) + (audience !== "" ? 1 : 0)
+      }
+      onReset={() => {
+        setService("");
+        setTeam("");
+        setAudience("");
+        setPage(0);
+        if (rule !== null || invalidRule) {
+          navigate(routeHref("alert-quality", { params: { scope_ref: report.scope_ref } }));
+        }
+      }}
+      resetLabel={text("allRules")}
+    >
+      <SelectField
+        label={text("rule")}
+        value={rule ?? ""}
+        {...(invalidRule ? { error: text("invalidRule") } : {})}
+        options={[
+          { value: "", label: text("allRules") },
+          ...(rule !== null && !rules.includes(rule) ? [{ value: rule, label: rule }] : []),
+          ...rules.map((value) => ({ value, label: value })),
+        ]}
+        onChange={(value) => navigate(routeHref("alert-quality", {
+          params: { scope_ref: report.scope_ref, ...(value ? { rule_ref: value } : {}) },
+        }))}
+      />
+      <SelectField
+        label={text("service")}
+        value={service}
+        options={[
+          { value: "", label: text("allServices") },
+          ...services.map((value) => ({ value, label: value })),
+        ]}
+        onChange={(value) => { setService(value); setPage(0); }}
+      />
+      <SelectField
+        name="team_ref"
+        label={text("team")}
+        value={team}
+        options={[
+          { value: "", label: text("allTeams") },
+          { value: ALERT_UNKNOWN_FACET, label: text("unknown") },
+          ...teams.map((value) => ({ value, label: value })),
+        ]}
+        onChange={(value) => { setTeam(value); setPage(0); }}
+      />
+      <SelectField
+        name="audience_kind"
+        label={text("audienceKind")}
+        value={audience}
+        options={[
+          { value: "", label: text("allAudienceKinds") },
+          { value: ALERT_UNKNOWN_FACET, label: text("unknown") },
+          ...audiences.map((value) => ({ value, label: text(`audience.${value}`) })),
+        ]}
+        onChange={(value) => { setAudience(value); setPage(0); }}
+      />
+    </FilterToolbar>
     <p class="muted">{text("filterLimits")}</p>
     {rule !== null || invalidRule ? <a style={{ display: "inline-flex", alignItems: "center", minHeight: 44 }}
       href={routeHref("alert-quality", { params: { scope_ref: report.scope_ref } })}>{text("allRules")}</a> : null}

@@ -25,22 +25,6 @@
     "github.copilot.chat.summarizeAgentConversationHistoryThreshold": 0.8,
     "github.copilot.nextEditSuggestions.enabled": false,
     "git.autofetch": false,
-    "python.analysis.include": [
-        "alembic",
-        "benchmarks/*/src",
-        "delivery",
-        "evaluation-sdk/src",
-        "extensions/*/src",
-        "packages/*/src",
-        "scripts",
-        "service-migrations",
-        "services/*/src",
-        "tools"
-    ],
-    "python.analysis.indexing": false,
-    "python.analysis.logLevel": "Warning",
-    "python.analysis.useLibraryCodeForTypes": false,
-    "python.analysis.userFileIndexFollowSymlinkedFolders": false,
     "files.associations": {
         "**/.github/actions/**/action.yaml": "yaml",
         "**/.github/actions/**/action.yml": "yaml",
@@ -53,6 +37,7 @@
         ]
     },
     "files.exclude": {
+        "_archive": true,
         "**/__pycache__": true,
         "**/.astro": true,
         "**/.mypy_cache": true,
@@ -68,6 +53,8 @@
         "site/dist": true
     },
     "search.exclude": {
+        "_archive/**": true,
+        "**/target/**": true,
         "**/*.plan": true,
         "**/*.pyc": true,
         "**/*.tfstate*": true,
@@ -81,6 +68,8 @@
         "tmp/**": true
     },
     "files.watcherExclude": {
+        "_archive/**": true,
+        "**/target/**": true,
         "**/__pycache__/**": true,
         "**/.astro/**": true,
         "**/.fdai/**": true,

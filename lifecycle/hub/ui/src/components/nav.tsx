@@ -24,6 +24,23 @@ function isOnInstallations(route: Route): boolean {
 
 export function Nav({ route }: { route: Route }) {
   const [locale, setLocale] = useHubLocale();
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    try {
+      const saved = localStorage.getItem("fdai-hub-theme");
+      if (saved === "dark" || saved === "light") return saved;
+    } catch {
+      // Ignore storage errors
+    }
+    return "light";
+  });
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem("fdai-hub-theme", theme);
+    } catch {
+      // Ignore storage errors
+    }
+  }, [theme]);
   const entraStatus = useEntraSession();
   const [entraDialogOpen, setEntraDialogOpen] = useState(false);
   const [principalInput, setPrincipalInput] = useState("");
@@ -140,14 +157,28 @@ export function Nav({ route }: { route: Route }) {
       </div>
       <div class="side-locale">
         <span>{tr(locale, "Language", "언어")}</span>
-        <button
-          type="button"
-          class="btn"
-          aria-label="Switch workspace language"
-          onClick={() => setLocale(locale === "en" ? "ko" : "en")}
-        >
-          {locale === "en" ? "한국어" : "English"}
-        </button>
+        <div class="side-locale-actions">
+          <button
+            type="button"
+            class="btn"
+            aria-label="Switch workspace language"
+            onClick={() => setLocale(locale === "en" ? "ko" : "en")}
+          >
+            {locale === "en" ? "한국어" : "English"}
+          </button>
+          <button
+            type="button"
+            class="btn side-theme-btn"
+            aria-label={theme === "dark" ? tr(locale, "Switch to light theme", "라이트 테마") : tr(locale, "Switch to dark theme", "다크 테마")}
+            title={theme === "dark" ? tr(locale, "Light theme", "라이트 테마") : tr(locale, "Dark theme", "다크 테마")}
+            onClick={() => setTheme((cur) => (cur === "dark" ? "light" : "dark"))}
+          >
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+              <circle cx="10" cy="10" r="5.5" />
+              <path d="M10 4.5v11a5.5 5.5 0 000-11z" fill="currentColor" />
+            </svg>
+          </button>
+        </div>
       </div>
       {entraDialogOpen && (
         <dialog

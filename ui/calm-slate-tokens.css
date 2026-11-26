@@ -23,7 +23,21 @@
   --cs-tobe-bg: #ecf2ea;
   --cs-radius: 8px;
   --cs-radius-sm: 6px;
+  --cs-radius-badge: 5px;
   --cs-radius-pill: 999px;
+  /* Deep Amethyst & Teal telemetry spectrum for localized operational indicators. */
+  --sig-live: #0f766e;
+  --sig-live-text: #0f5f59;
+  --sig-auto-top: #b2ccc7;
+  --sig-auto-bot: #d3e4e0;
+  --sig-sre: #c86d18;
+  --sig-sre-text: #9a4f0a;
+  --sig-sec: #a63446;
+  --sig-sec-text: #882233;
+  --sig-human: #4a2574;
+  --sig-human-text: #4a2574;
+  --cs-focus-ring: rgba(15, 118, 110, 0.22);
+  --cs-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 4.5L6 8L9.5 4.5' stroke='%235e6369' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --cs-shadow: 0 4px 16px rgba(46, 54, 64, 0.06);
   --cs-shadow-hover: 0 6px 22px rgba(46, 54, 64, 0.1);
   --cs-tooltip-bg: #ffffff;
@@ -64,7 +78,7 @@
   --cs-type-compact-line-height: 1.5;
   --cs-type-label-size: 12px;
   --cs-type-label-line-height: 1.35;
-  --cs-type-caption-size: 11px;
+  --cs-type-caption-size: 12px;
   --cs-type-caption-line-height: 1.35;
   --cs-font-size: var(--cs-type-body-size);
   --cs-control-height: 34px;

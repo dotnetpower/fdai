@@ -1,0 +1,128 @@
+.cs-graph-control-bar {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px;
+  border: 1px solid var(--cs-hairline, var(--border));
+  border-radius: var(--cs-radius-sm, 6px);
+  background: color-mix(in srgb, var(--cs-card, var(--bg-elevated)) 95%, transparent);
+  box-shadow: var(--cs-shadow-control, 0 1px 2px rgba(16, 24, 40, 0.05));
+  color: var(--cs-text, var(--fg));
+  font-size: var(--cs-type-caption-size, 12px);
+}
+
+.cs-graph-control-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cs-graph-control-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--cs-hairline, var(--border));
+  border-radius: var(--cs-radius-sm, 6px);
+  background: var(--cs-card, var(--bg-elevated));
+  color: var(--cs-text, var(--fg));
+  font-family: var(--cs-font, inherit);
+  font-size: var(--cs-type-caption-size, 12px);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+}
+
+.cs-graph-control-btn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--cs-text-soft, var(--fg-muted)) 45%, var(--cs-hairline, var(--border)));
+  background: var(--cs-shade, var(--bg-subtle));
+}
+
+.cs-graph-control-btn:focus-visible {
+  outline: none;
+  border-color: var(--sig-live, var(--accent));
+  box-shadow: 0 0 0 3px var(--cs-focus-ring, rgba(15, 118, 110, 0.22));
+}
+
+.cs-graph-control-btn[aria-pressed="true"] {
+  border-color: var(--sig-live, var(--accent));
+  background: var(--cs-steel-soft, rgba(15, 118, 110, 0.08));
+  color: var(--cs-steel, var(--accent));
+}
+
+.cs-graph-control-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cs-graph-control-zoom {
+  min-width: 44px;
+  padding: 0 4px;
+  color: var(--cs-text-soft, var(--fg-muted));
+  font-size: var(--cs-type-caption-size, 12px);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.cs-graph-control-filters {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cs-graph-legend-swatch {
+  display: inline-block;
+  flex: 0 0 auto;
+  vertical-align: middle;
+}
+
+.cs-graph-legend-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 0;
+  padding: 0 6px;
+  list-style: none;
+  font-size: var(--cs-type-caption-size, 12px);
+  color: var(--cs-text-soft, var(--fg-muted));
+}
+
+.cs-graph-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cs-graph-legend-item strong {
+  color: var(--cs-text, var(--fg));
+  font-weight: 600;
+}
+
+.cs-graph-legend-item span {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .cs-graph-control-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-graph-control-btn {
+    transition: none;
+  }
+}

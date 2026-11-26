@@ -1,0 +1,93 @@
+{
+  "additionalProperties": false,
+  "description": "Exact command-to-policy transition result; historical application is not current authority.",
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "command_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Command Digest",
+      "type": "string"
+    },
+    "actor_id": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Actor Id",
+      "type": "string"
+    },
+    "request_key": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Request Key",
+      "type": "string"
+    },
+    "context_id": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Context Id",
+      "type": "string"
+    },
+    "access_scope_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Access Scope Digest",
+      "type": "string"
+    },
+    "target_ref": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Target Ref",
+      "type": "string"
+    },
+    "policy_revision": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Policy Revision",
+      "type": "string"
+    },
+    "revision": {
+      "minimum": 1,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "state": {
+      "enum": [
+        "proposed",
+        "reviewed",
+        "revoked"
+      ],
+      "title": "State",
+      "type": "string"
+    },
+    "context_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Context Digest",
+      "type": "string"
+    },
+    "execution_authority": {
+      "const": false,
+      "default": false,
+      "title": "Execution Authority",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "command_digest",
+    "actor_id",
+    "request_key",
+    "context_id",
+    "access_scope_digest",
+    "target_ref",
+    "policy_revision",
+    "revision",
+    "state",
+    "context_digest"
+  ],
+  "title": "TestContextApplication",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/test-context-application/1.0.0"
+}

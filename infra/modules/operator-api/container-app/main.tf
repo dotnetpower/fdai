@@ -3,7 +3,7 @@
 # Serves the read-only console API (`fdai.delivery.operator_api.prod:app`) with
 # external ingress so the layer-3 console SPA (Azure Static Web App) can call
 # it cross-origin. The SPA is read-only; this API enforces Entra JWT auth +
-# RBAC group resolution (see `src/fdai/delivery/operator_api/prod.py`).
+# RBAC group resolution (see `src/fdai/_archive/python/delivery/operator_api/prod.py`).
 #
 # The API is stateless: it projects audit / KPI / HIL-queue / ontology / views
 # from the persisted Postgres state store. The read identity pulls the image,
@@ -513,7 +513,7 @@ resource "azurerm_container_app_job" "materialize_catalogs" {
       cpu     = 0.5
       memory  = "1Gi"
       command = ["python"]
-      args    = ["/app/scripts/deployment/local/materialize-authoritative-catalogs.py"]
+      args    = ["/app/_archive/python/scripts/deployment/local/materialize-authoritative-catalogs.py"]
 
       env {
         name        = "FDAI_STATE_STORE_DSN"

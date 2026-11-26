@@ -1,4 +1,4 @@
-/* FDAI Console - Shared Greenfield Design System (Deep Amethyst & Teal + Neutral White)
+/* FDAI Console — Shared Greenfield Design System (Deep Amethyst & Teal + Neutral White)
    Single canonical stylesheet shared by all 7 mockup domains and the future greenfield Console Web.
    Invariants: >= 12px typography, 0 colored left/top accent bars, neutral user chat bubble vs
    transparent agent reply, custom SVG select chevron (38px right padding), WCAG AA/AAA contrast. */
@@ -316,7 +316,7 @@ a { color: inherit; text-decoration: none; }
   margin: 10px 4px;
 }
 
-/* Main Content - Unified Edge-to-Edge Chrome + 3-Tier Body Layout */
+/* Main Content — Unified Edge-to-Edge Chrome + 3-Tier Body Layout */
 .main-canvas {
   flex: 1 1 auto;
   min-width: 0;
@@ -427,7 +427,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* Tier 1: Full-Bleed Workbench Mode (12 graph/catalog/inbox workbenches) */
-@media (min-width: 961px) and (min-height: 620px) {
+@media (min-width: 1200px) and (min-height: 620px) {
   .main-canvas[data-layout-tier="fullbleed"] {
     padding: 0;
     overflow: hidden;
@@ -757,7 +757,7 @@ a { color: inherit; text-decoration: none; }
 }
 .page-help-btn:hover { background: var(--cs-shade); color: var(--cs-text); }
 .page-help-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--cs-focus-ring); }
-@media (min-width: 961px) and (min-height: 620px) {
+@media (min-width: 1200px) and (min-height: 620px) {
   .main-canvas[data-layout-tier="fullbleed"] .page-help-btn { display: inline-flex; }
 }
 .page-help-pop {
@@ -1299,23 +1299,84 @@ svg.kpi-spark line {
 .drawer-panel {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  width: min(520px, 94vw);
+  width: min(460px, 94vw);
   height: 100%;
   background: var(--cs-card);
   border-left: 1px solid var(--cs-hairline);
   box-shadow: var(--cs-shadow-lg);
   overflow: hidden;
 }
-.drawer-head { display: flex; justify-content: space-between; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--cs-hairline); }
-.drawer-title { margin: 0; font-size: 16px; font-weight: 700; overflow-wrap: anywhere; }
-.drawer-meta { margin: 4px 0 0; color: var(--cs-text-soft); font-size: 12.5px; overflow-wrap: anywhere; }
-.drawer-body { padding: 16px 18px; overflow-y: auto; overflow-x: hidden; display: grid; align-content: start; gap: 14px; font-size: 14px; line-height: 1.6; }
-.drawer-facts { display: grid; gap: 8px; margin: 0; }
+.drawer-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--cs-hairline); }
+.drawer-title { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
+.drawer-meta { margin: 6px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; color: var(--cs-text-soft); font-size: 12.5px; overflow-wrap: anywhere; }
+.drawer-body { padding: 16px 20px; overflow-y: auto; overflow-x: hidden; display: grid; align-content: start; gap: 14px; font-size: 13.5px; line-height: 1.6; }
+.drawer-summary-card {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: 8px;
+  background: var(--cs-bg);
+  color: var(--cs-text);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+.drawer-facts { display: grid; gap: 12px; margin: 0; }
+.drawer-kv-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 520px) { .drawer-kv-grid { grid-template-columns: 1fr; } }
+.drawer-kv-cell {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid var(--cs-hairline-soft);
+  border-radius: 8px;
+  background: var(--cs-card);
+  min-width: 0;
+}
+.drawer-kv-cell dt { color: var(--cs-text-soft); font-size: 11.5px; font-weight: 600; }
+.drawer-kv-cell dd { margin: 0; color: var(--cs-text); font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.drawer-tech-details {
+  border: 1px solid var(--cs-hairline-soft);
+  border-radius: 8px;
+  background: var(--cs-bg);
+  overflow: hidden;
+}
+.drawer-tech-details > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cs-text-soft);
+  list-style: none;
+}
+.drawer-tech-details > summary::-webkit-details-marker { display: none; }
+.drawer-tech-hint { font-size: 11.5px; font-weight: 500; opacity: 0.85; }
+.drawer-tech-list { display: grid; gap: 6px; padding: 8px 12px 12px; border-top: 1px solid var(--cs-hairline-soft); }
+.drawer-tech-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 12px; min-width: 0; }
+.drawer-tech-row > span { color: var(--cs-text-soft); flex: 0 0 auto; }
+.drawer-tech-row > code { color: var(--cs-text); font-size: 11.5px; text-align: right; overflow-wrap: anywhere; }
 .drawer-fact-row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--cs-hairline-soft); font-size: 13px; min-width: 0; }
 .drawer-fact-row dt { color: var(--cs-text-soft); flex: 0 0 auto; }
 .drawer-fact-row dd { margin: 0; font-weight: 600; text-align: right; min-width: 0; overflow-wrap: anywhere; }
 .drawer-desc { margin: 0; color: var(--cs-text); }
-.drawer-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--cs-hairline); background: var(--cs-bg); }
+.drawer-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--cs-hairline); background: var(--cs-bg); }
+
+@keyframes fdaiDeeplinkPulse {
+  0% { box-shadow: 0 0 0 0 rgba(107, 92, 231, 0.45); }
+  50% { box-shadow: 0 0 0 4px rgba(107, 92, 231, 0.22); }
+  100% { box-shadow: 0 0 0 0 rgba(107, 92, 231, 0); }
+}
+.is-deeplink-focus {
+  outline: 2px solid var(--cs-accent, #5b4ee6);
+  outline-offset: 2px;
+  animation: fdaiDeeplinkPulse 1.4s ease-out 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .is-deeplink-focus { animation: none; }
+}
 
 /* Right-Docked Chat Sidebar <-> Fullscreen Command Deck */
 .chat-sidebar {
@@ -3349,7 +3410,7 @@ svg.cs-ut-interactive-svg {
 }
 
 /* ============================================================================
-   Enterprise Precision UI - Flattened Surfaces, Container KPIs, Skeleton Shimmer & Crisp Diagram Nodes
+   Enterprise Precision UI — Flattened Surfaces, Container KPIs, Skeleton Shimmer & Crisp Diagram Nodes
    ============================================================================ */
 .cs-disclosure {
   border: 1px solid var(--cs-hairline);

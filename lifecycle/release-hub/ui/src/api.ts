@@ -582,10 +582,11 @@ const STENCIL_PANEL_GROUPS = new Set([
   "operations",
   "agents",
   "governance",
-  "knowledge",
   "evidence",
+  "chat",
   "labs",
   "settings",
+  "knowledge",
 ]);
 const STENCIL_PANEL_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const STENCIL_PANEL_PATH_PATTERN = /^\/[a-z0-9]+(?:[/-][a-z0-9]+)*$/;

@@ -1,0 +1,67 @@
+{
+  "$defs": {
+    "AlertNoiseReadiness": {
+      "additionalProperties": false,
+      "description": "Short-lived signed producer binding state; not provider/effect health evidence.",
+      "properties": {
+        "kind": {
+          "const": "alert-noise.readiness",
+          "default": "alert-noise.readiness",
+          "title": "Kind",
+          "type": "string"
+        },
+        "scope_refs": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Scope Refs",
+          "type": "array"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "valid_until": {
+          "format": "date-time",
+          "title": "Valid Until",
+          "type": "string"
+        },
+        "execution_authority": {
+          "const": false,
+          "default": false,
+          "title": "Execution Authority",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "scope_refs",
+        "generated_at",
+        "valid_until"
+      ],
+      "title": "AlertNoiseReadiness",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A signed short-lived producer announcement on the no-authority projection lane.",
+  "properties": {
+    "readiness": {
+      "$ref": "#/$defs/AlertNoiseReadiness"
+    },
+    "signature": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Signature",
+      "type": "string"
+    }
+  },
+  "required": [
+    "readiness",
+    "signature"
+  ],
+  "title": "SignedAlertReadiness",
+  "type": "object",
+  "$id": "https://fdai.dev/service-contracts/alert-noise-readiness/1.0.0"
+}

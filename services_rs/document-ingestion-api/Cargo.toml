@@ -1,0 +1,15 @@
+[package]
+name = "fdai-document-ingestion-api"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+fdai-contracts = { path = "../../crates/contracts/fdai-contracts" }
+fdai-diagnostics = { path = "../../crates/contracts/fdai-diagnostics" }
+fdai-domain-core = { path = "../../crates/core/fdai-domain-core" }
+fdai-ports = { path = "../../crates/ports/fdai-ports" }
+fdai-http-runtime = { path = "../../crates/adapters/fdai-http-runtime" }
+tokio = { workspace = true }

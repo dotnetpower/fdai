@@ -1,0 +1,18 @@
+[package]
+name = "fdai-adapter-postgres"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+fdai-ports = { path = "../../ports/fdai-ports" }
+base64 = { workspace = true }
+ring = { workspace = true }
+rustls = { workspace = true }
+rustls-pki-types = { workspace = true }
+subtle = { workspace = true }
+tokio = { workspace = true }
+tokio-rustls = { workspace = true }
+webpki-roots = { workspace = true }

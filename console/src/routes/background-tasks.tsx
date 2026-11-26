@@ -5,10 +5,17 @@ import {
   DataTable,
   EmptyState,
   PageHeader,
-  StatusPill,
   type AsyncState,
   type Column,
+  type PillKind,
 } from "../components/ui";
+import {
+  CheckboxField,
+  SelectField,
+  TextInput,
+  TextareaField,
+} from "../components/form-controls";
+import { StatusBadge, type BadgeTone } from "../components/status-badge";
 import type { ConsoleDataMode } from "../console-data-mode";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary, TERMS } from "../deck/glossary";
@@ -357,65 +364,57 @@ function BackgroundTaskCreateForm({ value, submitting, onChange, onSubmit }: {
         <p>{backgroundTasksText("createDescription")}</p>
       </div>
       <div class="background-task-create-grid">
-        <label class="background-task-create-prompt">
-          <span>{backgroundTasksText("prompt")}</span>
-          <textarea
-            required
-            maxLength={4_000}
-            rows={3}
-            value={value.prompt}
-            onInput={(event) => onChange({ ...value, prompt: event.currentTarget.value })}
-          />
-        </label>
-        <label>
-          <span>{backgroundTasksText("intent")}</span>
-          <select
-            value={value.intent}
-            onChange={(event) => onChange({
-              ...value,
-              intent: event.currentTarget.value as BackgroundTaskCreateInput["intent"],
-            })}
-          >
-            {BACKGROUND_TASK_INTENTS.map((intent) => (
-              <option key={intent} value={intent}>{backgroundTasksText(`intent_${intent}`)}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>{backgroundTasksText("resourceName")}</span>
-          <input
-            required
-            maxLength={512}
-            value={value.resourceName}
-            onInput={(event) => onChange({ ...value, resourceName: event.currentTarget.value })}
-          />
-        </label>
-        <label class="background-task-create-secondary">
-          <span>{backgroundTasksText("resourceType")}</span>
-          <input
-            maxLength={256}
-            value={value.resourceType}
-            onInput={(event) => onChange({ ...value, resourceType: event.currentTarget.value })}
-          />
-        </label>
-        <label class="background-task-create-secondary">
-          <span>{backgroundTasksText("resourceGroup")}</span>
-          <input
-            maxLength={512}
-            value={value.resourceGroup}
-            onInput={(event) => onChange({ ...value, resourceGroup: event.currentTarget.value })}
-          />
-        </label>
+        <TextareaField
+          className="background-task-create-prompt"
+          label={backgroundTasksText("prompt")}
+          required
+          maxLength={4_000}
+          showCounter
+          rows={3}
+          value={value.prompt}
+          onInput={(prompt) => onChange({ ...value, prompt })}
+        />
+        <SelectField
+          label={backgroundTasksText("intent")}
+          value={value.intent}
+          options={BACKGROUND_TASK_INTENTS.map((intent) => ({
+            value: intent,
+            label: backgroundTasksText(`intent_${intent}`),
+          }))}
+          onChange={(intent) => onChange({
+            ...value,
+            intent: intent as BackgroundTaskCreateInput["intent"],
+          })}
+        />
+        <TextInput
+          label={backgroundTasksText("resourceName")}
+          required
+          maxLength={512}
+          value={value.resourceName}
+          onInput={(resourceName) => onChange({ ...value, resourceName })}
+        />
+        <TextInput
+          className="background-task-create-secondary"
+          label={backgroundTasksText("resourceType")}
+          maxLength={256}
+          value={value.resourceType}
+          onInput={(resourceType) => onChange({ ...value, resourceType })}
+        />
+        <TextInput
+          className="background-task-create-secondary"
+          label={backgroundTasksText("resourceGroup")}
+          maxLength={512}
+          value={value.resourceGroup}
+          onInput={(resourceGroup) => onChange({ ...value, resourceGroup })}
+        />
       </div>
       <div class="background-task-create-actions">
-        <label class="background-task-deep-option">
-          <input
-            type="checkbox"
-            checked={value.explicitDeep}
-            onChange={(event) => onChange({ ...value, explicitDeep: event.currentTarget.checked })}
-          />
-          <span>{backgroundTasksText("explicitDeep")}</span>
-        </label>
+        <CheckboxField
+          className="background-task-deep-option"
+          label={backgroundTasksText("explicitDeep")}
+          checked={value.explicitDeep}
+          onChange={(explicitDeep) => onChange({ ...value, explicitDeep })}
+        />
         <button type="submit" class="btn primary" disabled={submitting || request === null}>
           {backgroundTasksText(submitting ? "creating" : "create")}
         </button>
@@ -471,7 +470,7 @@ function TaskTable({ page, selectedTaskId, loadingMore, pageError, onSelect, onL
     {
       key: "status",
       header: backgroundTasksText("status"),
-      render: (task) => <StatusPill kind={backgroundTaskTone(task.status)} label={statusLabel(task.status)} />,
+      render: (task) => <StatusBadge tone={pillKindToBadgeTone(backgroundTaskTone(task.status))} label={statusLabel(task.status)} />,
     },
     {
       key: "outcome",
@@ -519,7 +518,7 @@ function TaskDetailView({ detail, refreshing, cancellationAvailable, cancelling,
           <p class="background-task-eyebrow mono">{task.task_id}</p>
           <h2>{task.request_summary ?? backgroundTasksText("investigationFallback")}</h2>
           <div class="background-task-heading-meta">
-            <StatusPill kind={backgroundTaskTone(task.status)} label={statusLabel(task.status)} />
+            <StatusBadge tone={pillKindToBadgeTone(backgroundTaskTone(task.status))} label={statusLabel(task.status)} />
             <span class={`background-task-agent${task.accountable_agent === null ? " is-unattributed" : ""}`}>
               {backgroundTasksText("agentPrefix")}: {task.accountable_agent ?? backgroundTasksText("agentUnattributed")}
             </span>
@@ -606,6 +605,15 @@ function TaskDetailView({ detail, refreshing, cancellationAvailable, cancelling,
 
 function Fact({ label, value }: { readonly label: string; readonly value: string }) {
   return <><dt class="muted">{label}</dt><dd>{value}</dd></>;
+}
+
+function pillKindToBadgeTone(kind: PillKind): BadgeTone {
+  if (kind === "success" || kind === "auto" || kind === "enforce") return "live";
+  if (kind === "danger") return "sec";
+  if (kind === "warning") return "sre";
+  if (kind === "hil") return "human";
+  if (kind === "info") return "info";
+  return "neutral";
 }
 
 function displayNumber(value: unknown): string {

@@ -1,0 +1,27 @@
+[package]
+name = "fdai-http-runtime"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+fdai-contracts = { path = "../../contracts/fdai-contracts" }
+fdai-domain-core = { path = "../../core/fdai-domain-core" }
+fdai-adapter-cloud = { path = "../fdai-adapter-cloud" }
+fdai-adapter-postgres = { path = "../fdai-adapter-postgres" }
+fdai-adapter-kafka = { path = "../fdai-adapter-kafka" }
+axum = { workspace = true }
+base64 = { workspace = true }
+futures-util = { workspace = true }
+http-body-util = { workspace = true }
+hyper = { workspace = true }
+hyper-rustls = { workspace = true }
+hyper-util = { workspace = true }
+ring = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+subtle = { workspace = true }
+tokio = { workspace = true }
+tower-http = { workspace = true }

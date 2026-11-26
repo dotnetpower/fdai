@@ -1,28 +1,18 @@
 #!/usr/bin/env -S LC_ALL=C LANG=C bash
-# Pre-commit hook - run the repository's staged-file quality gates.
+# Pre-commit hook - Pure-Rust staged-file quality & Zero-Python gates.
 #
-# core.hooksPath=.githooks makes this tracked hook authoritative, so it must
-# prepare the staged integrity snapshot, then delegate quality gates to
-# .pre-commit-config.yaml instead of relying on a generated hook under
-# .git/hooks. That catches Ruff lint/format failures before pre-push.
-#
-# Install: make hooks-install (the VS Code folderOpen task does this too)
+# Install: make hooks-install
 # Bypass:  git commit --no-verify
 set -uo pipefail
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$repo_root" || exit 1
 
-if ! command -v uv >/dev/null 2>&1; then
-  echo "pre-commit: BLOCKED - uv is required. Install uv, then run: uv sync --extra dev" >&2
+if ! command -v cargo >/dev/null 2>&1; then
+  echo "pre-commit: BLOCKED - cargo (Rust toolchain) is required." >&2
   exit 1
 fi
 
-# pre-commit stashes unstaged changes while it runs staged-file fixers. When
-# the same path is both staged and modified, an auto-fix (for example the EOF
-# newline hook) can conflict with stash restoration, so pre-commit rolls the
-# fix back and the next commit repeats the identical failure. Stop before that
-# loop and tell the maintainer exactly which paths need staging or separation.
 mapfile -t staged_paths < <(git diff --cached --name-only --diff-filter=ACMR)
 mapfile -t unstaged_paths < <(git diff --name-only --diff-filter=ACMR)
 if [ "${#staged_paths[@]}" -gt 0 ] && [ "${#unstaged_paths[@]}" -gt 0 ]; then
@@ -41,11 +31,8 @@ if [ "${#staged_paths[@]}" -gt 0 ] && [ "${#unstaged_paths[@]}" -gt 0 ]; then
   fi
 fi
 
-# Prepare signed framework artifacts before pre-commit snapshots the index.
-# The signer writes only to the index, so unrelated worktree manifest edits
-# remain available for their owning session.
 if ! bash scripts/integrity/resign-if-surface-staged.sh; then
   exit 1
 fi
 
-exec uv run pre-commit run --hook-stage pre-commit
+exec cargo run --offline -p fdai-xtask -- pre-commit

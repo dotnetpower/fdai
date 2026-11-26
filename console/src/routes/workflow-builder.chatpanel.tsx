@@ -258,7 +258,7 @@ export function WorkflowChat({
         }}
       >
         <textarea
-          class="form-input"
+          class="cs-field-textarea"
           rows={2}
           ref={inputRef}
           value={input}

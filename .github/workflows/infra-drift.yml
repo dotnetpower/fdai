@@ -10,10 +10,10 @@ on:
     paths:
       - ".github/workflows/infra-drift.yml"
       - "infra/bootstrap/check-runner-storage-posture.sh"
-      - "scripts/deployment/azure/postgres_power_window.py"
-      - "scripts/deployment/azure/verify_deploy_identity_manifest.py"
-      - "scripts/deployment/azure/verify_scenario_state_closure.py"
-      - "scripts/deployment/service/drift_contract.py"
+      - "_archive/python/scripts/deployment/azure/postgres_power_window.py"
+      - "_archive/python/scripts/deployment/azure/verify_deploy_identity_manifest.py"
+      - "_archive/python/scripts/deployment/azure/verify_scenario_state_closure.py"
+      - "_archive/python/scripts/deployment/service/drift_contract.py"
   schedule:
     - cron: "17 6 * * 1-5" # weekdays 06:17 UTC
   workflow_dispatch:
@@ -134,9 +134,9 @@ jobs:
           state_json="$RUNNER_TEMP/database-window-platform-state.json"
           trap 'rm -f -- "$state_json"' EXIT
           terraform -chdir=infra show -json >"$state_json"
-          server_id="$(python3 scripts/deployment/service/drift_contract.py \
+          server_id="$(python3 _archive/python/scripts/deployment/service/drift_contract.py \
             platform-database --state-json "$state_json" | jq -er '.server_id')"
-          python3 scripts/deployment/azure/postgres_power_window.py open \
+          python3 _archive/python/scripts/deployment/azure/postgres_power_window.py open \
             --server-id "$server_id" \
             --record "$RUNNER_TEMP/database-power-window.json"
 
@@ -160,7 +160,7 @@ jobs:
           plan_json="$RUNNER_TEMP/legacy-refresh.json"
           plan_summary="$RUNNER_TEMP/legacy-refresh-summary.json"
           terraform -chdir=infra show -json >"$state_json"
-          python3 scripts/deployment/service/drift_contract.py platform-output-inputs \
+          python3 _archive/python/scripts/deployment/service/drift_contract.py platform-output-inputs \
             --state-json "$state_json" \
             --output "$plan_inputs"
           set +e
@@ -172,12 +172,12 @@ jobs:
             0) echo "No drift: legacy" ;;
             2)
               terraform -chdir=infra show -json "$plan_file" >"$plan_json"
-              python3 scripts/deployment/service/refresh_drift_digest.py summarize \
+              python3 _archive/python/scripts/deployment/service/refresh_drift_digest.py summarize \
                 --root-id legacy --plan-json "$plan_json" >"$plan_summary"
               if python3 -c 'import json,sys; s=json.load(open(sys.argv[1])); sys.exit(1 if (s["resource_drift"] or s["output_changes"] or s["moves"]) else 0)' "$plan_summary"; then
                 echo "No semantic drift: legacy"
               else
-                python3 scripts/deployment/service/refresh_drift_digest.py render "$plan_summary"
+                python3 _archive/python/scripts/deployment/service/refresh_drift_digest.py render "$plan_summary"
                 exit 2
               fi
               ;;
@@ -209,7 +209,7 @@ jobs:
           printf '%s' "$SERVICE_DEPLOY_TFVARS_JSON" >"$temp_root/all-services.json"
           chmod 600 "$temp_root/all-services.json"
           terraform -chdir=infra show -json >"$temp_root/platform-state.json"
-          platform_inputs="$(python3 scripts/deployment/service/drift_contract.py \
+          platform_inputs="$(python3 _archive/python/scripts/deployment/service/drift_contract.py \
             platform-inputs --state-json "$temp_root/platform-state.json")"
           database_host="$(jq -er '.database_host' <<<"$platform_inputs")"
           event_topic="$(jq -er '.event_topic' <<<"$platform_inputs")"
@@ -226,7 +226,7 @@ jobs:
             python3 -c 'import hashlib,json,sys; payload=json.load(sys.stdin); canonical=json.dumps(payload,separators=(",",":"),sort_keys=True).encode(); print(hashlib.sha256(canonical).hexdigest())' \
               <<<"$RESOLVED_MODELS_JSON"
           )"
-          roots_json="$(python3 scripts/deployment/service/drift_contract.py roots \
+          roots_json="$(python3 _archive/python/scripts/deployment/service/drift_contract.py roots \
             --environment "$ENVIRONMENT")"
           service_count="$(jq '[.[] | select(.kind == "service")] | length' \
             <<<"$roots_json")"
@@ -268,17 +268,17 @@ jobs:
               [[ "$channel_edge_enabled" == "true" || "$channel_edge_enabled" == "false" ]]
               service_feature_args+=(--operator-channel-edge-enabled "$channel_edge_enabled")
             fi
-            image_ref="$(python3 scripts/deployment/service/drift_contract.py stored-image \
+            image_ref="$(python3 _archive/python/scripts/deployment/service/drift_contract.py stored-image \
               --service "$service" \
               --environment "$ENVIRONMENT" \
               --repository "$GITHUB_REPOSITORY" \
               --state-json "$temp_root/$service-state.json")"
-            python3 scripts/deployment/service/hydrate_database_host.py \
+            python3 _archive/python/scripts/deployment/service/hydrate_database_host.py \
                 --service "$service" \
                 --environment "$ENVIRONMENT" \
                 --database-host "$database_host" \
                 <"$temp_root/all-services.json" \
-              | python3 scripts/deployment/service/hydrate_event_topic.py \
+              | python3 _archive/python/scripts/deployment/service/hydrate_event_topic.py \
                   --service "$service" \
                   --environment "$ENVIRONMENT" \
                   --event-topic "$event_topic" \
@@ -290,7 +290,7 @@ jobs:
                 COST_PSEUDONYM_KEY_SECRET_ID="$cost_pseudonym_binding" \
                 OPERATOR_CHANNEL_EDGE_IDENTITY_JSON="$operator_channel_edge_identity_json" \
                 OPERATOR_CHANNEL_EDGE_PROVIDER_JSON="$OPERATOR_CHANNEL_EDGE_PROVIDER_JSON" \
-                python3 scripts/deployment/service/materialize_tfvars.py \
+                python3 _archive/python/scripts/deployment/service/materialize_tfvars.py \
                   --service "$service" \
                   --environment "$ENVIRONMENT" \
                   "${service_feature_args[@]}" \
@@ -342,7 +342,7 @@ jobs:
           terraform -chdir=infra show -json > "$platform_state"
           terraform -chdir=infra/bootstrap show -json > "$bootstrap_state"
           PYTHONPATH="$GITHUB_WORKSPACE" \
-            python3 scripts/deployment/azure/verify_deploy_identity_manifest.py \
+            python3 _archive/python/scripts/deployment/azure/verify_deploy_identity_manifest.py \
               --state "$platform_state" \
               --state "$bootstrap_state" \
               --principal-id "$DEPLOY_RUNNER_PRINCIPAL_ID" \
@@ -394,7 +394,7 @@ jobs:
             echo "Scenario Terraform state existence check returned an invalid result." >&2
             exit 1
           fi
-          python3 scripts/deployment/azure/verify_scenario_state_closure.py "${args[@]}"
+          python3 _archive/python/scripts/deployment/azure/verify_scenario_state_closure.py "${args[@]}"
 
       - name: Publish scenario state closure receipt
         if: inputs.scope != 'runner' && steps.scenario_state_closure.outcome == 'success'
@@ -433,7 +433,7 @@ jobs:
           refresh_plan_json="$RUNNER_TEMP/bootstrap-refresh-plan.json"
           trap 'rm -f "$state_json" "$refresh_plan" "$refresh_plan_json"' EXIT
           terraform show -json >"$state_json"
-          if stored_inputs="$(python3 ../../scripts/deployment/service/drift_contract.py \
+          if stored_inputs="$(python3 ../../_archive/python/scripts/deployment/service/drift_contract.py \
             bootstrap-inputs --state-json "$state_json" 2>/dev/null)"; then
             app_resource_group_name="$(jq -er '.app_resource_group_name' <<<"$stored_inputs")"
             runner_ssh_public_key="$(jq -er '.runner_ssh_public_key' <<<"$stored_inputs")"
@@ -475,7 +475,7 @@ jobs:
           steps.database_window.outcome != 'skipped'
         working-directory: ${{ github.workspace }}
         run: |
-          python3 scripts/deployment/azure/postgres_power_window.py close \
+          python3 _archive/python/scripts/deployment/azure/postgres_power_window.py close \
             --record "$RUNNER_TEMP/database-power-window.json"
           rm -f -- \
             "$RUNNER_TEMP/legacy-platform-state.json" \

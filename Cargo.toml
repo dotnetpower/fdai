@@ -1,0 +1,64 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/contracts/fdai-contracts",
+    "crates/contracts/fdai-diagnostics",
+    "crates/core/fdai-domain-core",
+    "crates/ports/fdai-ports",
+    "crates/adapters/fdai-adapter-postgres",
+    "crates/adapters/fdai-adapter-kafka",
+    "crates/adapters/fdai-adapter-cloud",
+    "crates/adapters/fdai-http-runtime",
+    "benchmarks_rs/cybergym",
+    "benchmarks_rs/sregym",
+    "crates/domain/evaluation-sdk",
+    "extensions_rs/aks-commerce",
+    "extensions_rs/code-assurance",
+    "extensions_rs/cost-governance",
+    "extensions_rs/governed-chaos-provider",
+    "lifecycle_rs/agent",
+    "lifecycle_rs/hub",
+    "lifecycle_rs/manager",
+    "lifecycle_rs/release-hub",
+    "tools_rs/fdai-deployment-cli",
+    "services_rs/core-control-plane",
+    "services_rs/document-ingestion-api",
+    "services_rs/document-processing-worker",
+    "services_rs/isolated-executor",
+    "services_rs/operator-service",
+    "services_rs/system-knowledge-service",
+    "tools_rs/fdai-xtask",
+    "console_rs",
+]
+exclude = [
+    "tools/fdai-sdlc-rs",
+]
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = "deny"
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+
+[workspace.dependencies]
+axum = { version = "0.8", features = ["json", "tokio", "http1"] }
+base64 = "0.22"
+futures-util = "0.3"
+http-body-util = "0.1"
+hyper = { version = "1", features = ["client", "http1"] }
+hyper-rustls = { version = "0.27", default-features = false, features = ["ring", "http1", "webpki-tokio", "tls12"] }
+hyper-util = { version = "0.1", features = ["client", "client-legacy", "http1", "tokio"] }
+ring = "0.17"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rustls-pki-types = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+subtle = "2.6"
+tokio = { version = "1", features = ["rt-multi-thread", "net", "macros", "sync", "time", "signal", "process", "io-util", "fs"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
+tower-http = { version = "0.6", features = ["cors"] }
+webpki-roots = "1"

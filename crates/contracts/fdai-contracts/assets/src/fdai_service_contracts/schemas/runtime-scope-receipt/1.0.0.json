@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/runtime-scope-receipt/1.0.0",
+  "title": "FDAI runtime scope receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "service_id",
+    "product_purpose",
+    "execution_venue",
+    "permitted_variances",
+    "capability_bindings",
+    "venue_contract_digest",
+    "recorded_at",
+    "external_state_authority",
+    "execution_authority",
+    "receipt_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "service_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^[a-z][a-z0-9-]{0,79}$"
+    },
+    "product_purpose": {
+      "const": "cloud_operations_control_plane"
+    },
+    "execution_venue": {
+      "enum": [
+        "local",
+        "deployed"
+      ]
+    },
+    "permitted_variances": {
+      "const": [
+        "credentials",
+        "endpoints",
+        "provider_scope",
+        "scale"
+      ]
+    },
+    "capability_bindings": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/bus_identity_binding"
+        },
+        {
+          "$ref": "#/$defs/bus_security_protocol"
+        },
+        {
+          "$ref": "#/$defs/document_provider_binding"
+        },
+        {
+          "$ref": "#/$defs/workload_identity_source"
+        }
+      ],
+      "items": false
+    },
+    "venue_contract_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "external_state_authority": {
+      "const": false
+    },
+    "execution_authority": {
+      "const": false
+    },
+    "receipt_digest": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "capability_value": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "bus_identity_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability",
+        "value"
+      ],
+      "properties": {
+        "capability": {
+          "const": "bus_identity_binding"
+        },
+        "value": {
+          "$ref": "#/$defs/capability_value"
+        }
+      }
+    },
+    "bus_security_protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability",
+        "value"
+      ],
+      "properties": {
+        "capability": {
+          "const": "bus_security_protocol"
+        },
+        "value": {
+          "$ref": "#/$defs/capability_value"
+        }
+      }
+    },
+    "document_provider_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability",
+        "value"
+      ],
+      "properties": {
+        "capability": {
+          "const": "document_provider_binding"
+        },
+        "value": {
+          "$ref": "#/$defs/capability_value"
+        }
+      }
+    },
+    "workload_identity_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability",
+        "value"
+      ],
+      "properties": {
+        "capability": {
+          "const": "workload_identity_source"
+        },
+        "value": {
+          "$ref": "#/$defs/capability_value"
+        }
+      }
+    }
+  }
+}

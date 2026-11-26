@@ -55,8 +55,8 @@ describe("stencil-builder helpers", () => {
       "operations",
       "agents",
       "governance",
-      "knowledge",
       "evidence",
+      "chat",
       "labs",
       "settings",
     ]);
@@ -171,7 +171,7 @@ describe("stencil-builder helpers", () => {
       panels: [
         samplePanels[0]!,
         {
-          id: "documents", path: "/documents", group: "knowledge", label: "Documents", label_ko: "문서",
+          id: "documents", path: "/documents", group: "governance", label: "Documents", label_ko: "운영 문서",
           locked: false, required_workloads: ["document-ingestion-api", "document-processing-worker"],
           required_loops: ["document-ingestion"], required_addons: [], feature_ids: [],
         },
@@ -298,9 +298,9 @@ describe("stencil-builder helpers", () => {
         {
           id: "documents",
           path: "/documents",
-          group: "knowledge",
+          group: "governance",
           label: "Documents",
-          label_ko: "문서 수집",
+          label_ko: "운영 문서",
           locked: false,
           required_workloads: ["document-ingestion-api", "document-processing-worker"],
           required_loops: ["document-ingestion"],

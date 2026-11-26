@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">FDAI Forward Gate concept</title>
+  <desc id="desc">Three routes converge through an open gate into one forward action.</desc>
+  <g fill="none" stroke="#2B7FE0" stroke-width="6" stroke-linecap="square" stroke-linejoin="miter">
+    <path d="M6 13h12c11 0 10 19 23 19h7"/>
+    <path d="M6 32h42"/>
+    <path d="M6 51h12c11 0 10-19 23-19h7"/>
+    <path d="M39 9h12v12M51 43v12H39"/>
+  </g>
+  <path fill="#2B7FE0" d="m43 20 15 12-15 12z"/>
+</svg>

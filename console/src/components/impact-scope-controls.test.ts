@@ -53,8 +53,8 @@ describe("Impact scope controls", () => {
     expect(route).toContain('class="blast-readonly-banner"');
     expect(impactView).toContain('class="blast-summary-metrics"');
     expect(route).toContain('class="impact-query-panel"');
-    expect(route).toContain('class="impact-query-input"');
-    expect(route).toContain('class="impact-query-check-box"');
+    expect(route).toContain("<SelectField");
+    expect(route).toContain("<CheckboxField");
     expect(route).toContain('class="btn primary impact-query-submit"');
     expect(route).toContain("<ImpactResourcePicker");
     expect(resourcePicker).toContain("<SearchableSelect");

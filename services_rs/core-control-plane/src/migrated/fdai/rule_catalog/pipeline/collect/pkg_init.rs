@@ -1,0 +1,1 @@
+pub const PUBLIC_EXPORTS: &[&str] = &["CollectorSuccessReceipt", "CollectorPipeline", "FetchError", "Fetcher", "GitCloneFetcher", "HttpDownloadFetcher", "LocalDirectoryFetcher", "SnapshotReport", "build_fetcher", "read_success_receipt", "record_success_receipt"];

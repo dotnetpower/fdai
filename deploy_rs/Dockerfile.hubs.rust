@@ -1,0 +1,30 @@
+# Multi-stage Pure-Rust Distroless Containerfile for Release Hub & Lifecycle Hub
+FROM rust:1.86-slim-bookworm AS rust-builder
+WORKDIR /src
+COPY Cargo.toml Cargo.lock deny.toml ./
+COPY crates ./crates
+COPY lifecycle_rs ./lifecycle_rs
+COPY services_rs ./services_rs
+COPY extensions_rs ./extensions_rs
+COPY benchmarks_rs ./benchmarks_rs
+COPY tools_rs ./tools_rs
+RUN cargo build --release --offline -p fdai-release-hub --bin fdai-release-hub \
+      -p fdai-hub --bin fdai-hub
+
+FROM gcr.io/distroless/cc-debian12:nonroot AS release-hub
+WORKDIR /app
+COPY --from=rust-builder /src/target/release/fdai-release-hub /usr/local/bin/fdai-release-hub
+COPY lifecycle_rs/release-hub/ui/dist /app/ui
+ENV FDAI_RELEASE_HUB_HOST=0.0.0.0 FDAI_RELEASE_HUB_PORT=8080 FDAI_RELEASE_HUB_STATIC_DIR=/app/ui
+EXPOSE 8080
+USER 65532:65532
+ENTRYPOINT ["/usr/local/bin/fdai-release-hub"]
+
+FROM gcr.io/distroless/cc-debian12:nonroot AS lifecycle-hub
+WORKDIR /app
+COPY --from=rust-builder /src/target/release/fdai-hub /usr/local/bin/fdai-hub
+COPY lifecycle_rs/hub/ui/dist /app/ui
+ENV FDAI_LIFECYCLE_HUB_HOST=0.0.0.0 FDAI_LIFECYCLE_HUB_PORT=8080 FDAI_LIFECYCLE_HUB_STATIC_DIR=/app/ui
+EXPOSE 8080
+USER 65532:65532
+ENTRYPOINT ["/usr/local/bin/fdai-hub"]

@@ -1,6 +1,12 @@
 import { architectureHref } from "../components/architecture-map.model";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
+import {
+  FilterToolbar,
+  SearchInput,
+  SelectField,
+  TextInput,
+} from "../components/form-controls";
 import type {
   EffectiveScope,
   ScopeAxis,
@@ -203,28 +209,33 @@ function ScopeBody({ data }: { readonly data: EffectiveScope }) {
         />
         <KpiCard href={`${routeHref("scope")}#scope-hierarchy`} label={t("scope.hierarchySubscriptions")} value={hierarchy.length} />
       </KpiGrid>
-      <div class="cs-filter-toolbar" role="search">
-        <label class="is-wide">
-          <span>{t("scope.column.subscription")} / {t("scope.column.resourceGroup")}</span>
-          <input
-            type="search"
-            value={query}
-            placeholder={getLocale() === "ko" ? "구독, 리소스 그룹, 주소..." : "subscription, resource group, address..."}
-            onInput={(event) => setQuery(event.currentTarget.value)}
-          />
-        </label>
-        <label>
-          <span>{t("scope.column.state")}</span>
-          <select value={stateFilter} onChange={(event) => setStateFilter(event.currentTarget.value as "all" | ScopeEntryState)}>
-            <option value="all">{getLocale() === "ko" ? "전체" : "All"}</option>
-            <option value="included">{t("scope.state.included")}</option>
-            <option value="excluded">{t("scope.state.excluded")}</option>
-          </select>
-        </label>
-        <span class="cs-filter-count" role="status" aria-live="polite">
-          {filteredMonitoring.entries.length + filteredAction.entries.length} / {data.monitoring.entries.length + data.action.entries.length}
-        </span>
-      </div>
+      <FilterToolbar
+        ariaLabel={t("scope.column.subscription")}
+        activeFilterCount={(query.trim().length > 0 ? 1 : 0) + (stateFilter !== "all" ? 1 : 0)}
+        actions={(
+          <span class="cs-filter-count" role="status" aria-live="polite">
+            {filteredMonitoring.entries.length + filteredAction.entries.length} / {data.monitoring.entries.length + data.action.entries.length}
+          </span>
+        )}
+      >
+        <SearchInput
+          label={`${t("scope.column.subscription")} / ${t("scope.column.resourceGroup")}`}
+          value={query}
+          className="is-wide"
+          placeholder={getLocale() === "ko" ? "구독, 리소스 그룹, 주소..." : "subscription, resource group, address..."}
+          onInput={setQuery}
+        />
+        <SelectField
+          label={t("scope.column.state")}
+          value={stateFilter}
+          options={[
+            { value: "all", label: getLocale() === "ko" ? "전체" : "All" },
+            { value: "included", label: t("scope.state.included") },
+            { value: "excluded", label: t("scope.state.excluded") },
+          ]}
+          onChange={(next) => setStateFilter(next as "all" | ScopeEntryState)}
+        />
+      </FilterToolbar>
       <ScopeHierarchy nodes={filteredHierarchy} />
       <div class="scope-axis-grid">
         <ScopeAxisTable axis={filteredMonitoring} />
@@ -414,40 +425,35 @@ function ScopeBuilder({ org }: { readonly org: string }) {
       <h3 class="section-title">{t("scope.builder")}</h3>
       <p class="muted footnote">{t("scope.builderHint")}</p>
       <form class="form-grid inline" onSubmit={addDraft}>
-        <label>
-          {t("scope.builderAxis")}
-          <select value={axis} onChange={(e) => setAxis((e.target as HTMLSelectElement).value as ScopeAxisName)}>
-            <option value="monitoring">{t("scope.axis.monitoring")}</option>
-            <option value="action">{t("scope.axis.action")}</option>
-          </select>
-        </label>
-        <label>
-          {t("scope.builderState")}
-          <select
-            value={entryState}
-            onChange={(e) => setEntryState((e.target as HTMLSelectElement).value as ScopeEntryState)}
-          >
-            <option value="included">{t("scope.state.included")}</option>
-            <option value="excluded">{t("scope.state.excluded")}</option>
-          </select>
-        </label>
-        <label>
-          {t("scope.column.subscription")}
-          <input
-            type="text"
-            value={subscription}
-            onInput={(e) => setSubscription((e.target as HTMLInputElement).value)}
-            required
-          />
-        </label>
-        <label>
-          {t("scope.builderResourceGroupOptional")}
-          <input
-            type="text"
-            value={resourceGroup}
-            onInput={(e) => setResourceGroup((e.target as HTMLInputElement).value)}
-          />
-        </label>
+        <SelectField
+          label={t("scope.builderAxis")}
+          value={axis}
+          options={[
+            { value: "monitoring", label: t("scope.axis.monitoring") },
+            { value: "action", label: t("scope.axis.action") },
+          ]}
+          onChange={(next) => setAxis(next as ScopeAxisName)}
+        />
+        <SelectField
+          label={t("scope.builderState")}
+          value={entryState}
+          options={[
+            { value: "included", label: t("scope.state.included") },
+            { value: "excluded", label: t("scope.state.excluded") },
+          ]}
+          onChange={(next) => setEntryState(next as ScopeEntryState)}
+        />
+        <TextInput
+          label={t("scope.column.subscription")}
+          value={subscription}
+          onInput={setSubscription}
+          required
+        />
+        <TextInput
+          label={t("scope.builderResourceGroupOptional")}
+          value={resourceGroup}
+          onInput={setResourceGroup}
+        />
         <button type="submit" class="btn primary" disabled={!subscription.trim()}>
           {t("scope.builderAdd")}
         </button>

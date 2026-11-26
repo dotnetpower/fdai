@@ -64,7 +64,7 @@ describe("shared Calm Slate tokens", () => {
     expect(sharedTokens).toContain("--cs-type-body-size: 14px");
     expect(sharedTokens).toContain("--cs-type-compact-size: 13px");
     expect(sharedTokens).toContain("--cs-type-label-size: 12px");
-    expect(sharedTokens).toContain("--cs-type-caption-size: 11px");
+    expect(sharedTokens).toContain("--cs-type-caption-size: 12px");
     expect(sharedTokens).toContain("--cs-font-size: var(--cs-type-body-size)");
     expect(consoleStyles).toContain("--font-sans: var(--cs-font)");
     expect(mockStyles).toContain("font-size: var(--cs-font-size)");

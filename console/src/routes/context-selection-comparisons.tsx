@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, OperatorApiError } from "../api";
 import type { OperatorApiClient } from "../api";
 import { EvidenceRefresh } from "../components/evidence-refresh";
+import { SearchInput, SelectField } from "../components/form-controls";
 import {
   AsyncBoundary,
   DataTable,
@@ -246,23 +247,23 @@ function ComparisonBody({ data }: { readonly data: ComparisonResponse }) {
         />
       </KpiGrid>
       <div class="cs-filter-toolbar" role="search">
-        <label class="is-wide">
-          <span>{t("evidence.contextSelection.column.candidate")}</span>
-          <input
-            type="search"
-            value={query}
-            placeholder={getLocale() === "ko" ? "평가 ID, 기준 정책, 후보 정책, 누락 항목..." : "evaluation, baseline, candidate, omission..."}
-            onInput={(event) => setQuery(event.currentTarget.value)}
-          />
-        </label>
-        <label>
-          <span>{t("evidence.contextSelection.column.invariantResult")}</span>
-          <select value={resultFilter} onChange={(event) => setResultFilter(event.currentTarget.value as "all" | "passed" | "failed")}>
-            <option value="all">{getLocale() === "ko" ? "전체" : "All"}</option>
-            <option value="passed">{t("evidence.status.passed")}</option>
-            <option value="failed">{t("evidence.status.failed")}</option>
-          </select>
-        </label>
+        <SearchInput
+          className="is-wide"
+          label={t("evidence.contextSelection.column.candidate")}
+          value={query}
+          placeholder={getLocale() === "ko" ? "평가 ID, 기준 정책, 후보 정책, 누락 항목..." : "evaluation, baseline, candidate, omission..."}
+          onInput={setQuery}
+        />
+        <SelectField
+          label={t("evidence.contextSelection.column.invariantResult")}
+          value={resultFilter}
+          options={[
+            { value: "all", label: getLocale() === "ko" ? "전체" : "All" },
+            { value: "passed", label: t("evidence.status.passed") },
+            { value: "failed", label: t("evidence.status.failed") },
+          ]}
+          onChange={(value) => setResultFilter(value as "all" | "passed" | "failed")}
+        />
         <span class="cs-filter-count" role="status" aria-live="polite">
           {filtered.length} / {data.comparisons.length}
         </span>

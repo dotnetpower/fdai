@@ -1,4 +1,5 @@
 import { useState } from "preact/hooks";
+import { TextInput, ToggleSwitch } from "../components/form-controls";
 import { Tooltip } from "../components/tooltip";
 import { t } from "../i18n";
 import { formatConsoleTimestamp } from "../time-format";
@@ -112,46 +113,33 @@ export function SettingsContextSections({
             label={t("settings.answerPreferences")}
             hint={t("settings.answerPreferencesHint")}
           >
-            <label class="settings-toggle-control">
-              <input
-                type="checkbox"
-                checked={answerPreferencesEnabled}
-                onChange={(event) => setAnswerPreferencesEnabled(event.currentTarget.checked)}
-              />
-              <span aria-hidden="true" />
-              <strong>
-                {answerPreferencesEnabled ? t("settings.enabled") : t("settings.disabled")}
-              </strong>
-            </label>
+            <ToggleSwitch
+              label={answerPreferencesEnabled ? t("settings.enabled") : t("settings.disabled")}
+              checked={answerPreferencesEnabled}
+              onChange={setAnswerPreferencesEnabled}
+            />
           </SettingRow>
           <SettingRow label={t("settings.timezone")} hint={t("settings.timezoneHint")}>
-            <input
+            <TextInput
               id="settings-timezone"
-              class="form-input settings-context-input"
-              aria-label={t("settings.timezone")}
+              className="settings-context-input"
+              label={t("settings.timezone")}
+              hideLabel
               value={timezone}
               placeholder="Asia/Seoul"
-              onInput={(event) => setTimezone(event.currentTarget.value)}
-              aria-invalid={timezoneError || undefined}
-              aria-describedby={timezoneError ? "settings-timezone-error" : undefined}
+              onInput={setTimezone}
+              {...(timezoneError ? { error: t("settings.contextTimezoneInvalid") } : {})}
             />
-            {timezoneError ? <span id="settings-timezone-error" class="error-text" role="alert">
-              {t("settings.contextTimezoneInvalid")}
-            </span> : null}
           </SettingRow>
           <SettingRow
             label={t("settings.learnerAccess")}
             hint={t("settings.learnerAccessHint")}
           >
-            <label class="settings-toggle-control">
-              <input
-                type="checkbox"
-                checked={shareWithLearner}
-                onChange={(event) => setShareWithLearner(event.currentTarget.checked)}
-              />
-              <span aria-hidden="true" />
-              <strong>{shareWithLearner ? t("settings.optedIn") : t("settings.metadataOnly")}</strong>
-            </label>
+            <ToggleSwitch
+              label={shareWithLearner ? t("settings.optedIn") : t("settings.metadataOnly")}
+              checked={shareWithLearner}
+              onChange={setShareWithLearner}
+            />
           </SettingRow>
         </div>
         </fieldset>
@@ -231,24 +219,17 @@ export function SettingsContextSections({
           ) : null}
         </div>
         <div class="settings-briefing-create">
-          <label>
-            <span>{t("settings.dailyHour")}</span>
-            <input
-              id="settings-briefing-hour"
-              class="form-input"
-              type="number"
-              min="0"
-              max="23"
-              value={briefingHour}
-              onInput={(event) => setBriefingHour(event.currentTarget.value)}
-              disabled={fieldsDisabled}
-              aria-invalid={briefingHourError || undefined}
-              aria-describedby={briefingHourError ? "settings-briefing-hour-error" : undefined}
-            />
-            {briefingHourError ? <span id="settings-briefing-hour-error" class="error-text" role="alert">
-              {t("settings.briefingHourInvalid")}
-            </span> : null}
-          </label>
+          <TextInput
+            id="settings-briefing-hour"
+            label={t("settings.dailyHour")}
+            type="number"
+            min="0"
+            max="23"
+            value={briefingHour}
+            onInput={setBriefingHour}
+            disabled={fieldsDisabled}
+            {...(briefingHourError ? { error: t("settings.briefingHourInvalid") } : {})}
+          />
           <span class="muted small">{previewHour === null ? timezone.trim() :
             settingsGeneralText("dailyPreview", { time: `${String(previewHour).padStart(2, "0")}:00`, timezone: timezone.trim() })}</span>
           <button type="button" class="btn" disabled={fieldsDisabled} onClick={() => void addDailyBriefing()}>

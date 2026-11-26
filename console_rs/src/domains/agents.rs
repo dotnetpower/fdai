@@ -940,6 +940,7 @@ async fn api_agents_activity(
         obj.insert("trajectories".to_string(), Value::Null);
         obj.insert("events".to_string(), Value::Null);
         obj.insert("heatmap".to_string(), Value::Null);
+        obj.insert("heatmap_buckets".to_string(), Value::Null);
     }
     json_no_store(StatusCode::OK, env)
 }
@@ -1277,10 +1278,12 @@ mod tests {
             .parent()
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("."));
+        let icons_dir = {
+            let rust_owned = root.join("console_rs/assets/agent-icons");
+            if rust_owned.is_dir() { rust_owned } else { root.join("console/public/agent-icons") }
+        };
         for agent in PANTHEON_CATALOG {
-            let icon_file = root
-                .join("console/public/agent-icons")
-                .join(format!("{}.svg", agent.slug));
+            let icon_file = icons_dir.join(format!("{}.svg", agent.slug));
             assert!(
                 icon_file.exists(),
                 "missing official icon for {}: {}",
@@ -1318,6 +1321,22 @@ mod tests {
         assert!(html.contains("/api/v4/agents/stream"));
         assert!(html.contains("fdai:live-pulse"));
         assert!(html.contains("agLivePulseBanner"));
+        if let Some((static_markup, _)) = html.split_once("<script>") {
+            for sample_leak in [
+                "INC-2026-441",
+                "corr-8a91f",
+                "prod-aks-02",
+                "리비전 #4",
+                "19:30:00",
+                "설치 6",
+                "선언 6건",
+            ] {
+                assert!(
+                    !static_markup.contains(sample_leak),
+                    "static /agents HTML must not leak sample token `{sample_leak}` in Live default markup"
+                );
+            }
+        }
         Ok(())
     }
 
@@ -1560,3 +1579,4 @@ mod tests {
         Ok(())
     }
 }
+

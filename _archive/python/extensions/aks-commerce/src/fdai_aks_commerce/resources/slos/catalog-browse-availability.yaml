@@ -1,0 +1,17 @@
+schema_version: "1.0.0"
+id: catalog-browse.availability
+description: Successful public catalog browse journeys.
+objective_ratio: 0.99
+window_days: 7
+sli:
+  kind: availability
+  good_query: synthetic.catalog.good
+  total_query: synthetic.catalog.total
+  labels:
+    service_id: catalog-browse
+burn_rate_alerts:
+  - name: catalog-browse-fast-burn
+    short_window_minutes: 5
+    long_window_minutes: 60
+    burn_rate_threshold: 14.4
+    severity: sev2

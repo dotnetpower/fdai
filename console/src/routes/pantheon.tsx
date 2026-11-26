@@ -2,7 +2,6 @@ import { useEffect, useMemo, useReducer, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable } from "../api";
 import type { OperatorApiClient } from "../api";
 import { AgentOrgChart } from "../components/agent-org-chart";
-import { AgentWorkspaceNav } from "../components/agent-workspace-nav";
 import {
   AsyncBoundary,
   PageHeader,
@@ -147,7 +146,6 @@ export function PantheonRoute({ client }: Props) {
 
   return (
     <div class="stack pantheon-route">
-      <AgentWorkspaceNav />
       <PageHeader
         title={t("route.pantheon")}
         subtitle={t("pantheon.subtitle")}

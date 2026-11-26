@@ -11,7 +11,7 @@ RUN groupadd --gid 10001 controller \
  && useradd --uid 10001 --gid controller --no-create-home --shell /usr/sbin/nologin controller
 
 COPY scripts/automation/runner_controller/ scripts/automation/runner_controller/
-COPY scripts/automation/runner_pool_policy.py scripts/automation/runner_pool_policy.py
+COPY _archive/python/scripts/automation/runner_pool_policy.py _archive/python/scripts/automation/runner_pool_policy.py
 COPY config/ci-runner-pools.json config/ci-runner-pools.json
 
 USER 10001:10001

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
+import { SearchInput, SelectField, TextareaField, TextInput } from "../components/form-controls";
 import { DataTable, LoadingState, StatusPill } from "../components/ui";
 import { useSettingsDirtyState } from "../components/settings-dirty-state";
 import { t } from "../i18n";
@@ -172,26 +173,43 @@ function AssignmentFilterBar({ filters, onChange }: {
 }) {
   return (
     <div class="settings-assignment-filters" role="group" aria-label={t("settings.iam.assignmentFilters")}>
-      <input
-        type="search"
+      <SearchInput
+        label={t("settings.iam.assignmentSearch")}
+        hideLabel
         value={filters.query}
         placeholder={t("settings.iam.assignmentSearch")}
-        aria-label={t("settings.iam.assignmentSearch")}
-        onInput={(event) => onChange({ ...filters, query: event.currentTarget.value })}
+        onInput={(value) => onChange({ ...filters, query: value })}
       />
-      <select aria-label={t("settings.iam.role")} value={filters.role} onChange={(event) => onChange({ ...filters, role: event.currentTarget.value as AssignmentFilters["role"] })}>
-        <option value="all">{t("settings.iam.allRoles")}</option>
-        {ROLES.map((role) => <option key={role} value={role}>{role}</option>)}
-      </select>
-      <select aria-label={t("settings.iam.agent")} value={filters.agent} onChange={(event) => onChange({ ...filters, agent: event.currentTarget.value })}>
-        <option value="">{t("settings.iam.allAgents")}</option>
-        {AGENTS.map((agent) => <option key={agent} value={agent}>{agent}</option>)}
-      </select>
-      <select aria-label={t("settings.iam.coverage")} value={filters.coverage} onChange={(event) => onChange({ ...filters, coverage: event.currentTarget.value as AssignmentFilters["coverage"] })}>
-        {(["all", "covered", "gap", "unavailable"] as const).map((value) => (
-          <option key={value} value={value}>{t(`settings.iam.coverageFilter.${value}`)}</option>
-        ))}
-      </select>
+      <SelectField
+        label={t("settings.iam.role")}
+        hideLabel
+        value={filters.role}
+        options={[
+          { value: "all", label: t("settings.iam.allRoles") },
+          ...ROLES.map((role) => ({ value: role, label: role })),
+        ]}
+        onChange={(value) => onChange({ ...filters, role: value as AssignmentFilters["role"] })}
+      />
+      <SelectField
+        label={t("settings.iam.agent")}
+        hideLabel
+        value={filters.agent}
+        options={[
+          { value: "", label: t("settings.iam.allAgents") },
+          ...AGENTS.map((agent) => ({ value: agent, label: agent })),
+        ]}
+        onChange={(value) => onChange({ ...filters, agent: value })}
+      />
+      <SelectField
+        label={t("settings.iam.coverage")}
+        hideLabel
+        value={filters.coverage}
+        options={(["all", "covered", "gap", "unavailable"] as const).map((value) => ({
+          value,
+          label: t(`settings.iam.coverageFilter.${value}`),
+        }))}
+        onChange={(value) => onChange({ ...filters, coverage: value as AssignmentFilters["coverage"] })}
+      />
     </div>
   );
 }
@@ -268,7 +286,14 @@ function AssignmentEditor({ client, auth, onCreated }: {
         <fieldset>
           <legend>{t("settings.iam.identity")}</legend>
           <div class="assignment-inline-search">
-            <input type="search" required minLength={2} maxLength={128} value={query} aria-label={t("settings.iam.assignmentSearch")} placeholder={t("settings.iam.assignmentSearch")} onInput={(event) => setQuery(event.currentTarget.value)} />
+            <SearchInput
+              label={t("settings.iam.assignmentSearch")}
+              hideLabel
+              maxLength={128}
+              value={query}
+              placeholder={t("settings.iam.assignmentSearch")}
+              onInput={setQuery}
+            />
             <button type="button" class="secondary" disabled={busy || query.trim().length < 2} onClick={() => { void search(); }}>{t("settings.iam.search")}</button>
           </div>
           <div class="assignment-identity-results">
@@ -279,18 +304,35 @@ function AssignmentEditor({ client, auth, onCreated }: {
             ))}
           </div>
         </fieldset>
-        <label>{t("settings.iam.requestedRole")}<select value={draft.role} onChange={(event) => setDraft({ ...draft, role: event.currentTarget.value as AssignmentDraft["role"] })}>{ROLES.map((role) => <option key={role}>{role}</option>)}</select></label>
+        <SelectField
+          label={t("settings.iam.requestedRole")}
+          value={draft.role}
+          options={ROLES.map((role) => ({ value: role, label: role }))}
+          onChange={(value) => setDraft({ ...draft, role: value as AssignmentDraft["role"] })}
+        />
         <fieldset>
           <legend>{t("settings.iam.agentDuties")}</legend>
           {draft.duties.map((duty, index) => <DutyRow key={index} duty={duty} onChange={(next) => setDraft({ ...draft, duties: draft.duties.map((item, itemIndex) => itemIndex === index ? next : item) })} onRemove={() => setDraft({ ...draft, duties: draft.duties.filter((_, itemIndex) => itemIndex !== index) })} />)}
           <button type="button" class="secondary" disabled={draft.duties.length >= 30} onClick={() => setDraft({ ...draft, duties: [...draft.duties, { agentName: "Odin", duty: "backup", scopeRef: "scope:platform" }] })}>{t("settings.iam.addDuty")}</button>
         </fieldset>
-        <label>{t("settings.iam.handoverGoals")}<textarea maxLength={2000} value={goalsText} placeholder={t("settings.iam.handoverGoalsHint")} onInput={(event) => {
-          const raw = event.currentTarget.value;
-          setGoalsText(raw);
-          setDraft({ ...draft, goalRefs: raw.split(/[,\n]/).map((value) => value.trim()).filter(Boolean).slice(0, 20) });
-        }} /></label>
-        <label>{t("settings.iam.justification")}<textarea required minLength={20} maxLength={2000} value={draft.justification} onInput={(event) => setDraft({ ...draft, justification: event.currentTarget.value })} /></label>
+        <TextareaField
+          label={t("settings.iam.handoverGoals")}
+          maxLength={2000}
+          value={goalsText}
+          placeholder={t("settings.iam.handoverGoalsHint")}
+          onInput={(raw) => {
+            setGoalsText(raw);
+            setDraft({ ...draft, goalRefs: raw.split(/[,\n]/).map((value) => value.trim()).filter(Boolean).slice(0, 20) });
+          }}
+        />
+        <TextareaField
+          label={t("settings.iam.justification")}
+          required
+          maxLength={2000}
+          showCounter
+          value={draft.justification}
+          onInput={(value) => setDraft({ ...draft, justification: value })}
+        />
         <div class="assignment-validation" role="status">
           <strong>{t("settings.iam.validationSummary")}</strong>
           {issues.length === 0 ? <span>{t("settings.iam.validationReady")}</span> : <ul>{issues.map((issue) => <li key={issue}>{t(`settings.iam.validation.${issue}`)}</li>)}</ul>}
@@ -303,7 +345,35 @@ function AssignmentEditor({ client, auth, onCreated }: {
 }
 
 function DutyRow({ duty, onChange, onRemove }: { readonly duty: AssignmentDutyBinding; readonly onChange: (next: AssignmentDutyBinding) => void; readonly onRemove: () => void }) {
-  return <div class="assignment-duty-row"><select aria-label={t("settings.iam.agent")} value={duty.agentName} onChange={(event) => onChange({ ...duty, agentName: event.currentTarget.value })}>{AGENTS.map((agent) => <option key={agent}>{agent}</option>)}</select><select aria-label={t("settings.iam.duty")} value={duty.duty} onChange={(event) => onChange({ ...duty, duty: event.currentTarget.value as AssignmentDuty })}>{DUTIES.map((value) => <option key={value} value={value}>{t(`settings.iam.dutyValue.${value}`)}</option>)}</select><input type="text" aria-label={t("settings.iam.scope")} value={duty.scopeRef} maxLength={256} onInput={(event) => onChange({ ...duty, scopeRef: event.currentTarget.value })} /><button type="button" class="secondary" onClick={onRemove} aria-label={t("settings.iam.removeDuty")}>×</button></div>;
+  return (
+    <div class="assignment-duty-row">
+      <SelectField
+        label={t("settings.iam.agent")}
+        hideLabel
+        size="sm"
+        value={duty.agentName}
+        options={AGENTS.map((agent) => ({ value: agent, label: agent }))}
+        onChange={(value) => onChange({ ...duty, agentName: value })}
+      />
+      <SelectField
+        label={t("settings.iam.duty")}
+        hideLabel
+        size="sm"
+        value={duty.duty}
+        options={DUTIES.map((value) => ({ value, label: t(`settings.iam.dutyValue.${value}`) }))}
+        onChange={(value) => onChange({ ...duty, duty: value as AssignmentDuty })}
+      />
+      <TextInput
+        label={t("settings.iam.scope")}
+        hideLabel
+        size="sm"
+        value={duty.scopeRef}
+        maxLength={256}
+        onInput={(value) => onChange({ ...duty, scopeRef: value })}
+      />
+      <button type="button" class="secondary" onClick={onRemove} aria-label={t("settings.iam.removeDuty")}>×</button>
+    </div>
+  );
 }
 
 function AssignmentEvidence({ item, auth, client, principalOid, onClose, onChanged }: { readonly item: AssignmentProjectionItem; readonly auth: AuthContext; readonly client: OperatorApiClient; readonly principalOid: string; readonly onClose: () => void; readonly onChanged: () => Promise<void> }) {

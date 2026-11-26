@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/document-worker-index/1.0.0",
+  "title": "DocumentWorkerIndexCommand",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "producer_principal", "kind", "stage", "command", "upload_id"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "producer_principal": {"const": "Muninn"},
+    "kind": {"const": "document_ingestion"},
+    "stage": {"const": "indexing"},
+    "command": {"const": "index"},
+    "correlation_id": {"type": "string", "maxLength": 512, "default": ""},
+    "idempotency_key": {"type": "string", "maxLength": 512, "default": ""},
+    "resource_id": {"type": "string", "maxLength": 128, "default": ""},
+    "document_id": {"type": "string", "maxLength": 128, "default": ""},
+    "upload_id": {"type": "string", "format": "uuid"}
+  }
+}

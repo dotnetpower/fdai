@@ -236,12 +236,8 @@
 .tj-avatar img { width: 15px; height: 15px; }
 .tj-avatar:focus { outline: none; }
 
-.tj-status { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; max-width: 100%; padding: 2px 9px; border-radius: 999px; background: var(--cs-shade); color: var(--cs-text-soft); font-size: var(--cs-type-label-size); font-weight: 600; line-height: 1.6; overflow-wrap: anywhere; }
-.tj-status::before { content: ""; flex: 0 0 auto; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .85; }
-.tj-status[data-tone="good"] { color: var(--tj-good); background: color-mix(in srgb, var(--cs-sage) 12%, var(--cs-card)); }
-.tj-status[data-tone="attention"] { color: var(--tj-attention); background: color-mix(in srgb, var(--cs-terracotta) 12%, var(--cs-card)); }
-.tj-status[data-tone="bad"] { color: var(--tj-bad); background: color-mix(in srgb, var(--cs-dusty-red) 12%, var(--cs-card)); }
-.tj-status-lg { padding: 4px 12px; font-size: var(--cs-type-compact-size); }
+.tj-status.cs-status-badge { flex: 0 0 auto; max-width: 100%; overflow-wrap: anywhere; }
+.tj-status-lg.cs-status-badge { padding: 4px 10px; font-size: var(--cs-type-compact-size, 13px); }
 
 .tj-detail { min-width: 0; padding: 28px 32px 24px; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); box-shadow: 0 1px 2px rgba(30, 43, 57, .04), 0 8px 24px -12px rgba(30, 43, 57, .12); }
 .tj-hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
@@ -458,43 +454,32 @@
 .tj-mark-tip strong { font-weight: 600; }
 .tj-mark-tip-meta { color: var(--cs-text-soft); font-family: var(--cs-font-mono, monospace); font-size: var(--cs-type-label-size); }
 
-/* Shared Agent Activity shell & Activity log Calm Slate alignment. */
-main .agent-workspace-nav {
+/* Shared Agent Activity overlay trigger & Activity log Calm Slate alignment. */
+main .agent-workspace-nav.agent-workspace-nav--compact {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 18px;
-  margin: -4px 0 4px;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: -4px 0 8px;
   padding: 0;
-  box-shadow: inset 0 -1px 0 var(--cs-hairline, var(--border));
+  box-shadow: none;
 }
-main .agent-workspace-nav a {
-  padding: 5px 0 7px;
-  border-bottom: 1.5px solid transparent;
-  color: var(--cs-text-soft, var(--fg-muted));
-  font-size: var(--cs-type-compact-size, 13px);
-  font-weight: 500;
-}
-main .agent-workspace-nav a.is-active {
-  border-bottom-color: currentColor;
-  color: var(--cs-text, var(--fg));
-  font-weight: 650;
-}
-main .agent-workspace-nav .agent-workspace-roles {
+main .agent-workspace-nav.agent-workspace-nav--compact .agent-workspace-roles {
   margin: 0;
-  padding: 5px 0 7px;
-  border: 0;
-  border-bottom: 1.5px solid transparent;
-  border-radius: 0;
-  background: transparent;
-  color: var(--cs-text-soft, var(--fg-muted));
+  padding: 6px 12px;
+  border: 1px solid var(--cs-hairline, var(--border));
+  border-radius: var(--cs-radius-sm, 6px);
+  background: var(--cs-card, var(--bg-elevated));
+  color: var(--cs-text, var(--fg));
+  font-size: var(--cs-type-compact-size, 13px);
   font-weight: 600;
 }
-main .agent-workspace-nav .agent-workspace-roles:hover,
-main .agent-workspace-nav .agent-workspace-roles.is-active {
-  border-bottom-color: currentColor;
-  background: transparent;
-  color: var(--cs-text, var(--fg));
+main .agent-workspace-nav.agent-workspace-nav--compact .agent-workspace-roles:hover,
+main .agent-workspace-nav.agent-workspace-nav--compact .agent-workspace-roles.is-active {
+  border-color: var(--cs-steel, var(--accent));
+  background: var(--cs-steel-soft, var(--cs-shade));
+  color: var(--cs-steel, var(--fg));
 }
 main .view-toggle {
   display: inline-flex;

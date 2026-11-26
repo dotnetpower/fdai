@@ -136,22 +136,22 @@
     }
   },
   "assurance": {
-    "title": "통제 보증",
-    "subtitle": "자율 운영을 허용, 차단, 보류하는 결정론적 가드 근거입니다.",
+    "title": "안전 통제 현황",
+    "subtitle": "자율 운영을 허용, 차단, 보류하는 규칙 기반 안전 통제 현황입니다.",
     "posture": "운영 상태",
-    "escapes": "정책위반 탈출",
+    "escapes": "정책 위반",
     "shadow": "Shadow 비율",
-    "ready": "승격 준비도",
-    "escapeHint": "승격 집계에서 관측된 통제되지 않은 실행",
+    "ready": "적용 준비도",
+    "escapeHint": "심사 집계에서 관측된 통제되지 않은 실행",
     "shadowHint": "Shadow 모드로 기록된 대상 감사 이벤트",
     "readyHint": "차단된 기능: {blocked}개",
     "banner": {
       "healthyTitle": "안전 통제가 정상 작동 중입니다.",
-      "healthyBody": "정책위반 탈출: {escapes}건. 실패 가드: {guards}개. 승인 대기: {approvals}건.",
+      "healthyBody": "정책 위반: {escapes}건. 실패 가드: {guards}개. 승인 대기: {approvals}건.",
       "attentionTitle": "자율 운영에 조치가 필요합니다.",
-      "attentionBody": "정책위반 탈출: {escapes}건. 실패 가드: {guards}개. 승인 대기: {approvals}건.",
-      "unknownTitle": "운영 통제 보증을 확인할 수 없습니다.",
-      "unknownBody": "정책위반 탈출: {escapes}. 실패 가드: {guards}. 승인 대기: {approvals}건. 누락되거나 합성된 근거로 정상 판정을 만들지 않습니다."
+      "attentionBody": "정책 위반: {escapes}건. 실패 가드: {guards}개. 승인 대기: {approvals}건.",
+      "unknownTitle": "안전 통제 상태를 확인할 수 없습니다.",
+      "unknownBody": "정책 위반: {escapes}. 실패 가드: {guards}. 승인 대기: {approvals}건. 누락되거나 합성된 근거로 정상 판정을 만들지 않습니다."
     },
     "guardsTitle": "승격 가드",
     "guardsSubtitle": "각 안전 조건의 현재 측정값을 권위 있는 임계값과 비교합니다.",

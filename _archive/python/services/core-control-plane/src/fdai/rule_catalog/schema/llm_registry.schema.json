@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/rule-catalog/llm-registry/1.0.0",
+  "title": "LlmRegistry",
+  "description": "Capability preferences registry consumed by the bootstrap resolver. Family-only (no dated versions) - the resolver picks the latest stable version at provisioning time. See docs/roadmap/architecture/llm-strategy.md § Capability Preferences Registry.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "models"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "mixed_model_mode": {
+      "type": "string",
+      "enum": ["azure-foundry", "external", "hil-only"],
+      "default": "azure-foundry",
+      "description": "How the mixed-model invariant is satisfied. See docs/roadmap/architecture/llm-strategy.md § Mixed-Model Family Strategies."
+    },
+    "models": {
+      "type": "object",
+      "additionalProperties": false,
+      "propertyNames": {
+        "pattern": "^(t1|t2)\\.[a-z][a-z0-9._-]{1,63}$"
+      },
+      "minProperties": 1,
+      "additionalPropertiesShape": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["preferences"],
+        "properties": {
+          "preferences": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["publisher", "family"],
+              "properties": {
+                "publisher": {"type": "string", "minLength": 1, "maxLength": 64},
+                "family": {"type": "string", "minLength": 1, "maxLength": 128}
+              }
+            }
+          },
+          "sku": {"type": "string", "enum": ["Standard", "GlobalStandard", "ProvisionedManaged", "GlobalProvisionedManaged", "DataZoneProvisionedManaged"]},
+          "capacity_tpm": {"type": "integer", "minimum": 1000},
+          "capacity_ptu": {"type": "integer", "minimum": 1},
+          "invocation": {"type": "string", "enum": ["always", "on_disagreement", "on_novel_case"]},
+          "tool_calling_required": {"type": "boolean", "default": false}
+        }
+      },
+      "patternProperties": {
+        "^(t1|t2)\\.[a-z][a-z0-9._-]{1,63}$": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["preferences"],
+          "allOf": [
+            {
+              "if": {
+                "required": ["sku"],
+                "properties": {
+                  "sku": {
+                    "enum": ["ProvisionedManaged", "GlobalProvisionedManaged", "DataZoneProvisionedManaged"]
+                  }
+                }
+              },
+              "then": {
+                "required": ["capacity_ptu"],
+                "not": {"required": ["capacity_tpm"]}
+              },
+              "else": {
+                "required": ["capacity_tpm"],
+                "not": {"required": ["capacity_ptu"]}
+              }
+            }
+          ],
+          "properties": {
+            "preferences": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["publisher", "family"],
+                "properties": {
+                  "publisher": {"type": "string", "minLength": 1, "maxLength": 64},
+                  "family": {"type": "string", "minLength": 1, "maxLength": 128}
+                }
+              }
+            },
+            "sku": {
+              "type": "string",
+              "enum": ["Standard", "GlobalStandard", "ProvisionedManaged", "GlobalProvisionedManaged", "DataZoneProvisionedManaged"],
+              "default": "Standard"
+            },
+            "capacity_tpm": {"type": "integer", "minimum": 1000},
+            "capacity_ptu": {"type": "integer", "minimum": 1},
+            "invocation": {
+              "type": "string",
+              "enum": ["always", "on_disagreement", "on_novel_case"],
+              "default": "always"
+            },
+            "tool_calling_required": {
+              "type": "boolean",
+              "default": false,
+              "description": "Capability must resolve to a function-calling-capable family. The resolver degrades it to hil-only when a tool-calling family set is supplied and the chosen family is not in it. Public web search is resolved separately by t1.web_search and a live startup managed-tool probe."
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/execution-authorization/requirement/1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kind", "id", "version", "capability_id", "action_type_ids", "resource_types", "scope_expressions", "execution_profile", "provenance"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "kind": {"const": "authorization-requirement"},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$"},
+    "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "capability_id": {"type": "string", "pattern": "^[a-z][a-z0-9._-]{1,127}$"},
+    "action_type_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "resource_types": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "scope_expressions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(target|ancestor\\((resource_group|account)\\)|related\\([a-z][a-z0-9_]{0,63},[1-5]\\)|affected_set)$"
+      }
+    },
+    "execution_profile": {"type": "string", "pattern": "^[a-z][a-z0-9._-]{1,127}$"},
+    "provenance": {"$ref": "#/$defs/provenance"}
+  },
+  "$defs": {
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["created_at", "created_by"],
+      "properties": {
+        "created_at": {},
+        "created_by": {"type": "string", "minLength": 1},
+        "source": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

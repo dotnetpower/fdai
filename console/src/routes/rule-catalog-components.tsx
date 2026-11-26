@@ -1,4 +1,6 @@
 import type { ComponentChildren } from "preact";
+import { SelectField } from "../components/form-controls";
+import { buildFacetSelectOptions } from "../components/rule-facet-toolbar";
 import { displayValue, t } from "./i18n/governance";
 
 export type FacetMap = Readonly<Record<string, number>>;
@@ -16,19 +18,19 @@ export function FacetSelect({
   readonly displayGroup?: string;
   readonly onChange: (next: string) => void;
 }) {
-  const options = Object.entries(counts);
+  const options = buildFacetSelectOptions(
+    counts,
+    t("governance.common.all"),
+    displayGroup ? (key) => displayValue(displayGroup, key) : undefined,
+  );
   return (
-    <label class="rule-facet-select">
-      <span>{label}</span>
-      <select value={value} onChange={(event) => onChange(event.currentTarget.value)}>
-        <option value="">
-          {t("governance.common.all")} ({options.reduce((sum, [, count]) => sum + count, 0)})
-        </option>
-        {options.map(([key, count]) => (
-          <option key={key} value={key}>{displayGroup ? displayValue(displayGroup, key) : key} ({count})</option>
-        ))}
-      </select>
-    </label>
+    <SelectField
+      label={label}
+      value={value}
+      options={options}
+      className="rule-facet-select"
+      onChange={onChange}
+    />
   );
 }
 

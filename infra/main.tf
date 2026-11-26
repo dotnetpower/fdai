@@ -674,8 +674,34 @@ module "dev_gateway_executor_identity" {
   tags                = merge(local.tags, { "fdai:component" = "dev-operations-gateway" })
 }
 
+module "fdai_iam_permission_groups" {
+  count  = var.enable_fdai_iam_permission_groups ? 1 : 0
+  source = "./modules/iam/permission-groups"
+
+  role_definition_scope = (
+    var.fdai_iam_role_definition_scope != ""
+    ? var.fdai_iam_role_definition_scope
+    : "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  )
+  name_suffix  = "${var.workload}${local.full_suffix}"
+  environment  = var.env
+  binding_mode = var.fdai_iam_binding_mode
+  assignments = var.enable_dev_operations_gateway ? {
+    devgw_reader = {
+      group_id     = "reader"
+      scope        = module.resource_group.id
+      principal_id = module.dev_gateway_reader_identity[0].principal_id
+    }
+    devgw_executor = {
+      group_id     = var.dev_gateway_executor_iam_group
+      scope        = module.resource_group.id
+      principal_id = module.dev_gateway_executor_identity[0].principal_id
+    }
+  } : {}
+}
+
 resource "azurerm_role_assignment" "dev_gateway_reader" {
-  count                = var.enable_dev_operations_gateway ? 1 : 0
+  count                = var.enable_dev_operations_gateway && !var.enable_fdai_iam_permission_groups ? 1 : 0
   scope                = module.resource_group.id
   role_definition_name = "Reader"
   principal_id         = module.dev_gateway_reader_identity[0].principal_id
@@ -683,7 +709,7 @@ resource "azurerm_role_assignment" "dev_gateway_reader" {
 }
 
 resource "azurerm_role_assignment" "dev_gateway_executor_network" {
-  count                = var.enable_dev_operations_gateway ? 1 : 0
+  count                = var.enable_dev_operations_gateway && !var.enable_fdai_iam_permission_groups ? 1 : 0
   scope                = module.resource_group.id
   role_definition_name = "Network Contributor"
   principal_id         = module.dev_gateway_executor_identity[0].principal_id
@@ -691,7 +717,7 @@ resource "azurerm_role_assignment" "dev_gateway_executor_network" {
 }
 
 resource "azurerm_role_assignment" "dev_gateway_executor_vm" {
-  count                = var.enable_dev_operations_gateway ? 1 : 0
+  count                = var.enable_dev_operations_gateway && !var.enable_fdai_iam_permission_groups ? 1 : 0
   scope                = module.resource_group.id
   role_definition_name = "Virtual Machine Contributor"
   principal_id         = module.dev_gateway_executor_identity[0].principal_id
@@ -699,7 +725,7 @@ resource "azurerm_role_assignment" "dev_gateway_executor_vm" {
 }
 
 resource "azurerm_role_assignment" "dev_gateway_executor_tags" {
-  count                = var.enable_dev_operations_gateway ? 1 : 0
+  count                = var.enable_dev_operations_gateway && !var.enable_fdai_iam_permission_groups ? 1 : 0
   scope                = module.resource_group.id
   role_definition_name = "Tag Contributor"
   principal_id         = module.dev_gateway_executor_identity[0].principal_id

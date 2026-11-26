@@ -118,6 +118,7 @@ struct AgentAgg {
     direct_count: i64,
     attributed_count: i64,
     last_seen_at: String,
+    last_seen_epoch_ms: i64,
     latest_action_kind: String,
     modes: BTreeSet<String>,
     top_actions: Vec<(String, i64)>,
@@ -146,11 +147,14 @@ pub async fn fetch_actor_summary(db: &DbHandle) -> Value {
                       count(*) FILTER (WHERE mode = 'shadow'), \
                       count(*) FILTER (WHERE mode = 'enforce'), \
                       COALESCE(max(seq), 0), \
-                      COALESCE(max(to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')), '') \
+                      COALESCE(max(to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')), ''), \
+                      count(*) FILTER (WHERE created_at >= now() - interval '7 days'), \
+                      COALESCE(min(to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')), '') \
                       FROM audit_log";
     let actors_sql = "SELECT actor, action_kind, count(*), \
                       COALESCE(max(to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')), ''), \
-                      COALESCE(string_agg(DISTINCT mode, ','), '') \
+                      COALESCE(string_agg(DISTINCT mode, ','), ''), \
+                      COALESCE((EXTRACT(EPOCH FROM max(created_at)) * 1000)::bigint, 0) \
                       FROM audit_log \
                       GROUP BY actor, action_kind \
                       ORDER BY count(*) DESC \
@@ -169,6 +173,8 @@ pub async fn fetch_actor_summary(db: &DbHandle) -> Value {
     let enforce_events = cell_i64(tr, 2).unwrap_or(0);
     let latest_seq = cell_i64(tr, 3).unwrap_or(0);
     let latest_audit_at = cell_str(tr, 4);
+    let audit_7d_total = cell_i64(tr, 5).unwrap_or(0);
+    let earliest_audit_at = cell_str(tr, 6);
 
     let mut pantheon_map: BTreeMap<&'static str, AgentAgg> = BTreeMap::new();
     for name in PANTHEON_NAMES {
@@ -183,6 +189,7 @@ pub async fn fetch_actor_summary(db: &DbHandle) -> Value {
         let count = cell_i64(row, 2).unwrap_or(0);
         let last_seen = cell_str(row, 3);
         let modes_csv = cell_str(row, 4);
+        let last_seen_ms = cell_i64(row, 5).unwrap_or(0);
 
         let raw_entry = raw_actor_totals.entry(actor.clone()).or_insert_with(|| {
             (0_i64, String::new(), BTreeSet::new())
@@ -204,7 +211,10 @@ pub async fn fetch_actor_summary(db: &DbHandle) -> Value {
                 }
                 if last_seen > agg.last_seen_at {
                     agg.last_seen_at = last_seen.clone();
+                    agg.last_seen_epoch_ms = last_seen_ms;
                     agg.latest_action_kind = action_kind.clone();
+                } else if last_seen_ms > agg.last_seen_epoch_ms {
+                    agg.last_seen_epoch_ms = last_seen_ms;
                 }
                 for m in modes_csv.split(',').map(str::trim).filter(|s| !s.is_empty()) {
                     agg.modes.insert(m.to_string());
@@ -268,6 +278,7 @@ pub async fn fetch_actor_summary(db: &DbHandle) -> Value {
                     "direct_event_count": agg.direct_count,
                     "attributed_event_count": agg.attributed_count,
                     "last_seen_at": if agg.last_seen_at.is_empty() { Value::Null } else { json!(agg.last_seen_at) },
+                    "last_seen_epoch_ms": if agg.last_seen_epoch_ms > 0 { json!(agg.last_seen_epoch_ms) } else { Value::Null },
                     "latest_action_kind": if agg.latest_action_kind.is_empty() { Value::Null } else { json!(agg.latest_action_kind) },
                     "modes": modes_vec,
                     "top_actions": top_actions
@@ -281,9 +292,11 @@ pub async fn fetch_actor_summary(db: &DbHandle) -> Value {
         "source": "postgres-direct",
         "window_days": 7,
         "audit_total": total_events,
+        "audit_7d_total": audit_7d_total,
         "audit_shadow": shadow_events,
         "audit_enforce": enforce_events,
         "latest_seq": latest_seq,
+        "earliest_audit_at": if earliest_audit_at.is_empty() { Value::Null } else { json!(earliest_audit_at) },
         "latest_audit_at": latest_audit_at,
         "status_counts": {
             "working": working_count,
@@ -307,7 +320,8 @@ pub async fn fetch_agent_detail(
     let count_sql = format!(
         "SELECT count(*), \
          COALESCE(max(to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')), ''), \
-         COALESCE(string_agg(DISTINCT mode, ','), '') \
+         COALESCE(string_agg(DISTINCT mode, ','), ''), \
+         COALESCE((EXTRACT(EPOCH FROM max(created_at)) * 1000)::bigint, 0) \
          FROM audit_log WHERE {where_clause}"
     );
     let list_sql = format!(
@@ -317,7 +331,8 @@ pub async fn fetch_agent_detail(
          COALESCE(entry->>'reason', ''), \
          COALESCE(entry->>'source', ''), \
          COALESCE(entry->>'tier', ''), \
-         to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
+         to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), \
+         (EXTRACT(EPOCH FROM created_at) * 1000)::bigint \
          FROM audit_log WHERE {where_clause} \
          ORDER BY seq DESC LIMIT {lim}"
     );
@@ -333,6 +348,7 @@ pub async fn fetch_agent_detail(
     let event_count = cell_i64(cr, 0).unwrap_or(0);
     let last_seen_at = cell_str(cr, 1);
     let modes_csv = cell_str(cr, 2);
+    let last_seen_epoch_ms = cell_i64(cr, 3).unwrap_or(0);
     let modes: Vec<String> = modes_csv
         .split(',')
         .map(str::trim)
@@ -356,7 +372,8 @@ pub async fn fetch_agent_detail(
                 "reason": cell_str(row, 7),
                 "source": cell_str(row, 8),
                 "tier": cell_str(row, 9),
-                "created_at": cell_str(row, 10)
+                "created_at": cell_str(row, 10),
+                "created_at_ms": cell_i64(row, 11)
             })
         })
         .collect();
@@ -372,6 +389,7 @@ pub async fn fetch_agent_detail(
         "activity_label": activity_label_7d(event_count),
         "event_count": event_count,
         "last_seen_at": if last_seen_at.is_empty() { Value::Null } else { json!(last_seen_at) },
+        "last_seen_epoch_ms": if last_seen_epoch_ms > 0 { json!(last_seen_epoch_ms) } else { Value::Null },
         "modes": modes,
         "items": items
     })
@@ -488,7 +506,8 @@ pub async fn fetch_activity(
          COALESCE(entry->>'tier', ''), \
          COALESCE(entry->>'t1_outcome', ''), \
          COALESCE(entry->>'resource_id', COALESCE(entry->>'target', '')), \
-         to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
+         to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), \
+         (EXTRACT(EPOCH FROM created_at) * 1000)::bigint \
          FROM audit_log {where_sql} \
          ORDER BY seq DESC LIMIT {lim}"
     );
@@ -510,6 +529,15 @@ pub async fn fetch_activity(
          GROUP BY 1, 2 \
          ORDER BY 1, 2"
     );
+    let heatmap_buckets_sql = format!(
+        "SELECT to_char(date_trunc('hour', created_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD\"T\"HH24:00:00\"Z\"') AS bucket_utc, \
+         count(*) \
+         FROM audit_log \
+         {where_sql} \
+         GROUP BY 1 \
+         ORDER BY 1 ASC \
+         LIMIT 500"
+    );
 
     let (Ok(list_res), Ok(total_res)) = (
         db.query_single_readonly(&list_sql).await,
@@ -530,12 +558,14 @@ pub async fn fetch_activity(
         .map(|row| {
             let actor = cell_str(row, 2);
             let action_kind = cell_str(row, 3);
-            let canonical_agent = attribute_pantheon_agent(&actor, &action_kind).unwrap_or("Odin");
+            let attributed_agent = attribute_pantheon_agent(&actor, &action_kind);
+            let canonical_agent = attributed_agent.unwrap_or("Odin");
             json!({
                 "seq": cell_i64(row, 0),
                 "correlation_id": cell_str(row, 1),
                 "actor": actor,
                 "canonical_agent": canonical_agent,
+                "attributed": attributed_agent.is_some(),
                 "action_kind": action_kind,
                 "mode": cell_str(row, 4),
                 "entry_hash": cell_str(row, 5),
@@ -545,7 +575,8 @@ pub async fn fetch_activity(
                 "tier": cell_str(row, 9),
                 "outcome": cell_str(row, 10),
                 "target": cell_str(row, 11),
-                "created_at": cell_str(row, 12)
+                "created_at": cell_str(row, 12),
+                "created_at_ms": cell_i64(row, 13)
             })
         })
         .collect();
@@ -581,6 +612,21 @@ pub async fn fetch_activity(
             }
         }
     }
+    let heatmap_buckets: Vec<Value> = db
+        .query_single_readonly(&heatmap_buckets_sql)
+        .await
+        .map(|res| {
+            res.rows
+                .iter()
+                .map(|row| {
+                    json!({
+                        "bucket_utc": cell_str(row, 0),
+                        "count": cell_i64(row, 1).unwrap_or(0)
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     let mut active_slots = 0_usize;
     for row in &grid {
         for &v in row {
@@ -601,7 +647,8 @@ pub async fn fetch_activity(
         "items": items,
         "correlations": correlations,
         "heatmap_active_slots": active_slots,
-        "heatmap": heatmap_rows
+        "heatmap": heatmap_rows,
+        "heatmap_buckets": heatmap_buckets
     })
 }
 
@@ -764,7 +811,8 @@ pub async fn fetch_stream_snapshot(db: &DbHandle) -> Value {
                        COALESCE(max(to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')), '') \
                        FROM audit_log";
     let recent_sql = "SELECT seq, COALESCE(correlation_id, ''), actor, action_kind, mode, \
-                      to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
+                      to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), \
+                      (EXTRACT(EPOCH FROM created_at) * 1000)::bigint \
                       FROM audit_log ORDER BY seq DESC LIMIT 8";
 
     let (Ok(sum_res), Ok(rec_res)) = (
@@ -795,7 +843,8 @@ pub async fn fetch_stream_snapshot(db: &DbHandle) -> Value {
                 "canonical_agent": canonical_agent,
                 "action_kind": action_kind,
                 "mode": cell_str(row, 4),
-                "created_at": cell_str(row, 5)
+                "created_at": cell_str(row, 5),
+                "created_at_ms": cell_i64(row, 6)
             })
         })
         .collect();
@@ -812,3 +861,4 @@ pub async fn fetch_stream_snapshot(db: &DbHandle) -> Value {
         "recent": recent
     })
 }
+

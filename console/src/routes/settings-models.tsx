@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
+import { SearchInput, SelectField, TextInput, ToggleSwitch } from "../components/form-controls";
 import { DataTable, ErrorState, LoadingState, PageHeader, StatusPill } from "../components/ui";
 import { useSettingsDirtyState } from "../components/settings-dirty-state";
 import { usePublishViewContext } from "../deck/context";
@@ -699,13 +700,12 @@ export function SettingsModelsRoute({ client, auth }: Props) {
               <h3 id="model-routing-filter-heading">{modelText("inventorySearchTitle")}</h3>
               <p>{modelText("inventorySearchHint")}</p>
             </div>
-            <label for="model-routing-search">{modelText("inventorySearchLabel")}</label>
-            <input
+            <SearchInput
               id="model-routing-search"
-              type="search"
+              label={modelText("inventorySearchLabel")}
               value={routingQuery}
               placeholder={modelText("inventorySearchPlaceholder")}
-              onInput={(event) => setRoutingQuery(event.currentTarget.value)}
+              onInput={setRoutingQuery}
             />
             <span>{modelText("inventorySearchSummary")
               .replace("{capabilities}", String(visibleCapabilities.length))
@@ -749,48 +749,38 @@ export function SettingsModelsRoute({ client, auth }: Props) {
               </div>
             </dl>
             <div class="settings-t2-picker">
-              <label for="t2-primary-model">
-                <span>{modelText("primaryReasoner")}</span>
-                <select
-                  id="t2-primary-model"
-                  value={t2PrimaryKey}
-                  disabled={view.t2ModelPolicy.primaryCandidates.length === 0}
-                  onChange={(event) => {
-                    setT2PrimaryKey(event.currentTarget.value);
-                    setT2CopyState("idle");
-                  }}
-                >
-                  {view.t2ModelPolicy.primaryCandidates.length === 0 ? (
-                    <option value="">{t("settings.models.unavailable")}</option>
-                  ) : null}
-                  {view.t2ModelPolicy.primaryCandidates.map((candidate) => (
-                    <option key={modelChoiceKey(candidate)} value={modelChoiceKey(candidate)}>
-                      {modelChoiceOptionLabel(candidate)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label for="t2-secondary-model">
-                <span>{modelText("secondaryReasoner")}</span>
-                <select
-                  id="t2-secondary-model"
-                  value={t2SecondaryKey}
-                  disabled={t2SecondaryCandidates.length === 0}
-                  onChange={(event) => {
-                    setT2SecondaryKey(event.currentTarget.value);
-                    setT2CopyState("idle");
-                  }}
-                >
-                  {t2SecondaryCandidates.length === 0 ? (
-                    <option value="">{modelText("noIndependentSecondary")}</option>
-                  ) : null}
-                  {t2SecondaryCandidates.map((candidate) => (
-                    <option key={modelChoiceKey(candidate)} value={modelChoiceKey(candidate)}>
-                      {modelChoiceLabel(candidate)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <SelectField
+                id="t2-primary-model"
+                label={modelText("primaryReasoner")}
+                value={t2PrimaryKey}
+                disabled={view.t2ModelPolicy.primaryCandidates.length === 0}
+                options={view.t2ModelPolicy.primaryCandidates.length === 0
+                  ? [{ value: "", label: t("settings.models.unavailable") }]
+                  : view.t2ModelPolicy.primaryCandidates.map((candidate) => ({
+                      value: modelChoiceKey(candidate),
+                      label: modelChoiceOptionLabel(candidate),
+                    }))}
+                onChange={(value) => {
+                  setT2PrimaryKey(value);
+                  setT2CopyState("idle");
+                }}
+              />
+              <SelectField
+                id="t2-secondary-model"
+                label={modelText("secondaryReasoner")}
+                value={t2SecondaryKey}
+                disabled={t2SecondaryCandidates.length === 0}
+                options={t2SecondaryCandidates.length === 0
+                  ? [{ value: "", label: modelText("noIndependentSecondary") }]
+                  : t2SecondaryCandidates.map((candidate) => ({
+                      value: modelChoiceKey(candidate),
+                      label: modelChoiceLabel(candidate),
+                    }))}
+                onChange={(value) => {
+                  setT2SecondaryKey(value);
+                  setT2CopyState("idle");
+                }}
+              />
             </div>
             <div class={`settings-t2-invariant ${t2PairValid ? "is-valid" : "is-invalid"}`} role="status">
               <strong>
@@ -839,22 +829,22 @@ export function SettingsModelsRoute({ client, auth }: Props) {
               <StatusPill kind="neutral" label={t("settings.models.perUser")} />
             </header>
             <div class="settings-model-preference-control">
-              <label for="preferred-narrator-model">{t("settings.models.preferredModel")}</label>
-              <select
+              <SelectField
                 id="preferred-narrator-model"
+                label={t("settings.models.preferredModel")}
                 value={selection}
-                onChange={(event) => {
+                options={[
+                  { value: "auto", label: t("settings.models.autoFastest") },
+                  ...view.narrator.candidates.map((candidate) => ({
+                    value: candidate.deployment,
+                    label: candidate.deployment,
+                  })),
+                ]}
+                onChange={(value) => {
                   narratorDraftRevision.current += 1;
-                  setSelection(event.currentTarget.value);
+                  setSelection(value);
                 }}
-              >
-                <option value="auto">{t("settings.models.autoFastest")}</option>
-                {view.narrator.candidates.map((candidate) => (
-                  <option key={candidate.deployment} value={candidate.deployment}>
-                    {candidate.deployment}
-                  </option>
-                ))}
-              </select>
+              />
               <button type="button" class="secondary" disabled={saving || !narratorDirty} onClick={() => { void save(); }}>
                 {saving ? t("settings.models.saving") : t("settings.models.save")}
               </button>
@@ -1050,24 +1040,18 @@ export function SettingsModelsRoute({ client, auth }: Props) {
                   <strong>{t("settings.models.webSearchEnabled")}</strong>
                   <small>{t("settings.models.webSearchEnabledHint")}</small>
                 </div>
-                <label class="settings-toggle-control">
-                  <input
-                    type="checkbox"
-                    checked={webSearchEnabled}
-                    disabled={webSearchControlsDisabled(
-                      view.webSearch.canManage,
-                      savingWebSearch,
-                    )}
-                    onChange={(event) => {
-                      webSearchDraftRevision.current += 1;
-                      setWebSearchEnabled(event.currentTarget.checked);
-                    }}
-                  />
-                  <span aria-hidden="true" />
-                  <strong>
-                    {webSearchEnabled ? t("settings.enabled") : t("settings.disabled")}
-                  </strong>
-                </label>
+                <ToggleSwitch
+                  label={webSearchEnabled ? t("settings.enabled") : t("settings.disabled")}
+                  checked={webSearchEnabled}
+                  disabled={webSearchControlsDisabled(
+                    view.webSearch.canManage,
+                    savingWebSearch,
+                  )}
+                  onChange={(checked) => {
+                    webSearchDraftRevision.current += 1;
+                    setWebSearchEnabled(checked);
+                  }}
+                />
               </div>
 
               <fieldset
@@ -1103,15 +1087,13 @@ export function SettingsModelsRoute({ client, auth }: Props) {
                     addDomain();
                   }}
                 >
-                  <label for="web-search-domain-draft">
-                    {modelText("addDomain")}
-                  </label>
                   <div>
-                    <input
+                    <TextInput
                       id="web-search-domain-draft"
+                      label={modelText("addDomain")}
                       value={domainDraft}
                       placeholder={modelText("domainPlaceholder")}
-                      onInput={(event) => setDomainDraft(event.currentTarget.value)}
+                      onInput={setDomainDraft}
                     />
                     <button
                       type="submit"

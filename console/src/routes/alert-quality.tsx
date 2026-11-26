@@ -94,9 +94,9 @@ export function AlertQualityScopePicker({ scopes, selected, onSelect }: {
   readonly scopes: AlertQualityScopes; readonly selected: string | null; readonly onSelect: (scope: string) => void;
 }) {
   return <div class="alert-quality-scope-picker">
-    <label class="cs-control-field">
-      <span class="cs-control-label">{text("scope")}</span>
-      <select class="cs-control-select" name="scope_ref" value={selected ?? ""} disabled={scopes.scope_refs.length === 0}
+    <label class="cs-field">
+      <span class="cs-field-label">{text("scope")}</span>
+      <select class="cs-field-select" name="scope_ref" value={selected ?? ""} disabled={scopes.scope_refs.length === 0}
         aria-describedby="alert-quality-scope-help"
         onChange={(event) => { if (scopes.scope_refs.includes(event.currentTarget.value)) onSelect(event.currentTarget.value); }}>
         <option value="" disabled={selected !== null}>{text("chooseScope")}</option>

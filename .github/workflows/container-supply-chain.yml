@@ -24,9 +24,9 @@ on:
       - "provider-schema-catalog/**"
       - "policies/**"
       - "config/**"
-      - "scripts/deployment/service/select_changed_images.py"
-      - "scripts/deployment/service/apply_image_build_override.py"
-      - "scripts/deployment/local/materialize-authoritative-catalogs.py"
+      - "_archive/python/scripts/deployment/service/select_changed_images.py"
+      - "_archive/python/scripts/deployment/service/apply_image_build_override.py"
+      - "_archive/python/scripts/deployment/local/materialize-authoritative-catalogs.py"
       - "docs/internals/sregym-absorption-ledger.json"
       - "tests/scenarios/**"
       - "alembic/**"
@@ -214,7 +214,7 @@ jobs:
           SELECTED_IMAGES: ${{ inputs.images }}
         run: |
           set -euo pipefail
-          selector=(python3 scripts/deployment/service/select_changed_images.py)
+          selector=(python3 _archive/python/scripts/deployment/service/select_changed_images.py)
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             "${selector[@]}" --images "$SELECTED_IMAGES" >> "$GITHUB_OUTPUT"
           else
@@ -247,7 +247,7 @@ jobs:
           ref: ${{ env.TARGET_COMMIT_SHA }}
 
       - name: Apply tracked service image build override
-        run: python3 scripts/deployment/service/apply_image_build_override.py
+        run: python3 _archive/python/scripts/deployment/service/apply_image_build_override.py
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0, Node 24
@@ -354,7 +354,7 @@ jobs:
           ref: ${{ env.TARGET_COMMIT_SHA }}
 
       - name: Apply tracked service image build override
-        run: python3 scripts/deployment/service/apply_image_build_override.py
+        run: python3 _archive/python/scripts/deployment/service/apply_image_build_override.py
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0, Node 24
@@ -613,7 +613,7 @@ jobs:
           persist-credentials: false
       - name: Validate explicit canary inputs
         id: plan
-        run: python3 scripts/quality/ci/ci_pool_canary.py plan
+        run: python3 _archive/python/scripts/quality/ci/ci_pool_canary.py plan
 
   canary-control:
     name: pool canary / control / ${{ matrix.slot }}
@@ -635,11 +635,11 @@ jobs:
       - name: Verify canary isolation and Docker runtime
         env:
           CANARY_SLOT: ${{ matrix.slot }}
-        run: python3 scripts/quality/ci/ci_pool_canary.py check
+        run: python3 _archive/python/scripts/quality/ci/ci_pool_canary.py check
       - name: Hold pool canary capacity
         env:
           CANARY_SLOT: ${{ matrix.slot }}
-        run: python3 scripts/quality/ci/ci_pool_canary.py hold
+        run: python3 _archive/python/scripts/quality/ci/ci_pool_canary.py hold
       - name: Upload canary observation
         if: always() && steps.protected-source.outcome == 'success'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -703,7 +703,7 @@ jobs:
         if: always() && steps.protected-source.outcome == 'success'
         env:
           CANARY_GITHUB_TOKEN: ${{ github.token }}
-        run: python3 scripts/quality/ci/ci_pool_canary.py collect
+        run: python3 _archive/python/scripts/quality/ci/ci_pool_canary.py collect
       - name: Upload redacted canary receipt
         if: always() && steps.protected-source.outcome == 'success'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

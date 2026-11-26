@@ -8,10 +8,12 @@ import {
   KpiCard,
   KpiGrid,
   PageHeader,
-  StatusPill,
   type AsyncState,
   type Column,
+  type PillKind,
 } from "../components/ui";
+import { SegmentedControl } from "../components/form-controls";
+import { StatusBadge, type BadgeTone } from "../components/status-badge";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { getLocale, t } from "../i18n";
@@ -140,7 +142,7 @@ function WorkflowAppsWorkspace({ client, data, selectedId }: {
     {
       key: "lifecycle",
       header: t("workflowApps.lifecycle"),
-      render: (app) => <StatusPill kind={workflowAppLifecycleTone(app.lifecycle)} label={statusLabel(app.lifecycle)} />,
+      render: (app) => <StatusBadge tone={pillKindToBadgeTone(workflowAppLifecycleTone(app.lifecycle))} label={statusLabel(app.lifecycle)} />,
     },
   ];
   const listHref = `${routeHref("workflow-apps", {
@@ -172,7 +174,7 @@ function WorkflowAppsWorkspace({ client, data, selectedId }: {
                 <h3>{selected.label[locale]}</h3>
                 <p>{selected.description[locale]}</p>
               </div>
-              <StatusPill kind={workflowAppLifecycleTone(selected.lifecycle)} label={statusLabel(selected.lifecycle)} />
+              <StatusBadge tone={pillKindToBadgeTone(workflowAppLifecycleTone(selected.lifecycle))} label={statusLabel(selected.lifecycle)} />
             </header>
             <dl class="cs-facts-grid">
               <div><dt>{t("workflowApps.workflow")}</dt><dd><code>{selected.workflow_ref}</code></dd></div>
@@ -238,7 +240,7 @@ function WorkflowAppRuns({ client, app }: { readonly client: OperatorApiClient; 
     {
       key: "status",
       header: t("workflowApps.status"),
-      render: (process) => <StatusPill kind={processTone(process.status)} label={statusLabel(process.status)} />,
+      render: (process) => <StatusBadge tone={pillKindToBadgeTone(processTone(process.status))} label={statusLabel(process.status)} />,
     },
     {
       key: "updated",
@@ -265,27 +267,20 @@ function WorkflowAppRuns({ client, app }: { readonly client: OperatorApiClient; 
             .sort((left, right) => right.updated_at.localeCompare(left.updated_at));
           return (
             <>
-              <div class="segmented-control workflow-app-status-filter" role="group" aria-label={t("workflowApps.statusFilter")}>
-                <button
-                  type="button"
-                  class={statusFilter === "" ? "active" : undefined}
-                  aria-pressed={statusFilter === ""}
-                  onClick={() => setStatusFilter("")}
-                >
-                  {t("workflowApps.allStatuses")} <strong>{formatNumber(data.items.length)}</strong>
-                </button>
-                {counts.map(({ status, count }) => (
-                  <button
-                    type="button"
-                    key={status}
-                    class={statusFilter === status ? "active" : undefined}
-                    aria-pressed={statusFilter === status}
-                    onClick={() => setStatusFilter(status)}
-                  >
-                    {statusLabel(status)} <strong>{formatNumber(count)}</strong>
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                className="workflow-app-status-filter"
+                ariaLabel={t("workflowApps.statusFilter")}
+                value={statusFilter}
+                options={[
+                  { value: "", label: t("workflowApps.allStatuses"), count: data.items.length },
+                  ...counts.map(({ status, count }) => ({
+                    value: status,
+                    label: statusLabel(status),
+                    count,
+                  })),
+                ]}
+                onChange={(next) => setStatusFilter(next)}
+              />
               <DataTable
                 columns={runColumns}
                 rows={rows}
@@ -298,4 +293,13 @@ function WorkflowAppRuns({ client, app }: { readonly client: OperatorApiClient; 
       </AsyncBoundary>
     </section>
   );
+}
+
+function pillKindToBadgeTone(kind: PillKind): BadgeTone {
+  if (kind === "success" || kind === "auto" || kind === "enforce") return "live";
+  if (kind === "danger") return "sec";
+  if (kind === "warning") return "sre";
+  if (kind === "hil") return "human";
+  if (kind === "info") return "info";
+  return "neutral";
 }

@@ -1,0 +1,4 @@
+-- Migration Revision: core_base_20260808
+-- Down Revision: none
+-- Owner: core-control-plane
+-- Extracted SQL Blocks: 0

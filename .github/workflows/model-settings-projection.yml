@@ -140,7 +140,7 @@ jobs:
           az containerapp revision show --resource-group "$resource_group" \
             --name "$core_app" --revision "$active_revision" --output json \
             > "$RUNNER_TEMP/active-core-revision.json"
-          binding="$(python3 scripts/deployment/azure/verify_active_core_revision.py \
+          binding="$(python3 _archive/python/scripts/deployment/azure/verify_active_core_revision.py \
             --revision "$RUNNER_TEMP/active-core-revision.json" --require-model-binding)"
           active_image="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["image"])' \
             <<< "$binding")"
@@ -151,7 +151,7 @@ jobs:
             --predicate-type "$MODEL_PREDICATE_TYPE" \
             --signer-workflow "$ATTESTATION_SIGNER_WORKFLOW" \
             --format json > "$RUNNER_TEMP/active-model-attestations.json"
-          attested_digest="$(python3 scripts/deployment/azure/verify_active_model_attestation.py \
+          attested_digest="$(python3 _archive/python/scripts/deployment/azure/verify_active_model_attestation.py \
             --attestations "$RUNNER_TEMP/active-model-attestations.json")"
           [[ "$artifact_digest" == "$runtime_digest" \
             && "$artifact_digest" == "$attested_digest" ]] || {
@@ -194,7 +194,7 @@ jobs:
           export FDAI_OCR_ENDPOINT="$document_ocr_endpoint"
           export FDAI_DOCUMENT_OCR_PROVIDER="$document_ocr_provider"
           uv run --frozen --package fdai-core-control-plane python \
-            scripts/deployment/local/materialize-authoritative-settings.py \
+            _archive/python/scripts/deployment/local/materialize-authoritative-settings.py \
               --seed-runtime-if-missing
           EXPECTED_DIGEST="sha256:$artifact_digest" \
             EXPECTED_ENVIRONMENT="${{ inputs.environment }}" \

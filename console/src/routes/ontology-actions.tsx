@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import { RuleFacetToolbar } from "../components/rule-facet-toolbar";
 import { currentRoute, replaceRouteState, routeHref } from "../router";
 import { t } from "./i18n/ontology";
 import { ontologyDeclarationHref } from "./ontology-object-type-detail";
@@ -107,39 +108,63 @@ export function OntologyActionsView({
 
   return (
     <section class="ontology-actions-view">
-      <div class="ontology-action-toolbar">
-        <label class="ontology-action-search">
-          <span>{t("ontology.actions.search")}</span>
-          <input
-            type="search"
-            value={query}
-            placeholder={t("ontology.actions.searchPlaceholder")}
-            onInput={(event) => updateFilters({
-              ...filters,
-              query: (event.target as HTMLInputElement).value,
-            })}
-          />
-        </label>
-        <ActionFilter
-          label={t("ontology.actions.category")}
-          value={category}
-          values={categories}
-          onChange={(value) => updateFilters({ ...filters, category: value })}
-        />
-        <ActionFilter
-          label={t("ontology.actions.trigger")}
-          value={trigger}
-          values={triggers}
-          onChange={(value) => updateFilters({ ...filters, trigger: value })}
-        />
-        <ActionFilter
-          label={t("ontology.actions.execution")}
-          value={execution}
-          values={executions}
-          onChange={(value) => updateFilters({ ...filters, execution: value })}
-        />
-        <span class="ontology-action-result-count">{t("ontology.actions.resultCount", { filtered: filtered.length, total: actions.length })}</span>
-      </div>
+      <RuleFacetToolbar
+        ariaLabel={t("ontology.actions.search")}
+        className="ontology-action-toolbar"
+        search={{
+          label: t("ontology.actions.search"),
+          value: query,
+          placeholder: t("ontology.actions.searchPlaceholder"),
+          className: "ontology-action-search",
+          onInput: (next) => updateFilters({ ...filters, query: next }),
+        }}
+        facets={[
+          {
+            id: "ontology-action-category",
+            label: t("ontology.actions.category"),
+            value: category,
+            options: [
+              { value: ALL, label: t("ontology.common.all") },
+              ...categories.map((item) => ({ value: item, label: item })),
+            ],
+            className: "ontology-action-filter",
+            onChange: (value) => updateFilters({ ...filters, category: value }),
+          },
+          {
+            id: "ontology-action-trigger",
+            label: t("ontology.actions.trigger"),
+            value: trigger,
+            options: [
+              { value: ALL, label: t("ontology.common.all") },
+              ...triggers.map((item) => ({ value: item, label: item })),
+            ],
+            className: "ontology-action-filter",
+            onChange: (value) => updateFilters({ ...filters, trigger: value }),
+          },
+          {
+            id: "ontology-action-execution",
+            label: t("ontology.actions.execution"),
+            value: execution,
+            options: [
+              { value: ALL, label: t("ontology.common.all") },
+              ...executions.map((item) => ({ value: item, label: item })),
+            ],
+            className: "ontology-action-filter",
+            onChange: (value) => updateFilters({ ...filters, execution: value }),
+          },
+        ]}
+        activeFilterCount={
+          (query.trim().length > 0 ? 1 : 0)
+          + (category !== ALL ? 1 : 0)
+          + (trigger !== ALL ? 1 : 0)
+          + (execution !== ALL ? 1 : 0)
+        }
+        actions={
+          <span class="ontology-action-result-count">
+            {t("ontology.actions.resultCount", { filtered: filtered.length, total: actions.length })}
+          </span>
+        }
+      />
 
       <div class="ontology-action-workspace">
         <div class="ontology-action-table-wrap">
@@ -189,28 +214,6 @@ export function OntologyActionsView({
         ) : null}
       </div>
     </section>
-  );
-}
-
-function ActionFilter({
-  label,
-  value,
-  values,
-  onChange,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly values: readonly string[];
-  readonly onChange: (value: string) => void;
-}) {
-  return (
-    <label class="ontology-action-filter">
-      <span>{label}</span>
-      <select value={value} onChange={(event) => onChange((event.target as HTMLSelectElement).value)}>
-        <option value={ALL}>{t("ontology.common.all")}</option>
-        {values.map((item) => <option value={item} key={item}>{item}</option>)}
-      </select>
-    </label>
   );
 }
 

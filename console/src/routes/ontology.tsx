@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable } from "../api";
 import type { OperatorApiClient } from "../api";
+import { CheckboxField } from "../components/form-controls";
 import {
   AsyncBoundary,
   PageHeader,
@@ -414,14 +415,12 @@ function OntologyCatalogView({
         <>
           <div class="ontology-object-toolbar">
             <span>{t("ontology.objects.toolbar")}</span>
-            <label class="inline-toggle">
-              <input
-                type="checkbox"
-                checked={includeProperties}
-                onChange={(event) => onIncludePropertiesChange((event.target as HTMLInputElement).checked)}
-              />
-              {t("ontology.objects.showProperties")}
-            </label>
+            <CheckboxField
+              label={t("ontology.objects.showProperties")}
+              checked={includeProperties}
+              className="inline-toggle"
+              onChange={onIncludePropertiesChange}
+            />
           </div>
           <div class="ontology-browser-layout">
             <aside class="ontology-type-sidebar">

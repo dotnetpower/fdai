@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0.0",
+  "package_id": "aks-commerce",
+  "package_version": "0.1.0",
+  "candidate_state": "inert",
+  "resources": [
+    {
+      "id": "profile:aks-commerce",
+      "kind": "profile",
+      "path": "scenario-profile.json",
+      "sha256": "b00c05d1bc5ccc74ce0efb403068c910e86d16a577fc42cf7c6e4854597e4ac9"
+    },
+    {
+      "id": "slo:catalog-browse.availability",
+      "kind": "slo",
+      "path": "slos/catalog-browse-availability.yaml",
+      "sha256": "3e885539b9e68b26695c468f997f9a8baa222963667fd56c5e646b3eb7b83e4a"
+    },
+    {
+      "id": "slo:order-fulfillment.availability",
+      "kind": "slo",
+      "path": "slos/order-fulfillment-availability.yaml",
+      "sha256": "24ead7a895ec970cf0849cafcf11edb8522fcf0cee9649141c727c909d406afe"
+    },
+    {
+      "id": "slo:order-fulfillment.freshness",
+      "kind": "slo",
+      "path": "slos/order-fulfillment-freshness.yaml",
+      "sha256": "c119bd843e5599d56501f366165b23d09762f9f32b0a77e35282b7e3ff1e1936"
+    },
+    {
+      "id": "workflow:aks-commerce-order-backlog-recovery",
+      "kind": "workflow",
+      "path": "workflows/order-backlog-recovery.yaml",
+      "sha256": "c7d7a3b8e98509cba84545b514886316b50a1b8f362736c8bbc616859625a479"
+    }
+  ]
+}

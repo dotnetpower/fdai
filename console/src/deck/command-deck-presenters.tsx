@@ -1,4 +1,5 @@
 import type { ComponentChildren } from "preact";
+import { SearchInput } from "../components/form-controls";
 import { Tooltip } from "../components/tooltip";
 import { getLocale, t } from "../i18n";
 import { consoleDateTimeLocale } from "../time-format";
@@ -327,13 +328,14 @@ export function ConversationSidebar({
         </span>
       </div>
       <div class="deck-conversation-controls">
-        <input
-          class="deck-conversation-filter"
-          type="search"
+        <SearchInput
+          className="deck-conversation-filter"
+          label={t("deck.filterConversations")}
+          hideLabel
+          size="sm"
           value={query}
-          aria-label={t("deck.filterConversations")}
           placeholder={t("deck.filterConversations")}
-          onInput={(event) => setQuery(event.currentTarget.value)}
+          onInput={setQuery}
         />
         <Tooltip content={t("deck.newConversation")} placement="bottom-end">
           <button

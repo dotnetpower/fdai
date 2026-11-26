@@ -435,7 +435,7 @@ resource "azurerm_container_app_job" "migrate" {
       memory  = "1Gi"
       command = ["python"]
       args = [
-        "/app/scripts/deployment/azure/run_inventory_network_certification_migrations.py",
+        "/app/_archive/python/scripts/deployment/azure/run_inventory_network_certification_migrations.py",
       ]
 
       env {

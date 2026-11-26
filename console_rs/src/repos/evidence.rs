@@ -52,31 +52,25 @@ fn short_resource_name(raw: &str) -> String {
 fn human_actor_meta(actor: &str) -> (&'static str, &'static str, &'static str) {
     let low = actor.trim().to_ascii_lowercase();
     if low == "saga" {
-        ("Saga", "Saga · 감사 원장", "/agent-icons/saga.svg")
-    } else if low == "forseti" {
-        ("Forseti", "Forseti · 정책 규칙", "/agent-icons/forseti.svg")
-    } else if low == "heimdall" {
-        ("Heimdall", "Heimdall · 실시간 관측", "/agent-icons/heimdall.svg")
-    } else if low == "mimir" || low.contains(".rca") {
-        ("Mimir", "Mimir · 원인 분석", "/agent-icons/mimir.svg")
-    } else if low == "var" || low.contains("risk") {
-        ("Var", "Var · 위험 평가", "/agent-icons/var.svg")
+        ("Saga", "감사 원장 (Saga)", "/agent-icons/saga.svg")
+    } else if low == "forseti" || low.contains("policy") {
+        ("Forseti", "정책 심의 엔진 (Forseti)", "/agent-icons/forseti.svg")
+    } else if low == "heimdall" || low.contains("measurement") || low.contains("observation") {
+        ("Heimdall", "관측 수집기 (Heimdall)", "/agent-icons/heimdall.svg")
+    } else if low == "mimir" || low.contains(".rca") || low == "fdai.core.rca" {
+        ("Mimir", "원인 분석 엔진 (Mimir)", "/agent-icons/mimir.svg")
+    } else if low == "var" || low.contains("risk") || low.contains("hil_resume") {
+        ("Var", "승인 워크플로 (Var)", "/agent-icons/var.svg")
     } else if low == "thor" || low.contains("executor") {
-        ("Thor", "Thor · 안전 실행", "/agent-icons/thor.svg")
+        ("Thor", "격리 실행기 (Thor)", "/agent-icons/thor.svg")
     } else if low == "vidar" {
-        ("Vidar", "Vidar · 독립 효과 검증", "/agent-icons/vidar.svg")
+        ("Vidar", "독립 효과 검증 (Vidar)", "/agent-icons/vidar.svg")
     } else if low == "odin" || low.contains("control_loop") {
-        ("Odin", "Odin · 제어 루프", "/agent-icons/odin.svg")
-    } else if low.contains("hil_resume") {
-        ("Var", "Var · 사람 승인 게이트", "/agent-icons/var.svg")
-    } else if low.contains("measurement") {
-        ("Heimdall", "Heimdall · 측정 수집", "/agent-icons/heimdall.svg")
-    } else if low.contains("observation") {
-        ("Heimdall", "Heimdall · 관측 캠페인", "/agent-icons/heimdall.svg")
+        ("Odin", "제어 루프 엔진 (Odin)", "/agent-icons/odin.svg")
     } else if low.contains("handover") {
-        ("Bragi", "Bragi · 인수인계 관측", "/agent-icons/bragi.svg")
+        ("Bragi", "인수인계 관측 (Bragi)", "/agent-icons/bragi.svg")
     } else {
-        ("FDAI System", "FDAI System · 플랫폼", "/agent-icons/saga.svg")
+        ("FDAI 시스템", "FDAI 운영 플랫폼", "/agent-icons/saga.svg")
     }
 }
 
@@ -88,18 +82,20 @@ fn target_icon_for(target: &str, resource_type: &str) -> &'static str {
     );
     if combined.contains("postgres") || combined.contains("psql") || combined.contains("sql") {
         "/azure-icons/postgresql.svg"
-    } else if combined.contains("container") || combined.contains("caj") {
+    } else if combined.contains("container") || combined.contains("caj") || combined.contains("capp") {
         "/azure-icons/container-apps.svg"
     } else if combined.contains("aks") || combined.contains("kube") {
         "/azure-icons/kubernetes-services.svg"
-    } else if combined.contains("keyvault") || combined.contains("kv-") {
+    } else if combined.contains("keyvault") || combined.contains("key-vault") || combined.contains("kv-") {
         "/azure-icons/key-vault.svg"
     } else if combined.contains("redis") || combined.contains("cache") {
         "/azure-icons/cache-redis.svg"
-    } else if combined.contains("loadbalancer") {
+    } else if combined.contains("loadbalancer") || combined.contains("load-balancer") || combined.contains("-lb") {
         "/azure-icons/load-balancer.svg"
     } else if combined.contains("gateway") {
         "/azure-icons/application-gateway.svg"
+    } else if combined.contains("network.interface") || combined.contains("nsg") || combined.contains("security-group") || combined.contains("firewall") {
+        "/azure-icons/network-security-group.svg"
     } else if combined.contains("disk") {
         "/azure-icons/disks.svg"
     } else if combined.contains("storage") {
@@ -108,6 +104,145 @@ fn target_icon_for(target: &str, resource_type: &str) -> &'static str {
         "/azure-icons/virtual-machine.svg"
     } else {
         "/azure-icons/monitor.svg"
+    }
+}
+
+fn humanize_target_ko(raw: &str) -> String {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("system") {
+        return String::from("플랫폼 시스템");
+    }
+    let low = trimmed.to_ascii_lowercase();
+    if low == "compute.vm.environment-tag.required" {
+        String::from("가상 머신 환경 태그 필수 정책")
+    } else if low == "compute.vm-scale-set" || low.contains("vm-scale-set") || low.contains("vmss") {
+        String::from("가상 머신 확장 집합 (VMSS)")
+    } else if low == "compute.container-app-job" || low.contains("container-app-job") {
+        String::from("컨테이너 앱 작업")
+    } else if low == "compute.container-app" || low.contains("container-app") {
+        String::from("컨테이너 앱")
+    } else if low == "compute.aks" || low.contains("kubernetes") {
+        String::from("AKS 클러스터")
+    } else if low == "compute.vm" || low.contains("virtual-machine") {
+        String::from("가상 머신")
+    } else if low == "network.load-balancer" || low.contains("load-balancer") || low.contains("loadbalancer") {
+        String::from("부하 분산 장치")
+    } else if low == "network.interface" || low.contains("network-interface") {
+        String::from("네트워크 인터페이스")
+    } else if low == "network.application-gateway" || low.contains("application-gateway") {
+        String::from("애플리케이션 게이트웨이")
+    } else if low == "network.firewall" || low == "firewall" {
+        String::from("Azure 방화벽")
+    } else if low == "network.virtual-network" || low.contains("virtual-network") {
+        String::from("가상 네트워크 (VNet)")
+    } else if low == "network.private-endpoint" || low.contains("private-endpoint") {
+        String::from("프라이빗 엔드포인트")
+    } else if low == "network.security-group" || low.contains("security-group") {
+        String::from("네트워크 보안 그룹 (NSG)")
+    } else if low == "disk" || low == "storage.disk" || low.ends_with(".disk") {
+        String::from("관리 디스크")
+    } else if low.contains("postgres") {
+        String::from("PostgreSQL 데이터베이스")
+    } else if low.contains("redis") {
+        String::from("Redis 캐시")
+    } else if low.contains("key-vault") || low.contains("keyvault") {
+        String::from("Key Vault (키 보관소)")
+    } else if low.contains("storage-account") || low == "data-storage" {
+        String::from("스토리지 계정")
+    } else if low.contains("service-bus") {
+        String::from("Service Bus 메시지 브로커")
+    } else if low.contains("log-analytics") {
+        String::from("Log Analytics 작업 영역")
+    } else if low.contains("openai") {
+        String::from("Azure OpenAI 서비스")
+    } else if low.contains("container.registry") || low.contains("container-registry") {
+        String::from("컨테이너 레지스트리")
+    } else {
+        trimmed.to_string()
+    }
+}
+
+fn humanize_action_ko(raw: &str) -> &'static str {
+    let ak = raw.trim().to_ascii_lowercase();
+    match ak.as_str() {
+        "hil.requested" => "사람 승인 요청 생성",
+        "hil.approved" => "사람 승인 완료",
+        "hil.rejected" => "사람 승인 반려",
+        "hil.timeout" | "hil.expired" | "hil.request.dispatch_unavailable" => "승인 요청 기한 만료·차단",
+        "measurement.control_loop.v1" | "measurement.control_loop" => "운영 제어 루프 관측 완료",
+        "observation-campaign.source-transition" => "관측 캠페인 상태 전이",
+        "risk_gate.unified" => "통합 위험 게이트 평가",
+        "rca.hypothesis" => "원인 분석 가설 도출",
+        "control_loop.abstain" => "근거 부족으로 조치 보류",
+        "control_loop.compliant" => "정책 준수 확인 완료",
+        "control_loop.t1_evaluate" => "과거 유사 사례 비교 평가",
+        "remediate.tag-add" => "필수 태그 자동 추가",
+        "process.created" => "워크플로 실행 시작",
+        "process.completed" => "워크플로 실행 완료",
+        "process.failed" => "워크플로 실행 실패",
+        "process.waiting" | "step.waiting" => "승인 또는 후속 응답 대기",
+        "step.started" => "실행 단계 시작",
+        "step.completed" => "실행 단계 완료",
+        "action.executed" => "자동 조치 실행 완료",
+        "action.denied" | "action.blocked" => "정책에 의해 조치 차단",
+        "action.dry_run" => "사전 드라이런 검증 완료",
+        "action.rolled_back" => "자동 롤백 복구 완료",
+        "policy.evaluated" => "운영 정책 평가",
+        "policy.violation" => "운영 정책 위반 감지",
+        "incident.opened" | "incident.detected" => "운영 이상(인시던트) 감지",
+        "incident.resolved" => "운영 이상 해결 완료",
+        "inventory.observed" | "inventory.upsert" => "리소스 상태 정보 갱신",
+        "promotion.approved" => "자동화 승격 승인",
+        "promotion.recalled" => "자동화 즉시 회수",
+        "conversation.delivered" => "운영 알림 메시지 전송",
+        _ => {
+            if ak.starts_with("hil.") {
+                "사람 승인 절차 이벤트"
+            } else if ak.starts_with("risk_gate") {
+                "통합 위험 게이트 평가"
+            } else if ak.starts_with("measurement.") || ak.starts_with("observation") {
+                "운영 상태 관측 기록"
+            } else if ak.contains("rollback") {
+                "안전 롤백 복구"
+            } else if ak.starts_with("action.") || ak.starts_with("executor.") || ak.contains("remediate") {
+                "안전 조치 실행"
+            } else if ak.starts_with("policy.") || ak.starts_with("rule.") {
+                "운영 정책 평가"
+            } else if ak.starts_with("handover.") {
+                "담당자 인수인계 관측"
+            } else if ak.starts_with("runtime.") || ak.starts_with("process.") || ak.starts_with("step.") {
+                "워크플로 실행 단계 기록"
+            } else if ak.starts_with("mimir.") || ak.starts_with("rca.") {
+                "원인 분석 기록"
+            } else {
+                "운영 감사 이벤트 기록"
+            }
+        }
+    }
+}
+
+fn humanize_reason_ko(raw: &str) -> String {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    let low = trimmed.to_ascii_lowercase();
+    if low == "no_neighbour_found" {
+        String::from("유사 과거 사례 없음")
+    } else if low == "no_rule_matches_resource_and_signal_type" {
+        String::from("일치하는 자동화 규칙 없음")
+    } else if low.starts_with("config_drift control violated") || low.contains(".rego") {
+        String::from("구성 기준선 이탈(Config Drift) 정책 위반이 감지되었습니다.")
+    } else if low == "hil" {
+        String::from("사람 승인 필요")
+    } else if low == "deny" || low == "block" {
+        String::from("정책 차단")
+    } else if low == "allow" {
+        String::from("허용")
+    } else if low == "abstain" {
+        String::from("판단 보류")
+    } else {
+        trimmed.chars().take(180).collect()
     }
 }
 
@@ -122,11 +257,18 @@ fn classify_audit_entry(
 ) -> (&'static str, &'static str, &'static str, String, String, &'static str) {
     let ak = action_kind.trim().to_ascii_lowercase();
     let mode_ko = mode_label_ko(mode);
+    let target_ko = humanize_target_ko(target);
+    let rule_ko = if !rule_id.is_empty() {
+        humanize_target_ko(rule_id)
+    } else {
+        target_ko.clone()
+    };
+    let action_ko = humanize_action_ko(action_kind);
+    let reason_ko = humanize_reason_ko(reason);
 
     if ak.starts_with("hil.requested") {
-        let subj = if !rule_id.is_empty() { rule_id } else { target };
-        let act = if !action_type.is_empty() {
-            action_type
+        let act_ko = if !action_type.is_empty() {
+            humanize_action_ko(action_type)
         } else {
             "조치 승인"
         };
@@ -134,34 +276,37 @@ fn classify_audit_entry(
             "approval",
             "human",
             "사람 승인 요청",
-            format!("{subj} · {act} 승인 요청"),
-            format!("사람 승인 게이트가 {target} 대상 조치({act})에 대해 확인을 요청했습니다. ({mode_ko})"),
+            format!("{rule_ko} — {act_ko} 승인 요청"),
+            format!("사람 승인 게이트가 {target_ko} 대상 조치({act_ko})에 대해 확인을 요청했습니다. ({mode_ko})"),
             "intent",
         );
     }
     if ak.starts_with("hil.timeout") || ak.starts_with("hil.request.dispatch_unavailable") {
-        let subj = if !rule_id.is_empty() { rule_id } else { target };
         return (
             "approval",
             "sec",
             "승인 대기 만료·차단",
-            format!("{subj} · 사람 승인 미완료 자동 차단"),
+            format!("{rule_ko} — 사람 승인 미완료 자동 차단"),
             format!("승인 응답 부재 또는 전달 불가로 실행을 안전 차단했습니다. 침묵은 권한을 부여하지 않습니다. ({mode_ko})"),
             "intent",
         );
     }
     if ak.starts_with("risk_gate") {
-        let dec = if decision.is_empty() { "평가 완료" } else { decision };
+        let dec_ko = if decision.is_empty() {
+            String::from("평가 완료")
+        } else {
+            humanize_reason_ko(decision)
+        };
         return (
             "approval",
-            if dec.eq_ignore_ascii_case("deny") || dec.eq_ignore_ascii_case("block") {
+            if decision.eq_ignore_ascii_case("deny") || decision.eq_ignore_ascii_case("block") {
                 "sec"
             } else {
                 "human"
             },
             "위험 게이트 판정",
-            format!("{target} · 통합 위험 게이트 판정 ({dec})"),
-            format!("통합 위험·권한 게이트가 요청을 검토하고 판정({dec})을 원장에 기록했습니다. ({mode_ko})"),
+            format!("{target_ko} — 통합 위험 게이트 판정 ({dec_ko})"),
+            format!("통합 위험·권한 게이트가 {target_ko} 요청을 검토하고 판정({dec_ko})을 원장에 기록했습니다. ({mode_ko})"),
             "intent",
         );
     }
@@ -170,34 +315,33 @@ fn classify_audit_entry(
             "action",
             "sre",
             if ak.contains("rollback") { "안전 롤백" } else { "조치 기록" },
-            format!("{target} · {action_kind}"),
-            format!("안전 경계 내에서 조치 단계({action_kind})가 수행·기록되었습니다. ({mode_ko})"),
+            format!("{target_ko} — {action_ko}"),
+            format!("안전 경계 내에서 {target_ko} 대상 '{action_ko}' 단계가 수행·기록되었습니다. ({mode_ko})"),
             "dispatch",
         );
     }
     if ak == "rca.hypothesis" {
-        let summary = if !reason.is_empty() {
-            reason.chars().take(180).collect::<String>()
+        let summary = if !reason_ko.is_empty() {
+            format!("{rule_ko}: {reason_ko}")
         } else {
-            format!("규칙({rule_id}) 기반 근본 원인 가설을 도출해 감사 원장에 기록했습니다.")
+            format!("{rule_ko} 기반 근본 원인 가설을 도출해 감사 원장에 기록했습니다.")
         };
-        let subj = if !rule_id.is_empty() { rule_id } else { target };
         return (
             "observe",
             "sre",
             "원인 가설 도출",
-            format!("{subj} · 원인 분석 가설 기록"),
+            format!("{rule_ko} — 원인 분석 가설 기록"),
             summary,
             "observe",
         );
     }
     if ak == "control_loop.abstain" {
-        let why = if !reason.is_empty() { reason } else { "일치 규칙 없음" };
+        let why = if !reason_ko.is_empty() { reason_ko } else { String::from("일치 규칙 없음") };
         return (
             "shadow",
             "neutral",
             "근거 부족 보류",
-            format!("{target} · 판단 보류 ({why})"),
+            format!("{target_ko} — 판단 보류 ({why})"),
             format!("결정론적 규칙 근거가 충분하지 않아 자동 조치를 수행하지 않고 명시적으로 보류했습니다. ({mode_ko})"),
             "observe",
         );
@@ -207,18 +351,18 @@ fn classify_audit_entry(
             "observe",
             "live",
             "정책 준수 확인",
-            format!("{target} · 정책 준수 검증 완료"),
+            format!("{target_ko} — 정책 준수 검증 완료"),
             format!("결정론적 정책 평가 결과 위반 항목이 없어 정상 상태로 기록했습니다. ({mode_ko})"),
             "close",
         );
     }
     if ak == "control_loop.t1_evaluate" {
-        let why = if !reason.is_empty() { reason } else { "유사 사례 평가" };
+        let why = if !reason_ko.is_empty() { reason_ko } else { String::from("유사 사례 평가") };
         return (
             "shadow",
             "neutral",
-            "T1 유사도 평가",
-            format!("{target} · T1 사례 유사도 검토 ({why})"),
+            "유사 사례 평가",
+            format!("{target_ko} — 유사 사례 검토 ({why})"),
             format!("과거 검증 사례와의 유사도를 비교 평가했습니다. 근거 기준 미달 시 자동 보류합니다. ({mode_ko})"),
             "observe",
         );
@@ -228,8 +372,8 @@ fn classify_audit_entry(
             "observe",
             "live",
             "관측·상태 기록",
-            format!("{target} · {action_kind}"),
-            format!("운영 리소스 상태 및 관측 스냅샷을 추가 전용 원장에 기록했습니다. ({mode_ko})"),
+            format!("{target_ko} — {action_ko}"),
+            format!("{target_ko}의 운영 상태 및 관측 스냅샷({action_ko})을 추가 전용 원장에 기록했습니다. ({mode_ko})"),
             "close",
         );
     }
@@ -237,8 +381,8 @@ fn classify_audit_entry(
         if mode.eq_ignore_ascii_case("shadow") { "shadow" } else { "observe" },
         "live",
         "원장 기록 완료",
-        format!("{target} · {action_kind}"),
-        format!("운영 감사 이벤트({action_kind})가 무결성 체인에 봉인되었습니다. ({mode_ko})"),
+        format!("{target_ko} — {action_ko}"),
+        format!("{target_ko} 대상 '{action_ko}' 이벤트가 무결성 체인에 봉인되었습니다. ({mode_ko})"),
         "close",
     )
 }
@@ -513,6 +657,8 @@ pub async fn fetch_audit_chain_filtered(db: &DbHandle, f: &AuditChainFilter<'_>)
         } else {
             &raw_target
         });
+        let target_label_ko = humanize_target_ko(&target);
+        let action_label_ko = humanize_action_ko(&action_kind);
         let target_icon = target_icon_for(&target, &resource_type);
         let (actor_label, actor_role, agent_icon) = human_actor_meta(&actor);
         let (cat, tone, status_ko, title_ko, summary_ko, phase) = classify_audit_entry(
@@ -541,6 +687,7 @@ pub async fn fetch_audit_chain_filtered(db: &DbHandle, f: &AuditChainFilter<'_>)
             "actor_role": actor_role,
             "agent_icon": agent_icon,
             "action_kind": action_kind,
+            "action_label_ko": action_label_ko,
             "mode_label_ko": label,
             "category": cat,
             "tone": tone,
@@ -549,6 +696,8 @@ pub async fn fetch_audit_chain_filtered(db: &DbHandle, f: &AuditChainFilter<'_>)
             "summary_ko": summary_ko,
             "human_summary": human_summary,
             "target": target,
+            "target_label_ko": target_label_ko,
+            "resource_type": resource_type,
             "target_icon": target_icon,
             "rule_id": rule_id,
             "risk_label": risk_label,
@@ -806,12 +955,13 @@ pub async fn fetch_trace(
         }
         seen_ids.push(cid.clone());
         let short_cid = short_resource_name(&cid);
+        let act_label = humanize_action_ko(&cell_str(r, 4));
         available.push(json!({
             "correlation_id": cid,
             "span_count": cell_i64(r, 1).unwrap_or(0),
             "started_at": cell_str(r, 2),
             "ended_at": cell_str(r, 3),
-            "label": format!("{} · {} ({}건)", short_cid, cell_str(r, 4), cell_i64(r, 1).unwrap_or(0)),
+            "label": format!("{} · {} ({}건)", act_label, short_cid, cell_i64(r, 1).unwrap_or(0)),
             "origin": "audit_log"
         }));
     }
@@ -861,6 +1011,13 @@ pub async fn fetch_trace(
                 } else {
                     "진행됨"
                 };
+                let kind_ko = humanize_action_ko(&kind);
+                let detail_ko = match detail.trim().to_ascii_lowercase().as_str() {
+                    "architecture-review" => "아키텍처 검토",
+                    "approval" => "승인 단계",
+                    "completed" => "완료",
+                    _ => detail.as_str(),
+                };
                 merged.push((
                     epoch,
                     seq,
@@ -870,17 +1027,18 @@ pub async fn fetch_trace(
                         "event_id": cell_str(r, 1),
                         "process_id": cell_str(r, 2),
                         "kind": kind,
+                        "kind_ko": kind_ko,
                         "step_id": step,
-                        "actor": "Odin · 워크플로 엔진",
+                        "actor": "제어 루프 엔진 (Odin)",
                         "agent_icon": "/agent-icons/odin.svg",
                         "mode_label_ko": "감시 전용",
                         "status": status,
                         "recorded_at": recorded_at,
                         "epoch_s": epoch,
-                        "summary": if detail.is_empty() {
-                            format!("프로세스 이벤트 {} 기록", cell_str(r, 3))
+                        "summary": if detail_ko.is_empty() {
+                            format!("{kind_ko} 단계가 워크플로에 기록되었습니다.")
                         } else {
-                            format!("{} · 단계 {}", cell_str(r, 3), detail)
+                            format!("{kind_ko} · {detail_ko}")
                         }
                     }),
                 ));
@@ -896,14 +1054,21 @@ pub async fn fetch_trace(
                 let stage = cell_str(r, 6);
                 let reason = cell_str(r, 7);
                 let epoch = cell_i64(r, 8).unwrap_or(0);
-                let (actor_label, _actor_role, agent_icon) = human_actor_meta(&actor);
+                let (actor_label, actor_role, agent_icon) = human_actor_meta(&actor);
                 let mode_ko = mode_label_ko(&mode);
-                let summary = if !reason.is_empty() {
-                    reason.chars().take(180).collect::<String>()
-                } else if !stage.is_empty() {
-                    format!("{action_kind} · {stage} ({mode_ko})")
+                let kind_ko = humanize_action_ko(&action_kind);
+                let reason_ko = humanize_reason_ko(&reason);
+                let stage_ko = if stage.is_empty() {
+                    String::new()
                 } else {
-                    format!("{action_kind} ({mode_ko})")
+                    humanize_target_ko(&stage)
+                };
+                let summary = if !reason_ko.is_empty() {
+                    format!("{actor_role} · {kind_ko}: {reason_ko}")
+                } else if !stage_ko.is_empty() {
+                    format!("{actor_role}에서 '{kind_ko}'({stage_ko}) 단계를 기록했습니다. ({mode_ko})")
+                } else {
+                    format!("{actor_role}에서 '{kind_ko}' 작업을 기록했습니다. ({mode_ko})")
                 };
                 merged.push((
                     epoch,
@@ -914,8 +1079,10 @@ pub async fn fetch_trace(
                         "audit_seq": seq,
                         "event_id": cell_str(r, 1),
                         "kind": action_kind,
+                        "kind_ko": kind_ko,
                         "step_id": stage,
-                        "actor": actor_label,
+                        "actor": actor_role,
+                        "actor_label": actor_label,
                         "raw_actor": actor,
                         "agent_icon": agent_icon,
                         "mode_label_ko": mode_ko,
@@ -1190,7 +1357,8 @@ pub async fn fetch_browser_evidence_filtered(
          COALESCE(chain_of_custody_audit_ref, ''), legal_hold, COALESCE(legal_hold_ref, ''), \
          jsonb_array_length(prompt_injection_findings), browser_version, \
          to_char(captured_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), \
-         to_char(expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
+         to_char(expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), \
+         jsonb_array_length(selectors), jsonb_array_length(redaction_manifest) \
          FROM browser_evidence_artifact {where_sql} ORDER BY captured_at DESC LIMIT {lim}"
     );
     let Ok(res) = db.query_single_readonly(&sql).await else {
@@ -1231,7 +1399,9 @@ pub async fn fetch_browser_evidence_filtered(
                 "injection_count": inj,
                 "browser_version": cell_str(r, 13),
                 "captured_at": cell_str(r, 14),
-                "expires_at": cell_str(r, 15)
+                "expires_at": cell_str(r, 15),
+                "selector_count": cell_i64(r, 16).unwrap_or(0),
+                "redaction_count": cell_i64(r, 17).unwrap_or(0)
             })
         })
         .collect();
@@ -1243,7 +1413,8 @@ pub async fn fetch_browser_evidence_filtered(
         "summary": {
             "total": items.len(),
             "injection_blocked": injection_blocked,
-            "legal_hold": legal_hold_count
+            "legal_hold": legal_hold_count,
+            "withheld": Value::Null
         },
         "items": items
     })
@@ -1326,8 +1497,10 @@ pub async fn fetch_conversations(
                 "status_ko": status_ko,
                 "attempt_count": attempts,
                 "response_digest": digest,
-                "summary": if summary.is_empty() {
-                    String::from("운영 알림 및 대화 응답이 기록되었습니다.")
+                "summary": if summary.is_empty()
+                    || summary.eq_ignore_ascii_case("Operational posture notification delivered")
+                {
+                    String::from("운영 상태 알림이 정상 전달되었습니다.")
                 } else {
                     summary
                 },
@@ -1475,13 +1648,13 @@ pub async fn fetch_reports(
             "category": "감사 · 무결성",
             "status": if integrity_verified { "실측 완료" } else { "무결성 경고" },
             "tone": if integrity_verified { "live" } else { "sec" },
-            "avail_label": format!("PostgreSQL 실측 완료 · 원장 {}건 · 범위 {}", audit_total, scope_display),
-            "prov_kind": "PostgreSQL 실측 투영 (postgres-direct · 읽기 전용)",
+            "avail_label": format!("실측 완료 · 원장 {}건 · 범위 {}", audit_total, scope_display),
+            "prov_kind": "실시간 운영 데이터베이스 읽기 전용 투영",
             "generated_at": generated_at,
             "signature": format!("sha256:audit-seq-{}-{}-{}", latest_seq.unwrap_or(0), win, sc),
             "metrics": [
                 { "k": "감사 원장 누적 기록", "v": format!("{audit_total}건"), "note": format!("선택 기간({win}) {audit_in_window}건 · 최근 {checked_window}건 결손 {gaps}건"), "unavail": false },
-                { "k": "승인·위험 게이트 기록", "v": format!("{hil_total}건"), "note": "HIL 승인 요청 및 위험 평가 누적", "unavail": false },
+                { "k": "승인·위험 게이트 기록", "v": format!("{hil_total}건"), "note": "사람 승인 요청 및 위험 평가 누적", "unavail": false },
                 { "k": "연결 온톨로지 리소스", "v": format!("{scoped_resources}개"), "note": format!("대상 범위: {scope_display} · 전이 {trans_total}건"), "unavail": false }
             ],
             "rows": [
@@ -1491,10 +1664,10 @@ pub async fn fetch_reports(
                 { "item": "웹 수집 · 대화 전달 기록", "owner": "Forseti · Bragi", "result": format!("웹 아티팩트 {}건 · 대화 전달 {}건", browser_total, conv_total), "as_of": generated_at }
             ],
             "sources": [
-                { "name": "audit_log (PostgreSQL)", "state": format!("실측 · {audit_total}건"), "tone": "live", "as_of": "postgres-direct" },
-                { "name": "ontology_resource", "state": format!("실측 · {ontology_total} 리소스"), "tone": "live", "as_of": "postgres-direct" },
-                { "name": "operational_state_transition", "state": format!("실측 · {trans_total}건"), "tone": "live", "as_of": "postgres-direct" },
-                { "name": "operational_retention_policy", "state": format!("실측 · {}건", retention_policies.len()), "tone": "live", "as_of": "postgres-direct" }
+                { "name": "감사 원장", "state": format!("실측 · {audit_total}건"), "tone": "live", "as_of": "실시간 DB" },
+                { "name": "온톨로지 리소스 인벤토리", "state": format!("실측 · {ontology_total} 리소스"), "tone": "live", "as_of": "실시간 DB" },
+                { "name": "운영 상태 전이 기록", "state": format!("실측 · {trans_total}건"), "tone": "live", "as_of": "실시간 DB" },
+                { "name": "데이터 보존 정책 저장소", "state": format!("실측 · {}건", retention_policies.len()), "tone": "live", "as_of": "실시간 DB" }
             ]
         }),
         json!({
@@ -1505,11 +1678,11 @@ pub async fn fetch_reports(
             "status": "실측 완료",
             "tone": "live",
             "avail_label": format!("보존 정책 {}건 실측 로드", retention_policies.len()),
-            "prov_kind": "operational_retention_policy 실측 투영 (읽기 전용)",
+            "prov_kind": "데이터 보존 정책 읽기 전용 투영",
             "generated_at": generated_at,
             "signature": first_digest,
             "metrics": [
-                { "k": "등록된 보존 정책", "v": format!("{}건", retention_policies.len()), "note": "operational_retention_policy 기준", "unavail": false },
+                { "k": "등록된 보존 정책", "v": format!("{}건", retention_policies.len()), "note": "보존 정책 카탈로그 실측 기준", "unavail": false },
                 { "k": "안전 보존(retain) 정책", "v": format!("{}건", retention_policies.iter().filter(|p| p.get("deletion_method").and_then(Value::as_str) == Some("retain")).count()), "note": "미구성 시 기본 보존(Fail-Safe)", "unavail": false },
                 { "k": "외부 청구서 대조", "v": "데이터 없음 (미수집)", "note": "외부 과금 원천 미연동 · 0 대체 금지", "unavail": true }
             ],
@@ -1520,9 +1693,9 @@ pub async fn fetch_reports(
                 "as_of": p.get("recorded_at").and_then(Value::as_str).unwrap_or("-")
             })).collect::<Vec<_>>(),
             "sources": [
-                { "name": "operational_retention_policy", "state": format!("실측 · {}건", retention_policies.len()), "tone": "live", "as_of": "postgres-direct" },
-                { "name": "ontology_resource", "state": format!("실측 · {ontology_total} 리소스"), "tone": "live", "as_of": "postgres-direct" },
-                { "name": "external-billing-export", "state": "미수집 (not-measured)", "tone": "neutral", "as_of": "미연동" }
+                { "name": "데이터 보존 정책 저장소", "state": format!("실측 · {}건", retention_policies.len()), "tone": "live", "as_of": "실시간 DB" },
+                { "name": "온톨로지 리소스 인벤토리", "state": format!("실측 · {ontology_total} 리소스"), "tone": "live", "as_of": "실시간 DB" },
+                { "name": "외부 청구서 내보내기", "state": "미수집 (not-measured)", "tone": "neutral", "as_of": "미연동" }
             ]
         }),
         json!({
@@ -1533,11 +1706,11 @@ pub async fn fetch_reports(
             "status": "실측 완료",
             "tone": "live",
             "avail_label": format!("연결 범위 {}개 · {} 리소스 실측", available_scopes.len(), ontology_total),
-            "prov_kind": "ontology_resource 실측 투영 (읽기 전용)",
+            "prov_kind": "온톨로지 리소스 인벤토리 읽기 전용 투영",
             "generated_at": generated_at,
             "signature": format!("sha256:ontology-scopes-{}-{}", ontology_total, sc),
             "metrics": [
-                { "k": "연결 온톨로지 리소스", "v": format!("{ontology_total}개"), "note": "ontology_resource(object_type=Resource)", "unavail": false },
+                { "k": "연결 온톨로지 리소스", "v": format!("{ontology_total}개"), "note": "실시간 연결 리소스 전체 집계", "unavail": false },
                 { "k": "식별된 구독 · RG 범위", "v": format!("{}개", available_scopes.len()), "note": format!("선택 범위: {scope_display}"), "unavail": false },
                 { "k": "연동 감사 원장 기록", "v": format!("{audit_total}건"), "note": format!("보존 정책 {}건 적용", retention_policies.len()), "unavail": false }
             ],
@@ -1548,8 +1721,8 @@ pub async fn fetch_reports(
                 "as_of": generated_at
             })).collect::<Vec<_>>(),
             "sources": [
-                { "name": "ontology_resource (PostgreSQL)", "state": format!("실측 · {ontology_total}개"), "tone": "live", "as_of": "postgres-direct" },
-                { "name": "audit_log (PostgreSQL)", "state": format!("실측 · {audit_total}건"), "tone": "live", "as_of": "postgres-direct" }
+                { "name": "온톨로지 리소스 인벤토리", "state": format!("실측 · {ontology_total}개"), "tone": "live", "as_of": "실시간 DB" },
+                { "name": "감사 원장", "state": format!("실측 · {audit_total}건"), "tone": "live", "as_of": "실시간 DB" }
             ]
         }),
     ];

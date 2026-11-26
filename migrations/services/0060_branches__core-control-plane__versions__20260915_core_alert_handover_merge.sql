@@ -1,0 +1,4 @@
+-- Migration Revision: core_alert_handover_merge_20260915
+-- Down Revision: ('core_process_sequence_20260915', 'core_human_access_execution_20260915')
+-- Owner: core-control-plane
+-- Extracted SQL Blocks: 0

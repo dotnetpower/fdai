@@ -45,7 +45,7 @@ jobs:
           fetch-depth: 1
 
       - name: Verify customer-agnostic aggregate
-        run: python3 scripts/quality/architecture/check-remote-service-evidence.py
+        run: python3 _archive/python/scripts/quality/architecture/check-remote-service-evidence.py
 
       - name: Authenticate GHCR read access
         uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1, Node 24
@@ -57,7 +57,7 @@ jobs:
       - name: Bind aggregate to GitHub runs and artifacts
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: python3 scripts/quality/architecture/verify_remote_github_evidence.py
+        run: python3 _archive/python/scripts/quality/architecture/verify_remote_github_evidence.py
 
       - name: Attest final remote evidence aggregate
         id: attest

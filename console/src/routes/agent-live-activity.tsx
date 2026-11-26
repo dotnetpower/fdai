@@ -6,6 +6,7 @@ import {
   observeElementRect,
   Virtualizer,
 } from "@tanstack/virtual-core";
+import { CheckboxField, SearchInput, SelectField } from "../components/form-controls";
 import { Tooltip } from "../components/tooltip";
 import type { AuditItem } from "../types";
 import type { OperationalActivityKind } from "../agent-operational-activity";
@@ -348,14 +349,12 @@ export function LiveActivityJournal({
             </Tooltip>
             {columnsOpen ? <div class="aa-log-column-menu" role="menu">
               {COLUMN_ORDER.map((column) => (
-                <label key={column}>
-                  <input
-                    type="checkbox"
-                    checked={visibleColumns.includes(column)}
-                    onChange={() => setVisibleColumns((current) => toggleAgentLogColumn(current, column))}
-                  />
-                  <span>{t(`agentActivity.log.column.${column}`)}</span>
-                </label>
+                <CheckboxField
+                  key={column}
+                  label={t(`agentActivity.log.column.${column}`)}
+                  checked={visibleColumns.includes(column)}
+                  onChange={() => setVisibleColumns((current) => toggleAgentLogColumn(current, column))}
+                />
               ))}
             </div> : null}
           </div>
@@ -375,25 +374,23 @@ export function LiveActivityJournal({
       </header>
 
       <div class="aa-log-filters">
-        <label>
-          <span>{t("agentActivity.log.agent")}</span>
-          <select
-            value={selectedAgent ?? ""}
-            onChange={(event) => onSelectedAgentChange(event.currentTarget.value || null)}
-          >
-            <option value="">{t("agentActivity.log.allAgents")}</option>
-            {agents.map((agent) => <option key={agent} value={agent}>{agent}</option>)}
-          </select>
-        </label>
-        <label>
-          <span>{t("agentActivity.log.find")}</span>
-          <input
-            type="search"
-            value={query}
-            placeholder={t("agentActivity.log.searchPlaceholder")}
-            onInput={(event) => onQueryChange(event.currentTarget.value)}
-          />
-        </label>
+        <SelectField
+          label={t("agentActivity.log.agent")}
+          value={selectedAgent ?? ""}
+          size="sm"
+          options={[
+            { value: "", label: t("agentActivity.log.allAgents") },
+            ...agents.map((agent) => ({ value: agent, label: agent })),
+          ]}
+          onChange={(value) => onSelectedAgentChange(value || null)}
+        />
+        <SearchInput
+          label={t("agentActivity.log.find")}
+          value={query}
+          placeholder={t("agentActivity.log.searchPlaceholder")}
+          size="sm"
+          onInput={onQueryChange}
+        />
       </div>
 
       <div class="aa-log-lanes" role="group" aria-label={t("agentActivity.log.lanes")}>

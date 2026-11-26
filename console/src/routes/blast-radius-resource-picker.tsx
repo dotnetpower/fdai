@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
+import { TextInput } from "../components/form-controls";
 import {
   SearchableSelect,
   type SearchableSelectOption,
@@ -233,21 +234,19 @@ export function ImpactResourcePicker({ client, selectedId, onSelect }: Props) {
       >
         <summary>{t("ontology.blast.enterExactResourceId")}</summary>
         <div class="impact-resource-direct-fields">
-          <label>
-            <span>{t("ontology.blast.exactResourceId")}</span>
-            <input
-              ref={directInput}
-              class="impact-query-input"
-              maxLength={RESOURCE_ID_MAX_CHARS}
-              value={directDraft}
-              onInput={(event) => setDirectDraft(event.currentTarget.value)}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter") return;
-                event.preventDefault();
-                applyDirectId();
-              }}
-            />
-          </label>
+          <TextInput
+            inputRef={directInput}
+            label={t("ontology.blast.exactResourceId")}
+            maxLength={RESOURCE_ID_MAX_CHARS}
+            mono
+            value={directDraft}
+            onInput={setDirectDraft}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              applyDirectId();
+            }}
+          />
           <button
             type="button"
             class="btn"

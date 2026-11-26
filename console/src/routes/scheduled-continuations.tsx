@@ -9,10 +9,11 @@ import {
   KpiCard,
   KpiGrid,
   PageHeader,
-  StatusPill,
   type AsyncState,
   type Column,
 } from "../components/ui";
+import { FilterToolbar, SearchInput, SelectField } from "../components/form-controls";
+import { StatusBadge } from "../components/status-badge";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
 import { getLocale } from "../i18n";
@@ -101,7 +102,7 @@ export function decodeScheduledContinuations(value: unknown): ContinuationRespon
 export function scheduledContinuationColumns(): readonly Column<ScheduledContinuationPayload>[] {
   return [
     { key: "result", header: t("evidence.continuations.column.result"), render: (item) => <div><strong>{item.result_summary.split("\n", 1)[0]}</strong><small>{item.run_id}</small></div> },
-    { key: "state", header: t("evidence.continuations.column.state"), render: (item) => <StatusPill kind={item.state === "active" ? "success" : "neutral"} label={presentationLabel("status", item.state)} /> },
+    { key: "state", header: t("evidence.continuations.column.state"), render: (item) => <StatusBadge tone={item.state === "active" ? "live" : "neutral"} label={presentationLabel("status", item.state)} /> },
     { key: "scope", header: t("evidence.continuations.column.scope"), render: (item) => <code>{item.scope_ref}</code> },
     { key: "window", header: t("evidence.continuations.column.window"), render: (item) => `${formatConsoleTimestamp(item.observation_started_at)} - ${formatConsoleTimestamp(item.observation_ended_at)}` },
     { key: "origin", header: t("evidence.continuations.column.origin"), render: (item) => `${item.origin.channel_kind}:${item.origin.conversation_ref}${item.origin.thread_ref ? `:${item.origin.thread_ref}` : ""}` },
@@ -179,29 +180,39 @@ function ContinuationBody({ data }: { readonly data: ContinuationResponse }) {
         <KpiCard href={anchorsHref} label={presentationLabel("status", "expired")} value={archivedCount.toLocaleString()} />
         <KpiCard href={anchorsHref} label={t("evidence.continuations.column.evidence")} value={totalEvidenceRefs.toLocaleString()} />
       </KpiGrid>
-      <div class="cs-filter-toolbar" role="search">
-        <label class="is-wide">
-          <span>{t("evidence.continuations.column.result")}</span>
-          <input
-            type="search"
-            value={query}
-            placeholder={getLocale() === "ko" ? "실행 ID, 범위, 대화 출처..." : "run_id, scope, conversation..."}
-            onInput={(event) => setQuery(event.currentTarget.value)}
-          />
-        </label>
-        <label>
-          <span>{t("evidence.continuations.column.state")}</span>
-          <select value={stateFilter} onChange={(event) => setStateFilter(event.currentTarget.value)}>
-            <option value="all">{getLocale() === "ko" ? "전체" : "All"}</option>
-            {states.map((state) => (
-              <option key={state} value={state}>{presentationLabel("status", state)}</option>
-            ))}
-          </select>
-        </label>
-        <span class="cs-filter-count" role="status" aria-live="polite">
-          {filtered.length} / {data.continuations.length}
-        </span>
-      </div>
+      <FilterToolbar
+        ariaLabel={t("route.scheduledContinuations")}
+        activeFilterCount={(query ? 1 : 0) + (stateFilter !== "all" ? 1 : 0)}
+        onReset={() => {
+          setQuery("");
+          setStateFilter("all");
+        }}
+        actions={
+          <span class="cs-filter-count" role="status" aria-live="polite">
+            {filtered.length} / {data.continuations.length}
+          </span>
+        }
+      >
+        <SearchInput
+          className="is-wide"
+          label={t("evidence.continuations.column.result")}
+          value={query}
+          placeholder={getLocale() === "ko" ? "실행 ID, 범위, 대화 출처..." : "run_id, scope, conversation..."}
+          onInput={(value) => setQuery(value)}
+        />
+        <SelectField
+          label={t("evidence.continuations.column.state")}
+          value={stateFilter}
+          options={[
+            { value: "all", label: getLocale() === "ko" ? "전체" : "All" },
+            ...states.map((state) => ({
+              value: state,
+              label: presentationLabel("status", state),
+            })),
+          ]}
+          onChange={(value) => setStateFilter(value)}
+        />
+      </FilterToolbar>
       <div id="scheduled-continuation-anchors" class={`cs-workspace-split${selected ? " has-selection" : ""}`}>
         <div class="cs-workspace-main">
           <DataTable
@@ -224,8 +235,8 @@ function ContinuationBody({ data }: { readonly data: ContinuationResponse }) {
                 <h3>{selected.result_summary.split("\n", 1)[0]}</h3>
                 <p>{selected.result_summary}</p>
               </div>
-              <StatusPill
-                kind={selected.state === "active" ? "success" : "neutral"}
+              <StatusBadge
+                tone={selected.state === "active" ? "live" : "neutral"}
                 label={presentationLabel("status", selected.state)}
               />
             </header>

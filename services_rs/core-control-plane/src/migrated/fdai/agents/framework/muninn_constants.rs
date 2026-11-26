@@ -1,0 +1,13 @@
+pub const MAX_OPERATING_PATTERN_CASES: i64 = 100;
+pub const MAX_CONVERSATION_PROJECTIONS: i64 = 50000;
+pub const CONVERSATION_PROJECTION_RECOVERY_PAGE: i64 = 128;
+pub const PUBLICATION_OUTBOX_RETAIN: i64 = 5000;
+pub const PUBLICATION_COMPACTION_INTERVAL: i64 = 64;
+pub const PUBLICATION_CAS_ATTEMPTS: i64 = 8;
+pub const PUBLICATION_MAINTENANCE_PAGE: i64 = 16;
+pub const MAX_CONTEXT_FETCH_SAMPLES: i64 = 512;
+pub const MAX_CONTEXT_UNAVAILABLE_FACTS: i64 = 128;
+
+pub const PROJECTION_PREFIX: &str = "pantheon/muninn/conversation-projections";
+pub const OPERATIONAL_OUTBOX_PREFIX: &str = "pantheon/muninn/operational-outbox";
+pub const DEFAULT_PROVIDER_TIMEOUT_SECONDS: f64 = 5.0;

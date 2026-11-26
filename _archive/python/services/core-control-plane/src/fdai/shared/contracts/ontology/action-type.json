@@ -1,0 +1,490 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/ontology/action-type/2.0.0",
+  "title": "OntologyActionType",
+  "description": "Declares a category of autonomous mutation applied to a Resource. Referenced by Rule.remediates. Pipeline stages (evaluate, reuse, reason, escalate, abstain, deny) are NOT ActionTypes; they are audit vocabulary. Every ActionType MUST supply a rollback contract; irreversibility is opt-in via the `irreversible` flag and forces HIL+quorum via the risk gate.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "name",
+    "version",
+    "operation",
+    "rollback_contract",
+    "default_mode",
+    "promotion_gate"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_\\.\\-]{0,79}$",
+      "description": "Stable id, e.g. `remediate.disable-public-access`."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "operation": {
+      "type": "string",
+      "enum": [
+        "create",
+        "update",
+        "delete",
+        "disable",
+        "enable",
+        "tag",
+        "drop",
+        "purge",
+        "scale",
+        "restart",
+        "failover",
+        "rotate",
+        "revert",
+        "attach",
+        "detach",
+        "quarantine"
+      ],
+      "description": "CSP-neutral verb. Semantics: create=provision; update=in-place property change (non-destructive); delete=remove CSP resource; disable=turn off without deleting; enable=inverse of disable; tag=metadata-only; drop=DB-DDL removal (schema/object); purge=soft-delete then hard-delete; scale=count/SKU adjustment; restart=in-place bounce; failover=trigger managed failover; rotate=secret/cert rotation; revert=explicit rollback of a prior action instance; attach/detach=create/remove a Resource->Resource link (PE->target, MI->App, disk->VM); quarantine=network/policy isolation without deletion."
+    },
+    "interfaces": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "ControlPlane",
+          "DataPlaneMutating",
+          "IdempotentByKey",
+          "RateLimited",
+          "RequiresInventoryFresh",
+          "GraphTraversalRequired",
+          "CrossResource",
+          "AsymmetricRollback",
+          "RequiresMaintenanceWindow"
+        ]
+      },
+      "uniqueItems": true,
+      "default": [],
+      "description": "Runtime contracts the executor must honor. ControlPlane=touches only CSP metadata; DataPlaneMutating=touches user data (always HIL by default); IdempotentByKey=safe to retry with the same idempotency key; RateLimited=must respect a bucket cap; RequiresInventoryFresh=must not fire on a Resource whose inventory record is stale beyond freshness_ttl; GraphTraversalRequired=blast_radius calculation depends on Resource->Resource links (contains/depends_on); CrossResource=mutation touches multiple Resources so executor acquires N locks in deterministic order (deadlock-free); AsymmetricRollback=rollback path is not the exact inverse (e.g. PITR loses delta), forces auto->HIL demotion; RequiresMaintenanceWindow=only executes inside an approved window (P3 chaos/DR)."
+    },
+    "rollback_contract": {
+      "type": "string",
+      "enum": [
+        "pr_revert",
+        "scripted",
+        "pitr",
+        "snapshot_restore",
+        "state_forward_only"
+      ],
+      "description": "How instances of this action are undone. pr_revert=git revert on the remediation PR; scripted=an inverse action script bundled with the ActionType; pitr=DB point-in-time restore; snapshot_restore=restore a snapshot taken before the action; state_forward_only=rollback is achieved by executing an inverse ActionType instance (e.g. `disable`<->`enable`). No `none` value: every ActionType MUST declare how to undo an instance. Genuinely one-way mutations set `irreversible: true` (below) and are gated by risk-classification, not by silencing rollback."
+    },
+    "irreversible": {
+      "type": "boolean",
+      "default": false,
+      "description": "True only when a rolled-back state cannot restore the pre-action state (e.g. purge of a deleted-only-once resource). When true, risk-classification MUST route to HIL with quorum >= 2 regardless of other dimensions. Rollback_contract is still required and MUST describe the best-effort recovery even if partial."
+    },
+    "default_mode": {
+      "type": "string",
+      "enum": ["shadow", "enforce"],
+      "default": "shadow",
+      "description": "Upstream ActionTypes MUST default to `shadow`. Rule assignments MAY tighten (never loosen) via governance PR after the promotion_gate is measured. Setting `enforce` in upstream is only allowed for the trivial no-op ActionTypes (`observe`, `revert` bound to an audited prior action)."
+    },
+    "promotion_gate": {
+      "type": "object",
+      "description": "Measurable criteria a shadow-mode ActionType must satisfy on the frozen scenario set before assignment can promote it to enforce. The four required fields are the ActionType gate itself. The two optional ratio fields declare hard bounds only: they are the versioned home of the limits that governed effect-model promotion policies must stay inside, so a runtime policy derives its range here instead of restating it as a literal. The ActionType promotion evaluator does not read them.",
+      "additionalProperties": false,
+      "required": [
+        "min_shadow_days",
+        "min_samples",
+        "min_accuracy",
+        "max_policy_escapes"
+      ],
+      "properties": {
+        "min_shadow_days": {"type": "integer", "minimum": 1, "x-fdai-unit": "days", "x-fdai-scope": "action_type_promotion"},
+        "min_samples": {"type": "integer", "minimum": 1, "x-fdai-unit": "samples", "x-fdai-scope": "action_type_promotion"},
+        "min_accuracy": {"type": "number", "minimum": 0, "maximum": 1, "x-fdai-unit": "ratio", "x-fdai-scope": "action_type_promotion"},
+        "max_policy_escapes": {"type": "integer", "minimum": 0, "x-fdai-unit": "events", "x-fdai-scope": "action_type_promotion"},
+        "min_fidelity": {"type": "number", "minimum": 0, "maximum": 1, "x-fdai-unit": "ratio", "x-fdai-scope": "graph_model_promotion"},
+        "max_recurrence_rate": {"type": "number", "minimum": 0, "maximum": 1, "x-fdai-unit": "ratio", "x-fdai-scope": "graph_model_promotion"}
+      }
+    },
+    "preconditions": {
+      "type": "array",
+      "default": [],
+      "description": "Deterministic checks the T0 verifier evaluates BEFORE the action can be emitted to the risk-gate. A failing precondition MUST abstain, never partially apply.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "graph_fresh_within_seconds",
+              "link_exists",
+              "link_absent",
+              "no_conflicting_open_action_on_resource",
+              "maintenance_window_active",
+              "resource_property_equals",
+              "resource_tag_present"
+            ]
+          },
+          "value": {"type": ["string", "number", "boolean"]},
+          "link_type": {"type": "string"},
+          "property": {"type": "string"},
+          "tag": {"type": "string"}
+        }
+      }
+    },
+    "required_evidence_semantic_refs": {
+      "type": "array",
+      "default": [],
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"
+      },
+      "description": "Canonical Property.semantic_id values whose unresolved conflicts can only lower this ActionType to shadow."
+    },
+    "stop_conditions": {
+      "type": "array",
+      "default": [],
+      "description": "Deterministic conditions the executor evaluates DURING or AFTER apply. Any true value auto-halts and triggers rollback per rollback_contract.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "error_rate_above",
+              "latency_p99_above_ms",
+              "dependent_resource_degraded",
+              "time_box_exceeded_seconds",
+              "provider_api_error_streak"
+            ]
+          },
+          "threshold": {"type": "number"},
+          "window_seconds": {"type": "integer", "minimum": 1},
+          "seconds": {"type": "integer", "minimum": 1},
+          "count": {"type": "integer", "minimum": 1}
+        }
+      }
+    },
+    "blast_radius": {
+      "type": "object",
+      "description": "How the risk-gate computes the blast_radius classification dimension for an instance of this ActionType. `static_enum` means the ActionType declares a fixed bucket; `graph_derived` means the risk-gate walks Resource->Resource links (default: `contains` + reverse `depends_on`, depth 2) and counts affected Resources. An instance exceeding `max_affected_resources` abstains and escalates to HIL. Actual traversal implementation lands with the risk-gate (P2); P1 only records the declaration.",
+      "additionalProperties": false,
+      "required": ["computation"],
+      "properties": {
+        "computation": {
+          "type": "string",
+          "enum": ["static_enum", "graph_derived"]
+        },
+        "static_bucket": {
+          "type": "string",
+          "enum": ["resource", "resource_group", "subscription"]
+        },
+        "max_affected_resources": {"type": "integer", "minimum": 1},
+        "traversal_depth": {"type": "integer", "minimum": 1, "maximum": 5, "default": 2},
+        "traversal_links": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["contains", "attached_to", "depends_on"]
+          },
+          "uniqueItems": true,
+          "default": ["contains", "depends_on"]
+        }
+      }
+    },
+    "description": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string",
+      "enum": ["remediation", "ops", "governance", "tool"],
+      "description": "Top-level ActionType bucket. See action-ontology.md 3."
+    },
+    "trigger_kind": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "description": "Who initiates this ActionType. See action-ontology.md 1.",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["rule_violation", "operator_request", "both"]
+        },
+        "restrict_to_scenarios": {
+          "type": "array",
+          "items": {"type": "string"},
+          "default": []
+        }
+      }
+    },
+    "execution_path": {
+      "type": "string",
+      "enum": ["pr_native", "direct_api", "pr_manual", "tool_call"],
+      "description": "How the executor applies the action. See execution-model.md 5."
+    },
+    "ceiling_by_tier": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Per-tier autonomy/role ceiling. See execution-model.md 2.2.",
+      "properties": {
+        "t0": {"$ref": "#/$defs/tierCeiling"},
+        "t1": {"$ref": "#/$defs/tierCeiling"},
+        "t2": {"$ref": "#/$defs/tierCeiling"}
+      }
+    },
+    "env_scope": {
+      "type": "string",
+      "enum": ["prod", "non_prod", "any"],
+      "default": "any",
+      "description": "Which environments this ActionType may fire in. See action-ontology.md 2."
+    },
+    "prod_downgrade": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "detection_ref"],
+      "description": "How the ActionType collapses in prod. `mode` is never `enforce_auto` (a downgrade never raises autonomy). `detection_ref` resolves to the single env classifier in risk-classification.md.",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["enforce_hil", "shadow_only"]
+        },
+        "detection_ref": {"type": "string", "minLength": 1}
+      }
+    },
+    "argument_schema": {
+      "type": "object",
+      "description": "JSON Schema for operator_request arguments; the console renders and validates against it. The loader (not this schema) requires it when trigger_kind.kind is operator_request or both."
+    },
+    "live_probe_ref": {
+      "type": "string",
+      "description": "Points to a probe under rule-catalog/probes/. Month-1+; unset on Day 1. See execution-model.md 4."
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "semantic": {
+      "$ref": "#/$defs/semanticActionContract"
+    }
+  },
+  "$defs": {
+    "semanticActionContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "planner_ref",
+        "effects",
+        "postconditions",
+        "transaction_policy"
+      ],
+      "properties": {
+        "target": {"$ref": "#/$defs/actionTargetSelector"},
+        "parameters": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {"$ref": "#/$defs/actionParameterDeclaration"},
+          "default": []
+        },
+        "read_sets": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {"$ref": "#/$defs/actionReadSetReference"},
+          "default": []
+        },
+        "submission_criteria": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {"$ref": "#/$defs/actionSubmissionCriterion"},
+          "default": []
+        },
+        "planner_ref": {"$ref": "#/$defs/functionDeclarationRef"},
+        "effects": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {"$ref": "#/$defs/actionEffectSpec"}
+        },
+        "postconditions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {"$ref": "#/$defs/actionPostconditionSpec"}
+        },
+        "transaction_policy": {"$ref": "#/$defs/actionTransactionPolicy"}
+      }
+    },
+    "actionTargetSelector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type_ref", "cardinality"],
+      "properties": {
+        "type_ref": {"$ref": "#/$defs/targetDeclarationRef"},
+        "cardinality": {"type": "string", "enum": ["one", "set"]}
+      }
+    },
+    "actionParameterDeclaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "redaction"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"},
+        "required": {"type": "boolean", "default": false},
+        "inline_schema": {"type": "object", "minProperties": 1},
+        "schema_ref": {"$ref": "#/$defs/targetDeclarationRef"},
+        "redaction": {"type": "string", "enum": ["redact", "audit_safe"]}
+      },
+      "oneOf": [
+        {"required": ["inline_schema"], "not": {"required": ["schema_ref"]}},
+        {"required": ["schema_ref"], "not": {"required": ["inline_schema"]}}
+      ]
+    },
+    "actionReadSetReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["function_ref", "properties", "max_objects"],
+      "properties": {
+        "function_ref": {"$ref": "#/$defs/functionDeclarationRef"},
+        "properties": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {"type": "string", "minLength": 1, "maxLength": 256},
+          "uniqueItems": true
+        },
+        "max_objects": {"type": "integer", "minimum": 1, "maximum": 1000}
+      }
+    },
+    "actionSubmissionCriterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "criterion_ref": {"type": "string", "minLength": 1, "maxLength": 256},
+        "function_ref": {"$ref": "#/$defs/functionDeclarationRef"}
+      },
+      "oneOf": [
+        {"required": ["criterion_ref"], "not": {"required": ["function_ref"]}},
+        {"required": ["function_ref"], "not": {"required": ["criterion_ref"]}}
+      ]
+    },
+    "actionEffectSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["effect_id", "kind", "operation_ref"],
+      "properties": {
+        "effect_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{0,79}$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "internal_write",
+            "catalog_pr",
+            "provider_command",
+            "notification",
+            "schedule"
+          ]
+        },
+        "operation_ref": {"type": "string", "minLength": 1, "maxLength": 256},
+        "rollback_operation_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "grants_authority": {"const": false, "default": false}
+      }
+    },
+    "actionPostconditionSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["postcondition_id", "kind"],
+      "properties": {
+        "postcondition_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{0,79}$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["property", "metric", "event", "function"]
+        },
+        "observation_ref": {"type": "string", "minLength": 1, "maxLength": 256},
+        "function_ref": {"$ref": "#/$defs/functionDeclarationRef"},
+        "evidence_required": {"const": true, "default": true},
+        "grants_authority": {"const": false, "default": false}
+      },
+      "oneOf": [
+        {"required": ["observation_ref"], "not": {"required": ["function_ref"]}},
+        {"required": ["function_ref"], "not": {"required": ["observation_ref"]}}
+      ]
+    },
+    "actionTransactionPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "lock_scope", "max_affected_objects"],
+      "properties": {
+        "mode": {"type": "string", "enum": ["atomic", "saga"]},
+        "lock_scope": {"type": "string", "enum": ["target", "target_set"]},
+        "max_affected_objects": {"type": "integer", "minimum": 1, "maximum": 1000}
+      }
+    },
+    "targetDeclarationRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name", "version", "declaration_digest"],
+      "properties": {
+        "kind": {"type": "string", "enum": ["object", "interface"]},
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+        "declaration_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+      }
+    },
+    "functionDeclarationRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name", "version", "declaration_digest"],
+      "properties": {
+        "kind": {"const": "function"},
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+        "declaration_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+      }
+    },
+    "tierCeiling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_autonomy", "min_role"],
+      "properties": {
+        "max_autonomy": {
+          "type": "string",
+          "enum": ["enforce_auto", "enforce_hil", "shadow_only"]
+        },
+        "min_role": {
+          "type": "string",
+          "enum": ["reader", "contributor", "approver", "owner"]
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_url", "resolved_ref", "content_hash", "license", "retrieved_at"],
+      "properties": {
+        "source_url": {"type": "string", "minLength": 1},
+        "resolved_ref": {"type": "string", "minLength": 1},
+        "content_hash": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "license": {"type": "string", "minLength": 1},
+        "retrieved_at": {"type": "string", "format": "date-time"}
+      }
+    }
+  }
+}

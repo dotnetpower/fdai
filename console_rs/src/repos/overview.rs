@@ -59,6 +59,174 @@ fn llm_range_interval_sql(range: &str) -> &'static str {
     }
 }
 
+fn dashboard_window_interval_sql(window: &str) -> &'static str {
+    match window {
+        "1h" => "1 hour",
+        "24h" => "24 hours",
+        _ => "15 minutes",
+    }
+}
+
+fn dashboard_window_seconds(window: &str) -> f64 {
+    match window {
+        "1h" => 3600.0,
+        "24h" => 86400.0,
+        _ => 900.0,
+    }
+}
+
+fn dashboard_window_default_axis(window: &str) -> [&'static str; 4] {
+    match window {
+        "1h" => ["-60m", "-40m", "-20m", "NOW"],
+        "24h" => ["-24h", "-16h", "-8h", "NOW"],
+        _ => ["-15m", "-10m", "-5m", "NOW"],
+    }
+}
+
+fn classify_audit_series(action_kind: &str, seq: i64) -> (&'static str, i64) {
+    let k = action_kind.trim().to_ascii_lowercase();
+    let jitter = (seq.unsigned_abs() % 9) as i64 - 4;
+    if k.starts_with("hil.") {
+        ("human", (86 + jitter).clamp(80, 95))
+    } else if k.contains("escape")
+        || k.contains("policy_violation")
+        || k.contains("security")
+        || k == "risk_gate.unified"
+        || k == "mimir.rule-source.observed"
+    {
+        ("sec", (72 + jitter).clamp(65, 80))
+    } else if k == "rca.hypothesis"
+        || k == "control_loop.abstain"
+        || k == "control_loop.t1_evaluate"
+        || k.starts_with("observation-campaign.")
+    {
+        ("sre", (54 + jitter).clamp(44, 64))
+    } else {
+        ("auto", (22 + jitter).clamp(12, 34))
+    }
+}
+
+fn short_utc_axis_label(iso: &str, same_day: bool) -> String {
+    if iso.len() >= 19 && iso.is_ascii() {
+        if same_day {
+            iso[11..19].to_string()
+        } else {
+            format!("{} {}", &iso[5..10], &iso[11..16])
+        }
+    } else {
+        iso.to_string()
+    }
+}
+
+fn encode_item_param(input: &str) -> String {
+    let mut out = String::with_capacity(input.len() + 12);
+    for b in input.as_bytes() {
+        if b.is_ascii_alphanumeric() || matches!(*b, b'-' | b'_' | b'.' | b'~') {
+            out.push(*b as char);
+        } else {
+            const HEX: &[u8; 16] = b"0123456789ABCDEF";
+            out.push('%');
+            out.push(HEX[(b >> 4) as usize] as char);
+            out.push(HEX[(b & 0x0f) as usize] as char);
+        }
+    }
+    out
+}
+
+fn vertical_label_ko(raw: &str) -> &'static str {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "resilience" => "복원력",
+        "change_safety" | "change-safety" => "변경 안전",
+        "cost_governance" | "cost-governance" => "비용 거버넌스",
+        _ => "미귀속",
+    }
+}
+
+fn severity_label_ko(raw: &str) -> &'static str {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "critical" => "치명",
+        "high" => "높음",
+        "medium" => "보통",
+        "low" => "낮음",
+        _ => "보통",
+    }
+}
+
+fn status_label_ko(raw: &str) -> &'static str {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "in_progress" | "open" | "active" => "진행 중",
+        "resolved" => "해결 완료",
+        "closed" => "종료됨",
+        "published" => "게시됨",
+        "recorded" => "기록됨",
+        _ => "관측 중",
+    }
+}
+
+fn resource_type_label_ko(raw: &str) -> String {
+    let key = raw.trim().to_ascii_lowercase();
+    match key.as_str() {
+        "subscription" => "Azure 구독".to_string(),
+        "resource-group" => "리소스 그룹".to_string(),
+        "kubernetes-cluster" => "Kubernetes 클러스터 (AKS)".to_string(),
+        "kubernetes-node-pool" => "AKS 노드 풀".to_string(),
+        "compute.vm-scale-set" => "가상 머신 확장 집합 (VMSS)".to_string(),
+        "compute.vm" => "가상 머신 (VM)".to_string(),
+        "compute.vm-extension" => "가상 머신 확장".to_string(),
+        "compute.container-app" => "컨테이너 앱".to_string(),
+        "compute.container-app-job" => "컨테이너 앱 작업".to_string(),
+        "compute.container-app-environment" => "컨테이너 앱 환경".to_string(),
+        "compute.function" => "함수 앱".to_string(),
+        "container-registry" => "컨테이너 레지스트리".to_string(),
+        "postgresql-server" => "PostgreSQL 서버".to_string(),
+        "secret-store" => "키 자격 증명 모음 (Key Vault)".to_string(),
+        "object-storage" => "스토리지 계정".to_string(),
+        "disk" => "관리 디스크".to_string(),
+        "network.nsg" => "네트워크 보안 그룹 (NSG)".to_string(),
+        "network.vnet" => "가상 네트워크 (VNet)".to_string(),
+        "network.subnet" => "서브넷".to_string(),
+        "network.interface" => "네트워크 인터페이스".to_string(),
+        "network.public-ip" => "공용 IP 주소".to_string(),
+        "network.private-endpoint" => "프라이빗 엔드포인트".to_string(),
+        "network.private-dns-zone" | "network.dns-zone" => "DNS 영역".to_string(),
+        "network.nat-gateway" => "NAT 게이트웨이".to_string(),
+        "network.load-balancer" => "부하 분산 장치".to_string(),
+        "network.bastion-host" => "Bastion 호스트".to_string(),
+        "network.route-table" => "라우팅 테이블".to_string(),
+        "network.firewall" => "방화벽".to_string(),
+        "network.firewall-policy" => "방화벽 정책".to_string(),
+        "api-gateway" => "API 게이트웨이".to_string(),
+        "event-hub" => "Event Hubs".to_string(),
+        "static-web-app" => "정적 웹 앱".to_string(),
+        "app-service-plan" => "App Service 플랜".to_string(),
+        "llm-endpoint" => "AI 모델 엔드포인트".to_string(),
+        "llm-model-deployment" => "AI 모델 배포".to_string(),
+        "ai-project" => "AI Foundry 프로젝트".to_string(),
+        "managed-identity" => "관리 ID".to_string(),
+        "authorization.role-assignment" => "역할 할당".to_string(),
+        "log-workspace" => "로그 분석 작업 영역".to_string(),
+        "application-insights" => "Application Insights".to_string(),
+        "data-collection-rule" => "데이터 수집 규칙".to_string(),
+        "anomaly-alert-rule" | "action-group" => "경고 규칙".to_string(),
+        "rule" => "운영 규칙".to_string(),
+        "policyartifact" => "정책 아티팩트".to_string(),
+        "actiontype" => "운영 조치 유형".to_string(),
+        "frameworkcontrol" => "거버넌스 통제 항목".to_string(),
+        "benchmarkvalidation" => "벤치마크 검증".to_string(),
+        _ => {
+            if key.starts_with("compute.") {
+                "컴퓨트 리소스".to_string()
+            } else if key.starts_with("network.") {
+                "네트워크 리소스".to_string()
+            } else if key.is_empty() {
+                "운영 리소스".to_string()
+            } else {
+                raw.trim().to_string()
+            }
+        }
+    }
+}
+
 /// Maps canonical FDAI `resource_type`, Azure `provider_type`, and ontology `object_type`
 /// to an exact, verified `/azure-icons/*.svg` asset path without substring collisions.
 #[must_use]
@@ -581,7 +749,7 @@ pub async fn fetch_summary(db: &DbHandle) -> Value {
                     let cnt = cell_i64(row, 1).unwrap_or(0);
                     let prefix: String = trimmed.chars().take(8).collect();
                     let masked = if trimmed.len() > 10 {
-                        format!("sub-{prefix}...")
+                        format!("sub-{prefix}…")
                     } else {
                         trimmed.to_string()
                     };
@@ -684,6 +852,47 @@ pub async fn fetch_dashboard(db: &DbHandle, subscription: &str, window: &str) ->
          FROM ontology_resource {res_where}"
     );
 
+    let q_win_iv = pg_quote_literal(dashboard_window_interval_sql(window));
+    let buckets_sql = format!(
+        "WITH anchor AS (SELECT COALESCE(max(created_at), NOW()) AS ts FROM audit_log), \
+         win_rows AS ( \
+           SELECT a.created_at, a.action_kind \
+           FROM audit_log a, anchor \
+           WHERE a.created_at >= anchor.ts - CAST({q_win_iv} AS interval) \
+         ), \
+         span AS (SELECT COALESCE(max(created_at) - min(created_at), INTERVAL '0 seconds') AS d FROM win_rows) \
+         SELECT CASE \
+           WHEN span.d < INTERVAL '1 hour' THEN to_char(created_at AT TIME ZONE 'UTC', 'HH24:MI:SS') \
+           WHEN span.d < INTERVAL '2 days' THEN to_char(created_at AT TIME ZONE 'UTC', 'MM/DD HH24:00') \
+           ELSE to_char(created_at AT TIME ZONE 'UTC', 'MM/DD') \
+         END AS bkt, \
+         count(*), \
+         count(*) FILTER (WHERE action_kind IN ('control_loop.compliant', 'audit.record', 'runtime.operational-state-recorded', 'measurement.control_loop.v1')), \
+         count(*) FILTER (WHERE action_kind IN ('rca.hypothesis', 'control_loop.abstain', 'observation-campaign.source-transition', 'control_loop.t1_evaluate')), \
+         count(*) FILTER (WHERE action_kind IN ('risk_gate.unified', 'mimir.rule-source.observed') OR action_kind ILIKE '%escape%' OR action_kind ILIKE '%policy_violation%' OR action_kind ILIKE '%security%'), \
+         count(*) FILTER (WHERE action_kind LIKE 'hil.%') \
+         FROM win_rows, span GROUP BY 1 ORDER BY 1 DESC LIMIT 6"
+    );
+    let scatter_sql = format!(
+        "WITH anchor AS (SELECT COALESCE(max(created_at), NOW()) AS ts FROM audit_log) \
+         SELECT a.seq, COALESCE(a.actor, 'fdai'), COALESCE(a.action_kind, 'audit.record'), \
+         COALESCE(a.mode, 'shadow'), \
+         COALESCE(a.entry->>'resource_type', a.entry->>'target', a.entry->>'resource_id', ''), \
+         COALESCE(a.entry->>'tier', ''), \
+         EXTRACT(EPOCH FROM a.created_at)::double precision, \
+         to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), \
+         EXTRACT(EPOCH FROM anchor.ts)::double precision, \
+         COALESCE(a.entry->>'approval_id', a.entry->>'request_id', '') \
+         FROM audit_log a, anchor \
+         WHERE a.created_at >= anchor.ts - CAST({q_win_iv} AS interval) \
+         ORDER BY a.seq DESC LIMIT 40"
+    );
+    let journal_sql = "SELECT watermark, COALESCE(subject_ref, ''), \
+         COALESCE(mutation_kind, 'observed'), COALESCE(source_identity, 'inventory'), \
+         EXTRACT(EPOCH FROM observed_at)::double precision, \
+         to_char(observed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
+         FROM inventory_observation_journal ORDER BY watermark DESC LIMIT 8";
+
     let (
         audit_res,
         buckets_res,
@@ -699,6 +908,8 @@ pub async fn fetch_dashboard(db: &DbHandle, subscription: &str, window: &str) ->
         cl_dom_res,
         code_sec_res,
         links_res,
+        scatter_res,
+        journal_res,
     ) = tokio::join!(
         db.query_single_readonly(
             "SELECT count(*), \
@@ -717,20 +928,7 @@ pub async fn fetch_dashboard(db: &DbHandle, subscription: &str, window: &str) ->
              count(*) FILTER (WHERE action_kind ILIKE '%escape%' OR action_kind ILIKE '%policy_violation%') \
              FROM audit_log"
         ),
-        db.query_single_readonly(
-            "WITH span AS (SELECT COALESCE(max(created_at) - min(created_at), INTERVAL '0 seconds') AS d FROM audit_log) \
-             SELECT CASE \
-               WHEN span.d < INTERVAL '1 hour' THEN to_char(created_at AT TIME ZONE 'UTC', 'HH24:MI:SS') \
-               WHEN span.d < INTERVAL '2 days' THEN to_char(created_at AT TIME ZONE 'UTC', 'MM/DD HH24:00') \
-               ELSE to_char(created_at AT TIME ZONE 'UTC', 'MM/DD') \
-             END AS bkt, \
-             count(*), \
-             count(*) FILTER (WHERE action_kind IN ('control_loop.compliant', 'audit.record', 'runtime.operational-state-recorded')), \
-             count(*) FILTER (WHERE action_kind IN ('rca.hypothesis', 'control_loop.abstain', 'observation-campaign.source-transition', 'control_loop.t1_evaluate')), \
-             count(*) FILTER (WHERE action_kind IN ('risk_gate.unified', 'mimir.rule-source.observed')), \
-             count(*) FILTER (WHERE action_kind LIKE 'hil.%') \
-             FROM audit_log, span GROUP BY 1 ORDER BY 1 DESC LIMIT 6"
-        ),
+        db.query_single_readonly(&buckets_sql),
         db.query_single_readonly(
             "SELECT action_kind, count(*) FROM audit_log GROUP BY action_kind ORDER BY count(*) DESC LIMIT 10"
         ),
@@ -796,6 +994,8 @@ pub async fn fetch_dashboard(db: &DbHandle, subscription: &str, window: &str) ->
              AND jsonb_typeof(value->'issues') = 'array'"
         ),
         db.query_single_readonly("SELECT count(*) FROM ontology_link"),
+        db.query_single_readonly(&scatter_sql),
+        db.query_single_readonly(journal_sql),
     );
 
     let (Ok(a), Ok(r)) = (audit_res, res_stats) else {
@@ -890,22 +1090,31 @@ pub async fn fetch_dashboard(db: &DbHandle, subscription: &str, window: &str) ->
                 "cost_governance" | "cost-governance" => cost_inc += 1,
                 _ => {}
             }
+            let vert_ko = vertical_label_ko(&vert);
+            let sev_ko = severity_label_ko(&sev);
+            let st_ko = status_label_ko(&st);
             let (tone, badge_label) = if is_open {
-                ("sre", format!("인시던트 ({sev})"))
+                ("sre", format!("인시던트 · {sev_ko}"))
             } else {
                 ("live", "해결 완료".to_string())
             };
+            let inc_href = format!("/operations/incidents?item={}", encode_item_param(&cid));
             recent_observations.push(json!({
                 "id": cid,
                 "target": cid,
-                "category": format!("인시던트 · {vert} · 이력 {hist_cnt}건"),
-                "status": st,
+                "category": format!("운영 인시던트 · {vert_ko} · 이력 {hist_cnt}건"),
+                "status": st_ko,
+                "raw_status": st,
+                "raw_vertical": vert,
+                "raw_severity": sev,
                 "badge_label": badge_label,
                 "tone": tone,
                 "icon": "/azure-icons/monitor.svg",
                 "observed_at": opened,
-                "href": "/operations#tab=incidents",
-                "summary": format!("영역 {vert} · 심각도 {sev} · 상태 {st} (투영 이력 {hist_cnt}건)")
+                "deep_link_panel": "incidents",
+                "deep_link_item": cid,
+                "href": inc_href,
+                "summary": format!("{vert_ko} 영역에서 심각도 '{sev_ko}' 인시던트가 '{st_ko}' 상태로 추적 중입니다 (투영 이력 {hist_cnt}건).")
             }));
         }
     }
@@ -918,17 +1127,33 @@ pub async fn fetch_dashboard(db: &DbHandle, subscription: &str, window: &str) ->
             let pub_state = cell_str(row, 3);
             let rec_at = cell_str(row, 4);
             let short_target = rref.rsplit('/').next().unwrap_or(&rref).to_string();
+            let sig_ko = if sig.contains("cpu") {
+                "호스트 CPU 이상"
+            } else if sig.contains("mem") {
+                "메모리 사용량 이상"
+            } else if sig.contains("disk") {
+                "디스크 이상"
+            } else {
+                "이상 징후 분석"
+            };
+            let pub_ko = status_label_ko(&pub_state);
+            let finding_href = format!("/evidence/audit?item={}", encode_item_param(&rref));
             recent_observations.push(json!({
                 "id": rref,
                 "target": short_target,
-                "category": format!("{assessed_by} · 신호 {sig}"),
-                "status": pub_state,
-                "badge_label": format!("분석 감지 ({sig})"),
+                "category": format!("자동 분석 감지 · {sig_ko}"),
+                "status": pub_ko,
+                "raw_status": pub_state,
+                "raw_signal": sig,
+                "assessed_by": assessed_by,
+                "badge_label": sig_ko,
                 "tone": if sig.contains("cpu") || sig.contains("mem") { "sre" } else { "sec" },
                 "icon": resource_icon_for(&sig, &rref, "Resource"),
                 "observed_at": rec_at,
-                "href": "/evidence#tab=audit",
-                "summary": format!("분석기 {assessed_by}가 {sig} 신호를 감지해 {pub_state} 상태로 기록했습니다.")
+                "deep_link_panel": "audit",
+                "deep_link_item": rref,
+                "href": finding_href,
+                "summary": format!("분석기가 {short_target} 대상에서 '{sig_ko}' 신호를 감지해 {pub_ko} 상태로 기록했습니다.")
             }));
         }
     }
@@ -973,6 +1198,241 @@ pub async fn fetch_dashboard(db: &DbHandle, subscription: &str, window: &str) ->
             }));
         }
     }
+
+    struct RawScatterPoint {
+        id: String,
+        seq: Option<i64>,
+        source_table: &'static str,
+        series: &'static str,
+        risk_score: i64,
+        epoch: f64,
+        recorded_at: String,
+        actor: String,
+        action_kind: String,
+        target: String,
+        mode: String,
+        tier: String,
+        deep_link_panel: &'static str,
+        deep_link_item: String,
+        href: String,
+    }
+
+    let mut raw_scatter: Vec<RawScatterPoint> = Vec::new();
+    let mut anchor_epoch: Option<f64> = None;
+    if let Ok(sres) = scatter_res {
+        for row in sres.rows.iter().rev() {
+            let seq = cell_i64(row, 0).unwrap_or(0);
+            let actor = cell_str(row, 1);
+            let action_kind = cell_str(row, 2);
+            let mode = cell_str(row, 3);
+            let target_raw = cell_str(row, 4);
+            let tier = cell_str(row, 5);
+            let Some(ep) = cell_f64(row, 6) else {
+                continue;
+            };
+            let rec_at = cell_str(row, 7);
+            if anchor_epoch.is_none() {
+                anchor_epoch = cell_f64(row, 8);
+            }
+            let approval_id = cell_str(row, 9);
+            let (series, risk_score) = classify_audit_series(&action_kind, seq);
+            let short_target = if target_raw.is_empty() {
+                actor.clone()
+            } else {
+                target_raw.rsplit('/').next().unwrap_or(&target_raw).to_string()
+            };
+            let audit_item_id = format!("audit:{seq}");
+            let (deep_link_panel, deep_link_item, href) =
+                if series == "human" && !approval_id.is_empty() {
+                    let link = format!("/operations/hil-queue?item={}", encode_item_param(&approval_id));
+                    ("hil-queue", approval_id, link)
+                } else {
+                    let link = format!("/evidence/audit?item={}", encode_item_param(&audit_item_id));
+                    ("audit", audit_item_id.clone(), link)
+                };
+            raw_scatter.push(RawScatterPoint {
+                id: audit_item_id,
+                seq: Some(seq),
+                source_table: "audit_log",
+                series,
+                risk_score,
+                epoch: ep,
+                recorded_at: rec_at,
+                actor,
+                action_kind,
+                target: short_target,
+                mode,
+                tier,
+                deep_link_panel,
+                deep_link_item,
+                href,
+            });
+        }
+    }
+
+    let win_secs = dashboard_window_seconds(window);
+    if let Ok(jres) = journal_res {
+        let audit_empty = raw_scatter.is_empty();
+        for row in jres.rows.iter().rev() {
+            let wm = cell_i64(row, 0).unwrap_or(0);
+            let subj = cell_str(row, 1);
+            let mkind = cell_str(row, 2);
+            let src_id = cell_str(row, 3);
+            let Some(ep) = cell_f64(row, 4) else {
+                continue;
+            };
+            let obs_at = cell_str(row, 5);
+            let in_window = match anchor_epoch {
+                Some(a_ep) if !audit_empty => ep >= a_ep - win_secs && ep <= a_ep,
+                _ => true,
+            };
+            if !in_window {
+                continue;
+            }
+            let short_subj = subj.rsplit('/').next().unwrap_or(&subj).to_string();
+            let risk_score = 16 + (wm.unsigned_abs() % 11) as i64;
+            let dl_item = if subj.is_empty() {
+                format!("journal:{wm}")
+            } else {
+                subj.clone()
+            };
+            let dl_href = format!("/governance/ontology?item={}", encode_item_param(&dl_item));
+            raw_scatter.push(RawScatterPoint {
+                id: format!("journal:{wm}"),
+                seq: None,
+                source_table: "inventory_observation_journal",
+                series: "auto",
+                risk_score,
+                epoch: ep,
+                recorded_at: obs_at,
+                actor: src_id,
+                action_kind: format!("inventory.{mkind}"),
+                target: if short_subj.is_empty() {
+                    "인벤토리 관측 대상".to_string()
+                } else {
+                    short_subj
+                },
+                mode: "shadow".to_string(),
+                tier: "T0".to_string(),
+                deep_link_panel: "ontology",
+                deep_link_item: dl_item,
+                href: dl_href,
+            });
+        }
+    }
+
+    raw_scatter.sort_by(|a, b| a.epoch.total_cmp(&b.epoch));
+    let n_pts = raw_scatter.len();
+    let min_ep = raw_scatter.first().map(|p| p.epoch).unwrap_or(0.0);
+    let max_ep = raw_scatter.last().map(|p| p.epoch).unwrap_or(min_ep);
+    let span_seconds = if n_pts >= 2 {
+        (max_ep - min_ep).max(0.0).round() as i64
+    } else {
+        0
+    };
+    let same_day = raw_scatter
+        .first()
+        .zip(raw_scatter.last())
+        .is_some_and(|(a, b)| {
+            a.recorded_at.len() >= 10
+                && b.recorded_at.len() >= 10
+                && a.recorded_at.is_ascii()
+                && b.recorded_at.is_ascii()
+                && a.recorded_at[..10] == b.recorded_at[..10]
+        });
+
+    let default_axis = dashboard_window_default_axis(window);
+    let axis_labels: Vec<String> = if n_pts >= 2 {
+        let i1 = (n_pts - 1) / 3;
+        let i2 = ((n_pts - 1) * 2) / 3;
+        vec![
+            short_utc_axis_label(&raw_scatter[0].recorded_at, same_day),
+            short_utc_axis_label(&raw_scatter[i1].recorded_at, same_day),
+            short_utc_axis_label(&raw_scatter[i2].recorded_at, same_day),
+            "NOW".to_string(),
+        ]
+    } else if n_pts == 1 {
+        vec![
+            default_axis[0].to_string(),
+            default_axis[1].to_string(),
+            short_utc_axis_label(&raw_scatter[0].recorded_at, true),
+            "NOW".to_string(),
+        ]
+    } else {
+        default_axis.iter().map(|s| (*s).to_string()).collect()
+    };
+
+    let earliest_at = raw_scatter
+        .first()
+        .map(|p| p.recorded_at.clone())
+        .unwrap_or_default();
+
+    let scatter_points: Vec<Value> = raw_scatter
+        .into_iter()
+        .enumerate()
+        .map(|(i, pt)| {
+            let offset_ratio = if n_pts <= 1 {
+                0.95_f64
+            } else {
+                let idx_ratio = (i as f64) / ((n_pts - 1) as f64);
+                let time_ratio = if max_ep > min_ep {
+                    ((pt.epoch - min_ep) / (max_ep - min_ep)).clamp(0.0, 1.0)
+                } else {
+                    idx_ratio
+                };
+                (0.02 + (0.82 * time_ratio + 0.18 * idx_ratio) * 0.96).clamp(0.02, 0.98)
+            };
+            let offset_rounded = (offset_ratio * 10000.0).round() / 10000.0;
+            let time_label = short_utc_axis_label(&pt.recorded_at, true);
+            let series_ko = match pt.series {
+                "human" => "사람 확인 필요",
+                "sec" => "보안·위험 관문",
+                "sre" => "SRE 이상·보류",
+                _ => "자동·관측 기록",
+            };
+            let summary = format!(
+                "{} · {} · {} ({}) [{}]",
+                time_label, series_ko, pt.target, pt.action_kind, pt.mode
+            );
+            json!({
+                "id": pt.id,
+                "seq": pt.seq,
+                "source_table": pt.source_table,
+                "series": pt.series,
+                "risk_score": pt.risk_score,
+                "offset_ratio": offset_rounded,
+                "recorded_at": pt.recorded_at,
+                "time_label": time_label,
+                "actor": pt.actor,
+                "action_kind": pt.action_kind,
+                "target": pt.target,
+                "mode": pt.mode,
+                "tier": pt.tier,
+                "summary": summary,
+                "deep_link_panel": pt.deep_link_panel,
+                "deep_link_item": pt.deep_link_item,
+                "href": pt.href
+            })
+        })
+        .collect();
+
+    let timeline_meta = json!({
+        "window": window,
+        "anchor_at": if latest_at.is_empty() { Value::Null } else { json!(latest_at) },
+        "earliest_at": if earliest_at.is_empty() { Value::Null } else { json!(earliest_at) },
+        "span_seconds": span_seconds,
+        "point_count": scatter_points.len(),
+        "axis_labels": axis_labels,
+        "forecast_status": "not-measured",
+        "forecast_reason": "실측 예측 시계열이 수집되지 않아 미래(+5m) 영역은 미측정으로 분리 표시합니다."
+    });
+
+    let forecast = json!({
+        "measurement_status": "not-measured",
+        "horizon": "+5m",
+        "points": [],
+        "reason": "no_measured_forecast_series"
+    });
 
     let mut scope_options: Vec<Value> = Vec::new();
     if let Ok(sres) = subs_res {
@@ -1132,6 +1592,9 @@ pub async fn fetch_dashboard(db: &DbHandle, subscription: &str, window: &str) ->
             "cost_governance": cost_inc
         },
         "time_buckets": time_buckets,
+        "scatter_points": scatter_points,
+        "timeline_meta": timeline_meta,
+        "forecast": forecast,
         "domain_breakdown": domain_breakdown,
         "recent_observations": recent_observations,
         "scope_options": scope_options
@@ -1301,15 +1764,15 @@ pub async fn fetch_resources(db: &DbHandle, filter: &ResourceFilter<'_>) -> Valu
                 "updated_at": updated_at,
                 "lineage": format!("{object_type} · {loc_display} · rev {revision}"),
                 "axes": {
-                    "resource": format!("{status_label} ({rtype})"),
-                    "operation": if status == "sre" { "Degraded 관측" } else if status == "live" { "Healthy 관측" } else { "관측 대기" },
+                    "resource": format!("{status_label} · {}", resource_type_label_ko(&rtype)),
+                    "operation": if status == "sre" { "저하 관측" } else if status == "live" { "정상 관측" } else { "관측 대기" },
                     "provisioning": prov_display,
-                    "serving": format!("{loc_display} · rev {revision}"),
+                    "serving": format!("{loc_display} · 리비전 {revision}"),
                     "availability": if status == "sre" { "주의 필요" } else { "추적 중" },
                     "observation": if updated_at.is_empty() { "미수집".to_string() } else { updated_at.clone() }
                 },
-                "note": format!("PostgreSQL ontology_resource 실측 레코드 ({object_type} · {rtype} · revision {revision})."),
-                "actionHref": "/governance#tab=ontology"
+                "note": format!("온톨로지 리소스 원장 실측 기록 ({} · 리비전 {revision}).", resource_type_label_ko(&rtype)),
+                "actionHref": format!("/governance/ontology?item={}", encode_item_param(&id))
             })
         })
         .collect();
@@ -1515,7 +1978,7 @@ pub async fn fetch_outcomes(db: &DbHandle, period: &str, metric: &str) -> Value 
                 "compliant": comp,
                 "abstained": abst,
                 "suppress_pct": suppress_pct,
-                "href": "/governance#tab=rules"
+                "href": format!("/governance/rules?item={}", encode_item_param(&rule_ref))
             }));
         }
     }
@@ -1534,8 +1997,9 @@ pub async fn fetch_outcomes(db: &DbHandle, period: &str, metric: &str) -> Value 
                 total_rule_evaluated += evaluated;
                 let domain = classify_rule_domain(&rtype);
                 let suppress_pct = pct_rounded(comp + abst, evaluated).unwrap_or(0.0);
+                let cl_id = format!("control-loop:{rtype}");
                 rule_outcomes.push(json!({
-                    "id": format!("control-loop:{rtype}"),
+                    "id": cl_id,
                     "name": format!("{rtype} ({ev_type})"),
                     "domain": domain,
                     "auth": if hil_cnt > 0 { "approval" } else { "observe" },
@@ -1546,7 +2010,7 @@ pub async fn fetch_outcomes(db: &DbHandle, period: &str, metric: &str) -> Value 
                     "compliant": comp,
                     "abstained": abst,
                     "suppress_pct": suppress_pct,
-                    "href": "/governance#tab=rules"
+                    "href": format!("/governance/rules?item={}", encode_item_param(&cl_id))
                 }));
             }
         }
@@ -1568,7 +2032,7 @@ pub async fn fetch_outcomes(db: &DbHandle, period: &str, metric: &str) -> Value 
                         "compliant": 0,
                         "abstained": 0,
                         "suppress_pct": 100.0,
-                        "href": "/governance#tab=rules"
+                        "href": format!("/governance/rules?item={}", encode_item_param(&rid))
                     }));
                 }
             }
@@ -1629,7 +2093,7 @@ pub async fn fetch_outcomes(db: &DbHandle, period: &str, metric: &str) -> Value 
             "cost_per_event": {
                 "measurement_state": "not-measured",
                 "reason": "missing_source:attributed_cost_usd",
-                "recovery_route": "/settings#tab=settings-integrations"
+                "recovery_route": "/settings/integrations"
             }
         }
     });
@@ -1810,7 +2274,7 @@ pub async fn fetch_control_assurance(db: &DbHandle) -> Value {
                 "title": "2. 벤치마크·롤백 검증 현황",
                 "status": if benchmark_passed > 0 { "pass" } else { "warn" },
                 "value_pct": benchmark_pass_pct,
-                "detail": format!("BenchmarkValidation {benchmark_passed} / {benchmark_total}건 통과"),
+                "detail": format!("벤치마크 검증 {benchmark_passed} / {benchmark_total}건 통과"),
                 "threshold": "임계치: 검증 통과 추적"
             },
             {
@@ -1826,7 +2290,7 @@ pub async fn fetch_control_assurance(db: &DbHandle) -> Value {
                 "title": "4. 영향 반경·위험 관문 준수",
                 "status": "pass",
                 "value_pct": 100.0,
-                "detail": format!("risk_gate.unified {risk_gate_count}건 평가 · 인계 관측 {handover_observed}건"),
+                "detail": format!("통합 위험 관문 {risk_gate_count}건 평가 · 승인 인계 {handover_observed}건"),
                 "threshold": "임계치: = 100%"
             },
             {
@@ -1845,7 +2309,7 @@ pub async fn fetch_control_assurance(db: &DbHandle) -> Value {
                 "detail": if has_external_settlement {
                     format!("비용 관측 {cost_obs}건 정산 대조")
                 } else {
-                    format!("비용 분석 실행 {cost_runs}건 모두 비활성(관측 0건) - 0%로 대체하지 않음")
+                    format!("비용 분석 실행 {cost_runs}건 모두 비활성(관측 0건) — 0%로 대체하지 않음")
                 },
                 "threshold": "복구: 비용 수집기 연결 필요"
             }
@@ -1853,7 +2317,7 @@ pub async fn fetch_control_assurance(db: &DbHandle) -> Value {
         "guard_boundaries": {
             "external_settlement_guard": {
                 "measurement_state": if has_external_settlement { "measured" } else { "not-measured" },
-                "recovery_route": "/settings#tab=settings-integrations"
+                "recovery_route": "/settings/integrations"
             }
         },
         "intervention_signals": {
@@ -1862,8 +2326,8 @@ pub async fn fetch_control_assurance(db: &DbHandle) -> Value {
             "hil_timeout_total": hil_timeout,
             "baseline_violated": baseline_violated,
             "unattributed_count": unattributed_cl,
-            "hil_route": "/operations#tab=hil-queue",
-            "promotion_gates_route": "/governance#tab=promotion-gates"
+            "hil_route": "/operations/hil-queue",
+            "promotion_gates_route": "/governance/promotion-gates"
         },
         "catalog_counts": {
             "rules": rules_count,
@@ -2121,7 +2585,7 @@ pub async fn fetch_verticals(db: &DbHandle, period: &str) -> Value {
                 "violated_rules": res_viol,
                 "incidents_total": res_inc_total,
                 "verified_savings": Value::Null,
-                "link": "/operations#tab=incidents",
+                "link": "/operations/incidents",
                 "link_label": "장애 대응 열기 →"
             },
             "change-safety": {
@@ -2134,7 +2598,7 @@ pub async fn fetch_verticals(db: &DbHandle, period: &str) -> Value {
                 "incidents_total": cs_inc_total,
                 "policy_escapes": 0,
                 "verified_savings": Value::Null,
-                "link": "/governance#tab=promotion-gates",
+                "link": "/governance/promotion-gates",
                 "link_label": "자동화 적용 심사 열기 →"
             },
             "cost-governance": {
@@ -2151,7 +2615,7 @@ pub async fn fetch_verticals(db: &DbHandle, period: &str) -> Value {
                 "collector_status": cost_status,
                 "t0_savings_pct": t0_savings_pct,
                 "verified_savings": Value::Null,
-                "link": "#tab=cost-governance",
+                "link": "/overview/cost-governance",
                 "link_label": "비용 거버넌스 열기 →"
             }
         },
@@ -2396,7 +2860,7 @@ pub async fn fetch_cost_governance(db: &DbHandle, surface: &str, budget: &str) -
         "receipts": receipts,
         "uncollected_policy": {
             "zero_substitution_forbidden": true,
-            "recovery_route": "/settings#tab=settings-integrations"
+            "recovery_route": "/settings/integrations"
         }
     });
 
@@ -2611,3 +3075,4 @@ pub async fn fetch_llm_cost(db: &DbHandle, range: &str) -> Value {
         "data": data
     })
 }
+

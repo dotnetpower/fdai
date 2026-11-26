@@ -106,15 +106,13 @@
   background: var(--bg);
 }
 
-.reports-toolbar-template,
-.reports-toolbar label {
+.reports-toolbar-template {
   display: grid;
   min-width: 0;
   gap: 5px;
 }
 
-.reports-toolbar-template > span,
-.reports-toolbar label > span {
+.reports-toolbar-template > span {
   color: var(--fg-muted);
   font-size: var(--cs-type-label-size);
   font-weight: 600;
@@ -122,16 +120,10 @@
 }
 
 .reports-toolbar-template strong {
-  min-height: var(--cs-control-height);
+  min-height: 36px;
   padding: 7px 0;
   font-size: var(--cs-type-compact-size);
   line-height: var(--cs-type-compact-line-height);
-}
-
-.reports-toolbar input,
-.reports-toolbar select {
-  width: 100%;
-  min-width: 0;
 }
 
 .reports-toolbar-actions {
@@ -141,53 +133,31 @@
 }
 
 .reports-toolbar-actions button {
-  min-height: var(--cs-control-height);
+  min-height: 36px;
   white-space: nowrap;
 }
 
-.reports-variable-contract,
-.reports-source-details {
-  min-width: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--cs-radius-sm);
-  background: var(--bg);
-}
-
-.reports-variable-contract > summary,
-.reports-source-details > summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: var(--cs-control-height);
-  padding: 8px 12px;
-  cursor: pointer;
-  font-size: var(--cs-type-compact-size);
-  line-height: var(--cs-type-compact-line-height);
-}
-
-.reports-variable-contract > summary strong,
-.reports-source-details > summary strong {
-  color: var(--fg-muted);
-  font-size: var(--cs-type-label-size);
-  font-weight: 600;
-}
-
-.reports-variable-contract > dl,
-.reports-source-details > dl {
+.reports-variable-contract .cs-disclosure-body > dl,
+.reports-source-details .cs-disclosure-body > dl {
   display: grid;
   gap: 0;
   margin: 0;
-  padding: 0 12px 12px;
+  padding: 0;
 }
 
-.reports-variable-contract > dl > div,
-.reports-source-details > dl > div {
+.reports-variable-contract .cs-disclosure-body > dl > div,
+.reports-source-details .cs-disclosure-body > dl > div {
   display: grid;
   grid-template-columns: minmax(130px, 0.45fr) minmax(0, 1fr);
   gap: 16px;
   padding: 10px 0;
   border-top: 1px solid var(--border);
+}
+
+.reports-variable-contract .cs-disclosure-body > dl > div:first-child,
+.reports-source-details .cs-disclosure-body > dl > div:first-child {
+  padding-top: 0;
+  border-top: 0;
 }
 
 .reports-variable-contract dt,

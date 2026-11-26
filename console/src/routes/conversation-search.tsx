@@ -5,6 +5,11 @@ import { composeGlossary, TERMS } from "../deck/glossary";
 import type { PanelProps } from "../panels";
 import { getLocale, t } from "../i18n";
 import { formatConsoleTimestamp } from "../time-format";
+import {
+  ConversationTurnItem,
+  type ConversationRole,
+} from "../components/domain-primitives";
+import { SearchInput, SelectField, TextInput } from "../components/form-controls";
 import { EmptyState, ErrorState, LoadingState, PageHeader, UnavailableState } from "../components/ui";
 import {
   fetchConversationSearchContext,
@@ -24,6 +29,14 @@ import {
   type SearchRole,
   toggleConversationSearchContext,
 } from "./conversation-search.model";
+import "./conversation-search.css";
+
+function normalizeTurnRole(role: string): ConversationRole {
+  if (role === "operator" || role === "assistant" || role === "tool" || role === "system") {
+    return role;
+  }
+  return "assistant";
+}
 
 export function ConversationSearchRoute(_props: PanelProps) {
   const [form, setForm] = useState<SearchForm>(EMPTY_FORM);
@@ -37,6 +50,7 @@ export function ConversationSearchRoute(_props: PanelProps) {
 
   async function submit(event: JSX.TargetedSubmitEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    if (!form.query.trim()) return;
     const generation = ++searchGeneration.current;
     setLoading(true);
     setError(null);
@@ -122,66 +136,72 @@ export function ConversationSearchRoute(_props: PanelProps) {
         title={t("conversationSearch.title")}
         subtitle={t("conversationSearch.subtitle")}
       />
-      <div class="governance-readonly-banner">
-        <strong>{t("conversationSearch.title")}</strong>
-        <span>{t("conversationSearch.subtitle")}</span>
-      </div>
       <form class="conversation-search-form" onSubmit={(event) => void submit(event)}>
-        <label class="conversation-search-query">
-          <span>{t("conversationSearch.query")}</span>
-          <input
-            type="search"
-            required
-            maxLength={256}
-            value={form.query}
-            onInput={(event) => setForm({ ...form, query: event.currentTarget.value })}
-          />
-        </label>
-        <label>
-          <span>{t("conversationSearch.mode")}</span>
-          <select
-            value={form.mode}
-            onChange={(event) => setForm({ ...form, mode: event.currentTarget.value as SearchMode })}
-          >
-            <option value="terms">{t("conversationSearch.modes.terms")}</option>
-            <option value="phrase">{t("conversationSearch.modes.phrase")}</option>
-            <option value="prefix">{t("conversationSearch.modes.prefix")}</option>
-          </select>
-        </label>
-        <label>
-          <span>{t("conversationSearch.channel")}</span>
-          <input value={form.channel} onInput={(event) => setForm({ ...form, channel: event.currentTarget.value })} />
-        </label>
-        <label>
-          <span>{t("conversationSearch.role")}</span>
-          <select
-            value={form.role}
-            onChange={(event) => setForm({ ...form, role: event.currentTarget.value as SearchRole })}
-          >
-            <option value="">{t("conversationSearch.any")}</option>
-            <option value="operator">{t("conversationSearch.roles.operator")}</option>
-            <option value="assistant">{t("conversationSearch.roles.assistant")}</option>
-            <option value="tool">{t("conversationSearch.roles.tool")}</option>
-            <option value="system">{t("conversationSearch.roles.system")}</option>
-          </select>
-        </label>
-        <label>
-          <span>{t("conversationSearch.session")}</span>
-          <input value={form.conversationId} onInput={(event) => setForm({ ...form, conversationId: event.currentTarget.value })} />
-        </label>
-        <label>
-          <span>{t("conversationSearch.incident")}</span>
-          <input value={form.incidentId} onInput={(event) => setForm({ ...form, incidentId: event.currentTarget.value })} />
-        </label>
-        <label>
-          <span>{t("conversationSearch.after")}</span>
-          <input type="datetime-local" value={form.after} onInput={(event) => setForm({ ...form, after: event.currentTarget.value })} />
-        </label>
-        <label>
-          <span>{t("conversationSearch.before")}</span>
-          <input type="datetime-local" value={form.before} onInput={(event) => setForm({ ...form, before: event.currentTarget.value })} />
-        </label>
-        <button type="submit" class="btn primary conversation-search-submit" disabled={loading}>
+        <SearchInput
+          label={t("conversationSearch.query")}
+          value={form.query}
+          maxLength={256}
+          className="conversation-search-query"
+          onInput={(value) => setForm({ ...form, query: value })}
+        />
+        <SelectField
+          label={t("conversationSearch.mode")}
+          value={form.mode}
+          className="conversation-search-compact"
+          options={[
+            { value: "terms", label: t("conversationSearch.modes.terms") },
+            { value: "phrase", label: t("conversationSearch.modes.phrase") },
+            { value: "prefix", label: t("conversationSearch.modes.prefix") },
+          ]}
+          onChange={(value) => setForm({ ...form, mode: value as SearchMode })}
+        />
+        <SelectField
+          label={t("conversationSearch.role")}
+          value={form.role}
+          className="conversation-search-compact"
+          options={[
+            { value: "", label: t("conversationSearch.any") },
+            { value: "operator", label: t("conversationSearch.roles.operator") },
+            { value: "assistant", label: t("conversationSearch.roles.assistant") },
+            { value: "tool", label: t("conversationSearch.roles.tool") },
+            { value: "system", label: t("conversationSearch.roles.system") },
+          ]}
+          onChange={(value) => setForm({ ...form, role: value as SearchRole })}
+        />
+        <TextInput
+          label={t("conversationSearch.channel")}
+          value={form.channel}
+          onInput={(value) => setForm({ ...form, channel: value })}
+        />
+        <TextInput
+          label={t("conversationSearch.session")}
+          value={form.conversationId}
+          mono
+          onInput={(value) => setForm({ ...form, conversationId: value })}
+        />
+        <TextInput
+          label={t("conversationSearch.incident")}
+          value={form.incidentId}
+          mono
+          onInput={(value) => setForm({ ...form, incidentId: value })}
+        />
+        <TextInput
+          type="datetime-local"
+          label={t("conversationSearch.after")}
+          value={form.after}
+          onInput={(value) => setForm({ ...form, after: value })}
+        />
+        <TextInput
+          type="datetime-local"
+          label={t("conversationSearch.before")}
+          value={form.before}
+          onInput={(value) => setForm({ ...form, before: value })}
+        />
+        <button
+          type="submit"
+          class="btn primary conversation-search-submit"
+          disabled={loading || !form.query.trim()}
+        >
           {t("conversationSearch.search")}
         </button>
       </form>
@@ -209,32 +229,39 @@ export function ConversationSearchRoute(_props: PanelProps) {
           {result.hits.map((hit) => {
             const context = contexts[hit.result_id];
             const contextDomId = `conversation-search-context-${hit.result_id}`;
-            return <article class="conversation-search-result cs-inspector-pane" key={hit.result_id}>
-              <div class="conversation-search-meta">
-                <span>{hit.channel_id}</span>
-                <span>{t(`conversationSearch.roles.${hit.role}`)}</span>
-                <time dateTime={hit.recorded_at}>{formatConsoleTimestamp(hit.recorded_at)}</time>
-                <span class="mono">{hit.conversation_id}</span>
-                {hit.incident_id ? <span class="mono">{hit.incident_id}</span> : null}
-              </div>
-              <p><HighlightedSnippet hit={hit} /></p>
-              <div class="conversation-search-actions">
-                <button
-                  type="button"
-                  class="btn secondary"
-                  onClick={() => void loadContext(hit)}
-                  disabled={contextLoading.has(hit.result_id)}
-                  aria-expanded={Boolean(context)}
-                  aria-controls={context ? contextDomId : undefined}
-                >
-                  {contexts[hit.result_id]
-                    ? t("conversationSearch.hideContext")
-                    : t("conversationSearch.showContext")}
-                </button>
-                {hit.evidence_refs.map((ref, index) => <code key={`${ref}:${index}`}>{ref}</code>)}
-              </div>
-              {context ? <ContextRows id={contextDomId} context={context} /> : null}
-            </article>;
+            return (
+              <article class="conversation-search-result" key={hit.result_id}>
+                <div class="conversation-search-meta">
+                  <span>{hit.channel_id}</span>
+                  <span class="mono">{hit.conversation_id}</span>
+                  {hit.incident_id ? <span class="mono">{hit.incident_id}</span> : null}
+                </div>
+                <ConversationTurnItem
+                  role={normalizeTurnRole(hit.role)}
+                  authorLabel={t(`conversationSearch.roles.${hit.role}`)}
+                  timestamp={formatConsoleTimestamp(hit.recorded_at)}
+                  content={<HighlightedSnippet hit={hit} />}
+                  footer={(
+                    <div class="conversation-search-actions">
+                      <button
+                        type="button"
+                        class="btn secondary"
+                        onClick={() => void loadContext(hit)}
+                        disabled={contextLoading.has(hit.result_id)}
+                        aria-expanded={Boolean(context)}
+                        aria-controls={context ? contextDomId : undefined}
+                      >
+                        {contexts[hit.result_id]
+                          ? t("conversationSearch.hideContext")
+                          : t("conversationSearch.showContext")}
+                      </button>
+                      {hit.evidence_refs.map((ref, index) => <code key={`${ref}:${index}`}>{ref}</code>)}
+                    </div>
+                  )}
+                />
+                {context ? <ContextRows id={contextDomId} context={context} /> : null}
+              </article>
+            );
           })}
         </section>
       ) : null}
@@ -258,20 +285,26 @@ function ContextRows({ id, context }: { readonly id: string; readonly context: C
   }
   return (
     <div id={id} class="conversation-search-context">
-      <div aria-label={t("conversationSearch.contextBefore")}>
+      <div class="conversation-search-context-group" aria-label={t("conversationSearch.contextBefore")}>
         {context.before.map((turn) => (
-          <div key={turn.result_id}>
-            <span class="muted">{t(`conversationSearch.roles.${turn.role}`)}</span>
-            <span>{turn.snippet.text}</span>
-          </div>
+          <ConversationTurnItem
+            key={turn.result_id}
+            role={normalizeTurnRole(turn.role)}
+            authorLabel={t(`conversationSearch.roles.${turn.role}`)}
+            timestamp={formatConsoleTimestamp(turn.recorded_at)}
+            content={turn.snippet.text}
+          />
         ))}
       </div>
-      <div aria-label={t("conversationSearch.contextAfter")}>
+      <div class="conversation-search-context-group" aria-label={t("conversationSearch.contextAfter")}>
         {context.after.map((turn) => (
-          <div key={turn.result_id}>
-            <span class="muted">{t(`conversationSearch.roles.${turn.role}`)}</span>
-            <span>{turn.snippet.text}</span>
-          </div>
+          <ConversationTurnItem
+            key={turn.result_id}
+            role={normalizeTurnRole(turn.role)}
+            authorLabel={t(`conversationSearch.roles.${turn.role}`)}
+            timestamp={formatConsoleTimestamp(turn.recorded_at)}
+            content={turn.snippet.text}
+          />
         ))}
       </div>
     </div>

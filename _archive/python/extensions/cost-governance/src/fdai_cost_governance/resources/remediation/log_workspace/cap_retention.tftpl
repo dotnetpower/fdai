@@ -1,0 +1,9 @@
+# remediate.set-retention-policy - Terraform patch template.
+#
+# Referenced by rule `log-workspace.retention-excessive`.
+# Lower retention_in_days.
+
+
+resource "azurerm_log_analytics_workspace" "${resource_id}" {
+  retention_in_days = ${max_retention_days}
+}

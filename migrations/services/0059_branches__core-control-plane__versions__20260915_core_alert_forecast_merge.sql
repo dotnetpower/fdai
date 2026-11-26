@@ -1,0 +1,4 @@
+-- Migration Revision: core_alert_forecast_merge_20260915
+-- Down Revision: ('core_alert_handover_merge_20260915', 'core_forecast_closure_observation_20260914')
+-- Owner: core-control-plane
+-- Extracted SQL Blocks: 0

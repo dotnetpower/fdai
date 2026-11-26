@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/observation-receipt/1.0.0",
+  "title": "ObservationReceipt",
+  "description": "Independent versioned observation receipt that verifies or refutes an effect without granting execution authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "observation_id", "command_id", "action_id", "receipt_id",
+    "idempotency_key", "safeguard_proof_bundle_digest", "action_payload_digest",
+    "status", "observer_instance_id", "observed_at", "completed_at",
+    "execution_authority", "effect_verified"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "observation_id": {"type": "string", "format": "uuid"},
+    "command_id": {"type": "string", "format": "uuid"},
+    "action_id": {"type": "string", "format": "uuid"},
+    "receipt_id": {"type": "string", "format": "uuid"},
+    "idempotency_key": {"type": "string", "minLength": 1, "maxLength": 512},
+    "safeguard_proof_bundle_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "action_payload_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "status": {"type": "string", "enum": ["verified", "failed", "censored", "unavailable"]},
+    "reason": {"type": ["string", "null"], "minLength": 1, "maxLength": 512},
+    "observer_instance_id": {"type": "string", "minLength": 1, "maxLength": 512},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "completed_at": {"type": "string", "format": "date-time"},
+    "execution_authority": {"const": false},
+    "effect_verified": {"type": "boolean"}
+  }
+}

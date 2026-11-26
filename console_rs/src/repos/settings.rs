@@ -23,7 +23,7 @@ fn cell_bool(row: &[Option<String>], idx: usize) -> Option<bool> {
     }
 }
 
-async fn fetch_kv_exact(db: &DbHandle, key: &str) -> Result<Option<(Value, String)>, String> {
+pub async fn fetch_kv_exact(db: &DbHandle, key: &str) -> Result<Option<(Value, String)>, String> {
     let q_key = pg_quote_literal(key);
     let sql = format!(
         "SELECT value::text, to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
@@ -205,23 +205,17 @@ pub async fn fetch_settings_overlay(db: &DbHandle) -> Option<Value> {
         .and_then(|(v, _)| v.get("runtime"))
         .cloned()
         .unwrap_or(Value::Null);
-    let environment = runtime_obj
-        .get("environment")
-        .and_then(Value::as_str)
-        .unwrap_or("local");
-    let autonomy_default = runtime_obj
-        .get("autonomy_default")
-        .and_then(Value::as_str)
-        .unwrap_or("shadow");
+    let environment = runtime_obj.get("environment").and_then(Value::as_str);
+    let autonomy_default = runtime_obj.get("autonomy_default").and_then(Value::as_str);
 
     Some(json!({
         "environment": environment,
         "autonomy_default": autonomy_default,
-        "licensing_notice": lic.rows.first().map(|r| cell_str(r, 0)).unwrap_or_else(|| "none".to_string()),
+        "licensing_notice": lic.rows.first().map(|r| cell_str(r, 0)).filter(|s| !s.is_empty()),
         "licensing_observed_at": lic.rows.first().map(|r| cell_str(r, 1)).unwrap_or_default(),
         "mcp_revision": mcp.rows.first().and_then(|r| cell_i64(r, 0)),
         "mcp_updated_at": mcp.rows.first().map(|r| cell_str(r, 1)).unwrap_or_default(),
-        "primary_observed_actor": actor.rows.first().map(|r| cell_str(r, 0)).unwrap_or_default(),
+        "primary_observed_actor": actor.rows.first().map(|r| cell_str(r, 0)).filter(|s| !s.is_empty()),
         "db_writes_allowed": db.mutations_allowed()
     }))
 }
@@ -319,12 +313,12 @@ pub async fn fetch_settings_general(db: &DbHandle) -> Option<Value> {
     let runtime_env = rt_kv
         .as_ref()
         .and_then(|(v, _)| v.pointer("/runtime/environment"))
-        .and_then(Value::as_str)
-        .unwrap_or("local");
+        .and_then(Value::as_str);
     let runtime_updated = rt_kv.as_ref().map(|(_, ts)| ts.as_str()).unwrap_or("");
     if updated_at.is_empty() {
         updated_at = runtime_updated.to_string();
     }
+    let has_persisted_preference = pref_row.is_some() || persisted_in_kv;
 
     Some(json!({
         "locale": locale,
@@ -337,9 +331,10 @@ pub async fn fetch_settings_general(db: &DbHandle) -> Option<Value> {
         "browser_preferences": browser_prefs,
         "environment": runtime_env,
         "persisted_in_kv": persisted_in_kv,
+        "has_persisted_preference": has_persisted_preference,
         "user_preference_rows": pref_res.rows.len(),
         "briefing_subscription_count": brief_res.rows.first().and_then(|r| cell_i64(r, 0)).unwrap_or(0),
-        "licensing_notice": lic_res.rows.first().map(|r| cell_str(r, 0)).unwrap_or_else(|| "none".to_string()),
+        "licensing_notice": lic_res.rows.first().map(|r| cell_str(r, 0)).filter(|s| !s.is_empty()),
         "licensing_observed_at": lic_res.rows.first().map(|r| cell_str(r, 1)).unwrap_or_default(),
         "updated_at": updated_at
     }))
@@ -379,14 +374,10 @@ pub async fn fetch_settings_environment(db: &DbHandle) -> Option<Value> {
         .and_then(|(v, _)| v.get("runtime"))
         .cloned()
         .unwrap_or(Value::Null);
-    let venue = runtime_obj
-        .get("environment")
-        .and_then(Value::as_str)
-        .unwrap_or("local");
+    let venue = runtime_obj.get("environment").and_then(Value::as_str);
     let durable = runtime_obj
         .get("state_store_durable")
-        .and_then(Value::as_bool)
-        .unwrap_or(true);
+        .and_then(Value::as_bool);
 
     let probes: Vec<Value> = readiness
         .as_ref()
@@ -433,9 +424,8 @@ pub async fn fetch_settings_environment(db: &DbHandle) -> Option<Value> {
 
     let case_hist_configured = runtime_obj
         .get("case_history_configured")
-        .and_then(Value::as_bool)
-        .unwrap_or(false);
-    if !case_hist_configured {
+        .and_then(Value::as_bool);
+    if case_hist_configured == Some(false) {
         collectors.push(json!({
             "id": "case-history-collector",
             "status": "unmeasured",
@@ -458,7 +448,11 @@ pub async fn fetch_settings_environment(db: &DbHandle) -> Option<Value> {
 
     Some(json!({
         "venue": venue,
-        "state_store": if durable { "PostgreSQL :5432 (Durable)" } else { "PostgreSQL :5432" },
+        "state_store": match durable {
+            Some(true) => "PostgreSQL :5432 (Durable)",
+            Some(false) => "PostgreSQL :5432 (Non-Durable)",
+            None => "PostgreSQL :5432"
+        },
         "db_size": db_meta.rows.first().map(|r| cell_str(r, 0)).unwrap_or_default(),
         "db_active_connections": db_meta.rows.first().and_then(|r| cell_i64(r, 1)),
         "checked_at": readiness
@@ -514,6 +508,7 @@ pub async fn fetch_settings_models(db: &DbHandle) -> Option<Value> {
         return None;
     };
 
+    let has_model_settings = model_kv.is_some();
     let (model_val, updated_at) = model_kv.unwrap_or((Value::Null, String::new()));
     let llm_usage: Vec<Value> = usage_res
         .rows
@@ -545,8 +540,9 @@ pub async fn fetch_settings_models(db: &DbHandle) -> Option<Value> {
         .unwrap_or_else(|| "0".to_string());
 
     Some(json!({
-        "region": model_val.get("region").and_then(Value::as_str).unwrap_or("koreacentral"),
-        "environment": model_val.get("environment").and_then(Value::as_str).unwrap_or("dev"),
+        "has_model_settings": has_model_settings,
+        "region": model_val.get("region").and_then(Value::as_str),
+        "environment": model_val.get("environment").and_then(Value::as_str),
         "narrator": model_val.get("narrator").cloned().unwrap_or(Value::Null),
         "capabilities": model_val.get("capabilities").cloned().unwrap_or_else(|| json!([])),
         "t2_model_policy": model_val.get("t2_model_policy").cloned().unwrap_or(Value::Null),
@@ -572,38 +568,47 @@ pub async fn fetch_settings_runtime(db: &DbHandle) -> Option<Value> {
         return None;
     };
 
+    let has_persisted_runtime_settings = rt_kv.is_some() || override_kv.is_some();
     let (rt_val, rt_ts) = rt_kv.unwrap_or((Value::Null, String::new()));
     let runtime_obj = rt_val.get("runtime").cloned().unwrap_or(Value::Null);
-    let base_revision = rt_val.get("revision").and_then(Value::as_u64).unwrap_or(0);
+    let base_revision = rt_val.get("revision").and_then(Value::as_u64);
     let settings_list = rt_val
         .get("settings")
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
 
-    let mut autonomy_profile = match runtime_obj
+    let mut autonomy_profile: Option<String> = runtime_obj
         .get("autonomy_default")
         .and_then(Value::as_str)
-        .unwrap_or("shadow")
-    {
-        "shadow" => "multi-operator-shadow".to_string(),
-        other => other.to_string(),
-    };
-    let mut approval_expiry_min: u64 = 15;
-    let mut turn_budget_sec: u64 = settings_list
+        .map(|raw| match raw {
+            "shadow" => "multi-operator-shadow".to_string(),
+            other => other.to_string(),
+        });
+    let mut approval_expiry_min: Option<u64> = settings_list
+        .iter()
+        .find(|s| s.get("key").and_then(Value::as_str) == Some("hil.approval_expiry_minutes"))
+        .and_then(|s| s.get("effective_value"))
+        .and_then(Value::as_u64)
+        .or_else(|| has_persisted_runtime_settings.then_some(15));
+    let mut turn_budget_sec: Option<u64> = settings_list
         .iter()
         .find(|s| s.get("key").and_then(Value::as_str) == Some("irp.budget_seconds"))
         .and_then(|s| s.get("effective_value"))
         .and_then(Value::as_f64)
-        .map(|f| f.round().clamp(10.0, 300.0) as u64)
-        .unwrap_or(60);
-    let mut batch_concurrency: u64 = 2;
-    let mut availability_policy = settings_list
+        .map(|f| f.round().clamp(10.0, 300.0) as u64);
+    let mut batch_concurrency: Option<u64> = settings_list
+        .iter()
+        .find(|s| s.get("key").and_then(Value::as_str) == Some("irp.batch_concurrency"))
+        .and_then(|s| s.get("effective_value"))
+        .and_then(Value::as_u64)
+        .or_else(|| has_persisted_runtime_settings.then_some(2));
+    let mut availability_policy: Value = settings_list
         .iter()
         .find(|s| s.get("key").and_then(Value::as_str) == Some("detection.resource_availability"))
         .and_then(|s| s.get("effective_value"))
         .cloned()
-        .unwrap_or_else(|| json!({ "enabled": false, "max_age_seconds": 300 }));
+        .unwrap_or(Value::Null);
     let mut updated_at = rt_ts;
     let mut revision = base_revision;
 
@@ -612,20 +617,20 @@ pub async fn fetch_settings_runtime(db: &DbHandle) -> Option<Value> {
             updated_at = ov_ts;
         }
         if let Some(r) = ov.get("revision").and_then(Value::as_u64) {
-            revision = r;
+            revision = Some(r);
         }
         let changes = ov.get("changes").unwrap_or(&ov);
         if let Some(p) = changes.get("autonomy_profile").and_then(Value::as_str) {
-            autonomy_profile = p.to_string();
+            autonomy_profile = Some(p.to_string());
         }
         if let Some(e) = changes.get("approval_expiry_min").and_then(Value::as_u64) {
-            approval_expiry_min = e;
+            approval_expiry_min = Some(e);
         }
         if let Some(b) = changes.get("turn_budget_sec").and_then(Value::as_u64) {
-            turn_budget_sec = b;
+            turn_budget_sec = Some(b);
         }
         if let Some(c) = changes.get("batch_concurrency").and_then(Value::as_u64) {
-            batch_concurrency = c;
+            batch_concurrency = Some(c);
         }
         if let Some(pol) = changes.get("availability_policy") {
             if pol.is_object() {
@@ -635,8 +640,9 @@ pub async fn fetch_settings_runtime(db: &DbHandle) -> Option<Value> {
     }
 
     Some(json!({
+        "has_persisted_runtime_settings": has_persisted_runtime_settings,
         "revision": revision,
-        "environment": runtime_obj.get("environment").and_then(Value::as_str).unwrap_or("dev"),
+        "environment": runtime_obj.get("environment").and_then(Value::as_str),
         "autonomy_profile": autonomy_profile,
         "approval_expiry_min": approval_expiry_min,
         "turn_budget_sec": turn_budget_sec,
@@ -680,8 +686,7 @@ pub async fn fetch_settings_iam(db: &DbHandle) -> Option<Value> {
                 .find(|s| s.get("key").and_then(Value::as_str) == Some("human_access.enabled"))
         })
         .and_then(|s| s.get("effective_value"))
-        .and_then(Value::as_bool)
-        .unwrap_or(true);
+        .and_then(Value::as_bool);
     let reconciliation_interval_sec = settings_arr
         .and_then(|arr| {
             arr.iter().find(|s| {
@@ -690,8 +695,7 @@ pub async fn fetch_settings_iam(db: &DbHandle) -> Option<Value> {
             })
         })
         .and_then(|s| s.get("effective_value"))
-        .and_then(Value::as_i64)
-        .unwrap_or(300);
+        .and_then(Value::as_i64);
 
     let observed_actors: Vec<Value> = actors_res
         .rows
@@ -731,8 +735,9 @@ pub async fn fetch_settings_iam(db: &DbHandle) -> Option<Value> {
         "audit_log_total": total_res.rows.first().and_then(|r| cell_i64(r, 0)).unwrap_or(0),
         "observed_actors_count": observed_actors.len(),
         "observed_actors": observed_actors,
+        "pending_requests": [],
         "recorded_decisions": recorded_decisions,
-        "licensing_notice": lic_res.rows.first().map(|r| cell_str(r, 0)).unwrap_or_else(|| "none".to_string()),
+        "licensing_notice": lic_res.rows.first().map(|r| cell_str(r, 0)).filter(|s| !s.is_empty()),
         "updated_at": rt_kv.as_ref().map(|(_, ts)| ts.clone()).unwrap_or_default()
     }))
 }
@@ -796,7 +801,7 @@ pub async fn fetch_settings_integrations(db: &DbHandle) -> Option<Value> {
         .as_ref()
         .and_then(|(v, _)| v.get("document_ocr"))
         .cloned()
-        .unwrap_or_else(|| json!({ "effective_provider": "local_python", "korean_enabled": true }));
+        .unwrap_or(Value::Null);
     let runtime_obj = rt_kv
         .as_ref()
         .and_then(|(v, _)| v.get("runtime"))
@@ -806,47 +811,57 @@ pub async fn fetch_settings_integrations(db: &DbHandle) -> Option<Value> {
     let mcp_rev = mcp_res
         .rows
         .first()
-        .and_then(|r| cell_i64(r, 0))
-        .unwrap_or(0);
+        .and_then(|r| cell_i64(r, 0));
     let onto_count = cnt_row.and_then(|r| cell_i64(r, 3)).unwrap_or(0);
     let onto_max_rev = cnt_row.and_then(|r| cell_i64(r, 4)).unwrap_or(0);
     let audit_count = cnt_row.and_then(|r| cell_i64(r, 5)).unwrap_or(0);
 
-    let (sample_rg, sample_name, sample_updated) = match sample_res.rows.first() {
-        Some(r) => {
-            let raw_id = cell_str(r, 0);
-            let (rg, name) = short_ontology_label(&raw_id);
-            (rg, name, cell_str(r, 2))
-        }
-        None => (
-            "local".to_string(),
-            "ontology-runtime".to_string(),
-            String::new(),
-        ),
-    };
     let login_actor = actor_res
         .rows
         .first()
         .map(|r| cell_str(r, 0))
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| "local-operator".to_string());
-    let env_name = runtime_obj
-        .get("environment")
-        .and_then(Value::as_str)
-        .unwrap_or("dev");
+        .filter(|s| !s.is_empty());
+    let env_name = runtime_obj.get("environment").and_then(Value::as_str);
+    let env_tag = env_name.unwrap_or("unknown");
+    let mcp_rev_num = mcp_rev.unwrap_or(0);
 
-    let live_preview = json!({
-        "subject": format!("[FDAI] {sample_name} 관측 알림 미리보기 (env: {env_name})"),
-        "scope": format!("{sample_rg} / {sample_name}"),
-        "evidence": format!("PostgreSQL ontology_resource {onto_count}건 · rev #{onto_max_rev} · MCP rev #{mcp_rev} · 감사 {audit_count}건"),
-        "text": format!(
-            "Subject: [FDAI] {sample_name} operational advisory ({env_name})\nScope: {sample_rg} / {sample_name}\nEvidence: ontology_resource={onto_count}, rev=#{onto_max_rev}, mcp_rev=#{mcp_rev}, audit_log={audit_count}\nAction boundary: Notification only (approval required in Console)"
-        ),
-        "observed_at": sample_updated,
-        "login_actor": login_actor,
-        "ontology_resources_count": onto_count,
-        "ontology_max_revision": onto_max_rev
-    });
+    let live_preview = match sample_res.rows.first() {
+        Some(r) => {
+            let raw_id = cell_str(r, 0);
+            let (sample_rg, sample_name) = short_ontology_label(&raw_id);
+            let sample_updated = cell_str(r, 2);
+            let env_ko = match env_name {
+                Some("dev") => "개발 환경",
+                Some("prod") | Some("production") => "운영 환경",
+                Some("staging") => "스테이징 환경",
+                Some("local") => "로컬 환경",
+                Some(other) => other,
+                None => "환경 미측정",
+            };
+            json!({
+                "subject": format!("[FDAI] {sample_name} 관측 알림 미리보기 ({env_ko})"),
+                "scope": format!("{sample_rg} / {sample_name}"),
+                "evidence": format!("관측 리소스 {onto_count}건 · 감사 기록 {audit_count}건 · MCP 카탈로그 리비전 {mcp_rev_num}"),
+                "text": format!(
+                    "Subject: [FDAI] {sample_name} operational advisory ({env_tag})\nScope: {sample_rg} / {sample_name}\nEvidence: ontology_resource={onto_count}, rev=#{onto_max_rev}, mcp_rev=#{mcp_rev_num}, audit_log={audit_count}\nAction boundary: Notification only (approval required in Console)"
+                ),
+                "observed_at": sample_updated,
+                "login_actor": login_actor,
+                "ontology_resources_count": onto_count,
+                "ontology_max_revision": onto_max_rev
+            })
+        }
+        None => json!({
+            "subject": Value::Null,
+            "scope": Value::Null,
+            "evidence": Value::Null,
+            "text": Value::Null,
+            "observed_at": Value::Null,
+            "login_actor": login_actor,
+            "ontology_resources_count": onto_count,
+            "ontology_max_revision": onto_max_rev
+        }),
+    };
 
     let recent_tests: Vec<Value> = test_receipts
         .into_iter()
@@ -864,13 +879,12 @@ pub async fn fetch_settings_integrations(db: &DbHandle) -> Option<Value> {
             "pairing_requests_count": cnt_row.and_then(|r| cell_i64(r, 2)).unwrap_or(0),
             "primary_transport_configured": runtime_obj
                 .get("primary_transport_configured")
-                .and_then(Value::as_bool)
-                .unwrap_or(false),
+                .and_then(Value::as_bool),
             "auxiliary_transport_configured": runtime_obj
                 .get("auxiliary_transport_configured")
                 .and_then(Value::as_bool)
-                .unwrap_or(false)
         },
+        "configured_webhooks": [],
         "document_ocr": doc_ocr,
         "live_preview": live_preview,
         "preferences": prefs_kv.map(|(v, ts)| json!({ "values": v, "updated_at": ts })).unwrap_or(Value::Null),
@@ -929,14 +943,32 @@ pub async fn fetch_settings_diagnostics_db(db: &DbHandle) -> Option<Value> {
     let identity_probe = find_probe("identity.token");
     let audit_chain_probe = find_probe("audit.chain");
 
+    let status_ko = |st: &str| -> &'static str {
+        match st {
+            "passed" => "정상 통과",
+            "failed" => "점검 실패",
+            "not-measured" => "미측정",
+            _ => "확인 필요",
+        }
+    };
+
     let components = vec![
         json!({
             "id": "postgres",
-            "name": "PostgreSQL (:5432)",
+            "name": "PostgreSQL 상태 저장소",
             "measurement_status": "measured",
             "measurement_state": "measured",
             "status": "healthy",
-            "detail": format!("{db_size} · 응답 {db_latency_ms}ms · 연결 {active_conns}/{max_conns} · 감사 {audit_count}건 · LLM {llm_count}건 · 보존 {retention_count}건")
+            "detail": format!("실시간 연결됨 · DB 응답 {db_latency_ms}ms · {db_size} · 연결 {active_conns}/{max_conns}"),
+            "tech": {
+                "endpoint": "localhost:5432",
+                "database_size": db_size,
+                "db_latency_ms": db_latency_ms,
+                "connections": format!("{active_conns}/{max_conns}"),
+                "audit_log_count": audit_count,
+                "llm_invocation_count": llm_count,
+                "retention_policy_count": retention_count
+            }
         }),
         match kafka_probe {
             Some(p) => {
@@ -945,23 +977,29 @@ pub async fn fetch_settings_diagnostics_db(db: &DbHandle) -> Option<Value> {
                     .get("latency_ms")
                     .and_then(Value::as_f64)
                     .map(|v| format!("{v:.1} ms"))
-                    .unwrap_or_else(|| "-".to_string());
+                    .unwrap_or_else(|| "—".to_string());
                 json!({
                     "id": "event-bus",
-                    "name": "Event Bus (Redpanda)",
+                    "name": "이벤트 버스 (Redpanda)",
                     "measurement_status": "measured",
                     "measurement_state": "measured",
                     "status": if st == "passed" { "healthy" } else { "degraded" },
-                    "detail": format!("startup-readiness kafka.round-trip {st} · {ms}")
+                    "detail": format!("왕복 점검 {} · 응답 {ms}", status_ko(st)),
+                    "tech": {
+                        "probe_id": "kafka.round-trip",
+                        "probe_status": st,
+                        "latency_ms": ms
+                    }
                 })
             }
             None => json!({
                 "id": "event-bus",
-                "name": "Event Bus (Redpanda)",
+                "name": "이벤트 버스 (Redpanda)",
                 "measurement_status": "not-measured",
                 "measurement_state": "not-measured",
                 "status": "not-measured",
-                "detail": "최근 startup-readiness 프로브 기록 없음"
+                "detail": "최근 기동 점검 기록 없음",
+                "tech": { "probe_id": "kafka.round-trip", "probe_status": "not-measured" }
             }),
         },
         match catalog_probe {
@@ -969,20 +1007,27 @@ pub async fn fetch_settings_diagnostics_db(db: &DbHandle) -> Option<Value> {
                 let st = p.get("status").and_then(Value::as_str).unwrap_or("unknown");
                 json!({
                     "id": "ontology-cache",
-                    "name": "Ontology · Catalog Runtime",
+                    "name": "온톨로지 · 카탈로그 런타임",
                     "measurement_status": "measured",
                     "measurement_state": "measured",
                     "status": if st == "passed" { "healthy" } else { "degraded" },
-                    "detail": format!("catalog.load {st} · MCP rev #{mcp_rev} · 보존정책 {retention_count}건")
+                    "detail": format!("카탈로그 로드 {} · 보존 정책 {retention_count}건", status_ko(st)),
+                    "tech": {
+                        "probe_id": "catalog.load",
+                        "probe_status": st,
+                        "mcp_revision": mcp_rev,
+                        "retention_policy_count": retention_count
+                    }
                 })
             }
             None => json!({
                 "id": "ontology-cache",
-                "name": "Ontology · Catalog Runtime",
+                "name": "온톨로지 · 카탈로그 런타임",
                 "measurement_status": "not-measured",
                 "measurement_state": "not-measured",
                 "status": "not-measured",
-                "detail": "최근 catalog.load 프로브 기록 없음"
+                "detail": "최근 카탈로그 로드 점검 기록 없음",
+                "tech": { "probe_id": "catalog.load", "probe_status": "not-measured" }
             }),
         },
         match identity_probe {
@@ -994,20 +1039,28 @@ pub async fn fetch_settings_diagnostics_db(db: &DbHandle) -> Option<Value> {
                     .unwrap_or("not-measured");
                 json!({
                     "id": "identity-keyvault",
-                    "name": "Identity · Audit Chain",
+                    "name": "인증 · 감사 무결성 체인",
                     "measurement_status": "measured",
                     "measurement_state": "measured",
                     "status": if st == "passed" { "healthy" } else { "degraded" },
-                    "detail": format!("identity.token {st} · audit.chain {audit_st} · LLM 호출 {llm_count}건")
+                    "detail": format!("인증 토큰 {} · 감사 체인 {} · AI 호출 {llm_count}건", status_ko(st), status_ko(audit_st)),
+                    "tech": {
+                        "identity_probe": "identity.token",
+                        "identity_status": st,
+                        "audit_chain_probe": "audit.chain",
+                        "audit_chain_status": audit_st,
+                        "llm_invocation_count": llm_count
+                    }
                 })
             }
             None => json!({
                 "id": "identity-keyvault",
-                "name": "Identity · Audit Chain",
+                "name": "인증 · 감사 무결성 체인",
                 "measurement_status": "not-measured",
                 "measurement_state": "not-measured",
                 "status": "not-measured",
-                "detail": "최근 identity.token 프로브 기록 없음"
+                "detail": "최근 인증 토큰 점검 기록 없음",
+                "tech": { "identity_probe": "identity.token", "identity_status": "not-measured" }
             }),
         },
     ];
@@ -1190,3 +1243,4 @@ pub async fn fetch_settings_memory(
         "recent_actions": recent_actions
     }))
 }
+

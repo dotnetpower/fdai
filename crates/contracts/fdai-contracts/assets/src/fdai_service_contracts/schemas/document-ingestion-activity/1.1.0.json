@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/document-ingestion-activity/1.1.0",
+  "title": "DocumentIngestionActivityEnvelope",
+  "description": "Transport-facing durable activity with an optional canonical record digest.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "activity_id",
+    "upload_id",
+    "document_id",
+    "idempotency_key",
+    "sequence",
+    "action",
+    "occurred_at",
+    "record"
+  ],
+  "properties": {
+    "schema_version": {"type": "string", "pattern": "^1\\.\\d+\\.\\d+$"},
+    "activity_id": {"type": "string", "format": "uuid"},
+    "upload_id": {"type": "string", "format": "uuid"},
+    "document_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "idempotency_key": {"type": "string", "minLength": 1, "maxLength": 512},
+    "sequence": {"type": "integer", "minimum": 0},
+    "action": {"type": "string", "enum": ["document.cancelled", "document.received"]},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "record": {"type": "object", "additionalProperties": true},
+    "record_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+  }
+}

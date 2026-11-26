@@ -717,7 +717,7 @@ jobs:
           mysql_zone_name="$(terraform state pull | jq -c -f "$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/state-instances.jq" | jq -r '
             select(.address == "azurerm_private_dns_zone.mysql") | .attributes.name
           ' | head -n 1)"
-          python3 "$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/adopt_retained_resources.py" \
+          python3 "$GITHUB_WORKSPACE/_archive/python/scripts/deployment/scenario-lab/adopt_retained_resources.py" \
             --state-addresses "$adoption_state_list" \
             --output retained-adoption.generated.tf \
             --mysql-zone-name "$mysql_zone_name" \
@@ -867,7 +867,7 @@ jobs:
         run: |
           set -euo pipefail
           print_plan_diagnostic() {
-            python3 "$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/terraform_diagnostics.py" \
+            python3 "$GITHUB_WORKSPACE/_archive/python/scripts/deployment/scenario-lab/terraform_diagnostics.py" \
               plan "$1"
           }
           plan_file="$RUNNER_TEMP/sre-demo-lab.tfplan"
@@ -987,9 +987,9 @@ jobs:
           REQUESTED_ACTION: ${{ inputs.action }}
         run: |
           set -euo pipefail
-          diagnostics="$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/terraform_diagnostics.py"
+          diagnostics="$GITHUB_WORKSPACE/_archive/python/scripts/deployment/scenario-lab/terraform_diagnostics.py"
           print_apply_diagnostic() {
-            python3 "$GITHUB_WORKSPACE/scripts/deployment/scenario-lab/terraform_diagnostics.py" \
+            python3 "$GITHUB_WORKSPACE/_archive/python/scripts/deployment/scenario-lab/terraform_diagnostics.py" \
               apply "$1"
           }
           if terraform apply -json -input=false -auto-approve -parallelism=2 \
@@ -1089,7 +1089,7 @@ jobs:
             exit 1
           }
           KUBECONFIG="$RUNNER_TEMP/sre-demo-lab-runtime/kubeconfig" \
-            python3 scripts/deployment/scenario-lab/readback_store_demo.py \
+            python3 _archive/python/scripts/deployment/scenario-lab/readback_store_demo.py \
             --output "$evidence" \
             --store-front-url "$STORE_FRONT_URL" \
             --resource-group "$resource_group" \

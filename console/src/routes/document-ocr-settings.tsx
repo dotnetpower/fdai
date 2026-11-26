@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
+import { RadioField } from "../components/form-controls";
 import { LoadingState, StatusPill } from "../components/ui";
 import {
   requestDocumentOcrPlan,
@@ -165,30 +166,26 @@ export function DocumentOcrSettingsPanel({ client, auth }: Props) {
       {view ? (
         <>
           <div class="document-ocr-provider-grid">
-            <label class={provider === "local_python" ? "selected" : ""}>
-              <input
-                type="radio"
-                name="document-ocr-provider"
-                value="local_python"
-                checked={provider === "local_python"}
-                disabled={!view.documentOcr.canManage || saving || loading || Boolean(error)}
-                onChange={() => setProvider("local_python")}
-              />
-              <strong>{text("ocrLocalTitle")}</strong>
-              <span>{text("ocrLocalBody")}</span>
-            </label>
-            <label class={provider === "azure_document_intelligence" ? "selected" : ""}>
-              <input
-                type="radio"
-                name="document-ocr-provider"
-                value="azure_document_intelligence"
-                checked={provider === "azure_document_intelligence"}
-                disabled={!view.documentOcr.canManage || saving || loading || Boolean(error)}
-                onChange={() => setProvider("azure_document_intelligence")}
-              />
-              <strong>{text("ocrAzureTitle")}</strong>
-              <span>{text("ocrAzureBody")}</span>
-            </label>
+            <RadioField
+              name="document-ocr-provider"
+              value="local_python"
+              {...(provider === "local_python" ? { className: "selected" } : {})}
+              checked={provider === "local_python"}
+              disabled={!view.documentOcr.canManage || saving || loading || Boolean(error)}
+              label={<strong>{text("ocrLocalTitle")}</strong>}
+              hint={text("ocrLocalBody")}
+              onChange={() => setProvider("local_python")}
+            />
+            <RadioField
+              name="document-ocr-provider"
+              value="azure_document_intelligence"
+              {...(provider === "azure_document_intelligence" ? { className: "selected" } : {})}
+              checked={provider === "azure_document_intelligence"}
+              disabled={!view.documentOcr.canManage || saving || loading || Boolean(error)}
+              label={<strong>{text("ocrAzureTitle")}</strong>}
+              hint={text("ocrAzureBody")}
+              onChange={() => setProvider("azure_document_intelligence")}
+            />
           </div>
           <dl class="settings-web-search-runtime">
             <div>

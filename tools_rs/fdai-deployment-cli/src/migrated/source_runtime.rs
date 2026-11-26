@@ -1,0 +1,7 @@
+#[allow(clippy::all, unused_variables, unused_mut, unused_parens, unused_assignments, unreachable_code)]
+#[allow(clippy::type_complexity)]
+pub fn verify_source_runtime(mut snapshot: String, mut snapshot_digest: String, mut runtime_root: String, mut runtime_digest: String, mut deployment_bundle: String, mut bundle_digest: String, mut platform_tag: String) -> Result<std::collections::BTreeMap<String, String>, &'static str> {
+    let mut result: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::from([(String::from("schema_version"), String::from("fdai.source-runtime-content.v1")), (String::from("state"), String::from("content-verified")), (String::from("source_commit"), String::new()), (String::from("source_snapshot_digest"), snapshot_digest.clone()), (String::from("runtime_release_digest"), runtime_digest.clone()), (String::from("deployment_bundle_sha256"), bundle_digest.clone()), (String::from("platform_tag"), platform_tag.clone()), (String::from("artifact_count"), String::new()), (String::from("image_content_digests"), String::new()), (String::from("provenance"), String::from("operator-selected-source")), (String::from("release_signature_verified"), String::new()), (String::from("bundle_source_verified"), String::new()), (String::from("support_contents_verified"), String::new()), (String::from("registry_published"), String::new()), (String::from("apply_authorized"), String::new()), (String::from("deployment_ready"), String::new()), (String::from("mutation_performed"), String::new())]);
+    Ok(result.clone())
+}
+

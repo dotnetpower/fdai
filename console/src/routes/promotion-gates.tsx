@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, OperatorApiError } from "../api";
 import type { OperatorApiClient } from "../api";
 import { EvidenceRefresh } from "../components/evidence-refresh";
+import { SearchInput } from "../components/form-controls";
+import { PromotionReadinessBadge } from "../components/status-badge";
 import {
   AsyncBoundary,
   DataTable,
@@ -448,23 +450,24 @@ function PromotionBody({
       header: t("governance.promotion.column.mode"),
       render: (r) => (
         <div class="stack compact">
-          <StatusPill
-            kind={r.mode === "enforce" ? "info" : "shadow"}
+          <PromotionReadinessBadge
+            stage={r.mode}
             label={displayValue("mode", r.mode)}
           />
           {r.promotion_kind === "operator_override" && r.operator_override !== null
             ? (
-              <small class="muted">
-                {t("governance.promotion.override.marker", {
+              <PromotionReadinessBadge
+                stage="override"
+                label={t("governance.promotion.override.marker", {
                   status: displayValue("gateStatus", r.operator_override.gate_status),
                 })}
-              </small>
+              />
             )
             : null}
           {r.capability_recall?.active === true ? (
             <div class="stack compact">
-              <StatusPill
-                kind="danger"
+              <PromotionReadinessBadge
+                stage="recall"
                 label={t("governance.promotion.recall.marker")}
               />
               <small class="muted">
@@ -481,8 +484,8 @@ function PromotionBody({
       key: "rd",
       header: t("governance.common.status"),
       render: (r) => (
-        <StatusPill
-          kind={r.ready ? "success" : "warning"}
+        <PromotionReadinessBadge
+          stage={r.ready ? "ready" : "blocked"}
           label={displayValue("status", r.ready ? "ready" : "blocked")}
         />
       ),
@@ -596,15 +599,14 @@ function PromotionBody({
             </button>
           ))}
         </div>
-        <label>
-          <span class="sr-only">{t("governance.promotion.filter.searchAria")}</span>
-          <input
-            type="search"
-            value={query}
-            placeholder={t("governance.promotion.filter.searchPlaceholder")}
-            onInput={(event) => onQuery(event.currentTarget.value)}
-          />
-        </label>
+        <SearchInput
+          label={t("governance.promotion.filter.searchAria")}
+          hideLabel
+          value={query}
+          placeholder={t("governance.promotion.filter.searchPlaceholder")}
+          clearLabel={t("governance.common.clearFilter")}
+          onInput={onQuery}
+        />
       </section>
       {reason === "policy-escape" ? (
         <div class="filter-summary" aria-label={t("governance.promotion.filter.activeAria")}>

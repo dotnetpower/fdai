@@ -35,6 +35,40 @@ variable "enable_dev_operations_gateway" {
   default     = false
 }
 
+variable "enable_fdai_iam_permission_groups" {
+  description = "Provision the three pre-defined FDAI Azure IAM custom roles (FDAI Reader, FDAI Operator, FDAI Contributor) and replace legacy built-in Contributor roles on devgw-executor."
+  type        = bool
+  default     = false
+}
+
+variable "fdai_iam_role_definition_scope" {
+  description = "Optional ARM scope for the three FDAI custom roles. Empty defaults to the current subscription; supply a management group ARM scope for multi-subscription setups."
+  type        = string
+  default     = ""
+}
+
+variable "fdai_iam_binding_mode" {
+  description = "Managed Identity binding mode for FDAI IAM permission groups: direct (default, no Entra setup) or entra_group (opt-in)."
+  type        = string
+  default     = "direct"
+
+  validation {
+    condition     = contains(["direct", "entra_group"], var.fdai_iam_binding_mode)
+    error_message = "fdai_iam_binding_mode must be direct or entra_group."
+  }
+}
+
+variable "dev_gateway_executor_iam_group" {
+  description = "FDAI IAM permission group assigned to devgw-executor when enable_fdai_iam_permission_groups is true: operator (recommended) or contributor (dedicated dev/test RG only)."
+  type        = string
+  default     = "operator"
+
+  validation {
+    condition     = contains(["operator", "contributor"], var.dev_gateway_executor_iam_group)
+    error_message = "dev_gateway_executor_iam_group must be operator or contributor."
+  }
+}
+
 variable "enable_ohl_scale_out_evidence_target" {
   description = "Provision one development-only VMSS dedicated to protected-runner OHL scale-out evidence. Requires the dev operations gateway and private networking."
   type        = bool

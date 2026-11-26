@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0.0",
+  "description": "Agent Pantheon icon set. 15 line icons for the fixed FDAI agents plus one collective mark for the complete pantheon. Stroke-based (stroke: currentColor, no fill) 24x24 glyphs that inherit text color and scale to any size. Accent is a suggested display color per org-chart group; the SVG itself carries no color so a consumer may override.",
+  "grid": 24,
+  "strokeWidth": 1.6,
+  "recolor": "currentColor",
+  "collective": { "name": "Agent Pantheon", "role": "15-agent collective", "accent": "#44688e", "glyph": "six role groups connected to one coordination core", "file": "pantheon.svg" },
+  "groups": {
+    "command": { "label": "command", "accent": "#e5c76b" },
+    "operations": { "label": "operations", "accent": "#f5a623" },
+    "judgment": { "label": "judgment", "accent": "#4ea8ff" },
+    "sensing": { "label": "sensing", "accent": "#2dd4bf" },
+    "governance": { "label": "governance", "accent": "#a78bfa" },
+    "domain": { "label": "domain", "accent": "#818cf8" }
+  },
+  "agents": [
+    { "name": "Odin", "role": "Master Planner", "group": "command", "accent": "#e5c76b", "glyph": "all-seeing eye", "file": "odin.svg" },
+    { "name": "Thor", "role": "Responder", "group": "operations", "accent": "#f5a623", "glyph": "Mjolnir hammer", "file": "thor.svg" },
+    { "name": "Forseti", "role": "Judge", "group": "judgment", "accent": "#4ea8ff", "glyph": "scales of justice", "file": "forseti.svg" },
+    { "name": "Huginn", "role": "Event Collector", "group": "sensing", "accent": "#2dd4bf", "glyph": "thought raven", "file": "huginn.svg" },
+    { "name": "Heimdall", "role": "Observer", "group": "sensing", "accent": "#2dd4bf", "glyph": "watch radar", "file": "heimdall.svg" },
+    { "name": "Var", "role": "Approver", "group": "operations", "accent": "#f5a623", "glyph": "oath ring + check", "file": "var.svg" },
+    { "name": "Vidar", "role": "Recovery", "group": "operations", "accent": "#f5a623", "glyph": "shield + undo", "file": "vidar.svg" },
+    { "name": "Bragi", "role": "Narrator", "group": "operations", "accent": "#f5a623", "glyph": "speech + song", "file": "bragi.svg" },
+    { "name": "Saga", "role": "Auditor", "group": "governance", "accent": "#a78bfa", "glyph": "ledger scroll", "file": "saga.svg" },
+    { "name": "Mimir", "role": "Rule Steward", "group": "governance", "accent": "#a78bfa", "glyph": "book of wisdom", "file": "mimir.svg" },
+    { "name": "Norns", "role": "Learner", "group": "governance", "accent": "#a78bfa", "glyph": "threads of fate", "file": "norns.svg" },
+    { "name": "Muninn", "role": "Memory", "group": "governance", "accent": "#a78bfa", "glyph": "memory raven", "file": "muninn.svg" },
+    { "name": "Njord", "role": "Cost", "group": "domain", "accent": "#4ade80", "glyph": "coin + tide", "file": "njord.svg" },
+    { "name": "Freyr", "role": "Capacity", "group": "domain", "accent": "#818cf8", "glyph": "harvest + sun", "file": "freyr.svg" },
+    { "name": "Loki", "role": "Chaos", "group": "domain", "accent": "#fb7185", "glyph": "trickster flame", "file": "loki.svg" }
+  ]
+}

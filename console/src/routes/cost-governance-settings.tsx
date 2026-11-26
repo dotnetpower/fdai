@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
+import { ToggleSwitch } from "../components/form-controls";
 import {
   decodeCostGovernanceSettings,
   type CostGovernanceSettings,
@@ -103,23 +104,17 @@ export function CostGovernanceSettingsSection({ client, auth }: Props) {
             </span>
           </div>
           <div class="settings-runtime-control">
-            <label
-              class="settings-toggle-control"
-              aria-label={t("costGovernance.settings.activationLabel")}
-            >
-              <input
-                type="checkbox"
-                checked={settings?.enabled === true}
-                disabled={
-                  settings === null
-                  || !settings.available
-                  || !settings.can_manage
-                  || saving
-                }
-                onChange={(event) => { void update(event.currentTarget.checked); }}
-              />
-              <span aria-hidden="true" />
-            </label>
+            <ToggleSwitch
+              label={t("costGovernance.settings.activationLabel")}
+              checked={settings?.enabled === true}
+              disabled={
+                settings === null
+                || !settings.available
+                || !settings.can_manage
+                || saving
+              }
+              onChange={(next) => { void update(next); }}
+            />
           </div>
         </div>
       </div>

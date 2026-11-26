@@ -114,8 +114,11 @@ describe("workflow draft editor", () => {
       "utf8",
     );
 
-    expect(editorSource).toContain('type="number" min="1" step="1" required');
-    expect(editorSource).toContain('type="checkbox"');
+    expect(editorSource).toContain('type="number"');
+    expect(editorSource).toContain('min="1"');
+    expect(editorSource).toContain('step="1"');
+    expect(editorSource).toContain("required");
+    expect(editorSource).toContain("<CheckboxField");
     expect(editorSource).toContain('workflow.editor.noSelfApprovalHint');
     expect(editorSource).toContain("<fieldset");
     expect(editorSource).toContain('workflow.editor.joinHint');

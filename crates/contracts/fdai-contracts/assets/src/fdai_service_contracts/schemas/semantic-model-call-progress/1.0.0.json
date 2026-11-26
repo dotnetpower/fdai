@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.example/schemas/semantic-model-call-progress/1.0.0.json",
+  "title": "SemanticModelCallProgress",
+  "description": "One start or end of a semantic planning model call. It names the reviewed call stage, deployment, times, outcome, and token counts only, and carries no prompt, response, evidence, or execution authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_kind",
+    "request_id",
+    "session_id",
+    "turn_id",
+    "turn_sequence",
+    "progress_sequence",
+    "call_index",
+    "stage",
+    "status",
+    "started_at",
+    "execution_authority"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "record_kind": {"const": "model_call_progress"},
+    "request_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "session_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "turn_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "turn_sequence": {"type": "integer", "minimum": 0},
+    "progress_sequence": {"type": "integer", "minimum": 1, "maximum": 256},
+    "call_index": {"type": "integer", "minimum": 1, "maximum": 32},
+    "stage": {
+      "enum": [
+        "preflight",
+        "judgment",
+        "form",
+        "blind_review",
+        "concept_chooser",
+        "direction_reader",
+        "ambiguity_reader",
+        "frame",
+        "plan"
+      ]
+    },
+    "status": {"enum": ["running", "completed", "failed"]},
+    "model": {
+      "type": ["string", "null"],
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "started_at": {"type": "string", "format": "date-time"},
+    "completed_at": {"type": ["string", "null"], "format": "date-time"},
+    "duration_ms": {"type": ["integer", "null"], "minimum": 0, "maximum": 86400000},
+    "prompt_tokens": {"type": ["integer", "null"], "minimum": 0, "maximum": 10000000},
+    "completion_tokens": {"type": ["integer", "null"], "minimum": 0, "maximum": 10000000},
+    "execution_authority": {"const": false}
+  },
+  "if": {"properties": {"status": {"const": "running"}}},
+  "then": {
+    "properties": {
+      "completed_at": {"const": null},
+      "duration_ms": {"const": null},
+      "prompt_tokens": {"const": null},
+      "completion_tokens": {"const": null}
+    }
+  },
+  "else": {
+    "required": ["completed_at", "duration_ms"],
+    "properties": {
+      "completed_at": {"type": "string"},
+      "duration_ms": {"type": "integer"}
+    }
+  }
+}

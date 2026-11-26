@@ -679,9 +679,56 @@ mod tests {
                 "/labs template must subscribe to fdai:live-pulse SSE events"
             );
             assert!(
+                html.contains("fdai:data-mode-change"),
+                "/labs template must subscribe to fdai:data-mode-change for Live/Sample switching"
+            );
+            assert!(
+                html.contains("fdaiV4Humanize"),
+                "/labs template must integrate shared fdaiV4Humanize adapter"
+            );
+            assert!(
+                html.contains("fdaiV4Selection"),
+                "/labs template must integrate shared fdaiV4Selection deep-link API"
+            );
+            assert!(
+                html.contains("drawer-tech-details"),
+                "/labs template must isolate technical identifiers inside collapsible drawer-tech-details"
+            );
+            assert!(
+                !html.contains(".innerHTML"),
+                "/labs template must not assign innerHTML (XSS guard)"
+            );
+            assert!(
                 !html.contains("data-panel-id=\"settings-general\""),
                 "/labs template must not mount settings-general as first panel"
             );
+            assert!(
+                html.contains("<title>FDAI 운영 콘솔 — 실험실</title>"),
+                "/labs page title must be standardized to FDAI 운영 콘솔 — 실험실"
+            );
+            let ssr_markup = TEMPLATE.split("<script").next().unwrap_or("");
+            for leaked in [
+                "lab-run-1126-01",
+                "owner/infra#412",
+                "Rev #4812",
+                "ECE 0.031",
+                "turn_8841c",
+                "eval-ctx-1125-04",
+                "hybrid-vector-v2",
+                "복구 19초",
+                "8 / 8 (평균 19초)",
+                "120문항",
+                "94.2% (162 / 172)",
+                "4,820 tok",
+                "orders-api",
+                "compute.vm-scale-set",
+                "Pure-Rust",
+            ] {
+                assert!(
+                    !ssr_markup.contains(leaked),
+                    "/labs SSR markup must not leak sample literal `{leaked}` in default Live mode"
+                );
+            }
         }
     }
 

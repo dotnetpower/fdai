@@ -81,7 +81,7 @@ jobs:
           if [[ ! "$MODEL_RESOLVER_DEPLOYER_OBJECT_ID" =~ ^[0-9a-fA-F-]{36}$ \
             || -z "$MODEL_RESOLVER_ACCOUNT_NAME" \
             || -z "$MODEL_RESOLVER_RESOURCE_GROUP" ]]; then
-            python3 scripts/deployment/azure/model_lifecycle_reconciler.py \
+            python3 _archive/python/scripts/deployment/azure/model_lifecycle_reconciler.py \
               --current "$current" --provider-error unavailable --out "$evidence"
             echo "status=abstained" >> "$GITHUB_OUTPUT"
             exit 0
@@ -101,7 +101,7 @@ jobs:
           resolver_exit=$?
           set -e
           if [[ "$resolver_exit" -ne 0 ]]; then
-            python3 scripts/deployment/azure/model_lifecycle_reconciler.py \
+            python3 _archive/python/scripts/deployment/azure/model_lifecycle_reconciler.py \
               --current "$current" --provider-error unavailable --out "$evidence"
             echo "status=abstained" >> "$GITHUB_OUTPUT"
             exit 0
@@ -115,14 +115,14 @@ jobs:
           provider_exit=$?
           set -e
           if [[ "$provider_exit" -ne 0 ]]; then
-            python3 scripts/deployment/azure/model_lifecycle_reconciler.py \
+            python3 _archive/python/scripts/deployment/azure/model_lifecycle_reconciler.py \
               --current "$current" --provider-error unavailable --out "$evidence"
             echo "status=abstained" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           set +e
-          python3 scripts/deployment/azure/model_lifecycle_provider.py \
+          python3 _archive/python/scripts/deployment/azure/model_lifecycle_provider.py \
             --provider-models "$RUNNER_TEMP/model-lifecycle/provider-models.json" \
             --as-of "$(date -u +%F)" \
             --horizon-days 60 \
@@ -130,12 +130,12 @@ jobs:
           provider_parse_exit=$?
           set -e
           if [[ "$provider_parse_exit" -ne 0 ]]; then
-            python3 scripts/deployment/azure/model_lifecycle_reconciler.py \
+            python3 _archive/python/scripts/deployment/azure/model_lifecycle_reconciler.py \
               --current "$current" --provider-error unsupported_response --out "$evidence"
             echo "status=abstained" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          python3 scripts/deployment/azure/model_lifecycle_reconciler.py \
+          python3 _archive/python/scripts/deployment/azure/model_lifecycle_reconciler.py \
             --current "$current" \
             --candidate "$candidate" \
             --deprecations "$deprecations" \
@@ -266,7 +266,7 @@ jobs:
             }
             fs.writeFileSync(process.env.PR_PROPOSAL_PATH, proposalBytes);
             await exec.exec("python3", [
-              "scripts/deployment/azure/model_lifecycle_receipt.py",
+              "_archive/python/scripts/deployment/azure/model_lifecycle_receipt.py",
               "--proposal",
               process.env.PR_PROPOSAL_PATH,
               "--verify-proposal-only",
@@ -349,7 +349,7 @@ jobs:
           pr_json="$RUNNER_TEMP/model-lifecycle/pull-request.json"
           pr_proposal="$RUNNER_TEMP/model-lifecycle/pull-request-proposal.json"
           receipt="$RUNNER_TEMP/model-lifecycle/receipt.json"
-          python3 scripts/deployment/azure/model_lifecycle_receipt.py \
+          python3 _archive/python/scripts/deployment/azure/model_lifecycle_receipt.py \
             --proposal "$pr_proposal" \
             --pull-request "$pr_json" \
             --source-commit "$SOURCE_COMMIT" \

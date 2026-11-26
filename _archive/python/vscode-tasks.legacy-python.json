@@ -1,0 +1,717 @@
+{
+  // FDAI developer tasks. The folderOpen tasks make trunk-based
+  // (no-branch) collaboration safe out of the box and restore optional WSL
+  // private DNS. Start the complete local Console topology explicitly:
+  //   - "hooks: install" wires the shared gates without depending on a shell.
+  //     Git tracks executable permissions for the hooks and auto-pull script.
+  //   - "git: auto-pull" keeps local `main` close to the remote so
+  //     conflicts surface early. It only rebases a clean working tree.
+  // Trust the workspace so its committed automatic-task policy can run.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "hooks: install (core.hooksPath)",
+      "hide": true,
+      "type": "process",
+      "command": "git",
+      "args": ["config", "--local", "core.hooksPath", ".githooks"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared",
+        "close": true
+      },
+      "runOptions": {
+        "runOn": "folderOpen"
+      }
+    },
+    {
+      "label": "git: auto-pull (background)",
+      "hide": true,
+      "type": "shell",
+      "command": "bash scripts/automation/git-auto-pull.sh",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "never",
+        "panel": "dedicated",
+        "group": "git-auto-pull"
+      },
+      "runOptions": {
+        "runOn": "folderOpen"
+      }
+    },
+    {
+      "label": "git: pull now (rebase, autostash)",
+      "type": "shell",
+      "command": "git pull --rebase --autostash",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": true
+      }
+    },
+    {
+      "label": "console: Playwright quick (desktop)",
+      "type": "shell",
+      "command": "npm --prefix console run test:e2e:quick",
+      "problemMatcher": [],
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "console-playwright",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1
+      }
+    },
+    {
+      "label": "docs site: serve (4321)",
+      "type": "shell",
+      "command": "npm --prefix site run dev -- --host 127.0.0.1 --port 4321",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "docs-site",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "astro.*ready in",
+          "endsPattern": "Local.*http://127\\.0\\.0\\.1:4321/"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "docs-site",
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1
+      }
+    },
+    {
+      "label": "design mocks: serve (5373)",
+      "type": "shell",
+      "command": "bash scripts/deployment/local/start-design-mocks.sh",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "design-mocks",
+        "pattern": {
+          "regexp": "^(?!)$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^Serving HTTP on 127\\.0\\.0\\.1 port 5373",
+          "endsPattern": "^Serving HTTP on 127\\.0\\.0\\.1 port 5373|service=design-mocks event=reused$"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "design-mocks"
+      },
+      "runOptions": {
+        "instanceLimit": 1
+      }
+    },
+    {
+      "label": "lifecycle: serve example hub (8090)",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python -m fdai_lifecycle_hub.cli serve --port 8090",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}/lifecycle/hub/src:${workspaceFolder}/packages/deployment-cli/src",
+          "FDAI_LIFECYCLE_HUB_DATABASE_URL": "sqlite+pysqlite:///${env:HOME}/.local/state/fdai/lifecycle-preview/hub/hub.db"
+        }
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "lifecycle-hub",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Started server process",
+          "endsPattern": "Uvicorn running on http://127\\.0\\.0\\.1:8090"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "lifecycle-preview"
+      },
+      "runOptions": { "instanceLimit": 1 }
+    },
+    {
+      "label": "lifecycle: serve example release hub (8091)",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python -m fdai_release_hub serve ${env:HOME}/.local/state/fdai/lifecycle-preview/release-hub --port 8091",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}/lifecycle/release-hub/src:${workspaceFolder}/lifecycle/hub/src:${workspaceFolder}/packages/deployment-cli/src"
+        }
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "release-hub",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Started server process",
+          "endsPattern": "Uvicorn running on http://127\\.0\\.0\\.1:8091"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "lifecycle-preview"
+      },
+      "runOptions": { "instanceLimit": 1 }
+    },
+    {
+      "label": "console: prepare full stack",
+      "type": "shell",
+      "command": "bash scripts/deployment/local/prepare-console-full-stack.sh --defer-authoritative-inventory --auth-mode browser-entra",
+      "options": {
+        "env": {
+          "FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION": "1"
+        }
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "console-full-stack",
+        "close": true
+      },
+      "runOptions": {
+        "instanceLimit": 1
+      }
+    },
+    {
+      "label": "console: prepare full stack (Azure CLI debug, Contributor)",
+      "hide": true,
+      "type": "shell",
+      "command": "bash scripts/deployment/local/prepare-console-full-stack.sh --defer-authoritative-inventory --auth-mode azure-cli",
+      "options": {
+        "env": {
+          "FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION": "1"
+        }
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "console-full-stack",
+        "close": true
+      },
+      "runOptions": {
+        "instanceLimit": 1
+      }
+    },
+    {
+      "label": "console: start core runtime",
+      "type": "shell",
+      "command": "bash scripts/deployment/local/run-console-service.sh core-runtime --wait-ready",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "console-core-runtime",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "service=core-runtime event=starting$",
+          "endsPattern": "service=core-runtime event=(ready|failed)(?: |$)"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "console-full-stack",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
+      }
+    },
+    {
+      "label": "console: restart core runtime",
+      "type": "shell",
+      "command": "bash scripts/deployment/local/run-console-service.sh core-runtime --wait-ready",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "console-core-runtime-restart",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "service=core-runtime event=starting$",
+          "endsPattern": "service=core-runtime event=(ready|failed)(?: |$)"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "console-core-restart",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 2,
+        "instancePolicy": "silent"
+      }
+    },
+    {
+      "label": "console: restart operator api",
+      "type": "shell",
+      "command": "bash scripts/deployment/local/run-console-service.sh operator-api --wait-ready",
+      "options": {
+        "env": {
+          "FDAI_CONSOLE_EXPECTED_AUTH_MODE": "browser-entra"
+        }
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "console-operator-api-restart",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "service=operator-api event=starting$",
+          "endsPattern": "service=operator-api event=(ready|failed)(?: |$)"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "console-operator-restart",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 2,
+        "instancePolicy": "silent"
+      }
+    },
+    {
+      "label": "console: start local services",
+      "hide": false,
+      "type": "shell",
+      "command": "bash scripts/deployment/local/start-console-services.sh --auth-mode browser-entra",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "console-local-services",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "service=console-stack event=starting$",
+          "endsPattern": "service=console-stack event=(ready|failed)(?: |$)"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "console-full-stack",
+        "clear": true,
+        "close": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 2,
+        "instancePolicy": "silent"
+      }
+    },
+    {
+      "label": "console: start local services (Azure CLI debug)",
+      "hide": true,
+      "type": "shell",
+      "command": "bash scripts/deployment/local/start-console-services.sh --auth-mode azure-cli",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "console-local-services-cli-debug",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "service=console-stack event=starting$",
+          "endsPattern": "service=console-stack event=(ready|failed)(?: |$)"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "console-full-stack",
+        "clear": true,
+        "close": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
+      }
+    },
+    {
+      "label": "console: wait full stack ready",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/run-bounded-command.py --label console-readiness-check --timeout-seconds 15 --no-progress-seconds 15 -- ${workspaceFolder}/.venv/bin/python scripts/automation/developer-workflow.py local-services --wait-seconds 10",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "revealProblems": "onProblem",
+        "panel": "dedicated",
+        "group": "console-full-stack",
+        "close": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
+      }
+    },
+    {
+      "label": "console: require primary worktree",
+      "hide": true,
+      "type": "shell",
+      "command": "git_dir=\"$(git rev-parse --path-format=absolute --git-dir)\" && common_dir=\"$(git rev-parse --path-format=absolute --git-common-dir)\" && if [[ \"$git_dir\" != \"$common_dir\" ]]; then echo \"Full-stack startup is available only from the primary checkout. Stop the primary stack before starting services from a linked worktree.\" >&2; exit 75; fi",
+      "problemMatcher": []
+    },
+    {
+      "label": "console: start full stack",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "console: require primary worktree",
+        "console: prepare full stack",
+        "console: start local services"
+      ],
+      "problemMatcher": [],
+      "runOptions": {
+        "instanceLimit": 2,
+        "instancePolicy": "silent"
+      }
+    },
+    {
+      "label": "console: restart full stack",
+      "type": "shell",
+      "command": "bash scripts/deployment/local/restart-console-services.sh --auth-mode browser-entra",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "console-stack-restart",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "service=console-stack event=starting$",
+          "endsPattern": "service=console-stack event=(ready|failed)(?: |$)"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "console-stack-restart",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "runOptions": { "instanceLimit": 2, "instancePolicy": "silent" }
+    },
+    {
+      "label": "console: start full stack (Azure CLI debug, Contributor)",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "console: require primary worktree",
+        "console: prepare full stack (Azure CLI debug, Contributor)",
+        "console: start local services (Azure CLI debug)"
+      ],
+      "problemMatcher": [],
+      "runOptions": {
+        "instanceLimit": 2,
+        "instancePolicy": "silent"
+      }
+    },
+    {
+      "label": "console: keep full stack ready (10m)",
+      "type": "shell",
+      "command": "bash scripts/deployment/local/watch-console-services.sh",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "console: require primary worktree"
+      ],
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "console-watchdog",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "service=console-watchdog event=started",
+          "endsPattern": "service=console-watchdog event=started"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "console-full-stack",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
+      }
+    },
+    {
+      "label": "analyzer: run continuously (local)",
+      "type": "shell",
+      "command": "bash scripts/deployment/local/run-console-service.sh local-analyzer --wait-ready",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "console: require primary worktree",
+        "console: prepare full stack"
+      ],
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "local-analyzer",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^service=local-analyzer event=starting$",
+          "endsPattern": "^service=local-analyzer event=(ready|failed)(?: |$)"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "revealProblems": "onProblem",
+        "panel": "dedicated",
+        "group": "local-analyzer",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
+      }
+    },
+    {
+      "label": "channel edge: Operator Slack and Teams (Local)",
+      "type": "shell",
+      "command": "bash scripts/deployment/local/run-console-service.sh operator-channel-edge",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "operator-channel-edge",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*service=operator-channel-edge event=starting$",
+          "endsPattern": "Application startup complete\\.|event=reused$"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "group": "operator-channel-edge",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
+      }
+    },
+    {
+      "label": "conversation assurance: start supervisor",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/conversation-assurance.py supervisor",
+      "options": {
+        "env": {
+          "FDAI_CONVERSATION_ASSURANCE_OPERATOR_URL": "http://127.0.0.1:8010",
+          "FDAI_CONVERSATION_ASSURANCE_TOKEN_FILE": "${workspaceFolder}/.fdai/conversation-assurance/operator-token"
+        }
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "conversation-assurance-supervisor",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^conversation-assurance-supervisor ready$",
+          "endsPattern": "^conversation-assurance-supervisor ready$"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "conversation-assurance",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
+      }
+    },
+    {
+      "label": "conversation assurance: start census",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/conversation-assurance.py start --suite census",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "conversation-assurance"
+      }
+    },
+    {
+      "label": "conversation assurance: start selected agent",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/conversation-assurance.py start --suite agent --agent ${input:pantheonAgent}",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "conversation-assurance"
+      }
+    },
+    {
+      "label": "conversation assurance: status",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/conversation-assurance.py status",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "group": "conversation-assurance"
+      }
+    },
+    {
+      "label": "conversation assurance: stop",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/conversation-assurance.py stop",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "group": "conversation-assurance"
+      }
+    },
+    {
+      "label": "conversation assurance: open latest report",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/conversation-assurance.py report --top 20",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "focus": true,
+        "panel": "new",
+        "group": "conversation-assurance"
+      }
+    },
+    {
+      "label": "dev discuss: start or restart profiled services",
+      "type": "shell",
+      "command": "bash scripts/deployment/local/restart-console-services.sh --auth-mode browser-entra",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "console: require primary worktree"
+      ],
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "dev-discuss-services",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "service=console-stack event=starting$",
+          "endsPattern": "service=console-stack event=(ready|failed)(?: |$)"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "dev-discuss",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "terminateOldest"
+      }
+    },
+    {
+      "label": "dev discuss: status",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/dev-discuss.py status",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "group": "dev-discuss"
+      }
+    },
+    {
+      "label": "dev discuss: snapshot selected service",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/dev-discuss.py capture --service ${input:diagnosticService}",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "group": "dev-discuss"
+      }
+    },
+    {
+      "label": "dev discuss: profile selected service (5s)",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/dev-discuss.py capture --service ${input:diagnosticService} --duration-ms 5000",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "group": "dev-discuss"
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "pantheonAgent",
+      "type": "pickString",
+      "description": "Pantheon agent to evaluate",
+      "options": [
+        "Odin",
+        "Thor",
+        "Forseti",
+        "Huginn",
+        "Heimdall",
+        "Vidar",
+        "Var",
+        "Bragi",
+        "Saga",
+        "Mimir",
+        "Norns",
+        "Muninn",
+        "Njord",
+        "Freyr",
+        "Loki"
+      ],
+      "default": "Odin"
+    },
+    {
+      "id": "diagnosticService",
+      "type": "pickString",
+      "description": "Local FDAI service to profile",
+      "options": [
+        "core-control-plane",
+        "operator-service"
+      ],
+      "default": "core-control-plane"
+    }
+  ]
+}

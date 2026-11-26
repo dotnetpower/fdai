@@ -1,0 +1,10 @@
+# remediate.right-size - Terraform patch template.
+#
+# Referenced by rule `compute.vm.low-utilization`.
+# Swap the SKU to var.recommended_vm_size supplied by the
+right-sizing catalog.
+
+
+resource "azurerm_linux_virtual_machine" "${resource_id}" {
+  size = var.recommended_vm_size
+}

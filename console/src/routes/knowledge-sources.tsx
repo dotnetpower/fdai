@@ -1,4 +1,6 @@
-import { PageHeader, StatusPill, UnavailableState } from "../components/ui";
+import { KnowledgeSourceCard } from "../components/domain-primitives";
+import { StatusBadge } from "../components/status-badge";
+import { PageHeader, UnavailableState } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary, TERMS } from "../deck/glossary";
 import { getLocale, t } from "../i18n";
@@ -87,19 +89,26 @@ export function KnowledgeOverviewRoute(props: PanelProps) {
           </a>
         </div>
         <div class="knowledge-source-grid">
-          {KNOWLEDGE_SOURCE_DEFINITIONS.map((source) => (
-            <a class="knowledge-source-card" href={routeHref(source.panelId)} key={source.id}>
-              <div>
-                <h3>{knowledgeSourceTitle(source.id)}</h3>
-                <StatusPill
-                  kind={source.connector ? "neutral" : "info"}
-                  label={knowledgeText(source.id === "github" ? "checkStatus" : source.connector ? "setupRequired" : "managedUpload")}
-                />
-              </div>
-              <p>{knowledgeText(source.summaryKey)}</p>
-              <span class="knowledge-source-open">{knowledgeText("openSource")}</span>
-            </a>
-          ))}
+          {KNOWLEDGE_SOURCE_DEFINITIONS.map((source) => {
+            const cardProps = {
+              title: knowledgeSourceTitle(source.id),
+              statusTone: source.connector ? ("neutral" as const) : ("info" as const),
+              statusLabel: knowledgeText(
+                source.id === "github"
+                  ? "checkStatus"
+                  : source.connector
+                    ? "setupRequired"
+                    : "managedUpload",
+              ),
+              summary: <p>{knowledgeText(source.summaryKey)}</p>,
+              actions: <span class="knowledge-source-open">{knowledgeText("openSource")}</span>,
+            };
+            return (
+              <a class="knowledge-source-card" href={routeHref(source.panelId)} key={source.id}>
+                <KnowledgeSourceCard {...cardProps} />
+              </a>
+            );
+          })}
         </div>
       </section>
       <CloudKnowledgePanel {...props} />
@@ -174,7 +183,7 @@ function KnowledgeConnectorRoute({
         subtitle={knowledgeText("connectorSubtitle", { provider })}
       />
       <section class="knowledge-connector-state" aria-labelledby="knowledge-connector-title">
-        <span class="knowledge-source-kind">{knowledgeText("setupRequired")}</span>
+        <StatusBadge tone="neutral" label={knowledgeText("setupRequired")} />
         <h3 id="knowledge-connector-title">
           {knowledgeText("connectorUnavailableTitle", { provider })}
         </h3>

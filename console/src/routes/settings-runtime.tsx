@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
+import {
+  CheckboxField,
+  SearchInput,
+  SelectField,
+  TextareaField,
+  TextInput,
+  ToggleSwitch,
+} from "../components/form-controls";
 import { ErrorState, KpiCard, KpiGrid, LoadingState, PageHeader, StatusPill } from "../components/ui";
 import { useSettingsDirtyState } from "../components/settings-dirty-state";
 import { usePublishViewContext } from "../deck/context";
@@ -278,10 +286,16 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
             </button>
           </section> : null}
           <div id="settings-runtime-policies-list" class="settings-filter-bar">
-            <label><span>{runtimeUxText("search")}</span><input type="search" class="form-input" value={search}
-              onInput={(event) => setSearch(event.currentTarget.value)} /></label>
-            <label><input type="checkbox" checked={changedOnly}
-              onChange={(event) => setChangedOnly(event.currentTarget.checked)} /> {runtimeUxText("changedOnly")}</label>
+            <SearchInput
+              label={runtimeUxText("search")}
+              value={search}
+              onInput={setSearch}
+            />
+            <CheckboxField
+              label={runtimeUxText("changedOnly")}
+              checked={changedOnly}
+              onChange={setChangedOnly}
+            />
             <button type="button" class="btn secondary" disabled={!search && !changedOnly}
               onClick={() => { setSearch(""); setChangedOnly(false); }}>{runtimeUxText("clearFilters")}</button>
           </div>
@@ -435,16 +449,12 @@ function RuntimeSettingRow({
           setting={setting}
           value={value}
           disabled={disabled}
-          invalid={fieldError !== null}
-          describedBy={fieldError ? errorId : !setting.available ? reasonId : undefined}
-          onChange={onChange}
-        />
-        {fieldError ? <p class="error-text" id={errorId} role="alert">
-          {fieldError === "object" ? runtimeUxText("objectError") : runtimeUxText("numericError", {
+          errorText={fieldError === null ? null : fieldError === "object" ? runtimeUxText("objectError") : runtimeUxText("numericError", {
             type: runtimeUxText(setting.valueType === "integer" ? "integer" : "number"),
             min: setting.minimum ?? runtimeUxText("unbounded"), max: setting.maximum ?? runtimeUxText("unbounded"),
           })}
-        </p> : null}
+          onChange={onChange}
+        />
         <button
           type="button"
           class="btn subtle settings-runtime-reset"
@@ -463,71 +473,63 @@ function SettingControl({
   value,
   disabled,
   onChange,
-  invalid,
-  describedBy,
+  errorText,
 }: {
   readonly setting: RuntimeSettingView;
   readonly value: RuntimeSettingValue;
   readonly disabled: boolean;
   readonly onChange: (value: RuntimeSettingValue) => void;
-  readonly invalid: boolean;
-  readonly describedBy: string | undefined;
+  readonly errorText: string | null;
 }) {
   const label = runtimeSettingText(setting.key, "label");
   if (setting.valueType === "object") {
     return (
-      <textarea
-        aria-label={label}
-        aria-invalid={invalid || undefined}
-        aria-describedby={describedBy}
+      <TextareaField
+        label={label}
+        hideLabel
+        mono
         rows={10}
         value={typeof value === "string" ? value : JSON.stringify(value, null, 2)}
         disabled={disabled}
-        spellcheck={false}
-        onInput={(event) => onChange(event.currentTarget.value)}
+        {...(errorText !== null ? { error: errorText } : {})}
+        onInput={onChange}
       />
     );
   }
   if (setting.valueType === "boolean") {
     return (
-      <label class="settings-toggle-control" aria-label={label}>
-        <input
-          type="checkbox"
-          aria-label={label}
-          aria-describedby={describedBy}
-          checked={value === true}
-          disabled={disabled}
-          onChange={(event) => onChange(event.currentTarget.checked)}
-        />
-        <span aria-hidden="true" />
-      </label>
+      <ToggleSwitch
+        label={label}
+        checked={value === true}
+        disabled={disabled}
+        onChange={onChange}
+      />
     );
   }
   if (setting.valueType === "enum") {
     return (
-      <select
-        aria-label={label}
-        aria-describedby={describedBy}
+      <SelectField
+        label={label}
+        hideLabel
         value={String(value)}
         disabled={disabled}
-        onChange={(event) => onChange(event.currentTarget.value)}
-      >
-        {setting.options.map((option) => <option key={option} value={option}>{option}</option>)}
-      </select>
+        options={setting.options.map((option) => ({ value: option, label: option }))}
+        onChange={onChange}
+      />
     );
   }
   return (
-    <input
+    <TextInput
       type="number"
-      aria-label={label}
-      aria-invalid={invalid || undefined}
-      aria-describedby={describedBy}
+      label={label}
+      hideLabel
       value={String(value)}
-      min={setting.minimum ?? undefined}
-      max={setting.maximum ?? undefined}
+      {...(setting.minimum !== null ? { min: setting.minimum } : {})}
+      {...(setting.maximum !== null ? { max: setting.maximum } : {})}
       step={setting.valueType === "integer" ? 1 : "any"}
       disabled={disabled}
-      onInput={(event) => onChange(event.currentTarget.value)}
+      {...(errorText !== null ? { error: errorText } : {})}
+      onInput={onChange}
     />
   );
 }

@@ -5,10 +5,15 @@ import {
   AsyncBoundary,
   CopyButton,
   ExternalLink,
-  StatusPill,
   type AsyncState,
-  type PillKind,
 } from "../components/ui";
+import {
+  FilterToolbar,
+  SearchInput,
+  SegmentedControl,
+  SelectField,
+} from "../components/form-controls";
+import { StatusBadge, type BadgeTone } from "../components/status-badge";
 import { routeHref } from "../router";
 import { t } from "./i18n/code-security";
 import { formatConsoleTimestamp } from "../time-format";
@@ -436,9 +441,9 @@ export function decodeCodeSecurityIssues(payload: unknown): CodeSecurityIssuesRe
   };
 }
 
-function severityKind(severity: CodeSecurityIssueSummary["severity"]): PillKind {
-  if (severity === "critical") return "danger";
-  if (severity === "high" || severity === "medium") return "warning";
+function severityTone(severity: CodeSecurityIssueSummary["severity"]): BadgeTone {
+  if (severity === "critical") return "sec";
+  if (severity === "high" || severity === "medium") return "sre";
   return "neutral";
 }
 
@@ -783,80 +788,79 @@ export function ReviewIssuesPanel({
                 )}
               </div>
             </section>
-            <div
-              class="code-security-severity-filters"
-              role="group"
-              aria-label={t("codeSecurity.issues.severityFilters")}
+            <SegmentedControl
+              className="code-security-severity-filters"
+              ariaLabel={t("codeSecurity.issues.severityFilters")}
+              value={scorecardFilter}
+              options={[
+                {
+                  value: "all" as const,
+                  label: t("codeSecurity.issues.score.all"),
+                  count: data.scorecard.total,
+                },
+                ...SCORECARD_KEYS.map((key) => ({
+                  value: key,
+                  label: t(`codeSecurity.issues.score.${key}`),
+                  count: data.scorecard[key],
+                })),
+              ]}
+              onChange={(next) => setScorecardFilter(next)}
+            />
+            <FilterToolbar
+              className="code-security-finding-tools"
+              ariaLabel={t("codeSecurity.issues.severityFilters")}
+              activeFilterCount={
+                (query ? 1 : 0)
+                + (producer !== "all" ? 1 : 0)
+                + (weakness !== "all" ? 1 : 0)
+                + (scorecardFilter !== "all" ? 1 : 0)
+              }
+              onReset={() => {
+                setQuery("");
+                setProducer("all");
+                setWeakness("all");
+                setScorecardFilter("all");
+              }}
             >
-              <button
-                type="button"
-                class={scorecardFilter === "all" ? "active" : ""}
-                aria-pressed={scorecardFilter === "all"}
-                onClick={() => setScorecardFilter("all")}
-              >
-                {`${t("codeSecurity.issues.score.all")} ${data.scorecard.total}`}
-              </button>
-              {SCORECARD_KEYS.map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  class={scorecardFilter === key ? "active" : ""}
-                  aria-pressed={scorecardFilter === key}
-                  onClick={() => setScorecardFilter(key)}
-                >
-                  {`${t(`codeSecurity.issues.score.${key}`)} ${data.scorecard[key]}`}
-                </button>
-              ))}
-            </div>
-            <div class="code-security-finding-tools">
-              <label class="cs-control-field code-security-finding-search">
-                <span class="cs-control-label">{t("codeSecurity.issues.search")}</span>
-                <input
-                  class="cs-control-input"
-                  type="search"
-                  value={query}
-                  placeholder={t("codeSecurity.issues.searchPlaceholder")}
-                  onInput={(event) => setQuery(event.currentTarget.value)}
-                />
-              </label>
-              <label class="cs-control-field">
-                <span class="cs-control-label">{t("codeSecurity.issues.producer")}</span>
-                <select
-                  class="cs-control-select"
-                  value={producer}
-                  onChange={(event) => setProducer(event.currentTarget.value)}
-                >
-                  <option value="all">{t("codeSecurity.issues.allProducers")}</option>
-                  {producers.map((item) => <option key={item} value={item}>{item}</option>)}
-                </select>
-              </label>
-              <label class="cs-control-field">
-                <span class="cs-control-label">{t("codeSecurity.issues.weakness")}</span>
-                <select
-                  class="cs-control-select"
-                  value={weakness}
-                  onChange={(event) => setWeakness(event.currentTarget.value)}
-                >
-                  <option value="all">{t("codeSecurity.issues.allWeaknesses")}</option>
-                  {weaknesses.map((item) => (
-                    <option key={item} value={item}>{item.replaceAll("_", " ")}</option>
-                  ))}
-                </select>
-              </label>
-              <label class="cs-control-field">
-                <span class="cs-control-label">{t("codeSecurity.issues.sort")}</span>
-                <select
-                  class="cs-control-select"
-                  value={sort}
-                  onChange={(event) =>
-                    setSort(event.currentTarget.value as "priority" | "severity" | "path")}
-                >
-                  <option value="priority">{t("codeSecurity.issues.sortPriority")}</option>
-                  <option value="severity">{t("codeSecurity.issues.sortSeverity")}</option>
-                  <option value="path">{t("codeSecurity.issues.sortPath")}</option>
-                </select>
-              </label>
-            </div>
+              <SearchInput
+                className="code-security-finding-search"
+                label={t("codeSecurity.issues.search")}
+                value={query}
+                placeholder={t("codeSecurity.issues.searchPlaceholder")}
+                onInput={(value) => setQuery(value)}
+              />
+              <SelectField
+                label={t("codeSecurity.issues.producer")}
+                value={producer}
+                options={[
+                  { value: "all", label: t("codeSecurity.issues.allProducers") },
+                  ...producers.map((item) => ({ value: item, label: item })),
+                ]}
+                onChange={(value) => setProducer(value)}
+              />
+              <SelectField
+                label={t("codeSecurity.issues.weakness")}
+                value={weakness}
+                options={[
+                  { value: "all", label: t("codeSecurity.issues.allWeaknesses") },
+                  ...weaknesses.map((item) => ({
+                    value: item,
+                    label: item.replaceAll("_", " "),
+                  })),
+                ]}
+                onChange={(value) => setWeakness(value)}
+              />
+              <SelectField
+                label={t("codeSecurity.issues.sort")}
+                value={sort}
+                options={[
+                  { value: "priority", label: t("codeSecurity.issues.sortPriority") },
+                  { value: "severity", label: t("codeSecurity.issues.sortSeverity") },
+                  { value: "path", label: t("codeSecurity.issues.sortPath") },
+                ]}
+                onChange={(value) => setSort(value as "priority" | "severity" | "path")}
+              />
+            </FilterToolbar>
             {visibleIssues.length === 0
               ? (
                 <p class="muted" role="status">
@@ -883,7 +887,7 @@ export function ReviewIssuesPanel({
                       >
                         <span>
                           <strong>{issue.title ?? issue.weakness_class.replaceAll("_", " ")}</strong>
-                          <StatusPill kind={severityKind(issue.severity)} label={severityLabel(issue)} />
+                          <StatusBadge tone={severityTone(issue.severity)} label={severityLabel(issue)} />
                         </span>
                         <span class="mono">{issueLocation(issue)}</span>
                         <small>{`${issue.priority} · ${issue.confidence} · ${issue.issue_id}`}</small>
@@ -940,11 +944,11 @@ export function ReviewIssuesPanel({
                       >
                         <header>
                           <div>
-                            <StatusPill
-                              kind={severityKind(selectedIssue.severity)}
+                            <StatusBadge
+                              tone={severityTone(selectedIssue.severity)}
                               label={severityLabel(selectedIssue)}
                             />
-                            <StatusPill kind="neutral" label={selectedIssue.priority} />
+                            <StatusBadge tone="neutral" label={selectedIssue.priority} noDot />
                           </div>
                           <h4>
                             {selectedIssue.title

@@ -1,0 +1,9 @@
+# remediate.right-size - Terraform patch template.
+#
+# Referenced by rule `kubernetes-node-pool.oversized`.
+# Reduce node_count by one; a repeated fire converges further.
+
+
+resource "azurerm_kubernetes_cluster_node_pool" "${resource_id}" {
+  node_count = var.recommended_node_count
+}

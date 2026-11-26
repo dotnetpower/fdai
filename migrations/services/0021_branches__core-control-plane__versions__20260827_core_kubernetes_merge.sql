@@ -1,0 +1,4 @@
+-- Migration Revision: core_kubernetes_merge_20260827
+-- Down Revision: ('core_kubernetes_inventory_links_20260826', 'core_kubernetes_lifecycle_20260827')
+-- Owner: core-control-plane
+-- Extracted SQL Blocks: 0

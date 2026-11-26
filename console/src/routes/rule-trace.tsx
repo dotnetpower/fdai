@@ -1,6 +1,8 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
+import { DisclosurePanel } from "../components/disclosure-panel";
+import { TextInput } from "../components/form-controls";
 import { PageHeader, type AsyncState } from "../components/ui";
 import { usePublishViewContext, type ViewSnapshot } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
@@ -287,13 +289,14 @@ export function RuleTraceRoute({ client }: Props) {
         )}
       />
 
-      <details class="trace-readonly-boundary">
-        <summary>
-          <strong>{t("evidence.trace.boundaryTitle")}</strong>
-          <span>{t("evidence.trace.boundaryShort")}</span>
-        </summary>
+      <DisclosurePanel
+        {...{ title: <strong>{t("evidence.trace.boundaryTitle")}</strong> }}
+        summaryMeta={<span>{t("evidence.trace.boundaryShort")}</span>}
+        className="trace-readonly-boundary"
+        tone="subtle"
+      >
         <p>{t("evidence.trace.boundaryBody")}</p>
-      </details>
+      </DisclosurePanel>
 
       <TraceDiscovery
         selectedCorrelation={correlationId}
@@ -340,15 +343,15 @@ function TraceLookupForm({
         onSubmit();
       }}
     >
-      <label class="trace-toolbar-field">
-        <span>{t("evidence.trace.correlationId")}</span>
-        <input
-          type="text"
-          value={correlationId}
-          onInput={(event) => onChange((event.target as HTMLInputElement).value)}
-          required
-        />
-      </label>
+      <TextInput
+        type="text"
+        label={t("evidence.trace.correlationId")}
+        value={correlationId}
+        mono
+        required
+        className="trace-toolbar-field"
+        onInput={onChange}
+      />
       {correlationId.trim()
         ? (
             <>

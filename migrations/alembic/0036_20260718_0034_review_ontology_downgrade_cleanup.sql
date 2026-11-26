@@ -1,0 +1,4 @@
+-- Migration Revision: 20260718_0034
+-- Down Revision: 20260717_0033
+-- Owner: alembic
+-- Extracted SQL Blocks: 0

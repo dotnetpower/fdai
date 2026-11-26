@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0.0",
+  "generator": {
+    "implementation": "scripts/quality/contracts/generate_service_contracts.py",
+    "version": "1.2.0",
+    "sha256": "sha256:4b8bab81566ea4bf0b46b7e7dd2ed197aabb667dcb4726a6e78daab30cb393b5"
+  },
+  "source": {
+    "manifest": "packages/service-contracts/src/fdai_service_contracts/compatibility-manifest.json",
+    "authority": "JSON Schema Draft 2020-12",
+    "selection": "Every distinct N and N-1 producer schema and every consumer-accepted schema version declared by the compatibility manifest"
+  },
+  "targets": [
+    {
+      "language": "python",
+      "output": "packages/service-contracts/src/fdai_service_contracts/generated/contracts.py",
+      "package_init": "packages/service-contracts/src/fdai_service_contracts/generated/__init__.py",
+      "consumers": [
+        "core-control-plane",
+        "operator-service",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "isolated-executor"
+      ]
+    },
+    {
+      "language": "typescript",
+      "output": "console/src/generated/service-contracts.ts",
+      "consumers": ["console"]
+    }
+  ]
+}

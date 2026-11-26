@@ -1,0 +1,419 @@
+import { expect, test, type Page } from "@playwright/test";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+
+const assets = resolve("lifecycle/hub/src/fdai_lifecycle_hub/setup_ui");
+const origin = "https://setup.test";
+const account = { id: "00000000-0000-0000-0000-000000000001", name: "Test subscription", tenant_id: "test-tenant" };
+const guidedProfile = {
+  region: "westus3",
+  monthly_cost_ceiling: 1200,
+  artifact_source: "hub",
+  database_placement: "postgres-flex",
+  approval_mode: "continuous",
+  trust_configured: true,
+};
+const idle = () => ({
+  phase: "idle", request_id: null, action: null, message: "Local setup is ready for a request.",
+  error_code: null, accounts: [account], review: null, deployment_ready: false,
+  console_url: null, csrf_token: "fixture-csrf", guided_profile: guidedProfile,
+});
+const exactReview = () => ({
+  id: "review-foundation", digest: "sha256:0123456789abcdef", title: "Apply exact Foundation plan",
+  details: ["Create only the resources in the retained plan.", "<img src=x onerror=alert(1)>"],
+  confirmation_required: "APPLY exact plan", expires_at: "2099-01-01T00:00:00Z",
+});
+
+async function fixture(page: Page, initial: Record<string, unknown> = idle()) {
+  let state = initial;
+  let statusFails = false;
+  let actionFails = false;
+  let rejection = "";
+  const posts: { path: string; body: Record<string, unknown>; headers: Record<string, string>; pageUrl: string }[] = [];
+  const requests: string[] = [];
+  await page.route("**/*", async route => {
+    const request = route.request();
+    const url = new URL(request.url());
+    requests.push(url.pathname);
+    expect(url.origin).toBe(origin);
+    if (request.method() === "POST") {
+      posts.push({ path: url.pathname, body: request.postDataJSON(), headers: request.headers(), pageUrl: page.url() });
+      if (actionFails) return route.abort("connectionfailed");
+      if (rejection) return route.fulfill({ status: 409, json: { error: rejection } });
+      return route.fulfill({ json: { authenticated: true } });
+    }
+    if (url.pathname === "/setup/api/status") {
+      if (statusFails) return route.abort("connectionfailed");
+      return route.fulfill({ json: state });
+    }
+    const file = url.pathname === "/setup" || url.pathname === "/setup/" ? "index.html" : url.pathname.split("/").pop();
+    expect(["index.html", "setup.css", "setup.js"]).toContain(file);
+    return route.fulfill({
+      body: await readFile(resolve(assets, file!)),
+      contentType: file!.endsWith(".js") ? "text/javascript" : file!.endsWith(".css") ? "text/css" : "text/html",
+      headers: { "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'" },
+    });
+  });
+  return {
+    posts, requests, set: (value: Record<string, unknown>) => { state = value; },
+    failStatus: () => { statusFails = true; }, failAction: () => { actionFails = true; },
+    reject: (message: string) => { rejection = message; },
+    open: async (fragment = "") => {
+      await page.goto(`${origin}/setup${fragment}`);
+      await expect(page.locator("#phase")).not.toHaveText("Connecting");
+    },
+    refresh: async () => {
+      await page.locator("#refresh").click();
+      await expect(page.locator("#refresh")).toBeEnabled();
+    },
+  };
+}
+
+test("fragment session is exchanged once, removed before exchange, and never persisted", async ({ page }) => {
+  const app = await fixture(page);
+  await app.open("#session=fixture-session-token");
+  expect(app.posts).toHaveLength(1);
+  expect(app.posts[0].body).toEqual({ token: "fixture-session-token" });
+  expect(app.posts[0].headers["x-fdai-csrf"]).toBeUndefined();
+  expect(app.posts[0].headers.origin).toBe(origin);
+  expect(app.posts[0].pageUrl).toBe(`${origin}/setup`);
+  expect(await page.evaluate(() => [location.hash, localStorage.length, sessionStorage.length])).toEqual(["", 0, 0]);
+  await page.getByRole("button", { name: "Refresh active subscription" }).click();
+  await expect.poll(() => app.posts.length).toBe(2);
+  expect(app.posts[1].body).toEqual({ action: "accounts", payload: {} });
+  expect(app.posts[1].headers["x-fdai-csrf"]).toBe("fixture-csrf");
+  expect(app.posts[1].headers["content-type"]).toBe("application/json");
+  await page.locator(".signin-options summary").click();
+  await page.locator("#tenant").fill("contoso.onmicrosoft.com");
+  await page.locator("#login").click();
+  await expect.poll(() => app.posts.length).toBe(3);
+  expect(app.posts[2].body).toEqual({ action: "login", payload: { tenant_id: "contoso.onmicrosoft.com" } });
+  await app.refresh();
+  expect(app.posts).toHaveLength(3);
+});
+
+test("same-document launcher navigation exchanges a new fragment and strips denied tokens", async ({ page }) => {
+  const app = await fixture(page);
+  await app.open();
+  await page.goto(`${origin}/setup#session=fixture-session-token`);
+  await expect(page).toHaveURL(`${origin}/setup`);
+  await expect.poll(() => app.posts.length).toBe(1);
+  expect(app.posts[0].body).toEqual({ token: "fixture-session-token" });
+  expect(app.posts[0].pageUrl).toBe(`${origin}/setup`);
+  await expect(page.locator("#login")).toBeEnabled();
+  app.reject("Invalid launch token.");
+  await page.goto(`${origin}/setup#session=invalid-synthetic-launch-token`);
+  await expect(page).toHaveURL(`${origin}/setup`);
+  await expect(page.getByRole("alert")).toContainText("Setup authentication failed");
+  await expect(page.locator("#login")).toBeDisabled();
+  expect(app.posts.map(item => item.path)).toEqual(["/setup/api/session", "/setup/api/session"]);
+});
+
+test("guided installation sends only the selected runtime and preserves it on failure", async ({ page }) => {
+  const app = await fixture(page);
+  await app.open();
+  await page.locator("#card-runtime-aca").click();
+  app.failAction();
+  await page.getByRole("button", { name: "Deploy FDAI Console" }).click();
+  await expect(page.getByRole("alert")).toContainText("outcome is unknown");
+  expect(app.posts).toHaveLength(1);
+  expect(app.posts[0].body).toEqual({
+    action: "install",
+    payload: { runtime_platform: "container-apps", subscription_id: account.id },
+  });
+  await app.refresh();
+  expect(app.posts).toHaveLength(1);
+  await expect(page.getByRole("radio", { name: /ACA/ })).toBeChecked();
+});
+
+test("launcher defaults are read-only and trust material is absent from the browser", async ({ page }) => {
+  const app = await fixture(page);
+  await app.open();
+  await expect(page.locator("#guided-subscription")).toContainText(account.name);
+  await expect(page.locator("#guided-region")).toHaveText("westus3");
+  await expect(page.locator("#guided-cost")).toHaveText("1200 USD");
+  await expect(page.getByText("Signed prebuilt images", { exact: true })).toBeVisible();
+  await expect(page.locator("#card-runtime-aca")).toContainText("observation-only");
+  await expect(page.locator("#perm-heading")).toHaveText("Account & required permissions");
+  await expect(page.locator("#perm-heading")).toHaveAttribute("data-verified", "false");
+  await expect(page.locator("#subscription, #region, #cost, #public-key, #key-file, #source-root")).toHaveCount(0);
+  await page.getByRole("button", { name: "Deploy FDAI Console" }).click();
+  await expect.poll(() => app.posts.length).toBe(1);
+  expect(app.posts[0].body).toEqual({
+    action: "install",
+    payload: { runtime_platform: "aks", subscription_id: account.id },
+  });
+});
+
+test("runtime cards expose keyboard focus and arrow-key selection", async ({ page }) => {
+  const app = await fixture(page);
+  await app.open();
+  const aks = page.getByRole("radio", { name: /AKS/ });
+  const aca = page.getByRole("radio", { name: /ACA/ });
+  await aks.focus();
+  await expect(page.locator("#card-runtime-aks")).toHaveCSS("outline-style", "solid");
+  await page.keyboard.press("ArrowRight");
+  await expect(aca).toBeChecked();
+  await expect(page.locator("#card-runtime-aca")).toHaveClass(/is-selected/);
+  await expect(page.locator("#card-runtime-aca")).toHaveCSS("outline-style", "solid");
+});
+
+test("exact plan remains inert text and requires its exact confirmation", async ({ page }) => {
+  const review = exactReview();
+  const app = await fixture(page, { ...idle(), phase: "review", request_id: "request-1", action: "install", review });
+  await app.open();
+  await expect(page.locator("#review-heading")).toBeFocused();
+  await expect(page.locator("#review-details")).toContainText("<img src=x onerror=alert(1)>");
+  await expect(page.locator("#review-details img")).toHaveCount(0);
+  await expect(page.locator("#approve")).toBeDisabled();
+  await page.locator("#confirmation").fill("apply exact plan");
+  await expect(page.locator("#approve")).toBeDisabled();
+  await page.locator("#fill-confirmation").click();
+  await expect(page.locator("#confirmation")).toHaveValue(review.confirmation_required);
+  await expect(page.locator("#approve")).toBeEnabled();
+  const firstDetail = await page.locator("#review-details li").first().elementHandle();
+  await app.refresh();
+  await expect(page.locator("#confirmation")).toHaveValue(review.confirmation_required);
+  expect(await firstDetail!.evaluate(node => node === document.querySelector("#review-details li"))).toBe(true);
+  await page.locator("#approve").click();
+  await expect.poll(() => app.posts.length).toBe(1);
+  expect(app.posts[0].body).toEqual({
+    request_id: "request-1", review_id: review.id, digest: review.digest,
+    approved: true, confirmation: review.confirmation_required,
+  });
+});
+
+test("a revised digest clears confirmation and expired reviews fail closed", async ({ page }) => {
+  const review = exactReview();
+  const app = await fixture(page, { ...idle(), phase: "review", request_id: "request-1", review });
+  await app.open();
+  await page.locator("#confirmation").fill(review.confirmation_required);
+  app.set({ ...idle(), phase: "review", request_id: "request-1", review: { ...review, digest: "sha256:changed" } });
+  await app.refresh();
+  await expect(page.locator("#confirmation")).toHaveValue("");
+  app.set({ ...idle(), phase: "review", request_id: "request-1", review: { ...review, expires_at: "2000-01-01T00:00:00Z" } });
+  await app.refresh();
+  await expect(page.locator("#expired")).toBeVisible();
+  await expect(page.locator("#approve")).toBeDisabled();
+  expect(app.posts).toHaveLength(0);
+});
+
+test("decline has no confirmation requirement and is bound to the exact review", async ({ page }) => {
+  const review = exactReview();
+  const app = await fixture(page, { ...idle(), phase: "review", request_id: "request-1", review });
+  await app.open();
+  await page.locator("#decline").click();
+  await expect.poll(() => app.posts.length).toBe(1);
+  expect(app.posts[0].body).toEqual({
+    request_id: "request-1", review_id: review.id, digest: review.digest, approved: false, confirmation: "",
+  });
+});
+
+for (const phase of ["blocked", "failed", "interrupted"]) {
+  test(`${phase} exposes explicit inspect and resume without replaying the job`, async ({ page }) => {
+    const app = await fixture(page, { ...idle(), phase, request_id: "request-1", error_code: "example_failure" });
+    await app.open();
+    await expect(page.locator("#recovery-section")).toBeVisible();
+    await expect(page.locator("#install")).toBeDisabled();
+    await expect(page.locator("#login")).toBeEnabled();
+    await expect(page.locator("#accounts")).toBeDisabled();
+    await expect(page.locator("#console-link")).not.toHaveAttribute("href");
+    await page.locator("#inspect").click();
+    await expect.poll(() => app.posts.length).toBe(1);
+    await expect(page.locator("#resume")).toBeEnabled();
+    await page.locator("#resume").click();
+    await expect.poll(() => app.posts.length).toBe(2);
+    await expect(page.locator("#reset")).toBeEnabled();
+    await page.locator("#reset").click();
+    await expect.poll(() => app.posts.length).toBe(3);
+    expect(app.posts.map(item => item.body)).toEqual([
+      { action: "inspect", payload: {} }, { action: "resume", payload: {} }, { action: "reset", payload: {} },
+    ]);
+  });
+}
+
+test("Console requires both verified readiness and an absolute safe HTTPS URL", async ({ page }) => {
+  const app = await fixture(page, { ...idle(), phase: "working", console_url: "https://console.example.invalid/" });
+  await app.open();
+  await expect(page.locator("#console-link")).not.toHaveAttribute("href");
+  app.set({ ...idle(), phase: "ready", deployment_ready: false, console_url: "https://console.example.invalid/" });
+  await app.refresh();
+  await expect(page.locator("#phase")).toHaveText("Readiness not verified");
+  await expect(page.locator("#console-link")).not.toHaveAttribute("href");
+  for (const url of ["javascript:alert(1)", "http://console.example.invalid/", "//console.example.invalid/", "https://user:password@console.example.invalid/"]) {
+    app.set({ ...idle(), phase: "ready", deployment_ready: true, console_url: url });
+    await app.refresh();
+    await expect(page.locator("#console-link")).not.toHaveAttribute("href");
+    await expect(page.locator("#console-unavailable")).toBeVisible();
+  }
+  app.set({ ...idle(), phase: "ready", deployment_ready: true, console_url: "https://console.example.invalid/" });
+  await app.refresh();
+  await expect(page.locator("#console-link")).toBeVisible();
+  await expect(page.locator("#console-link")).toHaveAttribute("href", "https://console.example.invalid/");
+  await expect(page.locator("#recovery-section")).toBeHidden();
+});
+
+test("lost status disables approval and invalid status cannot become readiness", async ({ page }) => {
+  const review = exactReview();
+  const app = await fixture(page, { ...idle(), phase: "review", request_id: "request-1", review });
+  await app.open();
+  await page.locator("#confirmation").fill(review.confirmation_required);
+  await expect(page.locator("#approve")).toBeEnabled();
+  app.set({ phase: "ready", deployment_ready: true, console_url: "https://console.example.invalid/" });
+  await app.refresh();
+  await expect(page.getByRole("alert")).toContainText("invalid status");
+  await expect(page.locator("#approve")).toBeDisabled();
+  await expect(page.locator("#console-link")).not.toHaveAttribute("href");
+  app.set({ ...idle(), phase: "review", request_id: "request-1", review });
+  await app.refresh();
+  app.failStatus();
+  await app.refresh();
+  await expect(page.locator("#approve")).toBeDisabled();
+  await expect(page.locator("#phase")).toHaveText("Status unavailable");
+  expect(app.posts).toHaveLength(0);
+});
+
+test("safe API errors are explicit inert text and never retried", async ({ page }) => {
+  const app = await fixture(page);
+  await app.open();
+  app.reject("Exact approval required. <strong>Not applied.</strong>");
+  await page.locator("#login").click();
+  await expect(page.getByRole("alert")).toHaveText("Exact approval required. <strong>Not applied.</strong>");
+  await expect(page.locator("#notice strong")).toHaveCount(0);
+  await page.locator("#locale").selectOption("ko");
+  await expect(page.getByRole("alert")).toContainText("Exact approval required.");
+  await expect(page.locator(".segmented-cards")).toHaveAttribute("aria-label", "배포 런타임 플랫폼");
+  await expect(page.locator("#guided-summary")).toHaveAttribute("aria-label", "읽기 전용 배포 대상");
+  expect(app.posts).toHaveLength(1);
+});
+
+test("region blockers point to launcher restart in English and Korean", async ({ page }) => {
+  const message = "Existing FDAI resource groups already occupy region 'eastus'. Choose another Azure region or remove unused test resource groups first.";
+  const app = await fixture(page, {
+    ...idle(),
+    phase: "blocked",
+    request_id: "request-1",
+    action: "install",
+    message,
+  });
+  await app.open();
+  await expect(page.locator("#recovery-section")).toContainText("restart with reviewed launcher options");
+  await page.locator("#locale").selectOption("ko");
+  await expect(page.locator("#message")).toContainText("--region");
+  await expect(page.locator("#message")).not.toContainText("Choose another Azure region");
+});
+
+test("visible status polling pauses while hidden and never submits a job", async ({ page }) => {
+  const app = await fixture(page, { ...idle(), phase: "working", request_id: "request-1", action: "install" });
+  await app.open();
+  await expect(page.locator("#skeleton")).toBeVisible();
+  await expect(page.locator("#status-live")).toHaveAttribute("aria-busy", "true");
+  const count = app.requests.filter(path => path === "/setup/api/status").length;
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await page.waitForTimeout(2200);
+  expect(app.requests.filter(path => path === "/setup/api/status")).toHaveLength(count);
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => false });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect.poll(() => app.requests.filter(path => path === "/setup/api/status").length).toBeGreaterThan(count);
+  expect(app.posts).toHaveLength(0);
+});
+
+test("English fallback, Korean selector, long content, keyboard and desktop geometry", async ({ page }) => {
+  await page.addInitScript(() => { Object.defineProperty(navigator, "language", { get: () => "fr-FR" }); });
+  const app = await fixture(page);
+  await app.open();
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page.getByRole("heading", { name: "Set up FDAI in Azure" })).toBeVisible();
+  await page.locator("#locale").selectOption("ko");
+  await expect(page.locator("html")).toHaveAttribute("lang", "ko");
+  await expect(page.getByRole("heading", { name: "Azure에 FDAI 설치" })).toBeVisible();
+  await page.getByRole("button", { name: "Azure 로그인", exact: true }).focus();
+  await expect(page.locator("#login")).toBeFocused();
+  expect(await page.locator("#login").evaluate(node => getComputedStyle(node).outlineStyle)).not.toBe("none");
+  await page.keyboard.press("Enter");
+  await expect.poll(() => app.posts.length).toBe(1);
+  app.set({ ...idle(), phase: "review", request_id: "opaque".repeat(40), review: {
+    ...exactReview(), title: "실제 계획 검토 ".repeat(20), details: ["긴 식별자와 한국어 설명 ".repeat(50), "a".repeat(400)],
+  } });
+  await app.refresh();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  for (const selector of ["#review-details", "#review-digest", "#message"]) {
+    expect(await page.locator(selector).evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+  }
+});
+
+test("constrained and mobile viewports retain controls, Korean scope and no overflow", async ({ page }) => {
+  const app = await fixture(page, { ...idle(), phase: "review", request_id: "x".repeat(180), review: exactReview() });
+  await app.open();
+  await page.locator("#locale").selectOption("ko");
+  for (const size of [{ width: 993, height: 641 }, { width: 390, height: 844 }, { width: 320, height: 844 }]) {
+    await page.setViewportSize(size);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await expect(page.locator("#review-section")).toBeVisible();
+    await expect(page.locator(".scope-notes")).toBeVisible();
+    await page.locator("#confirmation").fill("APPLY exact plan");
+    await expect(page.locator("#approve")).toBeEnabled();
+    for (const selector of ["#approve", "#decline", "#refresh", "#locale", "#confirmation"]) {
+      const box = await page.locator(selector).boundingBox();
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+    }
+  }
+});
+
+test("minimal wizard displays operator permissions, read-only defaults, runtime selector, and timings", async ({ page }) => {
+  const stageTimings = Array.from({ length: 15 }, (_, idx) => ({
+    index: idx + 1,
+    start_time: idx === 0 ? "03:54:04" : idx === 1 ? "03:54:05" : null,
+    end_time: idx === 0 ? "03:54:05" : idx === 1 ? "03:56:15" : null,
+    duration: idx === 0 ? "1s" : idx === 1 ? "2m 10s" : null,
+  }));
+  const app = await fixture(page, {
+    ...idle(),
+    accounts: [account],
+    telemetry: {
+      operator_user: "operator@example.com",
+      runtime_platform: "aks",
+      database_placement: "postgres-flex",
+      region: "westus3",
+      workload: "fdaiboot",
+      ops_rg: "rg-fdaiboot-ops",
+      dev_rg: "rg-fdaiboot-dev",
+      started_at: "03:54:04",
+      completed_at: "06:09:42",
+      total_duration: "2h 15m 38s",
+      permissions: {
+        subscription_role: "verified",
+        rbac_delegation: "verified",
+        entra_directory: "verified",
+        policy_and_providers: "verified",
+        registered_providers: 18,
+      },
+      stage_timings: stageTimings,
+    },
+  });
+  await app.open();
+  await expect(page.locator("#operator-pill")).toBeVisible();
+  await expect(page.locator("#operator-user")).toHaveText("operator@example.com");
+  await expect(page.locator("#perm-heading")).toContainText("verified");
+  await expect(page.locator("#perm-heading")).toHaveAttribute("data-verified", "true");
+  await expect(page.locator("#perm-drawer")).toBeHidden();
+  await page.locator("#toggle-perm-btn").click();
+  await expect(page.locator("#perm-drawer")).toBeVisible();
+  await expect(page.locator("#provision-stages")).toContainText("03:54:04 ~ 03:54:05");
+  await expect(page.locator("#provision-stages")).toContainText("2m 10s");
+
+  await page.locator("#card-runtime-aca").click();
+  await expect(page.locator("#header-arch-tag")).toHaveText("ACA · Postgres Flex");
+  await expect(page.locator("#rail-runtime-val")).toHaveText("ACA");
+  await page.locator("#install").click();
+  await expect.poll(() => app.posts.length).toBeGreaterThanOrEqual(1);
+  expect(app.posts.at(-1)?.body).toEqual({
+    action: "install",
+    payload: { runtime_platform: "container-apps", subscription_id: account.id },
+  });
+});

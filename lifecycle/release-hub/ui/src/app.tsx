@@ -937,6 +937,23 @@ export function App() {
     }
     return navigator.language.startsWith("ko") ? "ko" : "en";
   });
+  const [theme, setThemeState] = useState<"light" | "dark">(() => {
+    try {
+      const saved = localStorage.getItem("fdai-hub-theme");
+      if (saved === "dark" || saved === "light") return saved;
+    } catch {
+      // Ignore storage access errors
+    }
+    return "light";
+  });
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem("fdai-hub-theme", theme);
+    } catch {
+      // Ignore storage access errors
+    }
+  }, [theme]);
   function setLocale(next: "en" | "ko") {
     setLocaleState(next);
     try {
@@ -1196,11 +1213,18 @@ export function App() {
   const active = releaseNavGroup(route);
   const disabled = loading || !!error || !!actionError || uncertain;
   const expired = !!catalog && (catalog.expired || Date.parse(catalog.expires_at) <= currentTime);
-  const navItems: [string, string, string][] = [
-    ["/edition", "Release lineage", "릴리스 계통"],
-    ["/channels", "Deployment management", "배포 관리"],
-    ["/trust", "Trust & activity", "신뢰·이력"],
+  const navItems: [string, string, string, string][] = [
+    ["/edition", "Release lineage", "릴리스 계통", "M4 6h4v4H4zm12 0h4v4h-4zm-6 8h4v4h-4zM8 8h8M12 8v6"],
+    ["/stencils", "Stencil builder", "Stencil 빌더", "M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 4h7m-3.5-3.5v7"],
+    ["/channels", "Deployment management", "배포 관리", "M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3zm0 9l8-4.5M12 12v9M12 12L4 7.5"],
+    ["/trust", "Trust & activity", "신뢰 · 이력", "M12 3l7 3v5c0 4.5-3 7.8-7 9.5-4-1.7-7-5-7-9.5V6l7-3zm-2.5 9l1.8 1.8 3.7-3.8"],
   ];
+  const isNavCurrent = (path: string) =>
+    path === "/stencils"
+      ? route === "/stencils" || route === "/edition/new"
+      : path === "/edition"
+        ? active === "/edition" && route !== "/stencils" && route !== "/edition/new"
+        : active === path;
   const builder = <StencilBuilder
     locale={locale}
     onLocaleChange={setLocale}
@@ -1216,36 +1240,59 @@ export function App() {
   return <div class={`app${route.startsWith("/edition") || active === "/channels" || active === "/trust" ? " rh-edition-shell" : ""}`} lang={locale}>
     <a class="skip" href="#main" onClick={(event) => { event.preventDefault(); heading.current?.focus(); }}>Skip to content</a>
     <nav class="side" aria-label="Release Hub">
-      <div class="brand"><img src="/brand/fdai-logo.png" alt="FDAI" /><span>Release Hub<small>{t("Vendor workspace", "릴리스 컨트롤 플레인")}</small></span></div>
-      {navItems.map(([path, titleEn, titleKo]) =>
-        <a key={path} class={active === path ? "nav-link current" : "nav-link"} href={`#${path}`} aria-current={active === path ? "page" : undefined}>{locale === "ko" ? titleKo : titleEn}</a>)}
+      <div class="brand">
+        <img src="/brand/fdai-logo.png" alt="FDAI" />
+        <div class="brand-text">
+          <span class="brand-row"><strong>FDAI</strong><span class="brand-sep" aria-hidden="true" /><span>Release Hub</span></span>
+          <small>{t("Release control plane", "릴리스 컨트롤 플레인")}</small>
+        </div>
+      </div>
+      <div class="side-section-label">{t("Workspace", "워크스페이스")}</div>
+      <div class="side-nav-group">
+        {navItems.map(([path, titleEn, titleKo, iconPath]) => {
+          const current = isNavCurrent(path);
+          return <a key={path} class={current ? "nav-link current" : "nav-link"} href={`#${path}`} aria-current={current ? "page" : undefined}>
+            <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={iconPath} /></svg>
+            <span>{locale === "ko" ? titleKo : titleEn}</span>
+          </a>;
+        })}
+      </div>
       <div class="side-note">
-        <strong>
-          {entraStatus?.authenticated
-            ? t("Microsoft Entra ID verified", "Microsoft Entra ID 로그인됨")
-            : t("Development validation", "로컬 검증 모드 (미로그인)")}
-        </strong>
+        <div class="side-note-head">
+          <span class={`status-dot ${entraStatus?.authenticated ? "is-live" : "is-warn"}`} aria-hidden="true" />
+          <strong>
+            {entraStatus?.authenticated
+              ? t("Entra ID verified", "Entra ID 인증됨")
+              : t("Local validation", "로컬 검증 모드")}
+          </strong>
+        </div>
         <p>
           {entraStatus?.authenticated && entraStatus.session
-            ? `${entraStatus.session.principal} (Tenant ${entraStatus.session.tenant_id.slice(0, 8)}...)`
-            : t("No production trust root or deployment authority.", "상단 'Microsoft Entra ID 로그인' 버튼으로 운영자 계정을 연결하세요.")}
+            ? `${entraStatus.session.principal} · ${entraStatus.session.tenant_id.slice(0, 8)}...`
+            : t("Development key boundary. Sign in with Entra ID to attribute changes.", "개발용 서명 경계입니다. 상단에서 Entra ID로 로그인할 수 있습니다.")}
         </p>
       </div>
     </nav>
     <main id="main" class="main" ref={heading} tabIndex={-1}>
-      <div class="workspace-bar">
-        <strong>{t("FDAI Release Hub", "FDAI 릴리스 허브")}</strong>
-        <div class="actions" style="margin-top: 0;">
+      <header class="workspace-bar">
+        <div class="workspace-bar-left">
+          <strong class="workspace-title">{t("FDAI Release Hub", "FDAI 릴리스 허브")}</strong>
+          {catalog && <span class={`live-pill ${expired ? "is-warn" : "is-live"}`}>
+            <span class={`status-dot ${expired ? "is-warn" : "is-live"}`} aria-hidden="true" />
+            <span>{t(`Rev ${catalog.revision} · ${catalog.releases.length} releases`, `리비전 ${catalog.revision} · 릴리스 ${catalog.releases.length}건`)}</span>
+          </span>}
+        </div>
+        <div class="actions workspace-bar-actions">
           {entraStatus?.authenticated && entraStatus.session ? (
-            <span class="stencil-provenance-preview" style="padding: 4px 10px;">
-              <span class="stage-pill done">Entra ID</span>
+            <span class="entra-pill">
+              <span class="status-dot is-live" aria-hidden="true" />
               <strong>{entraStatus.session.principal}</strong>
               <button
                 type="button"
                 class="chip-btn"
                 onClick={() => setEntraDialogOpen(true)}
               >
-                {t("Switch account", "계정 전환")}
+                {t("Switch", "전환")}
               </button>
               <button
                 type="button"
@@ -1274,21 +1321,36 @@ export function App() {
           ) : (
             <button
               type="button"
+              class="top-action-btn is-accent"
               onClick={() => setEntraDialogOpen(true)}
             >
-              {t("Sign in with Microsoft Entra ID", "Microsoft Entra ID 로그인")}
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="10" cy="6.5" r="3.2" /><path d="M4 16.5a6 6 0 0112 0" /></svg>
+              <span>{t("Sign in with Entra ID", "Entra ID 로그인")}</span>
             </button>
           )}
-          <label style="display: inline-flex; align-items: center; gap: 8px; margin: 0;">
-            <span>{t("Language", "화면 언어")}</span>
-            <select value={locale} onChange={(e) => setLocale(e.currentTarget.value as "en" | "ko")}>
-              <option value="en">English</option>
-              <option value="ko">한국어</option>
-            </select>
-          </label>
-          <button disabled={loading} onClick={() => { void refresh(true); }}>{loading ? t("Loading...", "불러오는 중...") : t("Refresh catalog", "카탈로그 새로고침")}</button>
+          <div class="segmented-control" role="group" aria-label={t("Language", "화면 언어")}>
+            <button type="button" class={locale === "en" ? "seg-btn is-active" : "seg-btn"} aria-pressed={locale === "en"} onClick={() => setLocale("en")}>EN</button>
+            <button type="button" class={locale === "ko" ? "seg-btn is-active" : "seg-btn"} aria-pressed={locale === "ko"} onClick={() => setLocale("ko")}>한국어</button>
+          </div>
+          <button
+            type="button"
+            class="icon-toggle-btn"
+            aria-label={theme === "dark" ? t("Switch to light theme", "라이트 테마로 전환") : t("Switch to dark theme", "다크 테마로 전환")}
+            title={theme === "dark" ? t("Light theme", "라이트 테마") : t("Dark theme", "다크 테마")}
+            onClick={() => setThemeState((cur) => (cur === "dark" ? "light" : "dark"))}
+          >
+            <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+              <circle cx="10" cy="10" r="5.5" />
+              <path d="M10 4.5v11a5.5 5.5 0 000-11z" fill="currentColor" />
+            </svg>
+          </button>
+          <button type="button" class="top-action-btn" disabled={loading} onClick={() => { void refresh(true); }}>
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.5 10a6.5 6.5 0 11-1.9-4.6L16.5 7.2M16.5 3.5v3.7h-3.7" /></svg>
+            <span>{loading ? t("Loading...", "불러오는 중...") : t("Refresh", "새로고침")}</span>
+          </button>
         </div>
-      </div>
+      </header>
+      <div class="main-inner">
       {error && <p class="error" role="alert">Catalog unavailable: {error} {catalog ? "Previously loaded data is shown; mutations are disabled." : "Use Refresh catalog to retry."}</p>}
       {actionError && <p class="error" role="alert">Action not completed or verified: {actionError} Refresh the catalog and review activity before another action.</p>}
       {notice && <p role={uncertain ? "alert" : "status"} class={error || uncertain ? "warning" : "success"}>{notice}</p>}
@@ -1548,6 +1610,7 @@ export function App() {
             : "Catalog readback failed. Mutations remain disabled until a successful refresh."}`);
         heading.current?.focus();
       }} />}
+      </div>
     </main>
   </div>;
 }

@@ -176,7 +176,7 @@
   .settings-iam-route .settings-iam-panel .data-table td::before {
     content: attr(data-label);
     color: var(--fg-muted);
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
   }

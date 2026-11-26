@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/ontology/object-type/1.0.0",
+  "title": "OntologyObjectType",
+  "description": "Declares one entity type in the ontology (e.g. Resource, Rule, Signal, Finding).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "name",
+    "version",
+    "key",
+    "properties"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Za-z0-9]{0,63}$",
+      "description": "PascalCase entity name."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "key": {
+      "type": "string",
+      "description": "Property name that uniquely identifies an instance."
+    },
+    "properties": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "string",
+              "integer",
+              "number",
+              "boolean",
+              "object",
+              "array",
+              "datetime"
+            ]
+          },
+          "required": {
+            "type": "boolean",
+            "default": false
+          },
+          "description": {
+            "type": "string"
+          },
+          "access_scope": {
+            "type": "string",
+            "enum": [
+              "reader",
+              "contributor",
+              "approver",
+              "owner"
+            ],
+            "default": "reader",
+            "description": "Minimum RBAC role required to view this property in read-only projections (console panels, assurance twin answers, exported reports). Enforced at read time by the projection layer, never bypassed by the executor. `reader` (default) means visible to any authenticated caller; a stricter value redacts the property for lower-role callers."
+          },
+          "purpose_binding": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+            },
+            "uniqueItems": true,
+            "description": "Optional purpose codes a query MUST declare via `--purpose` to read this property. When set, a query without a matching purpose receives the redacted placeholder. Empty (default) means no purpose gate."
+          },
+          "query_terms": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1, "maxLength": 128},
+            "uniqueItems": true,
+            "description": "Reviewed English and Korean property labels for semantic document projection. These terms provide model context only and do not authorize lookup or inference."
+          },
+          "value_query_terms": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {"type": "string", "minLength": 1, "maxLength": 128},
+              "uniqueItems": true
+            },
+            "propertyNames": {"type": "string", "minLength": 1, "maxLength": 128},
+            "description": "Reviewed English and Korean labels for exact property values. Projection adds only the terms for values already present on the authorized object."
+          }
+        }
+      }
+    },
+    "description": {
+      "type": "string"
+    },
+    "query_terms": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1, "maxLength": 128},
+      "uniqueItems": true,
+      "description": "Reviewed English and Korean object labels for semantic document projection. These terms provide model context only and do not authorize lookup or inference."
+    },
+    "authority_class": {
+      "type": "string",
+      "enum": [
+        "catalog_as_code",
+        "event_bus_registry",
+        "projection_owned",
+        "pantheon_owned"
+      ],
+      "description": "Authoritative ownership and write-boundary class for this ObjectType."
+    },
+    "freshness_max_age_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 31536000,
+      "description": "Maximum observation age in seconds before instances of this ObjectType are treated as stale."
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "creation", "authority_refs"],
+      "properties": {
+        "owner": {
+          "type": "string",
+          "enum": [
+            "Odin", "Thor", "Forseti", "Huginn", "Heimdall",
+            "Var", "Vidar", "Bragi", "Saga", "Mimir",
+            "Norns", "Muninn", "Njord", "Freyr", "Loki"
+          ]
+        },
+        "creation": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/lifecycle_criterion" }
+        },
+        "deduplication": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["strategy", "fields", "on_repeat"],
+          "properties": {
+            "strategy": { "type": "string", "minLength": 1 },
+            "fields": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 },
+              "uniqueItems": true
+            },
+            "on_repeat": { "type": "string", "minLength": 1 }
+          }
+        },
+        "closure": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/lifecycle_criterion" }
+        },
+        "authority_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      }
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    }
+  },
+  "$defs": {
+    "lifecycle_criterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "when", "result", "source_refs"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+        },
+        "when": { "type": "string", "minLength": 1 },
+        "result": { "type": "string", "minLength": 1 },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_url", "resolved_ref", "content_hash", "license", "retrieved_at"],
+      "properties": {
+        "source_url": {"type": "string", "minLength": 1},
+        "resolved_ref": {"type": "string", "minLength": 1},
+        "content_hash": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "license": {"type": "string", "minLength": 1},
+        "retrieved_at": {"type": "string", "format": "date-time"}
+      }
+    }
+  }
+}

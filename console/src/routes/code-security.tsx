@@ -9,11 +9,11 @@ import {
   KpiCard,
   KpiGrid,
   PageHeader,
-  StatusPill,
   type AsyncState,
   type Column,
-  type PillKind,
 } from "../components/ui";
+import { SegmentedControl } from "../components/form-controls";
+import { StatusBadge, type BadgeTone } from "../components/status-badge";
 import { Tooltip } from "../components/tooltip";
 import { usePublishViewContext, type ViewSnapshot } from "../deck/context";
 import { SECURITY_AND_RULES_GLOSSARY, composeGlossary } from "../deck/glossary";
@@ -283,10 +283,10 @@ export function latestPerRepository(
   });
 }
 
-function decisionKind(decision: Decision): PillKind {
-  if (decision === "urgent") return "danger";
-  if (decision === "open" || decision === "coverage_incomplete") return "warning";
-  return "success";
+function decisionTone(decision: Decision): BadgeTone {
+  if (decision === "urgent") return "sec";
+  if (decision === "open" || decision === "coverage_incomplete") return "sre";
+  return "live";
 }
 
 export function reviewSeveritySummary(review: CodeSecurityReview): string {
@@ -456,8 +456,8 @@ function PacksSection({ data }: { readonly data: CodeSecurityPacksResponse }) {
       render: (row) => {
         const state = packState(row, now);
         return (
-          <StatusPill
-            kind={state === "active" ? "info" : "neutral"}
+          <StatusBadge
+            tone={state === "active" ? "info" : "neutral"}
             label={t(`codeSecurity.packState.${state}`)}
           />
         );
@@ -526,19 +526,17 @@ function SourceFilterControl({
   readonly onChange: (next: SourceFilter) => void;
 }) {
   return (
-    <div class="segmented-control code-security-source-filter" role="group" aria-label={t("codeSecurity.filterLabel")}>
-      {SOURCE_FILTERS.map((filter) => (
-        <button
-          key={filter}
-          type="button"
-          class={filter === value ? "active" : ""}
-          aria-pressed={filter === value}
-          onClick={() => onChange(filter)}
-        >
-          {`${t(`codeSecurity.source.${filter}`)} ${counts[filter]}`}
-        </button>
-      ))}
-    </div>
+    <SegmentedControl
+      className="code-security-source-filter"
+      ariaLabel={t("codeSecurity.filterLabel")}
+      value={value}
+      options={SOURCE_FILTERS.map((filter) => ({
+        value: filter,
+        label: t(`codeSecurity.source.${filter}`),
+        count: counts[filter],
+      }))}
+      onChange={onChange}
+    />
   );
 }
 
@@ -601,7 +599,7 @@ function CodeSecurityBody({
       key: "decision",
       header: t("codeSecurity.column.decision"),
       render: (row) => (
-        <StatusPill kind={decisionKind(row.decision)} label={t(`codeSecurity.decision.${row.decision}`)} />
+        <StatusBadge tone={decisionTone(row.decision)} label={t(`codeSecurity.decision.${row.decision}`)} />
       ),
     },
     { key: "issues", header: t("codeSecurity.column.issues"), render: (row) => row.issue_count, cellClass: "num" },

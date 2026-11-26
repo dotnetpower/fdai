@@ -1,0 +1,9 @@
+# remediate.right-size - Terraform patch template.
+#
+# Referenced by rule `postgresql-server.tier-overprovisioned`.
+# Drop the SKU to var.recommended_sku_name.
+
+
+resource "azurerm_postgresql_flexible_server" "${resource_id}" {
+  sku_name = var.recommended_sku_name
+}

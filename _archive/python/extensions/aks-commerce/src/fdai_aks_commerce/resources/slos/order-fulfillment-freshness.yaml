@@ -1,0 +1,17 @@
+schema_version: "1.0.0"
+id: order-fulfillment.freshness
+description: Orders completed inside the reviewed fulfillment time bound.
+objective_ratio: 0.95
+window_days: 7
+sli:
+  kind: freshness
+  good_query: synthetic.order.completed_within_bound
+  total_query: synthetic.order.submitted
+  labels:
+    service_id: order-fulfillment
+burn_rate_alerts:
+  - name: order-freshness-fast-burn
+    short_window_minutes: 15
+    long_window_minutes: 120
+    burn_rate_threshold: 6
+    severity: sev2

@@ -184,8 +184,9 @@
 .cs-control-input:focus-visible,
 .cs-control-select:focus-visible,
 .cs-control-textarea:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--cs-steel) 42%, transparent);
-  outline-offset: 2px;
+  outline: none;
+  border-color: var(--sig-live, var(--cs-steel));
+  box-shadow: 0 0 0 3px var(--cs-focus-ring, rgba(15, 118, 110, 0.22));
 }
 
 .cs-control-field {
@@ -222,15 +223,12 @@
 
 .cs-control-select {
   appearance: none;
-  padding-right: 42px;
-  background-image:
-    linear-gradient(45deg, transparent 50%, var(--cs-text-soft) 50%),
-    linear-gradient(135deg, var(--cs-text-soft) 50%, transparent 50%);
-  background-position:
-    calc(100% - 20px) calc(50% - 1px),
-    calc(100% - 15px) calc(50% - 1px);
+  -webkit-appearance: none;
+  padding-right: 38px;
+  background-image: var(--cs-select-chevron);
+  background-position: right 12px center;
   background-repeat: no-repeat;
-  background-size: 5px 5px;
+  background-size: 12px 12px;
 }
 
 .cs-control-textarea {
@@ -555,17 +553,21 @@
 }
 
 .cs-deck-user-bubble {
-  padding: 10px 16px;
+  padding: 10px 15px;
   border: 1px solid var(--cs-hairline);
-  border-radius: 16px 16px 5px 16px;
+  border-radius: 10px;
   background: var(--cs-shade);
   color: var(--cs-text);
+  font-size: 13.5px;
+  line-height: 1.55;
 }
 
 .cs-deck-agent-turn {
   width: min(100%, var(--cs-deck-reading-width));
   align-self: flex-start;
   box-sizing: border-box;
+  background: transparent;
+  border: 0;
 }
 
 .cs-deck-turn-head {

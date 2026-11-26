@@ -133,6 +133,23 @@
     chat: "mockup-chat.html"
   };
 
+  const PANEL_DOMAIN_MAP = (() => {
+    const map = new Map();
+    NAV_DOMAINS.forEach((d) => {
+      const domSlug = d.id === "settings_labs" ? "settings" : d.id;
+      (d.items || []).forEach((it) => {
+        if (it.id === "labs" || LAB_SUBPANELS.has(it.id)) {
+          map.set(it.id, "labs");
+        } else if (it.id.startsWith("settings-")) {
+          map.set(it.id, "settings");
+        } else {
+          map.set(it.id, domSlug);
+        }
+      });
+    });
+    return map;
+  })();
+
   function panelUrl(panelId) {
     if (IS_STATIC_MOCK) {
       if (!panelId) return "mockup-overview.html#tab=dashboard";
@@ -141,11 +158,14 @@
       const file = (owner && MOCK_DOMAIN_FILE[owner.id]) || "mockup-overview.html";
       return `${file}#tab=${panelId}`;
     }
-    if (!panelId) return "/dashboard";
+    if (!panelId) return "/overview/dashboard";
     if (panelId === "command-deck-chat") return "/chat";
+    if (panelId === "agents") return "/agents";
     if (panelId === "labs") return "/labs";
     if (LAB_SUBPANELS.has(panelId)) return `/labs/${panelId}`;
     if (panelId.startsWith("settings-")) return `/settings/${panelId.slice("settings-".length)}`;
+    const dom = PANEL_DOMAIN_MAP.get(panelId);
+    if (dom) return `/${dom}/${panelId}`;
     return `/${panelId}`;
   }
 
@@ -155,6 +175,7 @@
     const clean = (location.pathname || "/").replace(/\/+$/, "") || "/";
     if (clean === "/" || clean === "/overview") return "dashboard";
     if (clean === "/operations") return "live";
+    if (clean === "/agents") return "agents";
     if (clean === "/governance") return "rules";
     if (clean === "/evidence") return "audit";
     if (clean === "/settings") return "settings-general";
@@ -162,18 +183,82 @@
     if (clean === "/chat") return "command-deck-chat";
     if (clean.startsWith("/settings/")) return `settings-${clean.slice("/settings/".length)}`;
     if (clean.startsWith("/labs/")) return clean.slice("/labs/".length);
-    const seg = clean.slice(1);
-    if (seg && !seg.includes("/")) return seg;
+    const parts = clean.slice(1).split("/").filter(Boolean);
+    if (parts.length === 2 && ["overview", "operations", "agents", "governance", "evidence"].includes(parts[0])) {
+      return parts[1];
+    }
+    if (parts.length === 1) return parts[0];
     const boot = window.__FDAI_V4_BOOTSTRAP__;
     if (boot && typeof boot.defaultPanel === "string" && boot.defaultPanel) return boot.defaultPanel;
     return "";
   }
+
+  const FdaiUrlState = {
+    get() {
+      const out = {};
+      try {
+        const sp = new URLSearchParams(location.search || "");
+        sp.forEach((v, k) => { out[k] = v; });
+      } catch (_e) {}
+      return out;
+    },
+    getParam(key, fallback = "") {
+      try {
+        const v = new URLSearchParams(location.search || "").get(key);
+        return v !== null && v !== "" ? v : fallback;
+      } catch (_e) {
+        return fallback;
+      }
+    },
+    set(patch, opts) {
+      if (IS_STATIC_MOCK || !patch || typeof patch !== "object") return;
+      try {
+        const sp = new URLSearchParams(location.search || "");
+        let changed = false;
+        Object.keys(patch).forEach((k) => {
+          const v = patch[k];
+          const prev = sp.get(k);
+          if (v === null || v === undefined || v === "") {
+            if (prev !== null) {
+              sp.delete(k);
+              changed = true;
+            }
+          } else {
+            const next = String(v);
+            if (prev !== next) {
+              sp.set(k, next);
+              changed = true;
+            }
+          }
+        });
+        if (!changed) return;
+        const qs = sp.toString();
+        const nextUrl = qs ? `${location.pathname}?${qs}` : location.pathname;
+        const usePush = Boolean(opts && opts.push);
+        if (usePush) history.pushState({ panelId: panelFromLocation(), query: qs }, "", nextUrl);
+        else history.replaceState({ panelId: panelFromLocation(), query: qs }, "", nextUrl);
+        window.dispatchEvent(new CustomEvent("fdai:urlstatechange", { detail: { params: this.get(), url: nextUrl } }));
+      } catch (_e) {}
+    },
+    onChange(cb) {
+      if (typeof cb !== "function") return () => {};
+      const handler = () => cb(this.get());
+      window.addEventListener("popstate", handler);
+      window.addEventListener("fdai:urlstatechange", handler);
+      return () => {
+        window.removeEventListener("popstate", handler);
+        window.removeEventListener("fdai:urlstatechange", handler);
+      };
+    }
+  };
+  window.FdaiUrlState = FdaiUrlState;
 
   function navigatePanel(panelId, replace) {
     if (!panelId) return;
     const targetUrl = panelUrl(panelId);
     const localEl = document.querySelector(`.panel-view[data-panel-id="${panelId}"]`);
     if (localEl) {
+      const samePanel = location.pathname === targetUrl;
       activatePanel(panelId);
       if (IS_STATIC_MOCK) {
         const nextHash = `#tab=${panelId}`;
@@ -183,10 +268,11 @@
             else history.pushState({ panelId }, "", nextHash);
           } catch (_e) { location.hash = nextHash; }
         }
-      } else if (location.pathname !== targetUrl || location.hash) {
+      } else if (!samePanel || location.hash) {
+        const nextUrl = samePanel && location.search ? `${targetUrl}${location.search}` : targetUrl;
         try {
-          if (replace) history.replaceState({ panelId }, "", targetUrl);
-          else history.pushState({ panelId }, "", targetUrl);
+          if (replace) history.replaceState({ panelId }, "", nextUrl);
+          else history.pushState({ panelId }, "", nextUrl);
         } catch (_e) {}
       }
       window.dispatchEvent(new CustomEvent("fdai:panelchange", { detail: { panelId, url: targetUrl } }));
@@ -198,6 +284,86 @@
   window.fdaiPanelUrl = panelUrl;
   window.fdaiResolvePanelFromLocation = panelFromLocation;
   window.fdaiNavigatePanel = navigatePanel;
+
+  const SELECTION_COMPAT_KEYS = [
+    "item", "seq", "corr", "incident", "hil", "rule", "resource_id", "resource",
+    "agent", "session", "trace", "rca", "doc", "lineage_target", "setting", "id"
+  ];
+
+  function getSelectedItemFromUrl() {
+    try {
+      const sp = new URLSearchParams(location.search || "");
+      for (const key of SELECTION_COMPAT_KEYS) {
+        const v = (sp.get(key) || "").trim();
+        if (v) return v;
+      }
+    } catch (_e) {}
+    return "";
+  }
+
+  function setSelectedItemInUrl(itemId, opts = {}) {
+    try {
+      const url = new URL(location.href);
+      const clean = itemId == null ? "" : String(itemId).trim();
+      if (clean) {
+        url.searchParams.set("item", clean);
+        if (opts.extraParams && typeof opts.extraParams === "object") {
+          Object.entries(opts.extraParams).forEach(([k, v]) => {
+            if (v == null || v === "") url.searchParams.delete(k);
+            else url.searchParams.set(k, String(v));
+          });
+        }
+      } else {
+        url.searchParams.delete("item");
+        if (opts.clearCompat) {
+          SELECTION_COMPAT_KEYS.forEach((k) => url.searchParams.delete(k));
+        }
+      }
+      const next = `${url.pathname}${url.search}${url.hash}`;
+      if (next !== `${location.pathname}${location.search}${location.hash}`) {
+        if (opts.push) history.pushState({ panelId: currentPanelId, itemId: clean || null }, "", next);
+        else history.replaceState({ panelId: currentPanelId, itemId: clean || null }, "", next);
+      }
+      if (!opts.silent) {
+        window.dispatchEvent(new CustomEvent("fdai:selectionchange", {
+          detail: { itemId: clean || null, panelId: currentPanelId, url: location.href }
+        }));
+      }
+    } catch (_e) {}
+  }
+
+  function buildItemUrl(panelId, itemId, extraParams) {
+    const base = panelUrl(panelId);
+    const params = new URLSearchParams();
+    const clean = itemId == null ? "" : String(itemId).trim();
+    if (clean) params.set("item", clean);
+    if (extraParams && typeof extraParams === "object") {
+      Object.entries(extraParams).forEach(([k, v]) => {
+        if (v != null && v !== "") params.set(k, String(v));
+      });
+    }
+    const qs = params.toString();
+    return qs ? `${base}?${qs}` : base;
+  }
+
+  function focusItemElement(el) {
+    if (!el || !(el instanceof Element)) return;
+    try {
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+    } catch (_e) {}
+    el.classList.remove("is-deeplink-focus");
+    void el.offsetWidth;
+    el.classList.add("is-deeplink-focus");
+    window.setTimeout(() => el.classList.remove("is-deeplink-focus"), 2400);
+  }
+
+  window.fdaiV4Selection = {
+    getSelectedItem: getSelectedItemFromUrl,
+    setSelectedItem: setSelectedItemInUrl,
+    clearSelectedItem: (opts) => setSelectedItemInUrl(null, Object.assign({ clearCompat: true }, opts || {})),
+    buildItemUrl,
+    focusItemElement,
+  };
 
   const CHAT_THREADS = [
     {
@@ -235,17 +401,33 @@
   const FAVORITE_MENUS = [
     { id: "dashboard", label: "대시보드" },
     { id: "live", label: "실시간 모니터링" },
-    { id: "incidents", label: "장애 대응", badge: "3" },
-    { id: "hil-queue", label: "승인 요청", badge: "12" },
+    { id: "incidents", label: "장애 대응" },
+    { id: "hil-queue", label: "승인 요청" },
     { id: "ontology", label: "온톨로지" },
     { id: "command-deck-chat", label: "AI 채팅" }
   ];
 
-  const MENU_BADGES = {
+  const SAMPLE_MENU_BADGES = {
     incidents: "3",
     "code-security": "4",
     "hil-queue": "12"
   };
+  let liveMenuBadges = {};
+
+  function isShellLiveMode() {
+    if (window.fdaiV4Live && typeof window.fdaiV4Live.isLiveMode === "function") {
+      return window.fdaiV4Live.isLiveMode();
+    }
+    const active = document.querySelector("[data-data-mode].is-active");
+    return !active || active.getAttribute("data-data-mode") === "live";
+  }
+
+  function resolveMenuBadge(panelId) {
+    if (isShellLiveMode()) {
+      return liveMenuBadges[panelId] || "";
+    }
+    return SAMPLE_MENU_BADGES[panelId] || "";
+  }
   let currentPanelTitle = activeDomainLabel;
   let activeThreadId = "t-current";
   let histFilter = "all";
@@ -267,7 +449,7 @@
     if (!el) return;
     el.innerHTML = `
       <div class="topbar-left-group">
-        <a class="brand-link" href="/dashboard">
+        <a class="brand-link" href="/overview/dashboard">
           <img class="brand-logo" src="/brand/fdai-logo.png" alt="FDAI">
           <span>FDAI</span>
           <span class="brand-sub">운영 콘솔</span>
@@ -302,19 +484,37 @@
         localStorage.setItem("fdai-mockup-theme", "dark");
       }
     });
+    document.documentElement.dataset.fdaiDataMode = "live";
     el.querySelectorAll("[data-data-mode]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const mode = btn.getAttribute("data-data-mode");
+        const mode = btn.getAttribute("data-data-mode") || "live";
         el.querySelectorAll("[data-data-mode]").forEach((b) => {
           const on = b === btn;
           b.classList.toggle("is-active", on);
           b.setAttribute("aria-pressed", String(on));
         });
+        document.documentElement.dataset.fdaiDataMode = mode;
         const bar = document.getElementById("sampleBoundaryBar");
         if (bar) bar.hidden = mode !== "sample";
+        renderExplorerContents();
+        window.dispatchEvent(new CustomEvent("fdai:data-mode-change", { detail: { mode } }));
       });
     });
   }
+
+  window.addEventListener("fdai:live-pulse", (ev) => {
+    const p = ev && ev.detail;
+    if (!p || typeof p !== "object") return;
+    if (p.measurement_status === "measured") {
+      const next = {};
+      if (typeof p.open_incidents === "number" && p.open_incidents > 0) next.incidents = String(p.open_incidents);
+      if (typeof p.hil_pending === "number" && p.hil_pending > 0) next["hil-queue"] = String(p.hil_pending);
+      liveMenuBadges = next;
+    } else {
+      liveMenuBadges = {};
+    }
+    if (isShellLiveMode()) renderExplorerContents();
+  });
 
   function closeExplorer() {
     const explorer = document.getElementById("fdaiExplorer");
@@ -328,7 +528,7 @@
 
   function renderExplorerLink(it, domId) {
     const isActive = it.id === currentPanelId;
-    const badge = it.badge || MENU_BADGES[it.id] || "";
+    const badge = resolveMenuBadge(it.id);
     const dot = isActive ? `<span class="explorer-active-dot" aria-hidden="true"></span>` : "";
     const badgeHtml = badge ? `<span class="explorer-badge">${badge}</span>` : "";
     const ariaCur = isActive ? ` aria-current="page"` : "";
@@ -511,29 +711,78 @@
     openExplorerForDomain(dom);
   }
 
+  let liveChatThreads = [];
+  let liveChatLoaded = false;
+  let liveChatReadySummary = null;
+  let liveChatActiveId = null;
+
+  function escapeShellHtml(v) {
+    return String(v == null ? "" : v).replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[m]));
+  }
+
+  async function refreshLiveSidebarState() {
+    if (!isShellLiveMode() || IS_STATIC_MOCK) return;
+    try {
+      const [readyRes, sessRes] = await Promise.all([
+        fetch("/readyz", { headers: { Accept: "application/json" } }).then((r) => r.ok ? r.json() : null).catch(() => null),
+        fetch("/api/v4/chat/sessions", { headers: { Accept: "application/json" } }).then((r) => r.ok ? r.json() : null).catch(() => null),
+      ]);
+      liveChatReadySummary = readyRes;
+      const items = Array.isArray(sessRes?.items) ? sessRes.items
+        : Array.isArray(sessRes?.sessions) ? sessRes.sessions
+        : Array.isArray(sessRes?.data?.sessions) ? sessRes.data.sessions
+        : [];
+      liveChatThreads = items.map((s, idx) => ({
+        id: String(s.id || s.session_id || s.conversation_id || `live-${idx}`),
+        title: String(s.title || s.summary || s.session_id || "실측 대화"),
+        sub: String(s.updated_at || s.created_at || "PostgreSQL 실측"),
+        unread: false,
+        starred: false,
+        user: "",
+        agent: "",
+        messages: Array.isArray(s.messages) ? s.messages : [],
+        isLiveRecord: true,
+      }));
+      liveChatLoaded = true;
+      if (liveChatThreads.length && !liveChatThreads.some((t) => t.id === liveChatActiveId)) {
+        liveChatActiveId = liveChatThreads[0].id;
+      }
+    } catch (_e) {
+      liveChatLoaded = true;
+    }
+    syncChatSidebarForDataMode();
+  }
+
   function renderHistoryItems() {
     const list = document.getElementById("chatHistoryList");
     const q = (document.getElementById("chatHistorySearch")?.value || "").trim().toLowerCase();
     if (!list) return;
-    const filtered = CHAT_THREADS.filter((t) => {
+    const liveMode = isShellLiveMode();
+    const pool = liveMode ? liveChatThreads : CHAT_THREADS;
+    const curId = liveMode ? liveChatActiveId : activeThreadId;
+    const filtered = pool.filter((t) => {
       if (histFilter === "unread" && !t.unread) return false;
       if (histFilter === "starred" && !t.starred) return false;
       if (q && !`${t.title} ${t.sub}`.toLowerCase().includes(q)) return false;
       return true;
     });
+    const emptyMsg = liveMode
+      ? (liveChatLoaded ? "저장된 Live 대화 이력이 없습니다." : "Live 대화 이력을 조회하는 중...")
+      : "일치하는 대화가 없습니다.";
     list.innerHTML = filtered.map((t) => `
-      <button type="button" class="chat-hist-item${t.id === activeThreadId ? " is-active" : ""}" data-thread-id="${t.id}">
-        <strong>${t.title}</strong>
-        <span class="chat-hist-sub">${t.sub}${t.unread ? " · 안 읽음" : ""}</span>
+      <button type="button" class="chat-hist-item${t.id === curId ? " is-active" : ""}" data-thread-id="${escapeShellHtml(t.id)}">
+        <strong>${escapeShellHtml(t.title)}</strong>
+        <span class="chat-hist-sub">${escapeShellHtml(t.sub)}${t.unread ? " · 안 읽음" : ""}</span>
       </button>
-    `).join("") || `<div class="chat-hist-sub">일치하는 대화가 없습니다.</div>`;
+    `).join("") || `<div class="chat-hist-sub">${emptyMsg}</div>`;
     list.querySelectorAll("[data-thread-id]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const id = btn.getAttribute("data-thread-id");
-        const found = CHAT_THREADS.find((x) => x.id === id);
+        const found = pool.find((x) => x.id === id);
         if (!found) return;
         found.unread = false;
-        activeThreadId = found.id;
+        if (liveMode) liveChatActiveId = found.id;
+        else activeThreadId = found.id;
         if (!chatFullscreen) dockHistoryOpen = false;
         renderActiveThread(found);
         renderHistoryItems();
@@ -600,7 +849,7 @@
       </div>
       <div class="chat-evidence-strip" aria-label="감사 근거 및 신선도">
         <span>원장: <code>#86641</code></span>
-        <span>해시: <code>sha256:9f4a...c10e</code></span>
+        <span>해시: <code>sha256:9f4a…c10e</code></span>
         <span>출처: <code>postgres-audit</code></span>
         <span>신선도: <strong>18초 전</strong></span>
         <span>미측정 0 대체: <strong>금지 준수</strong></span>
@@ -664,6 +913,33 @@
   function renderActiveThread(thread) {
     const inner = document.getElementById("chatTranscriptInner");
     if (!inner) return;
+    if (isShellLiveMode()) {
+      if (!thread || (!thread.user && !(thread.messages && thread.messages.length))) {
+        const opUp = Boolean(liveChatReadySummary && liveChatReadySummary.operator_service_reachable);
+        const dbUp = Boolean(liveChatReadySummary && liveChatReadySummary.db_configured);
+        const statusDesc = opUp
+          ? "Operator API와 실측 PostgreSQL 원장이 연결되었습니다. 질문을 입력하면 실측 근거 기반 응답을 조회합니다."
+          : (dbUp
+            ? "로컬 PostgreSQL 실측 원장은 연결되어 있으나 Operator API(:8010)가 미연결 상태입니다. Live 모드에서는 예제 대화를 표시하지 않습니다."
+            : "Live 연결 상태를 확인 중입니다. Live 모드에서는 예제 대화를 표시하지 않습니다.");
+        inner.innerHTML = `
+          <div class="chat-turn-agent">
+            <div class="chat-turn-meta">
+              <strong>FDAI Live 채팅</strong>
+              <span class="cs-badge ${opUp ? "tone-live" : "tone-neutral"}"><span class="cs-dot"></span>${opUp ? "실측 연결됨" : "Operator API 미연결"}</span>
+            </div>
+            <div class="agent-prose"><p>${escapeShellHtml(statusDesc)}</p></div>
+          </div>
+        `;
+        return;
+      }
+      const turns = (thread.messages || []).map((m) => `
+        <div class="chat-turn-user"><div class="chat-turn-meta"><span>운영자</span><span>${escapeShellHtml(m.ts || "")}</span></div><div class="chat-bubble-user">${escapeShellHtml(m.user || m.content || "")}</div></div>
+        ${m.agent ? `<div class="chat-turn-agent"><div class="chat-turn-meta"><strong>FDAI Live</strong><span class="cs-badge tone-live"><span class="cs-dot"></span>실측 응답</span></div><div class="agent-prose"><p>${escapeShellHtml(m.agent)}</p></div></div>` : ""}
+      `).join("");
+      inner.innerHTML = turns;
+      return;
+    }
     const extraTurns = (thread.messages || []).map((m) => `
       <div class="chat-turn-user"><div class="chat-turn-meta"><span>운영자</span><span>${m.ts}</span></div><div class="chat-bubble-user">${m.user}</div></div>
       <div class="chat-turn-agent"><div class="chat-turn-meta"><strong>Bragi · 운영 에이전트</strong><span class="cs-badge tone-live"><span class="cs-dot"></span>근거 검증됨</span></div>${buildRichAgentReplyHtml({ prose: m.agent })}</div>
@@ -679,6 +955,110 @@
       </div>
     ` : "") + extraTurns;
     wireRichReplyEvents(inner);
+  }
+
+  function syncChatSidebarForDataMode() {
+    const aside = document.getElementById("fdaiChatSidebar");
+    if (!aside) return;
+    const liveMode = isShellLiveMode();
+    const readiness = aside.querySelector(".chat-readiness");
+    if (readiness) {
+      if (liveMode) {
+        const opUp = Boolean(liveChatReadySummary && liveChatReadySummary.operator_service_reachable);
+        const dbUp = Boolean(liveChatReadySummary && liveChatReadySummary.db_configured);
+        const title = opUp ? "Operator API · PostgreSQL 실측 연결됨" : (dbUp ? "PostgreSQL 실측 연결됨 · Operator API 미연결" : "Live 연결 상태 미측정");
+        const badgeCls = opUp ? "tone-live" : "tone-neutral";
+        const badgeTxt = opUp ? "정상" : "미연결";
+        const detail = opUp
+          ? "실측 PostgreSQL 원장 및 Operator 대화 API가 응답 중입니다."
+          : "Operator API(:8010)가 실행되지 않아 실시간 대화 추론은 대기 중입니다. 예제 응답으로 대체하지 않습니다.";
+        readiness.innerHTML = `<summary><span>${escapeShellHtml(title)}</span><span class="cs-badge ${badgeCls}"><span class="cs-dot"></span>${badgeTxt}</span></summary><div style="padding-top:6px">${escapeShellHtml(detail)}</div>`;
+      } else {
+        readiness.innerHTML = `<summary><span>근거 서비스 5 / 5 연결됨 (Sample)</span><span class="cs-badge tone-human"><span class="cs-dot"></span>Sample</span></summary><div style="padding-top:6px">온톨로지 · 감사 로그 · 승인 요청 · 운영 규칙 · 지식 관리 시뮬레이션 표본</div>`;
+      }
+    }
+    const inspPane = aside.querySelector(".chat-inspector-pane");
+    if (inspPane) {
+      if (liveMode) {
+        const pulse = window.fdaiV4Live && typeof window.fdaiV4Live.getLastPulse === "function" ? window.fdaiV4Live.getLastPulse() : null;
+        const measured = pulse && pulse.measurement_status === "measured";
+        const resTxt = measured && pulse.ontology_resources_total != null ? `${Number(pulse.ontology_resources_total).toLocaleString()}개 실측` : "미측정";
+        const syncTxt = measured ? "실시간 연결됨" : "미측정";
+        const summaryTxt = measured
+          ? `로컬 운영 원장 기준 관측 리소스 ${resTxt}, 진행 인시던트 ${pulse.open_incidents ?? "미측정"}건, 승인 대기 ${pulse.hil_pending ?? "미측정"}건을 관측 중입니다.`
+          : "실측 펄스 또는 대화 세션 근거가 아직 수집되지 않았습니다. 미수집 값은 0이나 예제 값으로 대체하지 않습니다.";
+        inspPane.innerHTML = `
+          <div class="insp-card">
+            <div class="insp-title">대화 정보 (Live)</div>
+            <div class="insp-kv"><span>대상 화면</span><strong id="chatInspContext">${escapeShellHtml(currentPanelTitle)}</strong></div>
+            <div class="insp-kv"><span>관측 리소스</span><strong>${escapeShellHtml(resTxt)}</strong></div>
+            <div class="insp-kv"><span>원장 동기화</span><strong>${escapeShellHtml(syncTxt)}</strong></div>
+            <div class="insp-kv"><span>권한 경계</span><strong>조회 전용 · 실측 기준</strong></div>
+          </div>
+          <div class="insp-card">
+            <div class="insp-title">실측 현황 요약</div>
+            <p class="insp-summary" id="chatInspSummary">${escapeShellHtml(summaryTxt)}</p>
+          </div>
+          <div class="insp-card">
+            <div class="insp-title">바로 이동</div>
+            <a class="insp-action-item" href="${panelUrl("hil-queue")}"><span>승인 요청 대기열 열기</span><span>→</span></a>
+            <a class="insp-action-item" href="${panelUrl("ontology")}"><span>온톨로지 인스턴스 조회</span><span>→</span></a>
+            <a class="insp-action-item" href="${panelUrl("audit")}"><span>감사 원장 이력 보기</span><span>→</span></a>
+          </div>
+        `;
+      } else {
+        inspPane.innerHTML = `
+          <div class="insp-card">
+            <div class="insp-title">대화 정보 (Sample)</div>
+            <div class="insp-kv"><span>대상 화면</span><strong id="chatInspContext">${escapeShellHtml(currentPanelTitle)}</strong></div>
+            <div class="insp-kv"><span>구독 범위</span><strong>전체 Azure 구독 (3)</strong></div>
+            <div class="insp-kv"><span>추적 ID</span><strong class="cell-mono">corr-8a91f</strong></div>
+            <div class="insp-kv"><span>권한 경계</span><strong>조회 전용 · 위반 0건</strong></div>
+          </div>
+          <div class="insp-card">
+            <div class="insp-title">AI 요약</div>
+            <p class="insp-summary" id="chatInspSummary">prod-aks-02 CPU 포화 예측(+5m, 91%)과 kv-prod-kr 예외 만료 2건을 감사 원장과 대조했습니다. 변경 작업은 승인 요청(HIL-8841)으로 연결되었습니다.</p>
+          </div>
+          <div class="insp-card">
+            <div class="insp-title">추출된 후속 조치 초안</div>
+            <a class="insp-action-item" href="${panelUrl("hil-queue")}"><span>HIL-8841 · 노드 풀 확장 승인 검토</span><span>→</span></a>
+            <a class="insp-action-item" href="${panelUrl("ontology")}"><span>prod-aks-02 데이터 계통 확인</span><span>→</span></a>
+            <a class="insp-action-item" href="${panelUrl("trace")}"><span>corr-8a91f 실행 추적 열기</span><span>→</span></a>
+          </div>
+        `;
+      }
+    }
+    const slashPop = document.getElementById("chatSlashPopover");
+    if (slashPop) {
+      if (liveMode) {
+        slashPop.innerHTML = `
+          <button type="button" class="cmd-row" data-slash-pick="/risks 현재 화면 실측 리스크 요약"><span><strong>/risks</strong> · 현재 화면 실측 리스크 요약</span><span class="cs-badge tone-sre">SRE·보안</span></button>
+          <button type="button" class="cmd-row" data-slash-pick="/approvals 승인 대기 우선순위"><span><strong>/approvals</strong> · 실측 승인 대기 우선순위 정리</span><span class="cs-badge tone-human">승인</span></button>
+          <button type="button" class="cmd-row" data-slash-pick="/ontology 리소스 관계 및 데이터 계통"><span><strong>/ontology</strong> · 실측 리소스 관계 및 데이터 계통 조회</span><span class="cs-badge tone-live">온톨로지</span></button>
+          <button type="button" class="cmd-row" data-slash-pick="/trace 최신 실행 추적 요약"><span><strong>/trace</strong> · 최신 실행 추적 및 감사 근거 요약</span><span class="cs-badge tone-neutral">감사</span></button>
+        `;
+      } else {
+        slashPop.innerHTML = `
+          <button type="button" class="cmd-row" data-slash-pick="/risks 현재 화면 리스크 요약"><span><strong>/risks</strong> · 현재 화면 핵심 리스크 요약</span><span class="cs-badge tone-sre">SRE·보안</span></button>
+          <button type="button" class="cmd-row" data-slash-pick="/approvals 승인 대기 우선순위"><span><strong>/approvals</strong> · 승인 대기 12건 우선순위 정리</span><span class="cs-badge tone-human">승인</span></button>
+          <button type="button" class="cmd-row" data-slash-pick="/ontology prod-aks-02 관계 및 데이터 계통"><span><strong>/ontology</strong> · 리소스 관계 및 데이터 계통 조회</span><span class="cs-badge tone-live">온톨로지</span></button>
+          <button type="button" class="cmd-row" data-slash-pick="/trace corr-8a91f 실행 추적 요약"><span><strong>/trace</strong> · 실행 추적 워터폴 및 감사 근거 요약</span><span class="cs-badge tone-neutral">감사</span></button>
+        `;
+      }
+      slashPop.querySelectorAll("[data-slash-pick]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          slashPop.hidden = true;
+          const inp = document.getElementById("chatInput");
+          if (inp) inp.value = "";
+          appendUserAndAgentTurn(btn.getAttribute("data-slash-pick") || "");
+        });
+      });
+    }
+    renderHistoryItems();
+    const cur = liveMode
+      ? (liveChatThreads.find((t) => t.id === liveChatActiveId) || liveChatThreads[0] || null)
+      : (CHAT_THREADS.find((t) => t.id === activeThreadId) || CHAT_THREADS[0]);
+    renderActiveThread(cur);
   }
 
   function renderChatSidebar() {
@@ -781,8 +1161,15 @@
       </div>
     `;
 
-    renderHistoryItems();
-    renderActiveThread(CHAT_THREADS[0]);
+    syncChatSidebarForDataMode();
+    if (isShellLiveMode()) refreshLiveSidebarState().catch(() => {});
+    window.addEventListener("fdai:data-mode-change", () => {
+      syncChatSidebarForDataMode();
+      if (isShellLiveMode()) refreshLiveSidebarState().catch(() => {});
+    });
+    window.addEventListener("fdai:live-pulse", () => {
+      if (isShellLiveMode()) syncChatSidebarForDataMode();
+    });
 
     document.getElementById("chatCloseBtn")?.addEventListener("click", () => toggleChatSidebar(false));
     document.getElementById("chatFullscreenToggle")?.addEventListener("click", () => setChatFullscreen(!chatFullscreen));
@@ -810,6 +1197,10 @@
     document.getElementById("chatModeSelect")?.addEventListener("change", (e) => { chatMode = e.target.value; });
     document.getElementById("chatTierSelect")?.addEventListener("change", (e) => { chatTier = e.target.value; });
     document.getElementById("chatAttachBtn")?.addEventListener("click", () => {
+      if (isShellLiveMode()) {
+        showToast("Live 모드에서는 예제 로그 첨부를 삽입하지 않습니다. /chat 전체 화면에서 실제 근거를 연결하세요.");
+        return;
+      }
       stagedFile = "aks-oomkill-snapshot.log (18 KB)";
       const chip = document.getElementById("chatAttachmentChip");
       const nm = document.getElementById("chatAttachmentName");
@@ -833,7 +1224,7 @@
     aside.querySelectorAll("[data-slash-cmd]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const cmd = btn.getAttribute("data-slash-cmd") || "";
-        appendUserAndAgentTurn(`${cmd} - ${currentPanelTitle} 기준 조회`);
+        appendUserAndAgentTurn(`${cmd} — ${currentPanelTitle} 기준 조회`);
       });
     });
     document.getElementById("chatNewBtn")?.addEventListener("click", () => {
@@ -925,6 +1316,52 @@
     grounding.innerHTML = `<div class="chat-turn-meta"><strong>Bragi</strong><span class="cs-badge tone-sre"><span class="cs-dot"></span>관련 정보 확인 중</span></div><div class="agent-prose"><p>1. 현재 화면 스냅샷 수집 → 2. 온톨로지·정책 가드 대조 → 3. 근거 검증 중...</p></div>`;
     inner.appendChild(grounding);
     if (scroller) scroller.scrollTop = scroller.scrollHeight;
+
+    if (isShellLiveMode()) {
+      fetch("/api/v4/chat/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          message: text,
+          panel_id: currentPanelId,
+          domain: activeDomain,
+          mode: chatMode,
+          tier: chatTier,
+        }),
+      })
+        .then(async (resp) => {
+          const data = await resp.json().catch(() => null);
+          return { ok: resp.ok, status: resp.status, data };
+        })
+        .then((res) => {
+          isBusy = false;
+          if (busy) busy.hidden = true;
+          const answer = res.ok && res.data && (res.data.reply || res.data.answer || res.data.content || res.data.message);
+          if (answer) {
+            grounding.innerHTML = `
+              <div class="chat-turn-meta"><strong>FDAI Live · 응답</strong><span class="cs-badge tone-live"><span class="cs-dot"></span>실측 응답</span></div>
+              <div class="agent-prose"><p>${escapeShellHtml(answer)}</p></div>
+            `;
+          } else {
+            const reason = (res.data && (res.data.reason || res.data.error || res.data.detail)) || (res.status ? `HTTP ${res.status}` : "Operator API 미연결");
+            grounding.innerHTML = `
+              <div class="chat-turn-meta"><strong>FDAI Live</strong><span class="cs-badge tone-neutral"><span class="cs-dot"></span>미연결 · 미측정</span></div>
+              <div class="agent-prose"><p>실측 대화 백엔드 응답을 받지 못했습니다 (${escapeShellHtml(reason)}). Live 모드에서는 예제 답변을 생성하지 않습니다.</p></div>
+            `;
+          }
+          if (scroller) scroller.scrollTop = scroller.scrollHeight;
+        })
+        .catch(() => {
+          isBusy = false;
+          if (busy) busy.hidden = true;
+          grounding.innerHTML = `
+            <div class="chat-turn-meta"><strong>FDAI Live</strong><span class="cs-badge tone-neutral"><span class="cs-dot"></span>미연결</span></div>
+            <div class="agent-prose"><p>Operator API에 연결할 수 없습니다. Live 모드에서는 예제 답변을 생성하지 않습니다.</p></div>
+          `;
+          if (scroller) scroller.scrollTop = scroller.scrollHeight;
+        });
+      return;
+    }
 
     window.setTimeout(() => {
       if (!isBusy) return;
@@ -1193,6 +1630,8 @@
     window.requestAnimationFrame(() => autoDockWideGraphInspector(currentPanelId));
   }
 
+  let activeDrawerItemId = null;
+
   function openDrawerFrom(el) {
     if (chatOpen) toggleChatSidebar(false);
     lastDrawerTrigger = el;
@@ -1202,32 +1641,119 @@
     const b = document.getElementById("fdaiDrawerBody");
     const f = document.getElementById("fdaiDrawerFacts");
     const foot = bd?.querySelector(".drawer-foot");
-    if (t) t.textContent = el.getAttribute("data-drawer-title") || "상세 보기";
-    if (m) m.textContent = el.getAttribute("data-drawer-meta") || "";
-    if (b) b.textContent = el.getAttribute("data-drawer-body") || "";
+    const escD = escapeShellHtml;
+
+    const rawTitle = el.getAttribute("data-drawer-title") || "상세 보기";
+    const rawMeta = el.getAttribute("data-drawer-meta") || "";
+    const rawBody = el.getAttribute("data-drawer-body") || "";
+    const rawBadge = el.getAttribute("data-drawer-badge") || "";
+    const rawTone = el.getAttribute("data-drawer-tone") || "live";
+    const itemId = (el.getAttribute("data-drawer-item-id") || "").trim();
+
+    if (itemId) {
+      activeDrawerItemId = itemId;
+      setSelectedItemInUrl(itemId, { push: false });
+    } else {
+      activeDrawerItemId = null;
+    }
+
+    if (t) {
+      t.textContent = rawTitle;
+    }
+    if (m) {
+      m.replaceChildren();
+      if (rawBadge) {
+        const badge = document.createElement("span");
+        badge.className = `cs-badge tone-${rawTone}`;
+        const dot = document.createElement("span");
+        dot.className = "cs-dot";
+        badge.append(dot, document.createTextNode(rawBadge));
+        m.appendChild(badge);
+      }
+      if (rawMeta) {
+        const sp = document.createElement("span");
+        sp.textContent = rawMeta;
+        m.appendChild(sp);
+      }
+    }
+    if (b) {
+      b.className = rawBody ? "drawer-summary-card" : "drawer-desc";
+      b.textContent = rawBody;
+      b.hidden = !rawBody;
+    }
+    if (f) {
+      const rawFacts = el.getAttribute("data-drawer-facts") || "";
+      const rawTech = el.getAttribute("data-drawer-tech") || "";
+      const pairs = rawFacts.split(";").filter(Boolean).map((pair) => {
+        const idx = pair.indexOf("|");
+        if (idx === -1) return [pair.trim(), ""];
+        return [pair.slice(0, idx).trim(), pair.slice(idx + 1).trim()];
+      });
+      const techPairs = rawTech.split(";").filter(Boolean).map((pair) => {
+        const idx = pair.indexOf("|");
+        if (idx === -1) return [pair.trim(), ""];
+        return [pair.slice(0, idx).trim(), pair.slice(idx + 1).trim()];
+      });
+      const primaryRows = [];
+      const autoTechRows = [...techPairs];
+      pairs.forEach(([k, v]) => {
+        const isTechKey = /식별자|원본|해시|sha256|시퀀스|키|ID|URI|ARN|ARM/i.test(k);
+        if (isTechKey && !rawTech) autoTechRows.push([k, v]);
+        else primaryRows.push([k, v]);
+      });
+
+      const gridHtml = primaryRows.length
+        ? `<div class="drawer-kv-grid">${primaryRows.map(([k, v]) => `
+            <div class="drawer-kv-cell">
+              <dt>${escD(k)}</dt>
+              <dd>${escD(v || "—")}</dd>
+            </div>`).join("")}</div>`
+        : "";
+
+      const techHtml = autoTechRows.length
+        ? `<details class="drawer-tech-details">
+            <summary><span>기술 상세 (${autoTechRows.length}개 항목)</span><span class="drawer-tech-hint">펼쳐서 확인</span></summary>
+            <div class="drawer-tech-list">${autoTechRows.map(([k, v]) => `
+              <div class="drawer-tech-row"><span>${escD(k)}</span><code class="cell-mono">${escD(v || "—")}</code></div>`).join("")}
+            </div>
+          </details>`
+        : "";
+      f.innerHTML = `${gridHtml}${techHtml}`;
+    }
     if (foot) {
+      let copyBtn = document.getElementById("fdaiDrawerCopyLink");
+      if (!copyBtn) {
+        copyBtn = document.createElement("button");
+        copyBtn.type = "button";
+        copyBtn.id = "fdaiDrawerCopyLink";
+        copyBtn.className = "cs-btn cs-btn-sm";
+        copyBtn.textContent = "링크 복사";
+        copyBtn.addEventListener("click", () => {
+          const shareUrl = location.href;
+          if (navigator.clipboard?.writeText) navigator.clipboard.writeText(shareUrl).catch(() => {});
+          showToast("현재 항목의 고유 URL을 복사했습니다.");
+        });
+        foot.prepend(copyBtn);
+      }
+      copyBtn.hidden = !itemId;
+
       let jmp = document.getElementById("fdaiDrawerJump");
       if (!jmp) {
         jmp = document.createElement("a");
         jmp.id = "fdaiDrawerJump";
-        jmp.className = "cs-btn cs-btn-sm";
+        jmp.className = "cs-btn cs-btn-sm cs-btn-accent";
         foot.prepend(jmp);
       }
-      const rawHref = el.getAttribute("data-drawer-href") || panelUrl("hil-queue");
-      const hashMatch = rawHref.match(/^#tab=([a-z0-9-]+)$/i);
-      const cleanHref = hashMatch ? panelUrl(hashMatch[1]) : rawHref;
-      jmp.href = cleanHref;
-      jmp.textContent = el.getAttribute("data-drawer-href-label") || "관련 화면 바로 이동 →";
-    }
-    if (t) t.textContent = el.getAttribute("data-drawer-title") || "상세 보기";
-    if (m) m.textContent = el.getAttribute("data-drawer-meta") || "";
-    if (b) b.textContent = el.getAttribute("data-drawer-body") || "";
-    if (f) {
-      const rawFacts = el.getAttribute("data-drawer-facts") || "";
-      f.innerHTML = rawFacts.split(";").filter(Boolean).map((pair) => {
-        const [k, v] = pair.split("|");
-        return `<div class="drawer-fact-row"><dt>${k || ""}</dt><dd>${v || ""}</dd></div>`;
-      }).join("");
+      const rawHref = (el.getAttribute("data-drawer-href") || "").trim();
+      if (rawHref) {
+        const hashMatch = rawHref.match(/^#tab=([a-z0-9-]+)$/i);
+        const cleanHref = hashMatch ? panelUrl(hashMatch[1]) : rawHref;
+        jmp.href = cleanHref;
+        jmp.textContent = el.getAttribute("data-drawer-href-label") || "관련 상세 화면 열기 →";
+        jmp.hidden = false;
+      } else {
+        jmp.hidden = true;
+      }
     }
     if (bd) bd.hidden = false;
     document.getElementById("fdaiDrawerClose")?.focus();
@@ -1236,6 +1762,10 @@
   function closeDrawer() {
     const bd = document.getElementById("fdaiDrawerBackdrop");
     if (bd) bd.hidden = true;
+    if (activeDrawerItemId) {
+      activeDrawerItemId = null;
+      setSelectedItemInUrl(null, { clearCompat: false });
+    }
     lastDrawerTrigger?.focus?.();
   }
 
@@ -1401,7 +1931,7 @@
         window.setTimeout(() => { btn.textContent = orig; }, 1200);
       });
     });
-    // Detail drawer (delegated click + Enter/Space keyboard access - supports dynamic tables & cards)
+    // Detail drawer (delegated click + Enter/Space keyboard access — supports dynamic tables & cards)
     document.addEventListener("click", (e) => {
       if (!(e.target instanceof Element)) return;
       const el = e.target.closest("[data-drawer-title]");
@@ -1594,11 +2124,37 @@
           });
         }
       };
-      gwb.querySelectorAll("[data-gnode-name]").forEach((el) => {
-        el.addEventListener("click", () => selectNode(el));
-        el.addEventListener("keydown", (e) => {
-          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectNode(el); }
-        });
+      gwb.addEventListener("click", (e) => {
+        const target = e.target && e.target.closest ? e.target.closest(".graph-node[data-gnode-name], .tree-node-btn[data-gnode-name]") : null;
+        if (target && gwb.contains(target)) {
+          selectNode(target);
+          gwb.dispatchEvent(new CustomEvent("fdai:graph-node-select", {
+            bubbles: true,
+            detail: {
+              id: target.getAttribute("data-gnode-id") || "",
+              name: target.getAttribute("data-gnode-name") || "",
+              type: target.getAttribute("data-gnode-type") || "",
+              element: target
+            }
+          }));
+        }
+      });
+      gwb.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        const target = e.target && e.target.closest ? e.target.closest(".graph-node[data-gnode-name], .tree-node-btn[data-gnode-name]") : null;
+        if (target && gwb.contains(target)) {
+          e.preventDefault();
+          selectNode(target);
+          gwb.dispatchEvent(new CustomEvent("fdai:graph-node-select", {
+            bubbles: true,
+            detail: {
+              id: target.getAttribute("data-gnode-id") || "",
+              name: target.getAttribute("data-gnode-name") || "",
+              type: target.getAttribute("data-gnode-type") || "",
+              element: target
+            }
+          }));
+        }
       });
       // Live SVG edge-kind filter checkboxes & Zoom controls
       gwb.querySelectorAll("[data-svg-edge-filter]").forEach((cb) => {
@@ -2523,6 +3079,10 @@
     const scrim = document.getElementById("fdaiFloatDrawerScrim");
     const drawer = document.getElementById("fdaiFloatDrawer");
     const wasOpen = Boolean((drawer && !drawer.hidden) || activeInlineInspector);
+    if (activeFloatItemId) {
+      activeFloatItemId = null;
+      setSelectedItemInUrl(null, { clearCompat: false });
+    }
     if (scrim) scrim.hidden = true;
     if (drawer) {
       drawer.hidden = true;
@@ -2718,9 +3278,17 @@
       });
     });
   }
+  let activeFloatItemId = null;
+
   function openFloatingDrawer(opts = {}) {
     if (chatOpen) toggleChatSidebar(false);
     lastFloatDrawerTrigger = opts.triggerEl || document.activeElement;
+    if (opts.itemId) {
+      activeFloatItemId = String(opts.itemId).trim();
+      setSelectedItemInUrl(activeFloatItemId, { push: false });
+    } else {
+      activeFloatItemId = null;
+    }
     const { scrim, drawer } = ensureFloatDrawer();
     const t = document.getElementById("fdaiFloatDrawerTitle");
     const s = document.getElementById("fdaiFloatDrawerSub");
@@ -2732,7 +3300,7 @@
     if (b) {
       if (opts.badgeText) {
         b.className = `cs-badge tone-${opts.badgeTone || "live"}`;
-        b.innerHTML = `<span class="cs-dot"></span>${opts.badgeText}`;
+        b.innerHTML = `<span class="cs-dot"></span>${escapeShellHtml(opts.badgeText)}`;
         b.hidden = false;
       } else b.hidden = true;
     }
@@ -2740,22 +3308,30 @@
       if (opts.bodyHtml) {
         bodyEl.innerHTML = opts.bodyHtml;
       } else {
-        const escD = (v) => String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const escD = escapeShellHtml;
+        const proseHtml = opts.body ? `<div class="drawer-summary-card">${escD(opts.body)}</div>` : "";
         const factsHtml = Array.isArray(opts.facts) && opts.facts.length
-          ? `<div class="insp-card">${opts.facts.map(([k, v]) => `<div class="insp-kv"><span>${escD(k)}</span><strong>${escD(v)}</strong></div>`).join("")}</div>`
+          ? `<div class="drawer-kv-grid">${opts.facts.map(([k, v]) => `<div class="drawer-kv-cell"><dt>${escD(k)}</dt><dd>${escD(v)}</dd></div>`).join("")}</div>`
           : "";
-        const proseHtml = opts.body ? `<div class="insp-card"><div class="insp-title">상세 근거 및 설명</div><p class="insp-summary">${escD(opts.body)}</p></div>` : "";
-        bodyEl.innerHTML = `${factsHtml}${proseHtml}`;
+        const techHtml = Array.isArray(opts.techFacts) && opts.techFacts.length
+          ? `<details class="drawer-tech-details"><summary><span>기술 상세 (${opts.techFacts.length}개 항목)</span><span class="drawer-tech-hint">펼쳐서 확인</span></summary><div class="drawer-tech-list">${opts.techFacts.map(([k, v]) => `<div class="drawer-tech-row"><span>${escD(k)}</span><code class="cell-mono">${escD(v)}</code></div>`).join("")}</div></details>`
+          : "";
+        bodyEl.innerHTML = `${proseHtml}${factsHtml}${techHtml}`;
       }
     }
     if (footEl) {
       const resolvedLinks = (opts.footerLinks && opts.footerLinks.length)
         ? opts.footerLinks
         : (opts.href ? [{ href: opts.href, label: opts.hrefLabel || "관련 화면 열기 →" }] : []);
-      const links = resolvedLinks.map((l) => `<a class="cs-btn cs-btn-sm cs-btn-accent" href="${l.href}">${l.label}</a>`).join("");
+      const links = resolvedLinks.map((l) => `<a class="cs-btn cs-btn-sm cs-btn-accent" href="${escapeShellHtml(l.href)}">${escapeShellHtml(l.label)}</a>`).join("");
+      const copyBtn = activeFloatItemId ? `<button type="button" class="cs-btn cs-btn-sm" id="fdaiFloatDrawerCopyLink">링크 복사</button>` : "";
       const askPrompt = opts.askChatPrompt || (opts.title ? `${opts.title} 항목의 원인 근거와 권장 조치를 설명해 줘.` : "");
       const ask = askPrompt ? `<button type="button" class="cs-btn cs-btn-sm" id="fdaiFloatDrawerAsk">AI 채팅에 묻기</button>` : "";
-      footEl.innerHTML = `<div class="toolbar-inline">${links}</div><div class="toolbar-inline">${ask}<button type="button" class="cs-btn cs-btn-sm" id="fdaiFloatDrawerDismiss">닫기</button></div>`;
+      footEl.innerHTML = `<div class="toolbar-inline">${links}${copyBtn}</div><div class="toolbar-inline">${ask}<button type="button" class="cs-btn cs-btn-sm" id="fdaiFloatDrawerDismiss">닫기</button></div>`;
+      document.getElementById("fdaiFloatDrawerCopyLink")?.addEventListener("click", () => {
+        if (navigator.clipboard?.writeText) navigator.clipboard.writeText(location.href).catch(() => {});
+        showToast("현재 항목의 고유 URL을 복사했습니다.");
+      });
       document.getElementById("fdaiFloatDrawerDismiss")?.addEventListener("click", () => closeFloatingDrawer(false));
       document.getElementById("fdaiFloatDrawerAsk")?.addEventListener("click", () => {
         closeFloatingDrawer(false);
@@ -3579,6 +4155,81 @@
     `;
   }
 
+  const liveSettingsCache = {};
+
+  function settingsEndpointForPanel(panelId) {
+    const suffix = String(panelId || "settings-general").replace(/^settings-/, "");
+    return `/api/v4/settings/${encodeURIComponent(suffix)}`;
+  }
+
+  function renderLiveSettingsOverlayBody(panelId) {
+    const entry = liveSettingsCache[panelId];
+    const ep = settingsEndpointForPanel(panelId);
+    if (!entry || entry.loading) {
+      return `
+        <div class="settings-overlay-page-head">
+          <div>
+            <h3>Live 실측 설정 조회 중</h3>
+            <p>Pure-Rust Axum API(${escapeShellHtml(ep)})에서 실측 설정 상태를 불러오고 있습니다. Live 모드에서는 예제 설정을 표시하지 않습니다.</p>
+          </div>
+          <button type="button" class="cs-btn cs-btn-sm" id="soLiveRefreshBtn">새로고침 ↻</button>
+        </div>
+      `;
+    }
+    const payload = entry.data || {};
+    const status = String(payload.measurement_status || payload.measurement_state || "not-measured");
+    const isMeasured = status === "measured" || status === "partial";
+    const rows = [];
+    Object.entries(payload).forEach(([k, v]) => {
+      if (k === "measurement_status" || k === "measurement_state") return;
+      if (v == null) {
+        rows.push([k, "미측정"]);
+      } else if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
+        rows.push([k, String(v)]);
+      } else if (Array.isArray(v)) {
+        rows.push([k, v.length ? `${v.length}건 수집됨` : "0건 (수집된 항목 없음)"]);
+      } else if (typeof v === "object") {
+        const subKeys = Object.keys(v);
+        rows.push([k, subKeys.length ? subKeys.slice(0, 4).map((sk) => `${sk}=${v[sk] ?? "미측정"}`).join(" · ") : "비어 있음"]);
+      }
+    });
+    const listHtml = rows.length
+      ? rows.slice(0, 16).map(([k, val]) => `<div class="settings-overlay-row"><div class="settings-overlay-row-meta"><strong>${escapeShellHtml(k)}</strong><span>${escapeShellHtml(val)}</span></div></div>`).join("")
+      : `<div class="settings-overlay-row"><div class="settings-overlay-row-meta"><strong>수집된 설정 항목 없음</strong><span>실측 DB/환경에서 반환된 설정 항목이 없습니다. 예제 데이터로 대체하지 않습니다.</span></div></div>`;
+    return `
+      <div class="settings-overlay-page-head">
+        <div>
+          <h3>Live 실측 설정 (${escapeShellHtml(panelId.replace(/^settings-/, ""))})</h3>
+          <p>API ${escapeShellHtml(ep)} 기준 실측 값입니다. 전체 편집 및 상세 항목은 우측 상단 '전체 페이지'에서 확인하세요.</p>
+        </div>
+        <div class="settings-overlay-row-ctrl">
+          <span class="cs-badge ${isMeasured ? "tone-live" : "tone-neutral"}"><span class="cs-dot"></span>${isMeasured ? "PostgreSQL 실측" : "미측정"}</span>
+          <button type="button" class="cs-btn cs-btn-sm" id="soLiveRefreshBtn">새로고침 ↻</button>
+        </div>
+      </div>
+      <div class="settings-overlay-card">
+        ${listHtml}
+      </div>
+    `;
+  }
+
+  async function loadLiveSettingsForOverlay(panelId) {
+    if (!isShellLiveMode() || IS_STATIC_MOCK) return;
+    liveSettingsCache[panelId] = { loading: true, data: null };
+    const ep = settingsEndpointForPanel(panelId);
+    try {
+      const resp = await fetch(ep, { headers: { Accept: "application/json" } });
+      const data = await resp.json().catch(() => null);
+      liveSettingsCache[panelId] = { loading: false, ok: resp.ok, status: resp.status, data };
+    } catch (_e) {
+      liveSettingsCache[panelId] = { loading: false, ok: false, status: 0, data: null };
+    }
+    const scrim = document.getElementById("fdaiSettingsOverlayScrim");
+    if (scrim && !scrim.hidden && soState.activePanel === panelId && isShellLiveMode()) {
+      renderSettingsOverlay();
+    }
+  }
+
   function renderSettingsOverlay() {
     const navList = document.getElementById("soNavList");
     const content = document.getElementById("soContent");
@@ -3605,7 +4256,12 @@
         ).join("")}</nav>`
       : "";
 
-    const isReadonlyDiag = soState.activePanel === "settings-diagnostics";
+    const liveMode = isShellLiveMode();
+    if (liveMode && !liveSettingsCache[soState.activePanel]) {
+      loadLiveSettingsForOverlay(soState.activePanel);
+    }
+
+    const isReadonlyDiag = soState.activePanel === "settings-diagnostics" || liveMode;
     const highImpact = soState.activePanel === "settings-runtime"
       && (soState.autonomyProfile !== "standard-shadow" || Number(soState.approvalExpiryMin) >= 60);
     const saveDisabled = highImpact && !soState.riskConfirmed;
@@ -3628,9 +4284,14 @@
         </div>
       </div>
       ${subtabsHtml}
-      ${renderSettingsPanelBody(soState.activePanel)}
+      ${liveMode ? renderLiveSettingsOverlayBody(soState.activePanel) : renderSettingsPanelBody(soState.activePanel)}
       ${saveBarHtml}
     `;
+    document.getElementById("soLiveRefreshBtn")?.addEventListener("click", () => {
+      delete liveSettingsCache[soState.activePanel];
+      loadLiveSettingsForOverlay(soState.activePanel);
+      renderSettingsOverlay();
+    });
 
     navList.querySelectorAll("[data-so-group]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -3921,6 +4582,9 @@
       activatePanel(pid);
       window.dispatchEvent(new CustomEvent("fdai:panelchange", { detail: { panelId: pid, url: location.pathname } }));
     }
+    window.dispatchEvent(new CustomEvent("fdai:selectionchange", {
+      detail: { itemId: getSelectedItemFromUrl() || null, panelId: pid || currentPanelId, url: location.href }
+    }));
   });
   window.addEventListener("hashchange", () => {
     closeFloatingDrawer();
@@ -4770,7 +5434,7 @@
               const tone = /위험|장애|차단|초과|경고/.test(gStatus) ? "sec" : /주의|예측|승인|A3|Shadow/.test(gStatus) ? "sre" : "live";
               node.setAttribute("data-ut-title", gName);
               if (gStatus) node.setAttribute("data-ut-val", gStatus);
-              node.setAttribute("data-ut-body", [gType, gNote].filter(Boolean).join(" - "));
+              node.setAttribute("data-ut-body", [gType, gNote].filter(Boolean).join(" — "));
               node.setAttribute("data-ut-meta", gLineage ? `${gLineage} · 클릭하여 상세 보기` : "클릭하여 우측 상세 인스펙터 열기");
               node.setAttribute("data-ut-tone", tone);
               return;
@@ -4915,7 +5579,7 @@
         if (!lbl) return;
         const cls = el.className || "";
         const tone = cls.includes("hm-4") ? "sec" : cls.includes("hm-3") || cls.includes("hm-fc") ? "sre" : cls.includes("unmeasured") ? "neutral" : "live";
-        const parts = lbl.split(/\s*[-·]\s*/);
+        const parts = lbl.split(/\s*[—·]\s*/);
         el.setAttribute("data-ut-title", parts[0] || "활동 히트맵 셀");
         el.setAttribute("data-ut-body", parts.slice(1).join(" · ") || lbl);
         if (peak) el.setAttribute("data-ut-meta", `주요 대상: ${peak}`);
@@ -5992,7 +6656,8 @@
 
     function filterInventory(rawQ) {
       const q = (rawQ || "").trim().toLowerCase();
-      const src = liveInventory && liveInventory.length ? liveInventory : FULL_INVENTORY_FALLBACK;
+      const isLive = isShellLiveMode();
+      const src = isLive ? (Array.isArray(liveInventory) ? liveInventory : []) : FULL_INVENTORY_FALLBACK;
       if (!q) return src.slice(0, 24);
       return src.filter((item) =>
         [item.name, item.id, item.type, item.sub, item.rg, item.status].join(" ").toLowerCase().includes(q)
@@ -6181,24 +6846,29 @@
     if (!inp || !listbox || !pane || inp.dataset.searchWired === "1") return;
     inp.dataset.searchWired = "1";
 
-    const nodes = Array.from(pane.querySelectorAll("g.graph-node[data-gnode-name]"));
-    const edges = Array.from(pane.querySelectorAll("g.svg-edge-group"));
-    const items = nodes.map((n) => ({
-      node: n,
-      id: n.getAttribute("data-gnode-id") || "",
-      name: n.getAttribute("data-gnode-name") || "",
-      type: n.getAttribute("data-gnode-type") || "",
-      status: n.getAttribute("data-gnode-status") || "",
-      lineage: n.getAttribute("data-gnode-lineage") || "",
-      icon: n.querySelector("image")?.getAttribute("href") || "/azure-icons/monitor.svg",
-      tone: /만료|차단|이상/.test(n.getAttribute("data-gnode-status") || "") ? "sec" : /예측|주의|92%/.test(n.getAttribute("data-gnode-status") || "") ? "sre" : "live"
-    }));
+    const collectArchNodes = () => {
+      const curNodes = Array.from(pane.querySelectorAll("g.graph-node[data-gnode-name]"));
+      const curEdges = Array.from(pane.querySelectorAll("g.svg-edge-group"));
+      const curItems = curNodes.map((n) => ({
+        node: n,
+        id: n.getAttribute("data-gnode-id") || "",
+        name: n.getAttribute("data-gnode-name") || "",
+        type: n.getAttribute("data-gnode-type") || "",
+        status: n.getAttribute("data-gnode-status") || "",
+        lineage: n.getAttribute("data-gnode-lineage") || "",
+        icon: n.querySelector("image")?.getAttribute("href") || "/azure-icons/monitor.svg",
+        tone: /만료|차단|이상/.test(n.getAttribute("data-gnode-status") || "") ? "sec" : /예측|주의|92%/.test(n.getAttribute("data-gnode-status") || "") ? "sre" : "live"
+      }));
+      return { nodes: curNodes, edges: curEdges, items: curItems };
+    };
+    let { nodes, edges, items } = collectArchNodes();
     let filtered = items;
     let activeIdx = -1;
 
     const close = () => { listbox.hidden = true; inp.setAttribute("aria-expanded", "false"); activeIdx = -1; };
     const selectItem = (it) => {
       if (!it) return;
+      ({ nodes, edges, items } = collectArchNodes());
       inp.value = it.name;
       close();
       nodes.forEach((n) => {
@@ -6214,6 +6884,7 @@
       if (countEl) { countEl.hidden = false; countEl.textContent = `포커스: ${it.name}`; }
     };
     const render = (rawQ) => {
+      ({ nodes, edges, items } = collectArchNodes());
       const q = (rawQ || "").trim().toLowerCase();
       filtered = !q ? items : items.filter((it) => [it.name, it.type, it.status, it.lineage, it.node.textContent].join(" ").toLowerCase().includes(q));
       activeIdx = filtered.length ? 0 : -1;
@@ -6315,7 +6986,7 @@
         downstream: [
           { id: "d-rule", title: "AKS 클러스터 중지 감지", sub: "Rule · 감시 전용 · 발동", icon: "/agent-icons/mimir.svg", owner: "Mimir", tone: "sec", ts: "14:02:26" },
           { id: "d-alert", title: "Teams · Pager 핵심 알림", sub: "운영자 확인 완료 (2분)", icon: "/agent-icons/forseti.svg", owner: "Forseti", tone: "sre", ts: "14:02:27" },
-          { id: "d-saga", title: "Saga 감사 원장 #86712", sub: "sha256:9f4a...c10e 봉인", icon: "/agent-icons/saga.svg", owner: "Saga", tone: "live", ts: "14:02:28" }
+          { id: "d-saga", title: "Saga 감사 원장 #86712", sub: "sha256:9f4a…c10e 봉인", icon: "/agent-icons/saga.svg", owner: "Saga", tone: "live", ts: "14:02:28" }
         ],
         diffs: [
           { raw: 'properties.powerState.code = "Stopped"', canon: 'recorded_state.operational = "stopped"', rule: "normalize_arm_aks_power_state@1.4" },
@@ -6343,8 +7014,8 @@ fn project_aks_state(arg: &ArmSnapshot, act: &ActivityEvent) -> RecordedState {
           { ts: "14:02:27", kind: "핵심 알림", tone: "sre", title: "Teams · Pager 운영자 에스컬레이션", meta: "2분 내 확인 완료 · 영향 서비스 orders-api/billing-api" }
         ],
         audits: [
-          { id: "#86712", ts: "14:02:28", hash: "sha256:9f4a...c10e", title: "온톨로지 상태 전이 봉인 (running → stopped)", detail: "원천 3건 일치 + 미수집 1건 명시 · 조회 전용(변경 실행 없음)" },
-          { id: "#86641", ts: "19:36:14", hash: "sha256:3b18...77d2", title: "이전 정상 상태 rev #18 스냅샷 기록", detail: "CPU 포화 예측 +5m · HIL-8841 승인 대기 연계" }
+          { id: "#86712", ts: "14:02:28", hash: "sha256:9f4a…c10e", title: "온톨로지 상태 전이 봉인 (running → stopped)", detail: "원천 3건 일치 + 미수집 1건 명시 · 조회 전용(변경 실행 없음)" },
+          { id: "#86641", ts: "19:36:14", hash: "sha256:3b18…77d2", title: "이전 정상 상태 rev #18 스냅샷 기록", detail: "CPU 포화 예측 +5m · HIL-8841 승인 대기 연계" }
         ]
       },
       {
@@ -6366,7 +7037,7 @@ fn project_aks_state(arg: &ArmSnapshot, act: &ActivityEvent) -> RecordedState {
         downstream: [
           { id: "d-rule", title: "방화벽 개방 포트 변경 감지", sub: "Rule · 감시 전용 · 보안", icon: "/agent-icons/mimir.svg", owner: "Mimir", tone: "sec", ts: "18:44:18" },
           { id: "d-alert", title: "Slack 보안 담당자 알림", sub: "변경 이력 첨부 전송됨", icon: "/agent-icons/forseti.svg", owner: "Forseti", tone: "sre", ts: "18:44:19" },
-          { id: "d-saga", title: "Saga 감사 원장 #86694", sub: "sha256:7d12...e409 봉인", icon: "/agent-icons/saga.svg", owner: "Saga", tone: "live", ts: "18:44:20" }
+          { id: "d-saga", title: "Saga 감사 원장 #86694", sub: "sha256:7d12…e409 봉인", icon: "/agent-icons/saga.svg", owner: "Saga", tone: "live", ts: "18:44:20" }
         ],
         diffs: [
           { raw: 'securityRules[14].destinationPortRange = "22"', canon: 'exposure.public_mgmt_ports = [22]', rule: "normalize_nsg_inbound_rules@1.3" },
@@ -6391,8 +7062,8 @@ fn evaluate_nsg_rule(rule: &NsgRule) -> ConfigDrift {
           { ts: "18:44:19", kind: "핵심 알림", tone: "sre", title: "Slack #sec-ops 핵심 알림 전송", meta: "담당자 확인 중 · 회수 초안 준비됨" }
         ],
         audits: [
-          { id: "#86694", ts: "18:44:20", hash: "sha256:7d12...e409", title: "NSG 기준선 이탈 탐지 · 알림 감사 봉인", detail: "Activity Log a918 + ARM 스냅샷 g51 연결" },
-          { id: "#86510", ts: "09:00:02", hash: "sha256:1c88...04ab", title: "일일 기준선 일치 확인 (rev #41)", detail: "개방 관리 포트 0건 정상 검증" }
+          { id: "#86694", ts: "18:44:20", hash: "sha256:7d12…e409", title: "NSG 기준선 이탈 탐지 · 알림 감사 봉인", detail: "Activity Log a918 + ARM 스냅샷 g51 연결" },
+          { id: "#86510", ts: "09:00:02", hash: "sha256:1c88…04ab", title: "일일 기준선 일치 확인 (rev #41)", detail: "개방 관리 포트 0건 정상 검증" }
         ]
       },
       {
@@ -6522,7 +7193,7 @@ fn project_instance(raw: &ArmSnapshot) -> OntologyInstance {
           { ts: "19:40:36", kind: "규칙 평가", tone: isAlert ? "sre" : "live", title: isAlert ? "주의/보안 규칙 매칭 · 핵심 알림 연계" : "기준선 정책 위반 0건 확인", meta: "조회 전용 · 안전 경계 준수" }
         ],
         audits: [
-          { id: "#86680", ts: "19:40:37", hash: "sha256:5e21...9a4c", title: `${inst.name} ${inst.rev} 계통 스냅샷 봉인`, detail: `출처: Resource Graph + Azure Monitor · 정책 위반 0건` }
+          { id: "#86680", ts: "19:40:37", hash: "sha256:5e21…9a4c", title: `${inst.name} ${inst.rev} 계통 스냅샷 봉인`, detail: `출처: Resource Graph + Azure Monitor · 정책 위반 0건` }
         ]
       });
     }
@@ -6581,10 +7252,100 @@ fn project_instance(raw: &ArmSnapshot) -> OntologyInstance {
     let showAncestors = true;
     let showDescendants = true;
     let selectedStageNode = null;
-    let allInstances = buildFleetInventory(2213);
+    let sampleInstancesCache = null;
+    let liveInstancesCache = [];
+    let liveInstancesLoaded = false;
+    let allInstances = isShellLiveMode() ? [] : (sampleInstancesCache = buildFleetInventory(2213));
     let virtualRows = [];
     const ROW_H = 44;
     const OVERSCAN = 8;
+
+    function mapLiveTypeKey(rawType) {
+      const s = String(rawType || "").toLowerCase();
+      if (s.includes("kubernetes") || s.includes("aks")) return "kubernetes-cluster";
+      if (s.includes("network-security") || s.includes("nsg")) return "network-security-group";
+      if (s.includes("postgres") || s.includes("sql")) return "postgresql-flexible";
+      if (s.includes("key-vault") || s.includes("vault")) return "key-vault";
+      if (s.includes("redis") || s.includes("cache")) return "cache-redis";
+      if (s.includes("firewall")) return "firewall";
+      return "data-storage";
+    }
+
+    function iconForLineageType(tk) {
+      if (tk === "kubernetes-cluster") return "/azure-icons/kubernetes-services.svg";
+      if (tk === "network-security-group") return "/azure-icons/network-security-group.svg";
+      if (tk === "postgresql-flexible") return "/azure-icons/postgresql.svg";
+      if (tk === "key-vault") return "/azure-icons/key-vault.svg";
+      if (tk === "cache-redis") return "/azure-icons/cache-redis.svg";
+      if (tk === "firewall") return "/azure-icons/firewall.svg";
+      return "/azure-icons/storage-account.svg";
+    }
+
+    async function loadLiveLineageInstances() {
+      if (!isShellLiveMode() || IS_STATIC_MOCK) return;
+      try {
+        const resp = await fetch("/api/v4/governance/ontology/instances?limit=250", { headers: { Accept: "application/json" } });
+        if (!resp.ok) { liveInstancesLoaded = true; allInstances = []; renderAll(); return; }
+        const data = await resp.json().catch(() => null);
+        const rows = Array.isArray(data?.items) ? data.items : Array.isArray(data?.instances) ? data.instances : [];
+        liveInstancesCache = rows.map((r, idx) => {
+          const id = String(r.id || r.resource_id || r.subject_ref || `live-${idx}`);
+          const name = String(r.name || r.display_name || id.split("/").pop() || id);
+          const rawType = String(r.resource_type || r.object_type || "Resource");
+          const tk = mapLiveTypeKey(rawType);
+          const sub = String(r.subscription || r.subscription_id || "미측정");
+          const rg = String(r.resource_group || "미측정");
+          const st = String(r.operational_state || r.status || r.availability || "관측됨");
+          const isMiss = /미수집|unknown|unmeasured|unavailable/i.test(st);
+          const isAlert = /stopped|degraded|failed|critical|warning|위반|장애/i.test(st);
+          const inst = {
+            id,
+            name,
+            typeKey: tk,
+            typeLabel: `Resource / ${rawType}`,
+            sub,
+            rg,
+            state: st,
+            rev: r.revision ? `rev #${r.revision}` : "실측 원장",
+            tone: isMiss ? "neutral" : isAlert ? "sre" : "live",
+            statusBucket: isMiss ? "missing" : isAlert ? "alert" : "healthy",
+            hasMissing: isMiss,
+            icon: iconForLineageType(tk),
+            propsKeywords: `${rawType} ${sub} ${rg} ${st}`,
+            summary: r.summary || `${name} (${rawType}) 실측 온톨로지 인스턴스입니다.`,
+            sources: [
+              { id: "src-pg", title: "PostgreSQL 실측 원장", sub: "ontology_resource", icon: iconForLineageType(tk), snap: st, snapSub: String(r.updated_at || "실측"), fresh: isMiss ? "missing" : "fresh", owner: "Huginn", edge: "실측 조회", missing: isMiss }
+            ],
+            pipes: [
+              { id: "p-huginn", title: "Huginn 수집", sub: rawType, icon: "/agent-icons/huginn.svg", owner: "Huginn", fresh: "fresh", ts: "실측" },
+              { id: "p-muninn", title: "Muninn 온톨로지", sub: id, icon: "/agent-icons/muninn.svg", owner: "Muninn", fresh: isMiss ? "warn" : "fresh", ts: "실측" }
+            ],
+            downstream: [
+              { id: "d-saga", title: "Saga 감사 원장", sub: "실측 계통 추적", icon: "/agent-icons/saga.svg", owner: "Saga", tone: "live", ts: "실측" }
+            ],
+            diffs: [
+              { raw: `resource_id = "${id}"`, canon: `object_type = "${rawType}" · state = "${st}"`, rule: "live_ontology_projection" }
+            ],
+            code: `// Live PostgreSQL 실측 인스턴스 (${id})\n// resource_type: ${rawType}\n// operational_state: ${st}`,
+            history: [
+              { ts: String(r.updated_at || "실측"), stage: "실측 원장", actor: "PostgreSQL", desc: `${name} (${st}) 관측 기록` }
+            ],
+            events: [],
+            audits: []
+          };
+          inst._hay = [inst.name, inst.id, inst.typeKey, inst.typeLabel, inst.sub, inst.rg, inst.state, inst.propsKeywords].join(" ").toLowerCase();
+          return inst;
+        });
+        liveInstancesLoaded = true;
+        if (isShellLiveMode()) {
+          allInstances = liveInstancesCache;
+          renderAll();
+        }
+      } catch (_e) {
+        liveInstancesLoaded = true;
+        if (isShellLiveMode()) { allInstances = []; renderAll(); }
+      }
+    }
 
     try {
       const sp = new URLSearchParams(location.search);
@@ -6601,6 +7362,47 @@ fn project_instance(raw: &ArmSnapshot) -> OntologyInstance {
         if (it.hasMissing) missingCnt++;
       });
       const total = allInstances.length;
+      if (isShellLiveMode()) {
+        const subSet = new Set(allInstances.map((it) => it.sub).filter((s) => s && s !== "미측정"));
+        return {
+          isFleet: true,
+          id: "__all__",
+          name: total > 0 ? `실측 ${total.toLocaleString()}개 온톨로지 통합 계통 (Live)` : (liveInstancesLoaded ? "실측 온톨로지 계통 데이터 없음 (미측정)" : "실측 온톨로지 계통 불러오는 중..."),
+          typeLabel: total > 0 ? `실측 원장 · 구독 ${subSet.size || "미측정"}` : "Live PostgreSQL 조회",
+          sub: subSet.size ? `연결 구독 ${subSet.size}개` : "미측정",
+          rg: "실측 리소스 그룹",
+          state: total > 0 ? `관측 ${total - missingCnt} · 미수집 ${missingCnt}` : "미측정",
+          rev: "PostgreSQL 실측",
+          tone: total > 0 ? "live" : "neutral",
+          icon: "/azure-icons/subscriptions.svg",
+          summary: total > 0
+            ? `PostgreSQL 실측 원장에서 조회된 ${total.toLocaleString()}개 온톨로지 리소스의 계통 요약입니다. 좌측 목록에서 개별 리소스를 클릭해 실측 계통을 확인하세요.`
+            : "현재 Live 모드에서 표시할 실측 온톨로지 계통 데이터가 없습니다. 예제 데이터(prod-aks-02 등)로 대체하지 않습니다.",
+          sources: [
+            { id: "src-pg", title: "PostgreSQL 실측 원장", sub: `인벤토리 ${total.toLocaleString()}개`, icon: "/azure-icons/subscriptions.svg", snap: total > 0 ? `${total.toLocaleString()}건 관측` : "미측정", snapSub: "Live 조회", fresh: total > 0 ? "fresh" : "missing", owner: "Huginn", missing: total === 0 }
+          ],
+          pipes: [
+            { id: "p-huginn", title: "Huginn 정규화", sub: `${total.toLocaleString()}건 실측`, icon: "/agent-icons/huginn.svg", owner: "Huginn", fresh: total > 0 ? "fresh" : "missing", ts: "Live" },
+            { id: "p-heimdall", title: "Heimdall 결손 분리", sub: `미수집 ${missingCnt}건`, icon: "/agent-icons/heimdall.svg", owner: "Heimdall", fresh: missingCnt > 0 ? "warn" : "fresh", ts: "Live" },
+            { id: "p-muninn", title: "Muninn 온톨로지", sub: `${total.toLocaleString()}개`, icon: "/agent-icons/muninn.svg", owner: "Muninn", fresh: total > 0 ? "fresh" : "missing", ts: "Live" }
+          ],
+          fleetClusters: [
+            { id: "fc-aks", filterType: "kubernetes-cluster", title: `AKS (${counts["kubernetes-cluster"]})`, sub: "실측 집계", icon: "/azure-icons/kubernetes-services.svg", tone: "live" },
+            { id: "fc-nsg", filterType: "network-security-group", title: `NSG (${counts["network-security-group"]})`, sub: "실측 집계", icon: "/azure-icons/network-security-group.svg", tone: "live" },
+            { id: "fc-db", filterType: "postgresql-flexible", title: `DB · 캐시 (${counts["postgresql-flexible"] + counts["cache-redis"]})`, sub: "실측 집계", icon: "/azure-icons/postgresql.svg", tone: "live" },
+            { id: "fc-sec", filterType: "key-vault", title: `KV · 방화벽 (${counts["key-vault"] + counts["firewall"]})`, sub: "실측 집계", icon: "/azure-icons/key-vault.svg", tone: "live" },
+            { id: "fc-st", filterType: "data-storage", title: `스토리지 · 기타 (${counts["data-storage"].toLocaleString()})`, sub: `미수집 ${missingCnt}건`, icon: "/azure-icons/storage-account.svg", tone: "neutral" }
+          ],
+          downstream: [
+            { id: "d-saga", title: "Saga 감사 원장", sub: "Live 실측 연결", icon: "/agent-icons/saga.svg", owner: "Saga", tone: total > 0 ? "live" : "neutral", ts: "Live" }
+          ],
+          diffs: total > 0 ? [{ raw: `ontology_resource (${total} rows)`, canon: `live_observed=${total - missingCnt}, missing=${missingCnt}`, rule: "live_postgres_snapshot" }] : [],
+          code: `// Live PostgreSQL 실측 통합 계통\n// observed_rows = ${total}, alert_rows = ${alertCnt}, missing_rows = ${missingCnt}`,
+          history: [],
+          events: [],
+          audits: []
+        };
+      }
       return {
         isFleet: true,
         id: "__all__",
@@ -6658,8 +7460,8 @@ stream::iter(arm_inventory_pages) // 2,213+ Azure Resources
           { ts: "19:36:14", kind: "승인 요청", tone: "sre", title: "pg-orders-kr · 연결 풀 92% 포화 (HIL-8841)", meta: "읽기 복제본 분산 / 풀 증설 승인 대기" }
         ],
         audits: [
-          { id: "#86712", ts: "14:02:28", hash: "sha256:9f4a...c10e", title: "prod-aks-02 상태 전이(stopped) 감사 봉인", detail: "Activity Log + Resource Graph 교차 일치" },
-          { id: "#86694", ts: "18:44:20", hash: "sha256:7d12...e409", title: "nsg-prod-edge 포트 변경 감지 감사 봉인", detail: "MCSB-NS-01 위반 알림 증적" }
+          { id: "#86712", ts: "14:02:28", hash: "sha256:9f4a…c10e", title: "prod-aks-02 상태 전이(stopped) 감사 봉인", detail: "Activity Log + Resource Graph 교차 일치" },
+          { id: "#86694", ts: "18:44:20", hash: "sha256:7d12…e409", title: "nsg-prod-edge 포트 변경 감지 감사 봉인", detail: "MCSB-NS-01 위반 알림 증적" }
         ]
       };
     }
@@ -6801,20 +7603,20 @@ stream::iter(arm_inventory_pages) // 2,213+ Azure Resources
 
       const s1 = showAncestors ? placeCol(inst.sources.map((s) => ({ id: s.id, title: s.title, sub: s.sub, icon: s.icon, owner: s.owner, fresh: s.fresh, missing: s.missing, stage: 1, detail: `${s.title} 원천 소스 (${s.sub})` })), colX[0]) : [];
       const s2 = showAncestors ? placeCol(inst.sources.map((s) => ({ id: `snap-${s.id}`, srcId: s.id, title: s.snap, sub: s.snapSub, icon: s.icon, owner: s.owner, fresh: s.fresh, missing: s.missing, edgeLbl: s.edge, stage: 2, detail: `${s.title} → ${s.snap} (${s.snapSub})` })), colX[1]) : [];
-      const s3 = placeCol(inst.pipes.map((p) => ({ id: p.id, title: p.title, sub: `${p.sub}`, icon: p.icon, owner: p.owner, fresh: p.fresh, stage: 3, detail: `${p.title} (${p.ts}) - ${p.sub}` })), colX[2]);
+      const s3 = placeCol(inst.pipes.map((p) => ({ id: p.id, title: p.title, sub: `${p.sub}`, icon: p.icon, owner: p.owner, fresh: p.fresh, stage: 3, detail: `${p.title} (${p.ts}) — ${p.sub}` })), colX[2]);
       const s4 = inst.isFleet && Array.isArray(inst.fleetClusters)
         ? placeCol(inst.fleetClusters.map((c) => ({
             id: c.id, title: c.title, sub: c.sub, icon: c.icon, owner: "Muninn",
             tone: c.tone, fresh: c.tone === "sec" ? "warn" : "fresh",
             stage: 4, isCenter: true, filterType: c.filterType,
-            detail: `${c.title} - 클릭하여 좌측 목록을 해당 유형으로 필터링합니다.`
+            detail: `${c.title} — 클릭하여 좌측 목록을 해당 유형으로 필터링합니다.`
           })), colX[3])
         : [{
             id: "onto-root", title: inst.name, sub: `${inst.typeLabel.replace("Resource / ", "")} · ${inst.state}`,
             icon: inst.icon, owner: "Muninn", tone: inst.tone, fresh: inst.tone === "sec" ? "warn" : "fresh",
             x: colX[3], y: 174, cy: 218, h: 88, stage: 4, isCenter: true, detail: inst.summary
           }];
-      const s5 = showDescendants ? placeCol(inst.downstream.map((d) => ({ id: d.id, title: d.title, sub: `${d.sub}`, icon: d.icon, owner: d.owner, tone: d.tone, stage: 5, detail: `${d.title} (${d.ts}) - ${d.sub}` })), colX[4]) : [];
+      const s5 = showDescendants ? placeCol(inst.downstream.map((d) => ({ id: d.id, title: d.title, sub: `${d.sub}`, icon: d.icon, owner: d.owner, tone: d.tone, stage: 5, detail: `${d.title} (${d.ts}) — ${d.sub}` })), colX[4]) : [];
 
       const edges = [];
       if (showAncestors) {
@@ -6891,8 +7693,8 @@ stream::iter(arm_inventory_pages) // 2,213+ Azure Resources
           <rect x="${n.x}" y="${n.y}" width="${nodeW}" height="${h}" rx="5" ${bgTint} ${strokeAttr} stroke-width="${sel ? "1.6" : "1"}"/>
           <circle cx="${n.x + nodeW - 11}" cy="${n.y + 12}" r="3.4" fill="${accent}"/>
           <image href="${esc(n.icon)}" x="${n.x + 10}" y="${n.y + Math.round((h - 24) / 2)}" width="24" height="24"/>
-          <text x="${n.x + 42}" y="${n.y + (h > 70 ? 32 : 26)}" font-size="12.5" font-weight="700" fill="var(--cs-text)">${esc(n.title.length > 18 ? `${n.title.slice(0, 17)}...` : n.title)}</text>
-          <text x="${n.x + 42}" y="${n.y + (h > 70 ? 52 : 46)}" font-size="12" fill="${n.missing ? "var(--sig-sec-text)" : "var(--cs-text-soft)"}">${esc(n.sub.length > 20 ? `${n.sub.slice(0, 19)}...` : n.sub)}</text>
+          <text x="${n.x + 42}" y="${n.y + (h > 70 ? 32 : 26)}" font-size="12.5" font-weight="700" fill="var(--cs-text)">${esc(n.title.length > 18 ? `${n.title.slice(0, 17)}…` : n.title)}</text>
+          <text x="${n.x + 42}" y="${n.y + (h > 70 ? 52 : 46)}" font-size="12" fill="${n.missing ? "var(--sig-sec-text)" : "var(--cs-text-soft)"}">${esc(n.sub.length > 20 ? `${n.sub.slice(0, 19)}…` : n.sub)}</text>
           ${h > 70 ? `<text x="${n.x + 42}" y="${n.y + 72}" font-size="12" font-weight="600" fill="var(--sig-live-text)">${esc(inst.rev)} · ${esc(inst.sub)}</text>` : ""}
         </g>`;
       }).join("");
@@ -7082,7 +7884,26 @@ stream::iter(arm_inventory_pages) // 2,213+ Azure Resources
     });
 
     renderAll();
+    if (isShellLiveMode()) loadLiveLineageInstances().catch(() => {});
+    window.addEventListener("fdai:data-mode-change", () => {
+      activeId = "__all__";
+      selectedStageNode = null;
+      if (isShellLiveMode()) {
+        allInstances = liveInstancesCache;
+        renderAll();
+        if (!liveInstancesLoaded) loadLiveLineageInstances().catch(() => {});
+      } else {
+        if (!sampleInstancesCache) sampleInstancesCache = buildFleetInventory(2213);
+        allInstances = sampleInstancesCache;
+        renderAll();
+      }
+    });
   }
+
+  window.addEventListener("fdai:data-mode-change", () => {
+    const scrim = document.getElementById("fdaiSettingsOverlayScrim");
+    if (scrim && !scrim.hidden) renderSettingsOverlay();
+  });
 
   renderTopbar();
   renderRailAndExplorer();
@@ -7101,6 +7922,14 @@ stream::iter(arm_inventory_pages) // 2,213+ Azure Resources
   initOntologyInstanceSearch();
   initArchitectureResourceSearch();
   initForensicDataLineage();
+  // Ensure clicking/focusing overlapping SVG graph nodes or scatter points raises the chosen element to front
+  document.addEventListener("pointerdown", (ev) => {
+    if (!(ev.target instanceof Element)) return;
+    const svgTarget = ev.target.closest("g.graph-node, circle.scatter-pt");
+    if (svgTarget && svgTarget.parentNode && svgTarget.parentNode.lastElementChild !== svgTarget) {
+      try { svgTarget.parentNode.appendChild(svgTarget); } catch (_e) {}
+    }
+  }, true);
   window.activatePanel = activatePanel;
   const initialPanel = panelFromLocation();
   if (initialPanel && document.querySelector(`.panel-view[data-panel-id="${initialPanel}"]`)) {

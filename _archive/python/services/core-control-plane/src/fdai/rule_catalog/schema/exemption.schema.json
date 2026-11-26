@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/exemption/1.0.0",
+  "title": "PolicyExemption",
+  "description": "Time-boxed, audited, owner-approved exemption to a specific rule assignment. Every field is validated on load; a missing required field or a self-approval MUST abort the merge (see architecture.instructions.md § Human Override).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "rule_id",
+    "scope",
+    "justification",
+    "requested_by",
+    "approved_by",
+    "state",
+    "created_at",
+    "expires_at"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {"state": {"const": "revoked"}},
+        "required": ["state"]
+      },
+      "then": {
+        "required": ["revoked_at", "revoked_by"],
+        "properties": {
+          "revoked_at": {"type": "string", "format": "date-time"},
+          "revoked_by": {"type": "string", "format": "uuid"}
+        }
+      },
+      "else": {
+        "properties": {
+          "revoked_at": {"type": "null"},
+          "revoked_by": {"type": "null"}
+        }
+      }
+    }
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$",
+      "description": "Stable per-exemption id; a rename produces a new record."
+    },
+    "rule_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$",
+      "description": "The rule whose enforce mode this exemption suppresses."
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subscription_id"],
+      "anyOf": [
+        {"required": ["resource_group"]},
+        {"required": ["resource_ref"]}
+      ],
+      "properties": {
+        "subscription_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Azure subscription the exemption applies to."
+        },
+        "resource_group": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 90,
+          "description": "Optional; narrower than subscription-wide when set."
+        },
+        "resource_ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional; narrower still - a single resource."
+        }
+      },
+      "description": "Narrowest applicable target. MUST set resource_group or resource_ref - a subscription-only scope is a subscription-wide override, which is rejected (architecture.instructions.md Human Override); disabling a rule subscription-wide is a rule retirement, not an override."
+    },
+    "justification": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 2048,
+      "description": "Human-readable explanation. Enforced minimum length so 'ok' or 'lgtm' does not count."
+    },
+    "requested_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Entra OID of the requester. MUST differ from approved_by."
+    },
+    "approved_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Entra OID of the approver (Owner-tier). MUST differ from requested_by."
+    },
+    "state": {
+      "type": "string",
+      "enum": ["active", "expired", "revoked"],
+      "description": "Lifecycle state - auto-transitioned to expired by the expiry job."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 UTC. Enforcement re-applies once this timestamp passes."
+    },
+    "revoked_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "revoked_by": {
+      "type": ["string", "null"],
+      "format": "uuid"
+    }
+  }
+}

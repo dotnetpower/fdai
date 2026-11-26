@@ -1,7 +1,10 @@
 import { useState } from "preact/hooks";
 import { OperatorApiError } from "../api";
 import type { OperatorApiClient } from "../api";
-import { DataTable, StatusPill, type Column, type PillKind } from "../components/ui";
+import { DataTable, type Column } from "../components/ui";
+import { ActionProposalCard, type ActionProposalCardProps } from "../components/domain-primitives";
+import { SelectField, TextInput } from "../components/form-controls";
+import { StatusBadge, type BadgeTone } from "../components/status-badge";
 import { Tooltip } from "../components/tooltip";
 import { t } from "./i18n/code-security";
 import { formatConsoleTimestamp } from "../time-format";
@@ -287,9 +290,9 @@ export function decodeCodeSecurityWorkerStatus(payload: unknown): CodeSecurityWo
   };
 }
 
-function statusKind(status: RequestStatus): PillKind {
-  if (status === "completed") return "success";
-  if (status === "rejected") return "danger";
+function statusTone(status: RequestStatus): BadgeTone {
+  if (status === "completed") return "live";
+  if (status === "rejected") return "sec";
   return "info";
 }
 
@@ -352,46 +355,64 @@ function ScanRequestForm({
   if (enabled.length === 0) {
     return <p class="muted">{t("codeSecurity.scan.noRepositories")}</p>;
   }
-  return (
-    <form class="code-security-scan-form" onSubmit={submit}>
-      <label>
-        <span>{t("codeSecurity.scan.repository")}</span>
-        <select
-          aria-label={t("codeSecurity.scan.repository")}
+  const scanCardProps: ActionProposalCardProps = {
+    title: t("codeSecurity.scan.submit"),
+    statusTone: selected ? "live" : "neutral",
+    statusLabel: selected
+      ? t(`codeSecurity.exposure.${selected.exposure}`)
+      : t("codeSecurity.scan.noRepositories"),
+    evidenceFacts: selected
+      ? [
+          {
+            label: t("codeSecurity.repoColumn.repository"),
+            value: <span class="mono">{selected.repository_alias}</span>,
+          },
+          {
+            label: t("codeSecurity.repoColumn.location"),
+            value: <span class="mono">{selected.location}</span>,
+          },
+          {
+            label: t("codeSecurity.repoColumn.defaultRef"),
+            value: <span class="mono">{selected.default_ref}</span>,
+          },
+        ]
+      : [],
+    proposalSlot: (
+      <form class="code-security-scan-form" onSubmit={submit}>
+        <SelectField
+          label={t("codeSecurity.scan.repository")}
+          ariaLabel={t("codeSecurity.scan.repository")}
           value={alias}
           disabled={submitting}
-          onChange={(event) => setAlias(event.currentTarget.value)}
-        >
-          {enabled.map((repository) => (
-            <option key={repository.repository_alias} value={repository.repository_alias}>
-              {`${repository.repository_alias} (${repository.location})`}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        <span>{t("codeSecurity.scan.ref")}</span>
-        <input
+          options={enabled.map((repository) => ({
+            value: repository.repository_alias,
+            label: `${repository.repository_alias} (${repository.location})`,
+          }))}
+          onChange={(value) => setAlias(value)}
+        />
+        <TextInput
+          label={t("codeSecurity.scan.ref")}
           value={ref}
           disabled={submitting}
           placeholder={selected ? `${t("codeSecurity.scan.refPlaceholder")}: ${selected.default_ref}` : ""}
-          aria-invalid={!refValid}
-          onInput={(event) => setRef((event.currentTarget as HTMLInputElement).value)}
+          {...(!refValid ? { error: t("codeSecurity.scan.failed") } : {})}
+          onInput={(value) => setRef(value)}
         />
-      </label>
-      <button type="submit" class="btn primary" disabled={submitting || selected === undefined || !refValid}>
-        {submitting ? t("codeSecurity.scan.submitting") : t("codeSecurity.scan.submit")}
-      </button>
-      {feedback === null
-        ? null
-        : (
-          <p class={feedback.kind === "queued" ? "muted code-security-scan-feedback" : "alert error code-security-scan-feedback"} role="status">
-            {t(`codeSecurity.scan.${feedback.kind}`)}
-            {feedback.detail ? ` ${feedback.detail}` : ""}
-          </p>
-        )}
-    </form>
-  );
+        <button type="submit" class="btn primary" disabled={submitting || selected === undefined || !refValid}>
+          {submitting ? t("codeSecurity.scan.submitting") : t("codeSecurity.scan.submit")}
+        </button>
+        {feedback === null
+          ? null
+          : (
+            <p class={feedback.kind === "queued" ? "muted code-security-scan-feedback" : "alert error code-security-scan-feedback"} role="status">
+              {t(`codeSecurity.scan.${feedback.kind}`)}
+              {feedback.detail ? ` ${feedback.detail}` : ""}
+            </p>
+          )}
+      </form>
+    ),
+  };
+  return <ActionProposalCard {...scanCardProps} />;
 }
 
 function isScanResult(result: CodeSecurityScanRequest["result"]): result is ScanResult {
@@ -479,8 +500,8 @@ export function RepositoryScanSection({
       key: "state",
       header: t("codeSecurity.repoColumn.state"),
       render: (row) => (
-        <StatusPill
-          kind={row.enabled ? "info" : "neutral"}
+        <StatusBadge
+          tone={row.enabled ? "live" : "neutral"}
           label={t(`codeSecurity.repoState.${row.enabled ? "enabled" : "disabled"}`)}
         />
       ),
@@ -514,7 +535,7 @@ export function RepositoryScanSection({
       key: "status",
       header: t("codeSecurity.requestColumn.status"),
       render: (row) => (
-        <StatusPill kind={statusKind(row.status)} label={requestStatusLabel(row)} />
+        <StatusBadge tone={statusTone(row.status)} label={requestStatusLabel(row)} />
       ),
     },
     { key: "result", header: t("codeSecurity.requestColumn.result"), render: resultText },
@@ -530,8 +551,8 @@ export function RepositoryScanSection({
       </header>
       <div class="code-security-automation-status" role="status">
         <div>
-          <StatusPill
-            kind={worker?.available && worker.status?.fresh ? "success" : "warning"}
+          <StatusBadge
+            tone={worker?.available && worker.status?.fresh ? "live" : "sre"}
             label={t(
               worker?.available && worker.status?.fresh
                 ? worker.status.state === "running"

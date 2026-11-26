@@ -1,0 +1,9 @@
+# remediate.right-size - Terraform patch template.
+#
+# Referenced by rule `cache.tier-overprovisioned`.
+# Drop the SKU to var.recommended_sku_name.
+
+
+resource "azurerm_redis_cache" "${resource_id}" {
+  sku_name = var.recommended_sku_name
+}

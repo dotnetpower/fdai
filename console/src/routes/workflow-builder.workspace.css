@@ -194,7 +194,7 @@
 .workflow-catalog-list > p {
   margin: 6px;
   color: var(--fg-muted);
-  font-size: 11px;
+  font-size: var(--cs-type-caption-size, 12px);
 }
 
 .workflow-catalog-list button {
@@ -260,7 +260,7 @@
 .workflow-selection-recovery > p {
   margin: 5px 0 10px;
   color: var(--fg-muted);
-  font-size: 11px;
+  font-size: var(--cs-type-caption-size, 12px);
 }
 
 .workflow-selection-recovery .workflow-catalog-list {

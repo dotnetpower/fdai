@@ -1,6 +1,7 @@
 import { useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
+import { SelectField, TextInput } from "../components/form-controls";
 import { StatusPill } from "../components/ui";
 import { postGovernedJson } from "../governed-command";
 import { currentRoute, routeHref } from "../router";
@@ -119,131 +120,82 @@ export function PolicyAdministrationSection({ client, auth }: Props) {
           </div>
 
           <div class="settings-filter-bar">
-            <label>
-              <span>{policyAdminText("kindLabel")}</span>
-              <select
-                class="form-input"
-                aria-label={policyAdminText("kindLabel")}
-                value={draft.policyKind}
-                onChange={(event) =>
-                  update("policyKind", event.currentTarget.value as PolicyAdminKind)
-                }
-              >
-                <option value="approval">{policyAdminText("kindApproval")}</option>
-                <option value="admission">{policyAdminText("kindAdmission")}</option>
-              </select>
-            </label>
-            <label>
-              <span>{policyAdminText("revisionIdLabel")}</span>
-              <input
-                type="text"
-                class="form-input"
-                aria-label={policyAdminText("revisionIdLabel")}
-                value={draft.revisionId}
-                onInput={(event) => update("revisionId", event.currentTarget.value)}
-              />
-            </label>
-            <label>
-              <span>{policyAdminText("parentRevisionIdLabel")}</span>
-              <input
-                type="text"
-                class="form-input"
-                aria-label={policyAdminText("parentRevisionIdLabel")}
-                value={draft.parentRevisionId}
-                onInput={(event) => update("parentRevisionId", event.currentTarget.value)}
-              />
-            </label>
+            <SelectField
+              label={policyAdminText("kindLabel")}
+              value={draft.policyKind}
+              options={[
+                { value: "approval", label: policyAdminText("kindApproval") },
+                { value: "admission", label: policyAdminText("kindAdmission") },
+              ]}
+              onChange={(value) => update("policyKind", value as PolicyAdminKind)}
+            />
+            <TextInput
+              label={policyAdminText("revisionIdLabel")}
+              value={draft.revisionId}
+              onInput={(value) => update("revisionId", value)}
+            />
+            <TextInput
+              label={policyAdminText("parentRevisionIdLabel")}
+              value={draft.parentRevisionId}
+              onInput={(value) => update("parentRevisionId", value)}
+            />
           </div>
 
           {draft.policyKind === "approval" ? (
             <div class="settings-filter-bar">
-              <label>
-                <span>{policyAdminText("profileLabel")}</span>
-                <select
-                  class="form-input"
-                  aria-label={policyAdminText("profileLabel")}
-                  value={draft.approvalProfile}
-                  onChange={(event) =>
-                    update("approvalProfile", event.currentTarget.value as ApprovalProfileKind)
-                  }
-                >
-                  <option value="single-operator-production">
-                    {policyAdminText("profileSingle")}
-                  </option>
-                  <option value="multi-operator">{policyAdminText("profileMulti")}</option>
-                </select>
-              </label>
-              <label>
-                <span>{policyAdminText("operatorPrincipalLabel")}</span>
-                <input
-                  type="text"
-                  class="form-input"
-                  aria-label={policyAdminText("operatorPrincipalLabel")}
-                  value={draft.operatorPrincipal}
-                  onInput={(event) => update("operatorPrincipal", event.currentTarget.value)}
-                />
-              </label>
-              <label>
-                <span>{policyAdminText("executorPrincipalLabel")}</span>
-                <input
-                  type="text"
-                  class="form-input"
-                  aria-label={policyAdminText("executorPrincipalLabel")}
-                  value={draft.executorPrincipal}
-                  onInput={(event) => update("executorPrincipal", event.currentTarget.value)}
-                />
-              </label>
+              <SelectField
+                label={policyAdminText("profileLabel")}
+                value={draft.approvalProfile}
+                options={[
+                  { value: "single-operator-production", label: policyAdminText("profileSingle") },
+                  { value: "multi-operator", label: policyAdminText("profileMulti") },
+                ]}
+                onChange={(value) => update("approvalProfile", value as ApprovalProfileKind)}
+              />
+              <TextInput
+                label={policyAdminText("operatorPrincipalLabel")}
+                value={draft.operatorPrincipal}
+                onInput={(value) => update("operatorPrincipal", value)}
+              />
+              <TextInput
+                label={policyAdminText("executorPrincipalLabel")}
+                value={draft.executorPrincipal}
+                onInput={(value) => update("executorPrincipal", value)}
+              />
             </div>
           ) : (
             <div class="settings-filter-bar">
-              <label style={{ flex: "1 1 100%" }}>
-                <span>{policyAdminText("regoLabel")}</span>
-                <input
-                  type="text"
-                  class="form-input"
-                  aria-label={policyAdminText("regoLabel")}
-                  value={draft.rego}
-                  onInput={(event) => update("rego", event.currentTarget.value)}
-                />
-              </label>
+              <TextInput
+                className="is-wide"
+                label={policyAdminText("regoLabel")}
+                mono
+                value={draft.rego}
+                onInput={(value) => update("rego", value)}
+              />
             </div>
           )}
 
           <div class="settings-filter-bar">
-            <label>
-              <span>{policyAdminText("actionTypeLabel")}</span>
-              <input
-                type="text"
-                class="form-input"
-                aria-label={policyAdminText("actionTypeLabel")}
-                value={draft.actionTypeName}
-                onInput={(event) => update("actionTypeName", event.currentTarget.value)}
-              />
-            </label>
-            <label>
-              <span>{policyAdminText("actionModeLabel")}</span>
-              <select
-                class="form-input"
-                aria-label={policyAdminText("actionModeLabel")}
-                value={draft.actionTypeMode}
-                onChange={(event) =>
-                  update("actionTypeMode", event.currentTarget.value as PolicyModeKind)
-                }
-              >
-                <option value="shadow">shadow</option>
-                <option value="enforce">enforce</option>
-              </select>
-            </label>
-            <label style={{ flex: "1 1 260px" }}>
-              <span>{policyAdminText("reasonLabel")}</span>
-              <input
-                type="text"
-                class="form-input"
-                aria-label={policyAdminText("reasonLabel")}
-                value={draft.reason}
-                onInput={(event) => update("reason", event.currentTarget.value)}
-              />
-            </label>
+            <TextInput
+              label={policyAdminText("actionTypeLabel")}
+              value={draft.actionTypeName}
+              onInput={(value) => update("actionTypeName", value)}
+            />
+            <SelectField
+              label={policyAdminText("actionModeLabel")}
+              value={draft.actionTypeMode}
+              options={[
+                { value: "shadow", label: "shadow" },
+                { value: "enforce", label: "enforce" },
+              ]}
+              onChange={(value) => update("actionTypeMode", value as PolicyModeKind)}
+            />
+            <TextInput
+              className="is-wide"
+              label={policyAdminText("reasonLabel")}
+              value={draft.reason}
+              onInput={(value) => update("reason", value)}
+            />
           </div>
 
           {validationError ? (

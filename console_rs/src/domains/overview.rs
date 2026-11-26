@@ -721,6 +721,18 @@ async fn api_overview_dashboard(
         },
         "autonomy": autonomy.payload.clone().unwrap_or(Value::Null),
         "promotion_gates": gates.payload.clone().unwrap_or(Value::Null),
+        "scatter_points": [],
+        "timeline_meta": {
+            "window": window,
+            "forecast_status": "not-measured",
+            "forecast_reason": "실측 예측 시계열이 수집되지 않아 미래(+5m) 영역은 미측정으로 분리 표시합니다."
+        },
+        "forecast": {
+            "measurement_status": "not-measured",
+            "horizon": "+5m",
+            "points": [],
+            "reason": "no_measured_forecast_series"
+        },
     });
 
     build_envelope(
@@ -855,7 +867,7 @@ async fn api_overview_resources(
         "detection_coverage": coverage_out.payload.clone().unwrap_or(Value::Null),
         "uncollected_policy": {
             "zero_substitution_forbidden": true,
-            "recovery_route": "/settings#tab=settings-integrations",
+            "recovery_route": "/settings/integrations",
         },
     });
 
@@ -984,7 +996,7 @@ async fn api_overview_outcomes(
             "cost_per_event": {
                 "measurement_state": state_label(has_cost_per_event),
                 "reason": if has_cost_per_event { Value::Null } else { json!("missing_source:attributed_cost_usd") },
-                "recovery_route": "/settings#tab=settings-integrations",
+                "recovery_route": "/settings/integrations",
             }
         }
     });
@@ -1094,15 +1106,15 @@ async fn api_overview_control_assurance(
         "guard_boundaries": {
             "external_settlement_guard": {
                 "measurement_state": if has_external_settlement { "measured" } else { "not-measured" },
-                "recovery_route": "/settings#tab=settings-integrations",
+                "recovery_route": "/settings/integrations",
             }
         },
         "autonomy": autonomy.payload.clone().unwrap_or(Value::Null),
         "promotion_gates": gates.payload.clone().unwrap_or(Value::Null),
         "intervention_signals": {
             "hil_pending": hil_pending,
-            "hil_route": "/operations#tab=hil-queue",
-            "promotion_gates_route": "/governance#tab=promotion-gates",
+            "hil_route": "/operations/hil-queue",
+            "promotion_gates_route": "/governance/promotion-gates",
         },
         "control_path": kpi.payload.as_ref().and_then(|v| v.get("by_outcome").cloned()).unwrap_or(Value::Null),
     });
@@ -1324,7 +1336,7 @@ async fn api_overview_cost_governance(
         "finops": finops.payload.clone().unwrap_or(Value::Null),
         "uncollected_policy": {
             "zero_substitution_forbidden": true,
-            "recovery_route": "/settings#tab=settings-integrations",
+            "recovery_route": "/settings/integrations",
         },
     });
 
@@ -2264,6 +2276,37 @@ mod tests {
                 .map(Vec::len)
                 .unwrap_or(0)
                 > 0
+        );
+        let scatter = dash
+            .pointer("/data/scatter_points")
+            .and_then(Value::as_array)
+            .ok_or_else(|| "missing /data/scatter_points array".to_string())?;
+        assert!(
+            !scatter.is_empty(),
+            "expected measured scatter_points from local postgres audit_log"
+        );
+        for pt in scatter {
+            let ratio = pt
+                .get("offset_ratio")
+                .and_then(Value::as_f64)
+                .ok_or_else(|| format!("missing offset_ratio in scatter point: {pt}"))?;
+            assert!(
+                (0.0..=1.0).contains(&ratio),
+                "measured scatter_point offset_ratio must stay within past..=NOW (<= 1.0), got {ratio}"
+            );
+            let href = pt
+                .get("href")
+                .and_then(Value::as_str)
+                .ok_or_else(|| format!("missing href in scatter point: {pt}"))?;
+            assert!(
+                href.contains("?item="),
+                "scatter_point href must include ?item= deep link, got {href}"
+            );
+        }
+        assert_eq!(
+            dash.pointer("/data/forecast/measurement_status")
+                .and_then(Value::as_str),
+            Some("not-measured")
         );
 
         // 3. Resources with filter, search, limit, and offset pagination

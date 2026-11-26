@@ -1,0 +1,255 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/config/1.0.0",
+  "title": "AppConfig",
+  "description": "Fail-fast runtime configuration. Every field is validated on startup; a missing required field aborts the process with a structured error. Loaders MUST report every problem in one shot, not one at a time.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "azure", "kafka", "postgres", "runtime"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "azure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subscription_id", "region"],
+      "properties": {
+        "tenant_id": {"type": "string", "format": "uuid"},
+        "subscription_id": {"type": "string", "format": "uuid"},
+        "resource_group": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 90,
+          "default": "rg-fdai",
+          "description": "Default matches deploy-and-onboard.md § Resource Naming Convention."
+        },
+        "region": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 32,
+          "description": "Azure region short-name, e.g. 'krc', 'weu'. No customer-identifying value."
+        }
+      }
+    },
+    "kafka": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bootstrap_servers", "topic_events"],
+      "properties": {
+        "bootstrap_servers": {"type": "string", "minLength": 1},
+        "security_protocol": {
+          "type": "string",
+          "enum": ["PLAINTEXT", "SASL_PLAINTEXT", "SASL_SSL", "SSL"],
+          "default": "SASL_SSL"
+        },
+        "sasl_mechanism": {
+          "type": "string",
+          "enum": ["OAUTHBEARER", "PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512"],
+          "default": "OAUTHBEARER"
+        },
+        "topic_events": {"type": "string", "minLength": 1},
+        "topic_dlq_suffix": {
+          "type": "string",
+          "default": ".dlq",
+          "pattern": "^\\.[a-z][a-z0-9._-]{1,63}$"
+        }
+      }
+    },
+    "postgres": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "database"],
+      "properties": {
+        "host": {"type": "string", "minLength": 1},
+        "database": {"type": "string", "minLength": 1}
+      }
+    },
+    "rule_catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "ref": {"type": "string", "default": "main"}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["env"],
+      "properties": {
+        "env": {
+          "type": "string",
+          "enum": ["dev", "staging", "prod"]
+        },
+        "autonomy_mode_default": {
+          "type": "string",
+          "enum": ["shadow", "enforce"],
+          "default": "shadow",
+          "description": "MUST default to shadow (safety invariant)."
+        }
+      }
+    },
+    "product_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "schema_version": {
+          "const": "fdai.product-profile.v1",
+          "default": "fdai.product-profile.v1"
+        },
+        "name": {
+          "const": "observation-first",
+          "default": "observation-first"
+        },
+        "add_ons": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "enterprise-identity-governance",
+              "governed-execution",
+              "notifications",
+              "read-only-console"
+            ]
+          },
+          "uniqueItems": true,
+          "default": []
+        },
+        "observation_permissions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [],
+          "properties": {
+            "base_role": {
+              "const": "Reader",
+              "default": "Reader"
+            },
+            "selected_sources": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "aks",
+                  "azure-monitor",
+                  "cost-management",
+                  "evidence-store",
+                  "log-analytics"
+                ]
+              },
+              "uniqueItems": true,
+              "default": []
+            }
+          }
+        },
+        "authority_granted": {
+          "const": false,
+          "default": false
+        }
+      }
+    },
+    "llm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "description": "LLM binding mode + optional resolved-models pointer. Governs which composition-root bindings are used (deterministic fake vs Azure adapter). See docs/roadmap/deployment/dev-and-deploy-parity.md § Parity Contract.",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["local-fake", "azure"],
+          "description": "'local-fake' binds deterministic in-memory implementations (default in dev). 'azure' loads resolved-models.json and binds the Azure OpenAI adapters."
+        },
+        "resolved_models_path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Filesystem path or KV secret name pointing at the resolved-models.json emitted by the bootstrap resolver. REQUIRED when mode=azure."
+        },
+        "resolved_models_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "Exact lowercase SHA-256 revision of the resolved-model source. REQUIRED when mode=azure."
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(t1|t2)\\.[a-z][a-z0-9._-]{1,63}$"
+          },
+          "uniqueItems": true,
+          "default": ["t1.embedding", "t1.judge", "t2.reasoner.primary", "t2.reasoner.secondary"],
+          "description": "Capability names the process expects to bind. MUST mirror the llm-registry.yaml. Duplicates fail-close at load time."
+        },
+        "t1_similarity_threshold": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "default": 0.8
+        },
+        "t1_min_success_rate": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "default": 0.9
+        },
+        "quality_gate_confidence_threshold": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "default": 0.7
+        },
+        "quality_gate_quorum": {
+          "type": "integer",
+          "minimum": 2,
+          "default": 2
+        },
+        "self_consistency_samples": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9,
+          "default": 0,
+          "description": "T2 self-consistency samples per triggered call. 0 leaves the cascade unbound so the T2 path is unchanged. See docs/roadmap/decisioning/hallucination-rubric-gate.md."
+        },
+        "self_consistency_sample_threshold": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "default": 0.7,
+          "description": "Sampling runs only when the candidate aggregate confidence is below this value."
+        },
+        "self_consistency_stability_threshold": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "default": 0.7,
+          "description": "Measured action stability below this value holds the T2 outcome at escalate."
+        },
+        "t2_primary_latency_routing": {
+          "type": "boolean",
+          "default": true,
+          "description": "Latency routing of the T2 primary proposer among its same-publisher candidate pool (invariant-safe). Enforced on by default; takes effect only when resolved-models.json carries >= 2 reasoner_primary_candidates. Set false to pin the single most-preferred primary. See docs/roadmap/architecture/llm-strategy.md T2 Primary Latency Pool."
+        }
+      }
+    },
+    "rule_governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Configured governance-lifecycle bounds. See docs/roadmap/rules-and-detection/rule-governance.md Exemptions.",
+      "properties": {
+        "exemption_max_duration_days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3650,
+          "default": 180,
+          "description": "Configured maximum lifetime of a time-boxed exemption (expires_at - created_at). The governance catalog loader fails closed on any exemption exceeding this bound."
+        },
+        "exemption_alert_lead_days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 365,
+          "default": 14,
+          "description": "Ahead-of-expiry alert lead time. MUST be strictly less than exemption_max_duration_days so every active exemption alerts before it expires."
+        }
+      }
+    }
+  }
+}

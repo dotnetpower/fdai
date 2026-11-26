@@ -143,6 +143,10 @@ pub fn router() -> Router<AppState> {
         )
         .route("/api/v4/settings/iam", get(api_settings_iam))
         .route(
+            "/api/v4/settings/iam/azure-groups",
+            get(api_settings_iam_azure_groups_get).patch(api_settings_iam_azure_groups_patch),
+        )
+        .route(
             "/api/v4/settings/iam/decisions",
             post(api_settings_iam_decision),
         )
@@ -1453,17 +1457,258 @@ async fn api_settings_runtime_patch(
     )
 }
 
+fn build_azure_iam_groups_payload(saved_profile: Option<Value>) -> Value {
+    let digest = fdai_contracts::azure_iam_groups::azure_iam_catalog_digest_hex(
+        fdai_contracts::azure_iam_groups::EMBEDDED_AZURE_IAM_CATALOG_JSON,
+    );
+    match fdai_contracts::azure_iam_groups::load_embedded_azure_iam_catalog() {
+        Ok(catalog) => {
+            let valid = fdai_domain_core::azure_iam_catalog::validate_azure_iam_catalog(&catalog);
+            let default_selection = json!({
+                "workload_group": catalog.defaults.default_workload_group,
+                "binding_mode": catalog.defaults.binding_mode,
+                "custom_role_scope": catalog.defaults.custom_role_scope,
+                "dev_gateway_executor_group": catalog.defaults.dev_gateway_executor_group,
+                "environment": "dev",
+                "pim_required": catalog.defaults.pim_required
+            });
+            let active_selection = saved_profile.unwrap_or(default_selection);
+            let tfvars_preview = render_azure_iam_tfvars_preview(&active_selection);
+            json!({
+                "catalog_id": catalog.catalog_id,
+                "schema_version": catalog.schema_version,
+                "catalog_digest": digest,
+                "catalog_valid": valid.is_ok(),
+                "defaults": catalog.defaults,
+                "safety_floor": catalog.safety_floor,
+                "groups": catalog.groups,
+                "no_target_azure_role_agents": catalog.no_target_azure_role_agents,
+                "human_admin_groups": catalog.human_admin_groups,
+                "active_selection": active_selection,
+                "tfvars_preview": tfvars_preview,
+                "direct_infra_mutation_blocked": true,
+                "execution_authority": false
+            })
+        }
+        Err(err) => json!({
+            "catalog_valid": false,
+            "error": err,
+            "direct_infra_mutation_blocked": true,
+            "execution_authority": false
+        }),
+    }
+}
+
+fn render_azure_iam_tfvars_preview(sel: &Value) -> String {
+    let binding_mode = sel
+        .get("binding_mode")
+        .and_then(Value::as_str)
+        .unwrap_or("direct");
+    let custom_role_scope = sel
+        .get("custom_role_scope")
+        .and_then(Value::as_str)
+        .unwrap_or("subscription");
+    let devgw_group = sel
+        .get("dev_gateway_executor_group")
+        .and_then(Value::as_str)
+        .unwrap_or("operator");
+    let workload_group = sel
+        .get("workload_group")
+        .and_then(Value::as_str)
+        .unwrap_or("reader");
+    let scope_line = if custom_role_scope == "management_group" {
+        "fdai_iam_role_definition_scope = \"/providers/Microsoft.Management/managementGroups/<mg-id>\"\n"
+    } else {
+        "# fdai_iam_role_definition_scope omitted -> defaults to current subscription\n"
+    };
+    format!(
+        "enable_fdai_iam_permission_groups = true\n\
+         # selected workload tier: {workload_group} (PIM not required)\n\
+         fdai_iam_binding_mode = \"{binding_mode}\"\n\
+         dev_gateway_executor_iam_group = \"{devgw_group}\"\n\
+         {scope_line}"
+    )
+}
+
+async fn api_settings_iam_azure_groups_get(State(state): State<AppState>) -> Response {
+    let saved_profile = if state.db.is_configured() {
+        repos::settings::fetch_kv_exact(&state.db, "settings:iam:azure-groups:v1")
+            .await
+            .ok()
+            .flatten()
+            .map(|(v, _)| v)
+    } else {
+        None
+    };
+    let payload = build_azure_iam_groups_payload(saved_profile);
+    settings_json_response(
+        StatusCode::OK,
+        json!({
+            "source": "embedded-catalog",
+            "domain": "settings",
+            "panel": "settings-iam",
+            "measurement_status": "measured",
+            "measurement_state": "measured",
+            "db_writes_allowed": state.db.mutations_allowed(),
+            "azure_iam_groups": payload
+        }),
+    )
+}
+
+#[derive(Debug, Deserialize)]
+struct AzureIamGroupsPatchRequest {
+    workload_group: String,
+    binding_mode: String,
+    custom_role_scope: String,
+    dev_gateway_executor_group: String,
+    environment: Option<String>,
+}
+
+async fn api_settings_iam_azure_groups_patch(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<AzureIamGroupsPatchRequest>,
+) -> Response {
+    let workload_group = req.workload_group.trim().to_ascii_lowercase();
+    let binding_mode = req.binding_mode.trim().to_ascii_lowercase();
+    let custom_role_scope = req.custom_role_scope.trim().to_ascii_lowercase();
+    let devgw_group = req.dev_gateway_executor_group.trim().to_ascii_lowercase();
+    let env_name = req
+        .environment
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or("dev")
+        .to_ascii_lowercase();
+
+    if !matches!(env_name.as_str(), "dev" | "staging" | "production") {
+        return settings_json_response(
+            StatusCode::BAD_REQUEST,
+            json!({
+                "error": "invalid_environment",
+                "message": "environment must be dev, staging, or production"
+            }),
+        );
+    }
+
+    let Ok(catalog) = fdai_contracts::azure_iam_groups::load_embedded_azure_iam_catalog() else {
+        return settings_json_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            json!({
+                "error": "catalog_unavailable",
+                "message": "Canonical Azure IAM permission groups catalog could not be loaded"
+            }),
+        );
+    };
+
+    let selection = fdai_contracts::azure_iam_groups::AzureIamProfileSelection {
+        workload_group: workload_group.clone(),
+        binding_mode: binding_mode.clone(),
+        custom_role_scope: custom_role_scope.clone(),
+        dev_gateway_executor_group: devgw_group.clone(),
+        pim_required: false,
+    };
+
+    if let Err(reason) = fdai_domain_core::azure_iam_catalog::validate_profile_selection(
+        &catalog,
+        &selection,
+        &env_name,
+    ) {
+        return settings_json_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            json!({
+                "error": "invalid_azure_iam_profile",
+                "message": reason,
+                "validated": false,
+                "persisted": false,
+                "direct_infra_mutation_blocked": true
+            }),
+        );
+    }
+
+    let draft = json!({
+        "workload_group": workload_group,
+        "binding_mode": binding_mode,
+        "custom_role_scope": custom_role_scope,
+        "dev_gateway_executor_group": devgw_group,
+        "environment": env_name,
+        "pim_required": false,
+        "authority": "draft_only",
+        "execution_authority": false,
+        "direct_infra_mutation_blocked": true
+    });
+    let tfvars_preview = render_azure_iam_tfvars_preview(&draft);
+
+    if state.db.mutations_allowed() {
+        let idem = extract_idempotency_key(&headers, "settings-iam-azure-groups");
+        if let Ok(receipt) = state
+            .db
+            .execute_audited_kv_mutation(
+                "settings:iam:azure-groups:v1",
+                &draft.to_string(),
+                "console-v4-operator",
+                "settings.iam.azure_groups.draft",
+                &idem,
+            )
+            .await
+        {
+            return settings_json_response(
+                StatusCode::OK,
+                json!({
+                    "source": "postgres-direct",
+                    "domain": "settings",
+                    "panel": "settings-iam",
+                    "validated": true,
+                    "persisted": true,
+                    "direct_infra_mutation_blocked": true,
+                    "execution_authority": false,
+                    "active_selection": draft,
+                    "tfvars_preview": tfvars_preview,
+                    "receipt": receipt
+                }),
+            );
+        }
+    }
+
+    settings_json_response(
+        StatusCode::OK,
+        json!({
+            "source": "local-validator",
+            "domain": "settings",
+            "panel": "settings-iam",
+            "validated": true,
+            "persisted": false,
+            "direct_infra_mutation_blocked": true,
+            "execution_authority": false,
+            "active_selection": draft,
+            "tfvars_preview": tfvars_preview,
+            "reason": "PostgreSQL mutations disabled or offline; validated draft only (zero direct Azure mutation)."
+        }),
+    )
+}
+
 async fn api_settings_iam(State(state): State<AppState>, headers: HeaderMap) -> Response {
     let auth = extract_auth(&headers);
     let (iam_up, self_up) = tokio::join!(
         state.upstream.get_json("/iam", auth),
         state.upstream.get_json("/iam/self", auth),
     );
+    let saved_azure_profile = if state.db.is_configured() {
+        repos::settings::fetch_kv_exact(&state.db, "settings:iam:azure-groups:v1")
+            .await
+            .ok()
+            .flatten()
+            .map(|(v, _)| v)
+    } else {
+        None
+    };
+    let azure_iam_groups = build_azure_iam_groups_payload(saved_azure_profile);
     let invariants = json!({
         "approver_ne_executor": true,
         "self_approval_blocked": true,
         "min_review_reason_chars": 20,
-        "direct_infra_mutation_blocked": true
+        "direct_infra_mutation_blocked": true,
+        "pim_required": false
     });
     if iam_up.reachable && iam_up.status == 200 {
         return settings_json_response(
@@ -1475,6 +1720,7 @@ async fn api_settings_iam(State(state): State<AppState>, headers: HeaderMap) -> 
                 "measurement_status": "measured",
                 "measurement_state": "measured",
                 "invariants": invariants,
+                "azure_iam_groups": azure_iam_groups,
                 "data": {
                     "iam": iam_up.payload.unwrap_or(Value::Null),
                     "self": if self_up.reachable && self_up.status == 200 { self_up.payload.unwrap_or(Value::Null) } else { Value::Null }
@@ -1494,6 +1740,7 @@ async fn api_settings_iam(State(state): State<AppState>, headers: HeaderMap) -> 
                     "measurement_status": "measured",
                     "measurement_state": "measured",
                     "invariants": invariants,
+                    "azure_iam_groups": azure_iam_groups,
                     "db_writes_allowed": state.db.mutations_allowed(),
                     "data": db_data
                 }),
@@ -1510,6 +1757,7 @@ async fn api_settings_iam(State(state): State<AppState>, headers: HeaderMap) -> 
         obj.insert("measurement_status".to_string(), json!("not-measured"));
         obj.insert("panel".to_string(), json!("settings-iam"));
         obj.insert("invariants".to_string(), invariants);
+        obj.insert("azure_iam_groups".to_string(), azure_iam_groups);
     }
     settings_json_response(StatusCode::OK, env)
 }
@@ -1760,28 +2008,19 @@ async fn api_settings_integrations_get(
         "scripts_blocked": true,
         "boundary": "notification_only",
         "execution_authority": false,
-        "subject": "[FDAI] Operational Advisory Preview",
-        "html_safe": "<p><strong>FDAI Operational Advisory</strong> - Evidence-backed notification only. Approval requires authenticated Console review.</p>",
-        "text": "Subject: [FDAI] Operational Advisory Preview\nBoundary: Notification only (approval required in Console)"
+        "measurement_status": "not-measured",
+        "subject": Value::Null,
+        "text": Value::Null
     });
-    let channels_boundary = json!({
+    let base_channels_boundary = json!({
         "a1_approval": {
             "channel": "microsoft-teams-bidirectional",
             "boundary": "a1_approval_callback",
+            "configured": false,
+            "status": "not-measured",
             "secrets_exposed": false
         },
-        "a2_a4_notifications": [
-            {
-                "id": "teams-ops-webhook",
-                "boundary": "notification_only",
-                "url_masked": mask_webhook_url("https://prod-21.eastasia.logic.azure.com/workflows/redacted-token-9a2f/triggers")
-            },
-            {
-                "id": "slack-incident-webhook",
-                "boundary": "notification_only",
-                "url_masked": mask_webhook_url("https://hooks.slack.com/services/T00DEMO/B00DEMO/redacted4c10")
-            }
-        ]
+        "a2_a4_notifications": []
     });
 
     if rt_up.reachable && rt_up.status == 200 {
@@ -1794,7 +2033,7 @@ async fn api_settings_integrations_get(
                 "measurement_status": "measured",
                 "measurement_state": "measured",
                 "secrets_exposed": false,
-                "channels_boundary": channels_boundary,
+                "channels_boundary": base_channels_boundary,
                 "email_preview": email_preview,
                 "data": {
                     "runtime_settings": rt_up.payload.unwrap_or(Value::Null),
@@ -1806,17 +2045,37 @@ async fn api_settings_integrations_get(
 
     if state.db.is_configured() {
         if let Some(db_data) = repos::settings::fetch_settings_integrations(&state.db).await {
+            let primary_configured = db_data
+                .pointer("/channel_links/primary_transport_configured")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            let configured_webhooks = db_data
+                .get("configured_webhooks")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            let db_channels_boundary = json!({
+                "a1_approval": {
+                    "channel": "microsoft-teams-bidirectional",
+                    "boundary": "a1_approval_callback",
+                    "configured": primary_configured,
+                    "status": "not-measured",
+                    "secrets_exposed": false
+                },
+                "a2_a4_notifications": configured_webhooks
+            });
             let db_email_preview = match db_data.get("live_preview") {
-                Some(lp) => json!({
+                Some(lp) if lp.get("subject").and_then(Value::as_str).is_some() => json!({
                     "scripts_blocked": true,
                     "boundary": "notification_only",
                     "execution_authority": false,
-                    "subject": lp.get("subject").and_then(Value::as_str).unwrap_or("[FDAI] Operational Advisory Preview"),
-                    "scope": lp.get("scope").and_then(Value::as_str).unwrap_or("local"),
-                    "evidence": lp.get("evidence").and_then(Value::as_str).unwrap_or("PostgreSQL live evidence"),
-                    "text": lp.get("text").and_then(Value::as_str).unwrap_or("Boundary: Notification only (approval required in Console)")
+                    "measurement_status": "measured",
+                    "subject": lp.get("subject").cloned().unwrap_or(Value::Null),
+                    "scope": lp.get("scope").cloned().unwrap_or(Value::Null),
+                    "evidence": lp.get("evidence").cloned().unwrap_or(Value::Null),
+                    "text": lp.get("text").cloned().unwrap_or(Value::Null)
                 }),
-                None => email_preview.clone(),
+                _ => email_preview.clone(),
             };
             return settings_json_response(
                 StatusCode::OK,
@@ -1827,7 +2086,7 @@ async fn api_settings_integrations_get(
                     "measurement_status": "measured",
                     "measurement_state": "measured",
                     "secrets_exposed": false,
-                    "channels_boundary": channels_boundary,
+                    "channels_boundary": db_channels_boundary,
                     "email_preview": db_email_preview,
                     "db_writes_allowed": state.db.mutations_allowed(),
                     "data": db_data
@@ -1845,7 +2104,7 @@ async fn api_settings_integrations_get(
         obj.insert("measurement_status".to_string(), json!("not-measured"));
         obj.insert("panel".to_string(), json!("settings-integrations"));
         obj.insert("secrets_exposed".to_string(), json!(false));
-        obj.insert("channels_boundary".to_string(), channels_boundary);
+        obj.insert("channels_boundary".to_string(), base_channels_boundary);
         obj.insert("email_preview".to_string(), email_preview);
     }
     settings_json_response(StatusCode::OK, env)
@@ -3214,6 +3473,107 @@ mod tests {
             );
             assert_eq!(
                 body.as_ref().and_then(|v| v.get("secrets_exposed")).and_then(Value::as_bool),
+                Some(false)
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn settings_iam_azure_groups_exposes_three_tiers_and_enforces_recommendations() {
+        let app = build_router(offline_state());
+
+        let get_req = HttpRequest::builder()
+            .uri("/api/v4/settings/iam/azure-groups")
+            .body(Body::empty());
+        assert!(get_req.is_ok());
+        if let Ok(req) = get_req {
+            let Ok(resp) = app.clone().oneshot(req).await;
+            assert_eq!(resp.status(), StatusCode::OK);
+            let body = read_json(resp).await;
+            let groups = body
+                .as_ref()
+                .and_then(|v| v.pointer("/azure_iam_groups/groups"))
+                .and_then(Value::as_array);
+            assert_eq!(groups.map(Vec::len), Some(3));
+            assert_eq!(
+                body.as_ref()
+                    .and_then(|v| v.pointer("/azure_iam_groups/defaults/pim_required"))
+                    .and_then(Value::as_bool),
+                Some(false)
+            );
+            assert_eq!(
+                body.as_ref()
+                    .and_then(|v| v.pointer("/azure_iam_groups/defaults/custom_role_scope"))
+                    .and_then(Value::as_str),
+                Some("subscription")
+            );
+            assert_eq!(
+                body.as_ref()
+                    .and_then(|v| v.pointer("/azure_iam_groups/defaults/dev_gateway_executor_group"))
+                    .and_then(Value::as_str),
+                Some("operator")
+            );
+            assert_eq!(
+                body.as_ref()
+                    .and_then(|v| v.pointer("/azure_iam_groups/human_admin_groups/0/entra_group"))
+                    .and_then(Value::as_str),
+                Some("fdai-readers")
+            );
+        }
+
+        // Reject FDAI Contributor in default production
+        let bad_prod = HttpRequest::builder()
+            .method("PATCH")
+            .uri("/api/v4/settings/iam/azure-groups")
+            .header("content-type", "application/json")
+            .body(Body::from(
+                json!({
+                    "workload_group": "contributor",
+                    "binding_mode": "direct",
+                    "custom_role_scope": "subscription",
+                    "dev_gateway_executor_group": "operator",
+                    "environment": "production"
+                })
+                .to_string(),
+            ));
+        assert!(bad_prod.is_ok());
+        if let Ok(req) = bad_prod {
+            let Ok(resp) = app.clone().oneshot(req).await;
+            assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        }
+
+        // Accept recommended production operator profile without PIM
+        let good_prod = HttpRequest::builder()
+            .method("PATCH")
+            .uri("/api/v4/settings/iam/azure-groups")
+            .header("content-type", "application/json")
+            .body(Body::from(
+                json!({
+                    "workload_group": "operator",
+                    "binding_mode": "direct",
+                    "custom_role_scope": "subscription",
+                    "dev_gateway_executor_group": "operator",
+                    "environment": "production"
+                })
+                .to_string(),
+            ));
+        assert!(good_prod.is_ok());
+        if let Ok(req) = good_prod {
+            let Ok(resp) = app.clone().oneshot(req).await;
+            assert_eq!(resp.status(), StatusCode::OK);
+            let body = read_json(resp).await;
+            assert_eq!(
+                body.as_ref().and_then(|v| v.get("validated")).and_then(Value::as_bool),
+                Some(true)
+            );
+            assert_eq!(
+                body.as_ref()
+                    .and_then(|v| v.get("direct_infra_mutation_blocked"))
+                    .and_then(Value::as_bool),
+                Some(true)
+            );
+            assert_eq!(
+                body.as_ref().and_then(|v| v.get("persisted")).and_then(Value::as_bool),
                 Some(false)
             );
         }

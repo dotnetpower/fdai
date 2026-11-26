@@ -13,10 +13,18 @@ import {
   CopyButton,
   EmptyState,
   PageHeader,
-  StatusPill,
   type AsyncState,
   type PillKind,
 } from "../components/ui";
+import { ActionProposalCard, type ActionProposalCardProps } from "../components/domain-primitives";
+import {
+  FilterToolbar,
+  SearchInput,
+  SegmentedControl,
+  SelectField,
+  TextareaField,
+} from "../components/form-controls";
+import { StatusBadge, type BadgeTone } from "../components/status-badge";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { currentRoute, replaceRouteState, routeHref } from "../router";
@@ -134,7 +142,7 @@ export function HilQueueRoute({ client, auth, dataMode }: Props) {
         subtitle={<>{t("approvals.subtitle")}</>}
         actions={
           <div class="approvals-header-actions">
-            <StatusPill kind="neutral" label={t("approvals.requestOnly")} />
+            <StatusBadge tone="neutral" label={t("approvals.requestOnly")} />
             <button
               type="button"
               class="btn secondary btn-sm"
@@ -225,25 +233,22 @@ function ReportLineContactRequests({
       </header>
       {error !== null ? <div class="state-block state-error" role="alert">{error}</div> : null}
       <div class="approval-card-list">
-        {items.map((item) => (
-          <article class="approval-card" key={item.approvalId}>
-            <div class="approval-card-body">
-              <header class="approval-card-head">
-                <div class="approval-card-title-group">
-                  <h3>{actionKindTitle(item.actionType)}</h3>
-                  {actionKindTitle(item.actionType) !== item.actionType ? (
-                    <code class="approval-action-token mono">{item.actionType}</code>
-                  ) : null}
-                </div>
-                <StatusPill kind="hil" label={t("approvals.requestOnly")} />
-              </header>
-              <div class="approval-proposal-grid">
-                <div class="approval-proposal-cell">
-                  <span class="approval-proposal-label">{t("approvals.fieldTarget")}</span>
-                  <p class="mono">{item.targetRef}</p>
-                </div>
-                <div class="approval-proposal-cell">
-                  <span class="approval-proposal-label">{t("approvals.contactRoute")}</span>
+        {items.map((item) => {
+          const cardTitle = actionKindTitle(item.actionType) !== item.actionType
+            ? `${actionKindTitle(item.actionType)} (${item.actionType})`
+            : item.actionType;
+          const contactCardProps: ActionProposalCardProps = {
+            title: cardTitle,
+            statusTone: "human",
+            statusLabel: t("approvals.requestOnly"),
+            evidenceFacts: [
+              {
+                label: t("approvals.fieldTarget"),
+                value: <span class="mono">{item.targetRef}</span>,
+              },
+              {
+                label: t("approvals.contactRoute"),
+                value: (
                   <div class="approval-route-chain">
                     {item.routeSubjects.map((subject, index) => (
                       <span key={`${index}:${subject}`} class="approval-route-step">
@@ -252,11 +257,16 @@ function ReportLineContactRequests({
                       </span>
                     ))}
                   </div>
-                </div>
-              </div>
-              <p class="muted small">{t("approvals.contactExpires", {
-                timestamp: formatConsoleTimestamp(item.expiresAt),
-              })}</p>
+                ),
+              },
+              {
+                label: t("approvals.contactTitle"),
+                value: t("approvals.contactExpires", {
+                  timestamp: formatConsoleTimestamp(item.expiresAt),
+                }),
+              },
+            ],
+            technicalDetails: (
               <details>
                 <summary>{t("approvals.contactTechnicalDetails")}</summary>
                 <dl class="approval-facts">
@@ -276,6 +286,8 @@ function ReportLineContactRequests({
                   </div>
                 </dl>
               </details>
+            ),
+            proposalSlot: (
               <div class="approval-decision-actions">
                 <button
                   type="button"
@@ -296,9 +308,10 @@ function ReportLineContactRequests({
                   {t("approvals.declineContact")}
                 </button>
               </div>
-            </div>
-          </article>
-        ))}
+            ),
+          };
+          return <ActionProposalCard key={item.approvalId} {...contactCardProps} />;
+        })}
       </div>
     </section>
   );
@@ -404,7 +417,7 @@ function HilBody({
   if (detailLevel === "count_only") {
     return (
       <section class="approvals-count-only" aria-label={t("approvals.pendingCount", { count: total })}>
-        <StatusPill kind="hil" label={t("approvals.pendingCount", { count: total })} />
+        <StatusBadge tone="human" label={t("approvals.pendingCount", { count: total })} />
         <div>
           <h3>{t("approvals.detailsRoleTitle")}</h3>
           <p>{t("approvals.detailsRoleBody")}</p>
@@ -441,86 +454,69 @@ function HilBody({
       </section>
       <div class="approvals-toolbar">
         <div class="approvals-summary" aria-label={t("approvals.resource")}>
-          <StatusPill kind="hil" label={t("approvals.pendingCount", { count: total })} />
-          <StatusPill kind="neutral" label={t("approvals.shownCount", { count: visibleItems.length })} />
+          <StatusBadge tone="human" label={t("approvals.pendingCount", { count: total })} />
+          <StatusBadge tone="neutral" label={t("approvals.shownCount", { count: visibleItems.length })} />
           {expiredCount > 0 ? (
-            <StatusPill kind="danger" label={t("approvals.expiredCount", { count: expiredCount })} />
+            <StatusBadge tone="sec" label={t("approvals.expiredCount", { count: expiredCount })} />
           ) : null}
-          <StatusPill
-            kind="shadow"
+          <StatusBadge
+            tone="neutral"
             label={dataMode === "sample"
               ? t("approvals.readOnly")
               : t("approvals.requestOnly")}
           />
         </div>
-        <div class="approvals-controls">
+        <FilterToolbar
+          className="approvals-controls"
+          ariaLabel={t("approvals.resource")}
+          activeFilterCount={(query ? 1 : 0) + (statusFilter !== "all" ? 1 : 0)}
+          onReset={() => {
+            setStatusFilter("all");
+            updateQuery("");
+          }}
+          resetLabel={t("approvals.clearFilter")}
+        >
           {items.length > 1 ? (
             <>
-              <div class="governance-chipset" role="group" aria-label={t("approvals.resource")}>
-                <button
-                  type="button"
-                  class={statusFilter === "all" ? "is-active" : undefined}
-                  onClick={() => setStatusFilter("all")}
-                >
-                  {t("approvals.filterAll")} ({items.length})
-                </button>
-                <button
-                  type="button"
-                  class={statusFilter === "actionable" ? "is-active" : undefined}
-                  onClick={() => setStatusFilter("actionable")}
-                >
-                  {t("approvals.filterActionable")} ({actionableCount})
-                </button>
-                {expiredCount > 0 ? (
-                  <button
-                    type="button"
-                    class={statusFilter === "expired" ? "is-active" : undefined}
-                    onClick={() => setStatusFilter("expired")}
-                  >
-                    {t("approvals.filterExpired")} ({expiredCount})
-                  </button>
-                ) : null}
-              </div>
-              <label class="approvals-sort">
-                <span class="sr-only">{t("approvals.sortLabel")}</span>
-                <select
-                  class="form-input"
-                  aria-label={t("approvals.sortLabel")}
-                  value={sortBy}
-                  onChange={(event) => setSortBy(
-                    event.currentTarget.value as "expiry" | "newest" | "impact" | "action",
-                  )}
-                >
-                  <option value="expiry">{t("approvals.sortExpiry")}</option>
-                  <option value="newest">{t("approvals.sortNewest")}</option>
-                  <option value="impact">{t("approvals.sortImpact")}</option>
-                  <option value="action">{t("approvals.sortAction")}</option>
-                </select>
-              </label>
+              <SegmentedControl
+                ariaLabel={t("approvals.resource")}
+                value={statusFilter}
+                options={[
+                  { value: "all" as const, label: t("approvals.filterAll"), count: items.length },
+                  { value: "actionable" as const, label: t("approvals.filterActionable"), count: actionableCount },
+                  ...(expiredCount > 0
+                    ? [{ value: "expired" as const, label: t("approvals.filterExpired"), count: expiredCount }]
+                    : []),
+                ]}
+                onChange={(next) => setStatusFilter(next)}
+              />
+              <SelectField
+                className="approvals-sort"
+                label={t("approvals.sortLabel")}
+                hideLabel
+                ariaLabel={t("approvals.sortLabel")}
+                value={sortBy}
+                options={[
+                  { value: "expiry", label: t("approvals.sortExpiry") },
+                  { value: "newest", label: t("approvals.sortNewest") },
+                  { value: "impact", label: t("approvals.sortImpact") },
+                  { value: "action", label: t("approvals.sortAction") },
+                ]}
+                onChange={(value) => setSortBy(
+                  value as "expiry" | "newest" | "impact" | "action",
+                )}
+              />
             </>
           ) : null}
-          <label class="approvals-search">
-            <span class="sr-only">{t("approvals.filter")}</span>
-            <input
-              type="search"
-              value={query}
-              placeholder={t("approvals.filterPlaceholder")}
-              onInput={(event) => updateQuery(event.currentTarget.value)}
-            />
-          </label>
-          {query || statusFilter !== "all" ? (
-            <button
-              type="button"
-              class="btn secondary btn-sm"
-              onClick={() => {
-                setStatusFilter("all");
-                updateQuery("");
-              }}
-            >
-              {t("approvals.clearFilter")}
-            </button>
-          ) : null}
-        </div>
+          <SearchInput
+            className="approvals-search"
+            label={t("approvals.filter")}
+            hideLabel
+            value={query}
+            placeholder={t("approvals.filterPlaceholder")}
+            onInput={(value) => updateQuery(value)}
+          />
+        </FilterToolbar>
       </div>
       {truncated ? (
         <p class="muted footnote">
@@ -692,18 +688,18 @@ function ApprovalCard({
             ) : null}
           </div>
           <div class="approval-card-badges">
-            <StatusPill
-              kind={expired ? "danger" : "hil"}
+            <StatusBadge
+              tone={expired ? "sec" : "human"}
               label={expired ? t("approvals.expiredApproval") : t("approvals.pendingApproval")}
             />
             {expiryBadge ? (
               expired
                 ? <span class="approval-expiry-age">{expiryBadge.label}</span>
-                : <StatusPill kind={expiryBadge.kind} label={expiryBadge.label} />
+                : <StatusBadge tone={pillKindToBadgeTone(expiryBadge.kind)} label={expiryBadge.label} />
             ) : null}
             {item.mode ? (
-              <StatusPill
-                kind={item.mode === "enforce" ? "enforce" : "shadow"}
+              <StatusBadge
+                tone={item.mode === "enforce" ? "live" : "neutral"}
                 label={item.mode === "enforce"
                   ? t("approvals.modeEnforce")
                   : t("approvals.modeShadow")}
@@ -863,20 +859,15 @@ function ApprovalCard({
             {approvable ? null : (
               <p class="muted" role="status">{t("approvals.developmentOwnerOnly")}</p>
             )}
-            <label>
-              <span class="approval-justification-head">
-                <span>{t("approvals.justification")}</span>
-                <small class="muted mono">{justification.trim().length}/2000</small>
-              </span>
-              <textarea
-                class="form-input"
-                value={justification}
-                maxLength={2000}
-                placeholder={t("approvals.justificationPlaceholder")}
-                disabled={pendingDecision !== null}
-                onInput={(event) => setJustification(event.currentTarget.value)}
-              />
-            </label>
+            <TextareaField
+              label={t("approvals.justification")}
+              value={justification}
+              maxLength={2000}
+              showCounter
+              placeholder={t("approvals.justificationPlaceholder")}
+              disabled={pendingDecision !== null}
+              onInput={(value) => setJustification(value)}
+            />
             {decisionError !== null ? (
               <div class="state-block state-error" role="alert">{decisionError}</div>
             ) : null}
@@ -1028,6 +1019,15 @@ function unavailableReasonLabel(reason: string): string | null {
     "sample_mode",
   ]);
   return known.has(reason) ? t(`approvals.unavailableReasons.${reason}`) : reason;
+}
+
+function pillKindToBadgeTone(kind: PillKind): BadgeTone {
+  if (kind === "danger") return "sec";
+  if (kind === "warning") return "sre";
+  if (kind === "success") return "live";
+  if (kind === "hil") return "human";
+  if (kind === "info") return "info";
+  return "neutral";
 }
 
 export function approvalExpiryBadge(

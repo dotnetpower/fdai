@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/governance/override/1.0.0",
+  "title": "GovernanceOverride",
+  "description": "Catalog-as-code shape of a governance override: the human control surface above the automated quality gate (architecture.instructions.md 'Human Override'). Narrows, downgrades, or disables an accepted rule at resource-group-equivalent scope or narrower - it never edits the rule. See docs/roadmap/rules-and-detection/rule-governance.md 'Overrides'. Loaded into fdai.rule_catalog.schema.override.Override.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "target_rule",
+    "scope",
+    "mode",
+    "justification",
+    "requested_by",
+    "approver"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {"mode": {"const": "severity-downgrade"}},
+        "required": ["mode"]
+      },
+      "then": {"required": ["severity_downgrade_to"]},
+      "else": {"properties": {"severity_downgrade_to": {"not": {}}}}
+    },
+    {
+      "if": {
+        "properties": {"mode": {"const": "parameter-relaxation"}},
+        "required": ["mode"]
+      },
+      "then": {"required": ["parameter_overrides"]},
+      "else": {"properties": {"parameter_overrides": {"not": {}}}}
+    }
+  ],
+  "properties": {
+    "schema_version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "kind": {"type": "string", "enum": ["override"]},
+    "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$"},
+    "target_rule": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$",
+      "description": "The rule this override narrows, downgrades, or disables."
+    },
+    "scope": {
+      "type": "string",
+      "pattern": "^scope://[^/\\s]+(/[^/\\s]+){0,3}$",
+      "description": "A scope:// address. MUST resolve to resource-group-equivalent or narrower (rejected at the domain-object boundary otherwise) - organization/account-wide is a rule retirement, not an override."
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["disabled", "severity-downgrade", "parameter-relaxation"]
+    },
+    "severity_downgrade_to": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low"]
+    },
+    "parameter_overrides": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"type": "string"},
+      "description": "Widens a threshold within the range the rule's schema declares. Every key MUST also be allow-listed by the separately reviewed rule-catalog/override-parameter-bounds.yaml policy; an unlisted key or an out-of-bound value fails the catalog load closed (fdai.rule_catalog.schema.parameter_relaxation_policy)."
+    },
+    "justification": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 2048
+    },
+    "requested_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Entra OID of the requester. MUST differ from approver (no self-override)."
+    },
+    "approver": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Entra OID of the override approver. MUST differ from requested_by."
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Optional - unlike an exemption, an override MAY be permanent."
+    },
+    "provenance": {"$ref": "#/$defs/provenance"}
+  },
+  "$defs": {
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["created_at", "created_by"],
+      "properties": {
+        "created_at": {},
+        "created_by": {"type": "string", "minLength": 1},
+        "source": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

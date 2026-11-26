@@ -1,0 +1,210 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Design Mocks: Static Site",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "python3 -u -m http.server 5373 --bind 127.0.0.1",
+      "cwd": "${workspaceFolder}",
+      "serverReadyAction": {
+        "pattern": "Serving HTTP on 127\\.0\\.0\\.1 port 5373",
+        "uriFormat": "http://127.0.0.1:5373",
+        "action": "debugWithChrome"
+      }
+    },
+    {
+      "name": "Console Web: Core Runtime",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "module": "fdai",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.fdai/local-runtime.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/services/core-control-plane/src:${workspaceFolder}/packages/service-contracts/src",
+        "FDAI_RUNTIME_LOCK_FILE": "${workspaceFolder}/.fdai/core-runtime.lock",
+        "AZURE_CONFIG_DIR": null
+      },
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "subProcess": true,
+      "presentation": {
+        "group": "1-fullstack",
+        "order": 1
+      }
+    },
+    {
+      "name": "Console Web: Operator API",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "module": "uvicorn",
+      "args": [
+        "fdai_operator_service.main:create_app",
+        "--factory",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8010",
+        "--no-access-log",
+        "--reload"
+      ],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.fdai/local-operator-service.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/services/operator-service/src:${workspaceFolder}/packages/service-contracts/src",
+        "AZURE_CONFIG_DIR": null,
+        "FDAI_OPERATOR_API_LOCAL_AZURE_CLI": "0",
+        "FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM": "0",
+        "FDAI_OPERATOR_API_LOCAL_ENTRA": "1"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "subProcess": true,
+      "presentation": {
+        "group": "1-fullstack",
+        "order": 2
+      }
+    },
+    {
+      "name": "Console Web: Document Ingestion API",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "module": "uvicorn",
+      "args": [
+        "fdai_ingestion_api_service.main:create_app",
+        "--factory",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8011",
+        "--no-access-log"
+      ],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.fdai/local-document-ingestion-api.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/services/document-ingestion-api/src:${workspaceFolder}/packages/service-contracts/src",
+        "AZURE_CONFIG_DIR": null
+      },
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "subProcess": true,
+      "presentation": {
+        "group": "1-fullstack",
+        "order": 3
+      }
+    },
+    {
+      "name": "Console Web: Document Processing Worker",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "program": "${workspaceFolder}/.venv/bin/fdai-document-processing-worker",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.fdai/local-document-processing-worker.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/services/document-processing-worker/src:${workspaceFolder}/packages/service-contracts/src",
+        "AZURE_CONFIG_DIR": null
+      },
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "subProcess": true,
+      "presentation": {
+        "group": "1-fullstack",
+        "order": 4
+      }
+    },
+    {
+      "name": "Console Web: Isolated Executor",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "program": "${workspaceFolder}/.venv/bin/fdai-isolated-executor-service",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.fdai/local-isolated-executor.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/services/isolated-executor/src:${workspaceFolder}/packages/service-contracts/src",
+        "AZURE_CONFIG_DIR": null
+      },
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "subProcess": true,
+      "presentation": {
+        "group": "1-fullstack",
+        "order": 5
+      }
+    },
+    {
+      "name": "Console Web: Code Security Worker",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "bash scripts/deployment/local/run-console-service.sh code-security-worker",
+      "cwd": "${workspaceFolder}",
+      "presentation": {
+        "group": "1-fullstack",
+        "order": 6
+      }
+    },
+    {
+      "name": "Console Web: Frontend",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev -- --host localhost --port 5273 --strictPort",
+      "cwd": "${workspaceFolder}/console",
+      "env": {
+        "VITE_DEV_MODE": "0",
+        "VITE_LOCAL_AZURE_CLI_AUTH": "0",
+        "VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM": "0",
+        "VITE_LOCAL_LOGIN_PROMPT": "0",
+        "VITE_OPERATOR_API_BASE_URL": "http://127.0.0.1:8010",
+        "VITE_INGESTION_API_BASE_URL": "http://127.0.0.1:8011",
+        "VITE_MANUAL_STUDIO_URL": "http://127.0.0.1:5474"
+      },
+      "serverReadyAction": {
+        "pattern": "Local:\\s+(https?://\\S+)",
+        "uriFormat": "http://localhost:5273",
+        "action": "debugWithChrome"
+      },
+      "presentation": {
+        "group": "1-fullstack",
+        "order": 7
+      }
+    },
+    {
+      "name": "Console Web: Manual Studio",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev",
+      "cwd": "${workspaceFolder}/tools/manual-studio",
+      "env": {
+        "PORT": "5474"
+      },
+      "presentation": {
+        "group": "1-fullstack",
+        "order": 8
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Console Web: Full Stack",
+      "preLaunchTask": "console: prepare full stack",
+      "configurations": [
+        "Console Web: Core Runtime",
+        "Console Web: Operator API",
+        "Console Web: Document Ingestion API",
+        "Console Web: Document Processing Worker",
+        "Console Web: Isolated Executor",
+        "Console Web: Frontend",
+        "Console Web: Manual Studio"
+      ],
+      "stopAll": true,
+      "presentation": {
+        "group": "0-fullstack",
+        "order": 1
+      }
+    }
+  ]
+}

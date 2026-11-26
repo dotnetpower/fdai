@@ -1,0 +1,11 @@
+# Zero-Python & Hexagonal Layer Enforcement (`fdai`)
+[bans]
+multiple-versions = "allow"
+deny = [
+    { name = "pyo3" },
+    { name = "pyo3-ffi" },
+    { name = "rustpython" },
+    { name = "rustpython-vm" },
+    { name = "inline-python" },
+    { name = "cpython" },
+]

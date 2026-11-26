@@ -1,3 +1,9 @@
+import {
+  CheckboxField,
+  SelectField,
+  TextInput,
+  TextareaField,
+} from "../components/form-controls";
 import { Tooltip } from "../components/tooltip";
 import type { ActionTypePaletteEntry } from "../workflow/validate";
 import { cloneForm } from "./workflow-builder.chat.builders";
@@ -44,29 +50,41 @@ export function WorkflowDraftEditor({
     <details class="wf-draft-editor">
       <summary>{t("workflow.editor.heading")}</summary>
       <div class="wf-editor-grid">
-        <label class="form-field">
-          <span class="form-label">{t("workflow.editor.name")}</span>
-          <input class="form-input mono" value={form.name} onInput={(event) => patch({ name: (event.target as HTMLInputElement).value })} />
-        </label>
-        <label class="form-field form-field-wide">
-          <span class="form-label">{t("workflow.editor.description")}</span>
-          <textarea class="form-input" rows={2} value={form.description} onInput={(event) => patch({ description: (event.target as HTMLTextAreaElement).value })} />
-        </label>
-        <label class="form-field">
-          <span class="form-label">{t("workflow.editor.triggerKind")}</span>
-          <select class="form-input" value={form.triggerKind} onChange={(event) => patch({ triggerKind: (event.target as HTMLSelectElement).value as FormState["triggerKind"] })}>
-            <option value="signal">{t("workflow.automations.signal")}</option>
-            <option value="schedule">{t("workflow.automations.schedule")}</option>
-          </select>
-        </label>
-        <label class="form-field">
-          <span class="form-label">{t(form.triggerKind === "signal" ? "workflow.editor.signalType" : "workflow.editor.schedule")}</span>
-          <input class="form-input mono" value={form.triggerKind === "signal" ? form.signalType : form.schedule} onInput={(event) => form.triggerKind === "signal" ? patch({ signalType: (event.target as HTMLInputElement).value }) : patch({ schedule: (event.target as HTMLInputElement).value })} />
-        </label>
-        <label class="form-field form-field-wide">
-          <span class="form-label">{t("workflow.editor.antiScope")}</span>
-          <textarea class="form-input" rows={2} value={form.antiScope} onInput={(event) => patch({ antiScope: (event.target as HTMLTextAreaElement).value })} />
-        </label>
+        <TextInput
+          label={t("workflow.editor.name")}
+          mono
+          value={form.name}
+          onInput={(next) => patch({ name: next })}
+        />
+        <TextareaField
+          label={t("workflow.editor.description")}
+          rows={2}
+          className="form-field-wide"
+          value={form.description}
+          onInput={(next) => patch({ description: next })}
+        />
+        <SelectField
+          label={t("workflow.editor.triggerKind")}
+          value={form.triggerKind}
+          options={[
+            { value: "signal", label: t("workflow.automations.signal") },
+            { value: "schedule", label: t("workflow.automations.schedule") },
+          ]}
+          onChange={(next) => patch({ triggerKind: next as FormState["triggerKind"] })}
+        />
+        <TextInput
+          label={t(form.triggerKind === "signal" ? "workflow.editor.signalType" : "workflow.editor.schedule")}
+          mono
+          value={form.triggerKind === "signal" ? form.signalType : form.schedule}
+          onInput={(next) => form.triggerKind === "signal" ? patch({ signalType: next }) : patch({ schedule: next })}
+        />
+        <TextareaField
+          label={t("workflow.editor.antiScope")}
+          rows={2}
+          className="form-field-wide"
+          value={form.antiScope}
+          onInput={(next) => patch({ antiScope: next })}
+        />
       </div>
 
       <div class="wf-editor-section-head">
@@ -93,75 +111,81 @@ export function WorkflowDraftEditor({
               </div>
             </div>
             <div class="wf-editor-grid">
-              <label class="form-field">
-                <span class="form-label">{t("workflow.editor.stepKind")}</span>
-                <select
-                  class="form-input"
-                  value={step.kind}
-                  onChange={(event) => onChange(setDraftStepKind(
-                    form,
-                    step.key,
-                    (event.target as HTMLSelectElement).value as typeof step.kind,
-                  ))}
-                >
-                  {AUTHORABLE_STEP_KINDS.map((kind) => (
-                    <option key={kind} value={kind}>{t(`workflow.stepKind.${kind}`)}</option>
-                  ))}
-                </select>
-              </label>
-              <label class="form-field">
-                <span class="form-label">{t("workflow.editor.stepId")}</span>
-                <input class="form-input mono" required value={step.id} onInput={(event) => onChange(updateDraftStepField(form, step.key, "id", (event.target as HTMLInputElement).value))} />
-              </label>
+              <SelectField
+                label={t("workflow.editor.stepKind")}
+                value={step.kind}
+                options={AUTHORABLE_STEP_KINDS.map((kind) => ({
+                  value: kind,
+                  label: t(`workflow.stepKind.${kind}`),
+                }))}
+                onChange={(next) => onChange(setDraftStepKind(
+                  form,
+                  step.key,
+                  next as typeof step.kind,
+                ))}
+              />
+              <TextInput
+                label={t("workflow.editor.stepId")}
+                mono
+                required
+                value={step.id}
+                onInput={(next) => onChange(updateDraftStepField(form, step.key, "id", next))}
+              />
               {step.kind === "action" ? (
-              <label class="form-field">
-                <span class="form-label">{t("workflow.editor.actionType")}</span>
-                <select class="form-input mono" required value={step.action_type_ref} onChange={(event) => onChange(setDraftStepAction(form, step.key, (event.target as HTMLSelectElement).value))}>
-                  <option value="">{t("workflow.editor.chooseAction")}</option>
-                  {palette.map((entry) => <option key={entry.name} value={entry.name}>{entry.name}</option>)}
-                </select>
-              </label>
+                <SelectField
+                  label={t("workflow.editor.actionType")}
+                  required
+                  value={step.action_type_ref}
+                  options={[
+                    { value: "", label: t("workflow.editor.chooseAction") },
+                    ...palette.map((entry) => ({ value: entry.name, label: entry.name })),
+                  ]}
+                  onChange={(next) => onChange(setDraftStepAction(form, step.key, next))}
+                />
               ) : null}
               {step.kind === "wait" ? (
                 <>
-                  <label class="form-field">
-                    <span class="form-label">{t("workflow.editor.waitFor")}</span>
-                    <input class="form-input mono" required value={step.wait_for} onInput={(event) => onChange(updateDraftStepField(form, step.key, "wait_for", (event.target as HTMLInputElement).value))} />
-                    <span class="field-hint">{t("workflow.editor.waitForHint")}</span>
-                  </label>
+                  <TextInput
+                    label={t("workflow.editor.waitFor")}
+                    mono
+                    required
+                    value={step.wait_for}
+                    hint={t("workflow.editor.waitForHint")}
+                    onInput={(next) => onChange(updateDraftStepField(form, step.key, "wait_for", next))}
+                  />
                   <TimeoutField form={form} stepKey={step.key} value={step.timeout_seconds} onChange={onChange} />
                 </>
               ) : null}
               {step.kind === "approval" ? (
                 <>
-                  <label class="form-field">
-                    <span class="form-label">{t("workflow.editor.approvalRole")}</span>
-                    <select class="form-input" required value={step.approval_role} onChange={(event) => onChange(setDraftStepApprovalRole(form, step.key, (event.target as HTMLSelectElement).value as ApprovalRole | ""))}>
-                      <option value="">{t("workflow.editor.chooseApprovalRole")}</option>
-                      {APPROVAL_ROLES.map((role) => <option key={role} value={role}>{t(`workflow.approvalRole.${role}`)}</option>)}
-                    </select>
-                  </label>
-                  <label class="form-field">
-                    <span class="form-label">{t("workflow.editor.quorum")}</span>
-                    <input class="form-input" type="number" min="1" step="1" required value={step.quorum} onInput={(event) => onChange(updateDraftStepField(form, step.key, "quorum", (event.target as HTMLInputElement).value))} />
-                    <span class="field-hint">{t("workflow.editor.quorumHint")}</span>
-                  </label>
+                  <SelectField
+                    label={t("workflow.editor.approvalRole")}
+                    required
+                    value={step.approval_role}
+                    options={[
+                      { value: "", label: t("workflow.editor.chooseApprovalRole") },
+                      ...APPROVAL_ROLES.map((role) => ({ value: role, label: t(`workflow.approvalRole.${role}`) })),
+                    ]}
+                    onChange={(next) => onChange(setDraftStepApprovalRole(form, step.key, next as ApprovalRole | ""))}
+                  />
+                  <TextInput
+                    label={t("workflow.editor.quorum")}
+                    type="number"
+                    min="1"
+                    step="1"
+                    required
+                    value={step.quorum}
+                    hint={t("workflow.editor.quorumHint")}
+                    onInput={(next) => onChange(updateDraftStepField(form, step.key, "quorum", next))}
+                  />
                   <TimeoutField form={form} stepKey={step.key} value={step.timeout_seconds} onChange={onChange} />
-                  <label class="form-field wf-checkbox-field">
-                    <input
-                      type="checkbox"
-                      checked={step.no_self_approval}
-                      onChange={(event) => onChange(setDraftStepNoSelfApproval(
-                        form,
-                        step.key,
-                        (event.target as HTMLInputElement).checked,
-                      ))}
-                    />
-                    <span>
-                      <span class="form-label">{t("workflow.editor.noSelfApproval")}</span>
-                      <span class="field-hint">{t("workflow.editor.noSelfApprovalHint")}</span>
-                    </span>
-                  </label>
+                  <CheckboxField
+                    label={t("workflow.editor.noSelfApproval")}
+                    hint={t("workflow.editor.noSelfApprovalHint")}
+                    checked={step.no_self_approval}
+                    className="wf-checkbox-field"
+                    onChange={(checked) => onChange(setDraftStepNoSelfApproval(form, step.key, checked))}
+                  />
                 </>
               ) : null}
               {step.kind === "decision" ? (
@@ -190,18 +214,23 @@ export function WorkflowDraftEditor({
                     hintKey="workflow.editor.branchesHint"
                     onChange={onChange}
                   />
-                  <label class="form-field">
-                    <span class="form-label">{t("workflow.editor.joinBehavior")}</span>
-                    <input class="form-input" value={t("workflow.editor.joinAll")} disabled />
-                    <span class="field-hint">{t("workflow.editor.joinHint")}</span>
-                  </label>
+                  <TextInput
+                    label={t("workflow.editor.joinBehavior")}
+                    value={t("workflow.editor.joinAll")}
+                    disabled
+                    hint={t("workflow.editor.joinHint")}
+                    onInput={() => {}}
+                  />
                 </>
               ) : null}
               {step.kind === "gate" ? (
-                <label class="form-field form-field-wide">
-                  <span class="form-label">{t("workflow.editor.gateRef")}</span>
+                <div class="cs-field form-field-wide">
+                  <label for={`workflow-gate-ref-input-${step.key}`} class="cs-field-label">
+                    <span>{t("workflow.editor.gateRef")}</span>
+                  </label>
                   <input
-                    class="form-input mono"
+                    id={`workflow-gate-ref-input-${step.key}`}
+                    class="cs-field-control cs-field-control--mono"
                     list={`workflow-gate-refs-${step.key}`}
                     required
                     value={step.gate_ref}
@@ -215,8 +244,8 @@ export function WorkflowDraftEditor({
                   <datalist id={`workflow-gate-refs-${step.key}`}>
                     {gateRefs.map((gateRef) => <option key={gateRef} value={gateRef} />)}
                   </datalist>
-                  <span class="field-hint">{t("workflow.editor.gateRefHint")}</span>
-                </label>
+                  <span class="cs-field-hint">{t("workflow.editor.gateRefHint")}</span>
+                </div>
               ) : null}
             </div>
             <details class="step-advanced">
@@ -227,10 +256,13 @@ export function WorkflowDraftEditor({
                   ...(step.kind === "action" ? ["compensated_by"] as const : []),
                   "on_failure",
                 ] as const).map((field) => (
-                  <label class="form-field" key={field}>
-                    <span class="form-label">{t(`workflow.editor.${field}`)}</span>
-                    <input class="form-input mono" value={step[field]} onInput={(event) => onChange(updateDraftStepField(form, step.key, field, (event.target as HTMLInputElement).value))} />
-                  </label>
+                  <TextInput
+                    key={field}
+                    label={t(`workflow.editor.${field}`)}
+                    mono
+                    value={step[field]}
+                    onInput={(next) => onChange(updateDraftStepField(form, step.key, field, next))}
+                  />
                 ))}
               </div>
               <div class="wf-editor-section-head">
@@ -251,10 +283,14 @@ export function WorkflowDraftEditor({
         <summary>{t("workflow.editor.promotionGate")}</summary>
         <div class="wf-editor-grid">
           {(["minShadowDays", "minSamples", "minAccuracy", "maxPolicyEscapes"] as const).map((field) => (
-            <label class="form-field" key={field}>
-              <span class="form-label">{t(`workflow.editor.${field}`)}</span>
-              <input class="form-input" type="number" step={field === "minAccuracy" ? "0.01" : "1"} value={form[field]} onInput={(event) => patch({ [field]: (event.target as HTMLInputElement).value })} />
-            </label>
+            <TextInput
+              key={field}
+              label={t(`workflow.editor.${field}`)}
+              type="number"
+              step={field === "minAccuracy" ? "0.01" : "1"}
+              value={form[field]}
+              onInput={(next) => patch({ [field]: next })}
+            />
           ))}
         </div>
       </details>
@@ -288,17 +324,18 @@ function StringListField({
       <legend class="form-label">{t(labelKey)}</legend>
       {values.map((value, index) => (
         <div class="wf-string-list-row" key={index}>
-          <input
-            class="form-input mono"
-            aria-label={t(itemLabelKey, { number: index + 1 })}
+          <TextInput
+            label={t(itemLabelKey, { number: index + 1 })}
+            hideLabel
+            mono
             required
             value={value}
-            onInput={(event) => onChange(setDraftListItem(
+            onInput={(next) => onChange(setDraftListItem(
               form,
               stepKey,
               field,
               index,
-              (event.target as HTMLInputElement).value,
+              next,
             ))}
           />
           <Tooltip content={t("workflow.editor.removeListItem")}>
@@ -337,11 +374,16 @@ function TimeoutField({
   readonly onChange: (form: FormState) => void;
 }) {
   return (
-    <label class="form-field">
-      <span class="form-label">{t("workflow.editor.timeoutSeconds")}</span>
-      <input class="form-input" type="number" min="1" step="1" required value={value} onInput={(event) => onChange(updateDraftStepField(form, stepKey, "timeout_seconds", (event.target as HTMLInputElement).value))} />
-      <span class="field-hint">{t("workflow.editor.timeoutHint")}</span>
-    </label>
+    <TextInput
+      label={t("workflow.editor.timeoutSeconds")}
+      type="number"
+      min="1"
+      step="1"
+      required
+      value={value}
+      hint={t("workflow.editor.timeoutHint")}
+      onInput={(next) => onChange(updateDraftStepField(form, stepKey, "timeout_seconds", next))}
+    />
   );
 }
 
@@ -360,19 +402,43 @@ function ParameterRow({
   const updateType = (nextType: DraftParamType) => onChange(name, coerceDraftParam(String(value), nextType));
   return (
     <div class="wf-param-row">
-      <input class="form-input mono" aria-label={t("workflow.editor.parameterName")} value={name} onInput={(event) => onChange((event.target as HTMLInputElement).value, value)} />
-      <select class="form-input" aria-label={t("workflow.editor.parameterType")} value={type} onChange={(event) => updateType((event.target as HTMLSelectElement).value as DraftParamType)}>
-        <option value="string">string</option>
-        <option value="number">number</option>
-        <option value="boolean">boolean</option>
-      </select>
+      <TextInput
+        label={t("workflow.editor.parameterName")}
+        hideLabel
+        mono
+        value={name}
+        onInput={(next) => onChange(next, value)}
+      />
+      <SelectField
+        label={t("workflow.editor.parameterType")}
+        hideLabel
+        value={type}
+        options={[
+          { value: "string", label: "string" },
+          { value: "number", label: "number" },
+          { value: "boolean", label: "boolean" },
+        ]}
+        onChange={(next) => updateType(next as DraftParamType)}
+      />
       {type === "boolean" ? (
-        <select class="form-input" aria-label={t("workflow.editor.parameterValue")} value={String(value)} onChange={(event) => onChange(name, (event.target as HTMLSelectElement).value === "true")}>
-          <option value="true">true</option>
-          <option value="false">false</option>
-        </select>
+        <SelectField
+          label={t("workflow.editor.parameterValue")}
+          hideLabel
+          value={String(value)}
+          options={[
+            { value: "true", label: "true" },
+            { value: "false", label: "false" },
+          ]}
+          onChange={(next) => onChange(name, next === "true")}
+        />
       ) : (
-        <input class="form-input" aria-label={t("workflow.editor.parameterValue")} type={type === "number" ? "number" : "text"} value={String(value)} onInput={(event) => onChange(name, coerceDraftParam((event.target as HTMLInputElement).value, type))} />
+        <TextInput
+          label={t("workflow.editor.parameterValue")}
+          hideLabel
+          type={type === "number" ? "number" : "text"}
+          value={String(value)}
+          onInput={(next) => onChange(name, coerceDraftParam(next, type))}
+        />
       )}
       <Tooltip content={t("workflow.editor.removeParameter")}>
         <button type="button" class="btn btn-small btn-danger" aria-label={t("workflow.editor.removeParameter")} onClick={onRemove}>&times;</button>

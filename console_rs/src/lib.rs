@@ -31,11 +31,17 @@ use tower_http::cors::{AllowOrigin, CorsLayer};
 use crate::db::{cell_i64, cell_str, DbHandle};
 use crate::upstream::UpstreamClient;
 
-const MAX_GLOBAL_PULSE_STREAMS: usize = 32;
+const MAX_GLOBAL_PULSE_STREAMS: usize = 128;
+const MAX_PULSE_TICKS: u64 = 12;
 static GLOBAL_PULSE_SEM: OnceLock<Semaphore> = OnceLock::new();
+static PULSE_CACHE: OnceLock<tokio::sync::RwLock<Option<(Instant, serde_json::Value)>>> = OnceLock::new();
 
 fn global_pulse_semaphore() -> &'static Semaphore {
     GLOBAL_PULSE_SEM.get_or_init(|| Semaphore::new(MAX_GLOBAL_PULSE_STREAMS))
+}
+
+fn pulse_cache() -> &'static tokio::sync::RwLock<Option<(Instant, serde_json::Value)>> {
+    PULSE_CACHE.get_or_init(|| tokio::sync::RwLock::new(None))
 }
 
 /// RAII drop guard that tracks active SSE stream leases across all domains.
@@ -72,28 +78,44 @@ impl AppState {
     pub fn from_repo_root(repo_root: PathBuf, operator_url: String) -> Self {
         let upstream = UpstreamClient::new(operator_url.clone());
         let db = DbHandle::from_env();
+        let brand_dir = {
+            let rust_owned = repo_root.join("console_rs/assets/brand");
+            if rust_owned.is_dir() { rust_owned } else { repo_root.join("console/public/brand") }
+        };
+        let agent_icons_dir = {
+            let rust_owned = repo_root.join("console_rs/assets/agent-icons");
+            if rust_owned.is_dir() { rust_owned } else { repo_root.join("console/public/agent-icons") }
+        };
         Self {
             operator_url,
             upstream,
             db,
             active_sse: Arc::new(AtomicUsize::new(0)),
-            brand_dir: repo_root.join("console/public/brand"),
+            brand_dir,
             azure_icons_dir: repo_root.join("tools/architecture-diagrams/assets/azure"),
-            agent_icons_dir: repo_root.join("console/public/agent-icons"),
+            agent_icons_dir,
         }
     }
 
     pub fn from_repo_root_with_local_db(repo_root: PathBuf, operator_url: String) -> Self {
         let upstream = UpstreamClient::new(operator_url.clone());
         let db = DbHandle::from_env_or_local_runtime(&repo_root);
+        let brand_dir = {
+            let rust_owned = repo_root.join("console_rs/assets/brand");
+            if rust_owned.is_dir() { rust_owned } else { repo_root.join("console/public/brand") }
+        };
+        let agent_icons_dir = {
+            let rust_owned = repo_root.join("console_rs/assets/agent-icons");
+            if rust_owned.is_dir() { rust_owned } else { repo_root.join("console/public/agent-icons") }
+        };
         Self {
             operator_url,
             upstream,
             db,
             active_sse: Arc::new(AtomicUsize::new(0)),
-            brand_dir: repo_root.join("console/public/brand"),
+            brand_dir,
             azure_icons_dir: repo_root.join("tools/architecture-diagrams/assets/azure"),
-            agent_icons_dir: repo_root.join("console/public/agent-icons"),
+            agent_icons_dir,
         }
     }
 }
@@ -343,6 +365,21 @@ async fn sample_live_pulse(db: &DbHandle, tick: u64, prev_audit_seq: &mut i64, p
     })
 }
 
+async fn sample_live_pulse_cached(db: &DbHandle, tick: u64, prev_audit_seq: &mut i64, prev_watermark: &mut i64) -> serde_json::Value {
+    if let Some((ts, cached)) = pulse_cache().read().await.as_ref() {
+        if ts.elapsed() < Duration::from_secs(3) {
+            let mut v = cached.clone();
+            if let Some(obj) = v.as_object_mut() {
+                obj.insert("tick".to_string(), json!(tick));
+            }
+            return v;
+        }
+    }
+    let fresh = sample_live_pulse(db, tick, prev_audit_seq, prev_watermark).await;
+    *pulse_cache().write().await = Some((Instant::now(), fresh.clone()));
+    fresh
+}
+
 async fn api_live_pulse_stream(State(state): State<AppState>) -> Response {
     let Ok(permit) = global_pulse_semaphore().try_acquire() else {
         return (
@@ -356,11 +393,14 @@ async fn api_live_pulse_stream(State(state): State<AppState>) -> Response {
     let sse_stream = stream::unfold(
         (db, lease, permit, 0_u64, 0_i64, 0_i64),
         |(db, lease, permit, mut tick, mut prev_seq, mut prev_wm)| async move {
+            if tick >= MAX_PULSE_TICKS {
+                return None;
+            }
             if tick > 0 {
                 tokio::time::sleep(Duration::from_secs(4)).await;
             }
             tick = tick.saturating_add(1);
-            let payload = sample_live_pulse(&db, tick, &mut prev_seq, &mut prev_wm).await;
+            let payload = sample_live_pulse_cached(&db, tick, &mut prev_seq, &mut prev_wm).await;
             let ev = Event::default().event("pulse").data(payload.to_string());
             Some((Ok::<Event, Infallible>(ev), (db, lease, permit, tick, prev_seq, prev_wm)))
         },
@@ -447,6 +487,27 @@ mod tests {
             if let Ok(req) = req_res {
                 let Ok(resp) = app.clone().oneshot(req).await;
                 assert_eq!(resp.status(), StatusCode::OK, "non-200 on clean URL {path}");
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn legacy_flat_panel_urls_redirect_308_to_canonical_domain_path_preserving_query() {
+        let app = build_router(test_state());
+        for (legacy, expected) in [
+            ("/architecture?scope=rg-fdai-dev-wus3&node=abc", "/governance/architecture?scope=rg-fdai-dev-wus3&node=abc"),
+            ("/dashboard", "/overview/dashboard"),
+            ("/rules?framework=mcsb", "/governance/rules?framework=mcsb"),
+            ("/audit", "/evidence/audit"),
+            ("/settings-general", "/settings/general"),
+        ] {
+            let req_res = Request::builder().uri(legacy).body(Body::empty());
+            assert!(req_res.is_ok(), "failed request build for {legacy}");
+            if let Ok(req) = req_res {
+                let Ok(resp) = app.clone().oneshot(req).await;
+                assert_eq!(resp.status(), StatusCode::PERMANENT_REDIRECT, "expected 308 on {legacy}");
+                let loc = resp.headers().get(header::LOCATION).and_then(|v| v.to_str().ok()).unwrap_or("");
+                assert_eq!(loc, expected, "unexpected redirect target for {legacy}");
             }
         }
     }

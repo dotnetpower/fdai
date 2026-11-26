@@ -1,0 +1,836 @@
+{
+  "$defs": {
+    "OutcomeAssuranceAttribution": {
+      "additionalProperties": false,
+      "description": "Objective attribution accounting for finalized events.",
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/OutcomeAssuranceAttributionState"
+        },
+        "finalized_events": {
+          "minimum": 0,
+          "title": "Finalized Events",
+          "type": "integer"
+        },
+        "attributed_events": {
+          "minimum": 0,
+          "title": "Attributed Events",
+          "type": "integer"
+        },
+        "unattributed_events": {
+          "minimum": 0,
+          "title": "Unattributed Events",
+          "type": "integer"
+        },
+        "coverage": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Coverage"
+        },
+        "objective_refs": {
+          "default": [],
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Objective Refs",
+          "type": "array"
+        },
+        "workflow_refs": {
+          "default": [],
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Workflow Refs",
+          "type": "array"
+        },
+        "action_type_ids": {
+          "default": [],
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Action Type Ids",
+          "type": "array"
+        },
+        "evidence_refs": {
+          "default": [],
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OutcomeAssuranceUnavailableReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "state",
+        "finalized_events",
+        "attributed_events",
+        "unattributed_events"
+      ],
+      "title": "OutcomeAssuranceAttribution",
+      "type": "object"
+    },
+    "OutcomeAssuranceAttributionState": {
+      "description": "Coverage-preserving attribution state.",
+      "enum": [
+        "unattributed",
+        "partial",
+        "attributed",
+        "unavailable"
+      ],
+      "title": "OutcomeAssuranceAttributionState",
+      "type": "string"
+    },
+    "OutcomeAssuranceConfidenceInterval": {
+      "additionalProperties": false,
+      "description": "Confidence interval for one measured outcome.",
+      "properties": {
+        "low": {
+          "title": "Low",
+          "type": "number"
+        },
+        "high": {
+          "title": "High",
+          "type": "number"
+        }
+      },
+      "required": [
+        "low",
+        "high"
+      ],
+      "title": "OutcomeAssuranceConfidenceInterval",
+      "type": "object"
+    },
+    "OutcomeAssuranceControlSummary": {
+      "additionalProperties": false,
+      "description": "Control assurance without approval, promotion, or execution authority.",
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/OutcomeAssuranceGuardState"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OutcomeAssuranceUnavailableReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "guard_evaluations": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/OutcomeAssuranceGuardEvaluation"
+          },
+          "maxItems": 64,
+          "title": "Guard Evaluations",
+          "type": "array"
+        },
+        "policy_escape_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Policy Escape Count",
+          "type": "integer"
+        },
+        "evidence_refs": {
+          "default": [],
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Evidence Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "title": "OutcomeAssuranceControlSummary",
+      "type": "object"
+    },
+    "OutcomeAssuranceGuardEvaluation": {
+      "additionalProperties": false,
+      "description": "One guard threshold result carried into the read model.",
+      "properties": {
+        "guard_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Guard Id",
+          "type": "string"
+        },
+        "threshold": {
+          "title": "Threshold",
+          "type": "number"
+        },
+        "observed_value": {
+          "title": "Observed Value",
+          "type": "number"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "evidence_ref": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Evidence Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "guard_id",
+        "threshold",
+        "observed_value",
+        "passed",
+        "evidence_ref"
+      ],
+      "title": "OutcomeAssuranceGuardEvaluation",
+      "type": "object"
+    },
+    "OutcomeAssuranceGuardState": {
+      "description": "Control assurance state without approval or execution authority.",
+      "enum": [
+        "unknown",
+        "healthy",
+        "attention",
+        "blocked",
+        "stale",
+        "unavailable"
+      ],
+      "title": "OutcomeAssuranceGuardState",
+      "type": "string"
+    },
+    "OutcomeAssuranceMetric": {
+      "additionalProperties": false,
+      "description": "One objective metric without synthetic or zero-filled values.",
+      "properties": {
+        "objective_ref": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Objective Ref",
+          "type": "string"
+        },
+        "metric": {
+          "pattern": "^[a-z0-9][a-z0-9_.:-]{0,191}$",
+          "title": "Metric",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/OutcomeAssuranceMetricState"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OutcomeAssuranceUnavailableReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "current_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Current Value"
+        },
+        "baseline_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseline Value"
+        },
+        "target_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Value"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        },
+        "sample_size": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sample Size"
+        },
+        "confidence_interval": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OutcomeAssuranceConfidenceInterval"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "source_time": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Time"
+        },
+        "evidence_refs": {
+          "default": [],
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Evidence Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "objective_ref",
+        "metric",
+        "state"
+      ],
+      "title": "OutcomeAssuranceMetric",
+      "type": "object"
+    },
+    "OutcomeAssuranceMetricState": {
+      "description": "Evidence state for one objective measurement.",
+      "enum": [
+        "measured",
+        "stale",
+        "unavailable",
+        "insufficient_sample",
+        "regressed"
+      ],
+      "title": "OutcomeAssuranceMetricState",
+      "type": "string"
+    },
+    "OutcomeAssuranceProvenance": {
+      "additionalProperties": false,
+      "description": "Pinned source set and as-of time for one projection response.",
+      "properties": {
+        "as_of": {
+          "format": "date-time",
+          "title": "As Of",
+          "type": "string"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "source_names": {
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Source Names",
+          "type": "array"
+        },
+        "synthetic": {
+          "const": false,
+          "default": false,
+          "title": "Synthetic",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "as_of",
+        "generated_at",
+        "source_names"
+      ],
+      "title": "OutcomeAssuranceProvenance",
+      "type": "object"
+    },
+    "OutcomeAssuranceReadState": {
+      "description": "Terminal state of the read-only Outcome Assurance projection.",
+      "enum": [
+        "complete",
+        "stale",
+        "unavailable"
+      ],
+      "title": "OutcomeAssuranceReadState",
+      "type": "string"
+    },
+    "OutcomeAssuranceReadiness": {
+      "additionalProperties": false,
+      "description": "Freshness-bound state for one readiness facet.",
+      "properties": {
+        "facet": {
+          "$ref": "#/$defs/OutcomeAssuranceReadinessFacet"
+        },
+        "state": {
+          "$ref": "#/$defs/OutcomeAssuranceReadinessState"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OutcomeAssuranceUnavailableReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "observed_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed At"
+        },
+        "expires_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expires At"
+        },
+        "evidence_refs": {
+          "default": [],
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Evidence Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "facet",
+        "state"
+      ],
+      "title": "OutcomeAssuranceReadiness",
+      "type": "object"
+    },
+    "OutcomeAssuranceReadinessFacet": {
+      "description": "Readiness facets composed by the Outcome Assurance projection.",
+      "enum": [
+        "platform",
+        "evidence",
+        "detection",
+        "action_safety",
+        "operational_handoff",
+        "measurement",
+        "promotion"
+      ],
+      "title": "OutcomeAssuranceReadinessFacet",
+      "type": "string"
+    },
+    "OutcomeAssuranceReadinessState": {
+      "description": "Freshness-bound readiness state for one existing owner.",
+      "enum": [
+        "unknown",
+        "blocked",
+        "observed",
+        "ready",
+        "stale",
+        "unavailable"
+      ],
+      "title": "OutcomeAssuranceReadinessState",
+      "type": "string"
+    },
+    "OutcomeAssuranceScope": {
+      "additionalProperties": false,
+      "description": "Pinned scope identity for one authenticated read.",
+      "properties": {
+        "scope_ref": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Scope Ref",
+          "type": "string"
+        },
+        "service_refs": {
+          "default": [],
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Service Refs",
+          "type": "array"
+        },
+        "workload_refs": {
+          "default": [],
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Workload Refs",
+          "type": "array"
+        },
+        "vertical": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OutcomeAssuranceVertical"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "scope_ref"
+      ],
+      "title": "OutcomeAssuranceScope",
+      "type": "object"
+    },
+    "OutcomeAssuranceSource": {
+      "additionalProperties": false,
+      "description": "One authoritative source binding and freshness state.",
+      "properties": {
+        "name": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/OutcomeAssuranceSourceState"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OutcomeAssuranceUnavailableReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "observed_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed At"
+        },
+        "expires_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expires At"
+        },
+        "evidence_refs": {
+          "default": [],
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Evidence Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "state"
+      ],
+      "title": "OutcomeAssuranceSource",
+      "type": "object"
+    },
+    "OutcomeAssuranceSourceState": {
+      "description": "Qualification state for one authoritative source.",
+      "enum": [
+        "complete",
+        "stale",
+        "unavailable"
+      ],
+      "title": "OutcomeAssuranceSourceState",
+      "type": "string"
+    },
+    "OutcomeAssuranceUnavailableReason": {
+      "description": "Typed reason that the projection cannot make a measured claim.",
+      "enum": [
+        "source_not_connected",
+        "source_missing",
+        "source_stale",
+        "projection_missing",
+        "projection_malformed",
+        "principal_scope_empty",
+        "insufficient_sample"
+      ],
+      "title": "OutcomeAssuranceUnavailableReason",
+      "type": "string"
+    },
+    "OutcomeAssuranceVertical": {
+      "description": "Supported operating vertical filters.",
+      "enum": [
+        "resilience",
+        "change_safety",
+        "cost_governance"
+      ],
+      "title": "OutcomeAssuranceVertical",
+      "type": "string"
+    },
+    "OutcomeAssuranceWindow": {
+      "additionalProperties": false,
+      "description": "Time-bounded evidence window shared by all projection groups.",
+      "properties": {
+        "start": {
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
+        },
+        "end": {
+          "format": "date-time",
+          "title": "End",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "scenario_set_version": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scenario Set Version"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "OutcomeAssuranceWindow",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Authenticated, read-only Operator projection for Outcome Assurance.",
+  "properties": {
+    "type": {
+      "const": "outcome-assurance.projection",
+      "default": "outcome-assurance.projection",
+      "title": "Type",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/OutcomeAssuranceReadState"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OutcomeAssuranceUnavailableReason"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "scope": {
+      "$ref": "#/$defs/OutcomeAssuranceScope"
+    },
+    "window": {
+      "$ref": "#/$defs/OutcomeAssuranceWindow"
+    },
+    "sources": {
+      "items": {
+        "$ref": "#/$defs/OutcomeAssuranceSource"
+      },
+      "maxItems": 16,
+      "title": "Sources",
+      "type": "array"
+    },
+    "readiness": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/OutcomeAssuranceReadiness"
+      },
+      "maxItems": 16,
+      "title": "Readiness",
+      "type": "array"
+    },
+    "alignment": {
+      "$ref": "#/$defs/OutcomeAssuranceAttribution"
+    },
+    "outcomes": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/OutcomeAssuranceMetric"
+      },
+      "maxItems": 64,
+      "title": "Outcomes",
+      "type": "array"
+    },
+    "guards": {
+      "$ref": "#/$defs/OutcomeAssuranceControlSummary"
+    },
+    "provenance": {
+      "$ref": "#/$defs/OutcomeAssuranceProvenance"
+    },
+    "principal_scoped": {
+      "const": true,
+      "default": true,
+      "title": "Principal Scoped",
+      "type": "boolean"
+    },
+    "execution_authority": {
+      "const": false,
+      "default": false,
+      "title": "Execution Authority",
+      "type": "boolean"
+    },
+    "approval_authority": {
+      "const": false,
+      "default": false,
+      "title": "Approval Authority",
+      "type": "boolean"
+    },
+    "promotion_authority": {
+      "const": false,
+      "default": false,
+      "title": "Promotion Authority",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "state",
+    "scope",
+    "window",
+    "sources",
+    "alignment",
+    "guards",
+    "provenance"
+  ],
+  "title": "OutcomeAssuranceProjection",
+  "type": "object"
+}

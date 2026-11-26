@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/service-live-evidence-manifest/1.0.0",
+  "title": "ServiceLiveEvidenceManifest",
+  "description": "Persisted artifacts bound to one live compatibility run and source revision.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_version",
+    "run_id",
+    "source",
+    "source_digest",
+    "artifacts"
+  ],
+  "properties": {
+    "manifest_version": {"const": "1.0.0"},
+    "run_id": {"type": "string", "minLength": 1, "maxLength": 512},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "revision", "workflow"],
+      "properties": {
+        "repository": {"type": "string", "minLength": 1, "maxLength": 512},
+        "revision": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+        "workflow": {"type": "string", "minLength": 1, "maxLength": 256}
+      }
+    },
+    "source_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "artifacts": {
+      "type": "array",
+      "minItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ref",
+          "kind",
+          "service_id",
+          "run_id",
+          "source_digest",
+          "content_digest",
+          "content"
+        ],
+        "properties": {
+          "ref": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+          "kind": {
+            "type": "string",
+            "enum": ["health", "identity", "image", "offset", "schema", "source", "topology"]
+          },
+          "service_id": {
+            "type": "string",
+            "enum": [
+              "core-control-plane",
+              "operator-service",
+              "document-ingestion-api",
+              "document-processing-worker",
+              "isolated-executor"
+            ]
+          },
+          "run_id": {"type": "string", "minLength": 1, "maxLength": 512},
+          "source_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+          "content_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+          "content": {"type": "object"}
+        }
+      }
+    }
+  }
+}

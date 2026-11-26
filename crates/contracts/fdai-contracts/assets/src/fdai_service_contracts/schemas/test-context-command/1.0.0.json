@@ -1,0 +1,186 @@
+{
+  "$defs": {
+    "TestContextRequest": {
+      "additionalProperties": false,
+      "description": "Typed proposal, independent review, or revocation; never interpreted from keywords.",
+      "properties": {
+        "operation": {
+          "enum": [
+            "propose",
+            "review",
+            "revoke"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "context_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Context Id",
+          "type": "string"
+        },
+        "access_scope_digest": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Access Scope Digest",
+          "type": "string"
+        },
+        "target_ref": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Target Ref",
+          "type": "string"
+        },
+        "signal_code": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Signal Code",
+          "type": "string"
+        },
+        "expected_revision": {
+          "minimum": 0,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "policy_revision": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Policy Revision",
+          "type": "string"
+        },
+        "source_ref": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Source Ref",
+          "type": "string"
+        },
+        "semantic_receipt": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Semantic Receipt",
+          "type": "string"
+        },
+        "expected_min": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected Min"
+        },
+        "expected_max": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected Max"
+        },
+        "effective_from": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effective From"
+        },
+        "effective_to": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effective To"
+        }
+      },
+      "required": [
+        "operation",
+        "context_id",
+        "access_scope_digest",
+        "target_ref",
+        "signal_code",
+        "expected_revision",
+        "policy_revision",
+        "source_ref",
+        "semantic_receipt"
+      ],
+      "title": "TestContextRequest",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Operator-authenticated command, still requiring Core admission before any state change.",
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "request": {
+      "$ref": "#/$defs/TestContextRequest"
+    },
+    "actor_id": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Actor Id",
+      "type": "string"
+    },
+    "actor_roles": {
+      "items": {
+        "enum": [
+          "Contributor",
+          "Approver",
+          "Owner"
+        ],
+        "type": "string"
+      },
+      "title": "Actor Roles",
+      "type": "array"
+    },
+    "idempotency_key": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "requested_at": {
+      "format": "date-time",
+      "title": "Requested At",
+      "type": "string"
+    },
+    "execution_authority": {
+      "const": false,
+      "default": false,
+      "title": "Execution Authority",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "request",
+    "actor_id",
+    "actor_roles",
+    "idempotency_key",
+    "requested_at"
+  ],
+  "title": "TestContextCommand",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/test-context-command/1.0.0"
+}

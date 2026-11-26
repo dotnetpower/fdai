@@ -1,4 +1,5 @@
 import type { AuditItem, AuditPage } from "../types";
+import { DisclosurePanel } from "../components/disclosure-panel";
 import type { AsyncState } from "../components/ui";
 import { Tooltip } from "../components/tooltip";
 import { routeHref } from "../router";
@@ -74,20 +75,26 @@ export function TraceDiscovery({
     filter === "all" || item.traceKind === filter
   ) ?? [];
   return (
-    <details
-      class="trace-discovery"
-      open={expanded}
-      onToggle={(event) => setExpanded(event.currentTarget.open)}
-    >
-      <summary>
-        <span>
-          <strong>{t("evidence.trace.discovery.title")}</strong>
-          <small>{discoverySummary(state)}</small>
+    <DisclosurePanel
+      {...{
+        title: (
+          <span class="trace-discovery-heading">
+            <strong>{t("evidence.trace.discovery.title")}</strong>
+            <small>{discoverySummary(state)}</small>
+          </span>
+        ),
+      }}
+      summaryMeta={(
+        <span class="trace-discovery-toggle">
+          {expanded
+            ? t("evidence.trace.discovery.hide")
+            : t("evidence.trace.discovery.show")}
         </span>
-        <span>{expanded
-          ? t("evidence.trace.discovery.hide")
-          : t("evidence.trace.discovery.show")}</span>
-      </summary>
+      )}
+      className="trace-discovery"
+      open={expanded}
+      onToggle={setExpanded}
+    >
       <div class="trace-discovery-body">
         {state.status === "loading" ? (
           <p class="trace-discovery-state" role="status">
@@ -177,7 +184,7 @@ export function TraceDiscovery({
           </>
         )}
       </div>
-    </details>
+    </DisclosurePanel>
   );
 }
 

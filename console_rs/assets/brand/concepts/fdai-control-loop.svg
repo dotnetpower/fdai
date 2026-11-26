@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">FDAI Control Loop concept</title>
+  <desc id="desc">A geometric F enclosed by three segments of a control loop.</desc>
+  <g fill="none" stroke="#2B7FE0" stroke-width="7" stroke-linecap="square">
+    <path d="M11 25A23 23 0 0 1 43 10"/>
+    <path d="M52 18a23 23 0 0 1-1 29"/>
+    <path d="M43 54A23 23 0 0 1 10 38"/>
+  </g>
+  <path fill="#2B7FE0" d="M22 18h23v8H31v7h12v8H31v13h-9z"/>
+</svg>

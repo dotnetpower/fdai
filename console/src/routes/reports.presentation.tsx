@@ -1,5 +1,7 @@
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
+import { DisclosurePanel } from "../components/disclosure-panel";
+import { SelectField, TextInput } from "../components/form-controls";
 import { EmptyState, StatusPill, type PillKind } from "../components/ui";
 import { t } from "../i18n";
 import { routeHref } from "../router";
@@ -130,25 +132,27 @@ export function ReportsBody({
             <strong>{data.selected.name}</strong>
           </div>
           {data.selected.variables.map((variable) => (
-            <label key={variable.name}>
-              <span>{variable.name}</span>
-              {variable.values.length > 0 ? (
-                <select
-                  required
-                  value={data.variables[variable.name] ?? ""}
-                  onChange={(event) => onVariableChange(variable.name, event.currentTarget.value)}
-                >
-                  {variable.values.map((value) => <option key={value} value={value}>{value}</option>)}
-                </select>
-              ) : (
-                <input
-                  required
-                  value={data.variables[variable.name] ?? ""}
-                  onInput={(event) => onVariableChange(variable.name, event.currentTarget.value)}
-                  placeholder={variable.description}
-                />
-              )}
-            </label>
+            variable.values.length > 0 ? (
+              <SelectField
+                key={variable.name}
+                name={variable.name}
+                label={variable.name}
+                required
+                value={data.variables[variable.name] ?? ""}
+                options={variable.values.map((value) => ({ value, label: value }))}
+                onChange={(nextValue) => onVariableChange(variable.name, nextValue)}
+              />
+            ) : (
+              <TextInput
+                key={variable.name}
+                name={variable.name}
+                label={variable.name}
+                required
+                value={data.variables[variable.name] ?? ""}
+                placeholder={variable.description}
+                onInput={(nextValue) => onVariableChange(variable.name, nextValue)}
+              />
+            )
           ))}
           <div class="reports-toolbar-actions">
             <button type="submit" class="primary" disabled={refreshing || !variablesComplete}>
@@ -174,13 +178,16 @@ export function ReportsBody({
       ) : null}
 
       {data.selected && data.selected.variables.length > 0 ? (
-        <details class="reports-variable-contract">
-          <summary>
-            <span>{t("reports.variableContract")}</span>
+        <DisclosurePanel
+          {...{ title: <span>{t("reports.variableContract")}</span> }}
+          summaryMeta={(
             <strong>{t("reports.variableBindings", {
               count: data.selected.variables.length,
             })}</strong>
-          </summary>
+          )}
+          className="reports-variable-contract"
+          tone="subtle"
+        >
           <dl>
             {data.selected.variables.map((variable) => (
               <div key={variable.name}>
@@ -192,7 +199,7 @@ export function ReportsBody({
               </div>
             ))}
           </dl>
-        </details>
+        </DisclosurePanel>
       ) : null}
 
       <div class="reports-workspace">
@@ -302,13 +309,16 @@ export function ReportsBody({
                     <span>{t("reports.mutationAuthorityNone")}</span>
                   </footer>
                   {data.rendered.provenance.sources.length > 0 ? (
-                    <details class="reports-source-details">
-                      <summary>
-                        <span>{t("reports.sourceDetails")}</span>
+                    <DisclosurePanel
+                      {...{ title: <span>{t("reports.sourceDetails")}</span> }}
+                      summaryMeta={(
                         <strong>{t("reports.sourceCount", {
                           count: data.rendered.provenance.sources.length,
                         })}</strong>
-                      </summary>
+                      )}
+                      className="reports-source-details"
+                      tone="subtle"
+                    >
                       <dl>
                         {data.rendered.provenance.sources.map((source, index) => (
                           <div key={`${source.datasource}-${index}`}>
@@ -325,7 +335,7 @@ export function ReportsBody({
                           </div>
                         ))}
                       </dl>
-                    </details>
+                    </DisclosurePanel>
                   ) : null}
                 </>
               ) : null}

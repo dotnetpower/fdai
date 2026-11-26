@@ -22,9 +22,9 @@
 }
 
 .dashboard-v2-map[data-density="comfortable"] {
-  --dashboard-v2-map-cell-width: 52px;
-  --dashboard-v2-map-cell-height: 60px;
-  --dashboard-v2-map-row-height: 49px;
+  --dashboard-v2-map-cell-width: 64px;
+  --dashboard-v2-map-cell-height: 74px;
+  --dashboard-v2-map-row-height: 60px;
   --dashboard-v2-map-column-gap: 4px;
 }
 
@@ -91,14 +91,14 @@
   clip-path: polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
 }
 .dashboard-v2-map[data-density="comfortable"] .dashboard-v2-map-cell { position: relative; }
-.dashboard-v2-map .dashboard-v2-map-name { position: absolute; bottom: 13px; inset-inline: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; line-height: 12px; }
-.dashboard-v2-map[data-density="comfortable"] .dashboard-v2-map-symbol { font-size: 7px; transform: translateY(-4px); }
-.dashboard-v2-map .dashboard-v2-map-axis { fill: var(--dashboard-v2-map-tone); font-size: 5px; font-weight: 700; }
+.dashboard-v2-map .dashboard-v2-map-name { position: absolute; bottom: 13px; inset-inline: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--cs-type-label-size, 12px); line-height: 1.25; }
+.dashboard-v2-map[data-density="comfortable"] .dashboard-v2-map-symbol { font-size: 14px; transform: translateY(-6px); }
+.dashboard-v2-map .dashboard-v2-map-axis { fill: var(--dashboard-v2-map-tone); font-size: 12px; font-weight: 700; }
 .dashboard-v2-map[data-density="dense"] .dashboard-v2-map-axis { fill: white; }
 .dashboard-v2-map .dashboard-v2-map-cell:is([data-tone="unknown"], [data-tone="na"], [data-tone="neutral"]) .dashboard-v2-map-axis { fill: var(--cs-text-soft); }
 .dashboard-v2-map .dashboard-v2-map-cell[data-tone="na"][data-fallback-tone] .dashboard-v2-map-axis { fill: var(--dashboard-v2-map-fallback-tone); }
 .dashboard-v2-map[data-density="dense"] .dashboard-v2-map-surface { fill: var(--dashboard-v2-map-tone); }
-.dashboard-v2-map[data-density="dense"] .dashboard-v2-map-symbol { fill: white; font-size: 10px; }
+.dashboard-v2-map[data-density="dense"] .dashboard-v2-map-symbol { fill: white; font-size: 20px; }
 .dashboard-v2-map[data-density="dense"] .dashboard-v2-map-cell:is([data-tone="unknown"], [data-tone="na"]) .dashboard-v2-map-surface { fill: var(--cs-card); }
 .dashboard-v2-map[data-density="dense"] .dashboard-v2-map-cell:is([data-tone="unknown"], [data-tone="na"]) .dashboard-v2-map-symbol { fill: var(--cs-text); }
 .dashboard-v2-map[data-density="dense"] .dashboard-v2-map-cell[data-tone="na"][data-fallback-tone] .dashboard-v2-map-surface {

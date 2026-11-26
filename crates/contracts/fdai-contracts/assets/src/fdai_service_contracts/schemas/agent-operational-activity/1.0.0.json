@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.example/schemas/agent-operational-activity/1.0.0.json",
+  "title": "AgentOperationalActivity",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type",
+    "schema_version",
+    "activity_id",
+    "idempotency_key",
+    "kind",
+    "status",
+    "owner_agent",
+    "producer",
+    "observed_at",
+    "source",
+    "freshness",
+    "evidence_count",
+    "duration_ms",
+    "correlation_id",
+    "reason_codes",
+    "execution_authority"
+  ],
+  "properties": {
+    "type": {"const": "agent.operational-activity"},
+    "schema_version": {"const": "1.0.0"},
+    "activity_id": {"type": "string", "minLength": 1, "maxLength": 512},
+    "idempotency_key": {"type": "string", "minLength": 1, "maxLength": 512},
+    "kind": {
+      "enum": ["inventory.scan", "inventory.ontology-projection", "current-state.read"]
+    },
+    "status": {"enum": ["started", "completed", "failed", "superseded", "degraded"]},
+    "owner_agent": {"enum": ["Huginn", "Heimdall"]},
+    "producer": {"enum": ["inventory-sync-job", "core-control-plane"]},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "source": {"type": "string", "minLength": 1, "maxLength": 128},
+    "freshness": {"enum": ["fresh", "stale", "unavailable", "unknown"]},
+    "evidence_count": {"type": "integer", "minimum": 0, "maximum": 1000000},
+    "duration_ms": {
+      "oneOf": [
+        {"type": "integer", "minimum": 0, "maximum": 86400000},
+        {"type": "null"}
+      ]
+    },
+    "correlation_id": {
+      "oneOf": [
+        {"type": "string", "minLength": 1, "maxLength": 512},
+        {"type": "null"}
+      ]
+    },
+    "reason_codes": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 128}
+    },
+    "execution_authority": {"const": false}
+  }
+}

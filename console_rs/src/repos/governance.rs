@@ -1855,10 +1855,20 @@ pub async fn fetch_trust_routing(db: &DbHandle, window: Option<&str>) -> Value {
                       WHERE action_kind IN ('measurement.control_loop.v1', 'control_loop.t1_evaluate', \
                                             'control_loop.compliant', 'control_loop.abstain') \
                       ORDER BY seq DESC LIMIT 8";
-    let (tier_res, extra_res, recent_res) = tokio::join!(
+    let domain_sql = "SELECT COALESCE(NULLIF(entry->>'domain', ''), \
+                                      NULLIF(entry->>'resource_type', ''), \
+                                      NULLIF(entry->>'event_type', ''), \
+                                      action_kind) AS domain_key, \
+                             COALESCE(entry->>'tier', 't1') AS tier_key, \
+                             count(*) \
+                      FROM audit_log \
+                      WHERE action_kind = 'measurement.control_loop.v1' \
+                      GROUP BY 1, 2 ORDER BY 3 DESC LIMIT 48";
+    let (tier_res, extra_res, recent_res, domain_res) = tokio::join!(
         db.query_single_readonly(tier_sql),
         db.query_single_readonly(extra_sql),
         db.query_single_readonly(recent_sql),
+        db.query_single_readonly(domain_sql),
     );
     let Ok(tier_q) = tier_res else {
         return db.not_measured(
@@ -1954,6 +1964,46 @@ pub async fn fetch_trust_routing(db: &DbHandle, window: Option<&str>) -> Value {
         })
         .unwrap_or_default();
 
+    let mut domain_acc: HashMap<String, (i64, i64, i64)> = HashMap::new();
+    if let Ok(dq) = domain_res {
+        for row in &dq.rows {
+            let domain_key = cell_str(row, 0);
+            if domain_key.is_empty() {
+                continue;
+            }
+            let tier_key = cell_str(row, 1).to_ascii_lowercase();
+            let cnt = cell_i64(row, 2).unwrap_or(0);
+            let entry = domain_acc.entry(domain_key).or_insert((0, 0, 0));
+            match tier_key.as_str() {
+                "t0" => entry.0 += cnt,
+                "t2" => entry.2 += cnt,
+                _ => entry.1 += cnt,
+            }
+        }
+    }
+    let mut domain_rows: Vec<(String, i64, i64, i64, i64)> = domain_acc
+        .into_iter()
+        .map(|(dom, (c0, c1, c2))| (dom, c0 + c1 + c2, c0, c1, c2))
+        .collect();
+    domain_rows.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    let domain_breakdown: Vec<Value> = domain_rows
+        .into_iter()
+        .take(6)
+        .map(|(dom, tot, c0, c1, c2)| {
+            let d = if tot > 0 { tot as f64 } else { 1.0 };
+            json!({
+                "domain": dom,
+                "total": tot,
+                "t0_count": c0,
+                "t1_count": c1,
+                "t2_count": c2,
+                "t0_pct": round1((c0 as f64 / d) * 100.0),
+                "t1_pct": round1((c1 as f64 / d) * 100.0),
+                "t2_pct": round1((c2 as f64 / d) * 100.0)
+            })
+        })
+        .collect();
+
     json!({
         "measurement_status": "measured",
         "source": "postgres-direct",
@@ -1974,6 +2024,7 @@ pub async fn fetch_trust_routing(db: &DbHandle, window: Option<&str>) -> Value {
         "verifier_abstain_count": abstain_route_count,
         "stage_counts": stage_counts,
         "breakdown": breakdown,
+        "domain_breakdown": domain_breakdown,
         "recent_events": recent_events
     })
 }
@@ -2053,62 +2104,179 @@ pub async fn fetch_scope(db: &DbHandle, axis_filter: Option<&str>) -> Value {
     })
 }
 
+fn extract_real_cidr(props: &Value) -> String {
+    let inner = props.get("properties").unwrap_or(props);
+    if let Some(prefix) = inner
+        .get("addressPrefix")
+        .or_else(|| props.get("addressPrefix"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        return prefix.to_string();
+    }
+    if let Some(arr) = inner
+        .get("addressSpace")
+        .and_then(|v| v.get("addressPrefixes"))
+        .or_else(|| props.get("addressSpace").and_then(|v| v.get("addressPrefixes")))
+        .and_then(Value::as_array)
+    {
+        let joined: Vec<&str> = arr
+            .iter()
+            .filter_map(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .take(2)
+            .collect();
+        if !joined.is_empty() {
+            return joined.join(", ");
+        }
+    }
+    String::new()
+}
+
+fn classify_arch_edge_category(
+    link_type: &str,
+    src_type: &str,
+    dst_type: &str,
+) -> &'static str {
+    if link_type == "peered_with" {
+        return "peering";
+    }
+    let is_pe = |t: &str| {
+        t.contains("private-endpoint")
+            || t.contains("private-dns")
+            || t.contains("privatelink")
+    };
+    if is_pe(src_type) || is_pe(dst_type) {
+        return "pe";
+    }
+    let is_sec = |t: &str| {
+        t.contains("nsg")
+            || t.contains("secret-store")
+            || t.contains("key-vault")
+            || t.contains("managed-identity")
+            || t.contains("firewall")
+            || t.contains("authorization")
+    };
+    if is_sec(src_type) || is_sec(dst_type) {
+        return "security";
+    }
+    "traffic"
+}
+
 pub async fn fetch_architecture(
     db: &DbHandle,
-    subscription: Option<&str>,
+    scope: Option<&str>,
     layer: Option<&str>,
 ) -> Value {
+    let raw_scope = clean_opt(scope).unwrap_or("all");
     let mut clauses: Vec<String> = vec!["object_type = 'Resource'".to_string()];
-    if let Some(sub) = clean_opt(subscription) {
-        let pat = quote_like_contains(sub);
-        clauses.push(format!("id ILIKE {pat} ESCAPE '\\'"));
+    let mut active_scope_id = "all".to_string();
+    if !raw_scope.eq_ignore_ascii_case("all") {
+        if let Some(rg_name) = raw_scope.strip_prefix("rg:") {
+            let rg_trimmed = rg_name.trim();
+            if !rg_trimmed.is_empty() {
+                active_scope_id = format!("rg:{rg_trimmed}");
+                clauses.push(format!(
+                    "split_part(id, '/', 3) = {}",
+                    pg_quote_literal(rg_trimmed)
+                ));
+            }
+        } else if raw_scope.starts_with("scope-") {
+            active_scope_id = raw_scope.to_string();
+            let pat = quote_like_contains(raw_scope);
+            clauses.push(format!("id ILIKE {pat} ESCAPE '\\'"));
+        } else {
+            active_scope_id = format!("rg:{raw_scope}");
+            clauses.push(format!(
+                "split_part(id, '/', 3) = {}",
+                pg_quote_literal(raw_scope)
+            ));
+        }
     }
     if let Some(lyr) = clean_opt(layer) {
         let pat = quote_like_contains(lyr);
-        clauses.push(format!("COALESCE(properties->>'type','') ILIKE {pat} ESCAPE '\\'"));
+        clauses.push(format!(
+            "COALESCE(properties->>'type','') ILIKE {pat} ESCAPE '\\'"
+        ));
     }
     let where_sql = format!("WHERE {}", clauses.join(" AND "));
 
     let type_sql = format!(
         "SELECT COALESCE(properties->>'type', object_type) AS rtype, count(*) \
          FROM ontology_resource {where_sql} \
-         GROUP BY 1 ORDER BY 2 DESC LIMIT 25"
+         GROUP BY 1 ORDER BY 2 DESC LIMIT 30"
     );
     let loc_sql = format!(
         "SELECT COALESCE(NULLIF(properties->>'location', ''), 'global') AS loc, count(*) \
          FROM ontology_resource {where_sql} \
          GROUP BY 1 ORDER BY 2 DESC LIMIT 15"
     );
-    let rg_sql = format!(
-        "SELECT split_part(id, '/', 3) AS rg, count(*) \
-         FROM ontology_resource {where_sql} AND split_part(id, '/', 2) = 'resource-group' \
-         GROUP BY 1 ORDER BY 2 DESC LIMIT 25"
-    );
+    let all_rg_sql = "SELECT split_part(id, '/', 3) AS rg, count(*) \
+                      FROM ontology_resource \
+                      WHERE object_type = 'Resource' AND split_part(id, '/', 2) = 'resource-group' \
+                      GROUP BY 1 ORDER BY 2 DESC LIMIT 30";
+    let all_total_sql = "SELECT count(*) FROM ontology_resource WHERE object_type = 'Resource'";
     let link_sql = "SELECT link_type, count(*) FROM ontology_link GROUP BY 1 ORDER BY 2 DESC LIMIT 15";
     let snap_sql = "SELECT id, status, source, resource_count, link_count, \
                     to_char(completed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
                     FROM inventory_snapshot WHERE status = 'active' ORDER BY completed_at DESC LIMIT 1";
-    let total_sql = format!("SELECT count(*) FROM ontology_resource {where_sql}");
-    let top_res_sql = format!(
-        "SELECT id, COALESCE(properties->>'name', id), COALESCE(properties->>'type', object_type), \
-         COALESCE(properties->>'location', 'global'), revision, COALESCE(properties::text, '{{}}') \
-         FROM ontology_resource {where_sql} \
-         ORDER BY updated_at DESC LIMIT 12"
+    let summary_sql = format!(
+        "SELECT \
+            count(*), \
+            count(*) FILTER (WHERE COALESCE(properties->>'type','') = 'network.vnet'), \
+            count(*) FILTER (WHERE COALESCE(properties->>'type','') = 'network.subnet'), \
+            count(*) FILTER (WHERE COALESCE(properties->>'type','') = 'network.private-endpoint'), \
+            count(*) FILTER (WHERE COALESCE(properties->>'type','') = 'network.nsg'), \
+            count(*) FILTER (WHERE COALESCE(properties->>'type','') ILIKE '%firewall%') \
+         FROM ontology_resource {where_sql}"
     );
-    let sample_links_sql = "SELECT from_id, to_id, link_type \
-                            FROM ontology_link \
-                            WHERE link_type IN ('contains', 'attached_to', 'depends_on') \
-                            LIMIT 12";
+    let net_link_cnt_sql = "SELECT \
+        count(*) FILTER (WHERE link_type = 'peered_with'), \
+        count(*) FILTER (WHERE link_type = 'routes_to') \
+        FROM ontology_link";
 
-    let (type_res, loc_res, rg_res, link_res, snap_res, total_res, top_res, slink_res) = tokio::join!(
+    // Core infrastructure priority ordering (exclude noisy role-assignment rows when infra exists)
+    let nodes_sql = format!(
+        "SELECT id, COALESCE(properties->>'type', object_type) AS rtype, \
+         COALESCE(NULLIF(properties->>'location', ''), 'global'), \
+         revision, COALESCE(properties->>'parent_id', ''), COALESCE(properties::text, '{{}}') \
+         FROM ontology_resource {where_sql} \
+         AND COALESCE(properties->>'type', '') <> 'resource-group' \
+         ORDER BY \
+            CASE \
+              WHEN COALESCE(properties->>'type','') IN ('network.vnet','network.subnet','network.load-balancer','network.nat-gateway','network.private-endpoint','application-gateway') THEN 0 \
+              WHEN COALESCE(properties->>'type','') IN ('kubernetes-cluster','kubernetes-node-pool','compute.container-app','compute.container-app-environment','compute.container-app-job','compute.vm-scale-set','compute.vm') THEN 1 \
+              WHEN COALESCE(properties->>'type','') IN ('postgresql-server','cosmos-db','cache','object-storage','event-hub','service-bus','container-registry','llm-endpoint','llm-model-deployment') THEN 2 \
+              WHEN COALESCE(properties->>'type','') IN ('secret-store','network.nsg','network.private-dns-zone','managed-identity','log-workspace','application-insights') THEN 3 \
+              WHEN COALESCE(properties->>'type','') = 'authorization.role-assignment' THEN 9 \
+              ELSE 5 \
+            END, \
+            split_part(id, '/', 3) ASC, id ASC \
+         LIMIT 48"
+    );
+
+    let (
+        type_res,
+        loc_res,
+        all_rg_res,
+        all_total_res,
+        link_res,
+        snap_res,
+        sum_res,
+        net_link_res,
+        nodes_res,
+    ) = tokio::join!(
         db.query_single_readonly(&type_sql),
         db.query_single_readonly(&loc_sql),
-        db.query_single_readonly(&rg_sql),
+        db.query_single_readonly(all_rg_sql),
+        db.query_single_readonly(all_total_sql),
         db.query_single_readonly(link_sql),
         db.query_single_readonly(snap_sql),
-        db.query_single_readonly(&total_sql),
-        db.query_single_readonly(&top_res_sql),
-        db.query_single_readonly(sample_links_sql),
+        db.query_single_readonly(&summary_sql),
+        db.query_single_readonly(net_link_cnt_sql),
+        db.query_single_readonly(&nodes_sql),
     );
     let Ok(tq) = type_res else {
         return db.not_measured(
@@ -2131,7 +2299,7 @@ pub async fn fetch_architecture(
                 .collect()
         })
         .unwrap_or_default();
-    let resource_groups: Vec<Value> = rg_res
+    let resource_groups: Vec<Value> = all_rg_res
         .map(|r| {
             r.rows
                 .iter()
@@ -2147,46 +2315,6 @@ pub async fn fetch_architecture(
                 .collect()
         })
         .unwrap_or_default();
-    let top_resources: Vec<Value> = top_res
-        .map(|r| {
-            r.rows
-                .iter()
-                .map(|row| {
-                    let id = cell_str(row, 0);
-                    let rtype = cell_str(row, 2);
-                    let props: Value =
-                        serde_json::from_str(&cell_str(row, 5)).unwrap_or_else(|_| json!({}));
-                    let dname = resolve_ontology_display_name(&id, "Resource", &props);
-                    let (sub, rg) = extract_sub_and_rg(&id, &props);
-                    json!({
-                        "id": id,
-                        "name": dname,
-                        "display_name": dname,
-                        "object_type_ko": ontology_type_label_ko("Resource"),
-                        "resource_type": rtype,
-                        "location": cell_str(row, 3),
-                        "revision": cell_i64(row, 4),
-                        "subscription": sub,
-                        "resource_group": rg
-                    })
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-    let sample_links: Vec<Value> = slink_res
-        .map(|r| {
-            r.rows
-                .iter()
-                .map(|row| {
-                    json!({
-                        "source": cell_str(row, 0),
-                        "target": cell_str(row, 1),
-                        "link_type": cell_str(row, 2)
-                    })
-                })
-                .collect()
-        })
-        .unwrap_or_default();
     let active_snapshot = snap_res.ok().and_then(|r| {
         r.rows.first().map(|row| {
             json!({
@@ -2199,31 +2327,335 @@ pub async fn fetch_architecture(
             })
         })
     });
-    let total_resources = total_res
+
+    let all_fleet_resources = all_total_res
         .ok()
         .and_then(|r| r.rows.first().and_then(|row| cell_i64(row, 0)))
         .unwrap_or(0);
+    let sum_row = sum_res.ok().and_then(|r| r.rows.first().cloned());
+    let total_resources = sum_row
+        .as_ref()
+        .and_then(|r| cell_i64(r, 0))
+        .unwrap_or(0);
+    let vnet_count = sum_row.as_ref().and_then(|r| cell_i64(r, 1)).unwrap_or(0);
+    let subnet_count = sum_row.as_ref().and_then(|r| cell_i64(r, 2)).unwrap_or(0);
+    let pe_count = sum_row.as_ref().and_then(|r| cell_i64(r, 3)).unwrap_or(0);
+    let nsg_count = sum_row.as_ref().and_then(|r| cell_i64(r, 4)).unwrap_or(0);
+    let firewall_count = sum_row.as_ref().and_then(|r| cell_i64(r, 5)).unwrap_or(0);
+    let (peering_count, route_count) = net_link_res
+        .ok()
+        .and_then(|r| r.rows.first().cloned())
+        .map(|r| (cell_i64(&r, 0).unwrap_or(0), cell_i64(&r, 1).unwrap_or(0)))
+        .unwrap_or((0, 0));
+
     let total_links: i64 = link_summary
         .iter()
         .filter_map(|v| v.get("count").and_then(Value::as_i64))
         .sum();
-    let vnet_count: i64 = resource_types
+    let network_resource_count: i64 = resource_types
         .iter()
         .filter(|v| {
             v.get("resource_type")
                 .and_then(Value::as_str)
-                .is_some_and(|t| t.contains("vnet") || t.contains("virtual-network") || t.contains("network"))
+                .is_some_and(|t| t.contains("vnet") || t.contains("network"))
         })
         .filter_map(|v| v.get("count").and_then(Value::as_i64))
         .sum();
 
+    // Build views list
+    let mut views: Vec<Value> = vec![json!({
+        "id": "all",
+        "label": format!("전체 실측 스코프 ({all_fleet_resources}건)"),
+        "count": all_fleet_resources
+    })];
+    for rg in &resource_groups {
+        let name = rg
+            .get("resource_group")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let cnt = rg.get("count").and_then(Value::as_i64).unwrap_or(0);
+        if !name.is_empty() {
+            views.push(json!({
+                "id": format!("rg:{name}"),
+                "resource_group": name,
+                "label": format!("{name} ({cnt}건)"),
+                "count": cnt
+            }));
+        }
+    }
+
+    // Parse raw nodes and index their types and containers
+    struct RawArchNode {
+        id: String,
+        display_name: String,
+        resource_type: String,
+        location: String,
+        subscription: String,
+        resource_group: String,
+        parent_id: String,
+        cidr: String,
+        revision: Option<i64>,
+    }
+
+    let mut raw_nodes: Vec<RawArchNode> = Vec::new();
+    if let Ok(nq) = nodes_res {
+        for row in &nq.rows {
+            let id = cell_str(row, 0);
+            let rtype = cell_str(row, 1);
+            let loc = cell_str(row, 2);
+            let rev = cell_i64(row, 3);
+            let parent_id = cell_str(row, 4);
+            let props: Value =
+                serde_json::from_str(&cell_str(row, 5)).unwrap_or_else(|_| json!({}));
+            let dname = resolve_ontology_display_name(&id, "Resource", &props);
+            let (sub, rg) = extract_sub_and_rg(&id, &props);
+            let cidr = extract_real_cidr(&props);
+            raw_nodes.push(RawArchNode {
+                id,
+                display_name: dname,
+                resource_type: rtype,
+                location: loc,
+                subscription: sub,
+                resource_group: rg,
+                parent_id,
+                cidr,
+                revision: rev,
+            });
+        }
+    }
+
+    let mut node_type_map: HashMap<String, String> = HashMap::new();
+    for n in &raw_nodes {
+        node_type_map.insert(n.id.clone(), n.resource_type.clone());
+    }
+
+    // Query ONLY real ontology_link edges strictly between selected nodes[]
+    let mut edges: Vec<Value> = Vec::new();
+    let mut node_attached_container: HashMap<String, String> = HashMap::new();
+    if !raw_nodes.is_empty() {
+        let quoted_ids: Vec<String> = raw_nodes.iter().map(|n| pg_quote_literal(&n.id)).collect();
+        let in_list = quoted_ids.join(", ");
+        let edges_sql = format!(
+            "SELECT id::text, from_id, to_id, link_type \
+             FROM ontology_link \
+             WHERE link_type IN ('contains', 'attached_to', 'depends_on', 'peered_with', 'routes_to') \
+               AND from_id IN ({in_list}) \
+               AND to_id IN ({in_list}) \
+             ORDER BY link_type ASC, from_id ASC LIMIT 160"
+        );
+        if let Ok(eq) = db.query_single_readonly(&edges_sql).await {
+            for row in &eq.rows {
+                let eid = cell_str(row, 0);
+                let src = cell_str(row, 1);
+                let dst = cell_str(row, 2);
+                let lt = cell_str(row, 3);
+                if src == dst {
+                    continue;
+                }
+                let st = node_type_map.get(&src).map(String::as_str).unwrap_or("");
+                let dt = node_type_map.get(&dst).map(String::as_str).unwrap_or("");
+                if (lt == "attached_to" || lt == "contains")
+                    && (dt == "network.subnet" || dt == "network.vnet")
+                {
+                    node_attached_container
+                        .entry(src.clone())
+                        .or_insert_with(|| dst.clone());
+                } else if lt == "contains" && (st == "network.subnet" || st == "network.vnet") {
+                    node_attached_container
+                        .entry(dst.clone())
+                        .or_insert_with(|| src.clone());
+                }
+                let category = classify_arch_edge_category(&lt, st, dt);
+                edges.push(json!({
+                    "id": eid,
+                    "source": src,
+                    "target": dst,
+                    "link_type": lt,
+                    "category": category
+                }));
+            }
+        }
+    }
+
+    // Build real containers (VNet / Subnet / Resource Group) and assign container_id per node
+    type ContainerEntry = (String, String, String, Option<String>, usize);
+    let mut container_map: HashMap<String, ContainerEntry> = HashMap::new();
+    let mut container_order: Vec<String> = Vec::new();
+    fn ensure_container(
+        container_map: &mut HashMap<String, ContainerEntry>,
+        container_order: &mut Vec<String>,
+        cid: String,
+        kind: &str,
+        name: String,
+        subtitle: String,
+        parent: Option<String>,
+    ) {
+        if let std::collections::hash_map::Entry::Vacant(slot) = container_map.entry(cid) {
+            container_order.push(slot.key().clone());
+            slot.insert((kind.to_string(), name, subtitle, parent, 0));
+        }
+    }
+
+    // Register real VNet / Subnet nodes as containers first
+    let mut vnet_subnet_ids: HashMap<String, String> = HashMap::new();
+    for n in &raw_nodes {
+        if n.resource_type == "network.vnet" || n.resource_type == "network.subnet" {
+            let kind = if n.resource_type == "network.vnet" {
+                "vnet"
+            } else {
+                "subnet"
+            };
+            let subtitle = if !n.cidr.is_empty() {
+                format!("{} · {}", n.cidr, n.location)
+            } else if !n.resource_group.is_empty() {
+                format!("{} · {}", n.resource_group, n.location)
+            } else {
+                n.location.clone()
+            };
+            let parent = if !n.parent_id.is_empty() {
+                Some(n.parent_id.clone())
+            } else {
+                None
+            };
+            ensure_container(
+                &mut container_map,
+                &mut container_order,
+                n.id.clone(),
+                kind,
+                n.display_name.clone(),
+                subtitle,
+                parent,
+            );
+            vnet_subnet_ids.insert(n.id.clone(), kind.to_string());
+        }
+    }
+
+    let mut nodes: Vec<Value> = Vec::with_capacity(raw_nodes.len());
+    for n in &raw_nodes {
+        let cid = if vnet_subnet_ids.contains_key(&n.id) {
+            n.id.clone()
+        } else if let Some(attached) = node_attached_container.get(&n.id) {
+            if container_map.contains_key(attached) {
+                attached.clone()
+            } else {
+                let rg_key = if n.resource_group.is_empty() {
+                    "rg:managed".to_string()
+                } else {
+                    format!("rg:{}", n.resource_group)
+                };
+                let rg_label = if n.resource_group.is_empty() {
+                    "관리 리소스".to_string()
+                } else {
+                    n.resource_group.clone()
+                };
+                let kind = if rg_label.starts_with("mc_") || rg_label.starts_with("me_") {
+                    "managed"
+                } else {
+                    "resource_group"
+                };
+                ensure_container(
+                    &mut container_map,
+                    &mut container_order,
+                    rg_key.clone(),
+                    kind,
+                    rg_label,
+                    n.location.clone(),
+                    Some(n.subscription.clone()),
+                );
+                rg_key
+            }
+        } else if container_map.contains_key(&n.parent_id) {
+            n.parent_id.clone()
+        } else {
+            let rg_key = if n.resource_group.is_empty() {
+                "rg:managed".to_string()
+            } else {
+                format!("rg:{}", n.resource_group)
+            };
+            let rg_label = if n.resource_group.is_empty() {
+                "관리 리소스".to_string()
+            } else {
+                n.resource_group.clone()
+            };
+            let kind = if rg_label.starts_with("mc_") || rg_label.starts_with("me_") {
+                "managed"
+            } else {
+                "resource_group"
+            };
+            ensure_container(
+                &mut container_map,
+                &mut container_order,
+                rg_key.clone(),
+                kind,
+                rg_label,
+                n.location.clone(),
+                Some(n.subscription.clone()),
+            );
+            rg_key
+        };
+
+        if let Some(entry) = container_map.get_mut(&cid) {
+            entry.4 += 1;
+        }
+        nodes.push(json!({
+            "id": n.id,
+            "name": n.display_name,
+            "display_name": n.display_name,
+            "object_type_ko": ontology_type_label_ko("Resource"),
+            "resource_type": n.resource_type,
+            "location": n.location,
+            "subscription": n.subscription,
+            "resource_group": n.resource_group,
+            "container_id": cid,
+            "revision": n.revision,
+            "status": "observed"
+        }));
+    }
+
+    let containers: Vec<Value> = container_order
+        .into_iter()
+        .filter_map(|cid| {
+            container_map
+                .remove(&cid)
+                .map(|(kind, name, subtitle, parent_id, count)| {
+                    json!({
+                        "id": cid,
+                        "kind": kind,
+                        "name": name,
+                        "subtitle": subtitle,
+                        "parent_id": parent_id,
+                        "resource_count": count
+                    })
+                })
+        })
+        .collect();
+
+    let top_resources: Vec<Value> = nodes.iter().take(12).cloned().collect();
+    let sample_links: Vec<Value> = edges.iter().take(12).cloned().collect();
+
     json!({
         "measurement_status": "measured",
         "source": "postgres-direct",
+        "active_scope": active_scope_id,
         "total_resources": total_resources,
         "total_links": total_links,
         "resource_group_count": resource_groups.len(),
-        "network_resource_count": vnet_count,
+        "network_resource_count": network_resource_count,
+        "summary": {
+            "vnet_count": vnet_count,
+            "subnet_count": subnet_count,
+            "private_endpoint_count": pe_count,
+            "nsg_count": nsg_count,
+            "firewall_count": firewall_count,
+            "peering_count": peering_count,
+            "route_count": route_count,
+            "total_resources": total_resources,
+            "total_links": total_links
+        },
+        "views": views,
+        "containers": containers,
+        "nodes": nodes,
+        "edges": edges,
         "active_snapshot": active_snapshot,
         "resource_types": resource_types,
         "locations": locations,
@@ -2454,7 +2886,20 @@ pub async fn fetch_promotion_gates(
 ) -> Value {
     let kv_sql = "SELECT value::text, to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
                   FROM state_kv WHERE key = 'operator-projection:workflow:promotion-gate.list' LIMIT 1";
-    let Ok(res) = db.query_single_readonly(kv_sql).await else {
+    let hist_sql = "SELECT seq, \
+                    to_char(created_at AT TIME ZONE 'UTC', 'MM-DD HH24:MI'), \
+                    action_kind, \
+                    actor, \
+                    COALESCE(NULLIF(entry->>'action_type_name', ''), NULLIF(entry->>'action_type', ''), NULLIF(entry->>'target', ''), action_kind), \
+                    COALESCE(NULLIF(entry->>'reason', ''), NULLIF(entry->>'outcome', ''), NULLIF(entry->>'mode', ''), '') \
+                    FROM audit_log \
+                    WHERE action_kind ILIKE '%promot%' OR action_kind ILIKE '%recall%' OR action_kind ILIKE '%demot%' \
+                    ORDER BY seq DESC LIMIT 12";
+    let (kv_res, hist_res) = tokio::join!(
+        db.query_single_readonly(kv_sql),
+        db.query_single_readonly(hist_sql),
+    );
+    let Ok(res) = kv_res else {
         return db.not_measured(
             "governance",
             "/api/v4/governance/promotion-gates",
@@ -2516,10 +2961,29 @@ pub async fn fetch_promotion_gates(
         .get("blocked_count")
         .and_then(Value::as_u64)
         .unwrap_or_else(|| (rows.len() as u64).saturating_sub(ready_count));
+    let recall_count = parsed.get("recall_count").and_then(Value::as_u64);
     let window_days = parsed
         .get("window_days")
         .and_then(Value::as_u64)
         .unwrap_or(14);
+
+    let audit_history: Vec<Value> = hist_res
+        .map(|h| {
+            h.rows
+                .iter()
+                .map(|row| {
+                    json!({
+                        "seq": cell_i64(row, 0),
+                        "time": cell_str(row, 1),
+                        "action_kind": cell_str(row, 2),
+                        "actor": cell_str(row, 3),
+                        "target": cell_str(row, 4),
+                        "detail": cell_str(row, 5)
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
 
     json!({
         "measurement_status": "measured",
@@ -2528,9 +2992,11 @@ pub async fn fetch_promotion_gates(
         "window_days": window_days,
         "ready_count": ready_count,
         "blocked_count": blocked_count,
+        "recall_count": recall_count,
         "total": rows.len(),
         "rows": rows,
-        "items": rows
+        "items": rows,
+        "audit_history": audit_history
     })
 }
 
@@ -2618,6 +3084,14 @@ pub async fn fetch_workflows(
 pub async fn fetch_knowledge(db: &DbHandle, provider_filter: Option<&str>) -> Value {
     let doc_cnt_sql = "SELECT count(*) FROM catalog_search_generation_document";
     let src_cnt_sql = "SELECT count(*) FROM document_knowledge_source";
+    let src_rows_sql = "SELECT source_id, revision, left(registry_digest, 24), \
+                        COALESCE(NULLIF(payload->>'provider', ''), 'github'), \
+                        COALESCE(NULLIF(payload->>'repository', ''), NULLIF(payload->>'repo', ''), source_id), \
+                        COALESCE(NULLIF(payload->>'branch', ''), 'main'), \
+                        COALESCE(payload->>'commit_sha', ''), \
+                        COALESCE(NULLIF(payload->>'status', ''), 'observed') \
+                        FROM document_knowledge_source \
+                        ORDER BY revision DESC, source_id ASC LIMIT 20";
     let ver_cnt_sql = "SELECT count(*) FROM document_version";
     let chunk_cnt_sql = "SELECT count(*) FROM knowledge_chunk";
     let fw_sql = "SELECT key, length(value::text) FROM state_kv \
@@ -2629,9 +3103,10 @@ pub async fn fetch_knowledge(db: &DbHandle, provider_filter: Option<&str>) -> Va
                          FROM catalog_search_generation_document \
                          ORDER BY ordinal ASC LIMIT 8";
 
-    let (d_res, s_res, v_res, c_res, fw_res, cat_res) = tokio::join!(
+    let (d_res, s_res, sr_res, v_res, c_res, fw_res, cat_res) = tokio::join!(
         db.query_single_readonly(doc_cnt_sql),
         db.query_single_readonly(src_cnt_sql),
+        db.query_single_readonly(src_rows_sql),
         db.query_single_readonly(ver_cnt_sql),
         db.query_single_readonly(chunk_cnt_sql),
         db.query_single_readonly(fw_sql),
@@ -2650,6 +3125,25 @@ pub async fn fetch_knowledge(db: &DbHandle, provider_filter: Option<&str>) -> Va
         .ok()
         .and_then(|r| r.rows.first().and_then(|row| cell_i64(row, 0)))
         .unwrap_or(0);
+    let source_rows: Vec<Value> = sr_res
+        .map(|r| {
+            r.rows
+                .iter()
+                .map(|row| {
+                    json!({
+                        "source_id": cell_str(row, 0),
+                        "revision": cell_i64(row, 1).unwrap_or(0),
+                        "registry_digest": cell_str(row, 2),
+                        "provider": cell_str(row, 3),
+                        "repository": cell_str(row, 4),
+                        "branch": cell_str(row, 5),
+                        "commit_sha": cell_str(row, 6),
+                        "status": cell_str(row, 7)
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     let version_count = v_res
         .ok()
         .and_then(|r| r.rows.first().and_then(|row| cell_i64(row, 0)))
@@ -2702,6 +3196,27 @@ pub async fn fetch_knowledge(db: &DbHandle, provider_filter: Option<&str>) -> Va
         })
         .unwrap_or_default();
 
+    let github_items: Vec<Value> = source_rows
+        .iter()
+        .filter(|s| s.get("provider").and_then(Value::as_str).unwrap_or("github").eq_ignore_ascii_case("github"))
+        .cloned()
+        .collect();
+    let gitlab_items: Vec<Value> = source_rows
+        .iter()
+        .filter(|s| s.get("provider").and_then(Value::as_str).unwrap_or("").eq_ignore_ascii_case("gitlab"))
+        .cloned()
+        .collect();
+    let ado_items: Vec<Value> = source_rows
+        .iter()
+        .filter(|s| {
+            let p = s.get("provider").and_then(Value::as_str).unwrap_or("");
+            p.eq_ignore_ascii_case("azure-devops") || p.eq_ignore_ascii_case("azure_devops")
+        })
+        .cloned()
+        .collect();
+
+    let github_connected = !github_items.is_empty() || (source_count > 0 && gitlab_items.is_empty() && ado_items.is_empty());
+
     json!({
         "measurement_status": "measured",
         "source": "postgres-direct",
@@ -2715,14 +3230,25 @@ pub async fn fetch_knowledge(db: &DbHandle, provider_filter: Option<&str>) -> Va
             "recent_catalog_items": recent_catalog_items
         },
         "github_sources": {
-            "connected": source_count > 0,
-            "source_count": source_count
+            "connected": github_connected,
+            "source_count": if !github_items.is_empty() { github_items.len() as i64 } else { source_count },
+            "sources": github_items
+        },
+        "gitlab_sources": {
+            "connected": !gitlab_items.is_empty(),
+            "source_count": gitlab_items.len(),
+            "sources": gitlab_items
+        },
+        "azure_devops_sources": {
+            "connected": !ado_items.is_empty(),
+            "source_count": ado_items.len(),
+            "sources": ado_items
         },
         "provider_states": {
-            "documents": "measured",
-            "github": if source_count > 0 { "measured" } else { "not-connected" },
-            "gitlab": "not-connected",
-            "azure_devops": "not-connected"
+            "documents": if catalog_doc_count > 0 { "measured" } else { "not-connected" },
+            "github": if github_connected { "measured" } else { "not-connected" },
+            "gitlab": if !gitlab_items.is_empty() { "measured" } else { "not-connected" },
+            "azure_devops": if !ado_items.is_empty() { "measured" } else { "not-connected" }
         }
     })
 }

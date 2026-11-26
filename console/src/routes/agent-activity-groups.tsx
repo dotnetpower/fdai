@@ -1,6 +1,6 @@
 import type { AuditItem } from "../types";
-import { StatusPill, type PillKind } from "../components/ui";
-import { routeHref } from "../router";
+import { TimelineStepList, type TimelineStepEntry } from "../components/domain-primitives";
+import type { BadgeTone } from "../components/status-badge";
 import { consoleDateTimeLocale } from "../time-format";
 import {
   activityProvenanceCounts,
@@ -188,6 +188,32 @@ function AgentActivityGroup({
   }
   const summary = [...counts.entries()].map(([verb, count]) => `${verb} ${count}`).join(" / ");
   const provenance = activityProvenanceCounts(items);
+  const entries: readonly TimelineStepEntry[] = items.map((item) => {
+    const verb = activityVerb(item);
+    const outcome = stringEntry(item, "outcome");
+    const summaryText =
+      stringEntry(item, "summary") ||
+      stringEntry(item, "detail") ||
+      stringEntry(item, "reason") ||
+      item.action_kind;
+    const target = stringEntry(item, "resource_ref") || stringEntry(item, "target_resource_ref");
+    const summaryParts = [
+      item.action_kind,
+      target ? `on ${target}` : null,
+      summaryText !== item.action_kind ? summaryText : null,
+    ].filter(Boolean);
+    const itemProvenance = auditProvenanceOf(item);
+    const statusLabel = outcome ?? item.mode;
+    return {
+      id: `${item.seq}:${item.event_id}`,
+      timestamp: clock(item.recorded_at),
+      actor: `${title(verb)}${itemProvenance === "sample" ? " (local sample)" : ""}`,
+      summary: summaryParts.join(" - "),
+      statusTone: outcome ? outcomeTone(outcome) : modeTone(item.mode),
+      statusLabel,
+      ...(item.correlation_id ? { correlationId: item.correlation_id } : {}),
+    };
+  });
   return (
     <section class="aa-group">
       <header class="aa-group-head">
@@ -196,47 +222,12 @@ function AgentActivityGroup({
         <span class="aa-layer-tag">{pantheonLayerOf(agent)}</span>
         <span class="aa-group-meta">
           {items.length} records
-          {provenance.sample > 0 ? ` · ${provenance.sample} local sample` : ""}
-          {` · ${summary}`}
+          {provenance.sample > 0 ? ` - ${provenance.sample} local sample` : ""}
+          {` - ${summary}`}
         </span>
       </header>
-      <div class="aa-rows">
-        {items.map((item) => <AgentActivityRow key={item.seq} item={item} />)}
-      </div>
+      <TimelineStepList ariaLabel={`${agent} timeline`} entries={entries} />
     </section>
-  );
-}
-
-function AgentActivityRow({ item }: { readonly item: AuditItem }) {
-  const verb = activityVerb(item);
-  const outcome = stringEntry(item, "outcome");
-  const summary =
-    stringEntry(item, "summary") ||
-    stringEntry(item, "detail") ||
-    stringEntry(item, "reason") ||
-    item.action_kind;
-  const target = stringEntry(item, "resource_ref") || stringEntry(item, "target_resource_ref");
-  const provenance = auditProvenanceOf(item);
-  return (
-    <div class="aa-row">
-      <time dateTime={item.recorded_at}>{clock(item.recorded_at)}</time>
-      <span class={`aa-verb is-${verb}`}>{title(verb)}</span>
-      <span class="aa-summary">
-        <strong>{item.action_kind}</strong>
-        {target ? <> on <code>{target}</code></> : null}
-        {summary !== item.action_kind ? <> · {summary}</> : null}
-      </span>
-      <span class="aa-row-meta">
-        {provenance === "sample" ? <StatusPill kind="neutral" label="local sample" /> : null}
-        <StatusPill kind={modePill(item.mode)} label={item.mode} />
-        {outcome ? <StatusPill kind={outcomePill(outcome)} label={outcome} /> : null}
-        {item.correlation_id ? (
-          <a href={routeHref("trace", { params: { correlation: item.correlation_id } })}>
-            {item.correlation_id}
-          </a>
-        ) : <code>{item.event_id}</code>}
-      </span>
-    </div>
   );
 }
 
@@ -269,17 +260,17 @@ function stringEntry(item: AuditItem, key: string): string | null {
   return typeof value === "string" && value.trim() ? value : null;
 }
 
-function modePill(mode: string): PillKind {
-  if (mode === "enforce") return "enforce";
-  if (mode === "shadow") return "shadow";
+function modeTone(mode: string): BadgeTone {
+  if (mode === "enforce") return "live";
+  if (mode === "shadow") return "neutral";
   return "neutral";
 }
 
-function outcomePill(outcome: string): PillKind {
+function outcomeTone(outcome: string): BadgeTone {
   const normalized = outcome.toLowerCase();
-  if (normalized.includes("hil") || normalized.includes("await")) return "hil";
-  if (normalized.includes("reject") || normalized.includes("deny") || normalized.includes("fail")) return "danger";
-  if (normalized.includes("auto") || normalized.includes("published") || normalized.includes("recorded")) return "success";
+  if (normalized.includes("hil") || normalized.includes("await")) return "human";
+  if (normalized.includes("reject") || normalized.includes("deny") || normalized.includes("fail")) return "sec";
+  if (normalized.includes("auto") || normalized.includes("published") || normalized.includes("recorded")) return "live";
   return "neutral";
 }
 

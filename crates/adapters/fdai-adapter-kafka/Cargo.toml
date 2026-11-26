@@ -1,0 +1,15 @@
+[package]
+name = "fdai-adapter-kafka"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+fdai-ports = { path = "../../ports/fdai-ports" }
+rustls = { workspace = true }
+rustls-pki-types = { workspace = true }
+tokio = { workspace = true }
+tokio-rustls = { workspace = true }
+webpki-roots = { workspace = true }

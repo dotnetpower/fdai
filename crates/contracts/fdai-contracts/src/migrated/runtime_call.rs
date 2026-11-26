@@ -1,0 +1,5 @@
+pub const RUNTIME_CALL_MAPPING_ID: &str = "runtime-call-endpoint-identity";
+pub const RUNTIME_CALL_MAPPING_REVISION: &str = "1.1.0";
+pub const RUNTIME_CALL_SOURCE_SCHEMA_VERSION: &str = "fdai.runtime-call-observation@1.1.0";
+pub const RUNTIME_CALL_VERIFICATION_METHOD: &str = "deterministic-cross-check";
+pub const PUBLIC_EXPORTS: &[&str] = &["RUNTIME_CALL_MAPPING_ID", "RUNTIME_CALL_MAPPING_REVISION", "RUNTIME_CALL_SOURCE_SCHEMA_DIGEST", "RUNTIME_CALL_SOURCE_SCHEMA_VERSION", "RUNTIME_CALL_VERIFICATION_METHOD"];

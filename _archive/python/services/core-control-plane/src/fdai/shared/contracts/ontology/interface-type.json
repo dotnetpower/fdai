@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/ontology/interface-type/1.0.0",
+  "title": "OntologyInterfaceType",
+  "description": "Declares one versioned polymorphic ontology capability.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "name", "version", "properties"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Za-z0-9]{0,63}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "properties": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/property"}
+    },
+    "required_links": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"},
+      "uniqueItems": true
+    },
+    "supported_actions": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "extends": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^[A-Z][A-Za-z0-9]{0,63}$"},
+      "uniqueItems": true
+    },
+    "description": {"type": "string", "minLength": 1},
+    "provenance": {"$ref": "#/$defs/provenance"}
+  },
+  "$defs": {
+    "property": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["string", "integer", "number", "boolean", "object", "array", "datetime"]
+        },
+        "required": {"type": "boolean", "default": false},
+        "description": {"type": "string"},
+        "access_scope": {
+          "type": "string",
+          "enum": ["reader", "contributor", "approver", "owner"],
+          "default": "reader"
+        },
+        "purpose_binding": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,63}$"},
+          "uniqueItems": true
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_url", "resolved_ref", "content_hash", "license", "retrieved_at"],
+      "properties": {
+        "source_url": {"type": "string", "minLength": 1},
+        "resolved_ref": {"type": "string", "minLength": 1},
+        "content_hash": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "license": {"type": "string", "minLength": 1},
+        "retrieved_at": {"type": "string", "format": "date-time"}
+      }
+    }
+  }
+}

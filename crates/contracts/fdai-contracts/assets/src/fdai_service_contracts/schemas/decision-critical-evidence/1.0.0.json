@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/decision-critical-evidence/1.0.0",
+  "title": "DecisionCriticalEvidenceReceipt",
+  "description": "Evidence, authority, provenance, time, and completeness for one decision-critical observation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "authority_class",
+    "source_identity",
+    "authentication_evidence_digest",
+    "scope_digest",
+    "purpose_id",
+    "producer_id",
+    "producer_version",
+    "method_id",
+    "method_version",
+    "source_revision",
+    "evidence_digest",
+    "provenance_digest",
+    "event_at",
+    "evidence_cutoff",
+    "recorded_at",
+    "fresh_until",
+    "freshness_policy_id",
+    "freshness_policy_version",
+    "freshness_policy_digest",
+    "freshness_ceiling_seconds",
+    "completeness_basis_points",
+    "completeness_evidence_digest",
+    "conflict_status",
+    "conflict_evidence_digest",
+    "synthetic",
+    "execution_authority",
+    "receipt_digest"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "authority_class": {"$ref": "#/$defs/evidence_id"},
+    "source_identity": {"$ref": "#/$defs/source_identity"},
+    "authentication_evidence_digest": {"$ref": "#/$defs/digest"},
+    "scope_digest": {"$ref": "#/$defs/digest"},
+    "purpose_id": {"$ref": "#/$defs/evidence_id"},
+    "producer_id": {"$ref": "#/$defs/evidence_id"},
+    "producer_version": {"$ref": "#/$defs/semver"},
+    "method_id": {"$ref": "#/$defs/evidence_id"},
+    "method_version": {"$ref": "#/$defs/semver"},
+    "source_revision": {"$ref": "#/$defs/source_identity"},
+    "evidence_digest": {"$ref": "#/$defs/digest"},
+    "provenance_digest": {"$ref": "#/$defs/digest"},
+    "event_at": {"type": "string", "format": "date-time"},
+    "evidence_cutoff": {"type": "string", "format": "date-time"},
+    "recorded_at": {"type": "string", "format": "date-time"},
+    "fresh_until": {"type": "string", "format": "date-time"},
+    "freshness_policy_id": {"$ref": "#/$defs/evidence_id"},
+    "freshness_policy_version": {"$ref": "#/$defs/semver"},
+    "freshness_policy_digest": {"$ref": "#/$defs/digest"},
+    "freshness_ceiling_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 31536000
+    },
+    "completeness_basis_points": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000
+    },
+    "completeness_evidence_digest": {"$ref": "#/$defs/digest"},
+    "conflict_status": {
+      "type": "string",
+      "enum": ["clear", "conflicting", "unknown"]
+    },
+    "conflict_evidence_digest": {"$ref": "#/$defs/digest"},
+    "conflict_evidence_digests": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/digest"},
+      "default": []
+    },
+    "synthetic": {"type": "boolean"},
+    "execution_authority": {"const": false},
+    "receipt_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "evidence_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_.-]{0,127}$"
+    },
+    "semver": {
+      "type": "string",
+      "minLength": 5,
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "source_identity": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,511}$"
+    }
+  }
+}

@@ -1,0 +1,324 @@
+{
+  "$defs": {
+    "AlertTreatment": {
+      "additionalProperties": false,
+      "description": "Exactly one operator-selected treatment, never a provider path or script.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "routing",
+            "suppression",
+            "evaluation"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "target_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Target Ref",
+          "type": "string"
+        },
+        "replacement_group_ref": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Replacement Group Ref"
+        },
+        "remove_group_ref": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Remove Group Ref"
+        },
+        "processing_rule_ref": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Processing Rule Ref"
+        },
+        "starts_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Starts At"
+        },
+        "ends_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ends At"
+        },
+        "evaluation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Evaluation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "kind",
+        "target_ref"
+      ],
+      "title": "AlertTreatment",
+      "type": "object"
+    },
+    "Evaluation": {
+      "additionalProperties": false,
+      "description": "Supported threshold semantics; complex native criteria remain unsupported.",
+      "properties": {
+        "metric_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Metric Ref",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "above",
+            "below"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "threshold": {
+          "title": "Threshold",
+          "type": "number"
+        },
+        "window_seconds": {
+          "maximum": 86400,
+          "minimum": 1,
+          "title": "Window Seconds",
+          "type": "integer"
+        },
+        "frequency_seconds": {
+          "maximum": 86400,
+          "minimum": 1,
+          "title": "Frequency Seconds",
+          "type": "integer"
+        },
+        "aggregation": {
+          "enum": [
+            "average",
+            "maximum",
+            "minimum"
+          ],
+          "title": "Aggregation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "metric_ref",
+        "operator",
+        "threshold",
+        "window_seconds",
+        "frequency_seconds",
+        "aggregation"
+      ],
+      "title": "Evaluation",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Immutable no-authority commitment, reconstructed before every admission.",
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "action_type": {
+      "enum": [
+        "ops.update-alert-routing",
+        "ops.set-alert-notification-window",
+        "ops.tune-alert-evaluation",
+        "ops.restore-alert-configuration"
+      ],
+      "title": "Action Type",
+      "type": "string"
+    },
+    "tenant_ref": {
+      "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+      "title": "Tenant Ref",
+      "type": "string"
+    },
+    "scope_ref": {
+      "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+      "title": "Scope Ref",
+      "type": "string"
+    },
+    "requester_ref": {
+      "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+      "title": "Requester Ref",
+      "type": "string"
+    },
+    "evidence_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Evidence Digest",
+      "type": "string"
+    },
+    "policy_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Policy Digest",
+      "type": "string"
+    },
+    "target_revision": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Target Revision",
+      "type": "string"
+    },
+    "treatment": {
+      "$ref": "#/$defs/AlertTreatment"
+    },
+    "service_refs": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+        "type": "string"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "title": "Service Refs",
+      "type": "array"
+    },
+    "lock_refs": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+        "type": "string"
+      },
+      "maxItems": 256,
+      "minItems": 1,
+      "title": "Lock Refs",
+      "type": "array"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "expires_at": {
+      "format": "date-time",
+      "title": "Expires At",
+      "type": "string"
+    },
+    "max_execution_seconds": {
+      "maximum": 86400,
+      "minimum": 1,
+      "title": "Max Execution Seconds",
+      "type": "integer"
+    },
+    "max_observation_seconds": {
+      "maximum": 86400,
+      "minimum": 1,
+      "title": "Max Observation Seconds",
+      "type": "integer"
+    },
+    "max_recovery_seconds": {
+      "maximum": 86400,
+      "minimum": 1,
+      "title": "Max Recovery Seconds",
+      "type": "integer"
+    },
+    "rollback_ref": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Rollback Ref",
+      "type": "string"
+    },
+    "evaluation_receipt_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Evaluation Receipt Digest"
+    },
+    "execution_path": {
+      "const": "pr_manual",
+      "default": "pr_manual",
+      "title": "Execution Path",
+      "type": "string"
+    },
+    "default_mode": {
+      "const": "shadow",
+      "default": "shadow",
+      "title": "Default Mode",
+      "type": "string"
+    },
+    "quorum_required": {
+      "const": 2,
+      "default": 2,
+      "title": "Quorum Required",
+      "type": "integer"
+    },
+    "execution_authority": {
+      "const": false,
+      "default": false,
+      "title": "Execution Authority",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "action_type",
+    "tenant_ref",
+    "scope_ref",
+    "requester_ref",
+    "evidence_digest",
+    "policy_digest",
+    "target_revision",
+    "treatment",
+    "service_refs",
+    "lock_refs",
+    "created_at",
+    "expires_at",
+    "max_execution_seconds",
+    "max_observation_seconds",
+    "max_recovery_seconds",
+    "rollback_ref"
+  ],
+  "title": "AlertChangePlan",
+  "type": "object",
+  "$id": "https://fdai.dev/service-contracts/alert-noise-plan/1.0.0"
+}
