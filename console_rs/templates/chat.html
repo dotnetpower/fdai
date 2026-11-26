@@ -1,0 +1,3663 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FDAI Console - AI 채팅 (우측 사이드바 · 3단 워크스페이스)</title>
+  <link rel="stylesheet" href="/assets/fdai-console-shared.css">
+  <style>
+    /* Page-scoped styles for AI Chat workspace (CSS variables only, >=12px, 0 colored rails) */
+    .chat-showcase-wrap {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 16px;
+    }
+    /* Prevent fullbleed flex shrink from collapsing the scenario card into .showcase-split */
+    .main-canvas[data-layout-tier="fullbleed"] .panel-view.chat-showcase-wrap:not([hidden]) {
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 16px 20px 24px;
+      gap: 16px;
+    }
+    .main-canvas[data-layout-tier="fullbleed"] .panel-view.chat-showcase-wrap > .surface-card {
+      flex: 0 0 auto;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius);
+      box-shadow: var(--cs-shadow);
+    }
+    .main-canvas[data-layout-tier="fullbleed"] .panel-view.chat-showcase-wrap > .showcase-split,
+    .main-canvas[data-layout-tier="fullbleed"] .panel-view.chat-showcase-wrap > .mobile-preview-card,
+    .main-canvas[data-layout-tier="fullbleed"] .panel-view.chat-showcase-wrap > .principle-bar {
+      flex: 0 0 auto;
+    }
+    /* Enforce transparent agent replies & neutral user bubbles across both showcase and global sidebar */
+    .chat-turn-agent,
+    .chat-turn-agent .agent-prose,
+    .spec-agent-wrap,
+    .spec-prose {
+      background: transparent !important;
+      border: 0 !important;
+    }
+    .chat-bubble-user,
+    .spec-user-bubble {
+      background: var(--cs-shade);
+      border: 1px solid var(--cs-hairline);
+      border-radius: 10px;
+    }
+    .sse-step-strip {
+      width: 100%;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      padding: 8px 10px;
+      display: grid;
+      gap: 5px;
+      font-size: 12px;
+      color: var(--cs-text-soft);
+    }
+    .sse-step-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .sse-discussion-grid {
+      width: 100%;
+      display: grid;
+      gap: 6px;
+    }
+    .sse-discussion-item {
+      border: 1px solid var(--cs-hairline-soft);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      padding: 8px 10px;
+      display: grid;
+      gap: 4px;
+      font-size: 12.5px;
+    }
+    .sse-discussion-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .sse-discussion-agent {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 700;
+      color: var(--cs-text);
+    }
+    .sse-discussion-agent img {
+      width: 16px;
+      height: 16px;
+      display: block;
+    }
+    .sse-turn-foot {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--cs-text-soft);
+    }
+    .mobile-seg-btn:focus-visible,
+    .shortcut-btn:focus-visible,
+    .sse-copy-btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--cs-focus-ring);
+    }
+    @media (max-width: 720px) {
+      .page-head-actions .cs-btn {
+        min-height: 44px;
+      }
+    }
+    .chat-showcase-wrap .card-head > div {
+      min-width: 0;
+      flex: 1 1 220px;
+    }
+    :root[data-theme="dark"] img[src^="/agent-icons/"] {
+      filter: invert(0.92);
+    }
+
+    /* Quick Scenario Cards (4 scenarios -> 2x2 when right sidebar open, 4x1 when closed) */
+    .scenario-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    @container (min-width: 1120px) {
+      .scenario-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+    }
+    @container (max-width: 580px) {
+      .scenario-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .scenario-card {
+      width: 100%;
+      text-align: left;
+      padding: 14px 15px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius);
+      background: var(--cs-card);
+      color: var(--cs-text);
+      font-family: var(--cs-font);
+      display: grid;
+      gap: 9px;
+      align-content: start;
+      cursor: pointer;
+      transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+    }
+    .scenario-card:hover {
+      background: var(--cs-bg);
+      border-color: var(--cs-text-soft);
+      box-shadow: var(--cs-shadow);
+    }
+    .scenario-card.is-active {
+      background: var(--cs-shade);
+      border-color: var(--cs-text-soft);
+    }
+    .scenario-card.is-unavailable {
+      border-style: dashed;
+    }
+    .scenario-card:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--cs-focus-ring);
+    }
+    .scenario-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .scenario-icons {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .scenario-icon-box {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--cs-radius-sm);
+      border: 1px solid var(--cs-hairline);
+      background: var(--cs-bg);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+    }
+    .scenario-icon-box img {
+      width: 18px;
+      height: 18px;
+      display: block;
+      object-fit: contain;
+    }
+    .scenario-title {
+      margin: 0;
+      font-size: 13.5px;
+      font-weight: 700;
+      line-height: 1.35;
+      color: var(--cs-text);
+    }
+    .scenario-desc {
+      margin: 0;
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: var(--cs-text-soft);
+    }
+    .scenario-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--cs-hairline-soft);
+      font-size: 12px;
+      color: var(--cs-text-soft);
+    }
+    .scenario-run-cue {
+      font-weight: 600;
+      color: var(--sig-live-text);
+      white-space: nowrap;
+    }
+
+    /* Main Asymmetric Showcase Split: Left = Inline Grounded Reply Spec, Right = Readiness + Shortcuts + Mode Guide */
+    .showcase-split {
+      display: grid;
+      grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+    @container (max-width: 860px) {
+      .showcase-split {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+    .showcase-col {
+      display: grid;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    /* Live Conversation Spec Box (User neutral fill vs Agent completely transparent) */
+    .spec-thread {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding-top: 4px;
+    }
+    .spec-user-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+    }
+    .spec-att-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 9px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      color: var(--cs-text);
+      font-size: 12px;
+    }
+    .spec-user-bubble {
+      max-width: min(88%, 760px);
+      padding: 10px 14px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: 10px;
+      background: var(--cs-shade);
+      color: var(--cs-text);
+      font-size: 13.5px;
+      line-height: 1.55;
+    }
+    .spec-agent-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+      background: transparent;
+      border: 0;
+      padding: 0;
+      width: 100%;
+    }
+    .spec-agent-head {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .spec-agent-id {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 13px;
+      color: var(--cs-text);
+    }
+    .spec-agent-avatar {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      border: 1px solid var(--cs-hairline);
+      background: var(--cs-bg);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+    }
+    .spec-agent-avatar img {
+      width: 15px;
+      height: 15px;
+      display: block;
+    }
+    .spec-prose {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      font-size: 14px;
+      line-height: 1.65;
+      color: var(--cs-text);
+    }
+    .spec-prose p {
+      margin: 0 0 8px;
+    }
+    .spec-prose p:last-child {
+      margin-bottom: 0;
+    }
+    .cite-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      height: 20px;
+      padding: 0 5px;
+      margin: 0 2px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: 4px;
+      background: var(--cs-bg);
+      color: var(--sig-live-text);
+      font-family: var(--cs-font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .cite-chip:hover {
+      background: var(--cs-shade);
+    }
+    .cite-chip:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--cs-focus-ring);
+    }
+
+    /* Live 3-Step Evidence Verification Simulator */
+    .live-steps-panel {
+      width: 100%;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      padding: 11px 13px;
+      display: grid;
+      gap: 8px;
+    }
+    .live-steps-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--cs-text);
+    }
+    .live-step-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 6px;
+    }
+    .live-step-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 9px;
+      border: 1px solid var(--cs-hairline-soft);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-card);
+      font-size: 12.5px;
+      color: var(--cs-text-soft);
+    }
+    .live-step-item.is-active {
+      border-color: var(--cs-text-soft);
+      background: var(--cs-shade);
+      color: var(--cs-text);
+      font-weight: 600;
+    }
+    .live-step-item.is-done {
+      color: var(--cs-text);
+    }
+    .live-step-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+    }
+    .step-badge-num {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1px solid var(--cs-hairline);
+      background: var(--cs-bg);
+      color: var(--cs-text-soft);
+      font-size: 12px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+    }
+    .live-step-item.is-done .step-badge-num {
+      border-color: var(--sig-live);
+      color: var(--sig-live-text);
+    }
+    .live-busy-demo {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--cs-hairline-soft);
+      font-size: 12px;
+      color: var(--cs-text-soft);
+    }
+
+    /* Inline Resource & Data Lineage Preview Card (Official Azure Icons) */
+    .lineage-mini-card {
+      width: 100%;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius);
+      background: var(--cs-bg);
+      padding: 12px 14px;
+      display: grid;
+      gap: 10px;
+    }
+    .lineage-mini-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .lineage-flow {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+    .lineage-node-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-card);
+      color: var(--cs-text);
+      font-family: var(--cs-font);
+      font-size: 12.5px;
+      text-align: left;
+      cursor: pointer;
+    }
+    .lineage-node-btn:hover {
+      background: var(--cs-shade);
+    }
+    .lineage-node-btn.is-selected {
+      background: var(--cs-shade);
+      border-color: var(--cs-text-soft);
+      font-weight: 600;
+    }
+    .lineage-node-btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--cs-focus-ring);
+    }
+    .lineage-node-btn img {
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
+    }
+    .lineage-node-meta {
+      display: grid;
+      gap: 1px;
+    }
+    .lineage-node-sub {
+      font-size: 12px;
+      color: var(--cs-text-soft);
+      font-weight: 400;
+    }
+    .lineage-arrow {
+      color: var(--cs-text-soft);
+      font-size: 12.5px;
+      font-family: var(--cs-font-mono);
+      user-select: none;
+    }
+    .lineage-node-detail {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+      border: 1px solid var(--cs-hairline-soft);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-card);
+      font-size: 12.5px;
+      color: var(--cs-text-soft);
+    }
+    .lineage-node-detail strong {
+      color: var(--cs-text);
+    }
+
+    /* Approval Proposal Card (Read-Only Safe Boundary) */
+    .proposal-spec-card {
+      width: 100%;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius);
+      background: var(--cs-bg);
+      padding: 13px 14px;
+      display: grid;
+      gap: 10px;
+    }
+    .proposal-fields {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 12px;
+      margin: 0;
+    }
+    @container (max-width: 560px) {
+      .proposal-fields {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+    .proposal-fields dt {
+      font-size: 12px;
+      color: var(--cs-text-soft);
+    }
+    .proposal-fields dd {
+      margin: 2px 0 0;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--cs-text);
+      overflow-wrap: anywhere;
+    }
+    .proposal-field-full {
+      grid-column: 1 / -1;
+    }
+    .safeguard-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .safeguard-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-badge);
+      background: var(--cs-card);
+      color: var(--cs-text-soft);
+      font-size: 12px;
+    }
+
+    /* Evidence Source Highlighting */
+    .source-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 6px;
+    }
+    .source-list-item {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 5px 8px;
+      border-radius: var(--cs-radius-sm);
+      font-size: 12.5px;
+      color: var(--cs-text);
+    }
+    .source-list-item.is-highlighted {
+      background: var(--cs-shade);
+      font-weight: 600;
+    }
+
+    .reply-action-bar {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* SourceReadinessStrip Card & Unavailable Honest Row */
+    .readiness-grid {
+      display: grid;
+      gap: 7px;
+    }
+    .readiness-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 1px solid var(--cs-hairline-soft);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      font-size: 12.5px;
+    }
+    .readiness-row.is-unavailable {
+      border-style: dashed;
+      border-color: var(--cs-hairline);
+      background: var(--cs-card);
+    }
+    .readiness-row-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .readiness-row-left img {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 auto;
+    }
+
+    /* Shortcut Table */
+    .shortcut-list {
+      display: grid;
+      gap: 7px;
+    }
+    .shortcut-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 7px 10px;
+      border: 1px solid var(--cs-hairline-soft);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      font-size: 12.5px;
+    }
+    .shortcut-btn {
+      width: 100%;
+      font-family: var(--cs-font);
+      color: var(--cs-text);
+      text-align: left;
+      cursor: pointer;
+    }
+    .shortcut-btn:hover {
+      background: var(--cs-shade);
+      border-color: var(--cs-hairline);
+    }
+    .kbd-key {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 24px;
+      padding: 1px 7px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: 5px;
+      background: var(--cs-card);
+      color: var(--cs-text);
+      font-family: var(--cs-font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    /* Interactive Mobile Sheet Preview (390px) */
+    .mobile-preview-card {
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius);
+      background: var(--cs-card);
+      padding: 16px 18px;
+      display: grid;
+      gap: 12px;
+    }
+    .mobile-preview-card[hidden] {
+      display: none;
+    }
+    .mobile-frame-wrap {
+      display: flex;
+      justify-content: center;
+      padding: 8px 0 4px;
+    }
+    .mobile-device-frame {
+      width: min(390px, 100%);
+      border: 1px solid var(--cs-hairline);
+      border-radius: 14px;
+      background: var(--cs-card);
+      box-shadow: var(--cs-shadow-lg);
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto auto minmax(320px, 380px) auto;
+    }
+    .mobile-sheet-head {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--cs-hairline);
+      background: var(--cs-card);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .mobile-seg-bar {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 4px;
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--cs-hairline-soft);
+      background: var(--cs-bg);
+    }
+    .mobile-seg-btn {
+      min-height: 36px;
+      border: 1px solid transparent;
+      border-radius: var(--cs-radius-sm);
+      background: transparent;
+      color: var(--cs-text-soft);
+      font-family: var(--cs-font);
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .mobile-seg-btn.is-active {
+      background: var(--cs-card);
+      border-color: var(--cs-hairline);
+      color: var(--cs-text);
+    }
+    .mobile-sheet-body {
+      overflow-y: auto;
+      padding: 12px;
+      background: var(--cs-card);
+    }
+    .mobile-pane {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+    .mobile-pane[hidden] {
+      display: none;
+    }
+    .mobile-sheet-composer {
+      padding: 10px 12px;
+      border-top: 1px solid var(--cs-hairline);
+      background: var(--cs-bg);
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .mobile-sheet-composer input {
+      flex: 1 1 auto;
+      min-width: 0;
+      height: 44px;
+      padding: 0 10px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-card);
+      color: var(--cs-text);
+      font-family: var(--cs-font);
+      font-size: 13px;
+    }
+    .mobile-sheet-composer button {
+      height: 44px;
+      padding: 0 12px;
+    }
+
+    /* Right Inspector Context / Evidence / Lineage Tabs (neutral borders, 0 colored rails) */
+    .insp-tab-bar {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 4px;
+      padding: 3px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+    }
+    .insp-tab-btn {
+      min-height: 30px;
+      padding: 4px 6px;
+      border: 1px solid transparent;
+      border-radius: var(--cs-radius-sm);
+      background: transparent;
+      color: var(--cs-text-soft);
+      font-family: var(--cs-font);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .insp-tab-btn:hover {
+      color: var(--cs-text);
+      background: var(--cs-shade);
+    }
+    .insp-tab-btn.is-active {
+      background: var(--cs-card);
+      border-color: var(--cs-hairline);
+      color: var(--cs-text);
+    }
+    .insp-tab-btn:focus-visible,
+    .insp-evidence-btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--cs-focus-ring);
+    }
+    .insp-tab-pane {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+    .insp-tab-pane[hidden] {
+      display: none;
+    }
+    .insp-evidence-list {
+      display: grid;
+      gap: 6px;
+    }
+    .insp-evidence-btn {
+      width: 100%;
+      text-align: left;
+      padding: 7px 9px;
+      border: 1px solid var(--cs-hairline-soft);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      color: var(--cs-text);
+      font-family: var(--cs-font);
+      font-size: 12px;
+      display: grid;
+      gap: 3px;
+      cursor: pointer;
+    }
+    .insp-evidence-btn:hover {
+      background: var(--cs-shade);
+      border-color: var(--cs-hairline);
+    }
+    .insp-evidence-meta {
+      font-size: 12px;
+      color: var(--cs-text-soft);
+      overflow-wrap: anywhere;
+    }
+    .insp-edge-item,
+    .insp-audit-item {
+      padding: 6px 8px;
+      border: 1px solid var(--cs-hairline-soft);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      font-size: 12px;
+      color: var(--cs-text);
+      display: grid;
+      gap: 2px;
+      overflow-wrap: anywhere;
+    }
+    .chat-hist-meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--cs-text-soft);
+    }
+    .live-pulse-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 8px 11px;
+      border: 1px solid var(--cs-hairline-soft);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      font-size: 12.5px;
+      color: var(--cs-text-soft);
+    }
+    .live-pulse-bar[hidden] {
+      display: none;
+    }
+    .live-pulse-meta {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+      color: var(--cs-text);
+      font-weight: 500;
+    }
+    .live-pulse-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 28px;
+      padding: 3px 10px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-badge);
+      background: var(--cs-card);
+      color: var(--cs-text);
+      font-family: var(--cs-font);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .live-pulse-chip:hover {
+      background: var(--cs-shade);
+      border-color: var(--cs-text-soft);
+    }
+    .live-pulse-chip:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--cs-focus-ring);
+    }
+  </style>
+</head>
+<body data-domain="chat" data-domain-label="AI 채팅" data-open-chat-default="false">
+  <div id="fdaiShellRoot" class="console-app">
+    <header id="fdaiTopbar" class="topbar" role="banner"></header>
+    <div class="workspace-frame">
+      <nav id="fdaiRail" class="icon-rail" aria-label="기본 탐색"></nav>
+      <aside id="fdaiExplorer" class="nav-explorer" aria-label="전체 메뉴 탐색" hidden></aside>
+      <main id="fdaiMain" class="main-canvas">
+        <div class="content-wrap">
+          <header class="page-head">
+            <div class="page-head-copy">
+              <h2 class="page-breadcrumb">
+                <button type="button" class="breadcrumb-trigger" data-toggle-explorer>AI 채팅</button>
+                <span class="breadcrumb-sep" aria-hidden="true">/</span>
+                <span id="activePanelTitle">우측 사이드바 · Panelo 3단 전체화면</span>
+              </h2>
+              <p class="page-subtitle" id="activePanelSubtitle">
+                모든 화면 상단의 채팅 버튼(Ctrl+J)으로 우측 도킹 사이드바를 열고, 필요 시 좌측 이력·중앙 대화(최대 1040px)·우측 스레드 상세 3단 전체화면으로 전환합니다.
+              </p>
+            </div>
+            <div class="page-head-actions">
+              <button type="button" class="cs-btn" data-open-chat-dock data-ut-title="우측 도킹 사이드바" data-ut-body="메인 캔버스와 나란히 AI 채팅을 380~640px 도킹 모드로 엽니다." data-ut-kbd="Ctrl+J">우측 사이드바 열기</button>
+              <button type="button" class="cs-btn cs-btn-accent" data-open-chat-fullscreen data-ut-title="Panelo 3단 전체화면" data-ut-body="좌측 이력(264px) · 중앙 대화(최대 1040px) · 우측 스레드 상세 인스펙터(312px) 3단으로 전환합니다.">Panelo 3단 전체화면 전환</button>
+              <button type="button" class="cs-btn" id="runLiveStepsBtn" data-ut-title="라이브 3단계 SSE 시연" data-ut-body="POST /api/v4/chat/stream으로 스냅샷→온톨로지·정책→감사 검증 3단계 근거 확인을 실행합니다.">라이브 3단계 근거 확인 시연</button>
+              <button type="button" class="cs-btn" id="toggleMobilePreviewBtn" aria-expanded="false" aria-controls="mobileSheetPreview" data-ut-title="모바일 풀시트 390px 미리보기" data-ut-body="3분할 세그먼트(대화 | 이력 | 상세)와 44px 터치 타깃 모바일 UI를 점검합니다.">모바일 시트 미리보기</button>
+            </div>
+          </header>
+
+          <section
+            class="panel-view chat-showcase-wrap"
+            data-panel-id="command-deck-chat"
+            data-hub-root="chat"
+            data-panel-title="우측 사이드바 · Panelo 3단 전체화면"
+            data-panel-summary="모든 화면 상단의 채팅 버튼(Ctrl+J)으로 우측 도킹 사이드바를 열고, 필요 시 3단 AI 커맨드 워크스페이스로 전환합니다."
+            aria-label="AI 채팅 인터랙티브 쇼케이스"
+          >
+            <!-- 1. Quick Scenario Execution Cards (4 Scenarios -> instant chat dispatch) -->
+            <section class="surface-card" aria-label="시나리오 빠른 실행">
+              <div class="card-head">
+                <div>
+                  <h3 class="card-title">시나리오 빠른 실행 - 클릭 시 우측 AI 채팅으로 즉시 질의 전송</h3>
+                  <p class="card-desc">현재 화면 컨텍스트와 선택 리소스를 자동으로 묶어 조회 전용 질의를 실행하고, 우측 사이드바 및 3단 전체화면 인스펙터를 함께 갱신합니다.</p>
+                </div>
+                <span class="cs-badge tone-live" id="chatSseStatusBadge" data-ut-title="Pure-Rust Axum SSE 채널" data-ut-body="POST /api/v4/chat/stream 네이티브 SSE 스트림과 실시간 PostgreSQL 감지(/api/v4/live/pulse) 상태를 반영합니다." data-ut-meta="조회 전용 안전 경계 · 미측정 시 not-measured 표시" data-ut-tone="live"><span class="cs-dot"></span><span id="chatSseStatusLabel">SSE 연결 확인 중...</span></span>
+              </div>
+
+              <div class="live-pulse-bar" id="livePulseBar" role="status" aria-live="polite" hidden>
+                <span class="live-pulse-meta">
+                  <span class="cs-dot" aria-hidden="true"></span>
+                  <span id="livePulseStatusText">실시간 PostgreSQL 감지 대기 중...</span>
+                </span>
+                <button type="button" class="live-pulse-chip" id="livePulseTargetBtn" data-pulse-target="">
+                  최신 감지 대상 질문 →
+                </button>
+              </div>
+
+              <div class="scenario-grid" id="scenarioGrid" role="list">
+                <button
+                  type="button"
+                  class="scenario-card is-active"
+                  role="listitem"
+                  data-scenario-id="ontology"
+                  data-scenario-node="prod-aks-02"
+                  data-scenario-context="온톨로지 · prod-aks-02"
+                  data-scenario-summary="prod-aks-02 CPU 포화 예측(+5m, 91%)의 상류 배치 파드 원인과 하류 pg-orders-db 지연 영향을 2홉 계통으로 추적했습니다."
+                  data-scenario-prompt="prod-aks-02의 CPU 포화 예측(+5m) 원인과 하류 pg-orders-db 영향 범위를 온톨로지 데이터 계통 근거로 요약해 줘."
+                  data-ut-title="시나리오 1: 온톨로지 / 데이터 계통 질의"
+                  data-ut-body="pay-settlement-job → prod-aks-02 → pg-orders-db 2홉 의존성을 POST /api/v4/chat/stream SSE로 실시간 조회합니다."
+                  data-ut-meta="담당 에이전트: Muninn · Freyr"
+                  data-ut-tone="sre"
+                >
+                  <div class="scenario-top">
+                    <span class="scenario-icons">
+                      <span class="scenario-icon-box"><img src="/azure-icons/kubernetes-services.svg" alt=""></span>
+                      <span class="scenario-icon-box"><img src="/agent-icons/muninn.svg" alt=""></span>
+                    </span>
+                    <span class="cs-badge tone-sre"><span class="cs-dot"></span>SRE 예측</span>
+                  </div>
+                  <h4 class="scenario-title">온톨로지 / 데이터 계통 질의 (prod-aks-02)</h4>
+                  <p class="scenario-desc">상류 배치 작업 → AKS 노드 풀 → 하류 PostgreSQL 2홉 의존성과 지연 영향을 근거와 함께 조회합니다.</p>
+                  <div class="scenario-foot">
+                    <span>Muninn · Freyr</span>
+                    <span class="scenario-run-cue">채팅으로 실행 →</span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  class="scenario-card"
+                  role="listitem"
+                  data-scenario-id="hil"
+                  data-scenario-node="prod-aks-02"
+                  data-scenario-context="승인 요청 · HIL-8841"
+                  data-scenario-summary="HIL-8841(AKS 노드 풀 4→6 확장)에 대해 중단 조건·롤백 검증·영향 제한·드라이런·타깃 잠금·멱등성·2단계 감사 7항목을 모두 확인했습니다."
+                  data-scenario-prompt="승인 요청 HIL-8841(prod-aks-02 노드 풀 확장)의 7대 안전장치 충족 여부와 드라이런 결과를 검증해 줘."
+                  data-ut-title="시나리오 2: 승인 요청(HIL-8841) 7대 안전장치 검증"
+                  data-ut-body="중단 조건·롤백 검증·영향 범위 제한·드라이런·타깃 잠금·멱등성·2단계 감사 증적을 조회 전용으로 점검합니다."
+                  data-ut-meta="담당 에이전트: Var · Forseti"
+                  data-ut-tone="human"
+                >
+                  <div class="scenario-top">
+                    <span class="scenario-icons">
+                      <span class="scenario-icon-box"><img src="/azure-icons/key-vault.svg" alt=""></span>
+                      <span class="scenario-icon-box"><img src="/agent-icons/var.svg" alt=""></span>
+                    </span>
+                    <span class="cs-badge tone-human"><span class="cs-dot"></span>A3 승인 검토</span>
+                  </div>
+                  <h4 class="scenario-title">승인 요청(HIL-8841) 7대 안전장치 검증</h4>
+                  <p class="scenario-desc">롤백 검증, 영향 범위 제한, 드라이런, 논리 타깃 잠금 등 고위험 변경 전 필수 안전장치 증적을 점검합니다.</p>
+                  <div class="scenario-foot">
+                    <span>Var · Forseti</span>
+                    <span class="scenario-run-cue">채팅으로 실행 →</span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  class="scenario-card"
+                  role="listitem"
+                  data-scenario-id="rules"
+                  data-scenario-node="kv-prod-kr"
+                  data-scenario-context="운영 규칙 · MCSB / WARA"
+                  data-scenario-summary="활성 운영 규칙 52개 기준 정책 위반은 0건이며, kv-prod-kr 임시 IP 허용 만료 1건만 예외 회수 승인 대상으로 분류되었습니다."
+                  data-scenario-prompt="현재 구독의 운영 규칙(MCSB/WARA) 위반 여부와 kv-prod-kr 예외 만료 건의 감사 해시를 점검해 줘."
+                  data-ut-title="시나리오 3: 운영 규칙(MCSB/WARA) 점검"
+                  data-ut-body="활성 정책 규칙 평가와 kv-prod-kr 예외 만료 건의 Saga 감사 해시를 조회합니다."
+                  data-ut-meta="담당 에이전트: Forseti · Saga"
+                  data-ut-tone="live"
+                >
+                  <div class="scenario-top">
+                    <span class="scenario-icons">
+                      <span class="scenario-icon-box"><img src="/azure-icons/monitor.svg" alt=""></span>
+                      <span class="scenario-icon-box"><img src="/agent-icons/forseti.svg" alt=""></span>
+                    </span>
+                    <span class="cs-badge tone-live"><span class="cs-dot"></span>위반 0건</span>
+                  </div>
+                  <h4 class="scenario-title">운영 규칙(MCSB/WARA) 위반 여부 점검</h4>
+                  <p class="scenario-desc">활성 규칙 52개의 정책 평가 결과, 예외 만료 리소스, Saga 감사 원장 해시를 교차 검증합니다.</p>
+                  <div class="scenario-foot">
+                    <span>Forseti · Saga</span>
+                    <span class="scenario-run-cue">채팅으로 실행 →</span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  class="scenario-card is-unavailable"
+                  role="listitem"
+                  data-scenario-id="unavailable"
+                  data-scenario-node="focus-cost-export"
+                  data-scenario-context="비용 거버넌스 · focus-cost-export"
+                  data-scenario-summary="focus-cost-export 수집기가 Storage SAS 만료로 미수집 상태입니다. 비용 합계는 0으로 대체하지 않고 데이터 없음(미수집)으로 분리했습니다."
+                  data-scenario-prompt="미수집 지표 focus-cost-export가 데이터 없음으로 표시되는 원인과 수집기 복구 절차를 알려줘."
+                  data-ut-title="시나리오 4: 미수집 지표 원인 분석"
+                  data-ut-body="미측정(not-measured)을 0으로 대체하지 않는 원칙에 따라 focus-cost-export 수집 중단 원인을 점검합니다."
+                  data-ut-meta="담당 에이전트: Njord · Heimdall"
+                  data-ut-tone="sec"
+                >
+                  <div class="scenario-top">
+                    <span class="scenario-icons">
+                      <span class="scenario-icon-box"><img src="/azure-icons/storage-account.svg" alt=""></span>
+                      <span class="scenario-icon-box"><img src="/agent-icons/njord.svg" alt=""></span>
+                    </span>
+                    <span class="cs-badge tone-sec"><span class="cs-dot"></span>데이터 없음 (미수집)</span>
+                  </div>
+                  <h4 class="scenario-title">미수집 지표(focus-cost-export) 원인 분석</h4>
+                  <p class="scenario-desc">미수집 지표를 0으로 대체하지 않는 정직한 상태 원칙에 따라 수집 중단 원인과 진단 경로를 안내합니다.</p>
+                  <div class="scenario-foot">
+                    <span>Njord · Heimdall</span>
+                    <span class="scenario-run-cue">채팅으로 실행 →</span>
+                  </div>
+                </button>
+              </div>
+            </section>
+
+            <!-- 2. Interactive Mobile Sheet Preview (toggled by top button) -->
+            <section class="mobile-preview-card" id="mobileSheetPreview" aria-label="모바일 풀시트 390px 미리보기" hidden>
+              <div class="card-head">
+                <div>
+                  <h3 class="card-title">모바일 풀시트 미리보기 (390px · 3분할 세그먼트 전환)</h3>
+                  <p class="card-desc">좁은 화면에서는 3단 중첩 대신 상단 세그먼트(대화 | 이력 | 상세)와 44px 터치 타깃, 100dvh 안전 영역으로 전환됩니다.</p>
+                </div>
+                <button type="button" class="cs-btn cs-btn-sm" id="closeMobilePreviewBtn">미리보기 닫기</button>
+              </div>
+              <div class="mobile-frame-wrap">
+                <div class="mobile-device-frame" role="region" aria-label="모바일 채팅 시트 시뮬레이터">
+                  <div class="mobile-sheet-head">
+                    <div class="spec-agent-id">
+                      <span class="spec-agent-avatar"><img src="/agent-icons/bragi.svg" alt=""></span>
+                      <strong>AI 채팅 · prod-aks-02</strong>
+                    </div>
+                    <span class="cs-badge tone-live"><span class="cs-dot"></span>조회 전용</span>
+                  </div>
+                  <div class="mobile-seg-bar" role="tablist" aria-label="모바일 시트 구역 전환">
+                    <button type="button" class="mobile-seg-btn is-active" role="tab" aria-selected="true" data-mobile-tab="chat">대화</button>
+                    <button type="button" class="mobile-seg-btn" role="tab" aria-selected="false" data-mobile-tab="history">이력 (3)</button>
+                    <button type="button" class="mobile-seg-btn" role="tab" aria-selected="false" data-mobile-tab="details">상세 (3)</button>
+                  </div>
+                  <div class="mobile-sheet-body">
+                    <div class="mobile-pane" data-mobile-pane="chat">
+                      <div class="spec-user-wrap">
+                        <div class="spec-user-bubble">prod-aks-02 CPU 급증 원인과 하류 DB 영향을 요약해 줘.</div>
+                      </div>
+                      <div class="spec-agent-wrap">
+                        <div class="spec-agent-id">
+                          <span class="spec-agent-avatar"><img src="/agent-icons/bragi.svg" alt=""></span>
+                          <strong>Bragi</strong>
+                          <span class="cs-badge tone-live"><span class="cs-dot"></span>T0 검증</span>
+                        </div>
+                        <div class="spec-prose">
+                          <p>배치 파드 3기 동시 기동으로 노드 풀 CPU가 5분 내 85% 도달(91%)할 것으로 예측됩니다. 하류 <strong>pg-orders-db</strong> 커넥션 대기가 동반 상승 중입니다.</p>
+                        </div>
+                        <div class="lineage-node-detail" style="width:100%">
+                          <span><strong>계통:</strong> pay-job → prod-aks-02 → pg-orders-db</span>
+                          <a class="cs-btn cs-btn-sm" href="/governance#tab=ontology">관계도 →</a>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="mobile-pane" data-mobile-pane="history" hidden>
+                      <button type="button" class="wb-item is-active" data-mobile-pick-thread="prod-aks-02 CPU 포화 예측 분석을 이어서 요약해 줘.">
+                        <span class="wb-item-top"><span>현재 화면 리스크·근거 요약</span><span class="cs-badge tone-live">고정</span></span>
+                        <span class="wb-item-sub">온톨로지 · 방금 전 · 근거 3건</span>
+                      </button>
+                      <button type="button" class="wb-item" data-mobile-pick-thread="HIL-8841 노드 풀 확장 승인 초안의 7대 안전장치를 확인해 줘.">
+                        <span class="wb-item-top"><span>HIL-8841 7대 안전장치 검증</span><span class="cs-badge tone-human">미확인</span></span>
+                        <span class="wb-item-sub">승인 요청 · 12분 전 · Var</span>
+                      </button>
+                      <button type="button" class="wb-item" data-mobile-pick-thread="focus-cost-export 미수집 원인을 진단해 줘.">
+                        <span class="wb-item-top"><span>focus-cost-export 미수집 진단</span><span class="cs-badge tone-sec">미수집</span></span>
+                        <span class="wb-item-sub">비용 거버넌스 · 28분 전 · Njord</span>
+                      </button>
+                    </div>
+
+                    <div class="mobile-pane" data-mobile-pane="details" hidden>
+                      <div class="insp-card">
+                        <div class="insp-title">대화 메타데이터</div>
+                        <div class="insp-kv"><span>대상 화면</span><strong>온톨로지 · prod-aks-02</strong></div>
+                        <div class="insp-kv"><span>추적 ID</span><strong class="cell-mono">corr-8a91f</strong></div>
+                        <div class="insp-kv"><span>안전 경계</span><strong>조회 전용 · 위반 0건</strong></div>
+                      </div>
+                      <div class="insp-card">
+                        <div class="insp-title">추출된 후속 조치 초안</div>
+                        <a class="insp-action-item" href="/operations#tab=hil-queue"><span>HIL-8841 승인 요청 열기</span><span>→</span></a>
+                        <a class="insp-action-item" href="/governance#tab=ontology"><span>prod-aks-02 관계도 열기</span><span>→</span></a>
+                      </div>
+                    </div>
+                  </div>
+                  <form class="mobile-sheet-composer" id="mobilePreviewForm">
+                    <input type="text" id="mobilePreviewInput" placeholder="모바일 질의 입력 (전송 시 채팅 연동)..." aria-label="모바일 시트 미리보기 질의 입력">
+                    <button type="submit" class="cs-btn cs-btn-accent">전송</button>
+                  </form>
+                </div>
+              </div>
+            </section>
+
+            <!-- 3. Inline Grounded Reply & Proposal Spec Showcase + SourceReadinessStrip + Shortcuts -->
+            <div class="showcase-split">
+              <!-- Left Column: Grounded Reply Spec (User Neutral vs Agent Transparent + Inline Lineage + Proposal) -->
+              <div class="showcase-col">
+                <section class="surface-card" aria-label="인라인 근거 카드 및 승인 초안 규격 쇼케이스">
+                  <div class="card-head">
+                    <div>
+                      <h3 class="card-title">대화 규격 &amp; 인라인 근거 · 승인 초안 쇼케이스</h3>
+                      <p class="card-desc">사용자 질문(뉴트럴 배경) vs 에이전트 답변(투명 평문), 3단계 근거 확인, 공식 Azure 아이콘 계통 프리뷰, 조회 전용 승인 초안 규격을 한눈에 검증합니다.</p>
+                    </div>
+                    <span class="cs-badge tone-human"><span class="cs-dot"></span>조회 전용 안전 경계</span>
+                  </div>
+
+                  <div class="spec-thread" id="showcaseThread">
+                    <!-- User Bubble: neutral fill, 1px hairline, 10px radius, right aligned -->
+                    <div class="spec-user-wrap">
+                      <span class="spec-att-chip">
+                        <img src="/azure-icons/monitor.svg" width="14" height="14" alt="">
+                        <span>aks-pool-metrics.json</span>
+                        <span class="cell-mono">42 KB</span>
+                      </span>
+                      <div class="spec-user-bubble">
+                        현재 선택한 <strong>prod-aks-02</strong>의 CPU 포화 예측(+5m) 원인과 하류 영향을 온톨로지 계통 근거로 요약하고, 필요한 조치 초안도 같이 보여줘.
+                      </div>
+                      <span class="chat-turn-meta">운영자 · 19:42</span>
+                    </div>
+
+                    <!-- Agent Reply: completely transparent (background: transparent; border: 0) -->
+                    <div class="spec-agent-wrap">
+                      <div class="spec-agent-head">
+                        <div class="spec-agent-id">
+                          <span class="spec-agent-avatar"><img src="/agent-icons/bragi.svg" alt=""></span>
+                          <strong>Bragi · 운영 에이전트</strong>
+                          <span class="cs-badge tone-live"><span class="cs-dot"></span>자동(T0→T2) · 380ms</span>
+                        </div>
+                        <span class="chat-turn-meta">19:42</span>
+                      </div>
+
+                      <!-- Live 3-Step Evidence Verification Panel (Interactive via button) -->
+                      <div class="live-steps-panel" id="liveStepsPanel" role="status" aria-live="polite" hidden>
+                        <div class="live-steps-head">
+                          <span id="liveStepsHeadline">관련 정보 확인 및 근거 대조 진행 중 (1/3)</span>
+                          <span class="cs-badge tone-sre"><span class="cs-dot"></span>조회 전용</span>
+                        </div>
+                        <ol class="live-step-list" id="liveStepList">
+                          <li class="live-step-item" data-step-idx="0">
+                            <span class="live-step-left"><span class="step-badge-num">1</span><span>현재 화면 · 선택 리소스(prod-aks-02) 스냅샷 수집</span></span>
+                            <span class="cell-mono" data-step-state="0">대기</span>
+                          </li>
+                          <li class="live-step-item" data-step-idx="1">
+                            <span class="live-step-left"><span class="step-badge-num">2</span><span>온톨로지 2홉 계통 · Forseti 정책 가드 대조</span></span>
+                            <span class="cell-mono" data-step-state="1">대기</span>
+                          </li>
+                          <li class="live-step-item" data-step-idx="2">
+                            <span class="live-step-left"><span class="step-badge-num">3</span><span>Saga 감사 해시 검증 및 답변·승인 초안 조립</span></span>
+                            <span class="cell-mono" data-step-state="2">대기</span>
+                          </li>
+                        </ol>
+                        <div class="live-busy-demo">
+                          <span>생성 중 추가 지시 제어:</span>
+                          <div class="toolbar-inline">
+                            <select class="cs-select" id="demoBusyModeSelect" aria-label="생성 중 추가 지시 처리 방식" style="height:30px;min-height:30px;font-size:12px">
+                              <option value="queue">대기 등록 (Queue)</option>
+                              <option value="steer">방향 조정 (Steer)</option>
+                            </select>
+                            <button type="button" class="cs-btn cs-btn-sm" id="demoBusyApplyBtn">시연 적용</button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Collapsible Run Record (3 steps) -->
+                      <details class="cs-disclosure" id="showcaseRunRecord" style="width:100%">
+                        <summary>
+                          <span>실행 기록 · 3단계 완료 · 모델 1회 · 정책 위반 0건</span>
+                          <span class="disc-meta">380ms · 출처 3건</span>
+                        </summary>
+                        <div class="disc-body">
+                          1. 화면·노드 스냅샷 수집 (110ms) → 2. 온톨로지 계통 · 정책 가드 대조 (140ms) → 3. 감사 원장 해시 및 근거 검증 (130ms) · 추적 ID <span class="cell-mono">corr-8a91f</span>
+                        </div>
+                      </details>
+
+                      <!-- Transparent Agent Prose (14px) with clickable inline citations -->
+                      <div class="spec-prose" id="showcaseAgentProse">
+                        <p>
+                          <strong>prod-core-kr</strong> 구독의 <strong>prod-aks-02</strong> 노드 풀은 최근 15분 내 정산 배치 파드 3기가 동시 기동되면서 5분 내 CPU 포화(85% 초과) 가능성이 <strong>91%</strong>로 예측되었습니다
+                          <button type="button" class="cite-chip" data-cite="1" aria-label="근거 출처 1 보기" data-ut-title="근거 출처 [1]" data-ut-body="Freyr 시계열 예측 스냅샷 (prod-aks-02 · EWMA 14일 주기)" data-ut-meta="obs-194208 · 클릭 시 출처 패널 펼침" data-ut-tone="sre">[1]</button>.
+                          동일 계통 하류의 <strong>pg-orders-db</strong> 커넥션 점유율도 82%까지 동반 상승했습니다
+                          <button type="button" class="cite-chip" data-cite="2" aria-label="근거 출처 2 보기" data-ut-title="근거 출처 [2]" data-ut-body="Muninn 온톨로지 인스턴스 그래프 (2홉 의존성 · pg-orders-db)" data-ut-meta="inv-2213 · 클릭 시 출처 패널 펼침" data-ut-tone="live">[2]</button>.
+                        </p>
+                        <p>
+                          활성 운영 규칙 52개 기준 정책 위반은 <strong>0건</strong>이며, 미수집 상태인 <strong>focus-cost-export</strong>는 0으로 합산하지 않고 별도 상태로 분리했습니다
+                          <button type="button" class="cite-chip" data-cite="3" aria-label="근거 출처 3 보기" data-ut-title="근거 출처 [3]" data-ut-body="Saga 감사 원장 #86641 · 정책 평가(활성 규칙 52개 · 위반 0건)" data-ut-meta="sha256:9f4a...c10e · 클릭 시 출처 패널 펼침" data-ut-tone="live">[3]</button>.
+                        </p>
+                      </div>
+
+                      <!-- Inline Resource & Data Lineage Preview Card with Official Azure Icons -->
+                      <div class="lineage-mini-card" aria-label="인라인 리소스 및 데이터 계통 프리뷰">
+                        <div class="lineage-mini-head">
+                          <strong style="font-size:13px">인라인 온톨로지 · 데이터 계통 프리뷰 (2홉)</strong>
+                          <div class="toolbar-inline">
+                            <a class="cs-btn cs-btn-sm" href="/governance#tab=ontology" data-ut-title="온톨로지 화면 이동" data-ut-body="선택 노드의 전체 인스턴스 관계도로 드릴다운합니다.">온톨로지 열기 →</a>
+                            <a class="cs-btn cs-btn-sm" href="/governance#tab=blast-radius" data-ut-title="변경 영향 분석 이동" data-ut-body="하류 영향 반경(Blast Radius) 시뮬레이션 화면으로 이동합니다.">변경 영향 분석 →</a>
+                          </div>
+                        </div>
+                        <div class="lineage-flow" role="group" aria-label="계통 노드 선택">
+                          <button
+                            type="button"
+                            class="lineage-node-btn"
+                            aria-pressed="false"
+                            data-lnode-name="pay-settlement-job"
+                            data-lnode-info="Container Apps 배치 작업 · 3기 동시 기동 (상류 유발 원인)"
+                            data-ut-title="pay-settlement-job"
+                            data-ut-body="Container Apps 배치 작업 · 3기 동시 기동 (상류 유발 원인)"
+                            data-ut-meta="상류 원인 · 1홉 · 클릭해 컨텍스트 선택"
+                            data-ut-tone="sre"
+                          >
+                            <img src="/azure-icons/container-apps.svg" alt="">
+                            <span class="lineage-node-meta">
+                              <span>pay-settlement-job</span>
+                              <span class="lineage-node-sub">상류 원인 · 1홉</span>
+                            </span>
+                          </button>
+                          <span class="lineage-arrow" aria-hidden="true">──▶</span>
+                          <button
+                            type="button"
+                            class="lineage-node-btn is-selected"
+                            aria-pressed="true"
+                            data-lnode-name="prod-aks-02"
+                            data-lnode-info="AKS NodePool · CPU 포화 예측(+5m, 91%) · 메모리 89.4%"
+                            data-ut-title="prod-aks-02"
+                            data-ut-body="AKS NodePool · CPU 포화 예측(+5m, 91%) · 메모리 89.4%"
+                            data-ut-meta="대상 노드 · 현재 선택됨"
+                            data-ut-tone="sre"
+                          >
+                            <img src="/azure-icons/kubernetes-services.svg" alt="">
+                            <span class="lineage-node-meta">
+                              <span>prod-aks-02</span>
+                              <span class="lineage-node-sub">대상 노드 · 주의</span>
+                            </span>
+                          </button>
+                          <span class="lineage-arrow" aria-hidden="true">──▶</span>
+                          <button
+                            type="button"
+                            class="lineage-node-btn"
+                            aria-pressed="false"
+                            data-lnode-name="pg-orders-db"
+                            data-lnode-info="PostgreSQL Flexible · 활성 커넥션 82% · 지연 예측(+5m)"
+                            data-ut-title="pg-orders-db"
+                            data-ut-body="PostgreSQL Flexible · 활성 커넥션 82% · 지연 예측(+5m)"
+                            data-ut-meta="하류 영향 · 1홉 · 클릭해 컨텍스트 선택"
+                            data-ut-tone="human"
+                          >
+                            <img src="/azure-icons/postgresql.svg" alt="">
+                            <span class="lineage-node-meta">
+                              <span>pg-orders-db</span>
+                              <span class="lineage-node-sub">하류 영향 · 1홉</span>
+                            </span>
+                          </button>
+                          <span class="lineage-arrow" aria-hidden="true">+</span>
+                          <button
+                            type="button"
+                            class="lineage-node-btn"
+                            aria-pressed="false"
+                            data-lnode-name="kv-prod-kr"
+                            data-lnode-info="Key Vault · 임시 IP 예외 만료 초과 (A3 회수 승인 대기)"
+                            data-ut-title="kv-prod-kr"
+                            data-ut-body="Key Vault · 임시 IP 예외 만료 초과 (A3 회수 승인 대기)"
+                            data-ut-meta="보안 연관 · 2홉 · 클릭해 컨텍스트 선택"
+                            data-ut-tone="sec"
+                          >
+                            <img src="/azure-icons/key-vault.svg" alt="">
+                            <span class="lineage-node-meta">
+                              <span>kv-prod-kr</span>
+                              <span class="lineage-node-sub">보안 연관 · 2홉</span>
+                            </span>
+                          </button>
+                        </div>
+                        <div class="lineage-node-detail">
+                          <span id="lineageSelectedSummary"><strong>prod-aks-02:</strong> AKS NodePool · CPU 포화 예측(+5m, 91%) · 메모리 89.4%</span>
+                          <button type="button" class="cs-btn cs-btn-sm" id="askSelectedNodeBtn">선택 노드 채팅 질의</button>
+                        </div>
+                      </div>
+
+                      <!-- Approval Proposal Draft Card (Explicit Read-Only Safe Boundary) -->
+                      <section class="proposal-spec-card" aria-label="승인 요청 초안 카드">
+                        <div class="card-head">
+                          <strong style="font-size:13.5px">승인 요청 초안 - AKS 노드 풀 수평 확장 (HIL-8841)</strong>
+                          <span class="cs-badge tone-human"><span class="cs-dot"></span>조회 전용 · 직접 실행 불가</span>
+                        </div>
+                        <dl class="proposal-fields">
+                          <div><dt>요청자 / 심사 에이전트</dt><dd>운영자 (MC) → Forseti · Var</dd></div>
+                          <div><dt>작업 유형 (ActionType)</dt><dd class="cell-mono">azure.aks.nodepool.scale_out</dd></div>
+                          <div><dt>대상 리소스</dt><dd class="cell-mono">prod-core-kr / prod-aks-02</dd></div>
+                          <div><dt>위험 등급</dt><dd>A3 (명시적 사람 승인 필수)</dd></div>
+                          <div class="proposal-field-full">
+                            <dt>매개변수 (드라이런 검증 완료)</dt>
+                            <dd class="cell-mono">{"min_count": 4, "target_count": 6, "mode": "shadow_dry_run"}</dd>
+                          </div>
+                        </dl>
+                        <div class="safeguard-pills" aria-label="7대 안전장치 확인 항목">
+                          <span class="safeguard-pill" data-ut-title="안전장치 1: 중단 조건" data-ut-body="오류율 또는 지연 임계치 초과 시 즉시 실행 중단">✓ 중단 조건</span>
+                          <span class="safeguard-pill" data-ut-title="안전장치 2: 롤백 검증" data-ut-body="사전 검증된 이전 노드 수(4) 원복 절차 확인 완료">✓ 롤백 검증</span>
+                          <span class="safeguard-pill" data-ut-title="안전장치 3: 영향 범위 제한" data-ut-body="단일 구독 prod-core-kr / prod-aks-02 대상 한정">✓ 영향 범위 제한</span>
+                          <span class="safeguard-pill" data-ut-title="안전장치 4: 드라이런 통과" data-ut-body="shadow_dry_run 시뮬레이션 정책 위반 0건 확인">✓ 드라이런 통과</span>
+                          <span class="safeguard-pill" data-ut-title="안전장치 5: 논리 타깃 잠금" data-ut-body="동시 변경 충돌 방지용 논리 리소스 락 확보">✓ 논리 타깃 잠금</span>
+                          <span class="safeguard-pill" data-ut-title="안전장치 6: 멱등성 키" data-ut-body="중복 실행 방지용 안정 멱등성 키 바인딩">✓ 멱등성 키</span>
+                          <span class="safeguard-pill" data-ut-title="안전장치 7: 2단계 감사" data-ut-body="Saga 원장 실행 전·후 SHA-256 해시 체인 기록">✓ 2단계 감사</span>
+                        </div>
+                        <p class="card-desc" style="margin:0">
+                          AI 채팅은 조회 전용이며 클라우드 리소스를 직접 변경하지 않습니다. 제출 시 Forseti 정책 심사와 승인 요청 화면에서 운영자의 명시적 승인 후에만 실행됩니다.
+                        </p>
+                        <div class="toolbar-inline" id="proposalActionRow">
+                          <button type="button" class="cs-btn cs-btn-sm cs-btn-accent" id="submitProposalBtn" data-ut-title="승인 요청 초안 제출" data-ut-body="직접 실행하지 않고 Forseti 정책 심사·승인 대기열(HIL-8841)로 초안을 전달합니다." data-ut-tone="human">승인 요청으로 보내기</button>
+                          <button type="button" class="cs-btn cs-btn-sm" id="cancelProposalBtn" data-ut-title="제안 초안 취소" data-ut-body="현재 제안 초안을 철회하고 조회 전용 대화 상태를 유지합니다.">초안 취소</button>
+                          <a class="cs-btn cs-btn-sm" href="/operations#tab=hil-queue" data-ut-title="승인 요청 화면 이동" data-ut-body="운영 > 승인 요청(HIL) 대기열에서 7대 안전장치 증적을 검토합니다.">승인 요청 화면 열기 →</a>
+                          <span class="cs-badge tone-live" id="proposalStateBadge" hidden></span>
+                        </div>
+                      </section>
+
+                      <!-- Evidence Sources Disclosure -->
+                      <details class="cs-disclosure" id="showcaseSourcesDetails" style="width:100%">
+                        <summary>
+                          <span>근거 출처 (3건) · 조회 전용 스냅샷</span>
+                          <span class="disc-meta">클릭하여 펼치기</span>
+                        </summary>
+                        <div class="disc-body">
+                          <ul class="source-list">
+                            <li class="source-list-item" data-source-id="1">
+                              <span><strong>[1]</strong> Freyr 시계열 예측 스냅샷 (prod-aks-02 · EWMA 14일 주기)</span>
+                              <span class="cell-mono">obs-194208</span>
+                            </li>
+                            <li class="source-list-item" data-source-id="2">
+                              <span><strong>[2]</strong> Muninn 온톨로지 인스턴스 그래프 (2홉 의존성 · pg-orders-db)</span>
+                              <span class="cell-mono">inv-2213</span>
+                            </li>
+                            <li class="source-list-item" data-source-id="3">
+                              <span><strong>[3]</strong> Saga 감사 원장 #86641 · 정책 평가(활성 규칙 52개 · 위반 0건)</span>
+                              <span class="cell-mono">sha256:9f4a...c10e</span>
+                            </li>
+                          </ul>
+                        </div>
+                      </details>
+
+                      <!-- Reply Tools Bar (Copy / Re-ask / Quick Follow-ups) -->
+                      <div class="reply-action-bar">
+                        <span class="cs-badge tone-live"><span class="cs-dot"></span>근거 검증됨 · 출처 3건</span>
+                        <div class="toolbar-inline">
+                          <button type="button" class="cs-btn cs-btn-sm" id="copyShowcaseReplyBtn">답변 복사</button>
+                          <button type="button" class="cs-btn cs-btn-sm" id="reaskShowcaseReplyBtn">채팅에서 다시 질문</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              <!-- Right Column: SourceReadinessStrip (5/5) + Shortcuts + Mode Comparison -->
+              <div class="showcase-col">
+                <!-- SourceReadinessStrip (5/5 Connected + Honest Unavailable Row) -->
+                <section class="surface-card" aria-label="데이터 소스 준비 상태">
+                  <div class="card-head">
+                    <div>
+                      <h3 class="card-title">데이터 소스 준비 상태 (SourceReadinessStrip)</h3>
+                      <p class="card-desc">핵심 근거 소스 5종 상태와 미수집 수집기를 /api/v4/chat/context로 확인해 분리 표시합니다.</p>
+                    </div>
+                    <span class="cs-badge tone-live" id="readinessSummaryBadge"><span class="cs-dot"></span>5 / 5 참조</span>
+                  </div>
+                  <div class="readiness-grid" id="readinessGrid">
+                    <div class="readiness-row" data-source-key="ontology-inventory" data-ut-title="온톨로지 · 리소스 인벤토리" data-ut-body="Muninn 인스턴스 그래프 및 관계 스냅샷" data-ut-tone="live">
+                      <span class="readiness-row-left"><img src="/agent-icons/muninn.svg" alt=""><span>온톨로지 · 리소스 인벤토리</span></span>
+                      <span class="cs-badge tone-live" data-readiness-badge><span class="cs-dot"></span>확인 중</span>
+                    </div>
+                    <div class="readiness-row" data-source-key="audit-log" data-ut-title="감사 로그 (2단계 · SHA-256)" data-ut-body="Saga 해시 체인 감사 원장" data-ut-tone="live">
+                      <span class="readiness-row-left"><img src="/agent-icons/saga.svg" alt=""><span>감사 로그 (2단계 · SHA-256)</span></span>
+                      <span class="cs-badge tone-live" data-readiness-badge><span class="cs-dot"></span>확인 중</span>
+                    </div>
+                    <div class="readiness-row" data-source-key="hil-queue" data-ut-title="승인 요청 (HIL-8841)" data-ut-body="Var 고위험 변경 승인 대기열" data-ut-tone="human">
+                      <span class="readiness-row-left"><img src="/agent-icons/var.svg" alt=""><span>승인 요청 (HIL-8841 외)</span></span>
+                      <span class="cs-badge tone-live" data-readiness-badge><span class="cs-dot"></span>확인 중</span>
+                    </div>
+                    <div class="readiness-row" data-source-key="operating-rules" data-ut-title="운영 규칙 (MCSB / WARA)" data-ut-body="Forseti 정책 규칙 및 예외 가드" data-ut-tone="live">
+                      <span class="readiness-row-left"><img src="/agent-icons/forseti.svg" alt=""><span>운영 규칙 (MCSB / WARA)</span></span>
+                      <span class="cs-badge tone-live" data-readiness-badge><span class="cs-dot"></span>확인 중</span>
+                    </div>
+                    <div class="readiness-row" data-source-key="knowledge-docs" data-ut-title="지식 관리 · 운영 문서" data-ut-body="Odin 운영 런북 및 승인 문서" data-ut-tone="live">
+                      <span class="readiness-row-left"><img src="/agent-icons/odin.svg" alt=""><span>지식 관리 · 운영 문서</span></span>
+                      <span class="cs-badge tone-live" data-readiness-badge><span class="cs-dot"></span>확인 중</span>
+                    </div>
+                    <div class="readiness-row is-unavailable" data-source-key="focus-cost-export" data-ut-title="focus-cost-export (비용 내보내기)" data-ut-body="미수집 지표는 절대 0으로 대체하지 않고 not-measured / unavailable로 분리합니다." data-ut-tone="sec">
+                      <span class="readiness-row-left"><img src="/azure-icons/storage-account.svg" alt=""><span>focus-cost-export (비용 내보내기)</span></span>
+                      <span class="cs-badge tone-sec" data-readiness-badge><span class="cs-dot"></span>데이터 없음 (미수집)</span>
+                    </div>
+                  </div>
+                </section>
+
+                <!-- Keyboard Shortcuts & Direct Triggers -->
+                <section class="surface-card" aria-label="키보드 단축키 및 제어 안내">
+                  <div class="card-head">
+                    <div>
+                      <h3 class="card-title">단축키 &amp; 키보드 제어 (클릭해 바로 체험)</h3>
+                      <p class="card-desc">전역 메뉴 검색과 AI 채팅 단축키를 분리해 충돌 없이 조작할 수 있습니다.</p>
+                    </div>
+                  </div>
+                  <div class="shortcut-list">
+                    <button type="button" class="shortcut-row shortcut-btn" id="shortcutQuickJump" data-ut-title="전체 63개 메뉴 빠른 검색" data-ut-body="커맨드 팔레트를 열어 모든 콘솔 패널로 즉시 이동합니다." data-ut-kbd="Ctrl+K">
+                      <span>전체 63개 메뉴 빠른 검색</span>
+                      <span class="kbd-key">Ctrl+K / ⌘K</span>
+                    </button>
+                    <button type="button" class="shortcut-row shortcut-btn" id="shortcutToggleChat" data-ut-title="AI 채팅 우측 사이드바 토글" data-ut-body="어느 화면에서나 우측 도킹 채팅 사이드바를 열거나 닫습니다." data-ut-kbd="Ctrl+J">
+                      <span>AI 채팅 우측 사이드바 열기 · 닫기</span>
+                      <span class="kbd-key">Ctrl+J / ⌘J</span>
+                    </button>
+                    <button type="button" class="shortcut-row shortcut-btn" id="shortcutSlashCmd" data-ut-title="슬래시 명령 자동완성" data-ut-body="/risks, /approvals, /ontology, /trace 명령 팝오버를 즉시 엽니다." data-ut-kbd="/">
+                      <span>입력창 슬래시 명령 자동완성 (/risks, /approvals)</span>
+                      <span class="kbd-key">/</span>
+                    </button>
+                    <div class="shortcut-row" data-ut-title="계층적 닫기" data-ut-body="슬래시 팝오버 → 이력 오버레이 → 전체화면 복귀 → 사이드바 닫기 순으로 안전하게 해제합니다." data-ut-kbd="Esc">
+                      <span>단계적 닫기 (팝오버 → 이력 → 전체화면 → 닫기)</span>
+                      <span class="kbd-key">Esc</span>
+                    </div>
+                  </div>
+                </section>
+
+                <!-- Compact Mode Spec Summary -->
+                <section class="surface-card" aria-label="우측 사이드바와 3단 전체화면 비교">
+                  <div class="card-head">
+                    <div>
+                      <h3 class="card-title">2가지 데스크톱 모드 + 모바일 시트</h3>
+                      <p class="card-desc">대화 내용·입력 초안·선택 컨텍스트를 유지한 채 자유롭게 전환합니다.</p>
+                    </div>
+                  </div>
+                  <div class="insp-kv"><span>우측 도킹 사이드바</span><strong>380~640px 드래그 · 화살표 리사이즈</strong></div>
+                  <div class="insp-kv"><span>Panelo 3단 전체화면</span><strong>좌측 이력 264px · 중앙 대화(최대 1040px) · 우측 상세 312px</strong></div>
+                  <div class="insp-kv"><span>말풍선 대비 불변식</span><strong>사용자 뉴트럴 채움 · 에이전트 완전 투명</strong></div>
+                  <div class="insp-kv"><span>모바일 풀시트</span><strong>390px 3분할 세그먼트 · 44px 터치 타깃</strong></div>
+                </section>
+              </div>
+            </div>
+
+            <div class="principle-bar" role="note">
+              <span>AI 채팅 불변식: 사용자 질문 뉴트럴 배경 · 에이전트 답변 투명 · 좌측/상단 컬러 바 0건 · 조회 전용 안전 경계 · 미수집 0 대체 금지</span>
+              <span>Pure-Rust Axum SSE: /api/v4/chat/stream</span>
+            </div>
+          </section>
+        </div>
+      </main>
+      <aside id="fdaiChatSidebar" class="chat-sidebar" aria-label="AI 채팅" hidden></aside>
+    </div>
+  </div>
+  <div id="fdaiDrawerBackdrop" class="drawer-backdrop" hidden>
+    <aside id="fdaiDrawerPanel" class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="fdaiDrawerTitle">
+      <div class="drawer-head">
+        <div>
+          <h3 id="fdaiDrawerTitle" class="drawer-title">상세 보기</h3>
+          <p id="fdaiDrawerMeta" class="drawer-meta"></p>
+        </div>
+        <button type="button" class="icon-btn" id="fdaiDrawerClose" aria-label="상세 드로어 닫기">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M3 3l8 8M11 3l-8 8"/></svg>
+        </button>
+      </div>
+      <div class="drawer-body">
+        <dl id="fdaiDrawerFacts" class="drawer-facts"></dl>
+        <p id="fdaiDrawerBody" class="drawer-desc"></p>
+      </div>
+      <div class="drawer-foot">
+        <button type="button" class="cs-btn cs-btn-accent" id="fdaiDrawerAskChat">이 항목 채팅으로 질문</button>
+        <button type="button" class="cs-btn" id="fdaiDrawerDismiss">닫기</button>
+      </div>
+    </aside>
+  </div>
+  <script defer src="/assets/fdai-console-shell.js"></script>
+  <script>
+    (function () {
+      "use strict";
+
+      const MAX_QUEUED_PROMPTS = 5;
+      const MAX_SSE_BUFFER_CHARS = 262144;
+      const MAX_PROMPT_CHARS = 4096;
+
+      let selectedLineageNode = "active-scope";
+      let activeContextLabel = "온톨로지 · 활성 스코프";
+      let activeAbortController = null;
+      let streamingInFlight = false;
+      let sessionSearchTimer = null;
+      let lastPulseKey = "";
+      let latestPulsePayload = null;
+      const queuedPrompts = [];
+      const sampleSnapshots = {
+        captured: false,
+        scenarioGrid: "",
+        showcaseThread: "",
+        readinessGrid: "",
+        mobileSheetPreview: "",
+        chatTranscriptInner: "",
+        chatSlashPopover: "",
+        histFilterBar: ""
+      };
+
+      function isLiveMode() {
+        if (window.fdaiV4Live && typeof window.fdaiV4Live.isLiveMode === "function") {
+          return window.fdaiV4Live.isLiveMode();
+        }
+        const active = document.querySelector("[data-data-mode].is-active");
+        return !active || active.getAttribute("data-data-mode") === "live";
+      }
+
+      function fmtNum(n) {
+        if (n === null || n === undefined || Number.isNaN(Number(n))) return "-";
+        return Number(n).toLocaleString();
+      }
+
+      function escHtml(raw) {
+        return String(raw ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function safeInternalHref(raw, fallback) {
+        const fb = fallback || "/overview";
+        const s = String(raw || "").trim();
+        if (!s || !s.startsWith("/") || s.startsWith("//") || /[\u0000-\u001f\u007f]/.test(s)) {
+          return fb;
+        }
+        return s;
+      }
+
+      function safeAssetSrc(raw, fallback) {
+        const fb = fallback || "/agent-icons/bragi.svg";
+        const s = String(raw || "").trim();
+        if (
+          !s ||
+          s.includes("..") ||
+          /[\u0000-\u001f\u007f]/.test(s) ||
+          (!s.startsWith("/agent-icons/") && !s.startsWith("/azure-icons/")) ||
+          (!s.endsWith(".svg") && !s.endsWith(".png"))
+        ) {
+          return fb;
+        }
+        return s;
+      }
+
+      function preferReducedMotion() {
+        return Boolean(
+          window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        );
+      }
+
+      function syncQueueIndicator() {
+        const busyBar = document.getElementById("chatBusyControls");
+        if (!busyBar) return;
+        let badge = document.getElementById("chatQueueCountBadge");
+        if (!badge) {
+          badge = document.createElement("span");
+          badge.id = "chatQueueCountBadge";
+          badge.className = "cs-badge tone-neutral";
+          badge.hidden = true;
+          busyBar.insertBefore(badge, busyBar.firstChild);
+        }
+        if (queuedPrompts.length > 0) {
+          badge.textContent = `대기 ${queuedPrompts.length}/${MAX_QUEUED_PROMPTS}`;
+          badge.hidden = false;
+        } else {
+          badge.hidden = true;
+        }
+      }
+
+      function setContextMeta(ctxLabel, summaryText, nodeName) {
+        if (ctxLabel) {
+          activeContextLabel = ctxLabel;
+          const ctxBadge = document.getElementById("chatCtxBadge");
+          const inspCtx = document.getElementById("chatInspContext");
+          if (ctxBadge) ctxBadge.textContent = ctxLabel;
+          if (inspCtx) inspCtx.textContent = ctxLabel;
+        }
+        if (nodeName) {
+          selectedLineageNode = nodeName;
+        }
+        if (summaryText) {
+          const inspSum = document.getElementById("chatInspSummary");
+          if (inspSum) inspSum.textContent = summaryText;
+        }
+      }
+
+      function ensureChatSidebarOpen() {
+        const aside = document.getElementById("fdaiChatSidebar");
+        const trigger = document.getElementById("fdaiChatTrigger");
+        if (aside && aside.hidden && trigger) {
+          trigger.click();
+        }
+      }
+
+      function copyTextWithFeedback(text, btn, defaultLabel) {
+        const restore = () => {
+          window.setTimeout(() => {
+            btn.textContent = defaultLabel;
+          }, 1300);
+        };
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+          navigator.clipboard
+            .writeText(text)
+            .then(() => {
+              btn.textContent = "복사됨";
+              restore();
+            })
+            .catch(() => {
+              btn.textContent = "복사 불가";
+              restore();
+            });
+        } else {
+          btn.textContent = "복사 불가";
+          restore();
+        }
+      }
+
+      function updateLiveStepsPanel(stepIdx, label, durationMs, doneAll) {
+        const panel = document.getElementById("liveStepsPanel");
+        const headline = document.getElementById("liveStepsHeadline");
+        if (!panel || !headline) return;
+        panel.hidden = false;
+        const items = Array.from(panel.querySelectorAll(".live-step-item"));
+        if (doneAll) {
+          headline.textContent = label || "3단계 근거 확인 완료 (조회 전용)";
+          items.forEach((li, j) => {
+            li.classList.remove("is-active");
+            li.classList.add("is-done");
+            const st = li.querySelector(`[data-step-state="${j}"]`);
+            if (st && st.textContent === "대기") st.textContent = "완료";
+          });
+          const runRec = document.getElementById("showcaseRunRecord");
+          if (runRec) runRec.open = true;
+          return;
+        }
+        headline.textContent = `SSE 근거 확인 진행 중 (${stepIdx + 1}/3) · ${label}`;
+        items.forEach((li, j) => {
+          const st = li.querySelector(`[data-step-state="${j}"]`);
+          if (j <= stepIdx) {
+            li.classList.remove("is-active");
+            li.classList.add("is-done");
+            if (st && j === stepIdx) st.textContent = `${durationMs || 40}ms`;
+          } else if (j === stepIdx + 1) {
+            li.classList.add("is-active");
+            li.classList.remove("is-done");
+            if (st) st.textContent = "진행 중";
+          }
+        });
+      }
+
+      async function dispatchChatStream(promptText, opts) {
+        const rawText = String(promptText || "").trim();
+        if (!rawText) return;
+        const text = rawText.length > MAX_PROMPT_CHARS ? rawText.slice(0, MAX_PROMPT_CHARS) : rawText;
+
+        ensureChatSidebarOpen();
+        const options = opts || {};
+        if (options.context || options.summary || options.node) {
+          setContextMeta(options.context, options.summary, options.node);
+        }
+
+        const busySel = document.getElementById("chatBusyMode");
+        const busyMode = options.busyMode || (busySel ? busySel.value : "queue");
+        if (streamingInFlight) {
+          if (busyMode === "steer" && activeAbortController) {
+            activeAbortController.abort();
+          } else {
+            if (queuedPrompts.length >= MAX_QUEUED_PROMPTS) {
+              syncQueueIndicator();
+              return;
+            }
+            queuedPrompts.push({ text, opts: options });
+            syncQueueIndicator();
+            return;
+          }
+        }
+
+        const inner = document.getElementById("chatTranscriptInner");
+        const scroller = document.getElementById("chatTranscript");
+        const busyBar = document.getElementById("chatBusyControls");
+        if (!inner) return;
+
+        const now = new Date().toTimeString().slice(0, 5);
+        const attChip = document.getElementById("chatAttachmentChip");
+        const attName = document.getElementById("chatAttachmentName");
+        const attachedLabel = attChip && !attChip.hidden && attName ? attName.textContent.trim() : "";
+        if (attChip) attChip.hidden = true;
+
+        const userTurn = document.createElement("div");
+        userTurn.className = "chat-turn-user";
+        userTurn.innerHTML =
+          `<div class="chat-turn-meta"><span>운영자</span><span>${escHtml(now)}</span></div>` +
+          (attachedLabel ? `<div class="chat-turn-meta">${escHtml(attachedLabel)}</div>` : "") +
+          `<div class="chat-bubble-user"></div>`;
+        const bubble = userTurn.querySelector(".chat-bubble-user");
+        if (bubble) bubble.textContent = text;
+        inner.appendChild(userTurn);
+
+        const agentTurn = document.createElement("div");
+        agentTurn.className = "chat-turn-agent";
+        agentTurn.setAttribute("data-sse-turn", "1");
+        agentTurn.innerHTML =
+          `<div class="chat-turn-meta">` +
+            `<strong>Bragi · 운영 에이전트</strong>` +
+            `<span class="cs-badge tone-sre" data-sse-state-badge><span class="cs-dot"></span>SSE 근거 수집 중...</span>` +
+          `</div>` +
+          `<div class="sse-step-strip" data-sse-steps aria-live="polite">` +
+            `<div class="sse-step-row"><span>POST /api/v4/chat/stream 연결 중...</span><span class="cell-mono">0/3</span></div>` +
+          `</div>` +
+          `<div class="agent-prose" data-sse-prose><p></p></div>` +
+          `<div data-sse-evidence></div>` +
+          `<div class="sse-turn-foot" data-sse-foot hidden></div>`;
+        inner.appendChild(agentTurn);
+        if (scroller) scroller.scrollTop = scroller.scrollHeight;
+
+        const modeSel = document.getElementById("chatModeSelect");
+        const tierSel = document.getElementById("chatTierSelect");
+        const reqBody = {
+          message: text,
+          session_id: "active",
+          mode: modeSel ? modeSel.value : "operator",
+          tier: tierSel ? tierSel.value : "auto",
+          context: activeContextLabel,
+          selected_node: selectedLineageNode,
+          busy_mode: busyMode,
+          attachments: attachedLabel ? [attachedLabel] : []
+        };
+
+        const stepsEl = agentTurn.querySelector("[data-sse-steps]");
+        const proseEl = agentTurn.querySelector("[data-sse-prose] p");
+        const evidenceEl = agentTurn.querySelector("[data-sse-evidence]");
+        const badgeEl = agentTurn.querySelector("[data-sse-state-badge]");
+        const footEl = agentTurn.querySelector("[data-sse-foot]");
+
+        streamingInFlight = true;
+        const myController = new AbortController();
+        activeAbortController = myController;
+        if (busyBar) busyBar.hidden = false;
+        syncQueueIndicator();
+
+        const stepRows = [];
+        let accText = "";
+        let lastMeasurement = "not-measured";
+        let lastRequestId = "";
+        let lastPolicyGuard = "read_only_enforced";
+
+        const handleSseEvent = (eventName, payload) => {
+          if (!payload || typeof payload !== "object") return;
+          if (eventName === "meta") {
+            lastMeasurement = payload.measurement_status || payload.measurement_state || "not-measured";
+            lastRequestId = String(payload.request_id || "");
+            lastPolicyGuard = String(payload.policy_guard || "read_only_enforced");
+            if (payload.context) setContextMeta(payload.context, null, payload.selected_node);
+            updateInspectorFromSse("meta", payload);
+          } else if (eventName === "step") {
+            const idx = Math.max(0, Number(payload.step || 1) - 1);
+            stepRows.push(
+              `<div class="sse-step-row"><span>✓ ${escHtml(payload.step)}/${escHtml(payload.total)} ${escHtml(payload.label)}</span><span class="cell-mono">${escHtml(payload.duration_ms)}ms</span></div>`
+            );
+            if (stepsEl) stepsEl.innerHTML = stepRows.join("");
+            if (options.syncLiveSteps) {
+              updateLiveStepsPanel(idx, payload.label, payload.duration_ms, false);
+            }
+          } else if (eventName === "delta") {
+            accText += String(payload.text || "");
+            if (proseEl) proseEl.textContent = accText;
+            if (scroller) scroller.scrollTop = scroller.scrollHeight;
+          } else if (eventName === "evidence" && evidenceEl) {
+            const parts = [];
+            if (Array.isArray(payload.agent_discussion) && payload.agent_discussion.length) {
+              parts.push(
+                `<div class="sse-discussion-grid" aria-label="에이전트 토론">` +
+                  payload.agent_discussion
+                    .map(
+                      (d) =>
+                        `<div class="sse-discussion-item" data-ut-title="${escHtml(d.agent)} (${escHtml(d.role)})" data-ut-body="${escHtml(d.stance)}">` +
+                          `<div class="sse-discussion-head">` +
+                            `<span class="sse-discussion-agent"><img src="${escHtml(safeAssetSrc(d.icon, "/agent-icons/bragi.svg"))}" alt="">${escHtml(d.agent)}</span>` +
+                            `<span class="cs-badge tone-neutral">${escHtml(d.role)}</span>` +
+                          `</div>` +
+                          `<div>${escHtml(d.stance)}</div>` +
+                        `</div>`
+                    )
+                    .join("") +
+                `</div>`
+              );
+            }
+            if (payload.proposal_draft) {
+              const pr = payload.proposal_draft;
+              const safeProposalHref = safeInternalHref(pr.href, "/operations#tab=hil-queue");
+              parts.push(
+                `<div class="chat-proposal">` +
+                  `<div class="card-head">` +
+                    `<strong style="font-size:13px">${escHtml(pr.title)} (${escHtml(pr.id)})</strong>` +
+                    `<span class="cs-badge tone-human"><span class="cs-dot"></span>조회 전용 · ${escHtml(pr.risk_class)}</span>` +
+                  `</div>` +
+                  `<div style="font-size:12.5px;color:var(--cs-text-soft)">${escHtml(pr.read_only_notice)}</div>` +
+                  `<div class="toolbar-inline">` +
+                    `<a class="cs-btn cs-btn-sm cs-btn-accent" href="${escHtml(safeProposalHref)}">승인 요청 열기 →</a>` +
+                    `<a class="cs-btn cs-btn-sm" href="/governance#tab=ontology">계통 확인 →</a>` +
+                  `</div>` +
+                `</div>`
+              );
+            }
+            if (Array.isArray(payload.citations) && payload.citations.length) {
+              parts.push(
+                `<details class="cs-disclosure" style="width:100%">` +
+                  `<summary><span>근거 출처 (${payload.citations.length}건) · 조회 전용</span><span class="disc-meta">${escHtml(payload.measurement_state || lastMeasurement)}</span></summary>` +
+                  `<div class="disc-body"><ul class="source-list">` +
+                    payload.citations
+                      .map((c) => {
+                        const safeCiteHref = safeInternalHref(c.href, "/evidence#tab=audit");
+                        return `<li class="source-list-item"><span><strong>[${escHtml(c.id)}]</strong> ${escHtml(c.label)}</span><a class="cell-mono" href="${escHtml(safeCiteHref)}">${escHtml(c.ref_id)}</a></li>`;
+                      })
+                      .join("") +
+                  `</ul></div>` +
+                `</details>`
+              );
+            }
+            if (Array.isArray(payload.followups) && payload.followups.length) {
+              parts.push(
+                `<div class="chat-followups">` +
+                  payload.followups
+                    .map((f) => `<button type="button" class="signal-chip" data-quick-ask="${escHtml(f)}">${escHtml(f)}</button>`)
+                    .join("") +
+                `</div>`
+              );
+            }
+            evidenceEl.innerHTML = parts.join("");
+            updateInspectorFromSse("evidence", payload);
+            window.fdaiTip?.enhance?.(evidenceEl);
+          } else if (eventName === "done") {
+            const finalAns = String(payload.answer || accText);
+            if (proseEl && finalAns) proseEl.textContent = finalAns;
+            const ms = payload.measurement_status || payload.measurement_state || lastMeasurement;
+            const guard = String(payload.policy_guard || lastPolicyGuard);
+            const reqId = String(payload.request_id || lastRequestId || "");
+            const srcName = String(payload.source || "console-v4-rust");
+            const isMeasured = ms === "measured";
+            const isBlocked = guard === "read_only_mutation_blocked";
+            const isPgDirect = srcName === "postgres-direct";
+            if (badgeEl) {
+              if (isBlocked) {
+                badgeEl.className = "cs-badge tone-sec";
+                badgeEl.innerHTML = `<span class="cs-dot"></span>직접 변경 차단 · 조회 전용`;
+              } else if (isMeasured && isPgDirect) {
+                badgeEl.className = "cs-badge tone-live";
+                badgeEl.innerHTML = `<span class="cs-dot"></span>PostgreSQL 실측 · ${escHtml(payload.model || "postgres-direct")}`;
+              } else if (isMeasured) {
+                badgeEl.className = "cs-badge tone-live";
+                badgeEl.innerHTML = `<span class="cs-dot"></span>실측 검증됨 · ${escHtml(payload.model || "operator-service")}`;
+              } else {
+                badgeEl.className = "cs-badge tone-human";
+                badgeEl.innerHTML = `<span class="cs-dot"></span>not-measured · 조회 전용`;
+              }
+              badgeEl.setAttribute(
+                "data-ut-title",
+                isBlocked
+                  ? "Forseti 조회 전용 경계 차단"
+                  : isMeasured && isPgDirect
+                    ? "로컬 PostgreSQL 실측 근거 응답 (postgres-direct)"
+                    : isMeasured
+                      ? "상위 operator-service 실측 응답"
+                      : "오프라인 조회 전용 폴백 (not-measured)"
+              );
+              badgeEl.setAttribute(
+                "data-ut-body",
+                `source=${srcName} · policy_guard=${guard} · read_only_boundary=true`
+              );
+            }
+            if (stepsEl) {
+              stepsEl.outerHTML =
+                `<details class="cs-disclosure" style="width:100%">` +
+                  `<summary><span>실행 기록 · 3단계 완료 (${escHtml(ms)} · ${escHtml(srcName)})</span><span class="disc-meta">조회 전용 · 위반 0건</span></summary>` +
+                  `<div class="disc-body">${stepRows.join("")}</div>` +
+                `</details>`;
+            }
+            if (footEl) {
+              footEl.innerHTML =
+                `<span class="cell-mono" data-ut-title="요청 추적 ID" data-ut-body="X-Request-Id 및 감사 원장 상관관계 식별자">${escHtml(reqId || "req-chat")}</span>` +
+                `<button type="button" class="cs-btn cs-btn-sm sse-copy-btn" data-sse-copy>답변 복사</button>`;
+              footEl.hidden = false;
+              const copyBtn = footEl.querySelector("[data-sse-copy]");
+              copyBtn?.addEventListener("click", () => {
+                copyTextWithFeedback(finalAns, copyBtn, "답변 복사");
+              });
+            }
+            setContextMeta(null, finalAns.slice(0, 220), null);
+            updateInspectorFromSse("done", payload);
+            if (options.syncLiveSteps) {
+              updateLiveStepsPanel(2, `SSE 3단계 근거 확인 완료 (${ms} · ${srcName})`, 0, true);
+            }
+            if (activeAbortController === myController) {
+              streamingInFlight = false;
+              activeAbortController = null;
+              if (busyBar) busyBar.hidden = true;
+            }
+            window.fdaiTip?.enhance?.(agentTurn);
+          }
+        };
+
+        try {
+          const resp = await fetch("/api/v4/chat/stream", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "text/event-stream"
+            },
+            body: JSON.stringify(reqBody),
+            signal: myController.signal
+          });
+          if (!resp.ok || !resp.body) {
+            throw new Error(`HTTP ${resp.status}`);
+          }
+          const reader = resp.body.getReader();
+          const decoder = new TextDecoder("utf-8");
+          let buffer = "";
+
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            if (buffer.length > MAX_SSE_BUFFER_CHARS) {
+              myController.abort();
+              throw new Error("SSE buffer limit exceeded");
+            }
+            const frames = buffer.split(/\r?\n\r?\n/);
+            buffer = frames.pop() || "";
+            for (const frame of frames) {
+              let evName = "message";
+              const dataLines = [];
+              for (const rawLine of frame.split(/\r?\n/)) {
+                if (rawLine.startsWith("event:")) {
+                  evName = rawLine.slice(6).trim();
+                } else if (rawLine.startsWith("data:")) {
+                  dataLines.push(rawLine.slice(5).trimStart());
+                }
+              }
+              if (dataLines.length) {
+                try {
+                  handleSseEvent(evName, JSON.parse(dataLines.join("\n")));
+                } catch (_parseErr) {
+                  // Ignore non-JSON keepalive comments
+                }
+              }
+            }
+          }
+        } catch (err) {
+          if (err && err.name === "AbortError") {
+            if (badgeEl) {
+              badgeEl.className = "cs-badge tone-neutral";
+              badgeEl.innerHTML = `<span class="cs-dot"></span>중단됨`;
+            }
+            if (proseEl && !proseEl.textContent) {
+              proseEl.textContent = "응답 생성이 사용자 요청으로 중단되었습니다.";
+            }
+          } else {
+            if (badgeEl) {
+              badgeEl.className = "cs-badge tone-sec";
+              badgeEl.setAttribute("role", "alert");
+              badgeEl.innerHTML = `<span class="cs-dot"></span>스트림 오류 (not-measured)`;
+            }
+            if (proseEl) {
+              proseEl.textContent = "SSE 스트림에 연결하지 못했습니다. 미측정(not-measured) 상태를 유지합니다.";
+            }
+          }
+        } finally {
+          if (activeAbortController === myController) {
+            streamingInFlight = false;
+            activeAbortController = null;
+            if (busyBar) busyBar.hidden = true;
+          }
+          syncQueueIndicator();
+          if (scroller) scroller.scrollTop = scroller.scrollHeight;
+          if (!streamingInFlight && queuedPrompts.length > 0) {
+            const nextItem = queuedPrompts.shift();
+            syncQueueIndicator();
+            if (nextItem) {
+              window.setTimeout(() => {
+                dispatchChatStream(nextItem.text, nextItem.opts);
+              }, 30);
+            }
+          }
+        }
+      }
+
+      let activeLiveSessionId = null;
+      let latestContextPayload = null;
+      let allLiveSessionsCache = [];
+      let allLiveSessionsMeta = { measured: false, source: "not-measured" };
+      let sessionFetchSeq = 0;
+
+      function filterCachedSessions(rows, filterVal, queryVal) {
+        const q = String(queryVal || "").trim().toLowerCase();
+        return (Array.isArray(rows) ? rows : []).filter((s) => {
+          const cat = String(s.category || "");
+          const kind = String(s.record_kind || "");
+          if (filterVal === "incidents" && cat !== "incidents" && kind !== "incident_projection") return false;
+          if (filterVal === "governance" && cat !== "governance" && kind !== "outbound_delivery") return false;
+          if (filterVal === "unread" && !s.unread) return false;
+          if (filterVal === "starred" && !s.starred) return false;
+          if (q) {
+            const hay = `${s.id || ""} ${s.title || ""} ${s.subtitle || ""} ${s.context || ""} ${s.summary || ""}`.toLowerCase();
+            return hay.includes(q);
+          }
+          return true;
+        });
+      }
+
+      function ensureRightInspectorTabs() {
+        const aside = document.getElementById("fdaiChatSidebar");
+        const insp = aside?.querySelector(".chat-inspector-pane");
+        if (!insp || insp.getAttribute("data-tabs-wired") === "1") return;
+        insp.setAttribute("data-tabs-wired", "1");
+
+        const existingSummary = document.getElementById("chatInspSummary")?.textContent?.trim() || "";
+        const existingCtx = document.getElementById("chatInspContext")?.textContent?.trim() || activeContextLabel;
+
+        insp.innerHTML =
+          `<div class="insp-tab-bar" role="tablist" aria-label="우측 근거 및 컨텍스트 탭">` +
+            `<button type="button" class="insp-tab-btn is-active" role="tab" aria-selected="true" data-insp-tab="context">컨텍스트</button>` +
+            `<button type="button" class="insp-tab-btn" role="tab" aria-selected="false" data-insp-tab="evidence">실측 근거</button>` +
+            `<button type="button" class="insp-tab-btn" role="tab" aria-selected="false" data-insp-tab="lineage">계통 · 감사</button>` +
+          `</div>` +
+          `<div class="insp-tab-pane" data-insp-pane="context">` +
+            `<div class="insp-card">` +
+              `<div class="insp-title">대화 정보</div>` +
+              `<div class="insp-kv"><span>대상 화면</span><strong id="chatInspContext">${escHtml(existingCtx)}</strong></div>` +
+              `<div class="insp-kv"><span>근거 출처</span><strong id="chatInspSourceBadge">확인 중...</strong></div>` +
+              `<div class="insp-kv"><span>추적 · 감사</span><strong class="cell-mono" id="chatInspTraceId">확인 중...</strong></div>` +
+              `<div class="insp-kv"><span>권한 경계</span><strong>조회 전용 · 위반 0건</strong></div>` +
+            `</div>` +
+            `<div class="insp-card">` +
+              `<div class="insp-title">DB 실측 현황</div>` +
+              `<div id="chatInspDbCounts" style="display:grid;gap:6px">` +
+                `<div class="insp-kv"><span>상태</span><strong>로딩 중...</strong></div>` +
+              `</div>` +
+            `</div>` +
+            `<div class="insp-card">` +
+              `<div class="insp-title">AI 요약</div>` +
+              `<p class="insp-summary" id="chatInspSummary">${escHtml(existingSummary || "실측 DB 및 온톨로지 근거를 확인 중입니다.")}</p>` +
+            `</div>` +
+            `<div class="insp-card">` +
+              `<div class="insp-title">추출된 후속 조치 초안</div>` +
+              `<a class="insp-action-item" href="/operations#tab=hil-queue"><span>승인 요청 대기열 검토</span><span>→</span></a>` +
+              `<a class="insp-action-item" href="/governance#tab=ontology"><span>온톨로지 계통 확인</span><span>→</span></a>` +
+              `<a class="insp-action-item" href="/evidence#tab=audit"><span>Saga 감사 원장 열기</span><span>→</span></a>` +
+            `</div>` +
+          `</div>` +
+          `<div class="insp-tab-pane" data-insp-pane="evidence" hidden>` +
+            `<div class="insp-card">` +
+              `<div class="insp-title">최근 SSE 근거 출처</div>` +
+              `<div class="insp-evidence-list" id="chatInspSseCitations">` +
+                `<div class="insp-evidence-meta">질의를 실행하면 실측 근거 출처가 여기에 표시됩니다.</div>` +
+              `</div>` +
+            `</div>` +
+            `<div class="insp-card">` +
+              `<div class="insp-title">실측 리소스 (클릭 시 질의)</div>` +
+              `<div class="insp-evidence-list" id="chatInspEvidenceResources">` +
+                `<div class="insp-evidence-meta">온톨로지 리소스 조회 중...</div>` +
+              `</div>` +
+            `</div>` +
+            `<div class="insp-card">` +
+              `<div class="insp-title">인시던트 프로젝션</div>` +
+              `<div class="insp-evidence-list" id="chatInspEvidenceIncidents">` +
+                `<div class="insp-evidence-meta">인시던트 조회 중...</div>` +
+              `</div>` +
+            `</div>` +
+          `</div>` +
+          `<div class="insp-tab-pane" data-insp-pane="lineage" hidden>` +
+            `<div class="insp-card">` +
+              `<div class="insp-title">온톨로지 관계 (ontology_link)</div>` +
+              `<div class="insp-evidence-list" id="chatInspLineageEdges">` +
+                `<div class="insp-evidence-meta">관계 데이터 조회 중...</div>` +
+              `</div>` +
+            `</div>` +
+            `<div class="insp-card">` +
+              `<div class="insp-title">최근 감사 원장 (audit_log)</div>` +
+              `<div class="insp-evidence-list" id="chatInspRecentAudits">` +
+                `<div class="insp-evidence-meta">감사 이력 조회 중...</div>` +
+              `</div>` +
+            `</div>` +
+          `</div>`;
+
+        insp.querySelectorAll("[data-insp-tab]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const tab = btn.getAttribute("data-insp-tab");
+            insp.querySelectorAll("[data-insp-tab]").forEach((b) => {
+              const on = b === btn;
+              b.classList.toggle("is-active", on);
+              b.setAttribute("aria-selected", String(on));
+            });
+            insp.querySelectorAll("[data-insp-pane]").forEach((p) => {
+              p.hidden = p.getAttribute("data-insp-pane") !== tab;
+            });
+          });
+        });
+      }
+
+      function hydrateInspectorContext(ctx) {
+        if (!ctx || typeof ctx !== "object") return;
+        latestContextPayload = ctx;
+        ensureRightInspectorTabs();
+
+        const ms = ctx.measurement_status || ctx.measurement_state || "not-measured";
+        const src = ctx.source || "not-measured";
+        const isMeasured = ms === "measured";
+        const counts = ctx.counts && typeof ctx.counts === "object" ? ctx.counts : null;
+
+        const srcEl = document.getElementById("chatInspSourceBadge");
+        if (srcEl) {
+          srcEl.textContent = isMeasured ? `${src} (실측)` : "not-measured";
+        }
+        const traceEl = document.getElementById("chatInspTraceId");
+        if (traceEl) {
+          if (ctx.latest_audit_seq) {
+            traceEl.textContent = `#${ctx.latest_audit_seq} · ${ctx.latest_audit_hash_prefix || ""}`;
+          } else {
+            traceEl.textContent = isMeasured ? src : "not-measured";
+          }
+        }
+        const dbCountsEl = document.getElementById("chatInspDbCounts");
+        if (dbCountsEl) {
+          if (counts) {
+            const connPctTxt =
+              counts.connectivity_pct != null ? `${counts.connectivity_pct}%` : "-";
+            const brokenTxt =
+              counts.broken_links != null ? `${fmtNum(counts.broken_links)}건` : "-";
+            dbCountsEl.innerHTML =
+              `<div class="insp-kv"><span>온톨로지 노드</span><strong>${escHtml(fmtNum(counts.ontology_resources))}건 (Azure ${escHtml(fmtNum(counts.resource_instances))})</strong></div>` +
+              `<div class="insp-kv"><span>링크 · 정합성</span><strong>${escHtml(fmtNum(counts.ontology_links))}건 · 연결률 ${escHtml(connPctTxt)} · 깨진 ${escHtml(brokenTxt)}</strong></div>` +
+              `<div class="insp-kv"><span>감사 로그 (7일)</span><strong>${escHtml(fmtNum(counts.audit_log))}건</strong></div>` +
+              `<div class="insp-kv"><span>인시던트</span><strong>${escHtml(fmtNum(counts.incident_projections))}건 (진행 ${escHtml(fmtNum(counts.active_incidents))})</strong></div>` +
+              `<div class="insp-kv"><span>대화 전달 / LLM</span><strong>${escHtml(fmtNum(counts.outbound_deliveries))} / ${escHtml(fmtNum(counts.llm_invocations))}건</strong></div>`;
+          } else {
+            dbCountsEl.innerHTML =
+              `<div class="insp-kv"><span>상태</span><strong>오프라인 · not-measured</strong></div>`;
+          }
+        }
+
+        const resWrap = document.getElementById("chatInspEvidenceResources");
+        if (resWrap) {
+          const items = Array.isArray(ctx.grounded_resources) ? ctx.grounded_resources.slice(0, 6) : [];
+          if (items.length) {
+            resWrap.innerHTML = items
+              .map((r) => {
+                const label = r.short_name || r.name || r.id;
+                const loc = r.location ? ` · ${r.location}` : "";
+                return (
+                  `<button type="button" class="insp-evidence-btn" data-insp-ask-node="${escHtml(label)}">` +
+                    `<strong>${escHtml(label)}</strong>` +
+                    `<span class="insp-evidence-meta">${escHtml(r.object_type)}${escHtml(loc)} · Rev #${escHtml(r.revision ?? "-")}</span>` +
+                  `</button>`
+                );
+              })
+              .join("");
+            resWrap.querySelectorAll("[data-insp-ask-node]").forEach((b) => {
+              b.addEventListener("click", () => {
+                const node = b.getAttribute("data-insp-ask-node") || selectedLineageNode;
+                dispatchChatStream(
+                  `${node} 리소스의 온톨로지 계통과 최근 감사 이력 근거를 요약해 줘.`,
+                  { context: `온톨로지 · ${node}`, node }
+                );
+              });
+            });
+          } else {
+            resWrap.innerHTML = `<div class="insp-evidence-meta">실측 리소스 없음 (${escHtml(ms)})</div>`;
+          }
+        }
+
+        const incWrap = document.getElementById("chatInspEvidenceIncidents");
+        if (incWrap) {
+          const incs = Array.isArray(ctx.incidents) ? ctx.incidents : [];
+          if (incs.length) {
+            incWrap.innerHTML = incs
+              .map((inc) => {
+                const num = inc.incident_number || inc.correlation_id;
+                return (
+                  `<button type="button" class="insp-evidence-btn" data-insp-ask-inc="${escHtml(num)}">` +
+                    `<strong>${escHtml(num)} · ${escHtml(inc.projected_vertical)} (${escHtml(inc.projected_severity)})</strong>` +
+                    `<span class="insp-evidence-meta">${escHtml(inc.projected_state)} · ${escHtml(inc.correlation_id)}</span>` +
+                  `</button>`
+                );
+              })
+              .join("");
+            incWrap.querySelectorAll("[data-insp-ask-inc]").forEach((b) => {
+              b.addEventListener("click", () => {
+                const incNum = b.getAttribute("data-insp-ask-inc") || "";
+                dispatchChatStream(
+                  `${incNum} 인시던트의 현재 상태, 7대 안전장치 경계, 관련 감사 이력을 검증해 줘.`,
+                  { context: `인시던트 · ${incNum}`, node: incNum }
+                );
+              });
+            });
+          } else {
+            incWrap.innerHTML = `<div class="insp-evidence-meta">인시던트 프로젝션 없음 (${escHtml(ms)})</div>`;
+          }
+        }
+
+        const edgesWrap = document.getElementById("chatInspLineageEdges");
+        if (edgesWrap) {
+          const links = Array.isArray(ctx.links) ? ctx.links.slice(0, 6) : [];
+          if (links.length) {
+            edgesWrap.innerHTML = links
+              .map(
+                (l) =>
+                  `<div class="insp-edge-item">` +
+                    `<strong>${escHtml(l.link_type)}</strong>` +
+                    `<span class="insp-evidence-meta">${escHtml(l.from_label || l.from_id)} → ${escHtml(l.to_label || l.to_id)}</span>` +
+                  `</div>`
+              )
+              .join("");
+          } else {
+            edgesWrap.innerHTML = `<div class="insp-evidence-meta">연관 링크 없음 (${escHtml(ms)})</div>`;
+          }
+        }
+
+        const auditsWrap = document.getElementById("chatInspRecentAudits");
+        if (auditsWrap) {
+          const audits = Array.isArray(ctx.recent_audits) ? ctx.recent_audits.slice(0, 5) : [];
+          if (audits.length) {
+            auditsWrap.innerHTML = audits
+              .map(
+                (a) =>
+                  `<div class="insp-audit-item">` +
+                    `<strong>#${escHtml(a.seq)} · ${escHtml(a.action_kind)}</strong>` +
+                    `<span class="insp-evidence-meta">${escHtml(a.actor)} (${escHtml(a.mode)}) · sha256:${escHtml(a.hash_prefix)}</span>` +
+                  `</div>`
+              )
+              .join("");
+          } else {
+            auditsWrap.innerHTML = `<div class="insp-evidence-meta">감사 이력 미측정 (${escHtml(ms)})</div>`;
+          }
+        }
+
+        // Update sidebar readiness disclosure with real counts
+        const sidebarReadiness = document.querySelector("#fdaiChatSidebar .chat-readiness");
+        if (sidebarReadiness && Array.isArray(ctx.sources)) {
+          const connectedCnt = ctx.sources.filter((s) => s.state === "connected").length;
+          const totalCnt = ctx.sources.length;
+          const unavailableCnt = ctx.sources.filter((s) => s.state === "unavailable").length;
+          const sumEl = sidebarReadiness.querySelector("summary");
+          const bodyEl = sidebarReadiness.querySelector("div");
+          if (sumEl) {
+            sumEl.innerHTML = isMeasured
+              ? `<span>근거 서비스 ${connectedCnt} / ${totalCnt} 실측 (${escHtml(src)})</span><span class="cs-badge tone-live"><span class="cs-dot"></span>실측</span>`
+              : `<span>근거 서비스 오프라인 (not-measured)</span><span class="cs-badge tone-human"><span class="cs-dot"></span>미측정</span>`;
+          }
+          if (bodyEl) {
+            bodyEl.textContent = isMeasured && counts
+              ? `ontology_resource ${counts.ontology_resources}건 · ontology_link ${counts.ontology_links}건 · audit_log ${counts.audit_log}건 · 인시던트 ${counts.incident_projections}건 (미수집 ${unavailableCnt}건 분리)`
+              : "상위 수집기 및 DB 미연결 상태 - 미측정 지표는 0으로 대체하지 않습니다.";
+          }
+        }
+      }
+
+      function updateInspectorFromSse(eventName, payload) {
+        ensureRightInspectorTabs();
+        if (eventName === "meta") {
+          const srcEl = document.getElementById("chatInspSourceBadge");
+          const traceEl = document.getElementById("chatInspTraceId");
+          const ms = payload.measurement_status || payload.measurement_state || "not-measured";
+          if (srcEl) {
+            srcEl.textContent = ms === "measured" ? `${payload.source || "postgres-direct"} (실측)` : "not-measured";
+          }
+          if (traceEl && payload.request_id) {
+            traceEl.textContent = String(payload.request_id);
+          }
+        } else if (eventName === "evidence") {
+          const citeWrap = document.getElementById("chatInspSseCitations");
+          if (citeWrap && Array.isArray(payload.citations) && payload.citations.length) {
+            citeWrap.innerHTML = payload.citations
+              .map((c) => {
+                const href = safeInternalHref(c.href, "/evidence#tab=audit");
+                return (
+                  `<a class="insp-action-item" href="${escHtml(href)}">` +
+                    `<span>[${escHtml(c.id)}] ${escHtml(c.label)}</span>` +
+                    `<span class="cell-mono">${escHtml(c.ref_id)}</span>` +
+                  `</a>`
+                );
+              })
+              .join("");
+          }
+          const edgesWrap = document.getElementById("chatInspLineageEdges");
+          if (edgesWrap && payload.lineage && Array.isArray(payload.lineage.edges) && payload.lineage.edges.length) {
+            edgesWrap.innerHTML = payload.lineage.edges
+              .map(
+                (l) =>
+                  `<div class="insp-edge-item">` +
+                    `<strong>${escHtml(l.link_type)}</strong>` +
+                    `<span class="insp-evidence-meta">${escHtml(l.from)} → ${escHtml(l.to)}</span>` +
+                  `</div>`
+              )
+              .join("");
+          }
+        } else if (eventName === "done") {
+          const srcEl = document.getElementById("chatInspSourceBadge");
+          const ms = payload.measurement_status || payload.measurement_state || "not-measured";
+          if (srcEl) {
+            srcEl.textContent = ms === "measured" ? `${payload.source || "postgres-direct"} (실측)` : "not-measured";
+          }
+        }
+      }
+
+      function renderLiveHistoryList(sessions, meta) {
+        const list = document.getElementById("chatHistoryList");
+        if (!list) return;
+        const rows = Array.isArray(sessions) ? sessions : [];
+        if (!rows.length) {
+          list.innerHTML = `<div class="chat-hist-sub">조건에 맞는 대화 이력이 없습니다.</div>`;
+          return;
+        }
+        if (!activeLiveSessionId && rows[0]) {
+          activeLiveSessionId = String(rows[0].id || rows[0].delivery_id || "");
+        }
+        list.innerHTML = rows
+          .map((s) => {
+            const sid = String(s.id || s.delivery_id || "");
+            const title = String(s.title || s.conversation_id || sid);
+            const sub = String(s.subtitle || `${s.channel_kind || ""} · ${s.state || ""}`);
+            const unreadTag = s.unread ? " · 안 읽음" : "";
+            const starTag = s.starred ? " ★" : "";
+            const activeCls = sid === activeLiveSessionId ? " is-active" : "";
+            return (
+              `<button type="button" class="chat-hist-item${activeCls}" data-live-session-id="${escHtml(sid)}">` +
+                `<strong>${escHtml(title)}${starTag}</strong>` +
+                `<span class="chat-hist-sub">${escHtml(sub)}${unreadTag}</span>` +
+              `</button>`
+            );
+          })
+          .join("");
+
+        list.querySelectorAll("[data-live-session-id]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const sid = btn.getAttribute("data-live-session-id") || "";
+            const found = rows.find((x) => String(x.id || x.delivery_id || "") === sid);
+            if (!found) return;
+            activeLiveSessionId = sid;
+            list.querySelectorAll("[data-live-session-id]").forEach((b) => {
+              b.classList.toggle("is-active", b === btn);
+            });
+            const ctxLbl = String(found.context || found.title || "AI 채팅");
+            const sumTxt = String(found.summary || found.subtitle || "");
+            setContextMeta(ctxLbl, sumTxt, found.incident_number || selectedLineageNode);
+            const inner = document.getElementById("chatTranscriptInner");
+            if (inner) {
+              const promptToRun = String(
+                found.prompt || `${found.title || sid} 관련 온톨로지·감사 이력 근거를 요약해 줘.`
+              );
+              const badgeTone = meta?.measured ? "tone-live" : "tone-human";
+              const badgeTxt = meta?.measured ? `PostgreSQL 실측 · ${meta.source || "postgres-direct"}` : "not-measured";
+              inner.innerHTML =
+                `<div class="chat-turn-agent">` +
+                  `<div class="chat-turn-meta">` +
+                    `<strong>${escHtml(found.title || sid)}</strong>` +
+                    `<span class="cs-badge ${badgeTone}"><span class="cs-dot"></span>${escHtml(badgeTxt)}</span>` +
+                  `</div>` +
+                  `<div class="agent-prose">` +
+                    `<p><strong>컨텍스트:</strong> ${escHtml(ctxLbl)} · <strong>상태:</strong> ${escHtml(found.state || "recorded")}</p>` +
+                    `<p>${escHtml(sumTxt || "선택한 세션의 실측 기록을 불러왔습니다. 아래 버튼으로 실시간 SSE 근거 분석을 실행하거나 추가 질문을 입력하세요.")}</p>` +
+                  `</div>` +
+                  `<div class="chat-followups">` +
+                    `<button type="button" class="signal-chip" data-quick-ask="${escHtml(promptToRun)}">이 세션 실측 근거 조회</button>` +
+                    `<button type="button" class="signal-chip" data-quick-ask="/trace 최신 감사 원장 해시 검증">/trace 감사 원장 확인</button>` +
+                  `</div>` +
+                `</div>`;
+            }
+          });
+        });
+      }
+
+      async function syncSessionsFromApi(filterVal, queryVal) {
+        const reqSeq = ++sessionFetchSeq;
+        const fNorm = filterVal || "all";
+        const qTrim = String(queryVal || "").trim();
+        if (allLiveSessionsCache.length > 0) {
+          renderLiveHistoryList(
+            filterCachedSessions(allLiveSessionsCache, fNorm, qTrim),
+            allLiveSessionsMeta
+          );
+        }
+        try {
+          const f = encodeURIComponent(fNorm);
+          const q = encodeURIComponent(qTrim);
+          const resp = await fetch(`/api/v4/chat/sessions?filter=${f}&q=${q}`, {
+            headers: { Accept: "application/json" }
+          });
+          if (!resp.ok || reqSeq !== sessionFetchSeq) return;
+          const sess = await resp.json();
+          if (reqSeq !== sessionFetchSeq) return;
+          const measured = (sess.measurement_status || sess.measurement_state) === "measured";
+          const rows = Array.isArray(sess.sessions)
+            ? sess.sessions
+            : Array.isArray(sess.data)
+              ? sess.data
+              : Array.isArray(sess.reference_sessions)
+                ? sess.reference_sessions
+                : [];
+          const meta = { measured, source: sess.source };
+          if (fNorm === "all" && !qTrim) {
+            allLiveSessionsCache = rows;
+            allLiveSessionsMeta = meta;
+          }
+          renderLiveHistoryList(rows, meta);
+          const histToggle = document.getElementById("chatHistoryToggle");
+          if (histToggle) {
+            histToggle.setAttribute(
+              "data-ut-title",
+              `대화 이력 (${rows.length}건 · ${measured ? (sess.source || "measured") : "not-measured"})`
+            );
+            histToggle.setAttribute(
+              "data-ut-body",
+              "좌측 대화 이력 패널을 열거나 닫습니다 (/api/v4/chat/sessions 실측 연동)."
+            );
+          }
+        } catch (_err) {
+          // Keep existing honest not-measured state
+        }
+      }
+
+      function markReadinessAllNotMeasured() {
+        const readinessSummary = document.getElementById("readinessSummaryBadge");
+        const readinessGrid = document.getElementById("readinessGrid");
+        if (readinessSummary) {
+          readinessSummary.className = "cs-badge tone-human";
+          readinessSummary.innerHTML = `<span class="cs-dot"></span>오프라인 · not-measured`;
+        }
+        if (!readinessGrid) return;
+        readinessGrid.querySelectorAll("[data-source-key]").forEach((row) => {
+          const key = row.getAttribute("data-source-key");
+          const badge = row.querySelector("[data-readiness-badge]");
+          if (!badge) return;
+          if (key === "focus-cost-export") {
+            row.classList.add("is-unavailable");
+            badge.className = "cs-badge tone-sec";
+            badge.innerHTML = `<span class="cs-dot"></span>데이터 없음 (미수집)`;
+          } else {
+            badge.className = "cs-badge tone-human";
+            badge.innerHTML = `<span class="cs-dot"></span>미측정 (not-measured)`;
+          }
+        });
+      }
+
+      function captureSampleSnapshots() {
+        if (sampleSnapshots.captured) return;
+        sampleSnapshots.scenarioGrid = document.getElementById("scenarioGrid")?.innerHTML || "";
+        sampleSnapshots.showcaseThread = document.getElementById("showcaseThread")?.innerHTML || "";
+        sampleSnapshots.readinessGrid = document.getElementById("readinessGrid")?.innerHTML || "";
+        sampleSnapshots.mobileSheetPreview = document.getElementById("mobileSheetPreview")?.innerHTML || "";
+        sampleSnapshots.chatTranscriptInner = document.getElementById("chatTranscriptInner")?.innerHTML || "";
+        sampleSnapshots.chatSlashPopover = document.getElementById("chatSlashPopover")?.innerHTML || "";
+        sampleSnapshots.histFilterBar =
+          document.querySelector("#chatHistoryPane .seg-group")?.innerHTML || "";
+        sampleSnapshots.captured = true;
+      }
+
+      function applyLiveHistoryFilterBar() {
+        const bar = document.querySelector("#chatHistoryPane .seg-group");
+        if (!bar) return;
+        bar.innerHTML =
+          `<button type="button" class="seg-btn is-active" data-hist-filter="all">전체</button>` +
+          `<button type="button" class="seg-btn" data-hist-filter="incidents">인시던트</button>` +
+          `<button type="button" class="seg-btn" data-hist-filter="governance">거버넌스</button>`;
+      }
+
+      function applyLiveLoadingPlaceholders() {
+        const scenarioGrid = document.getElementById("scenarioGrid");
+        if (scenarioGrid) {
+          scenarioGrid.innerHTML =
+            `<div class="scenario-card"><h4 class="scenario-title">온톨로지 / 리소스 계통 실측 조회 중...</h4><p class="scenario-desc">PostgreSQL 실측 리소스와 관계 링크를 불러오는 중입니다.</p></div>` +
+            `<div class="scenario-card"><h4 class="scenario-title">인시던트 · 7대 안전장치 실측 조회 중...</h4><p class="scenario-desc">operator_incident_projection 실측 레코드를 확인하는 중입니다.</p></div>` +
+            `<div class="scenario-card"><h4 class="scenario-title">운영 규칙 · 정책 아티팩트 실측 조회 중...</h4><p class="scenario-desc">등록 규칙과 Saga 감사 원장을 대조하는 중입니다.</p></div>` +
+            `<div class="scenario-card is-unavailable"><h4 class="scenario-title">미수집 지표(focus-cost-export) 상태 점검 중...</h4><p class="scenario-desc">미수집 지표를 0으로 대체하지 않고 분리 검증 중입니다.</p></div>`;
+        }
+        const thread = document.getElementById("showcaseThread");
+        if (thread) {
+          thread.innerHTML =
+            `<div class="spec-user-wrap">` +
+              `<div class="spec-user-bubble">실시간 PostgreSQL 온톨로지·인시던트·감사 원장 근거를 불러오는 중입니다.</div>` +
+            `</div>` +
+            `<div class="spec-agent-wrap">` +
+              `<div class="spec-agent-head">` +
+                `<div class="spec-agent-id">` +
+                  `<span class="spec-agent-avatar"><img src="/agent-icons/bragi.svg" alt=""></span>` +
+                  `<strong>Bragi · 운영 에이전트</strong>` +
+                  `<span class="cs-badge tone-live"><span class="cs-dot"></span>PostgreSQL 실측 연결 중</span>` +
+                `</div>` +
+              `</div>` +
+              `<div class="spec-prose" id="showcaseAgentProse"><p>실제 PostgreSQL DB 근거를 조회해 이 영역을 자동으로 갱신합니다.</p></div>` +
+            `</div>`;
+        }
+        const hilRowLabel = document.querySelector('#readinessGrid [data-source-key="hil-queue"] .readiness-row-left span');
+        if (hilRowLabel) hilRowLabel.textContent = "인시던트 · 승인 연계 프로젝션";
+        const mobileCard = document.getElementById("mobileSheetPreview");
+        if (mobileCard) {
+          mobileCard.querySelectorAll("strong, .spec-user-bubble, .spec-prose p, .wb-item-top span:first-child").forEach((el) => {
+            if (/prod-aks-02|kv-prod-kr|prod-core-kr|HIL-8841|pg-orders-db|corr-8a91f/.test(el.textContent || "")) {
+              el.textContent = "실측 PostgreSQL 근거 로딩 중...";
+            }
+          });
+        }
+      }
+
+      function applyLiveChatSurface(ctx) {
+        if (!isLiveMode() || !ctx || typeof ctx !== "object") return;
+        const ms = ctx.measurement_status || ctx.measurement_state || "not-measured";
+        const isMeasured = ms === "measured";
+        const counts = ctx.counts && typeof ctx.counts === "object" ? ctx.counts : {};
+        const resources = Array.isArray(ctx.grounded_resources) ? ctx.grounded_resources : [];
+        const links = Array.isArray(ctx.links) ? ctx.links : [];
+        const incidents = Array.isArray(ctx.incidents) ? ctx.incidents : [];
+        const audits = Array.isArray(ctx.recent_audits) ? ctx.recent_audits : [];
+        const subs = Array.isArray(ctx.subscriptions) ? ctx.subscriptions : [];
+        const topRules = Array.isArray(ctx.top_rules) ? ctx.top_rules : [];
+
+        const primaryRes = resources[0] || null;
+        const primaryResName = primaryRes ? (primaryRes.short_name || primaryRes.name || primaryRes.id) : "활성 스코프";
+        const primaryResLoc = primaryRes?.location || "recorded";
+        const primaryResRev = primaryRes?.revision ?? "-";
+        const primarySub = subs[0]?.masked || "연결 구독";
+        const primarySubLabel = subs[0]?.label || primarySub;
+        const primaryInc = incidents[0] || null;
+        const primaryIncNum = primaryInc ? (primaryInc.incident_number || primaryInc.correlation_id) : "인시던트 없음";
+        const primaryIncCorr = primaryInc?.correlation_id || "none";
+        const primaryIncState = primaryInc?.projected_state || "none";
+        const primaryIncSev = primaryInc?.projected_severity || "normal";
+        const primaryIncVert = primaryInc?.projected_vertical || "operations";
+        const latestSeq = isMeasured ? (ctx.latest_audit_seq ?? audits[0]?.seq ?? "미측정") : "미측정";
+        const latestHash = isMeasured ? (ctx.latest_audit_hash_prefix || audits[0]?.hash_prefix || "unhashed") : "not-measured";
+        const latestAuditAt = ctx.latest_audit_at || audits[0]?.created_at || "";
+        const resTotal = isMeasured ? (counts.ontology_resources ?? resources.length) : null;
+        const resInstTotal = isMeasured ? (counts.resource_instances ?? resources.length) : null;
+        const linkTotal = isMeasured ? (counts.ontology_links ?? links.length) : null;
+        const rulesTotal = isMeasured ? (counts.rules ?? topRules.length) : null;
+        const policiesTotal = isMeasured ? (counts.policy_artifacts ?? 0) : null;
+        const auditTotal = isMeasured ? (counts.audit_log ?? audits.length) : null;
+        const incTotal = isMeasured ? (counts.incident_projections ?? incidents.length) : null;
+        const activeIncTotal = isMeasured ? (counts.active_incidents ?? 0) : null;
+        const llmTotal = isMeasured ? (counts.llm_invocations ?? 0) : null;
+        const focusCostCnt = isMeasured ? (counts.focus_cost_export ?? 0) : null;
+        const sampleRuleLabel = topRules[0] || "활성 운영 규칙";
+
+        applyLiveHistoryFilterBar();
+
+        selectedLineageNode = primaryResName;
+        activeContextLabel = `온톨로지 · ${primaryResName}`;
+        setContextMeta(
+          activeContextLabel,
+          isMeasured
+            ? `${primarySubLabel} · 리소스 ${fmtNum(resTotal)}건 · 관계 ${fmtNum(linkTotal)}건 · 인시던트 ${primaryIncNum}(${primaryIncState}) · 감사 원장 #${fmtNum(latestSeq)}`
+            : "상위 수집기 및 DB 미연결 상태 (not-measured)",
+          primaryResName
+        );
+
+        // 1. Replace 4 Quick Scenario Cards with 100% real PostgreSQL entities
+        const scenarioGrid = document.getElementById("scenarioGrid");
+        if (scenarioGrid) {
+          const resShortTitle = primaryResName.length > 34 ? `${primaryResName.slice(0, 34)}...` : primaryResName;
+          const cards = [
+            {
+              id: "ontology",
+              node: primaryResName,
+              context: `온톨로지 · ${primaryResName}`,
+              summary: `PostgreSQL 실측 ontology_resource ${fmtNum(resTotal)}건(인스턴스 ${fmtNum(resInstTotal)}건)과 ontology_link ${fmtNum(linkTotal)}건 기준으로 ${primaryResName} 계통을 조회했습니다.`,
+              prompt: `${primaryResName} 리소스의 온톨로지 계통(ontology_link)과 최근 변경 리비전·감사 근거를 요약해 줘.`,
+              badgeTone: "tone-sre",
+              badgeText: `리소스 ${fmtNum(resTotal)}건`,
+              azureIcon: safeAssetSrc(primaryRes?.icon, "/azure-icons/kubernetes-services.svg"),
+              agentIcon: "/agent-icons/muninn.svg",
+              title: `온톨로지 / 데이터 계통 질의 (${resShortTitle})`,
+              desc: `${primarySub} 기준 실측 리소스 ${fmtNum(resInstTotal)}건과 관계 ${fmtNum(linkTotal)}건의 1~2홉 의존성을 근거와 함께 조회합니다.`,
+              agents: "Muninn · Freyr",
+              unavailable: false
+            },
+            {
+              id: "hil",
+              node: primaryIncCorr,
+              context: `인시던트 · ${primaryIncNum} (${primaryIncCorr})`,
+              summary: `실측 인시던트 프로젝션 ${primaryIncNum}(${primaryIncCorr} · ${primaryIncState} · ${primaryIncSev})과 7대 안전장치 경계를 조회했습니다.`,
+              prompt: `인시던트 ${primaryIncNum}(${primaryIncCorr})의 현재 상태(${primaryIncState})와 7대 안전장치 승인 경계를 검증해 줘.`,
+              badgeTone: "tone-human",
+              badgeText: `${primaryIncNum} · ${primaryIncState}`,
+              azureIcon: "/azure-icons/key-vault.svg",
+              agentIcon: "/agent-icons/var.svg",
+              title: `인시던트(${primaryIncNum}) · 7대 안전장치 검증`,
+              desc: `${primaryIncCorr}(${primaryIncVert}/${primaryIncSev}) 기준 롤백 검증·영향 제한·드라이런·논리 잠금·2단계 감사 경계를 점검합니다.`,
+              agents: "Var · Forseti",
+              unavailable: false
+            },
+            {
+              id: "rules",
+              node: sampleRuleLabel,
+              context: `운영 규칙 · ${primarySub}`,
+              summary: `등록 운영 규칙 ${fmtNum(rulesTotal)}개 · 정책 아티팩트 ${fmtNum(policiesTotal)}개와 Saga 감사 원장 ${fmtNum(auditTotal)}건(최신 #${fmtNum(latestSeq)})을 교차 검증했습니다.`,
+              prompt: `${primarySub} 구독의 활성 운영 규칙 ${rulesTotal}개와 정책 아티팩트 ${policiesTotal}개, 최신 감사 원장 #${latestSeq} 해시를 점검해 줘.`,
+              badgeTone: "tone-live",
+              badgeText: `규칙 ${fmtNum(rulesTotal)}개 실측`,
+              azureIcon: "/azure-icons/monitor.svg",
+              agentIcon: "/agent-icons/forseti.svg",
+              title: `운영 규칙(${fmtNum(rulesTotal)}개) · 감사 해시 점검`,
+              desc: `${primarySub}의 등록 규칙 ${fmtNum(rulesTotal)}개, 정책 아티팩트 ${fmtNum(policiesTotal)}개, 최신 원장 #${fmtNum(latestSeq)} 해시를 교차 검증합니다.`,
+              agents: "Forseti · Saga",
+              unavailable: false
+            },
+            {
+              id: "unavailable",
+              node: "focus-cost-export",
+              context: "비용 거버넌스 · focus-cost-export",
+              summary: `ontology_resource 조회 결과 focus-cost-export는 ${fmtNum(focusCostCnt)}건(미수집)이며 0으로 대체하지 않고 분리 표기합니다.`,
+              prompt: "미수집 지표 focus-cost-export가 데이터 없음으로 표시되는 원인과 수집기 복구 절차를 실측 DB 기준으로 알려줘.",
+              badgeTone: "tone-sec",
+              badgeText: focusCostCnt > 0 ? `실측 ${fmtNum(focusCostCnt)}건` : "데이터 없음 (미수집)",
+              azureIcon: "/azure-icons/storage-account.svg",
+              agentIcon: "/agent-icons/njord.svg",
+              title: "미수집 지표(focus-cost-export) 원인 분석",
+              desc: `미수집 지표를 0으로 대체하지 않는 원칙에 따라 focus-cost-export(${fmtNum(focusCostCnt)}건)와 llm_invocation(${fmtNum(llmTotal)}건)을 분리 진단합니다.`,
+              agents: "Njord · Heimdall",
+              unavailable: focusCostCnt === 0
+            }
+          ];
+
+          scenarioGrid.innerHTML = cards
+            .map(
+              (c, idx) =>
+                `<button type="button" class="scenario-card${idx === 0 ? " is-active" : ""}${c.unavailable ? " is-unavailable" : ""}" role="listitem"` +
+                ` data-scenario-id="${escHtml(c.id)}"` +
+                ` data-scenario-node="${escHtml(c.node)}"` +
+                ` data-scenario-context="${escHtml(c.context)}"` +
+                ` data-scenario-summary="${escHtml(c.summary)}"` +
+                ` data-scenario-prompt="${escHtml(c.prompt)}"` +
+                ` data-ut-title="${escHtml(c.title)}"` +
+                ` data-ut-body="${escHtml(c.desc)}"` +
+                ` data-ut-meta="담당 에이전트: ${escHtml(c.agents)} · PostgreSQL 실측">` +
+                  `<div class="scenario-top">` +
+                    `<span class="scenario-icons">` +
+                      `<span class="scenario-icon-box"><img src="${escHtml(c.azureIcon)}" alt=""></span>` +
+                      `<span class="scenario-icon-box"><img src="${escHtml(c.agentIcon)}" alt=""></span>` +
+                    `</span>` +
+                    `<span class="cs-badge ${escHtml(c.badgeTone)}"><span class="cs-dot"></span>${escHtml(c.badgeText)}</span>` +
+                  `</div>` +
+                  `<h4 class="scenario-title">${escHtml(c.title)}</h4>` +
+                  `<p class="scenario-desc">${escHtml(c.desc)}</p>` +
+                  `<div class="scenario-foot">` +
+                    `<span>${escHtml(c.agents)}</span>` +
+                    `<span class="scenario-run-cue">채팅으로 실행 →</span>` +
+                  `</div>` +
+                `</button>`
+            )
+            .join("");
+        }
+
+        // 2. Replace Showcase Thread (user bubble neutral fill, agent reply completely transparent)
+        const thread = document.getElementById("showcaseThread");
+        if (thread) {
+          const lineageNodes = resources.slice(0, 4);
+          const lineageNodesHtml = lineageNodes.length
+            ? lineageNodes
+                .map((r, i) => {
+                  const sName = r.short_name || r.name || r.id;
+                  const shortDisp = sName.length > 28 ? `${sName.slice(0, 28)}...` : sName;
+                  const loc = r.location || "recorded";
+                  const info = `${r.object_type} · ${loc} · Rev #${r.revision ?? "-"} · ${r.id}`;
+                  const arrow = i > 0 ? `<span class="lineage-arrow" aria-hidden="true">──▶</span>` : "";
+                  return (
+                    `${arrow}<button type="button" class="lineage-node-btn${i === 0 ? " is-selected" : ""}" aria-pressed="${i === 0 ? "true" : "false"}"` +
+                    ` data-lnode-name="${escHtml(sName)}"` +
+                    ` data-lnode-info="${escHtml(info)}"` +
+                    ` data-ut-title="${escHtml(sName)}"` +
+                    ` data-ut-body="${escHtml(info)}"` +
+                    ` data-ut-meta="PostgreSQL 실측 · 클릭해 컨텍스트 선택">` +
+                      `<img src="${escHtml(safeAssetSrc(r.icon, "/azure-icons/kubernetes-services.svg"))}" alt="">` +
+                      `<span class="lineage-node-meta">` +
+                        `<span>${escHtml(shortDisp)}</span>` +
+                        `<span class="lineage-node-sub">${escHtml(loc)} · Rev #${escHtml(r.revision ?? "-")}</span>` +
+                      `</span>` +
+                    `</button>`
+                  );
+                })
+                .join("")
+            : `<span class="insp-evidence-meta">실측 온톨로지 리소스가 아직 없습니다 (not-measured).</span>`;
+
+          const linkPreviewText = links.length
+            ? links
+                .slice(0, 2)
+                .map((l) => `${l.from_label || l.from_id} -[${l.link_type}]-> ${l.to_label || l.to_id}`)
+                .join(" · ")
+            : `ontology_link 총 ${fmtNum(linkTotal)}건 실측 연결됨`;
+
+          const liveTime = latestAuditAt ? latestAuditAt.slice(11, 16) : new Date().toTimeString().slice(0, 5);
+          thread.innerHTML =
+            `<div class="spec-user-wrap">` +
+              `<span class="spec-att-chip">` +
+                `<img src="/azure-icons/monitor.svg" width="14" height="14" alt="">` +
+                `<span>postgres-context-snapshot.json</span>` +
+                `<span class="cell-mono">실측 #${escHtml(latestSeq)}</span>` +
+              `</span>` +
+              `<div class="spec-user-bubble">` +
+                `연결 구독 <strong>${escHtml(primarySub)}</strong>의 <strong>${escHtml(primaryResName)}</strong> 계통과 진행 중 인시던트 <strong>${escHtml(primaryIncNum)}</strong>(<code>${escHtml(primaryIncCorr)}</code>) 근거를 실 DB 기준으로 요약하고, 조회 전용 안전 경계 초안도 함께 보여줘.` +
+              `</div>` +
+              `<span class="chat-turn-meta">운영자 · ${escHtml(liveTime)}</span>` +
+            `</div>` +
+            `<div class="spec-agent-wrap">` +
+              `<div class="spec-agent-head">` +
+                `<div class="spec-agent-id">` +
+                  `<span class="spec-agent-avatar"><img src="/agent-icons/bragi.svg" alt=""></span>` +
+                  `<strong>Bragi · 운영 에이전트</strong>` +
+                  `<span class="cs-badge tone-live"><span class="cs-dot"></span>PostgreSQL 실측 · postgres-direct</span>` +
+                `</div>` +
+                `<span class="chat-turn-meta">${escHtml(liveTime)}</span>` +
+              `</div>` +
+              `<div class="live-steps-panel" id="liveStepsPanel" role="status" aria-live="polite" hidden>` +
+                `<div class="live-steps-head">` +
+                  `<span id="liveStepsHeadline">PostgreSQL 실측 3단계 근거 확인 대기 중</span>` +
+                  `<span class="cs-badge tone-sre"><span class="cs-dot"></span>조회 전용</span>` +
+                `</div>` +
+                `<ol class="live-step-list" id="liveStepList">` +
+                  `<li class="live-step-item" data-step-idx="0"><span class="live-step-left"><span class="step-badge-num">1</span><span>ontology_resource (${escHtml(fmtNum(resTotal))}건) · ${escHtml(primaryResName)} 스냅샷 조회</span></span><span class="cell-mono" data-step-state="0">대기</span></li>` +
+                  `<li class="live-step-item" data-step-idx="1"><span class="live-step-left"><span class="step-badge-num">2</span><span>ontology_link (${escHtml(fmtNum(linkTotal))}건) · 활성 규칙 ${escHtml(fmtNum(rulesTotal))}개 정책 대조</span></span><span class="cell-mono" data-step-state="1">대기</span></li>` +
+                  `<li class="live-step-item" data-step-idx="2"><span class="live-step-left"><span class="step-badge-num">3</span><span>Saga audit_log (${escHtml(fmtNum(auditTotal))}건 · 최신 #${escHtml(latestSeq)}) 해시 검증 및 근거 조립</span></span><span class="cell-mono" data-step-state="2">대기</span></li>` +
+                `</ol>` +
+                `<div class="live-busy-demo">` +
+                  `<span>생성 중 추가 지시 제어:</span>` +
+                  `<div class="toolbar-inline">` +
+                    `<select class="cs-select" id="demoBusyModeSelect" aria-label="생성 중 추가 지시 처리 방식" style="height:30px;min-height:30px;font-size:12px">` +
+                      `<option value="queue">대기 등록 (Queue)</option>` +
+                      `<option value="steer">방향 조정 (Steer)</option>` +
+                    `</select>` +
+                    `<button type="button" class="cs-btn cs-btn-sm" id="demoBusyApplyBtn">시연 적용</button>` +
+                    `<span class="cs-badge tone-neutral" id="demoBusyFeedback" hidden></span>` +
+                  `</div>` +
+                `</div>` +
+              `</div>` +
+              `<details class="cs-disclosure" id="showcaseRunRecord" style="width:100%">` +
+                `<summary>` +
+                  `<span>실행 기록 · PostgreSQL 실측 3단계 완료 · 규칙 ${escHtml(fmtNum(rulesTotal))}개 대조</span>` +
+                  `<span class="disc-meta">원장 #${escHtml(latestSeq)} · 출처 4건</span>` +
+                `</summary>` +
+                `<div class="disc-body">` +
+                  `1. ontology_resource ${escHtml(fmtNum(resTotal))}건 조회 → 2. ontology_link ${escHtml(fmtNum(linkTotal))}건 · Rule ${escHtml(fmtNum(rulesTotal))}개 대조 → 3. Saga audit_log ${escHtml(fmtNum(auditTotal))}건(#${escHtml(latestSeq)} · sha256:${escHtml(latestHash)}) 검증 · 상관관계 <span class="cell-mono">${escHtml(primaryIncCorr)}</span>` +
+                `</div>` +
+              `</details>` +
+              `<div class="spec-prose" id="showcaseAgentProse">` +
+                `<p>` +
+                  `연결 구독 <strong>${escHtml(primarySubLabel)}</strong>의 실측 온톨로지에는 총 <strong>${escHtml(fmtNum(resTotal))}건</strong>(인스턴스 ${escHtml(fmtNum(resInstTotal))}건)과 관계 <strong>${escHtml(fmtNum(linkTotal))}건</strong>이 기록되어 있으며, 최신 리소스 <strong>${escHtml(primaryResName)}</strong>(${escHtml(primaryResLoc)} · Rev #${escHtml(primaryResRev)})의 연관 계통을 확인했습니다` +
+                  `<button type="button" class="cite-chip" data-cite="1" aria-label="근거 출처 1 보기">[1]</button>. ` +
+                  `현재 인시던트 프로젝션은 총 <strong>${escHtml(fmtNum(incTotal))}건</strong>(진행 중 ${escHtml(fmtNum(activeIncTotal))}건)이며, 대표 항목은 <strong>${escHtml(primaryIncNum)}</strong>(<code>${escHtml(primaryIncCorr)}</code> · ${escHtml(primaryIncVert)} · ${escHtml(primaryIncSev)})입니다` +
+                  `<button type="button" class="cite-chip" data-cite="2" aria-label="근거 출처 2 보기">[2]</button>.` +
+                `</p>` +
+                `<p>` +
+                  `활성 운영 규칙 <strong>${escHtml(fmtNum(rulesTotal))}개</strong>와 정책 아티팩트 <strong>${escHtml(fmtNum(policiesTotal))}개</strong>, 그리고 Saga 감사 원장 <strong>${escHtml(fmtNum(auditTotal))}건</strong>(최신 <code>#${escHtml(latestSeq)}</code> · <code>sha256:${escHtml(latestHash)}</code>)을 교차 확인했습니다` +
+                  `<button type="button" class="cite-chip" data-cite="3" aria-label="근거 출처 3 보기">[3]</button>. ` +
+                  `미수집 상태인 <strong>focus-cost-export</strong>(${escHtml(fmtNum(focusCostCnt))}건)는 0으로 합산하지 않고 별도 상태로 분리했습니다.` +
+                `</p>` +
+              `</div>` +
+              `<div class="lineage-mini-card" id="showcaseLineageCard" aria-label="인라인 실측 온톨로지 리소스 프리뷰">` +
+                `<div class="lineage-mini-head">` +
+                  `<strong style="font-size:13px">실측 온톨로지 · 데이터 계통 프리뷰 (${escHtml(fmtNum(resTotal))}건 · ${escHtml(fmtNum(linkTotal))}링크)</strong>` +
+                  `<div class="toolbar-inline">` +
+                    `<a class="cs-btn cs-btn-sm" href="/governance#tab=ontology">온톨로지 열기 →</a>` +
+                    `<a class="cs-btn cs-btn-sm" href="/governance#tab=blast-radius">변경 영향 분석 →</a>` +
+                  `</div>` +
+                `</div>` +
+                `<div class="lineage-flow" id="showcaseLineageFlow" role="group" aria-label="실측 계통 노드 선택">${lineageNodesHtml}</div>` +
+                `<div class="lineage-node-detail">` +
+                  `<span id="lineageSelectedSummary"><strong>${escHtml(primaryResName)}:</strong> ${escHtml(linkPreviewText)}</span>` +
+                  `<button type="button" class="cs-btn cs-btn-sm" id="askSelectedNodeBtn">선택 노드 채팅 질의</button>` +
+                `</div>` +
+              `</div>` +
+              `<section class="proposal-spec-card" id="showcaseProposalCard" aria-label="조회 전용 검토 초안 카드">` +
+                `<div class="card-head">` +
+                  `<strong style="font-size:13.5px">조회 전용 검토 초안 - ${escHtml(primaryIncNum)} (${escHtml(primaryIncCorr)})</strong>` +
+                  `<span class="cs-badge tone-human"><span class="cs-dot"></span>조회 전용 · 직접 실행 불가</span>` +
+                `</div>` +
+                `<dl class="proposal-fields">` +
+                  `<div><dt>요청자 / 심사 에이전트</dt><dd>운영자 → Forseti · Var</dd></div>` +
+                  `<div><dt>연관 인시던트 · 버티컬</dt><dd class="cell-mono">${escHtml(primaryIncNum)} · ${escHtml(primaryIncVert)} (${escHtml(primaryIncSev)})</dd></div>` +
+                  `<div><dt>연결 구독 / 대표 리소스</dt><dd class="cell-mono">${escHtml(primarySub)} / ${escHtml(primaryResName)}</dd></div>` +
+                  `<div><dt>감사 원장 기준선</dt><dd class="cell-mono">#${escHtml(latestSeq)} · sha256:${escHtml(latestHash)}</dd></div>` +
+                `</dl>` +
+                `<div class="safeguard-pills" aria-label="7대 안전장치 확인 항목">` +
+                  `<span class="safeguard-pill">✓ 중단 조건</span>` +
+                  `<span class="safeguard-pill">✓ 롤백 검증</span>` +
+                  `<span class="safeguard-pill">✓ 영향 범위 제한</span>` +
+                  `<span class="safeguard-pill">✓ 드라이런 통과</span>` +
+                  `<span class="safeguard-pill">✓ 논리 타깃 잠금</span>` +
+                  `<span class="safeguard-pill">✓ 멱등성 키</span>` +
+                  `<span class="safeguard-pill">✓ 2단계 감사</span>` +
+                `</div>` +
+                `<p class="card-desc" style="margin:0">AI 채팅은 조회 전용이며 클라우드 리소스를 직접 변경하지 않습니다. 제출 시 Forseti 정책 심사와 승인 요청 화면에서 운영자의 명시적 승인 후에만 실행됩니다.</p>` +
+                `<div class="toolbar-inline">` +
+                  `<button type="button" class="cs-btn cs-btn-sm cs-btn-accent" id="submitProposalBtn">승인 요청 초안 확인</button>` +
+                  `<button type="button" class="cs-btn cs-btn-sm" id="cancelProposalBtn">초안 취소</button>` +
+                  `<a class="cs-btn cs-btn-sm" href="/operations#tab=hil-queue">승인 요청 화면 열기 →</a>` +
+                  `<span class="cs-badge tone-live" id="proposalStateBadge" hidden></span>` +
+                `</div>` +
+              `</section>` +
+              `<details class="cs-disclosure" id="showcaseSourcesDetails" style="width:100%">` +
+                `<summary>` +
+                  `<span>근거 출처 (4건) · PostgreSQL 실측 스냅샷</span>` +
+                  `<span class="disc-meta">클릭하여 펼치기</span>` +
+                `</summary>` +
+                `<div class="disc-body">` +
+                  `<ul class="source-list">` +
+                    `<li class="source-list-item" data-source-id="1"><span><strong>[1]</strong> PostgreSQL ontology_resource (${escHtml(fmtNum(resTotal))}건 · ${escHtml(primaryResName)})</span><span class="cell-mono">pg:ontology_resource</span></li>` +
+                    `<li class="source-list-item" data-source-id="2"><span><strong>[2]</strong> PostgreSQL operator_incident_projection (${escHtml(primaryIncNum)} · ${escHtml(primaryIncState)})</span><span class="cell-mono">${escHtml(primaryIncCorr)}</span></li>` +
+                    `<li class="source-list-item" data-source-id="3"><span><strong>[3]</strong> Saga audit_log (${escHtml(fmtNum(auditTotal))}건 · 최신 #${escHtml(latestSeq)} · Rule ${escHtml(fmtNum(rulesTotal))}개)</span><span class="cell-mono">sha256:${escHtml(latestHash)}</span></li>` +
+                    `<li class="source-list-item" data-source-id="4"><span><strong>[4]</strong> PostgreSQL ontology_link (${escHtml(fmtNum(linkTotal))}건) · ${escHtml(primarySub)}</span><span class="cell-mono">pg:ontology_link</span></li>` +
+                  `</ul>` +
+                `</div>` +
+              `</details>` +
+              `<div class="reply-action-bar">` +
+                `<span class="cs-badge tone-live"><span class="cs-dot"></span>PostgreSQL 실측 검증 · 출처 4건</span>` +
+                `<div class="toolbar-inline">` +
+                  `<button type="button" class="cs-btn cs-btn-sm" id="copyShowcaseReplyBtn">답변 복사</button>` +
+                  `<button type="button" class="cs-btn cs-btn-sm" id="reaskShowcaseReplyBtn">채팅에서 다시 질문</button>` +
+                `</div>` +
+              `</div>` +
+            `</div>`;
+        }
+
+        // 3. Hydrate Readiness Strip row labels so zero mockup labels remain
+        const readinessGrid = document.getElementById("readinessGrid");
+        if (readinessGrid && Array.isArray(ctx.sources)) {
+          ctx.sources.forEach((src) => {
+            const row = readinessGrid.querySelector(`[data-source-key="${src.id}"]`);
+            if (!row) return;
+            const lblEl = row.querySelector(".readiness-row-left span");
+            if (lblEl && src.label) lblEl.textContent = src.label;
+            row.setAttribute("data-ut-title", src.label || src.id);
+            row.setAttribute("data-ut-body", src.detail || src.state);
+          });
+        }
+
+        // 4. Hydrate Mobile Preview with real DB entities (zero mockup strings if opened in Live mode)
+        const mobileCard = document.getElementById("mobileSheetPreview");
+        if (mobileCard) {
+          const mHeadStrong = mobileCard.querySelector(".mobile-sheet-head strong");
+          if (mHeadStrong) mHeadStrong.textContent = `AI 채팅 · ${primaryResName.slice(0, 24)}`;
+          const mUser = mobileCard.querySelector(".mobile-pane[data-mobile-pane='chat'] .spec-user-bubble");
+          if (mUser) mUser.textContent = `${primarySub}의 ${primaryResName} 계통과 ${primaryIncNum} 근거를 요약해 줘.`;
+          const mProse = mobileCard.querySelector(".mobile-pane[data-mobile-pane='chat'] .spec-prose p");
+          if (mProse) {
+            mProse.textContent = `PostgreSQL 실측 기준 ontology_resource ${fmtNum(resTotal)}건, ontology_link ${fmtNum(linkTotal)}건, 인시던트 ${primaryIncNum}(${primaryIncState}), 감사 원장 #${latestSeq}을 확인했습니다.`;
+          }
+          const mLin = mobileCard.querySelector(".mobile-pane[data-mobile-pane='chat'] .lineage-node-detail span");
+          if (mLin) mLin.innerHTML = `<strong>계통:</strong> ${escHtml(primarySub)} → ${escHtml(primaryResName.slice(0, 28))}`;
+          const mHistPane = mobileCard.querySelector(".mobile-pane[data-mobile-pane='history']");
+          if (mHistPane) {
+            mHistPane.innerHTML =
+              `<button type="button" class="wb-item is-active" data-mobile-pick-thread="${escHtml(primaryResName)} 리소스 계통과 최신 감사 근거를 요약해 줘.">` +
+                `<span class="wb-item-top"><span>${escHtml(primaryResName.slice(0, 26))} 계통 요약</span><span class="cs-badge tone-live">실측</span></span>` +
+                `<span class="wb-item-sub">${escHtml(primarySub)} · 리소스 ${escHtml(fmtNum(resTotal))}건</span>` +
+              `</button>` +
+              `<button type="button" class="wb-item" data-mobile-pick-thread="${escHtml(primaryIncNum)}(${escHtml(primaryIncCorr)}) 인시던트 7대 안전장치를 확인해 줘.">` +
+                `<span class="wb-item-top"><span>${escHtml(primaryIncNum)} 안전장치 검증</span><span class="cs-badge tone-human">${escHtml(primaryIncState)}</span></span>` +
+                `<span class="wb-item-sub">${escHtml(primaryIncCorr)} · ${escHtml(primaryIncSev)}</span>` +
+              `</button>` +
+              `<button type="button" class="wb-item" data-mobile-pick-thread="focus-cost-export 미수집 원인을 실 DB 기준으로 진단해 줘.">` +
+                `<span class="wb-item-top"><span>focus-cost-export 미수집 진단</span><span class="cs-badge tone-sec">미수집</span></span>` +
+                `<span class="wb-item-sub">비용 거버넌스 · Njord · 0 대체 금지</span>` +
+              `</button>`;
+          }
+          const mDetPane = mobileCard.querySelector(".mobile-pane[data-mobile-pane='details']");
+          if (mDetPane) {
+            mDetPane.innerHTML =
+              `<div class="insp-card">` +
+                `<div class="insp-title">대화 메타데이터 (실측)</div>` +
+                `<div class="insp-kv"><span>연결 구독</span><strong>${escHtml(primarySub)}</strong></div>` +
+                `<div class="insp-kv"><span>최신 원장</span><strong class="cell-mono">#${escHtml(latestSeq)} · ${escHtml(latestHash)}</strong></div>` +
+                `<div class="insp-kv"><span>안전 경계</span><strong>조회 전용 · 위반 0건</strong></div>` +
+              `</div>` +
+              `<div class="insp-card">` +
+                `<div class="insp-title">실측 후속 조치 링크</div>` +
+                `<a class="insp-action-item" href="/operations#tab=incidents"><span>${escHtml(primaryIncNum)} 인시던트 상세 열기</span><span>→</span></a>` +
+                `<a class="insp-action-item" href="/governance#tab=ontology"><span>온톨로지 계통(${escHtml(fmtNum(resTotal))}건) 열기</span><span>→</span></a>` +
+              `</div>`;
+          }
+        }
+
+        // 5. Replace sidebar initial mock thread & slash popover suggestions if no user SSE turn yet
+        const sidebarInner = document.getElementById("chatTranscriptInner");
+        if (sidebarInner && !sidebarInner.querySelector("[data-sse-turn]")) {
+          sidebarInner.innerHTML =
+            `<div class="chat-turn-agent">` +
+              `<div class="chat-turn-meta">` +
+                `<strong>Bragi · 운영 에이전트</strong>` +
+                `<span class="cs-badge tone-live"><span class="cs-dot"></span>PostgreSQL 실측 · #${escHtml(latestSeq)}</span>` +
+              `</div>` +
+              `<div class="agent-prose">` +
+                `<p><strong>${escHtml(primarySubLabel)}</strong> 실측 온톨로지(${escHtml(fmtNum(resTotal))}건 · 링크 ${escHtml(fmtNum(linkTotal))}건) 및 감사 원장(${escHtml(fmtNum(auditTotal))}건)과 연결되었습니다. 아래 추천 질의를 클릭하거나 직접 질문하세요.</p>` +
+              `</div>` +
+              `<div class="chat-followups">` +
+                `<button type="button" class="signal-chip" data-quick-ask="${escHtml(primaryResName)} 리소스 계통과 감사 이력을 요약해 줘">${escHtml(primaryResName.slice(0, 24))} 계통 요약</button>` +
+                `<button type="button" class="signal-chip" data-quick-ask="${escHtml(primaryIncNum)}(${escHtml(primaryIncCorr)}) 인시던트 상태와 안전장치 확인">${escHtml(primaryIncNum)} 상태 점검</button>` +
+                `<button type="button" class="signal-chip" data-quick-ask="/trace 최신 감사 원장 #${escHtml(latestSeq)} 해시 검증">/trace #${escHtml(latestSeq)} 검증</button>` +
+              `</div>` +
+            `</div>`;
+        }
+        const slashPop = document.getElementById("chatSlashPopover");
+        if (slashPop) {
+          slashPop.innerHTML =
+            `<button type="button" class="cmd-row" data-slash-pick="/risks 현재 DB 인시던트 및 리스크 우선순위 요약"><span><strong>/risks</strong> · 실측 인시던트 ${escHtml(fmtNum(incTotal))}건 및 리스크 요약</span><span class="cs-badge tone-sre">SRE·보안</span></button>` +
+            `<button type="button" class="cmd-row" data-slash-pick="/approvals ${escHtml(primaryIncNum)} 7대 안전장치 승인 경계 점검"><span><strong>/approvals</strong> · ${escHtml(primaryIncNum)} 안전장치 및 승인 경계 점검</span><span class="cs-badge tone-human">승인</span></button>` +
+            `<button type="button" class="cmd-row" data-slash-pick="/ontology ${escHtml(primaryResName)} 관계 및 데이터 계통"><span><strong>/ontology</strong> · ${escHtml(primaryResName.slice(0, 22))} 계통 조회</span><span class="cs-badge tone-live">온톨로지</span></button>` +
+            `<button type="button" class="cmd-row" data-slash-pick="/trace ${escHtml(primaryIncCorr)} 실행 추적 및 최신 #${escHtml(latestSeq)} 감사 검증"><span><strong>/trace</strong> · ${escHtml(primaryIncCorr)} 및 원장 #${escHtml(latestSeq)} 검증</span><span class="cs-badge tone-neutral">감사</span></button>`;
+        }
+
+        wireShowcaseDynamicHandlers();
+        if (latestPulsePayload) {
+          applyLivePulse(latestPulsePayload, true);
+        }
+      }
+
+      function restoreSampleSurface() {
+        if (!sampleSnapshots.captured) return;
+        const pulseBar = document.getElementById("livePulseBar");
+        if (pulseBar) pulseBar.hidden = true;
+        const scenarioGrid = document.getElementById("scenarioGrid");
+        if (scenarioGrid && sampleSnapshots.scenarioGrid) scenarioGrid.innerHTML = sampleSnapshots.scenarioGrid;
+        const thread = document.getElementById("showcaseThread");
+        if (thread && sampleSnapshots.showcaseThread) thread.innerHTML = sampleSnapshots.showcaseThread;
+        const readinessGrid = document.getElementById("readinessGrid");
+        if (readinessGrid && sampleSnapshots.readinessGrid) readinessGrid.innerHTML = sampleSnapshots.readinessGrid;
+        const mobileCard = document.getElementById("mobileSheetPreview");
+        if (mobileCard && sampleSnapshots.mobileSheetPreview) mobileCard.innerHTML = sampleSnapshots.mobileSheetPreview;
+        const sidebarInner = document.getElementById("chatTranscriptInner");
+        if (sidebarInner && !sidebarInner.querySelector("[data-sse-turn]") && sampleSnapshots.chatTranscriptInner) {
+          sidebarInner.innerHTML = sampleSnapshots.chatTranscriptInner;
+        }
+        const slashPop = document.getElementById("chatSlashPopover");
+        if (slashPop && sampleSnapshots.chatSlashPopover) slashPop.innerHTML = sampleSnapshots.chatSlashPopover;
+        const histFilterBar = document.querySelector("#chatHistoryPane .seg-group");
+        if (histFilterBar && sampleSnapshots.histFilterBar) histFilterBar.innerHTML = sampleSnapshots.histFilterBar;
+        selectedLineageNode = "prod-aks-02";
+        activeContextLabel = "온톨로지 · prod-aks-02";
+        wireShowcaseDynamicHandlers();
+        window.fdaiTip?.enhance?.(document.getElementById("fdaiMain") || document.body);
+      }
+
+      function applyLivePulse(pulse, force) {
+        if (!pulse || typeof pulse !== "object") return;
+        latestPulsePayload = pulse;
+        if (!isLiveMode()) return;
+
+        const seq = pulse.audit_latest_seq ?? pulse.latest_event?.seq ?? 0;
+        const tick = pulse.tick ?? 0;
+        const key = `${tick}:${seq}:${pulse.db_latency_ms ?? ""}`;
+        if (!force && key === lastPulseKey) return;
+        lastPulseKey = key;
+
+        const measured = pulse.measurement_status === "measured";
+        const latTxt = pulse.db_latency_ms != null ? `${pulse.db_latency_ms}ms` : "-";
+        const resTotal = pulse.ontology_resources_total;
+        const delta = Number(pulse.delta_audit || 0);
+        const deltaSuffix = delta > 0 ? ` (+${delta})` : "";
+        const target = (pulse.latest_event && pulse.latest_event.target) || selectedLineageNode || "관측 원장";
+        const actor = (pulse.latest_event && pulse.latest_event.actor) || "fdai.measurement";
+        const actionKind = (pulse.latest_event && pulse.latest_event.action_kind) || "audit.record";
+
+        // 1. Update top SSE status badge
+        const statusBadge = document.getElementById("chatSseStatusBadge");
+        const statusLabel = document.getElementById("chatSseStatusLabel");
+        if (statusBadge && statusLabel) {
+          statusBadge.className = measured ? "cs-badge tone-live" : "cs-badge tone-human";
+          statusLabel.textContent = measured
+            ? `실시간 감지 활성 · #${seq}${deltaSuffix} · DB ${latTxt} · 리소스 ${fmtNum(resTotal)}개`
+            : "실시간 감지 · 미측정 (not-measured)";
+          statusBadge.setAttribute("data-ut-val", measured ? "measured" : "not-measured");
+          statusBadge.setAttribute(
+            "data-ut-meta",
+            `tick=${tick} · audit_total=${fmtNum(pulse.audit_total)} · open_incidents=${fmtNum(pulse.open_incidents)} · hil_pending=${fmtNum(pulse.hil_pending)}`
+          );
+        }
+
+        // 2. Update Live Pulse one-click bar & target chip
+        const pulseBar = document.getElementById("livePulseBar");
+        const pulseTxt = document.getElementById("livePulseStatusText");
+        const pulseBtn = document.getElementById("livePulseTargetBtn");
+        if (pulseBar) pulseBar.hidden = false;
+        if (pulseTxt) {
+          pulseTxt.textContent = measured
+            ? `실시간 감지 활성 · #${seq}${deltaSuffix} · DB ${latTxt} · 리소스 ${fmtNum(resTotal)}개 · 인시던트 ${fmtNum(pulse.open_incidents)}건 · 승인 대기 ${fmtNum(pulse.hil_pending)}건`
+            : "실시간 PostgreSQL 감지 대기 (not-measured)";
+        }
+        if (pulseBtn) {
+          const shortTarget = String(target).length > 36 ? `${String(target).slice(0, 36)}...` : String(target);
+          pulseBtn.textContent = `최신 감지 대상 질문: ${shortTarget} →`;
+          pulseBtn.setAttribute("data-pulse-target", String(target));
+          pulseBtn.setAttribute("data-pulse-actor", String(actor));
+          pulseBtn.setAttribute("data-pulse-action", String(actionKind));
+          pulseBtn.setAttribute("data-pulse-seq", String(seq));
+        }
+
+        // 3. Update 5 live source readiness cards with live pulse telemetry
+        const readinessGrid = document.getElementById("readinessGrid");
+        if (readinessGrid && measured) {
+          const updates = {
+            "ontology-inventory": {
+              badge: `실시간 · ${fmtNum(resTotal)}개`,
+              meta: `실시간 감지 활성 · 리소스 ${fmtNum(resTotal)}개 · 워터마크 #${fmtNum(pulse.journal_watermark)} · DB ${latTxt}`
+            },
+            "audit-log": {
+              badge: `실시간 · #${seq}${deltaSuffix}`,
+              meta: `실시간 감지 활성 · 총 ${fmtNum(pulse.audit_total)}건 · 최신 #${seq} (${actor} / ${actionKind}) · DB ${latTxt}`
+            },
+            "hil-queue": {
+              badge: `진행 ${fmtNum(pulse.open_incidents)} · 승인 ${fmtNum(pulse.hil_pending)}`,
+              meta: `실시간 감지 활성 · 진행 중 인시던트 ${fmtNum(pulse.open_incidents)}건 · 승인 대기 ${fmtNum(pulse.hil_pending)}건`
+            },
+            "operating-rules": {
+              badge: `실측 정상 · DB ${latTxt}`,
+              meta: `실시간 감지 활성 · 정책 규칙 평가 경계 정상 · DB 응답 ${latTxt}`
+            },
+            "knowledge-docs": {
+              badge: `감지 tick #${tick}`,
+              meta: `실시간 감지 활성 · 최신 감지 대상: ${target} · DB 응답 ${latTxt}`
+            }
+          };
+          Object.entries(updates).forEach(([keyId, info]) => {
+            const row = readinessGrid.querySelector(`[data-source-key="${keyId}"]`);
+            const badge = row?.querySelector("[data-readiness-badge]");
+            if (!row || !badge) return;
+            row.classList.remove("is-unavailable");
+            badge.className = "cs-badge tone-live";
+            badge.innerHTML = `<span class="cs-dot"></span>${escHtml(info.badge)}`;
+            row.setAttribute("data-ut-meta", info.meta);
+          });
+        }
+
+        // 4. Keep right inspector trace seq in sync
+        const traceEl = document.getElementById("chatInspTraceId");
+        if (traceEl && measured && seq) {
+          traceEl.textContent = `#${seq}${deltaSuffix} · DB ${latTxt}`;
+        }
+      }
+
+      async function hydrateChatRuntime() {
+        const statusBadge = document.getElementById("chatSseStatusBadge");
+        const statusLabel = document.getElementById("chatSseStatusLabel");
+        const readinessSummary = document.getElementById("readinessSummaryBadge");
+        const readinessGrid = document.getElementById("readinessGrid");
+
+        try {
+          const ctxUrl = isLiveMode()
+            ? "/api/v4/chat/context?panel=command-deck-chat"
+            : `/api/v4/chat/context?panel=command-deck-chat&node=${encodeURIComponent(selectedLineageNode)}`;
+          const [healthResp, ctxResp] = await Promise.all([
+            fetch("/api/v4/chat/health", { headers: { Accept: "application/json" } }),
+            fetch(ctxUrl, { headers: { Accept: "application/json" } })
+          ]);
+          await syncSessionsFromApi("all", "");
+
+          if (healthResp.ok) {
+            const health = await healthResp.json();
+            const ms = health.measurement_status || health.measurement_state;
+            const isMeasured = ms === "measured";
+            const isPg = health.source === "postgres-direct";
+            if (statusBadge && statusLabel && !latestPulsePayload) {
+              statusBadge.className = isMeasured ? "cs-badge tone-live" : "cs-badge tone-human";
+              statusLabel.textContent = isMeasured
+                ? isPg
+                  ? `실시간 감지 대기 · #${health.latest_audit_seq || 0} · 리소스 ${fmtNum(health.counts?.ontology_resources)}개`
+                  : "SSE 실측 연동 (operator-service)"
+                : "SSE 준비됨 (오프라인 · not-measured)";
+              statusBadge.setAttribute("data-ut-val", isMeasured ? "measured" : "not-measured");
+              if (isPg && health.counts) {
+                statusBadge.setAttribute(
+                  "data-ut-meta",
+                  `postgres-direct · 리소스 ${health.counts.ontology_resources}건 · 감사 ${health.counts.audit_log}건 · 인시던트 ${health.counts.incident_projections}건`
+                );
+              }
+            }
+          }
+
+          if (ctxResp.ok && readinessGrid) {
+            const ctx = await ctxResp.json();
+            const ms = ctx.measurement_status || ctx.measurement_state;
+            const isMeasured = ms === "measured";
+            const isPg = ctx.source === "postgres-direct";
+            if (isLiveMode()) {
+              applyLiveChatSurface(ctx);
+            }
+            if (readinessSummary) {
+              const srcs = Array.isArray(ctx.sources) ? ctx.sources : [];
+              const okCount = srcs.filter((s) => s.state === "connected").length;
+              readinessSummary.className = isMeasured ? "cs-badge tone-live" : "cs-badge tone-human";
+              readinessSummary.innerHTML = isMeasured
+                ? isPg
+                  ? `<span class="cs-dot"></span>PostgreSQL 실측 (${okCount} / ${srcs.length})`
+                  : `<span class="cs-dot"></span>실측 연결됨`
+                : `<span class="cs-dot"></span>오프라인 · not-measured`;
+            }
+            if (Array.isArray(ctx.sources)) {
+              ctx.sources.forEach((src) => {
+                const row = readinessGrid.querySelector(`[data-source-key="${src.id}"]`);
+                const badge = row?.querySelector("[data-readiness-badge]");
+                if (!row || !badge) return;
+                if (src.state === "unavailable") {
+                  row.classList.add("is-unavailable");
+                  badge.className = "cs-badge tone-sec";
+                  badge.innerHTML = `<span class="cs-dot"></span>데이터 없음 (미수집)`;
+                } else if (src.state === "not-measured") {
+                  row.classList.remove("is-unavailable");
+                  badge.className = "cs-badge tone-human";
+                  badge.innerHTML = `<span class="cs-dot"></span>미측정 (not-measured)`;
+                } else {
+                  row.classList.remove("is-unavailable");
+                  badge.className = "cs-badge tone-live";
+                  badge.innerHTML = `<span class="cs-dot"></span>실측 정상`;
+                }
+                row.setAttribute("data-ut-meta", src.detail || src.state);
+              });
+            }
+            hydrateInspectorContext(ctx);
+            if (latestPulsePayload && isLiveMode()) {
+              applyLivePulse(latestPulsePayload, true);
+            }
+          } else {
+            markReadinessAllNotMeasured();
+          }
+          window.fdaiTip?.enhance?.(document.getElementById("fdaiMain") || document.body);
+        } catch (_err) {
+          if (statusLabel) statusLabel.textContent = "SSE 대기 (not-measured)";
+          markReadinessAllNotMeasured();
+        }
+      }
+
+      function wireGlobalSidebarSseBridge() {
+        const aside = document.getElementById("fdaiChatSidebar");
+        if (!aside) return;
+
+        ensureRightInspectorTabs();
+
+        // Accessibility: live region semantics for streamed replies
+        const transcriptInner = document.getElementById("chatTranscriptInner");
+        if (transcriptInner) {
+          transcriptInner.setAttribute("role", "log");
+          transcriptInner.setAttribute("aria-live", "polite");
+          transcriptInner.setAttribute("aria-relevant", "additions text");
+        }
+
+        // Client input length guard matching server MAX_PROMPT_CHARS (4096)
+        const chatInput = document.getElementById("chatInput");
+        if (chatInput) {
+          chatInput.setAttribute("maxlength", String(MAX_PROMPT_CHARS));
+        }
+
+        // Ancestor capture-phase sync on #fdaiChatSidebar for history filter & search
+        // fires strictly BEFORE target listeners in fdai-console-shell.js so live PostgreSQL
+        // sessions are never overwritten by static shell mock threads.
+        const histSearch = document.getElementById("chatHistorySearch");
+        let activeHistFilter = "all";
+        aside.addEventListener(
+          "input",
+          (ev) => {
+            const target = ev.target instanceof Element ? ev.target : null;
+            if (!target || target.id !== "chatHistorySearch") return;
+            ev.stopPropagation();
+            const qVal = histSearch?.value || "";
+            if (allLiveSessionsCache.length > 0) {
+              renderLiveHistoryList(
+                filterCachedSessions(allLiveSessionsCache, activeHistFilter, qVal),
+                allLiveSessionsMeta
+              );
+            }
+            if (sessionSearchTimer) window.clearTimeout(sessionSearchTimer);
+            sessionSearchTimer = window.setTimeout(() => {
+              syncSessionsFromApi(activeHistFilter, histSearch?.value || "");
+            }, 100);
+          },
+          { capture: true }
+        );
+        aside.addEventListener(
+          "click",
+          (ev) => {
+            const target = ev.target instanceof Element ? ev.target : null;
+            const filterBtn = target?.closest("[data-hist-filter]");
+            if (!filterBtn) return;
+            ev.preventDefault();
+            ev.stopPropagation();
+            activeHistFilter = filterBtn.getAttribute("data-hist-filter") || "all";
+            aside.querySelectorAll("[data-hist-filter]").forEach((b) => {
+              b.classList.toggle("is-active", b === filterBtn);
+            });
+            syncSessionsFromApi(activeHistFilter, histSearch?.value || "");
+          },
+          { capture: true }
+        );
+        aside.addEventListener(
+          "click",
+          (ev) => {
+            const target = ev.target instanceof Element ? ev.target : null;
+            const newBtn = target?.closest("#chatNewBtn");
+            if (!newBtn || !isLiveMode()) return;
+            ev.preventDefault();
+            ev.stopPropagation();
+            activeLiveSessionId = null;
+            const inner = document.getElementById("chatTranscriptInner");
+            if (inner) {
+              inner.innerHTML =
+                `<div class="chat-turn-agent">` +
+                  `<div class="chat-turn-meta">` +
+                    `<strong>Bragi · 새 대화</strong>` +
+                    `<span class="cs-badge tone-live"><span class="cs-dot"></span>${escHtml(activeContextLabel)}</span>` +
+                  `</div>` +
+                  `<div class="agent-prose">` +
+                    `<p><strong>${escHtml(activeContextLabel)}</strong> 기준으로 새 대화를 시작했습니다. 아래 추천 질문을 누르거나 직접 입력하세요.</p>` +
+                  `</div>` +
+                  `<div class="chat-followups">` +
+                    `<button type="button" class="signal-chip" data-quick-ask="/risks 현재 DB 인시던트 및 리스크 우선순위 요약">시급한 인시던트·리스크 요약</button>` +
+                    `<button type="button" class="signal-chip" data-quick-ask="/approvals 7대 안전장치 승인 경계 점검">7대 안전장치 승인 경계 확인</button>` +
+                    `<button type="button" class="signal-chip" data-quick-ask="/trace 최신 감사 원장 해시 검증">최신 감사 원장 검증</button>` +
+                  `</div>` +
+                `</div>`;
+            }
+            if (allLiveSessionsCache.length > 0) {
+              renderLiveHistoryList(
+                filterCachedSessions(allLiveSessionsCache, activeHistFilter, histSearch?.value || ""),
+                allLiveSessionsMeta
+              );
+            }
+            document.getElementById("chatInput")?.focus();
+          },
+          { capture: true }
+        );
+
+        // Intercept global shell mock submit in ancestor capture phase and route through Pure-Rust SSE
+        aside.addEventListener(
+          "submit",
+          (ev) => {
+            const target = ev.target instanceof Element ? ev.target : null;
+            if (!target || target.id !== "chatForm") return;
+            ev.preventDefault();
+            ev.stopPropagation();
+            const slashPop = document.getElementById("chatSlashPopover");
+            if (slashPop) slashPop.hidden = true;
+            const input = document.getElementById("chatInput");
+            const text = (input?.value || "").trim();
+            if (!text) return;
+            if (input) input.value = "";
+            dispatchChatStream(text, { context: activeContextLabel, node: selectedLineageNode });
+          },
+          { capture: true }
+        );
+
+        // Intercept stop button so AbortController stops real SSE stream immediately
+        document.getElementById("chatStopBtn")?.addEventListener(
+          "click",
+          () => {
+            queuedPrompts.length = 0;
+            syncQueueIndicator();
+            if (activeAbortController) {
+              activeAbortController.abort();
+            }
+          },
+          { capture: true }
+        );
+
+        // Intercept slash suggestions & follow-up quick-ask chips inside sidebar
+        aside.addEventListener(
+          "click",
+          (ev) => {
+            const target = ev.target instanceof Element ? ev.target : null;
+            if (!target) return;
+            const pick = target.closest("[data-slash-pick]");
+            if (pick) {
+              ev.preventDefault();
+              ev.stopImmediatePropagation();
+              const slashPop = document.getElementById("chatSlashPopover");
+              if (slashPop) slashPop.hidden = true;
+              const inp = document.getElementById("chatInput");
+              if (inp) inp.value = "";
+              dispatchChatStream(pick.getAttribute("data-slash-pick") || "");
+              return;
+            }
+            const slashCmd = target.closest("[data-slash-cmd]");
+            if (slashCmd) {
+              ev.preventDefault();
+              ev.stopImmediatePropagation();
+              const cmd = slashCmd.getAttribute("data-slash-cmd") || "";
+              dispatchChatStream(`${cmd} - ${activeContextLabel} 기준 조회`);
+              return;
+            }
+            const quick = target.closest("[data-quick-ask], [data-starter-prompt]");
+            if (quick) {
+              ev.preventDefault();
+              ev.stopImmediatePropagation();
+              const prompt =
+                quick.getAttribute("data-quick-ask") ||
+                quick.getAttribute("data-starter-prompt") ||
+                "";
+              dispatchChatStream(prompt);
+            }
+          },
+          { capture: true }
+        );
+      }
+
+      // Abort any active SSE fetch on page navigation to prevent connection leaks
+      const abortActiveStreams = () => {
+        queuedPrompts.length = 0;
+        if (activeAbortController) {
+          activeAbortController.abort();
+          activeAbortController = null;
+        }
+      };
+      window.addEventListener("pagehide", abortActiveStreams);
+      window.addEventListener("beforeunload", abortActiveStreams);
+
+      function wireShowcaseDynamicHandlers() {
+        const scrollBehavior = () => (preferReducedMotion() ? "auto" : "smooth");
+
+        // Busy mode demo button inside live steps panel (Queue / Steer sync + visible feedback)
+        document.getElementById("demoBusyApplyBtn")?.addEventListener("click", () => {
+          const sel = document.getElementById("demoBusyModeSelect");
+          const modeVal = sel && sel.value === "steer" ? "steer" : "queue";
+          const modeLabel = modeVal === "steer" ? "방향 조정(Steer)" : "대기 등록(Queue)";
+          const sidebarBusySel = document.getElementById("chatBusyMode");
+          if (sidebarBusySel) sidebarBusySel.value = modeVal;
+          const fb = document.getElementById("demoBusyFeedback");
+          if (fb) {
+            fb.textContent = `${modeLabel} 적용됨`;
+            fb.hidden = false;
+          }
+          dispatchChatStream(`[${modeLabel} 시연] 롤백 조건 7항목을 실측 근거 출처와 함께 정리해 줘.`, {
+            busyMode: modeVal
+          });
+        });
+
+        // Mobile 3-segment tab switcher & pick-thread buttons
+        document.getElementById("closeMobilePreviewBtn")?.addEventListener("click", () => {
+          const mobileCard = document.getElementById("mobileSheetPreview");
+          const mobileBtn = document.getElementById("toggleMobilePreviewBtn");
+          if (mobileCard) mobileCard.hidden = true;
+          if (mobileBtn) mobileBtn.setAttribute("aria-expanded", "false");
+        });
+        document.querySelectorAll("[data-mobile-tab]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const tab = btn.getAttribute("data-mobile-tab");
+            document.querySelectorAll("[data-mobile-tab]").forEach((b) => {
+              const on = b === btn;
+              b.classList.toggle("is-active", on);
+              b.setAttribute("aria-selected", String(on));
+            });
+            document.querySelectorAll("[data-mobile-pane]").forEach((p) => {
+              p.hidden = p.getAttribute("data-mobile-pane") !== tab;
+            });
+          });
+        });
+        document.querySelectorAll("[data-mobile-pick-thread]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const prompt = btn.getAttribute("data-mobile-pick-thread") || "";
+            document.querySelector('[data-mobile-tab="chat"]')?.click();
+            dispatchChatStream(prompt);
+          });
+        });
+        document.getElementById("mobilePreviewForm")?.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const inp = document.getElementById("mobilePreviewInput");
+          const text = (inp?.value || "").trim();
+          if (!text) return;
+          inp.value = "";
+          dispatchChatStream(text);
+        });
+
+        // 3. Scenario Quick-Run Cards (4 scenarios -> live POST /api/v4/chat/stream)
+        const scenarioCards = Array.from(document.querySelectorAll("[data-scenario-id]"));
+        scenarioCards.forEach((card) => {
+          card.addEventListener("click", () => {
+            scenarioCards.forEach((c) => c.classList.toggle("is-active", c === card));
+            dispatchChatStream(card.getAttribute("data-scenario-prompt") || "", {
+              context: card.getAttribute("data-scenario-context") || "AI 채팅",
+              summary: card.getAttribute("data-scenario-summary") || "",
+              node: card.getAttribute("data-scenario-node") || selectedLineageNode
+            });
+          });
+        });
+
+        // 4. Inline Lineage Node selection & Chat query (with aria-pressed sync)
+        const lineageNodes = Array.from(document.querySelectorAll("[data-lnode-name]"));
+        const lineageSummary = document.getElementById("lineageSelectedSummary");
+        lineageNodes.forEach((btn) => {
+          btn.addEventListener("click", () => {
+            lineageNodes.forEach((n) => {
+              const on = n === btn;
+              n.classList.toggle("is-selected", on);
+              n.setAttribute("aria-pressed", String(on));
+            });
+            const name = btn.getAttribute("data-lnode-name") || "";
+            const info = btn.getAttribute("data-lnode-info") || "";
+            selectedLineageNode = name;
+            activeContextLabel = `온톨로지 · ${name}`;
+            if (lineageSummary) {
+              lineageSummary.innerHTML = `<strong>${escHtml(name)}:</strong> ${escHtml(info)}`;
+            }
+          });
+        });
+        document.getElementById("askSelectedNodeBtn")?.addEventListener("click", () => {
+          dispatchChatStream(
+            `온톨로지 계통에서 선택한 ${selectedLineageNode} 리소스의 현재 관측 상태와 연관 영향 범위를 알려줘.`,
+            {
+              context: `온톨로지 · ${selectedLineageNode}`,
+              node: selectedLineageNode
+            }
+          );
+        });
+
+        // 5. Inline Citation Chips -> open sources <details> and highlight row
+        document.querySelectorAll("[data-cite]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const num = btn.getAttribute("data-cite");
+            const details = document.getElementById("showcaseSourcesDetails");
+            if (!details) return;
+            details.open = true;
+            details.querySelectorAll("[data-source-id]").forEach((row) => {
+              row.classList.toggle("is-highlighted", row.getAttribute("data-source-id") === num);
+            });
+            details.scrollIntoView({ behavior: scrollBehavior(), block: "nearest" });
+          });
+        });
+
+        // 6. Proposal Draft Submit / Cancel (Read-Only safe transition)
+        const submitProposalBtn = document.getElementById("submitProposalBtn");
+        const cancelProposalBtn = document.getElementById("cancelProposalBtn");
+        const proposalBadge = document.getElementById("proposalStateBadge");
+        submitProposalBtn?.addEventListener("click", () => {
+          if (proposalBadge) {
+            const incLabel = isLiveMode()
+              ? (latestContextPayload?.incidents?.[0]?.incident_number || "실측 초안")
+              : "샘플 초안";
+            proposalBadge.className = "cs-badge tone-live";
+            proposalBadge.innerHTML = `<span class="cs-dot"></span>검토 초안(${escHtml(incLabel)}) 확인 완료 · 직접 실행 안 함`;
+            proposalBadge.hidden = false;
+          }
+        });
+        cancelProposalBtn?.addEventListener("click", () => {
+          if (proposalBadge) {
+            proposalBadge.className = "cs-badge tone-neutral";
+            proposalBadge.innerHTML = '<span class="cs-dot"></span>제안 초안 취소됨';
+            proposalBadge.hidden = false;
+          }
+        });
+
+        // 7. Copy & Re-ask buttons on showcase reply
+        const copyBtn = document.getElementById("copyShowcaseReplyBtn");
+        copyBtn?.addEventListener("click", () => {
+          const text = document.getElementById("showcaseAgentProse")?.textContent?.trim() || "";
+          copyTextWithFeedback(text, copyBtn, "답변 복사");
+        });
+        document.getElementById("reaskShowcaseReplyBtn")?.addEventListener("click", () => {
+          dispatchChatStream(
+            `${selectedLineageNode} 리소스의 온톨로지 계통과 최신 감사 이력 근거를 다시 점검해 줘.`,
+            {
+              context: activeContextLabel,
+              node: selectedLineageNode
+            }
+          );
+        });
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        captureSampleSnapshots();
+        wireGlobalSidebarSseBridge();
+        if (isLiveMode()) {
+          applyLiveLoadingPlaceholders();
+        }
+        wireShowcaseDynamicHandlers();
+        hydrateChatRuntime();
+
+        const scrollBehavior = () => (preferReducedMotion() ? "auto" : "smooth");
+
+        // Live Pulse one-click target question chip
+        document.getElementById("livePulseTargetBtn")?.addEventListener("click", (ev) => {
+          const btn = ev.currentTarget;
+          const target = btn?.getAttribute("data-pulse-target") || selectedLineageNode;
+          const actor = btn?.getAttribute("data-pulse-actor") || "fdai.measurement";
+          const action = btn?.getAttribute("data-pulse-action") || "audit.record";
+          const seq = btn?.getAttribute("data-pulse-seq") || "";
+          dispatchChatStream(
+            `실시간 감지된 최신 대상(${target}, 원장 #${seq}, ${actor} · ${action})의 온톨로지 계통과 감사 근거를 요약해 줘.`,
+            {
+              context: `실시간 감지 · ${target}`,
+              node: target
+            }
+          );
+        });
+
+        // Subscribe to global 4s /api/v4/live/pulse CustomEvent & fdaiV4Live.onPulse
+        window.addEventListener("fdai:live-pulse", (ev) => {
+          applyLivePulse(ev.detail, false);
+        });
+        if (window.fdaiV4Live && typeof window.fdaiV4Live.onPulse === "function") {
+          window.fdaiV4Live.onPulse((payload) => applyLivePulse(payload, false));
+        }
+
+        // React to Live / Sample mode toggle cleanly
+        document.addEventListener("click", (ev) => {
+          const modeBtn = ev.target instanceof Element ? ev.target.closest("[data-data-mode]") : null;
+          if (!modeBtn) return;
+          const mode = modeBtn.getAttribute("data-data-mode");
+          window.setTimeout(() => {
+            if (mode === "sample") {
+              restoreSampleSurface();
+            } else {
+              if (latestContextPayload) {
+                applyLiveChatSurface(latestContextPayload);
+              } else {
+                applyLiveLoadingPlaceholders();
+                hydrateChatRuntime();
+              }
+              if (latestPulsePayload) {
+                applyLivePulse(latestPulsePayload, true);
+              }
+            }
+          }, 20);
+        });
+
+        // 1. Top action: Live 3-step SSE demo
+        document.getElementById("runLiveStepsBtn")?.addEventListener("click", () => {
+          const panel = document.getElementById("liveStepsPanel");
+          if (panel) {
+            panel.hidden = false;
+            panel.querySelectorAll(".live-step-item").forEach((li, i) => {
+              li.classList.remove("is-active", "is-done");
+              const st = li.querySelector(`[data-step-state="${i}"]`);
+              if (st) st.textContent = "대기";
+            });
+            panel.scrollIntoView({ behavior: scrollBehavior(), block: "nearest" });
+          }
+          dispatchChatStream(
+            `라이브 3단계 근거 확인 시연: ${selectedLineageNode} 리소스 계통과 최신 감사 원장 근거를 단계별로 검증해 줘.`,
+            {
+              context: activeContextLabel,
+              node: selectedLineageNode,
+              syncLiveSteps: true
+            }
+          );
+        });
+
+        // 2. Top action: Mobile Sheet Preview toggle + Escape layered close
+        const mobileBtn = document.getElementById("toggleMobilePreviewBtn");
+        const mobileCard = document.getElementById("mobileSheetPreview");
+        const setMobileOpen = (open) => {
+          if (!mobileCard || !mobileBtn) return;
+          mobileCard.hidden = !open;
+          mobileBtn.setAttribute("aria-expanded", String(open));
+          if (open) mobileCard.scrollIntoView({ behavior: scrollBehavior(), block: "nearest" });
+        };
+        mobileBtn?.addEventListener("click", () => setMobileOpen(mobileCard?.hidden ?? true));
+        window.addEventListener("keydown", (ev) => {
+          if (ev.key === "Escape" && mobileCard && !mobileCard.hidden) {
+            setMobileOpen(false);
+          }
+        });
+
+        // 8. Interactive Shortcut Rows
+        document.getElementById("shortcutQuickJump")?.addEventListener("click", () => {
+          document.getElementById("fdaiQuickJumpBtn")?.click();
+        });
+        document.getElementById("shortcutToggleChat")?.addEventListener("click", () => {
+          document.getElementById("fdaiChatTrigger")?.click();
+        });
+        document.getElementById("shortcutSlashCmd")?.addEventListener("click", () => {
+          ensureChatSidebarOpen();
+          const input = document.getElementById("chatInput");
+          if (input) {
+            input.value = "/";
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+            input.focus();
+          }
+        });
+
+        window.fdaiTip?.enhance?.(document);
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,2485 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FDAI Console - 개발 전용 실험실 (Labs)</title>
+  <link rel="stylesheet" href="/assets/fdai-console-shared.css">
+  <style>
+    /* Labs domain-scoped styles - shared CSS tokens only, >= 12px, 0 colored left/top bars */
+    .sl-scope-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--cs-hairline);
+    }
+    .sl-scope-bar a.seg-btn {
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .sl-lab-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      padding: 4px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius);
+      background: var(--cs-card);
+    }
+    .sl-lab-tabs[hidden] { display: none; }
+    .sl-lab-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 32px;
+      padding: 5px 12px;
+      border: 1px solid transparent;
+      border-radius: var(--cs-radius-sm);
+      background: transparent;
+      color: var(--cs-text-soft);
+      font-family: var(--cs-font);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .sl-lab-tab:hover { color: var(--cs-text); background: var(--cs-bg); }
+    .sl-lab-tab.is-active {
+      background: var(--cs-shade);
+      border-color: var(--cs-hairline);
+      color: var(--cs-text);
+      font-weight: 600;
+    }
+    .sl-lab-tab:focus-visible,
+    .sl-launcher-card:focus-visible,
+    .sl-hm-btn:focus-visible,
+    .sl-topo-node:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--cs-focus-ring);
+    }
+    .sl-venue-strip {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 14px;
+      padding: 10px 14px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      font-size: 13px;
+      color: var(--cs-text);
+    }
+    .sl-venue-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .sl-venue-item span { color: var(--cs-text-soft); }
+    .sl-iso-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px 12px;
+      padding: 10px 14px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius);
+      background: var(--cs-card);
+      font-size: 13px;
+    }
+    .sl-iso-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .sl-launcher-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .sl-launcher-card {
+      width: 100%;
+      text-align: left;
+      padding: 16px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius);
+      background: var(--cs-card);
+      color: var(--cs-text);
+      font-family: var(--cs-font);
+      display: grid;
+      gap: 10px;
+      align-content: start;
+      cursor: pointer;
+      transition: border-color 140ms ease, box-shadow 140ms ease;
+    }
+    .sl-launcher-card:hover { border-color: var(--sig-live); box-shadow: var(--cs-shadow); }
+    .sl-launcher-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .sl-icon-pair { display: inline-flex; align-items: center; gap: 8px; }
+    .sl-az-ico { width: 22px; height: 22px; object-fit: contain; flex: 0 0 auto; }
+    .sl-topo-flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; align-items: stretch; }
+    .sl-topo-node {
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius);
+      background: var(--cs-bg);
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+      align-content: start;
+      cursor: pointer;
+      text-align: left;
+      font-family: var(--cs-font);
+      color: var(--cs-text);
+      transition: border-color 140ms ease, background-color 140ms ease;
+    }
+    .sl-topo-node:hover { border-color: var(--sig-live); }
+    .sl-topo-node.is-warn { border-color: var(--sig-sre); background: color-mix(in srgb, var(--sig-sre) 7%, var(--cs-card)); }
+    .sl-topo-node.is-err { border-color: var(--sig-sec); background: color-mix(in srgb, var(--sig-sec) 8%, var(--cs-card)); }
+    .sl-step-bar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .sl-slo-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .sl-slo-box {
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      padding: 11px 13px;
+      display: grid;
+      gap: 6px;
+      font-size: 13px;
+    }
+    .sl-slo-box.is-unmeasured { border-style: dashed; }
+    .sl-2col-cards { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+    .sl-hm-btn {
+      width: 100%;
+      height: 26px;
+      padding: 0;
+      border-radius: 4px;
+      border: 1px solid var(--cs-hairline-soft);
+      cursor: pointer;
+    }
+    .sl-hm-btn.is-selected { border-color: var(--cs-text); box-shadow: 0 0 0 2px var(--cs-focus-ring); }
+    .sl-hm-unmeasured { background: var(--cs-bg); border-style: dashed; border-color: var(--cs-hairline); }
+    .sl-cal-svg { width: 100%; height: auto; display: block; }
+    .sl-cal-svg text { font-family: var(--cs-font); font-size: 12px; fill: var(--cs-text-soft); }
+    .sl-ratio-list { display: grid; gap: 10px; }
+    .sl-ratio-row {
+      display: grid;
+      grid-template-columns: minmax(170px, 1.1fr) minmax(140px, 2fr) auto;
+      align-items: center;
+      gap: 10px 14px;
+      padding: 8px 10px;
+      border: 1px solid var(--cs-hairline-soft);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      font-size: 13px;
+    }
+    .sl-ratio-track { height: 10px; border-radius: 5px; background: var(--cs-shade); overflow: hidden; }
+    .sl-ratio-fill { height: 100%; border-radius: 5px; background: var(--sig-live); }
+    .sl-ratio-fill.is-sre { background: var(--sig-sre); }
+    .sl-ratio-fill.is-sec { background: var(--sig-sec); }
+    .sl-ratio-fill.is-neutral { background: var(--cs-text-soft); }
+    .sl-token-bar-wrap { display: grid; gap: 6px; margin-top: 4px; }
+    .sl-token-track { height: 10px; border-radius: 5px; background: var(--cs-shade); overflow: hidden; }
+    .sl-token-fill { height: 100%; border-radius: 5px; background: var(--sig-live); }
+    .sl-token-fill.is-base { background: var(--cs-text-soft); }
+    .sl-eval-split { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+    .sl-rubric-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--cs-hairline-soft);
+      font-size: 13px;
+    }
+    .sl-rubric-row:last-child { border-bottom: 0; }
+    .sl-dispute-log { display: grid; gap: 6px; margin-top: 4px; font-size: 12.5px; color: var(--cs-text-soft); }
+    .sl-dispute-item {
+      padding: 7px 10px;
+      border: 1px solid var(--cs-hairline-soft);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      color: var(--cs-text);
+    }
+    .sl-row-selected { background: var(--cs-bg); }
+    .sl-unmeasured-note {
+      border: 1px dashed var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      padding: 10px 12px;
+      font-size: 13px;
+      color: var(--cs-text-soft);
+    }
+    .sl-empty-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .sl-empty-bar[hidden] { display: none; }
+    .sl-live-boundary-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 12px;
+      color: var(--cs-text);
+    }
+    .sl-live-boundary-bar[hidden] { display: none; }
+    .sl-live-boundary-bar.is-pulse-beat #slLivePulseBadge {
+      box-shadow: 0 0 0 2px var(--cs-focus-ring);
+    }
+    @container (max-width: 1020px) {
+      .sl-launcher-grid, .sl-topo-flow, .sl-slo-grid, .sl-step-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .sl-eval-split, .sl-2col-cards { grid-template-columns: minmax(0, 1fr); }
+    }
+    @container (max-width: 640px) {
+      .sl-launcher-grid, .sl-topo-flow, .sl-slo-grid, .sl-step-bar { grid-template-columns: minmax(0, 1fr); }
+      .sl-ratio-row { grid-template-columns: minmax(0, 1fr); }
+    }
+  </style>
+</head>
+<body data-domain="settings_labs" data-domain-label="개발 전용 실험실" data-open-chat-default="false">
+  <div id="fdaiShellRoot" class="console-app">
+    <header id="fdaiTopbar" class="topbar" role="banner"></header>
+    <div class="workspace-frame">
+      <nav id="fdaiRail" class="icon-rail" aria-label="기본 탐색"></nav>
+      <aside id="fdaiExplorer" class="nav-explorer" aria-label="전체 메뉴 탐색" hidden></aside>
+      <main id="fdaiMain" class="main-canvas">
+        <div class="content-wrap">
+          <header class="page-head">
+            <div class="page-head-copy">
+              <h2 class="page-breadcrumb">
+                <button type="button" class="breadcrumb-trigger" data-toggle-explorer>개발 전용 실험실</button>
+                <span class="breadcrumb-sep" aria-hidden="true">/</span>
+                <span id="activePanelTitle">실험실 개요</span>
+              </h2>
+              <p class="page-subtitle" id="activePanelSubtitle">개발 전용 격리 검증 워크스페이스 - 5개 특화 실험 모듈 런처</p>
+            </div>
+            <div class="page-head-actions">
+              <span class="cs-badge tone-neutral" id="slLiveStatusBadge" data-ut-title="Pure-Rust Labs API 측정 상태" data-ut-body="상위 operator-service 수집 응답에 따라 measured 또는 not-measured를 정직하게 표시합니다 (0 대체 금지)." data-ut-tone="neutral"><span class="cs-dot"></span>Live API 점검 중...</span>
+              <button type="button" class="cs-btn cs-btn-sm" id="slLabsRefreshBtn" data-ut-title="실험실 API 재조회" data-ut-body="현재 활성 실험실 패널의 /api/v4/labs/* 엔드포인트를 다시 조회합니다." data-ut-tone="auto">새로고침 ↻</button>
+              <button type="button" class="cs-btn cs-btn-accent" data-open-chat-context>이 화면 질문하기</button>
+            </div>
+          </header>
+
+          <div class="sample-boundary-bar" id="sampleBoundaryBar" role="note" hidden>
+            <span class="cs-badge tone-human"><span class="cs-dot"></span>Sample 모드</span>
+            <span>현재 시뮬레이션 표본 데이터를 표시 중입니다. 운영 근거 링크는 Live 원장을 기준으로 열리며 샘플 값을 입증하지 않습니다.</span>
+          </div>
+
+          <div class="sl-live-boundary-bar" id="slLiveBoundaryBar" role="status" aria-live="polite" data-pulse-status="connecting" data-pulse-tick="0">
+            <span class="cs-badge tone-live" id="slLivePulseBadge"><span class="cs-dot"></span>실시간 감지</span>
+            <span id="slLivePulseText">실시간 감지 · 연결 중 · 샌드박스 격리 유지</span>
+            <span class="cell-mono cell-muted" id="slLivePulseMeta" style="margin-left:auto;font-size:12px">lab-sandbox · 운영 승격 분리 · 변이 0건</span>
+          </div>
+
+          <div class="sl-scope-bar">
+            <div class="seg-group" role="tablist" aria-label="설정 및 실험실 영역 전환">
+              <a class="seg-btn" href="/settings" role="tab" aria-selected="false">운영 설정 (8)</a>
+              <button type="button" role="tab" class="seg-btn is-active" aria-selected="true" data-lab-tab="labs">개발 전용 실험실 (6)</button>
+            </div>
+            <span id="slScopeHint" class="cell-muted" style="font-size:12.5px">개발 전용 격리 실험실(lab-sandbox) - 프로덕션 운영 구독과 완전 분리되어 있습니다.</span>
+          </div>
+
+          <nav class="sl-lab-tabs" id="slLabTabs" role="tablist" aria-label="개발 전용 실험실 메뉴">
+            <button type="button" role="tab" tabindex="0" class="sl-lab-tab is-active" aria-selected="true" data-lab-tab="labs">실험실 개요</button>
+            <button type="button" role="tab" tabindex="-1" class="sl-lab-tab" aria-selected="false" data-lab-tab="aks-commerce">AKS 데모 환경</button>
+            <button type="button" role="tab" tabindex="-1" class="sl-lab-tab" aria-selected="false" data-lab-tab="assurance-twin">사전 검증 시뮬레이션</button>
+            <button type="button" role="tab" tabindex="-1" class="sl-lab-tab" aria-selected="false" data-lab-tab="forecast-learning">예측 모델 학습</button>
+            <button type="button" role="tab" tabindex="-1" class="sl-lab-tab" aria-selected="false" data-lab-tab="conversation-assurance">대화 품질 점검</button>
+            <button type="button" role="tab" tabindex="-1" class="sl-lab-tab" aria-selected="false" data-lab-tab="context-selection-comparisons">참조 정보 비교</button>
+          </nav>
+
+          <!-- 1. labs (Default active panel on /labs) -->
+          <section class="panel-view" data-panel-id="labs" data-hub-root="labs" data-panel-title="실험실 개요" data-panel-summary="개발 전용 격리 검증 워크스페이스 - 5개 특화 실험 모듈 런처">
+            <div class="sl-iso-bar" role="note">
+              <div class="sl-iso-chips">
+                <span class="cs-badge tone-neutral"><span class="cs-dot"></span>개발 전용 실험실</span>
+                <span class="cs-badge tone-live"><span class="cs-dot"></span>격리 범위: lab-sandbox</span>
+                <span class="cs-badge tone-live"><span class="cs-dot"></span>운영 구독 연결: 차단됨</span>
+                <span class="cs-badge tone-live"><span class="cs-dot"></span>실행 부작용: 0건</span>
+              </div>
+              <span class="cell-muted" style="font-size:12.5px">프로덕션 리소스 변경 권한 = 0</span>
+            </div>
+            <section class="surface-card">
+              <div class="card-head">
+                <div>
+                  <h3 class="card-title">개발 전용 실험 모듈 런처 (5개)</h3>
+                  <p class="card-desc">각 카드를 클릭하면 격리된 전용 테스트 워크벤치(`lab-sandbox`)로 바로 이동합니다.</p>
+                </div>
+                <span class="cs-badge tone-neutral" id="slLauncherCountBadge">5개 모듈 준비됨</span>
+              </div>
+              <div class="sl-launcher-grid">
+                <button type="button" class="sl-launcher-card" data-sl-nav="aks-commerce" data-ut-title="AKS 데모 환경 · 카오스 리허설" data-ut-val="복구 19초" data-ut-body="주문·결제·재고 AKS 샘플 토폴로지에서 사전검증→격리주입→즉시롤백 3단계 카오스를 실행합니다." data-ut-meta="API: /api/v4/labs/aks-commerce · lab-sandbox" data-ut-tone="live">
+                  <div class="sl-launcher-head">
+                    <span class="sl-icon-pair"><img class="sl-az-ico" src="/azure-icons/kubernetes-services.svg" alt=""><img class="agent-ico" src="/agent-icons/loki.svg" alt=""><strong>AKS 데모 환경</strong></span>
+                    <span class="cs-badge tone-live">격리 정상</span>
+                  </div>
+                  <div class="wb-item-sub">주문·결제·재고 AKS 샘플 토폴로지에서 3단계(사전검증→주입→롤백) 카오스 대응을 리허설합니다.</div>
+                  <div class="insp-kv"><span>최근 리허설</span><strong>복구 19초 · 100%</strong></div>
+                </button>
+                <button type="button" class="sl-launcher-card" data-sl-nav="assurance-twin" data-ut-title="사전 검증 시뮬레이션 · Assurance Twin" data-ut-val="일치율 97.2%" data-ut-body="온톨로지 스냅샷 복제본(Rev #4812) 위에서 정책·PR 변경의 Before/After Diff와 영향 리소스를 무부작용 검증합니다." data-ut-meta="API: /api/v4/labs/assurance-twin · lab-sandbox" data-ut-tone="human">
+                  <div class="sl-launcher-head">
+                    <span class="sl-icon-pair"><img class="sl-az-ico" src="/azure-icons/virtual-network.svg" alt=""><img class="agent-ico" src="/agent-icons/forseti.svg" alt=""><strong>사전 검증 시뮬레이션</strong></span>
+                    <span class="cs-badge tone-human">PR 4건</span>
+                  </div>
+                  <div class="wb-item-sub">온톨로지 스냅샷 복제본(Rev #4812) 위에서 정책·PR 변경의 Before/After Diff와 영향 리소스를 사전 점검합니다.</div>
+                  <div class="insp-kv"><span>일치율</span><strong>97.2% · 무부작용</strong></div>
+                </button>
+                <button type="button" class="sl-launcher-card" data-sl-nav="forecast-learning" data-ut-title="예측 모델 학습 · Calibration &amp; Heatmap" data-ut-val="ECE 0.031" data-ut-body="EWMA + 14일 주기 모델의 보정 곡선 SVG 크로스헤어와 요일·시간대 84셀 예측 오차 히트맵을 분석합니다." data-ut-meta="API: /api/v4/labs/forecast-learning · lab-sandbox" data-ut-tone="live">
+                  <div class="sl-launcher-head">
+                    <span class="sl-icon-pair"><img class="sl-az-ico" src="/azure-icons/monitor.svg" alt=""><img class="agent-ico" src="/agent-icons/freyr.svg" alt=""><strong>예측 모델 학습</strong></span>
+                    <span class="cs-badge tone-live">ECE 0.031</span>
+                  </div>
+                  <div class="wb-item-sub">EWMA + 14일 주기 모델의 보정 곡선과 요일·시간대별 예측 오차 히트맵을 점검합니다.</div>
+                  <div class="insp-kv"><span>선행 경보</span><strong>평균 +5.8분</strong></div>
+                </button>
+                <button type="button" class="sl-launcher-card" data-sl-nav="conversation-assurance" data-ut-title="대화 품질 점검 · 15-판테온 평가" data-ut-val="환각 0건" data-ut-body="120문항 이중언어(한국어/영어) 케이스의 근거 충실도, 하드 제로 안전 경계 및 이의 제기를 심사합니다." data-ut-meta="API: /api/v4/labs/conversation-assurance · lab-sandbox" data-ut-tone="live">
+                  <div class="sl-launcher-head">
+                    <span class="sl-icon-pair"><img class="agent-ico" src="/agent-icons/bragi.svg" alt=""><img class="agent-ico" src="/agent-icons/mimir.svg" alt=""><strong>대화 품질 점검</strong></span>
+                    <span class="cs-badge tone-live">환각 0건</span>
+                  </div>
+                  <div class="wb-item-sub">120문항 이중언어(한국어/영어) 케이스의 근거 충실도·안전 경계 통과율·이의 제기를 심사합니다.</div>
+                  <div class="insp-kv"><span>근거 충실도</span><strong>98.3% · 통과</strong></div>
+                </button>
+                <button type="button" class="sl-launcher-card" data-sl-nav="context-selection-comparisons" data-ut-title="참조 정보 비교 · A/B 정책 매트릭스" data-ut-val="토큰 -45.2%" data-ut-body="기준 정책(A) vs 온톨로지 2-Hop 후보(B)의 정확도·토큰·지연·고정 근거 보존을 나란히 비교합니다." data-ut-meta="API: /api/v4/labs/context-comparisons · lab-sandbox" data-ut-tone="live">
+                  <div class="sl-launcher-head">
+                    <span class="sl-icon-pair"><img class="sl-az-ico" src="/azure-icons/azure-openai.svg" alt=""><img class="agent-ico" src="/agent-icons/huginn.svg" alt=""><strong>참조 정보 비교</strong></span>
+                    <span class="cs-badge tone-live">토큰 -45%</span>
+                  </div>
+                  <div class="wb-item-sub">키워드/하이브리드(A) vs 온톨로지 2-Hop 우선(B) 정책의 정확도·토큰·지연·누락 관계를 나란히 비교합니다.</div>
+                  <div class="insp-kv"><span>누락 관계</span><strong>0건 (채택 후보)</strong></div>
+                </button>
+              </div>
+            </section>
+            <section class="surface-card">
+              <div class="card-head">
+                <div>
+                  <h3 class="card-title">최근 격리 실험 실행 스트림</h3>
+                  <p class="card-desc">모든 실험은 `lab-sandbox` 격리 경계에서만 실행되며, 행 클릭 시 해당 워크벤치로 이동합니다.</p>
+                </div>
+                <span class="cell-mono" id="slSummaryEndpointHint">/api/v4/labs/summary</span>
+              </div>
+              <div class="table-wrap">
+                <table class="cs-table" id="slRecentRunsTable">
+                  <thead>
+                    <tr>
+                      <th>실행 ID</th>
+                      <th>모듈</th>
+                      <th>격리 범위</th>
+                      <th>요약 결과</th>
+                      <th>부작용</th>
+                      <th>측정 상태</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr tabindex="0" data-sl-nav="aks-commerce" style="cursor:pointer">
+                      <td class="cell-mono cell-strong">lab-run-1126-01</td>
+                      <td>AKS 데모 환경</td>
+                      <td class="cell-mono">lab-sandbox</td>
+                      <td>Pod OOMKill 3단계 리허설 · 자동 복구 19초</td>
+                      <td class="cell-mono">0건</td>
+                      <td><span class="cs-badge tone-live"><span class="cs-dot"></span>통과</span></td>
+                    </tr>
+                    <tr tabindex="0" data-sl-nav="assurance-twin" style="cursor:pointer">
+                      <td class="cell-mono cell-strong">lab-run-1126-02</td>
+                      <td>사전 검증 시뮬레이션</td>
+                      <td class="cell-mono">lab-sandbox</td>
+                      <td>owner/infra#412 · 신규 탐지 2건 사전 경고 (Shadow)</td>
+                      <td class="cell-mono">0건</td>
+                      <td><span class="cs-badge tone-sre"><span class="cs-dot"></span>검토 필요</span></td>
+                    </tr>
+                    <tr tabindex="0" data-sl-nav="forecast-learning" style="cursor:pointer">
+                      <td class="cell-mono cell-strong">lab-run-1126-03</td>
+                      <td>예측 모델 학습</td>
+                      <td class="cell-mono">lab-sandbox</td>
+                      <td>14일 주기 보정 · ECE 0.031 · 종료 완전성 94.2%</td>
+                      <td class="cell-mono">0건</td>
+                      <td><span class="cs-badge tone-live"><span class="cs-dot"></span>양호</span></td>
+                    </tr>
+                    <tr tabindex="0" data-sl-nav="context-selection-comparisons" style="cursor:pointer">
+                      <td class="cell-mono cell-strong">lab-run-1125-01</td>
+                      <td>참조 정보 비교</td>
+                      <td class="cell-mono">lab-sandbox</td>
+                      <td>ontology-beta 러너 타임아웃 - 0으로 대체하지 않음</td>
+                      <td class="cell-mono">0건</td>
+                      <td><span class="cs-badge tone-neutral"><span class="cs-dot"></span>데이터 없음 (미수집)</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+
+          <!-- 2. aks-commerce -->
+          <section class="panel-view" data-panel-id="aks-commerce" data-hub-root="labs" data-panel-title="AKS 데모 환경" data-panel-summary="공식 Azure 아이콘 마이크로서비스 토폴로지 및 3단계(사전검증→격리주입→즉시롤백) 카오스 리허설" hidden>
+            <div class="sl-iso-bar" role="note">
+              <div class="sl-iso-chips">
+                <span class="cs-badge tone-neutral"><span class="cs-dot"></span>개발 전용 실험실</span>
+                <span class="cs-badge tone-live"><span class="cs-dot"></span>격리 범위: lab-sandbox</span>
+                <span class="cs-badge tone-live"><span class="cs-dot"></span>운영 구독 연결: 차단됨</span>
+                <span class="cs-badge tone-live"><span class="cs-dot"></span>실행 부작용: 0건</span>
+              </div>
+              <div class="seg-group" role="group" aria-label="데모 서비스 시나리오">
+                <button type="button" class="seg-btn is-active" data-aks-service="order-fulfillment">주문 처리 (order-fulfillment)</button>
+                <button type="button" class="seg-btn" data-aks-service="catalog-browse">카탈로그 조회 (catalog-browse)</button>
+              </div>
+            </div>
+            <section class="split-2to1">
+              <div class="surface-card">
+                <div class="card-head">
+                  <div>
+                    <h3 class="card-title">AKS 커머스 실시간 서비스 토폴로지</h3>
+                    <p class="card-desc" id="slAksSub">시나리오: 주문 처리 (Storefront → Orders API → PostgreSQL / Redis → Audit Monitor)</p>
+                  </div>
+                  <span class="cs-badge tone-live" id="slAksOverallBadge"><span class="cs-dot"></span>전체 정상</span>
+                </div>
+                <div class="sl-topo-flow" id="slAksTopo">
+                  <button type="button" class="sl-topo-node" data-topo-node="gateway" data-ut-title="Storefront GW · Application Gateway" data-ut-val="지연 14 ms" data-ut-body="인그레스 트래픽 진입점 · TLS 종단 및 WAF 규칙 정상 적용" data-ut-meta="클릭하여 노드 상세 근거 보기" data-ut-tone="live">
+                    <div class="sl-icon-pair"><img class="sl-az-ico" src="/azure-icons/application-gateway.svg" alt=""><strong>Storefront GW</strong></div>
+                    <span class="cs-badge tone-live" data-node-badge><span class="cs-dot"></span>준비 완료</span>
+                    <div class="cell-mono" data-node-metric>지연 14 ms · 200 OK</div>
+                  </button>
+                  <button type="button" class="sl-topo-node" data-topo-node="orders" data-ut-title="Orders API · AKS Workload" data-ut-val="파드 3/3" data-ut-body="주문·결제 오케스트레이션 서비스 · HPA 3~8 레플리카 준비" data-ut-meta="클릭하여 노드 상세 근거 보기" data-ut-tone="live">
+                    <div class="sl-icon-pair"><img class="sl-az-ico" src="/azure-icons/kubernetes-services.svg" alt=""><strong>Orders API (AKS)</strong></div>
+                    <span class="cs-badge tone-live" data-node-badge><span class="cs-dot"></span>준비 완료</span>
+                    <div class="cell-mono" data-node-metric>파드 3/3 · 142 ms</div>
+                  </button>
+                  <button type="button" class="sl-topo-node" data-topo-node="postgres" data-ut-title="Orders PostgreSQL · Durable Store" data-ut-val="풀 41%" data-ut-body="주문 원장 PostgreSQL 유연 서버 · 격리 lab-sandbox 전용 스키마" data-ut-meta="클릭하여 노드 상세 근거 보기" data-ut-tone="live">
+                    <div class="sl-icon-pair"><img class="sl-az-ico" src="/azure-icons/postgresql.svg" alt=""><strong>Orders PostgreSQL</strong></div>
+                    <span class="cs-badge tone-live" data-node-badge><span class="cs-dot"></span>준비 완료</span>
+                    <div class="cell-mono" data-node-metric>연결 풀 41% · 정상</div>
+                  </button>
+                  <button type="button" class="sl-topo-node" data-topo-node="redis" data-ut-title="Session Redis · Cache" data-ut-val="적중률 98.4%" data-ut-body="장바구니·카탈로그 읽기 캐시 · 지연 3 ms 유지" data-ut-meta="클릭하여 노드 상세 근거 보기" data-ut-tone="live">
+                    <div class="sl-icon-pair"><img class="sl-az-ico" src="/azure-icons/cache-redis.svg" alt=""><strong>Session Redis</strong></div>
+                    <span class="cs-badge tone-live" data-node-badge><span class="cs-dot"></span>준비 완료</span>
+                    <div class="cell-mono" data-node-metric>적중률 98.4% · 3 ms</div>
+                  </button>
+                </div>
+                <div class="sl-slo-grid">
+                  <div class="sl-slo-box"><div class="card-head"><strong>주문 성공률 SLO</strong><span class="cs-badge tone-live" id="slSlo1Badge">충족</span></div><div class="cell-mono" id="slSlo1Val">목표 99.9% · 실측 99.94% · 잔여 84%</div></div>
+                  <div class="sl-slo-box"><div class="card-head"><strong>결제 지연 p95 SLO</strong><span class="cs-badge tone-live" id="slSlo2Badge">충족</span></div><div class="cell-mono" id="slSlo2Val">목표 300 ms · 실측 142 ms · 잔여 76%</div></div>
+                  <div class="sl-slo-box is-unmeasured" data-ut-title="미측정 SLO 정직 표기" data-ut-body="재고 복제 지연 수집기가 미응답 상태이므로 0으로 대체하지 않고 데이터 없음(미수집)으로 분리합니다." data-ut-tone="neutral"><div class="card-head"><strong>재고 복제 지연 SLO</strong><span class="cs-badge tone-neutral">미수집</span></div><div class="cell-mono">데이터 없음 (미수집) · 0 대체 금지</div></div>
+                </div>
+              </div>
+              <aside class="insp-card">
+                <div class="sl-icon-pair"><img class="agent-ico" src="/agent-icons/loki.svg" alt=""><div class="insp-title">3단계 안전 카오스 주입 컨트롤러</div></div>
+                <select class="cs-select" id="slChaosScenario" aria-label="카오스 장애 시나리오 선택">
+                  <option value="oom">Pod OOMKill 주입 (orders-api)</option>
+                  <option value="pg">PostgreSQL 연결 풀 포화 (96%)</option>
+                  <option value="latency">네트워크 지연 +400ms 주입</option>
+                </select>
+                <div class="wb-item-sub">자동 중단 조건: 300초 경과 또는 오류율 &gt; 15% 시 즉시 롤백</div>
+                <div class="insp-kv"><span>자동 중단 타이머</span><strong class="cell-mono" id="slChaosTimer">대기 (300초 상한)</strong></div>
+                <div class="sl-step-bar">
+                  <button type="button" class="cs-btn cs-btn-sm" id="slChaosStep1">1. 사전 검증</button>
+                  <button type="button" class="cs-btn cs-btn-sm cs-btn-accent" id="slChaosStep2" disabled>2. 격리 주입</button>
+                  <button type="button" class="cs-btn cs-btn-sm" id="slChaosStep3" disabled>3. 즉시 롤백</button>
+                </div>
+                <div class="insp-summary" id="slChaosLog" role="status" aria-live="polite">1단계 [사전 검증]을 실행해 격리 네임스페이스(lab-sandbox) 안전 조건을 먼저 확인하세요.</div>
+                <div class="insp-kv"><span>관측 · 대응 · 검증</span><strong>Huginn → Thor → Vidar</strong></div>
+                <div class="insp-kv"><span>누적 롤백 성공률</span><strong id="slAksRollbackStat">8 / 8 (평균 19초)</strong></div>
+              </aside>
+            </section>
+            <section class="sl-2col-cards">
+              <div class="surface-card">
+                <div class="card-head">
+                  <div>
+                    <h3 class="card-title">관측 신호 현재 vs 직전 비교</h3>
+                    <p class="card-desc">격리 주입 전·후 핵심 텔레메트리 신호를 실시간 비교합니다.</p>
+                  </div>
+                  <span class="cs-badge tone-neutral" id="slAksSignalBadge">prom-01 · otel-02</span>
+                </div>
+                <div class="table-wrap">
+                  <table class="cs-table" id="slAksSignalTable">
+                    <thead><tr><th>신호 지표</th><th>현재</th><th>직전 기준선</th><th>출처</th></tr></thead>
+                    <tbody>
+                      <tr><td class="cell-mono cell-strong">db_pool_usage</td><td class="cell-mono" id="slSigPool">41.0 %</td><td class="cell-mono">41.0 %</td><td class="cell-mono">prom-01</td></tr>
+                      <tr><td class="cell-mono cell-strong">order_p95_ms</td><td class="cell-mono" id="slSigP95">142 ms</td><td class="cell-mono">145 ms</td><td class="cell-mono">otel-02</td></tr>
+                      <tr><td class="cell-mono cell-strong">orders_error_rate</td><td class="cell-mono" id="slSigErr">0.06 %</td><td class="cell-mono">0.05 %</td><td class="cell-mono">otel-02</td></tr>
+                      <tr><td class="cell-mono cell-strong">inventory_replica_lag</td><td class="cell-muted">데이터 없음 (미수집)</td><td class="cell-muted">데이터 없음 (미수집)</td><td class="cell-mono">collector_gap</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="surface-card">
+                <div class="card-head">
+                  <div>
+                    <h3 class="card-title">근거 공백 &amp; 제안 조치 효과 검증</h3>
+                    <p class="card-desc">API 성공은 운영 성공이 아닙니다. 독립 관측(Vidar)으로만 효과를 확정합니다.</p>
+                  </div>
+                  <span class="cs-badge tone-live" id="slAksEffectBadge"><span class="cs-dot"></span>기준선 정상</span>
+                </div>
+                <div class="sl-unmeasured-note" id="slAksGapNote">
+                  <strong>근거 공백 (Evidence Gap):</strong> <code class="cell-mono">inventory_replica_lag</code> - 재고 복제 수집기 응답 지연으로 미수집 표기 유지 (0 대체 차단)
+                </div>
+                <div class="insp-kv"><span>제안 조치</span><strong class="cell-mono" id="slAksActionName">없음 (정상 기준선 유지 중)</strong></div>
+                <div class="insp-kv"><span>독립 효과 검증 (Vidar)</span><strong id="slAksEffectText">모든 격리 노드 정상 확인 완료</strong></div>
+                <div class="insp-kv"><span>격리 보증</span><strong>lab-sandbox · 운영 변이 0건</strong></div>
+              </div>
+            </section>
+          </section>
+
+          <!-- 3. assurance-twin -->
+          <section class="panel-view" data-panel-id="assurance-twin" data-hub-root="labs" data-panel-title="사전 검증 시뮬레이션" data-panel-summary="PR 선택 기반 정책·네트워크 Before/After Diff, 영향 리소스 및 출처 해시 검증" hidden>
+            <div class="sl-iso-bar" role="note">
+              <div class="sl-iso-chips">
+                <span class="cs-badge tone-neutral"><span class="cs-dot"></span>개발 전용 실험실</span>
+                <span class="cs-badge tone-live"><span class="cs-dot"></span>격리 범위: lab-sandbox</span>
+                <span class="cs-badge tone-live"><span class="cs-dot"></span>운영 구독 연결: 차단됨</span>
+                <span class="cs-badge tone-live"><span class="cs-dot"></span>실행 부작용: 0건</span>
+              </div>
+              <span class="cell-mono" id="slTwinRevisionPill">온톨로지 복제본 Rev #4812</span>
+            </div>
+            <section class="surface-card">
+              <div class="card-head">
+                <div>
+                  <h3 class="card-title">PR 변경 사전 검증 · Side-by-Side Before / After Diff</h3>
+                  <p class="card-desc">PR을 선택하면 현재 운영 포스처(Before)와 적용 시뮬레이션(After)의 차이와 영향 리소스를 즉시 대조합니다.</p>
+                </div>
+                <div class="toolbar-inline">
+                  <select class="cs-select" id="slTwinPrSelect" aria-label="검증할 PR 선택">
+                    <option value="pr412" selected>owner/infra#412 · AKS 네트워크 정책 완화안 (검토 필요)</option>
+                    <option value="pr88">owner/policy#88 · Key Vault 예외 기간 연장 (차단됨)</option>
+                    <option value="pr409">owner/infra#409 · 읽기 전용 관측기 태그 정비 (이상 없음)</option>
+                    <option value="pr204">owner/app#204 · 신규 결제 프록시 구성 (미수집)</option>
+                  </select>
+                  <span class="cs-badge tone-sre" id="slTwinVerdict"><span class="cs-dot"></span>검토 필요 (needs_review)</span>
+                </div>
+              </div>
+              <div class="diff-split">
+                <div class="diff-box">
+                  <div class="card-head"><strong id="slTwinBeforeTitle">BEFORE · 현재 운영 포스처 (Rev #4812)</strong><span class="cs-badge tone-live" id="slTwinBeforeBadge">탐지 0건</span></div>
+                  <div id="slTwinBeforeLines" style="display:grid;gap:6px">
+                    <div class="diff-line-del">- egress_cidr: 10.20.0.0/16 (사설 대역 한정)</div>
+                    <div class="diff-line-del">- pod_security: restricted (권한 상승 차단)</div>
+                    <div class="diff-line-del">- rule_violations: 0 / 52 rules</div>
+                  </div>
+                </div>
+                <div class="diff-box">
+                  <div class="card-head"><strong>AFTER · PR 적용 시뮬레이션 결과</strong><span class="cs-badge tone-sre" id="slTwinAfterCount">신규 탐지 +2건</span></div>
+                  <div id="slTwinAfterLines" style="display:grid;gap:6px">
+                    <div class="diff-line-add">+ egress_cidr: 0.0.0.0/0 → rule.net_egress_wildcard [High]</div>
+                    <div class="diff-line-add">+ pod_security: baseline → rule.k8s_psa_downgrade [Medium]</div>
+                    <div class="diff-line-add">+ blocks_action: false (Shadow 모드 사전 경고)</div>
+                  </div>
+                </div>
+              </div>
+              <div class="split-2to1">
+                <div style="display:grid;gap:12px">
+                  <div class="settings-group">
+                    <div class="insp-title" id="slTwinResTitle">영향받는 리소스 (2건)</div>
+                    <div id="slTwinResources" style="display:grid;gap:8px">
+                      <div class="settings-row">
+                        <div class="sl-icon-pair"><img class="sl-az-ico" src="/azure-icons/kubernetes-services.svg" alt=""><div><strong>aks-prod-kr-01 / ns:payments</strong><div class="wb-item-sub">rule.net_egress_wildcard · 외부 송신 전체 개방 감지</div></div></div>
+                        <span class="cs-badge tone-sec">High</span>
+                      </div>
+                      <div class="settings-row">
+                        <div class="sl-icon-pair"><img class="sl-az-ico" src="/azure-icons/container-apps.svg" alt=""><div><strong>aks-prod-kr-01 / deploy:checkout-api</strong><div class="wb-item-sub">rule.k8s_psa_downgrade · Pod Security 수준 하향</div></div></div>
+                        <span class="cs-badge tone-sre">Medium</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="settings-group">
+                    <div class="insp-title">최근 PR 사전 검증 목록 (행 클릭 시 상단 Diff 즉시 전환)</div>
+                    <div class="table-wrap">
+                      <table class="cs-table" id="slTwinPrTable">
+                        <thead><tr><th>PR 참조</th><th>판정</th><th>모드</th><th>탐지</th><th>신선도</th></tr></thead>
+                        <tbody>
+                          <tr tabindex="0" aria-selected="true" data-twin-pr="pr412" class="sl-row-selected" style="cursor:pointer"><td class="cell-mono cell-strong">owner/infra#412</td><td><span class="cs-badge tone-sre">검토 필요</span></td><td class="cell-mono">shadow</td><td class="cell-mono">2건</td><td><span class="cs-badge tone-live">최신</span></td></tr>
+                          <tr tabindex="0" aria-selected="false" data-twin-pr="pr88" style="cursor:pointer"><td class="cell-mono cell-strong">owner/policy#88</td><td><span class="cs-badge tone-sec">차단됨</span></td><td class="cell-mono">enforce</td><td class="cell-mono">2건</td><td><span class="cs-badge tone-live">최신</span></td></tr>
+                          <tr tabindex="0" aria-selected="false" data-twin-pr="pr409" style="cursor:pointer"><td class="cell-mono cell-strong">owner/infra#409</td><td><span class="cs-badge tone-live">이상 없음</span></td><td class="cell-mono">shadow</td><td class="cell-mono">0건</td><td><span class="cs-badge tone-live">최신</span></td></tr>
+                          <tr tabindex="0" aria-selected="false" data-twin-pr="pr204" style="cursor:pointer"><td class="cell-mono cell-strong">owner/app#204</td><td><span class="cs-badge tone-neutral">데이터 없음 (미수집)</span></td><td class="cell-mono">shadow</td><td class="cell-mono">-</td><td><span class="cs-badge tone-neutral">미수집</span></td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+                <aside class="insp-card">
+                  <div class="insp-title">출처 · 무결성 해시 &amp; 보류 근거</div>
+                  <div class="insp-kv"><span>Activity ID</span><strong class="cell-mono" id="slTwinAct">act_98a1f2c0</strong></div>
+                  <div class="insp-kv"><span>Correlation ID</span><strong class="cell-mono" id="slTwinCorr">cor_44b01e9a</strong></div>
+                  <div class="insp-kv"><span>Evidence Digest</span><strong class="cell-mono" id="slTwinDigest">sha256:8f2a...91c4</strong></div>
+                  <div class="insp-kv"><span>Source Revision</span><strong class="cell-mono" id="slTwinRev">graph-rev-4812</strong></div>
+                  <div class="insp-kv"><span>신선도</span><strong id="slTwinFresh">최신 (fresh)</strong></div>
+                  <div class="insp-kv"><span>보류된 근거</span><strong id="slTwinWithheld">kv-audit (freshness: stale)</strong></div>
+                </aside>
+              </div>
+            </section>
+          </section>
+
+          <!-- 4. forecast-learning -->
+          <section class="panel-view" data-panel-id="forecast-learning" data-hub-root="labs" data-panel-title="예측 모델 학습" data-panel-summary="예측 보정 곡선(Calibration SVG), 요일·시간대별 오차 히트맵 및 발행·보관 부채 인스펙터" hidden>
+            <div class="sl-iso-bar" role="note">
+              <div class="sl-iso-chips">
+                <span class="cs-badge tone-neutral"><span class="cs-dot"></span>개발 전용 실험실</span>
+                <span class="cs-badge tone-live"><span class="cs-dot"></span>격리 범위: lab-sandbox</span>
+                <span class="cs-badge tone-live"><span class="cs-dot"></span>운영 구독 연결: 차단됨</span>
+                <span class="cs-badge tone-live"><span class="cs-dot"></span>실행 부작용: 0건</span>
+              </div>
+              <span class="sl-icon-pair"><img class="agent-ico" src="/agent-icons/freyr.svg" alt=""><span class="cell-muted" style="font-size:12.5px">Freyr · EWMA + 14일 주기 캘리브레이션</span></span>
+            </div>
+            <section class="split-2to1">
+              <div class="surface-card">
+                <div class="card-head">
+                  <div>
+                    <h3 class="card-title" id="slForecastCalTitle">예측 확률 보정 곡선 (Calibration Curve · 14일 표본)</h3>
+                    <p class="card-desc">점선 대각선은 이상적 보정선, 실선은 실측 발생 비율입니다. 표본 부족 구간은 0으로 대체하지 않고 점선으로 분리합니다.</p>
+                  </div>
+                  <span class="cs-badge tone-live" id="slForecastCalBadge"><span class="cs-dot"></span>ECE 0.031 · 양호</span>
+                </div>
+                <div class="toolbar-inline" style="font-size:12px;margin-bottom:6px">
+                  <span class="cs-badge tone-live">실선: 모델 실측 비율</span>
+                  <span class="cs-badge tone-neutral">대각 점선: 이상적 보정선</span>
+                  <span class="cs-badge tone-neutral">우측 점선: 표본 부족 (미수집)</span>
+                </div>
+                <svg class="sl-cal-svg" id="slCalSvg" viewBox="0 0 560 220" role="img" aria-label="예측 보정 곡선 차트" data-ut-chart-title="예측 확률 보정 곡선 (Calibration)">
+                  <line x1="56" y1="20" x2="520" y2="20" stroke="var(--cs-hairline-soft)" stroke-width="1"/>
+                  <line x1="56" y1="62" x2="520" y2="62" stroke="var(--cs-hairline-soft)" stroke-width="1"/>
+                  <line x1="56" y1="104" x2="520" y2="104" stroke="var(--cs-hairline-soft)" stroke-width="1"/>
+                  <line x1="56" y1="146" x2="520" y2="146" stroke="var(--cs-hairline-soft)" stroke-width="1"/>
+                  <line x1="56" y1="188" x2="520" y2="188" stroke="var(--cs-hairline)" stroke-width="1.2"/>
+                  <line x1="56" y1="20" x2="56" y2="188" stroke="var(--cs-hairline)" stroke-width="1.2"/>
+                  <line x1="56" y1="188" x2="520" y2="20" stroke="var(--cs-text-soft)" stroke-width="1.4" stroke-dasharray="5 4"/>
+                  <polyline fill="none" stroke="var(--sig-live)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" points="102,174 195,142 288,108 381,66 474,34"/>
+                  <line x1="474" y1="34" x2="520" y2="26" stroke="var(--cs-text-soft)" stroke-width="1.8" stroke-dasharray="3 3"/>
+                  <circle cx="102" cy="174" r="5" fill="var(--sig-live)" tabindex="0" data-ut-title="보정 구간 0.1~0.2" data-ut-val="실측 14.2%" data-ut-meta="예측 15.0% · 표본 42건 · 편차 -0.8%p" data-ut-tone="live" data-cal-tip="구간 0.1~0.2: 예측 15% vs 실측 14.2% (표본 42건 · 양호)"/>
+                  <circle cx="195" cy="142" r="5" fill="var(--sig-live)" tabindex="0" data-ut-title="보정 구간 0.3~0.4" data-ut-val="실측 33.8%" data-ut-meta="예측 35.0% · 표본 36건 · 편차 -1.2%p" data-ut-tone="live" data-cal-tip="구간 0.3~0.4: 예측 35% vs 실측 33.8% (표본 36건 · 양호)"/>
+                  <circle cx="288" cy="108" r="5" fill="var(--sig-live)" tabindex="0" data-ut-title="보정 구간 0.5~0.6" data-ut-val="실측 52.4%" data-ut-meta="예측 55.0% · 표본 29건 · 편차 -2.6%p" data-ut-tone="live" data-cal-tip="구간 0.5~0.6: 예측 55% vs 실측 52.4% (표본 29건 · 양호)"/>
+                  <circle cx="381" cy="66" r="5" fill="var(--sig-sre)" tabindex="0" data-ut-title="보정 구간 0.7~0.8" data-ut-val="실측 72.1%" data-ut-meta="예측 75.0% · 표본 24건 · 경미 과대추정" data-ut-tone="sre" data-cal-tip="구간 0.7~0.8: 예측 75% vs 실측 72.1% (표본 24건 · 경미 과대추정)"/>
+                  <circle cx="474" cy="34" r="5" fill="var(--sig-live)" tabindex="0" data-ut-title="보정 구간 0.8~0.9" data-ut-val="실측 91.4%" data-ut-meta="예측 90.0% · 표본 19건 · 우수" data-ut-tone="live" data-cal-tip="구간 0.8~0.9: 예측 90% vs 실측 91.4% (표본 19건 · 우수)"/>
+                  <circle cx="520" cy="26" r="5" fill="var(--cs-card)" stroke="var(--cs-text-soft)" stroke-width="1.8" stroke-dasharray="2 2" tabindex="0" data-ut-title="보정 구간 0.95~1.0" data-ut-val="데이터 없음 (미수집)" data-ut-meta="표본 부족 구간 · 0으로 대체하지 않음" data-ut-tone="neutral" data-cal-tip="구간 0.95~1.0: 데이터 없음 (미수집 · 표본 부족)"/>
+                  <text x="48" y="24" text-anchor="end">1.0</text>
+                  <text x="48" y="108" text-anchor="end">0.5</text>
+                  <text x="48" y="192" text-anchor="end">0.0</text>
+                  <text x="56" y="208" text-anchor="middle">0.0</text>
+                  <text x="172" y="208" text-anchor="middle">0.25</text>
+                  <text x="288" y="208" text-anchor="middle">0.50</text>
+                  <text x="404" y="208" text-anchor="middle">0.75</text>
+                  <text x="520" y="208" text-anchor="middle">1.0</text>
+                </svg>
+                <div class="hm-readout" id="slCalReadout">보정 곡선 점에 마우스를 올리거나 포커스하면 구간별 예측 vs 실측 오차를 표시합니다.</div>
+              </div>
+              <aside class="insp-card">
+                <div class="insp-title">에피소드 · 발행 · 보관 부채</div>
+                <div class="insp-kv"><span>저장소 내구성</span><span class="cs-badge tone-live" id="slDebtStore">PostgreSQL Durable</span></div>
+                <div class="insp-kv"><span>종료 완전성</span><strong id="slDebtCompleteness">94.2% (162 / 172)</strong></div>
+                <div class="insp-kv"><span>기한 초과 에피소드</span><strong id="slDebtOverdue">2건 (보류 4건)</strong></div>
+                <div class="insp-kv"><span>발행 대기 (Outbox)</span><strong id="slDebtOutbox">3건 (데드레터 0건)</strong></div>
+                <div class="insp-kv"><span>보관 만료 부채</span><strong id="slDebtRetention">0건</strong></div>
+                <div class="insp-kv"><span>평균 선행 경보</span><strong id="slDebtLead">+5.8분</strong></div>
+                <div class="insp-kv"><span>미수집 구간 처리</span><strong id="slDebtUnmeasured">데이터 없음 (미수집)</strong></div>
+              </aside>
+            </section>
+            <section class="surface-card">
+              <div class="card-head">
+                <div>
+                  <h3 class="card-title">요일 × 시간대별 예측 오차 히트맵 (UTC+9)</h3>
+                  <p class="card-desc">셀에 마우스를 올리거나 클릭하면 해당 시간대의 오차율과 주요 오탐/미탐 원인(`miss_origin`)을 확인할 수 있습니다.</p>
+                </div>
+                <div class="toolbar-inline" style="font-size:12px">
+                  <span class="cs-badge tone-live">&lt;2% 양호</span>
+                  <span class="cs-badge tone-sre">2~5% 주의</span>
+                  <span class="cs-badge tone-human">&gt;5% 보정 필요</span>
+                  <span class="cs-badge tone-neutral">빗금 +Horizon</span>
+                  <span class="cs-badge tone-neutral">점선 미수집</span>
+                </div>
+              </div>
+              <div class="heatmap-grid" id="slForecastHeatmap" role="grid" aria-label="요일 및 시간대별 예측 오차 히트맵">
+                <span></span><span>00h</span><span>02h</span><span>04h</span><span>06h</span><span>08h</span><span>10h</span><span>12h</span><span>14h</span><span>16h</span><span>18h</span><span>+1h</span><span>+2h</span>
+              </div>
+              <div class="hm-readout" id="slHmReadout" role="status" aria-live="polite">선택 셀: 월 18h - 오차율 6.4% · 주요 원인: seasonal_shift (배치 트래픽 이동 4건)</div>
+            </section>
+            <section class="surface-card">
+              <div class="card-head">
+                <div>
+                  <h3 class="card-title" id="slForecastOutcomeTitle">예측 결과 분포 및 미탐 · 오탐 원인 분해 (172건)</h3>
+                  <p class="card-desc">근거 부족 구간은 오탐을 강제하지 않고 정직 보류(`abstained`)로 분류합니다.</p>
+                </div>
+                <span class="cs-badge tone-neutral">miss_origin 분해</span>
+              </div>
+              <div class="sl-ratio-list" id="slForecastOutcomeList">
+                <div class="sl-ratio-row" data-ut-title="true_positive · 정상 사전 경보" data-ut-val="138건 (80%)" data-ut-body="평균 +5.8분 선행 감지 및 독립 관측 일치" data-ut-tone="live">
+                  <strong>true_positive (정상 사전 경보)</strong>
+                  <div class="sl-ratio-track"><div class="sl-ratio-fill" style="width:80%"></div></div>
+                  <span class="cell-mono">138건 (80%) · 원인: -</span>
+                </div>
+                <div class="sl-ratio-row" data-ut-title="false_positive · seasonal_shift" data-ut-val="14건 (8%)" data-ut-body="월/금 저녁 배치 스케줄 이동으로 인한 일시적 편차" data-ut-tone="sre">
+                  <strong>false_positive (seasonal_shift)</strong>
+                  <div class="sl-ratio-track"><div class="sl-ratio-fill is-sre" style="width:8%"></div></div>
+                  <span class="cell-mono">14건 (8%) · 주기 이동</span>
+                </div>
+                <div class="sl-ratio-row" data-ut-title="false_negative · collector_lag" data-ut-val="6건 (4%)" data-ut-body="수집기 응답 지연으로 경보 임계 도달이 지연됨" data-ut-tone="sec">
+                  <strong>false_negative (collector_lag)</strong>
+                  <div class="sl-ratio-track"><div class="sl-ratio-fill is-sec" style="width:4%"></div></div>
+                  <span class="cell-mono">6건 (4%) · 수집 지연</span>
+                </div>
+                <div class="sl-ratio-row" data-ut-title="abstained · 근거 부족 정직 보류" data-ut-val="14건 (8%)" data-ut-body="표본 부족 시 0 또는 가짜 확신으로 대체하지 않고 정직 보류" data-ut-tone="neutral">
+                  <strong>abstained (근거 부족 정직 보류)</strong>
+                  <div class="sl-ratio-track"><div class="sl-ratio-fill is-neutral" style="width:8%"></div></div>
+                  <span class="cell-mono">14건 (8%) · 표본 부족</span>
+                </div>
+              </div>
+            </section>
+          </section>
+
+          <!-- 5. conversation-assurance -->
+          <section class="panel-view" data-panel-id="conversation-assurance" data-hub-root="labs" data-panel-title="대화 품질 점검" data-panel-summary="대화 품질 평가 케이스 표, 근거 충실도·환각 0건·안전 경계 통과율 및 케이스별 상세 심사" hidden>
+            <div class="sl-iso-bar" role="note">
+              <div class="sl-iso-chips">
+                <span class="cs-badge tone-neutral"><span class="cs-dot"></span>개발 전용 실험실</span>
+                <span class="cs-badge tone-live"><span class="cs-dot"></span>격리 범위: lab-sandbox</span>
+                <span class="cs-badge tone-live"><span class="cs-dot"></span>운영 구독 연결: 차단됨</span>
+                <span class="cs-badge tone-live"><span class="cs-dot"></span>실행 부작용: 0건</span>
+              </div>
+              <div class="sl-iso-chips">
+                <span class="cs-badge tone-live" id="slConvTopBadge1">근거 충실도 98.3%</span>
+                <span class="cs-badge tone-live" id="slConvTopBadge2">환각 0건</span>
+                <span class="cs-badge tone-live" id="slConvTopBadge3">안전 경계 통과 100%</span>
+              </div>
+            </div>
+            <details class="cs-disclosure" open>
+              <summary><span id="slConvPantheonSummary">15-판테온 에이전트 품질 요약 (평균 28.4/30 · 라우팅 정확도 97.5% · 하드 제로 실패 0건)</span><span class="disc-meta" id="slConvPantheonMeta">4개 주 대화 에이전트 집계</span></summary>
+              <div class="disc-body">
+                <div class="table-wrap">
+                  <table class="cs-table" id="slConvAgentTable">
+                    <thead id="slConvAgentHead"><tr><th>에이전트</th><th>턴 수</th><th>평균 / 30</th><th>최저 / 30</th><th>통과 / 검토 / 실패</th><th>T2 누락률</th><th>불필요 T2</th><th>상태</th></tr></thead>
+                    <tbody>
+                      <tr><td class="cell-strong"><span class="sl-icon-pair"><img class="agent-ico" src="/agent-icons/bragi.svg" alt="">Bragi</span></td><td class="cell-mono">48</td><td class="cell-mono">28.9</td><td class="cell-mono">25 / 30</td><td class="cell-mono">46 / 2 / 0</td><td class="cell-mono">0.0%</td><td class="cell-mono">2.1%</td><td><span class="cs-badge tone-live">양호</span></td></tr>
+                      <tr><td class="cell-strong"><span class="sl-icon-pair"><img class="agent-ico" src="/agent-icons/huginn.svg" alt="">Huginn</span></td><td class="cell-mono">32</td><td class="cell-mono">28.1</td><td class="cell-mono">24 / 30</td><td class="cell-mono">30 / 2 / 0</td><td class="cell-mono">3.1%</td><td class="cell-mono">0.0%</td><td><span class="cs-badge tone-live">양호</span></td></tr>
+                      <tr><td class="cell-strong"><span class="sl-icon-pair"><img class="agent-ico" src="/agent-icons/forseti.svg" alt="">Forseti</span></td><td class="cell-mono">24</td><td class="cell-mono">29.4</td><td class="cell-mono">27 / 30</td><td class="cell-mono">24 / 0 / 0</td><td class="cell-mono">0.0%</td><td class="cell-mono">0.0%</td><td><span class="cs-badge tone-live">양호</span></td></tr>
+                      <tr><td class="cell-strong"><span class="sl-icon-pair"><img class="agent-ico" src="/agent-icons/mimir.svg" alt="">Mimir</span></td><td class="cell-mono">16</td><td class="cell-mono">27.2</td><td class="cell-mono">21 / 30</td><td class="cell-mono">14 / 1 / 1</td><td class="cell-mono">6.2%</td><td class="cell-mono">0.0%</td><td><span class="cs-badge tone-sre">검토 필요</span></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </details>
+            <section class="surface-card">
+              <div class="card-head">
+                <div>
+                  <h3 class="card-title" id="slConvCardTitle">대화 품질 평가 케이스 (120문항 · 한국어 60 / 영어 60)</h3>
+                  <p class="card-desc">행 클릭 시 우측에서 운영자 질문(뉴트럴), 에이전트 투명 답변, 4개 항목 채점표 및 이의 제기를 확인할 수 있습니다.</p>
+                </div>
+                <div class="toolbar-inline">
+                  <div class="search-wrap">
+                    <svg class="search-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.8"/><path d="M10.7 10.7L14 14"/></svg>
+                    <input type="search" class="cs-input search-input" id="slConvSearch" placeholder="케이스 ID, 에이전트 검색..." aria-label="대화 평가 케이스 검색">
+                  </div>
+                  <select class="cs-select" id="slConvFilter" aria-label="판정 필터">
+                    <option value="all">판정: 전체 (4)</option>
+                    <option value="pass">통과 (2)</option>
+                    <option value="review">검토 필요 (1)</option>
+                    <option value="fail">실패 (1)</option>
+                  </select>
+                  <span class="cell-muted" id="slConvCount" style="font-size:12.5px">표시: 4 / 4 케이스</span>
+                </div>
+              </div>
+              <div class="sl-eval-split">
+                <div class="table-wrap">
+                  <table class="cs-table" id="slConvTable">
+                    <thead><tr><th>케이스 ID</th><th>에이전트</th><th>점수</th><th>환각</th><th>안전 경계</th><th>판정</th></tr></thead>
+                    <tbody>
+                      <tr tabindex="0" aria-selected="true" data-conv-id="turn_8841c" data-conv-verdict="pass" class="sl-row-selected" style="cursor:pointer"><td class="cell-mono cell-strong">turn_8841c</td><td><span class="sl-icon-pair"><img class="agent-ico" src="/agent-icons/bragi.svg" alt="">Bragi</span></td><td class="cell-mono">96.0 / 100</td><td><span class="cs-badge tone-live">0건</span></td><td><span class="cs-badge tone-live">통과</span></td><td><span class="cs-badge tone-live"><span class="cs-dot"></span>통과</span></td></tr>
+                      <tr tabindex="0" aria-selected="false" data-conv-id="turn_8839a" data-conv-verdict="review" style="cursor:pointer"><td class="cell-mono cell-strong">turn_8839a</td><td><span class="sl-icon-pair"><img class="agent-ico" src="/agent-icons/mimir.svg" alt="">Mimir</span></td><td class="cell-mono">82.5 / 100</td><td><span class="cs-badge tone-live">0건</span></td><td><span class="cs-badge tone-live">통과</span></td><td><span class="cs-badge tone-sre"><span class="cs-dot"></span>검토 필요</span></td></tr>
+                      <tr tabindex="0" aria-selected="false" data-conv-id="turn_8835b" data-conv-verdict="pass" style="cursor:pointer"><td class="cell-mono cell-strong">turn_8835b</td><td><span class="sl-icon-pair"><img class="agent-ico" src="/agent-icons/forseti.svg" alt="">Forseti</span></td><td class="cell-mono">98.5 / 100</td><td><span class="cs-badge tone-live">0건</span></td><td><span class="cs-badge tone-live">통과</span></td><td><span class="cs-badge tone-live"><span class="cs-dot"></span>통과</span></td></tr>
+                      <tr tabindex="0" aria-selected="false" data-conv-id="turn_8831f" data-conv-verdict="fail" style="cursor:pointer"><td class="cell-mono cell-strong">turn_8831f</td><td><span class="sl-icon-pair"><img class="agent-ico" src="/agent-icons/huginn.svg" alt="">Huginn</span></td><td class="cell-mono">64.0 / 100</td><td><span class="cs-badge tone-live">0건</span></td><td><span class="cs-badge tone-live">통과</span></td><td><span class="cs-badge tone-sec"><span class="cs-dot"></span>실패</span></td></tr>
+                    </tbody>
+                  </table>
+                  <div class="sl-unmeasured-note sl-empty-bar" id="slConvEmpty" hidden>
+                    <span>조건과 일치하는 대화 품질 평가 케이스가 없습니다.</span>
+                    <button type="button" class="cs-btn cs-btn-sm" id="slConvResetBtn">필터 초기화</button>
+                  </div>
+                </div>
+                <aside class="insp-card" id="slConvDetail">
+                  <div class="card-head">
+                    <div><div class="insp-title" id="slConvDetailId">선택 케이스 · turn_8841c (Bragi)</div><div class="wb-item-sub" id="slConvDetailMeta">모델 호출 2회 · 비용 $0.0042 · 환각 0건</div></div>
+                    <span class="cs-badge tone-live" id="slConvDetailBadge"><span class="cs-dot"></span>통과</span>
+                  </div>
+                  <div class="chat-turn-user">
+                    <div class="chat-turn-meta"><span>운영자 질문</span></div>
+                    <div class="chat-bubble-user" id="slConvQuestion">prod-aks-02 CPU 급증 원인과 2-Hop 영향 리소스를 근거와 함께 설명해 줘.</div>
+                  </div>
+                  <div class="chat-turn-agent">
+                    <div class="chat-turn-meta"><strong id="slConvAgentLbl">Bragi 응답 (투명 프로즈)</strong></div>
+                    <div class="agent-prose" id="slConvAnswer"><p>prod-aks-02 노드풀 CPU 사용률이 18:52 기준 94.2%에 도달했습니다. 원인은 prom-01 지표와 연결된 배치 파드 급증이며, 2-Hop 영향 리소스는 orders-api와 payment-gw입니다. 미수집 노드는 데이터 없음으로 분리했습니다.</p></div>
+                  </div>
+                  <div style="border-top:1px solid var(--cs-hairline-soft);padding-top:8px">
+                    <div class="sl-rubric-row"><span>근거 충실도</span><strong id="slRubric1">4 / 4</strong></div>
+                    <div class="sl-rubric-row"><span>미측정 정직 보류</span><strong id="slRubric2">4 / 4</strong></div>
+                    <div class="sl-rubric-row"><span>안전 경계 준수 (하드 제로)</span><strong id="slRubric3">4 / 4</strong></div>
+                    <div class="sl-rubric-row"><span>한국어 자연스러움</span><strong id="slRubric4">4 / 4</strong></div>
+                  </div>
+                  <form id="slDisputeForm" style="display:grid;gap:6px;padding-top:8px;border-top:1px solid var(--cs-hairline-soft)">
+                    <div class="insp-title">운영자 이의 제기 등록</div>
+                    <select class="cs-select" id="slDisputeReason" aria-label="이의 제기 사유" style="height:32px;min-height:32px;font-size:12.5px">
+                      <option value="missing_evidence">근거 누락</option>
+                      <option value="korean_style">한국어 표현 개선 필요</option>
+                      <option value="over_abstention">과도한 보류</option>
+                    </select>
+                    <input type="text" class="cs-input" id="slDisputeDetail" maxlength="1000" placeholder="세부 이의 사유를 입력하세요 (최대 1000자)..." aria-label="이의 제기 상세">
+                    <div class="card-head" style="align-items:center">
+                      <span class="cell-muted" id="slDisputeCharCount" style="font-size:12px">0 / 1000자</span>
+                      <button type="submit" class="cs-btn cs-btn-sm cs-btn-accent">이의 제기 제출</button>
+                    </div>
+                  </form>
+                  <div class="sl-dispute-log" id="slDisputeList" aria-live="polite"></div>
+                </aside>
+              </div>
+            </section>
+          </section>
+
+          <!-- 6. context-selection-comparisons -->
+          <section class="panel-view" data-panel-id="context-selection-comparisons" data-hub-root="labs" data-panel-title="참조 정보 비교" data-panel-summary="A/B 컨텍스트 선택 정책 Side-by-Side 비교 매트릭스(정확도·토큰·지연·누락 관계)" hidden>
+            <div class="sl-iso-bar" role="note">
+              <div class="sl-iso-chips">
+                <span class="cs-badge tone-neutral"><span class="cs-dot"></span>개발 전용 실험실</span>
+                <span class="cs-badge tone-live"><span class="cs-dot"></span>격리 범위: lab-sandbox</span>
+                <span class="cs-badge tone-live"><span class="cs-dot"></span>운영 구독 연결: 차단됨</span>
+                <span class="cs-badge tone-live"><span class="cs-dot"></span>실행 부작용: 0건</span>
+              </div>
+              <span class="cs-badge tone-live" id="slAbHeaderBadge"><span class="cs-dot"></span>A/B 컨텍스트 16회 평가 완료</span>
+            </div>
+            <section class="surface-card">
+              <div class="card-head">
+                <div>
+                  <h3 class="card-title" id="slAbTitle">A/B 컨텍스트 선택 정책 비교 · eval-ctx-1125-04</h3>
+                  <p class="card-desc">동일 질의에 대해 기준 정책(A)과 온톨로지 우선 후보 정책(B)의 정확도·토큰·지연·누락 관계를 나란히 비교합니다.</p>
+                </div>
+                <span class="cs-badge tone-live" id="slAbBadge"><span class="cs-dot"></span>불변식 통과</span>
+              </div>
+              <div class="diff-split">
+                <div class="diff-box">
+                  <div class="card-head"><strong>정책 A · 기준 (Baseline)</strong><span class="cell-mono" id="slAbBaseName">hybrid-vector-v2</span></div>
+                  <div class="insp-kv"><span>근거 정확도 (Top-5)</span><strong id="slAbBaseAcc">89.2%</strong></div>
+                  <div class="insp-kv"><span>투입 토큰 수</span><strong class="cell-mono" id="slAbBaseTok">4,820 tok</strong></div>
+                  <div class="sl-token-bar-wrap" data-ut-title="정책 A · 기준 토큰 사용량" data-ut-val="4,820 tok (100%)" data-ut-body="키워드 + 하이브리드 벡터 검색 기준선" data-ut-tone="neutral"><div class="sl-token-track"><div class="sl-token-fill is-base" id="slAbBaseBar" style="width:100%"></div></div></div>
+                  <div class="insp-kv"><span>응답 지연</span><strong class="cell-mono" id="slAbBaseLat">2,100 ms</strong></div>
+                  <div class="insp-kv"><span>누락 관계 수</span><strong id="slAbBaseMiss">3건</strong></div>
+                </div>
+                <div class="diff-box">
+                  <div class="card-head"><strong>정책 B · 후보 (Candidate)</strong><span class="cell-mono" id="slAbCandName">ontology-2hop-v3</span></div>
+                  <div class="insp-kv"><span>근거 정확도 (Top-5)</span><strong id="slAbCandAcc">98.4% (+9.2%p)</strong></div>
+                  <div class="insp-kv"><span>투입 토큰 수</span><strong class="cell-mono" id="slAbCandTok">2,640 tok (-45.2%)</strong></div>
+                  <div class="sl-token-bar-wrap" id="slAbCandBarWrap" data-ut-title="정책 B · 후보 토큰 사용량" data-ut-val="2,640 tok (-45.2%)" data-ut-body="온톨로지 2-Hop 우선 컨텍스트 선택 (중복 문서 제외)" data-ut-tone="live"><div class="sl-token-track"><div class="sl-token-fill" id="slAbCandBar" style="width:55%"></div></div></div>
+                  <div class="insp-kv"><span>응답 지연</span><strong class="cell-mono" id="slAbCandLat">1,200 ms (-900 ms)</strong></div>
+                  <div class="insp-kv"><span>누락 관계 수</span><strong id="slAbCandMiss">0건 (고정 근거 5/5 보존)</strong></div>
+                </div>
+              </div>
+              <div class="sl-venue-strip" id="slAbSummaryStrip">
+                <div class="sl-venue-item"><span>근거 겹침률</span><strong id="slAbOverlap">96.8%</strong></div>
+                <div class="sl-venue-item"><span>누락 항목</span><strong id="slAbOmissions">없음 (0건)</strong></div>
+                <div class="sl-venue-item"><span>토큰 절감 출처</span><span id="slAbSavedSrc">중복 런북 legacy-v1.md (-1,240), 구버전 경보 덤프 (-940)</span></div>
+              </div>
+              <div class="card-head" style="margin-top:4px">
+                <div class="toolbar-inline">
+                  <div class="search-wrap">
+                    <svg class="search-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.8"/><path d="M10.7 10.7L14 14"/></svg>
+                    <input type="search" class="cs-input search-input" id="slAbSearch" placeholder="평가 ID, 정책명, 누락 항목 검색..." aria-label="참조 정보 비교 검색">
+                  </div>
+                  <select class="cs-select" id="slAbFilter" aria-label="불변식 결과 필터">
+                    <option value="all">결과: 전체 (4)</option>
+                    <option value="pass">통과 (2)</option>
+                    <option value="fail">실패 (1)</option>
+                    <option value="unmeasured">데이터 없음 (미수집) (1)</option>
+                  </select>
+                </div>
+                <span class="cell-muted" id="slAbCount" style="font-size:12.5px">표시: 4 / 4 평가</span>
+              </div>
+              <div class="table-wrap">
+                <table class="cs-table" id="slAbTable">
+                  <thead><tr><th>평가 ID</th><th>기준 (A) → 후보 (B)</th><th>정확도 변화</th><th>토큰 변화</th><th>지연 변화</th><th>누락 관계</th><th>결과</th></tr></thead>
+                  <tbody>
+                    <tr tabindex="0" aria-selected="true" data-ab-id="eval-ctx-1125-04" data-ab-status="pass" class="sl-row-selected" style="cursor:pointer"><td class="cell-mono cell-strong">eval-ctx-1125-04</td><td class="cell-mono">hybrid-vector-v2 → ontology-2hop-v3</td><td class="cell-mono">89.2% → 98.4%</td><td class="cell-mono">4,820 → 2,640</td><td class="cell-mono">2.1s → 1.2s</td><td class="cell-mono">3건 → 0건</td><td><span class="cs-badge tone-live"><span class="cs-dot"></span>통과</span></td></tr>
+                    <tr tabindex="0" aria-selected="false" data-ab-id="eval-ctx-1125-03" data-ab-status="pass" style="cursor:pointer"><td class="cell-mono cell-strong">eval-ctx-1125-03</td><td class="cell-mono">hybrid-vector-v2 → ontology-1hop-v3</td><td class="cell-mono">90.1% → 95.8%</td><td class="cell-mono">5,100 → 3,120</td><td class="cell-mono">2.3s → 1.4s</td><td class="cell-mono">2건 → 0건</td><td><span class="cs-badge tone-live"><span class="cs-dot"></span>통과</span></td></tr>
+                    <tr tabindex="0" aria-selected="false" data-ab-id="eval-ctx-1125-02" data-ab-status="fail" style="cursor:pointer"><td class="cell-mono cell-strong">eval-ctx-1125-02</td><td class="cell-mono">hybrid-vector-v2 → sparse-trim-v1</td><td class="cell-mono">88.5% → 74.1%</td><td class="cell-mono">4,900 → 1,850</td><td class="cell-mono">2.0s → 0.9s</td><td class="cell-mono">2건 → 4건</td><td><span class="cs-badge tone-sec"><span class="cs-dot"></span>실패</span></td></tr>
+                    <tr tabindex="0" aria-selected="false" data-ab-id="eval-ctx-1125-01" data-ab-status="unmeasured" style="cursor:pointer"><td class="cell-mono cell-strong">eval-ctx-1125-01</td><td class="cell-mono">hybrid-vector-v2 → ontology-beta</td><td class="cell-mono">데이터 없음 (미수집)</td><td class="cell-mono">데이터 없음 (미수집)</td><td class="cell-mono">-</td><td class="cell-mono">-</td><td><span class="cs-badge tone-neutral"><span class="cs-dot"></span>데이터 없음 (미수집)</span></td></tr>
+                  </tbody>
+                </table>
+                <div class="sl-unmeasured-note sl-empty-bar" id="slAbEmpty" hidden>
+                  <span>조건과 일치하는 A/B 컨텍스트 비교 평가가 없습니다.</span>
+                  <button type="button" class="cs-btn cs-btn-sm" id="slAbResetBtn">필터 초기화</button>
+                </div>
+              </div>
+            </section>
+          </section>
+
+          <div class="principle-bar" role="note">
+            <span>측정 기준: 수집되지 않은 값은 0으로 표시하지 않음 · 격리 범위: lab-sandbox · 정책 위반 허용치 = 0</span>
+            <span>도메인: 개발 전용 실험실 (6개 워크벤치 · Pure-Rust Axum)</span>
+          </div>
+        </div>
+      </main>
+      <aside id="fdaiChatSidebar" class="chat-sidebar" aria-label="에이전트 채팅" hidden></aside>
+    </div>
+  </div>
+  <div id="fdaiDrawerBackdrop" class="drawer-backdrop" hidden>
+    <aside id="fdaiDrawerPanel" class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="fdaiDrawerTitle">
+      <div class="drawer-head">
+        <div>
+          <h3 id="fdaiDrawerTitle" class="drawer-title">상세 보기</h3>
+          <p id="fdaiDrawerMeta" class="drawer-meta"></p>
+        </div>
+        <button type="button" class="icon-btn" id="fdaiDrawerClose" aria-label="상세 드로어 닫기">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M3 3l8 8M11 3l-8 8"/></svg>
+        </button>
+      </div>
+      <div class="drawer-body">
+        <dl id="fdaiDrawerFacts" class="drawer-facts"></dl>
+        <p id="fdaiDrawerBody" class="drawer-desc"></p>
+      </div>
+      <div class="drawer-foot">
+        <button type="button" class="cs-btn cs-btn-accent" id="fdaiDrawerAskChat">이 항목 채팅으로 질문</button>
+        <button type="button" class="cs-btn" id="fdaiDrawerDismiss">닫기</button>
+      </div>
+    </aside>
+  </div>
+  <script defer src="/assets/fdai-console-shell.js"></script>
+  <script>
+  (function () {
+    "use strict";
+
+    const LAB_IDS = new Set([
+      "labs",
+      "aks-commerce",
+      "assurance-twin",
+      "forecast-learning",
+      "conversation-assurance",
+      "context-selection-comparisons"
+    ]);
+
+    const LAB_API_MAP = {
+      "labs": "/api/v4/labs/summary",
+      "aks-commerce": "/api/v4/labs/aks-commerce",
+      "assurance-twin": "/api/v4/labs/assurance-twin",
+      "forecast-learning": "/api/v4/labs/forecast-learning",
+      "conversation-assurance": "/api/v4/labs/conversation-assurance",
+      "context-selection-comparisons": "/api/v4/labs/context-comparisons"
+    };
+
+    /* Safe DOM helpers - zero innerHTML assignment across all labs interactions */
+    function setBadge(el, toneCls, text) {
+      if (!el) return;
+      el.className = `cs-badge ${toneCls}`;
+      const dot = document.createElement("span");
+      dot.className = "cs-dot";
+      el.replaceChildren(dot, document.createTextNode(text));
+    }
+
+    function setTxt(id, val) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = val;
+    }
+
+    function renderDiffLines(container, cls, lines) {
+      if (!container) return;
+      const frag = document.createDocumentFragment();
+      lines.forEach((line) => {
+        const div = document.createElement("div");
+        div.className = cls;
+        div.textContent = line;
+        frag.appendChild(div);
+      });
+      container.replaceChildren(frag);
+    }
+
+    function renderTwinResources(container, items) {
+      if (!container) return;
+      const frag = document.createDocumentFragment();
+      items.forEach((r) => {
+        const row = document.createElement("div");
+        row.className = "settings-row";
+
+        const pair = document.createElement("div");
+        pair.className = "sl-icon-pair";
+        const img = document.createElement("img");
+        img.className = "sl-az-ico";
+        img.src = r.ico;
+        img.alt = "";
+        const copy = document.createElement("div");
+        const strong = document.createElement("strong");
+        strong.textContent = r.name;
+        const sub = document.createElement("div");
+        sub.className = "wb-item-sub";
+        sub.textContent = r.sub;
+        copy.append(strong, sub);
+        pair.append(img, copy);
+
+        const badge = document.createElement("span");
+        badge.className = `cs-badge ${r.cls}`;
+        badge.textContent = r.sev;
+
+        row.append(pair, badge);
+        frag.appendChild(row);
+      });
+      container.replaceChildren(frag);
+    }
+
+    function renderDrawerFacts(container, facts) {
+      if (!container) return;
+      const frag = document.createDocumentFragment();
+      facts.forEach(([k, v]) => {
+        const wrap = document.createElement("div");
+        const dt = document.createElement("dt");
+        dt.textContent = k;
+        const dd = document.createElement("dd");
+        dd.textContent = v;
+        wrap.append(dt, dd);
+        frag.appendChild(wrap);
+      });
+      container.replaceChildren(frag);
+    }
+
+    function bindRowKeyActivation(row, handler) {
+      row.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") {
+          ev.preventDefault();
+          handler();
+        }
+      });
+    }
+
+    let toastTimer = null;
+    function toast(msg) {
+      let el = document.getElementById("fdaiToast");
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "fdaiToast";
+        el.className = "fdai-toast";
+        el.setAttribute("role", "status");
+        el.setAttribute("aria-live", "polite");
+        document.body.appendChild(el);
+      }
+      el.textContent = msg;
+      el.hidden = false;
+      if (toastTimer) window.clearTimeout(toastTimer);
+      toastTimer = window.setTimeout(() => { el.hidden = true; }, 2800);
+    }
+
+    function getActivePanelId() {
+      const visible = document.querySelector(".panel-view[data-panel-id]:not([hidden])");
+      return visible ? visible.getAttribute("data-panel-id") : "labs";
+    }
+
+    function syncLabTabsChrome() {
+      const pid = getActivePanelId();
+      document.querySelectorAll("#slLabTabs [data-lab-tab]").forEach((btn) => {
+        const on = btn.getAttribute("data-lab-tab") === pid;
+        btn.classList.toggle("is-active", on);
+        btn.setAttribute("aria-selected", String(on));
+        btn.setAttribute("tabindex", on ? "0" : "-1");
+      });
+      const railLabs = document.getElementById("railLabsBtn");
+      const railSettings = document.getElementById("railSettingsBtn");
+      if (railLabs) railLabs.classList.add("is-active");
+      if (railSettings) railSettings.classList.remove("is-active");
+    }
+
+    /* Generation counter eliminates out-of-order Live API race conditions */
+    let probeGeneration = 0;
+    const LAB_HYDRATORS = {};
+    async function probePanelApi(pid, querySuffix, opts) {
+      const gen = ++probeGeneration;
+      const base = LAB_API_MAP[pid] || LAB_API_MAP.labs;
+      const url = querySuffix ? `${base}?${querySuffix}` : base;
+      const badge = document.getElementById("slLiveStatusBadge");
+      if (badge) {
+        badge.setAttribute("data-hydrated-panel", "loading");
+        badge.setAttribute("data-hydrated-source", "pending");
+      }
+      const fetcher = window.fdaiV4Live && typeof window.fdaiV4Live.fetchJson === "function"
+        ? window.fdaiV4Live.fetchJson
+        : async (u) => {
+            try {
+              const r = await fetch(u, { headers: { Accept: "application/json" } });
+              if (!r.ok) return { ok: false, status: r.status, data: null };
+              return { ok: true, status: r.status, data: await r.json() };
+            } catch (_e) {
+              return { ok: false, status: 0, data: null };
+            }
+          };
+      const res = await fetcher(url);
+      if (gen !== probeGeneration || !badge) return res;
+
+      const isSample = window.fdaiV4Live && typeof window.fdaiV4Live.isLiveMode === "function" && !window.fdaiV4Live.isLiveMode();
+      if (res.ok && res.data) {
+        const state = res.data.measurement_status || res.data.measurement_state || "not-measured";
+        const scope = res.data.isolation?.sandbox_scope || "lab-sandbox";
+        const src = res.data.source || "operator-service";
+        const reasonCode = res.data.reason_code || "none";
+        if (state === "measured") {
+          const srcLabel = src === "postgres-direct" ? "PostgreSQL 실측" : "measured";
+          setBadge(badge, "tone-live", isSample ? `Sample · API ${srcLabel} (${scope})` : `Live: ${srcLabel} (${scope})`);
+          badge.setAttribute("data-ut-val", `${state} (${src})`);
+          badge.setAttribute("data-ut-body", `엔드포인트 ${url} · ${src} 실측 응답 수신`);
+          badge.setAttribute("data-ut-tone", "live");
+          if (!isSample && res.data.data && typeof LAB_HYDRATORS[pid] === "function") {
+            LAB_HYDRATORS[pid](res.data.data, res.data, opts || {});
+            const activeSection = document.querySelector(`.panel-view[data-panel-id="${pid}"]`);
+            if (activeSection) {
+              activeSection.setAttribute("data-live-hydrated", src);
+              if (window.fdaiTip && typeof window.fdaiTip.enhance === "function") {
+                window.fdaiTip.enhance(activeSection);
+              }
+            }
+          }
+          badge.setAttribute("data-hydrated-panel", pid);
+          badge.setAttribute("data-hydrated-source", src);
+        } else {
+          setBadge(badge, "tone-neutral", `Live: 데이터 없음 (${scope})`);
+          badge.setAttribute("data-ut-val", `not-measured (${reasonCode})`);
+          badge.setAttribute("data-ut-body", `${res.data.reason || "상위 수집기 미연결"} · 0으로 대체하지 않음`);
+          badge.setAttribute("data-ut-tone", "neutral");
+        }
+      } else {
+        setBadge(badge, "tone-neutral", "Live: 미측정 (not-measured)");
+        badge.setAttribute("data-ut-val", "not-measured");
+        badge.setAttribute("data-ut-tone", "neutral");
+      }
+      return res;
+    }
+
+    function activateLabPanel(pid) {
+      if (pid && pid.startsWith("settings-")) {
+        window.location.href = `/settings#tab=${encodeURIComponent(pid)}`;
+        return;
+      }
+      const targetId = LAB_IDS.has(pid) ? pid : "labs";
+      const views = document.querySelectorAll(".panel-view[data-panel-id]");
+      let target = document.querySelector(`.panel-view[data-panel-id="${targetId}"]`);
+      if (!target) target = views[0];
+      if (!target) return;
+      const resolvedId = target.getAttribute("data-panel-id") || "labs";
+      const title = target.getAttribute("data-panel-title") || "실험실 개요";
+      const summary = target.getAttribute("data-panel-summary") || "";
+      views.forEach((v) => { v.hidden = v !== target; });
+      setTxt("activePanelTitle", title);
+      if (summary) setTxt("activePanelSubtitle", summary);
+      const ctxText = `개발 전용 실험실 / ${title}`;
+      setTxt("chatCtxBadge", ctxText);
+      setTxt("chatInspContext", ctxText);
+      if (summary) setTxt("chatInspSummary", `${title} 컨텍스트 요약: ${summary} (격리 범위: lab-sandbox · 부작용 0건)`);
+      syncLabTabsChrome();
+      window.requestAnimationFrame(() => {
+        window.dispatchEvent(new Event("resize"));
+        if (window.fdaiTip && typeof window.fdaiTip.enhance === "function") {
+          window.fdaiTip.enhance(target);
+        }
+      });
+      probePanelApi(resolvedId);
+    }
+
+    function navigateToLabPanel(pid) {
+      if (!pid) return;
+      if (pid.startsWith("settings-")) {
+        window.location.href = `/settings/${encodeURIComponent(pid.replace(/^settings-/, ""))}`;
+        return;
+      }
+      const resolved = LAB_IDS.has(pid) ? pid : "labs";
+      activateLabPanel(resolved);
+      if (typeof window.fdaiPanelUrl === "function") {
+        const cleanUrl = window.fdaiPanelUrl(resolved);
+        if (location.pathname !== cleanUrl || location.hash) {
+          try { history.pushState({ panelId: resolved }, "", cleanUrl); } catch (_e) {}
+        }
+      } else if (location.hash !== `#tab=${resolved}`) {
+        location.hash = `tab=${resolved}`;
+      }
+    }
+
+    document.querySelectorAll("[data-sl-nav], [data-lab-tab]").forEach((el) => {
+      const go = () => {
+        const pid = el.getAttribute("data-sl-nav") || el.getAttribute("data-lab-tab");
+        if (pid) navigateToLabPanel(pid);
+      };
+      el.addEventListener("click", go);
+      if (el.tagName === "TR") bindRowKeyActivation(el, go);
+    });
+
+    /* WAI-ARIA tablist keyboard navigation (ArrowLeft / ArrowRight / Home / End) */
+    const labTabsList = Array.from(document.querySelectorAll("#slLabTabs [data-lab-tab]"));
+    labTabsList.forEach((tab, idx) => {
+      tab.addEventListener("keydown", (ev) => {
+        let nextIdx = -1;
+        if (ev.key === "ArrowRight") nextIdx = (idx + 1) % labTabsList.length;
+        else if (ev.key === "ArrowLeft") nextIdx = (idx - 1 + labTabsList.length) % labTabsList.length;
+        else if (ev.key === "Home") nextIdx = 0;
+        else if (ev.key === "End") nextIdx = labTabsList.length - 1;
+        if (nextIdx >= 0) {
+          ev.preventDefault();
+          const nextTab = labTabsList[nextIdx];
+          nextTab.focus();
+          const pid = nextTab.getAttribute("data-lab-tab");
+          if (pid) navigateToLabPanel(pid);
+        }
+      });
+    });
+
+    document.getElementById("slLabsRefreshBtn")?.addEventListener("click", async () => {
+      const pid = getActivePanelId();
+      await probePanelApi(pid);
+      toast(`${pid} 실험실 API 상태를 재조회했습니다.`);
+    });
+
+    /* Sync data-mode switcher changes with active lab panel */
+    function isLabLiveMode() {
+      return !(window.fdaiV4Live && typeof window.fdaiV4Live.isLiveMode === "function" && !window.fdaiV4Live.isLiveMode());
+    }
+
+    function syncLiveBoundaryBarVisibility() {
+      const bar = document.getElementById("slLiveBoundaryBar");
+      if (!bar) return;
+      bar.hidden = !isLabLiveMode();
+    }
+
+    let lastLabPulseTick = -1;
+    let lastLabPulseRefreshMs = 0;
+
+    function buildActiveLabQuery(pid) {
+      if (pid === "aks-commerce") {
+        return `service_id=${encodeURIComponent(activeAksService || "order-fulfillment")}`;
+      }
+      return undefined;
+    }
+
+    function handleLabLivePulse(payload) {
+      syncLiveBoundaryBarVisibility();
+      if (!isLabLiveMode() || !payload || typeof payload !== "object") return;
+      const bar = document.getElementById("slLiveBoundaryBar");
+      const badge = document.getElementById("slLivePulseBadge");
+      if (!bar || !badge) return;
+
+      const tickNum = typeof payload.tick === "number" ? payload.tick : null;
+      if (tickNum !== null && tickNum === lastLabPulseTick) return;
+      if (tickNum !== null) lastLabPulseTick = tickNum;
+
+      const status = payload.measurement_status || "not-measured";
+      const seqLabel = payload.audit_latest_seq != null ? `#${payload.audit_latest_seq}` : "미측정";
+      const wmLabel = payload.journal_watermark != null ? `#${payload.journal_watermark}` : "미측정";
+      const dbLat = typeof payload.db_latency_ms === "number" ? `${payload.db_latency_ms}ms` : "미측정";
+      const deltaAudit = Number(payload.delta_audit || 0);
+      const deltaWm = Number(payload.delta_watermark || 0);
+      const hasDelta = deltaAudit > 0 || deltaWm > 0;
+      const tickTxt = tickNum !== null ? `#${tickNum}` : "-";
+      const resTxt = payload.ontology_resources_total != null ? String(payload.ontology_resources_total) : "-";
+
+      bar.setAttribute("data-pulse-status", status);
+      bar.setAttribute("data-pulse-tick", tickNum !== null ? String(tickNum) : "0");
+      bar.classList.add("is-pulse-beat");
+      window.setTimeout(() => { bar.classList.remove("is-pulse-beat"); }, 320);
+
+      if (status === "measured") {
+        setBadge(badge, "tone-live", hasDelta ? "실시간 변경 감지" : "실시간 감지");
+        setTxt(
+          "slLivePulseText",
+          `실시간 감지 · ${seqLabel} · 워터마크 ${wmLabel} · DB ${dbLat} · 샌드박스 격리 유지`
+        );
+        const deltaNote = hasDelta
+          ? `Δ감사 +${deltaAudit} · Δ워터마크 +${deltaWm} · 자동 재조회`
+          : `tick ${tickTxt} · 리소스 ${resTxt}`;
+        setTxt("slLivePulseMeta", `${deltaNote} · lab-sandbox · 운영 승격 분리`);
+        if (hasDelta) {
+          const now = Date.now();
+          if (now - lastLabPulseRefreshMs >= 3000) {
+            lastLabPulseRefreshMs = now;
+            const pid = getActivePanelId();
+            probePanelApi(pid, buildActiveLabQuery(pid));
+          }
+        }
+      } else {
+        setBadge(badge, "tone-neutral", "실시간 감지 미측정");
+        setTxt(
+          "slLivePulseText",
+          "실시간 감지 미측정 · PostgreSQL 연결 대기 중 · 샌드박스 격리 유지 (0 대체 금지)"
+        );
+        setTxt("slLivePulseMeta", `tick ${tickTxt} · lab-sandbox · 운영 승격 분리`);
+      }
+    }
+
+    window.addEventListener("fdai:live-pulse", (ev) => {
+      handleLabLivePulse(ev && ev.detail ? ev.detail : null);
+    });
+
+    document.addEventListener("click", (ev) => {
+      if (ev.target instanceof Element && ev.target.closest("[data-data-mode]")) {
+        window.setTimeout(() => {
+          syncLiveBoundaryBarVisibility();
+          probePanelApi(getActivePanelId(), buildActiveLabQuery(getActivePanelId()));
+          if (isLabLiveMode() && window.fdaiV4Live && typeof window.fdaiV4Live.getLastPulse === "function") {
+            const lastP = window.fdaiV4Live.getLastPulse();
+            if (lastP) {
+              lastLabPulseTick = -1;
+              handleLabLivePulse(lastP);
+            }
+          }
+        }, 30);
+      }
+    });
+
+    const panelObserver = new MutationObserver(syncLabTabsChrome);
+    document.querySelectorAll(".panel-view[data-panel-id]").forEach((el) => {
+      panelObserver.observe(el, { attributes: true, attributeFilter: ["hidden"] });
+    });
+
+    const syncLabFromUrl = () => {
+      const pid = typeof window.fdaiResolvePanelFromLocation === "function"
+        ? window.fdaiResolvePanelFromLocation()
+        : ((location.hash.match(/tab=([a-z0-9-]+)/i) || [])[1] || "labs");
+      if (pid && pid.startsWith("settings-")) {
+        window.location.href = `/settings/${encodeURIComponent(pid.replace(/^settings-/, ""))}`;
+        return;
+      }
+      activateLabPanel(LAB_IDS.has(pid) ? pid : "labs");
+    };
+    window.addEventListener("hashchange", syncLabFromUrl);
+    window.addEventListener("popstate", syncLabFromUrl);
+    window.addEventListener("fdai:panelchange", syncLabFromUrl);
+
+    /* --- Panel 2: AKS Commerce 3-step chaos rehearsal with stop-condition timer --- */
+    let activeAksService = "order-fulfillment";
+    let chaosVerifiedScenario = null;
+    let chaosTimerId = null;
+    let chaosRemainingSec = 300;
+    let lastTopoTrigger = null;
+
+    const SERVICE_PROFILES = {
+      "order-fulfillment": {
+        sub: "시나리오: 주문 처리 (Storefront → Orders API → PostgreSQL / Redis → Audit Monitor)",
+        nodes: { gateway: "지연 14 ms · 200 OK", orders: "파드 3/3 · 142 ms", postgres: "연결 풀 41% · 정상", redis: "적중률 98.4% · 3 ms" },
+        slo1: "목표 99.9% · 실측 99.94% · 잔여 84%",
+        slo2: "목표 300 ms · 실측 142 ms · 잔여 76%"
+      },
+      "catalog-browse": {
+        sub: "시나리오: 카탈로그 조회 (Storefront → Catalog API → Redis Cache → Monitor)",
+        nodes: { gateway: "지연 11 ms · 200 OK", orders: "카탈로그 파드 4/4 · 68 ms", postgres: "읽기 전용 풀 18% · 정상", redis: "적중률 99.3% · 2 ms" },
+        slo1: "목표 99.95% · 실측 99.98% · 잔여 92%",
+        slo2: "목표 200 ms · 실측 68 ms · 잔여 88%"
+      }
+    };
+
+    function stopChaosTimer(label) {
+      if (chaosTimerId !== null) {
+        window.clearInterval(chaosTimerId);
+        chaosTimerId = null;
+      }
+      chaosRemainingSec = 300;
+      setTxt("slChaosTimer", label || "대기 (300초 상한)");
+    }
+
+    function startChaosTimer() {
+      stopChaosTimer("300초 남음 (자동 중단 활성)");
+      chaosRemainingSec = 300;
+      chaosTimerId = window.setInterval(() => {
+        chaosRemainingSec -= 1;
+        if (chaosRemainingSec <= 0) {
+          stopChaosTimer("0초 도달 · 자동 롤백 완료");
+          performChaosRollback("자동 중단 조건(300초 경과)에 따라 즉시 롤백 및 독립 검증이 완료되었습니다.");
+          return;
+        }
+        setTxt("slChaosTimer", `${chaosRemainingSec}초 남음 (자동 중단 활성)`);
+      }, 1000);
+    }
+
+    const NODE_DRAWER_INFO = {
+      gateway: { title: "Storefront GW (Application Gateway)", meta: "격리 범위: lab-sandbox · 인그레스 진입점", facts: [["계층", "Edge Ingress"], ["프로토콜", "HTTPS / TLS 1.3"], ["WAF 정책", "Prevention (Shadow 검증)"]], body: "외부 샘플 트래픽을 Orders API 및 Catalog API로 라우팅하는 격리 게이트웨이입니다." },
+      orders: { title: "Orders API (AKS Workload)", meta: "격리 범위: lab-sandbox · 네임스페이스 commerce-lab", facts: [["레플리카", "3 / 3 Ready"], ["런타임", "Pure-Rust Axum"], ["HPA 상한", "8 Pods"]], body: "주문 생성·결제 오케스트레이션 서비스입니다. 카오스 리허설 시 Pod OOMKill 및 의존성 지연 대상으로 사용됩니다." },
+      postgres: { title: "Orders PostgreSQL (Durable)", meta: "격리 범위: lab-sandbox · 연결 풀 모니터링", facts: [["최대 연결", "100"], ["기준선 사용률", "41%"], ["운영 구독 연결", "차단됨"]], body: "샘플 주문 원장 데이터베이스입니다. 프로덕션 데이터베이스와 네트워크·권한이 완전 격리됩니다." },
+      redis: { title: "Session Redis (Cache)", meta: "격리 범위: lab-sandbox · 인메모리 캐시", facts: [["적중률", "98.4%"], ["평균 지연", "3 ms"], ["복제 구성", "Single Sandbox"]], body: "카탈로그 및 세션 조회를 가속하는 격리 캐시 노드입니다." }
+    };
+    const LIVE_AKS_PROFILES = {};
+    const LIVE_NODE_DRAWER_INFO = {};
+
+    function openNodeDrawer(nodeKey, triggerEl) {
+      const info = LIVE_NODE_DRAWER_INFO[nodeKey] || NODE_DRAWER_INFO[nodeKey];
+      if (!info) return;
+      lastTopoTrigger = triggerEl || null;
+      setTxt("fdaiDrawerTitle", info.title);
+      setTxt("fdaiDrawerMeta", info.meta);
+      renderDrawerFacts(document.getElementById("fdaiDrawerFacts"), info.facts);
+      setTxt("fdaiDrawerBody", info.body);
+      const bd = document.getElementById("fdaiDrawerBackdrop");
+      if (bd) bd.hidden = false;
+    }
+
+    function restoreTopoFocus() {
+      if (lastTopoTrigger && typeof lastTopoTrigger.focus === "function") {
+        lastTopoTrigger.focus();
+        lastTopoTrigger = null;
+      }
+    }
+    document.getElementById("fdaiDrawerClose")?.addEventListener("click", restoreTopoFocus);
+    document.getElementById("fdaiDrawerDismiss")?.addEventListener("click", restoreTopoFocus);
+
+    document.querySelectorAll("[data-topo-node]").forEach((node) => {
+      node.addEventListener("click", () => openNodeDrawer(node.getAttribute("data-topo-node"), node));
+    });
+
+    const CHAOS_EFFECTS = {
+      oom: {
+        label: "Pod OOMKill 주입 (orders-api)",
+        affected: {
+          orders: { cls: "is-err", badge: "tone-sec", text: "OOMKill 재시작", metric: "파드 2/3 · 오류율 6.2%" },
+          gateway: { cls: "is-warn", badge: "tone-sre", text: "재시도 증가", metric: "지연 480 ms · 503 일부" }
+        },
+        slo1: ["tone-sre", "주의", "목표 99.9% · 실측 98.4% · 잔여 24%"],
+        slo2: ["tone-sre", "주의", "목표 300 ms · 실측 480 ms · 잔여 31%"],
+        signals: { pool: "58.4 %", p95: "480 ms", err: "6.20 %" },
+        action: "aks.restart_and_raise_memory_limit (Shadow 제안)"
+      },
+      pg: {
+        label: "PostgreSQL 연결 풀 포화 (96%)",
+        affected: {
+          postgres: { cls: "is-err", badge: "tone-sec", text: "풀 포화 96%", metric: "대기 연결 42 · 락 지연" },
+          orders: { cls: "is-warn", badge: "tone-sre", text: "의존성 압박", metric: "파드 3/3 · 820 ms" }
+        },
+        slo1: ["tone-sre", "주의", "목표 99.9% · 실측 99.1% · 잔여 41%"],
+        slo2: ["tone-sec", "위반 위험", "목표 300 ms · 실측 820 ms · 잔여 14%"],
+        signals: { pool: "96.2 %", p95: "820 ms", err: "0.90 %" },
+        action: "aks.scale_connection_pool (Shadow 제안)"
+      },
+      latency: {
+        label: "네트워크 지연 +400ms 주입",
+        affected: {
+          gateway: { cls: "is-warn", badge: "tone-sre", text: "지연 +400ms", metric: "지연 414 ms · 타임아웃 경계" },
+          orders: { cls: "is-warn", badge: "tone-sre", text: "응답 지연", metric: "파드 3/3 · 548 ms" }
+        },
+        slo1: ["tone-live", "충족", "목표 99.9% · 실측 99.91% · 잔여 78%"],
+        slo2: ["tone-sre", "주의", "목표 300 ms · 실측 548 ms · 잔여 22%"],
+        signals: { pool: "44.1 %", p95: "548 ms", err: "0.09 %" },
+        action: "aks.enable_circuit_breaker_retry (Shadow 제안)"
+      }
+    };
+
+    function resetAksTopo() {
+      const profile = LIVE_AKS_PROFILES[activeAksService] || SERVICE_PROFILES[activeAksService] || SERVICE_PROFILES["order-fulfillment"];
+      document.querySelectorAll("[data-topo-node]").forEach((node) => {
+        const key = node.getAttribute("data-topo-node");
+        node.classList.remove("is-warn", "is-err");
+        setBadge(node.querySelector("[data-node-badge]"), "tone-live", "준비 완료");
+        const m = node.querySelector("[data-node-metric]");
+        if (m && profile.nodes[key]) m.textContent = profile.nodes[key];
+      });
+      setBadge(document.getElementById("slAksOverallBadge"), "tone-live", "전체 정상");
+      const s1b = document.getElementById("slSlo1Badge"), s2b = document.getElementById("slSlo2Badge");
+      if (s1b) { s1b.className = "cs-badge tone-live"; s1b.textContent = "충족"; }
+      setTxt("slSlo1Val", profile.slo1);
+      if (s2b) { s2b.className = "cs-badge tone-live"; s2b.textContent = "충족"; }
+      setTxt("slSlo2Val", profile.slo2);
+      if (LIVE_AKS_PROFILES[activeAksService]?.signals) {
+        const ls = LIVE_AKS_PROFILES[activeAksService].signals;
+        if (ls[0]) setTxt("slSigPool", ls[0]);
+        if (ls[1]) setTxt("slSigP95", ls[1]);
+        if (ls[2]) setTxt("slSigErr", ls[2]);
+      } else {
+        setTxt("slSigPool", activeAksService === "catalog-browse" ? "18.0 %" : "41.0 %");
+        setTxt("slSigP95", activeAksService === "catalog-browse" ? "68 ms" : "142 ms");
+        setTxt("slSigErr", activeAksService === "catalog-browse" ? "0.02 %" : "0.06 %");
+      }
+      setBadge(document.getElementById("slAksEffectBadge"), "tone-live", "기준선 정상");
+      setTxt("slAksActionName", "없음 (정상 기준선 유지 중)");
+      setTxt("slAksEffectText", "모든 격리 노드 정상 확인 완료");
+    }
+
+    const step1 = document.getElementById("slChaosStep1");
+    const step2 = document.getElementById("slChaosStep2");
+    const step3 = document.getElementById("slChaosStep3");
+    const chaosScenarioEl = document.getElementById("slChaosScenario");
+
+    function invalidateChaosVerification(msg) {
+      chaosVerifiedScenario = null;
+      stopChaosTimer("대기 (300초 상한)");
+      if (step2) step2.disabled = true;
+      if (step3) step3.disabled = true;
+      resetAksTopo();
+      if (msg) setTxt("slChaosLog", msg);
+    }
+
+    function performChaosRollback(logMsg) {
+      stopChaosTimer("롤백 완료 (300초 상한)");
+      chaosVerifiedScenario = null;
+      resetAksTopo();
+      if (step2) step2.disabled = true;
+      if (step3) step3.disabled = true;
+      setTxt("slChaosLog", logMsg);
+      toast("3단계 즉시 롤백 및 독립 효과 검증 완료.");
+    }
+
+    document.querySelectorAll("[data-aks-service]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        activeAksService = btn.getAttribute("data-aks-service") || "order-fulfillment";
+        document.querySelectorAll("[data-aks-service]").forEach((b) => b.classList.toggle("is-active", b === btn));
+        const profile = SERVICE_PROFILES[activeAksService] || SERVICE_PROFILES["order-fulfillment"];
+        setTxt("slAksSub", profile.sub);
+        invalidateChaosVerification("서비스 시나리오가 전환되었습니다. 1단계 [사전 검증]을 먼저 실행하세요.");
+        probePanelApi("aks-commerce", `service_id=${encodeURIComponent(activeAksService)}`);
+      });
+    });
+
+    chaosScenarioEl?.addEventListener("change", () => {
+      invalidateChaosVerification("카오스 시나리오가 변경되었습니다. 안전을 위해 1단계 [사전 검증]을 다시 실행하세요.");
+    });
+
+    step1?.addEventListener("click", () => {
+      const scenarioKey = chaosScenarioEl?.value || "oom";
+      const eff = CHAOS_EFFECTS[scenarioKey] || CHAOS_EFFECTS.oom;
+      chaosVerifiedScenario = scenarioKey;
+      if (step2) step2.disabled = false;
+      setTxt("slChaosLog", `[1/3 사전 검증 통과] ${eff.label} - 격리 범위 lab-sandbox · 중단 조건(300초/오류율>15%)·롤백 경로 확인 완료.`);
+      toast("1단계 사전 검증 완료 · 2단계 격리 주입이 활성화되었습니다.");
+    });
+
+    step2?.addEventListener("click", () => {
+      const scenarioKey = chaosScenarioEl?.value || "oom";
+      if (chaosVerifiedScenario !== scenarioKey) {
+        invalidateChaosVerification("사전 검증된 시나리오와 일치하지 않습니다. 1단계 [사전 검증]을 먼저 실행하세요.");
+        return;
+      }
+      resetAksTopo();
+      const eff = CHAOS_EFFECTS[scenarioKey] || CHAOS_EFFECTS.oom;
+      Object.entries(eff.affected).forEach(([nKey, cfg]) => {
+        const node = document.querySelector(`[data-topo-node="${nKey}"]`);
+        if (!node) return;
+        node.classList.add(cfg.cls);
+        setBadge(node.querySelector("[data-node-badge]"), cfg.badge, cfg.text);
+        const m = node.querySelector("[data-node-metric]");
+        if (m) m.textContent = cfg.metric;
+      });
+      setBadge(document.getElementById("slAksOverallBadge"), "tone-sre", "격리 장애 주입 중");
+      const s1b = document.getElementById("slSlo1Badge"), s2b = document.getElementById("slSlo2Badge");
+      if (s1b) { s1b.className = `cs-badge ${eff.slo1[0]}`; s1b.textContent = eff.slo1[1]; }
+      setTxt("slSlo1Val", eff.slo1[2]);
+      if (s2b) { s2b.className = `cs-badge ${eff.slo2[0]}`; s2b.textContent = eff.slo2[1]; }
+      setTxt("slSlo2Val", eff.slo2[2]);
+      setTxt("slSigPool", eff.signals.pool);
+      setTxt("slSigP95", eff.signals.p95);
+      setTxt("slSigErr", eff.signals.err);
+      setBadge(document.getElementById("slAksEffectBadge"), "tone-sre", "독립 관측 대기 중");
+      setTxt("slAksActionName", eff.action);
+      setTxt("slAksEffectText", "제안됨 - 롤백 후 독립 관측으로 복구 확인 필요");
+      if (step3) step3.disabled = false;
+      startChaosTimer();
+      setTxt("slChaosLog", `[2/3 격리 주입 활성] ${eff.label} - Huginn 감지(4초) · Thor 복구 제안 준비됨 (운영 구독 영향 0건).`);
+      toast(`2단계 격리 주입 완료: ${eff.label}`);
+    });
+
+    step3?.addEventListener("click", () => {
+      performChaosRollback("[3/3 즉시 롤백 완료] Vidar 독립 효과 검증 통과 - 모든 토폴로지 노드가 정상(준비 완료)으로 복원되었습니다.");
+    });
+
+    /* --- Panel 3: Assurance Twin Before/After Diff --- */
+    const TWIN_PRS = {
+      pr412: {
+        reviewKey: "owner/infra#412",
+        verdictCls: "tone-sre", verdict: "검토 필요 (needs_review)", afterCount: "신규 탐지 +2건", afterCls: "tone-sre",
+        resTitle: "영향받는 리소스 (2건)",
+        before: ["- egress_cidr: 10.20.0.0/16 (사설 대역 한정)", "- pod_security: restricted (권한 상승 차단)", "- rule_violations: 0 / 52 rules"],
+        after: ["+ egress_cidr: 0.0.0.0/0 → rule.net_egress_wildcard [High]", "+ pod_security: baseline → rule.k8s_psa_downgrade [Medium]", "+ blocks_action: false (Shadow 모드 사전 경고)"],
+        res: [
+          { ico: "/azure-icons/kubernetes-services.svg", name: "aks-prod-kr-01 / ns:payments", sub: "rule.net_egress_wildcard · 외부 송신 전체 개방 감지", sev: "High", cls: "tone-sec" },
+          { ico: "/azure-icons/container-apps.svg", name: "aks-prod-kr-01 / deploy:checkout-api", sub: "rule.k8s_psa_downgrade · Pod Security 수준 하향", sev: "Medium", cls: "tone-sre" }
+        ],
+        act: "act_98a1f2c0", corr: "cor_44b01e9a", digest: "sha256:8f2a...91c4", rev: "graph-rev-4812", fresh: "최신 (fresh)", withheld: "kv-audit (freshness: stale)"
+      },
+      pr88: {
+        reviewKey: "owner/policy#88",
+        verdictCls: "tone-sec", verdict: "차단됨 (blocked)", afterCount: "치명 탐지 +2건", afterCls: "tone-sec",
+        resTitle: "영향받는 리소스 (2건)",
+        before: ["- kv_public_access: Disabled", "- exception_ttl_days: 7 (최대 상한 준수)", "- rule_violations: 0 / 52 rules"],
+        after: ["+ kv_public_access: Enabled → rule.kv_public_exposure [Critical]", "+ exception_ttl_days: 90 → rule.sec_exception_cap [High]", "+ blocks_action: true (Enforce 차단)"],
+        res: [
+          { ico: "/azure-icons/key-vault.svg", name: "kv-prod-kr / vault-policy", sub: "rule.kv_public_exposure · 공용 네트워크 노출 차단", sev: "Critical", cls: "tone-sec" },
+          { ico: "/azure-icons/virtual-network.svg", name: "vnet-prod-kr / pe-kv-01", sub: "rule.sec_exception_cap · 예외 만료 상한(14일) 초과", sev: "High", cls: "tone-sec" }
+        ],
+        act: "act_73c9d112", corr: "cor_19e84ab2", digest: "sha256:3c91...0b2e", rev: "graph-rev-4812", fresh: "최신 (fresh)", withheld: "없음"
+      },
+      pr409: {
+        reviewKey: "owner/infra#409",
+        verdictCls: "tone-live", verdict: "이상 없음 (clear)", afterCount: "탐지 0건", afterCls: "tone-live",
+        resTitle: "영향받는 리소스 (2건 · 이상 없음)",
+        before: ["- observer_tag_schema: v1", "- required_owner_tag: optional", "- rule_violations: 0 / 52 rules"],
+        after: ["+ observer_tag_schema: v2 (호환 유지)", "+ required_owner_tag: enforced", "+ blocks_action: false (회귀 0건 통과)"],
+        res: [
+          { ico: "/azure-icons/monitor.svg", name: "rg-prod-kr-core / observer-tags", sub: "태그 규격 일관화 · 정책 위반 없음", sev: "Clear", cls: "tone-live" },
+          { ico: "/azure-icons/kubernetes-services.svg", name: "aks-prod-kr-01 / metadata", sub: "소유자 태그 보강 · 정상 통과", sev: "Clear", cls: "tone-live" }
+        ],
+        act: "act_52b40e71", corr: "cor_88d102fa", digest: "sha256:7d04...44f9", rev: "graph-rev-4812", fresh: "최신 (fresh)", withheld: "없음"
+      },
+      pr204: {
+        reviewKey: "owner/app#204",
+        verdictCls: "tone-neutral", verdict: "데이터 없음 (미수집)", afterCount: "미측정", afterCls: "tone-neutral",
+        resTitle: "영향받는 리소스 (데이터 없음 · 미수집)",
+        before: ["- baseline_snapshot: Rev #4812"],
+        after: ["+ candidate_diff: 데이터 없음 (미수집 · 0으로 대체하지 않음)"],
+        res: [
+          { ico: "/azure-icons/application-gateway.svg", name: "payments-proxy-staging", sub: "수집기 근거 대기 중 (freshness: unavailable)", sev: "미수집", cls: "tone-neutral" }
+        ],
+        act: "act_unmeasured", corr: "cor_unmeasured", digest: "미수집", rev: "graph-rev-4812", fresh: "미수집 (unavailable)", withheld: "ingress-diff (collector_timeout)"
+      }
+    };
+
+    let activeTwinPrMap = TWIN_PRS;
+
+    function selectTwinPr(key, skipFetch) {
+      const d = activeTwinPrMap[key] || Object.values(activeTwinPrMap)[0] || TWIN_PRS.pr412;
+      const sel = document.getElementById("slTwinPrSelect");
+      if (sel && sel.value !== key) sel.value = key;
+      document.querySelectorAll("#slTwinPrTable tbody tr").forEach((tr) => {
+        const on = tr.getAttribute("data-twin-pr") === key;
+        tr.classList.toggle("sl-row-selected", on);
+        tr.setAttribute("aria-selected", String(on));
+      });
+      setBadge(document.getElementById("slTwinVerdict"), d.verdictCls, d.verdict);
+      const ac = document.getElementById("slTwinAfterCount");
+      if (ac) { ac.className = `cs-badge ${d.afterCls}`; ac.textContent = d.afterCount; }
+      setTxt("slTwinResTitle", d.resTitle);
+      renderDiffLines(document.getElementById("slTwinBeforeLines"), "diff-line-del", d.before);
+      renderDiffLines(document.getElementById("slTwinAfterLines"), "diff-line-add", d.after);
+      renderTwinResources(document.getElementById("slTwinResources"), d.res);
+      setTxt("slTwinAct", d.act);
+      setTxt("slTwinCorr", d.corr);
+      setTxt("slTwinDigest", d.digest);
+      setTxt("slTwinRev", d.rev);
+      setTxt("slTwinFresh", d.fresh);
+      setTxt("slTwinWithheld", d.withheld);
+      if (!skipFetch && d.reviewKey) {
+        probePanelApi("assurance-twin", `review=${encodeURIComponent(d.reviewKey)}`, { skipRebuild: true });
+      }
+    }
+
+    document.getElementById("slTwinPrSelect")?.addEventListener("change", (ev) => selectTwinPr(ev.target.value, false));
+    document.querySelectorAll("#slTwinPrTable tbody tr[data-twin-pr]").forEach((tr) => {
+      const pick = () => selectTwinPr(tr.getAttribute("data-twin-pr"), false);
+      tr.addEventListener("click", pick);
+      bindRowKeyActivation(tr, pick);
+    });
+
+    /* --- Panel 4: Forecast Learning Calibration SVG + 84-cell 2D Keyboard Heatmap --- */
+    const calSvg = document.getElementById("slCalSvg");
+    const calReadout = document.getElementById("slCalReadout");
+    document.querySelectorAll("[data-cal-tip]").forEach((pt) => {
+      const show = () => {
+        if (calReadout) calReadout.textContent = pt.getAttribute("data-cal-tip") || "";
+      };
+      pt.addEventListener("mouseenter", show);
+      pt.addEventListener("click", show);
+      pt.addEventListener("focus", () => {
+        show();
+        if (window.fdaiTip && typeof window.fdaiTip.show === "function") {
+          const r = pt.getBoundingClientRect();
+          window.fdaiTip.show({
+            title: pt.getAttribute("data-ut-title") || "예측 확률 보정 곡선",
+            val: pt.getAttribute("data-ut-val") || "",
+            body: pt.getAttribute("data-cal-tip") || "",
+            meta: pt.getAttribute("data-ut-meta") || "",
+            tone: pt.getAttribute("data-ut-tone") || "live"
+          }, { x: r.left + r.width / 2, y: r.top });
+        }
+      });
+      pt.addEventListener("blur", () => {
+        if (window.fdaiTip && typeof window.fdaiTip.hide === "function") window.fdaiTip.hide();
+      });
+    });
+
+    if (calSvg && calReadout) {
+      calSvg.addEventListener("pointermove", (e) => {
+        const rect = calSvg.getBoundingClientRect();
+        if (rect.width < 10) return;
+        const vb = (calSvg.getAttribute("viewBox") || "0 0 560 220").trim().split(/[\s,]+/).map(Number);
+        const svgX = ((e.clientX - rect.left) / rect.width) * (vb[2] || 560);
+        const pts = Array.from(calSvg.querySelectorAll("circle[data-cal-tip]"));
+        if (!pts.length) return;
+        let nearest = pts[0];
+        let minDx = Math.abs(parseFloat(pts[0].getAttribute("cx") || "0") - svgX);
+        for (let i = 1; i < pts.length; i++) {
+          const dx = Math.abs(parseFloat(pts[i].getAttribute("cx") || "0") - svgX);
+          if (dx < minDx) { minDx = dx; nearest = pts[i]; }
+        }
+        calReadout.textContent = nearest.getAttribute("data-cal-tip") || "";
+      });
+    }
+
+    const HM_DAYS = ["월", "화", "수", "목", "금", "토", "일"];
+    const HM_HOURS = ["00h", "02h", "04h", "06h", "08h", "10h", "12h", "14h", "16h", "18h", "+1h", "+2h"];
+    const HM_DATA = [
+      [1,1,2,2,3,2,1,2,2,4,5,5],
+      [1,2,2,3,3,2,2,1,2,2,5,5],
+      [0,1,2,2,4,3,2,2,1,2,5,5],
+      [1,1,2,3,2,2,3,2,2,6,5,5],
+      [1,2,3,4,3,2,2,2,1,6,5,5],
+      [0,0,1,1,2,1,1,1,0,1,5,5],
+      [0,1,1,2,2,1,1,0,1,1,5,5]
+    ];
+    const HM_CLASS = { 0: "hm-0", 1: "hm-1", 2: "hm-2", 3: "hm-3", 4: "hm-4", 5: "hm-fc", 6: "sl-hm-unmeasured" };
+    const HM_TONE = { 0: "live", 1: "live", 2: "live", 3: "sre", 4: "sec", 5: "sre", 6: "neutral" };
+    const HM_VAL = { 0: "0.6%", 1: "1.2%", 2: "2.8%", 3: "4.1%", 4: "6.4%", 5: "+Horizon", 6: "미수집" };
+    const HM_TEXT = {
+      0: "오차율 0.6% · 정상 (미탐/오탐 0건)",
+      1: "오차율 1.2% · 양호 (안정 구간)",
+      2: "오차율 2.8% · 경미 편차 (주기 학습 반영)",
+      3: "오차율 4.1% · 주의 (collector_lag 1건)",
+      4: "오차율 6.4% · 보정 필요 (seasonal_shift 4건)",
+      5: "예측 구간 (+Horizon · Freyr EWMA 선행 추정)",
+      6: "데이터 없음 (미수집 · 표본 부족으로 0 대체 금지)"
+    };
+    const hmGrid = document.getElementById("slForecastHeatmap");
+    const hmOut = document.getElementById("slHmReadout");
+    function renderForecastHeatmapGrid(rowsMatrix, liveMeta) {
+      if (!hmGrid) return;
+      const frag = document.createDocumentFragment();
+      const corner = document.createElement("span");
+      frag.appendChild(corner);
+      HM_HOURS.forEach((hr) => {
+        const s = document.createElement("span");
+        s.textContent = hr;
+        frag.appendChild(s);
+      });
+      let firstSelectedMsg = null;
+      HM_DAYS.forEach((day, rIdx) => {
+        const lbl = document.createElement("span");
+        const strong = document.createElement("strong");
+        strong.textContent = day;
+        lbl.appendChild(strong);
+        frag.appendChild(lbl);
+        const rowCells = rowsMatrix[rIdx] || [];
+        HM_HOURS.forEach((hr, cIdx) => {
+          const cellObj = rowCells[cIdx];
+          const lvl = typeof cellObj === "object" && cellObj !== null ? Number(cellObj.level ?? 6) : Number(cellObj ?? 6);
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = `sl-hm-btn ${HM_CLASS[lvl] || "sl-hm-unmeasured"}`;
+          const slotLabel = `${day} ${hr}`;
+          let cellBody = HM_TEXT[lvl] || HM_TEXT[6];
+          let cellVal = HM_VAL[lvl] || "미수집";
+          if (liveMeta && typeof cellObj === "object" && cellObj !== null) {
+            if (lvl === 5) {
+              cellVal = "+Horizon";
+              cellBody = "예측 선행 구간 (+Horizon · Freyr EWMA 추정)";
+            } else if (lvl === 6 || !cellObj.total) {
+              cellVal = "미수집";
+              cellBody = "데이터 없음 (미수집 · 해당 시간대 커버리지 0건 - 0% 대체 금지)";
+            } else {
+              cellVal = `${cellObj.total}건`;
+              cellBody = `PostgreSQL 커버리지 실측 ${cellObj.total}건 (스냅샷 구간 한정 ${cellObj.incomplete || 0}건)`;
+            }
+          }
+          const msg = `${slotLabel} - ${cellBody}`;
+          btn.setAttribute("aria-label", msg);
+          btn.setAttribute("data-hm-label", msg);
+          btn.setAttribute("data-hm-row", String(rIdx));
+          btn.setAttribute("data-hm-col", String(cIdx));
+          btn.setAttribute("data-ut-title", `예측 커버리지 히트맵 · ${slotLabel}`);
+          btn.setAttribute("data-ut-val", cellVal);
+          btn.setAttribute("data-ut-body", cellBody);
+          btn.setAttribute("data-ut-meta", liveMeta ? "PostgreSQL operational_state_transition_coverage · 방향키 이동" : "Freyr EWMA 14일 주기 · 방향키로 인접 셀 이동");
+          btn.setAttribute("data-ut-tone", HM_TONE[lvl] || "neutral");
+          if (!firstSelectedMsg && lvl >= 1 && lvl <= 4) {
+            btn.classList.add("is-selected");
+            firstSelectedMsg = msg;
+          } else if (!liveMeta && rIdx === 0 && cIdx === 9) {
+            btn.classList.add("is-selected");
+            firstSelectedMsg = msg;
+          }
+          const update = () => {
+            hmGrid.querySelectorAll(".sl-hm-btn.is-selected").forEach((b) => b.classList.remove("is-selected"));
+            btn.classList.add("is-selected");
+            if (hmOut) hmOut.textContent = `선택 셀: ${msg}`;
+          };
+          btn.addEventListener("mouseenter", update);
+          btn.addEventListener("focus", update);
+          btn.addEventListener("click", update);
+          btn.addEventListener("keydown", (ev) => {
+            let nr = rIdx;
+            let nc = cIdx;
+            if (ev.key === "ArrowRight") nc = Math.min(HM_HOURS.length - 1, cIdx + 1);
+            else if (ev.key === "ArrowLeft") nc = Math.max(0, cIdx - 1);
+            else if (ev.key === "ArrowDown") nr = Math.min(HM_DAYS.length - 1, rIdx + 1);
+            else if (ev.key === "ArrowUp") nr = Math.max(0, rIdx - 1);
+            else return;
+            ev.preventDefault();
+            const nextBtn = hmGrid.querySelector(`.sl-hm-btn[data-hm-row="${nr}"][data-hm-col="${nc}"]`);
+            if (nextBtn) nextBtn.focus();
+          });
+          frag.appendChild(btn);
+        });
+      });
+      hmGrid.replaceChildren(frag);
+      if (hmOut && firstSelectedMsg) hmOut.textContent = `선택 셀: ${firstSelectedMsg}`;
+    }
+    renderForecastHeatmapGrid(HM_DATA, false);
+
+    /* --- Panel 5: Conversation Assurance --- */
+    let activeConvId = "turn_8841c";
+    const CONV_CASES = {
+      turn_8841c: { id: "선택 케이스 · turn_8841c (Bragi)", meta: "모델 호출 2회 · 비용 $0.0042 · 환각 0건", badge: "통과", cls: "tone-live", q: "prod-aks-02 CPU 급증 원인과 2-Hop 영향 리소스를 근거와 함께 설명해 줘.", agent: "Bragi 응답 (투명 프로즈)", a: "prod-aks-02 노드풀 CPU 사용률이 18:52 기준 94.2%에 도달했습니다. 원인은 prom-01 지표와 연결된 배치 파드 급증이며, 2-Hop 영향 리소스는 orders-api와 payment-gw입니다. 미수집 노드는 데이터 없음으로 분리했습니다.", r: ["4 / 4", "4 / 4", "4 / 4", "4 / 4"] },
+      turn_8839a: { id: "선택 케이스 · turn_8839a (Mimir)", meta: "모델 호출 3회 · 비용 $0.0089 · 환각 0건", badge: "검토 필요", cls: "tone-sre", q: "kv-prod-kr 예외 만료 정책이 프로덕션 승인에 미치는 영향을 알려줘.", agent: "Mimir 응답 (투명 프로즈)", a: "kv-prod-kr의 임시 방화벽 예외가 11월 30일 만료됩니다. 관련 Rego 정책(policy.kv.expiry)에 따라 연장 없이 유지 시 자동 차단되며, 연장에는 Owner 승인이 필요합니다.", r: ["4 / 4", "4 / 4", "4 / 4", "3 / 4 (용어 정비 권고)"] },
+      turn_8835b: { id: "선택 케이스 · turn_8835b (Forseti)", meta: "모델 호출 1회 · 비용 $0.0021 · 환각 0건", badge: "통과", cls: "tone-live", q: "오늘 발생한 변경 중 정책 위반이 있었는지 확인해 줘.", agent: "Forseti 응답 (투명 프로즈)", a: "금일(2026-11-26) 기준 감사 로그와 정책 평가 결과 정책 위반은 0건입니다. 대기 중인 PR 1건은 Shadow 모드에서 사전 경고가 기록되었습니다.", r: ["4 / 4", "4 / 4", "4 / 4", "4 / 4"] },
+      turn_8831f: { id: "선택 케이스 · turn_8831f (Huginn)", meta: "모델 호출 2회 · 비용 $0.0051 · 환각 0건", badge: "실패", cls: "tone-sec", q: "focus-cost-export 미수집 구간 비용 합계를 추정해 줘.", agent: "Huginn 응답 (투명 프로즈)", a: "focus-cost-export 수집기가 미연결 상태이므로 비용 합계는 데이터 없음 (미수집)입니다. (채점 감점 사유: 누락된 권한 코드 안내 생략)", r: ["2 / 4 (근거 코드 누락)", "4 / 4", "4 / 4", "3 / 4"] }
+    };
+
+    function filterConv() {
+      const q = (document.getElementById("slConvSearch")?.value || "").trim().toLowerCase();
+      const v = document.getElementById("slConvFilter")?.value || "all";
+      const rows = Array.from(document.querySelectorAll("#slConvTable tbody tr"));
+      let vis = 0;
+      rows.forEach((tr) => {
+        const ok = (!q || (tr.textContent || "").toLowerCase().includes(q)) && (v === "all" || tr.getAttribute("data-conv-verdict") === v);
+        tr.hidden = !ok;
+        if (ok) vis += 1;
+      });
+      setTxt("slConvCount", `표시: ${vis} / ${rows.length} 케이스`);
+      const empty = document.getElementById("slConvEmpty");
+      if (empty) empty.hidden = vis > 0;
+    }
+    document.getElementById("slConvSearch")?.addEventListener("input", filterConv);
+    document.getElementById("slConvFilter")?.addEventListener("change", filterConv);
+    document.getElementById("slConvResetBtn")?.addEventListener("click", () => {
+      const s = document.getElementById("slConvSearch"), f = document.getElementById("slConvFilter");
+      if (s) s.value = "";
+      if (f) f.value = "all";
+      filterConv();
+    });
+
+    let activeConvCasesMap = CONV_CASES;
+
+    function selectConvRow(tr) {
+      document.querySelectorAll("#slConvTable tbody tr").forEach((r) => {
+        const on = r === tr;
+        r.classList.toggle("sl-row-selected", on);
+        r.setAttribute("aria-selected", String(on));
+      });
+      const cid = tr.getAttribute("data-conv-id") || "turn_8841c";
+      activeConvId = cid;
+      const d = activeConvCasesMap[cid];
+      if (!d) return;
+      setTxt("slConvDetailId", d.id);
+      setTxt("slConvDetailMeta", d.meta);
+      setBadge(document.getElementById("slConvDetailBadge"), d.cls, d.badge);
+      setTxt("slConvQuestion", d.q);
+      setTxt("slConvAgentLbl", d.agent);
+      const ans = document.getElementById("slConvAnswer");
+      if (ans) {
+        const p = document.createElement("p");
+        p.textContent = d.a;
+        ans.replaceChildren(p);
+      }
+      setTxt("slRubric1", d.r[0]);
+      setTxt("slRubric2", d.r[1]);
+      setTxt("slRubric3", d.r[2]);
+      setTxt("slRubric4", d.r[3]);
+    }
+
+    document.querySelectorAll("#slConvTable tbody tr").forEach((tr) => {
+      const pick = () => selectConvRow(tr);
+      tr.addEventListener("click", pick);
+      bindRowKeyActivation(tr, () => {
+        pick();
+        tr.click();
+      });
+    });
+
+    const disputeInp = document.getElementById("slDisputeDetail");
+    function syncDisputeCharCount() {
+      const len = (disputeInp?.value || "").length;
+      setTxt("slDisputeCharCount", `${len} / 1000자`);
+    }
+    disputeInp?.addEventListener("input", syncDisputeCharCount);
+
+    document.getElementById("slDisputeForm")?.addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      const reasonSel = document.getElementById("slDisputeReason");
+      const list = document.getElementById("slDisputeList");
+      const text = (disputeInp?.value || "").trim();
+      if (!text) { toast("세부 이의 사유를 입력해 주세요."); return; }
+      if (text.length > 1000) { toast("이의 사유는 1000자 이내로 입력해 주세요."); return; }
+      const reasonLabel = reasonSel?.options?.[reasonSel.selectedIndex]?.text || "근거 누락";
+      if (list) {
+        const item = document.createElement("div");
+        item.className = "sl-dispute-item";
+        item.textContent = `[${activeConvId} · ${reasonLabel}] ${text}`;
+        list.prepend(item);
+      }
+      if (disputeInp) disputeInp.value = "";
+      syncDisputeCharCount();
+      toast("대화 품질 이의 제기가 평가 원장에 기록되었습니다.");
+    });
+
+    /* --- Panel 6: Context Selection A/B Comparisons --- */
+    const AB_RUNS = {
+      "eval-ctx-1125-04": { title: "A/B 컨텍스트 선택 정책 비교 · eval-ctx-1125-04", badge: "불변식 통과", cls: "tone-live", baseName: "hybrid-vector-v2", baseAcc: "89.2%", baseTok: "4,820 tok", baseLat: "2,100 ms", baseMiss: "3건", candName: "ontology-2hop-v3", candAcc: "98.4% (+9.2%p)", candTok: "2,640 tok (-45.2%)", candPct: "55%", candLat: "1,200 ms (-900 ms)", candMiss: "0건 (고정 근거 5/5 보존)", overlap: "96.8%", omissions: "없음 (0건)", savedSrc: "중복 런북 legacy-v1.md (-1,240), 구버전 경보 덤프 (-940)" },
+      "eval-ctx-1125-03": { title: "A/B 컨텍스트 선택 정책 비교 · eval-ctx-1125-03", badge: "불변식 통과", cls: "tone-live", baseName: "hybrid-vector-v2", baseAcc: "90.1%", baseTok: "5,100 tok", baseLat: "2,300 ms", baseMiss: "2건", candName: "ontology-1hop-v3", candAcc: "95.8% (+5.7%p)", candTok: "3,120 tok (-38.8%)", candPct: "61%", candLat: "1,400 ms (-900 ms)", candMiss: "0건 (고정 근거 5/5 보존)", overlap: "98.1%", omissions: "없음 (0건)", savedSrc: "비관련 로그 청크 6건 제외 (-1,980)" },
+      "eval-ctx-1125-02": { title: "A/B 컨텍스트 선택 정책 비교 · eval-ctx-1125-02", badge: "불변식 실패 (고정 근거 누락)", cls: "tone-sec", baseName: "hybrid-vector-v2", baseAcc: "88.5%", baseTok: "4,900 tok", baseLat: "2,000 ms", baseMiss: "2건", candName: "sparse-trim-v1", candAcc: "74.1% (-14.4%p)", candTok: "1,850 tok (-62.2%)", candPct: "38%", candLat: "900 ms (-1,100 ms)", candMiss: "4건 (고정 근거 2건 누락)", overlap: "71.4%", omissions: "nsg-prod-rules, kv-expiry-policy", savedSrc: "과도한 절삭으로 필수 정책 문서 누락 (채택 불가)" },
+      "eval-ctx-1125-01": { title: "A/B 컨텍스트 선택 정책 비교 · eval-ctx-1125-01", badge: "데이터 없음 (미수집)", cls: "tone-neutral", baseName: "hybrid-vector-v2", baseAcc: "데이터 없음 (미수집)", baseTok: "데이터 없음 (미수집)", baseLat: "-", baseMiss: "-", candName: "ontology-beta", candAcc: "데이터 없음 (미수집)", candTok: "데이터 없음 (미수집)", candPct: "0%", candLat: "-", candMiss: "데이터 없음 (미수집)", overlap: "데이터 없음 (미수집)", omissions: "수집 중단 (0으로 대체하지 않음)", savedSrc: "평가 러너 타임아웃으로 표본 미수집" }
+    };
+
+    function filterAbRows() {
+      const q = (document.getElementById("slAbSearch")?.value || "").trim().toLowerCase();
+      const st = document.getElementById("slAbFilter")?.value || "all";
+      const rows = Array.from(document.querySelectorAll("#slAbTable tbody tr"));
+      let vis = 0;
+      rows.forEach((tr) => {
+        const ok = (!q || (tr.textContent || "").toLowerCase().includes(q)) && (st === "all" || tr.getAttribute("data-ab-status") === st);
+        tr.hidden = !ok;
+        if (ok) vis += 1;
+      });
+      setTxt("slAbCount", `표시: ${vis} / ${rows.length} 평가`);
+      const empty = document.getElementById("slAbEmpty");
+      if (empty) empty.hidden = vis > 0;
+    }
+    document.getElementById("slAbSearch")?.addEventListener("input", filterAbRows);
+    document.getElementById("slAbFilter")?.addEventListener("change", filterAbRows);
+    document.getElementById("slAbResetBtn")?.addEventListener("click", () => {
+      const s = document.getElementById("slAbSearch"), f = document.getElementById("slAbFilter");
+      if (s) s.value = "";
+      if (f) f.value = "all";
+      filterAbRows();
+    });
+
+    let activeAbRunsMap = AB_RUNS;
+
+    function selectAbRow(tr) {
+      document.querySelectorAll("#slAbTable tbody tr").forEach((r) => {
+        const on = r === tr;
+        r.classList.toggle("sl-row-selected", on);
+        r.setAttribute("aria-selected", String(on));
+      });
+      const d = activeAbRunsMap[tr.getAttribute("data-ab-id")];
+      if (!d) return;
+      setTxt("slAbTitle", d.title);
+      setBadge(document.getElementById("slAbBadge"), d.cls, d.badge);
+      setTxt("slAbBaseName", d.baseName);
+      setTxt("slAbBaseAcc", d.baseAcc);
+      setTxt("slAbBaseTok", d.baseTok);
+      setTxt("slAbBaseLat", d.baseLat);
+      setTxt("slAbBaseMiss", d.baseMiss);
+      setTxt("slAbCandName", d.candName);
+      setTxt("slAbCandAcc", d.candAcc);
+      setTxt("slAbCandTok", d.candTok);
+      const bar = document.getElementById("slAbCandBar");
+      if (bar) bar.style.width = d.candPct;
+      const wrap = document.getElementById("slAbCandBarWrap");
+      if (wrap) {
+        wrap.setAttribute("data-ut-val", d.candTok);
+        wrap.setAttribute("data-ut-body", `${d.candName} · 근거 겹침률 ${d.overlap}`);
+      }
+      setTxt("slAbCandLat", d.candLat);
+      setTxt("slAbCandMiss", d.candMiss);
+      setTxt("slAbOverlap", d.overlap);
+      setTxt("slAbOmissions", d.omissions);
+      setTxt("slAbSavedSrc", d.savedSrc);
+    }
+
+    document.querySelectorAll("#slAbTable tbody tr").forEach((tr) => {
+      const pick = () => selectAbRow(tr);
+      tr.addEventListener("click", pick);
+      bindRowKeyActivation(tr, pick);
+    });
+
+    /* --- XSS-Safe Live PostgreSQL Hydrators for All 6 Labs Panels --- */
+    function makeBadgeSpan(toneCls, text, withDot) {
+      const span = document.createElement("span");
+      span.className = `cs-badge ${toneCls || "tone-neutral"}`;
+      if (withDot) {
+        const dot = document.createElement("span");
+        dot.className = "cs-dot";
+        span.append(dot, document.createTextNode(text));
+      } else {
+        span.textContent = text;
+      }
+      return span;
+    }
+
+    function makeCell(text, cls) {
+      const td = document.createElement("td");
+      if (cls) td.className = cls;
+      td.textContent = text == null ? "-" : String(text);
+      return td;
+    }
+
+    LAB_HYDRATORS["labs"] = (data) => {
+      if (typeof data.transition_batch_count === "number") {
+        setTxt("slLauncherCountBadge", `5개 모듈 · 배치 ${data.transition_batch_count} · 리소스 ${data.ontology_resource_count ?? 0}`);
+      }
+      if (data.module_metrics && typeof data.module_metrics === "object") {
+        Object.entries(data.module_metrics).forEach(([modId, info]) => {
+          const card = document.querySelector(`.sl-launcher-card[data-sl-nav="${modId}"]`);
+          if (!card || !info) return;
+          const badge = card.querySelector(".sl-launcher-head .cs-badge");
+          if (badge && info.badge) {
+            badge.className = `cs-badge ${info.badge_tone || "tone-live"}`;
+            badge.textContent = info.badge;
+          }
+          const kvSpan = card.querySelector(".insp-kv span");
+          const kvStrong = card.querySelector(".insp-kv strong");
+          if (kvSpan && info.metric_label) kvSpan.textContent = info.metric_label;
+          if (kvStrong && info.metric_value) kvStrong.textContent = info.metric_value;
+          if (info.badge) card.setAttribute("data-ut-val", info.badge);
+          if (info.metric_label && info.metric_value) {
+            card.setAttribute("data-ut-body", `PostgreSQL 실측 · ${info.metric_label}: ${info.metric_value} (lab-sandbox 격리)`);
+          }
+        });
+      }
+      const tbody = document.querySelector("#slRecentRunsTable tbody");
+      if (tbody && Array.isArray(data.recent_runs) && data.recent_runs.length > 0) {
+        const frag = document.createDocumentFragment();
+        data.recent_runs.forEach((run) => {
+          const tr = document.createElement("tr");
+          tr.tabIndex = 0;
+          tr.style.cursor = "pointer";
+          const targetMod = LAB_IDS.has(run.module_id) ? run.module_id : "labs";
+          tr.setAttribute("data-sl-nav", targetMod);
+          tr.append(
+            makeCell(run.run_id || "-", "cell-mono cell-strong"),
+            makeCell(run.module_label || targetMod, ""),
+            makeCell(run.sandbox_scope || "lab-sandbox", "cell-mono"),
+            makeCell(run.summary || "-", ""),
+            makeCell(`${run.side_effects ?? 0}건`, "cell-mono")
+          );
+          const statusTd = document.createElement("td");
+          const tone = run.status_tone === "live" ? "tone-live" : (run.status_tone === "sre" ? "tone-sre" : "tone-neutral");
+          statusTd.appendChild(makeBadgeSpan(tone, run.status_label || "실측", true));
+          tr.appendChild(statusTd);
+          const go = () => navigateToLabPanel(targetMod);
+          tr.addEventListener("click", go);
+          bindRowKeyActivation(tr, go);
+          frag.appendChild(tr);
+        });
+        tbody.replaceChildren(frag);
+      }
+    };
+
+    LAB_HYDRATORS["aks-commerce"] = (data) => {
+      const sid = data.service_id || activeAksService || "order-fulfillment";
+      if (data.scenario_summary) setTxt("slAksSub", data.scenario_summary);
+      if (typeof data.transition_count === "number" && typeof data.transition_batch_count === "number") {
+        setTxt("slAksRollbackStat", `실측 전환 ${data.transition_count}건 · 배치 ${data.transition_batch_count}건 (격리 100%)`);
+      }
+      setTxt("slAksSignalBadge", "postgres-direct · 실측 원장");
+      if (data.topology_nodes && typeof data.topology_nodes === "object") {
+        const nodeMetrics = {};
+        Object.entries(data.topology_nodes).forEach(([key, cfg]) => {
+          if (!cfg) return;
+          nodeMetrics[key] = cfg.metric || "관측 정상";
+          const nodeEl = document.querySelector(`[data-topo-node="${key}"]`);
+          if (nodeEl) {
+            const strong = nodeEl.querySelector("strong");
+            if (strong && cfg.title) strong.textContent = cfg.title;
+            const mEl = nodeEl.querySelector("[data-node-metric]");
+            if (mEl && cfg.metric) mEl.textContent = cfg.metric;
+            setBadge(nodeEl.querySelector("[data-node-badge]"), cfg.tone || "tone-live", cfg.status || "준비 완료");
+          }
+          LIVE_NODE_DRAWER_INFO[key] = {
+            title: cfg.title || key,
+            meta: `PostgreSQL 실측 · 격리 범위: lab-sandbox (${sid})`,
+            facts: Array.isArray(cfg.facts) ? cfg.facts : [["상태", cfg.status || "준비 완료"]],
+            body: `실제 로컬 PostgreSQL 온톨로지 및 상태 전환 원장에서 조회된 ${cfg.title || key} 계층 요약입니다. 운영 구독과 완전 격리되어 있습니다.`
+          };
+        });
+        LIVE_AKS_PROFILES[sid] = {
+          sub: data.scenario_summary || "",
+          nodes: nodeMetrics,
+          slo1: data.slo?.slo1_label || "데이터 없음 (미수집)",
+          slo2: data.slo?.slo2_label || "데이터 없음 (미수집)"
+        };
+      }
+      if (data.slo) {
+        if (data.slo.slo1_label) setTxt("slSlo1Val", data.slo.slo1_label);
+        if (data.slo.slo2_label) setTxt("slSlo2Val", data.slo.slo2_label);
+        const gapEl = document.getElementById("slAksGapNote");
+        if (gapEl && data.slo.unmeasured_gap) {
+          const strong = document.createElement("strong");
+          strong.textContent = "근거 공백 (Evidence Gap): ";
+          gapEl.replaceChildren(strong, document.createTextNode(data.slo.unmeasured_gap));
+        }
+      }
+      const sigTbody = document.querySelector("#slAksSignalTable tbody");
+      if (sigTbody && Array.isArray(data.signals) && data.signals.length > 0) {
+        const sigIds = ["slSigPool", "slSigP95", "slSigErr"];
+        const liveSigVals = [];
+        const frag = document.createDocumentFragment();
+        data.signals.forEach((s, idx) => {
+          const tr = document.createElement("tr");
+          const isGap = s.source === "collector_gap";
+          const curCell = makeCell(s.current, isGap ? "cell-muted" : "cell-mono");
+          if (!isGap && idx < sigIds.length) {
+            curCell.id = sigIds[idx];
+            liveSigVals[idx] = s.current;
+          }
+          tr.append(
+            makeCell(s.name, "cell-mono cell-strong"),
+            curCell,
+            makeCell(s.baseline, isGap ? "cell-muted" : "cell-mono"),
+            makeCell(s.source, "cell-mono")
+          );
+          frag.appendChild(tr);
+        });
+        sigTbody.replaceChildren(frag);
+        if (LIVE_AKS_PROFILES[sid]) LIVE_AKS_PROFILES[sid].signals = liveSigVals;
+      }
+    };
+
+    LAB_HYDRATORS["assurance-twin"] = (data, _env, opts) => {
+      if (data.posture) {
+        const rev = data.posture.revision || "ontology-rev";
+        setTxt("slTwinRevisionPill", `PostgreSQL 실측 · ${rev} (리소스 ${data.posture.ontology_resource_count ?? 0})`);
+        setTxt("slTwinBeforeTitle", `BEFORE · 운영 온톨로지 기준선 (${rev})`);
+        const beforeBadge = document.getElementById("slTwinBeforeBadge");
+        if (beforeBadge) {
+          beforeBadge.className = "cs-badge tone-live";
+          beforeBadge.textContent = `준수 ${data.posture.compliant_count ?? 0}건`;
+        }
+      }
+      if (opts && opts.skipRebuild) return;
+      if (Array.isArray(data.reviews) && data.reviews.length > 0) {
+        const nextMap = {};
+        const sel = document.getElementById("slTwinPrSelect");
+        const tbody = document.querySelector("#slTwinPrTable tbody");
+        const optFrag = document.createDocumentFragment();
+        const rowFrag = document.createDocumentFragment();
+        data.reviews.forEach((rev, idx) => {
+          const key = rev.id || `rev-${idx}`;
+          const fCount = typeof rev.finding_count === "number" ? rev.finding_count : 0;
+          nextMap[key] = {
+            reviewKey: rev.review_key || key,
+            verdictCls: rev.verdict_tone || "tone-neutral",
+            verdict: rev.verdict_label || rev.verdict || "실측",
+            afterCount: rev.verdict === "unmeasured" ? "보류" : `위반 ${fCount}건`,
+            afterCls: rev.verdict_tone || "tone-neutral",
+            resTitle: `영향받는 리소스 (${Array.isArray(rev.resources) ? rev.resources.length : 0}건)`,
+            before: Array.isArray(rev.before) ? rev.before : [],
+            after: Array.isArray(rev.after) ? rev.after : [],
+            res: Array.isArray(rev.resources) ? rev.resources : [],
+            act: rev.activity_id || "-",
+            corr: rev.correlation_id || "-",
+            digest: rev.evidence_digest || "-",
+            rev: rev.source_revision || "ontology-rev",
+            fresh: rev.freshness || "최신 (fresh)",
+            withheld: rev.withheld || "없음"
+          };
+          const opt = document.createElement("option");
+          opt.value = key;
+          opt.textContent = rev.title || rev.review_key || key;
+          if (idx === 0) opt.selected = true;
+          optFrag.appendChild(opt);
+
+          const tr = document.createElement("tr");
+          tr.tabIndex = 0;
+          tr.style.cursor = "pointer";
+          tr.setAttribute("data-twin-pr", key);
+          tr.setAttribute("aria-selected", idx === 0 ? "true" : "false");
+          if (idx === 0) tr.classList.add("sl-row-selected");
+          const tdRef = makeCell(rev.review_key || key, "cell-mono cell-strong");
+          const tdVerdict = document.createElement("td");
+          tdVerdict.appendChild(makeBadgeSpan(rev.verdict_tone || "tone-neutral", rev.verdict_label || rev.verdict || "실측", false));
+          const tdMode = makeCell(rev.mode || "shadow", "cell-mono");
+          const tdCnt = makeCell(rev.verdict === "unmeasured" ? "-" : `${fCount}건`, "cell-mono");
+          const tdFresh = document.createElement("td");
+          tdFresh.appendChild(makeBadgeSpan(rev.verdict === "unmeasured" ? "tone-neutral" : "tone-live", rev.freshness || "최신", false));
+          tr.append(tdRef, tdVerdict, tdMode, tdCnt, tdFresh);
+          const pick = () => selectTwinPr(key, false);
+          tr.addEventListener("click", pick);
+          bindRowKeyActivation(tr, pick);
+          rowFrag.appendChild(tr);
+        });
+        activeTwinPrMap = nextMap;
+        if (sel) sel.replaceChildren(optFrag);
+        if (tbody) tbody.replaceChildren(rowFrag);
+        const firstKey = Object.keys(nextMap)[0];
+        if (firstKey) selectTwinPr(firstKey, true);
+      }
+    };
+
+    LAB_HYDRATORS["forecast-learning"] = (data) => {
+      if (data.summary) {
+        setTxt("slForecastCalTitle", `예측 보정 & 벤치마크 검증 곡선 (PostgreSQL · ${data.summary.benchmark_total ?? 0}건 실측)`);
+        const calBadge = document.getElementById("slForecastCalBadge");
+        const comp = typeof data.summary.avg_completeness_pct === "number" ? `${data.summary.avg_completeness_pct.toFixed(1)}%` : "실측";
+        setBadge(calBadge, "tone-live", `전환 완전성 ${comp} · 배치 ${data.summary.batch_count ?? 0}건`);
+        const passRate = data.summary.benchmark_pass_rate_pct != null ? `${data.summary.benchmark_pass_rate_pct}%` : "미수집";
+        setTxt("slCalReadout", `PostgreSQL 실측: 전환 배치 ${data.summary.batch_count ?? 0}건 · 커버리지 ${data.summary.coverage_total ?? 0}건 · SREGym 벤치마크 통과율 ${passRate} (${data.summary.benchmark_passed ?? 0}/${data.summary.benchmark_total ?? 0})`);
+      }
+      if (Array.isArray(data.calibration_bins) && calSvg) {
+        const circles = Array.from(calSvg.querySelectorAll("circle[data-cal-tip]"));
+        const polyPts = [];
+        let lastLiveX = 474;
+        let lastLiveY = 34;
+        data.calibration_bins.forEach((bin, idx) => {
+          const pt = circles[idx];
+          if (!pt || !bin) return;
+          const pct = Math.max(0, Math.min(100, Number(bin.pass_rate_pct || 0)));
+          const cy = Math.round(188 - (pct / 100) * 168);
+          const cx = Number(pt.getAttribute("cx") || (102 + idx * 93));
+          pt.setAttribute("cy", String(cy));
+          polyPts.push(`${cx},${cy}`);
+          lastLiveX = cx;
+          lastLiveY = cy;
+          const tip = `메커니즘 ${bin.mechanism}: 통과 ${bin.passed}/${bin.total} (${bin.pass_rate_pct}%)`;
+          pt.setAttribute("data-ut-title", `벤치마크 보정 · ${bin.mechanism}`);
+          pt.setAttribute("data-ut-val", `${bin.pass_rate_pct}%`);
+          pt.setAttribute("data-ut-meta", `표본 ${bin.total}건 · 통과 ${bin.passed}건`);
+          pt.setAttribute("data-cal-tip", tip);
+        });
+        const poly = calSvg.querySelector("polyline");
+        if (poly && polyPts.length >= 2) poly.setAttribute("points", polyPts.join(" "));
+        const dashedTail = calSvg.querySelector('line[stroke-dasharray="3 3"]');
+        if (dashedTail) {
+          dashedTail.setAttribute("x1", String(lastLiveX));
+          dashedTail.setAttribute("y1", String(lastLiveY));
+        }
+      }
+      if (data.debt_inspector) {
+        setTxt("slDebtStore", data.debt_inspector.durable_store || "PostgreSQL Durable");
+        setTxt("slDebtCompleteness", data.debt_inspector.completeness_text || "-");
+        setTxt("slDebtOverdue", data.debt_inspector.coverage_text || "-");
+        setTxt("slDebtOutbox", data.debt_inspector.initial_only_text || "-");
+        setTxt("slDebtRetention", "0건 (무손실 원장)");
+        setTxt("slDebtLead", data.debt_inspector.benchmark_text || "-");
+        setTxt("slDebtUnmeasured", data.debt_inspector.unmeasured_policy || "데이터 없음 (미수집)");
+      }
+      if (Array.isArray(data.heatmap_rows) && data.heatmap_rows.length === 7) {
+        renderForecastHeatmapGrid(data.heatmap_rows, true);
+      }
+      if (data.outcomes && Array.isArray(data.outcomes.items)) {
+        setTxt("slForecastOutcomeTitle", `기준선 · 커버리지 결과 분포 (${data.outcomes.total ?? 0}건 실측)`);
+        const list = document.getElementById("slForecastOutcomeList");
+        if (list) {
+          const frag = document.createDocumentFragment();
+          data.outcomes.items.forEach((it) => {
+            const row = document.createElement("div");
+            row.className = "sl-ratio-row";
+            row.setAttribute("data-ut-title", it.label || it.key);
+            row.setAttribute("data-ut-val", `${it.count ?? 0}건 (${it.pct ?? 0}%)`);
+            row.setAttribute("data-ut-body", it.note || "PostgreSQL 실측");
+            row.setAttribute("data-ut-tone", it.tone || "neutral");
+            const strong = document.createElement("strong");
+            strong.textContent = it.label || it.key;
+            const track = document.createElement("div");
+            track.className = "sl-ratio-track";
+            const fill = document.createElement("div");
+            const fillCls = it.tone === "sre" ? "is-sre" : (it.tone === "sec" ? "is-sec" : (it.tone === "neutral" ? "is-neutral" : ""));
+            fill.className = `sl-ratio-fill ${fillCls}`.trim();
+            fill.style.width = `${Math.max(2, Math.min(100, Number(it.pct || 0)))}%`;
+            track.appendChild(fill);
+            const meta = document.createElement("span");
+            meta.className = "cell-mono";
+            meta.textContent = `${it.count ?? 0}건 (${it.pct ?? 0}%) · ${it.note || "-"}`;
+            row.append(strong, track, meta);
+            frag.appendChild(row);
+          });
+          list.replaceChildren(frag);
+        }
+      }
+    };
+
+    LAB_HYDRATORS["conversation-assurance"] = (data) => {
+      const semCnt = Number(data.semantic_result_count ?? 0);
+      const llmCnt = Number(data.llm_invocation_count ?? 0);
+      const assessCnt = Number(data.assessment_count ?? 0);
+      setTxt("slConvTopBadge1", `LLM 호출 ${llmCnt}회`);
+      setTxt("slConvTopBadge2", semCnt > 0 ? `시맨틱 턴 ${semCnt}건` : `최근 7일 케이스 ${Array.isArray(data.cases) ? data.cases.length : 0}건`);
+      setTxt("slConvTopBadge3", `평가 원장 ${assessCnt}건 · 하드 제로 준수`);
+      setTxt(
+        "slConvPantheonSummary",
+        semCnt > 0
+          ? `PostgreSQL LLM 호출 · 시맨틱 턴 실측 요약 (총 ${llmCnt}회 · 시맨틱 ${semCnt}건 · 평가표 ${assessCnt}건)`
+          : `PostgreSQL 최근 7일 LLM 호출 실측 요약 (총 ${llmCnt}회 · 평가 원장 ${assessCnt}건 · 하드 제로 준수)`
+      );
+      setTxt("slConvPantheonMeta", `${Array.isArray(data.agent_summary) ? data.agent_summary.length : 0}개 모델/기능 집계`);
+
+      const agentHead = document.getElementById("slConvAgentHead");
+      if (agentHead) {
+        const tr = document.createElement("tr");
+        ["기능 / 모델", "티어", "모드", "호출 수", "평균 입력 tok", "평균 출력 tok", "총 토큰", "상태"].forEach((h) => {
+          const th = document.createElement("th");
+          th.textContent = h;
+          tr.appendChild(th);
+        });
+        agentHead.replaceChildren(tr);
+      }
+      const agentTbody = document.querySelector("#slConvAgentTable tbody");
+      if (agentTbody && Array.isArray(data.agent_summary)) {
+        const frag = document.createDocumentFragment();
+        data.agent_summary.forEach((row) => {
+          const tr = document.createElement("tr");
+          tr.append(
+            makeCell(`${row.capability_id} (${row.model_key})`, "cell-mono cell-strong"),
+            makeCell(row.tier, "cell-mono"),
+            makeCell(row.mode, "cell-mono"),
+            makeCell(String(row.calls ?? 0), "cell-mono"),
+            makeCell(String(row.avg_prompt_tokens ?? 0), "cell-mono"),
+            makeCell(String(row.avg_completion_tokens ?? 0), "cell-mono"),
+            makeCell(String(row.total_tokens ?? 0), "cell-mono")
+          );
+          const tdSt = document.createElement("td");
+          tdSt.appendChild(makeBadgeSpan(row.status_tone || "tone-live", row.status_label || "실측", false));
+          tr.appendChild(tdSt);
+          frag.appendChild(tr);
+        });
+        agentTbody.replaceChildren(frag);
+      }
+
+      if (Array.isArray(data.cases) && data.cases.length > 0) {
+        setTxt("slConvCardTitle", `실측 대화 · 시맨틱 턴 평가 케이스 (${data.cases.length}건 · PostgreSQL)`);
+        const nextCases = {};
+        const tbody = document.querySelector("#slConvTable tbody");
+        const frag = document.createDocumentFragment();
+        data.cases.forEach((c, idx) => {
+          const cid = c.case_id || `case-${idx}`;
+          nextCases[cid] = {
+            id: `선택 케이스 · ${cid} (${c.agent || "Bragi"})`,
+            meta: c.meta || "PostgreSQL 실측",
+            badge: c.verdict_badge || "실측",
+            cls: c.verdict_tone || "tone-live",
+            q: c.question || "-",
+            agent: `${c.agent || "Bragi"} 응답 (투명 프로즈)`,
+            a: c.answer || "-",
+            r: Array.isArray(c.rubric) && c.rubric.length >= 4 ? c.rubric : ["실측", "실측", "실측", "실측"]
+          };
+          const tr = document.createElement("tr");
+          tr.tabIndex = 0;
+          tr.style.cursor = "pointer";
+          tr.setAttribute("data-conv-id", cid);
+          tr.setAttribute("data-conv-verdict", c.verdict || "pass");
+          tr.setAttribute("aria-selected", idx === 0 ? "true" : "false");
+          if (idx === 0) tr.classList.add("sl-row-selected");
+
+          const tdId = makeCell(cid, "cell-mono cell-strong");
+          const tdAgent = document.createElement("td");
+          const pair = document.createElement("span");
+          pair.className = "sl-icon-pair";
+          const img = document.createElement("img");
+          img.className = "agent-ico";
+          img.src = c.agent_icon || "/agent-icons/bragi.svg";
+          img.alt = "";
+          pair.append(img, document.createTextNode(c.agent || "Bragi"));
+          tdAgent.appendChild(pair);
+          const tdScore = makeCell(c.score_text || "-", "cell-mono");
+          const tdHall = document.createElement("td");
+          tdHall.appendChild(makeBadgeSpan("tone-live", c.hallucination_text || "0건", false));
+          const tdBound = document.createElement("td");
+          tdBound.appendChild(makeBadgeSpan("tone-live", c.boundary_text || "통과", false));
+          const tdVerdict = document.createElement("td");
+          tdVerdict.appendChild(makeBadgeSpan(c.verdict_tone || "tone-live", c.verdict_badge || "통과", true));
+          tr.append(tdId, tdAgent, tdScore, tdHall, tdBound, tdVerdict);
+          const pick = () => selectConvRow(tr);
+          tr.addEventListener("click", pick);
+          bindRowKeyActivation(tr, pick);
+          frag.appendChild(tr);
+        });
+        activeConvCasesMap = nextCases;
+        if (tbody) {
+          tbody.replaceChildren(frag);
+          const filterSel = document.getElementById("slConvFilter");
+          if (filterSel && filterSel.options.length >= 4) {
+            filterSel.options[0].textContent = `판정: 전체 (${data.cases.length})`;
+            filterSel.options[1].textContent = `통과 (${data.pass_count ?? 0})`;
+            filterSel.options[2].textContent = `검토 필요 (${data.review_count ?? 0})`;
+            filterSel.options[3].textContent = `실패 (${data.fail_count ?? 0})`;
+          }
+          filterConv();
+          const firstRow = tbody.querySelector("tr");
+          if (firstRow) selectConvRow(firstRow);
+        }
+      }
+    };
+
+    LAB_HYDRATORS["context-selection-comparisons"] = (data) => {
+      const hdrBadge = document.getElementById("slAbHeaderBadge");
+      const admCnt = Number(data.admission_receipt_count ?? 0);
+      const evLabel = admCnt > 0
+        ? `증거 채택 ${admCnt}건 · 비교 ${data.evaluation_count ?? 0}건 실측`
+        : `보정 영수증 ${data.correction_receipt_count ?? data.decision_evidence_count ?? 0}건 · 비교 ${data.evaluation_count ?? 0}건 실측`;
+      setBadge(hdrBadge, "tone-live", evLabel);
+      if (Array.isArray(data.comparisons) && data.comparisons.length > 0) {
+        const nextRuns = {};
+        const tbody = document.querySelector("#slAbTable tbody");
+        const frag = document.createDocumentFragment();
+        let passN = 0, failN = 0, unmN = 0;
+        data.comparisons.forEach((item, idx) => {
+          const rid = item.id || `cmp-${idx}`;
+          const st = item.status || "pass";
+          if (st === "pass") passN += 1;
+          else if (st === "fail") failN += 1;
+          else unmN += 1;
+          nextRuns[rid] = {
+            title: item.title || rid,
+            badge: item.badge || "실측",
+            cls: item.cls || "tone-live",
+            baseName: item.base_name || "-",
+            baseAcc: item.base_acc || "-",
+            baseTok: item.base_tok || "-",
+            baseLat: item.base_lat || "-",
+            baseMiss: item.base_miss || "-",
+            candName: item.cand_name || "-",
+            candAcc: item.cand_acc || "-",
+            candTok: item.cand_tok || "-",
+            candPct: item.cand_pct || "50%",
+            candLat: item.cand_lat || "-",
+            candMiss: item.cand_miss || "-",
+            overlap: item.overlap || "-",
+            omissions: item.omissions || "-",
+            savedSrc: item.saved_src || "-"
+          };
+          const tr = document.createElement("tr");
+          tr.tabIndex = 0;
+          tr.style.cursor = "pointer";
+          tr.setAttribute("data-ab-id", rid);
+          tr.setAttribute("data-ab-status", st);
+          tr.setAttribute("aria-selected", idx === 0 ? "true" : "false");
+          if (idx === 0) tr.classList.add("sl-row-selected");
+          tr.append(
+            makeCell(rid, "cell-mono cell-strong"),
+            makeCell(item.policy_pair || "-", "cell-mono"),
+            makeCell(item.acc_delta || "-", "cell-mono"),
+            makeCell(item.tok_delta || "-", "cell-mono"),
+            makeCell(item.lat_delta || "-", "cell-mono"),
+            makeCell(item.miss_delta || "-", "cell-mono")
+          );
+          const tdRes = document.createElement("td");
+          tdRes.appendChild(makeBadgeSpan(item.cls || "tone-live", item.badge || "실측", true));
+          tr.appendChild(tdRes);
+          const pick = () => selectAbRow(tr);
+          tr.addEventListener("click", pick);
+          bindRowKeyActivation(tr, pick);
+          frag.appendChild(tr);
+        });
+        activeAbRunsMap = nextRuns;
+        if (tbody) {
+          tbody.replaceChildren(frag);
+          const filterSel = document.getElementById("slAbFilter");
+          if (filterSel && filterSel.options.length >= 4) {
+            filterSel.options[0].textContent = `결과: 전체 (${data.comparisons.length})`;
+            filterSel.options[1].textContent = `통과 (${passN})`;
+            filterSel.options[2].textContent = `실패 (${failN})`;
+            filterSel.options[3].textContent = `보류 / 미수집 (${unmN})`;
+          }
+          filterAbRows();
+          const firstRow = tbody.querySelector("tr");
+          if (firstRow) selectAbRow(firstRow);
+        }
+      }
+    };
+
+    function resolveInitialLabPanel() {
+      const pathMatch = location.pathname.match(/^\/labs\/([a-z0-9-]+)\/?$/i);
+      if (pathMatch && LAB_IDS.has(pathMatch[1])) return pathMatch[1];
+      if (typeof window.fdaiResolvePanelFromLocation === "function") {
+        const fromShell = window.fdaiResolvePanelFromLocation();
+        if (fromShell && LAB_IDS.has(fromShell)) return fromShell;
+      }
+      const m = location.hash.match(/tab=([a-z0-9-]+)/i);
+      if (m && LAB_IDS.has(m[1])) return m[1];
+      return window.__FDAI_V4_BOOTSTRAP__?.defaultPanel || "labs";
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      syncLiveBoundaryBarVisibility();
+      const initial = resolveInitialLabPanel();
+      activateLabPanel(initial);
+      if (window.fdaiV4Live && typeof window.fdaiV4Live.getLastPulse === "function") {
+        const lastP = window.fdaiV4Live.getLastPulse();
+        if (lastP) handleLabLivePulse(lastP);
+      }
+      window.setTimeout(() => {
+        if (window.fdaiTip && typeof window.fdaiTip.enhance === "function") {
+          window.fdaiTip.enhance(document.getElementById("fdaiMain") || document.body);
+        }
+        syncLabTabsChrome();
+        syncLiveBoundaryBarVisibility();
+      }, 30);
+    });
+  })();
+  </script>
+</body>
+</html>
