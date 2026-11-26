@@ -215,16 +215,40 @@ jobs:
         run: |
           set -euo pipefail
           selector=(python3 _archive/python/scripts/deployment/service/select_changed_images.py)
-          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            "${selector[@]}" --images "$SELECTED_IMAGES" >> "$GITHUB_OUTPUT"
+          raw_output="$(
+            if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+              "${selector[@]}" --images "$SELECTED_IMAGES"
+            else
+              [[ "$BASE_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] &&
+                [[ "$BASE_COMMIT_SHA" != "0000000000000000000000000000000000000000" ]] || {
+                  echo "pull-request packaging checks require an exact base SHA" >&2
+                  exit 1
+                }
+              git diff --no-renames --name-only -z "$BASE_COMMIT_SHA" "$TARGET_COMMIT_SHA" |
+                "${selector[@]}" --packaging-only --nul
+            fi
+          )"
+          raw_matrix="$(printf '%s\n' "$raw_output" | sed -n 's/^matrix=//p' | tail -n 1)"
+          if [[ -z "$raw_matrix" ]]; then
+            raw_matrix='{"include":[]}'
+          fi
+          filtered_include='[]'
+          while IFS= read -r item; do
+            [[ -n "$item" ]] || continue
+            df="$(jq -r '.dockerfile // ""' <<<"$item")"
+            if [[ -n "$df" && -f "$df" ]]; then
+              filtered_include="$(jq -c --argjson item "$item" '. + [$item]' <<<"$filtered_include")"
+            else
+              echo "Skipping archived/missing legacy Dockerfile: $df" >&2
+            fi
+          done < <(jq -c '.include[]? // empty' <<<"$raw_matrix")
+          filtered_matrix="$(jq -cn --argjson inc "$filtered_include" '{include: $inc}')"
+          count="$(jq -r 'length' <<<"$filtered_include")"
+          echo "matrix=$filtered_matrix" >> "$GITHUB_OUTPUT"
+          if [[ "$count" -gt 0 ]]; then
+            echo "has_images=true" >> "$GITHUB_OUTPUT"
           else
-            [[ "$BASE_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] &&
-              [[ "$BASE_COMMIT_SHA" != "0000000000000000000000000000000000000000" ]] || {
-                echo "pull-request packaging checks require an exact base SHA" >&2
-                exit 1
-              }
-            git diff --no-renames --name-only -z "$BASE_COMMIT_SHA" "$TARGET_COMMIT_SHA" |
-              "${selector[@]}" --packaging-only --nul >> "$GITHUB_OUTPUT"
+            echo "has_images=false" >> "$GITHUB_OUTPUT"
           fi
 
   pr-build-scan:
