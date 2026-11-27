@@ -164,10 +164,422 @@
       fill: var(--cs-shade);
     }
     .ag-cnode.is-dimmed { opacity: 0.25; }
+    .ag-cnode.is-idle-node { opacity: 0.72; }
+    .ag-cnode.is-idle-node.is-selected,
+    .ag-cnode.is-idle-node:hover { opacity: 1; }
     .ag-edge-line { stroke: var(--cs-hairline); stroke-width: 1.05; stroke-opacity: 0.8; transition: stroke 120ms ease, stroke-width 120ms ease, stroke-opacity 120ms ease; }
     .ag-edge-line.is-staff { stroke-dasharray: 4 3; }
     .ag-edge-line.is-collab { stroke: var(--sig-sre); stroke-width: 1.25; stroke-opacity: 0.85; stroke-dasharray: 5 3; }
-    .ag-edge-line.is-highlighted { stroke: var(--sig-live); stroke-width: 1.5; stroke-opacity: 0.98; }
+    .ag-edge-line.is-active-flow {
+      stroke: var(--sig-live);
+      stroke-width: 1.75;
+      stroke-opacity: 0.92;
+      stroke-dasharray: 6 5;
+      animation: agFlowDash 1.9s linear infinite;
+    }
+    .ag-edge-line.is-highlighted { stroke: var(--sig-live); stroke-width: 1.85; stroke-opacity: 0.98; }
+    @keyframes agFlowDash {
+      from { stroke-dashoffset: 22; }
+      to { stroke-dashoffset: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .ag-edge-line.is-active-flow { animation: none; }
+    }
+
+    /* Unified Single-Row Control Bar + Quiet Live Chip with Hover Popover */
+    .ag-unified-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px 12px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--cs-hairline);
+      background: var(--cs-card);
+    }
+    .ag-status-chips {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+    .ag-status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 30px;
+      padding: 3px 10px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-badge);
+      background: var(--cs-bg);
+      color: var(--cs-text-soft);
+      font-family: var(--cs-font);
+      font-size: 12.5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+    }
+    .ag-status-chip:hover { background: var(--cs-shade); color: var(--cs-text); }
+    .ag-status-chip.is-active {
+      background: var(--cs-card);
+      border-color: var(--cs-text);
+      color: var(--cs-text);
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(17, 24, 39, 0.06);
+    }
+    .ag-status-chip:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--cs-focus-ring); }
+    .ag-status-chip .stat-pill-v {
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      color: var(--cs-text);
+    }
+    .ag-live-chip-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+    .ag-live-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 30px;
+      padding: 3px 10px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-badge);
+      background: var(--cs-bg);
+      color: var(--cs-text-soft);
+      font-family: var(--cs-font);
+      font-size: 12px;
+      cursor: pointer;
+      max-width: 235px;
+    }
+    .ag-live-chip:hover { background: var(--cs-shade); color: var(--cs-text); border-color: var(--cs-text-soft); }
+    .ag-live-chip:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--cs-focus-ring); }
+    .ag-live-chip-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--cs-text);
+      font-weight: 600;
+    }
+    .ag-live-chip-meta {
+      font-size: 11.5px;
+      color: var(--cs-text-soft);
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+    .ag-live-popover {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      width: min(390px, 88vw);
+      padding: 10px 12px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius);
+      background: var(--cs-card);
+      box-shadow: 0 10px 28px rgba(17, 24, 39, 0.14);
+      z-index: 40;
+      display: grid;
+      gap: 7px;
+      opacity: 0;
+      transform: translateY(-4px);
+      pointer-events: none;
+      transition: opacity 150ms ease, transform 150ms ease;
+    }
+    .ag-live-chip-wrap:hover .ag-live-popover,
+    .ag-live-chip-wrap:focus-within .ag-live-popover {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    .ag-live-pop-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--cs-text-soft);
+    }
+    .ag-live-pop-list { display: grid; gap: 5px; }
+    .ag-live-pop-item {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid var(--cs-hairline-soft);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      color: var(--cs-text);
+      text-align: left;
+      font-family: var(--cs-font);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .ag-live-pop-item:hover { background: var(--cs-shade); border-color: var(--cs-hairline); }
+    .ag-live-pop-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Roster Header + Micro Activity Proportion Bars */
+    .ag-roster-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 2px 2px 6px;
+      border-bottom: 1px solid var(--cs-hairline-soft);
+      margin-bottom: 4px;
+    }
+    .ag-roster-head-title { font-size: 12px; font-weight: 700; color: var(--cs-text); }
+    .ag-sort-seg {
+      display: inline-flex;
+      border: 1px solid var(--cs-hairline);
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--cs-card);
+    }
+    .ag-sort-btn {
+      border: 0;
+      background: transparent;
+      color: var(--cs-text-soft);
+      font-family: var(--cs-font);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 7px;
+      cursor: pointer;
+    }
+    .ag-sort-btn.is-active { background: var(--cs-shade); color: var(--cs-text); }
+    .ag-list-btn-inner {
+      display: grid;
+      gap: 3px;
+      width: 100%;
+      min-width: 0;
+    }
+    .ag-list-btn-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      min-width: 0;
+    }
+    .ag-list-right {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      flex: 0 0 auto;
+    }
+    .ag-list-cnt {
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      color: var(--cs-text-soft);
+      font-weight: 600;
+    }
+    .ag-roster-bar {
+      height: 3px;
+      border-radius: 999px;
+      background: var(--cs-hairline-soft);
+      overflow: hidden;
+    }
+    .ag-roster-bar-fill {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+      background: var(--sig-live);
+      transition: width 220ms ease;
+    }
+
+    /* Constellation Stage Toolbar + Bottom Selected Summary Card */
+    .ag-canvas-head-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 14px 0;
+      font-size: 12px;
+      color: var(--cs-text-soft);
+    }
+    .ag-canvas-legend-pills {
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+    .ag-canvas-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+    }
+    .ag-canvas-summary {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px 14px;
+      margin: 0 14px 12px;
+      padding: 10px 14px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius);
+      background: var(--cs-card);
+    }
+    .ag-canvas-summary-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      flex: 1 1 320px;
+    }
+    .ag-canvas-summary-copy {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+    }
+    .ag-canvas-summary-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 7px;
+      font-size: 13px;
+    }
+    .ag-canvas-summary-line {
+      font-size: 12.5px;
+      color: var(--cs-text-soft);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ag-canvas-summary-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      flex: 0 0 auto;
+    }
+
+    /* Rich 5-Block Inspector & Drawer Components (Zero Colored Left/Top Rails) */
+    .ag-dr-section {
+      display: grid;
+      gap: 8px;
+      padding: 11px 12px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-card);
+    }
+    .ag-dr-sec-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--cs-text-soft);
+    }
+    .ag-dr-bar {
+      display: flex;
+      gap: 2px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--cs-shade);
+      overflow: hidden;
+    }
+    .ag-dr-bar > span {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+      min-width: 2px;
+    }
+    .ag-dr-bar-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 12px;
+      font-size: 12px;
+      color: var(--cs-text-soft);
+    }
+    .ag-dr-event-list { display: grid; gap: 6px; }
+    .ag-dr-event-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--cs-hairline-soft);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      color: var(--cs-text);
+      text-align: left;
+      text-decoration: none;
+      font-family: var(--cs-font);
+      font-size: 12.5px;
+      cursor: pointer;
+    }
+    .ag-dr-event-row:hover { background: var(--cs-shade); border-color: var(--cs-hairline); }
+    .ag-dr-event-title { font-weight: 600; color: var(--cs-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ag-dr-event-sub { font-size: 11.5px; color: var(--cs-text-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ag-handoff-chain {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      color: var(--cs-text-soft);
+    }
+    .ag-handoff-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: 999px;
+      background: var(--cs-bg);
+      color: var(--cs-text);
+      font-family: var(--cs-font);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .ag-handoff-chip:hover { background: var(--cs-shade); }
+    .ag-handoff-chip.is-current {
+      background: var(--cs-shade);
+      border-color: var(--cs-text);
+      cursor: default;
+    }
+
+    /* Cards Section Grouping & Inline Meters */
+    .ag-cards-section-head {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 4px 2px;
+      border-bottom: 1px solid var(--cs-hairline-soft);
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--cs-text-soft);
+    }
+    .ag-card-meter {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--cs-text-soft);
+      font-variant-numeric: tabular-nums;
+    }
+    .ag-tbl-meter {
+      display: grid;
+      gap: 4px;
+      min-width: 110px;
+    }
+    .ag-tbl-meter-val {
+      font-size: 12px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: var(--cs-text);
+    }
 
     .ag-cards-grid {
       display: grid;
@@ -750,39 +1162,24 @@
   <button type="button" role="tab" class="seg-btn" aria-selected="false" data-panel-tab="capabilities" data-hub-owner="skills" data-panel-title="지원 기능 목록">지원 기능 목록</button>
 </div></div>
 <section class="panel-view" data-panel-id="agents" data-hub-root="agents" data-panel-title="에이전트 현황" data-panel-summary="15개 에이전트의 실시간 작업 상태, 담당 영역 및 현재 처리 중인 항목">
-  <div class="ag-live-pulse-strip" id="agLivePulseBanner" role="status" aria-live="polite">
-    <span style="display:inline-flex;align-items:center;gap:8px;min-width:0">
-      <span class="ag-pulse-dot is-live" id="agLivePulseDot" aria-hidden="true"></span>
-      <strong style="color:var(--cs-text);font-weight:600" id="agLivePulseText">실시간 판테온 동기화 대기 중...</strong>
-    </span>
-    <span style="font-size:12px;color:var(--cs-text-soft)" id="agLivePulseMeta">실시간 운영 원장 연결 확인 중</span>
-  </div>
-  <div class="stat-strip" aria-label="에이전트 현황 핵심 요약">
-    <button type="button" class="stat-pill" data-ag-quick-status="working" data-sample-val="6개"><span class="cs-dot" style="background:var(--sig-sre)"></span><span class="stat-pill-k">작업 중</span><span class="stat-pill-v">미측정</span></button>
-    <button type="button" class="stat-pill" data-ag-quick-status="watching" data-sample-val="6개"><span class="cs-dot" style="background:var(--sig-live)"></span><span class="stat-pill-k">감시 중</span><span class="stat-pill-v">미측정</span></button>
-    <button type="button" class="stat-pill" data-ag-quick-status="idle" data-sample-val="2개"><span class="cs-dot" style="background:var(--sig-human)"></span><span class="stat-pill-k">대기</span><span class="stat-pill-v">미측정</span></button>
-    <button type="button" class="stat-pill" data-ag-quick-status="unobserved" data-sample-val="1개"><span class="cs-dot" style="background:var(--cs-text-soft)"></span><span class="stat-pill-k">상태 미확인</span><span class="stat-pill-v">미측정</span></button>
-    <span class="cs-badge tone-neutral" id="agLiveBoundaryBadge" style="margin-left:auto"><span class="cs-dot"></span>Live · 실측 데이터 확인 중...</span>
-    <button type="button" class="cs-btn cs-btn-sm" id="agSseToggleBtn" aria-pressed="false">SSE 연결</button>
-  </div>
   <section class="graph-wb" id="agentsWorkbench" aria-label="15개 에이전트 현황 워크벤치">
-    <div class="ag-toolbar-wrap">
-      <div class="seg-group" role="tablist" aria-label="에이전트 현황 보기 전환">
-        <button type="button" role="tab" class="seg-btn is-active" aria-selected="true" data-ag-view="constellation">별자리 그래프</button>
-        <button type="button" role="tab" class="seg-btn" aria-selected="false" data-ag-view="table">목록 표</button>
-        <button type="button" role="tab" class="seg-btn" aria-selected="false" data-ag-view="cards">카드 뷰</button>
-      </div>
-      <div class="ag-filter-row" role="group" aria-label="에이전트 상태 필터">
-        <button type="button" class="ag-pill-btn is-active" data-ag-status="all">전체 (15)</button>
-        <button type="button" class="ag-pill-btn" data-ag-status="working">작업 중 (—)</button>
-        <button type="button" class="ag-pill-btn" data-ag-status="watching">감시 중 (—)</button>
-        <button type="button" class="ag-pill-btn" data-ag-status="idle">대기 (—)</button>
-        <button type="button" class="ag-pill-btn" data-ag-status="unobserved">상태 미확인 (—)</button>
+    <div class="ag-unified-bar">
+      <div class="ag-status-chips" role="group" aria-label="에이전트 상태 필터 및 요약">
+        <button type="button" class="ag-status-chip is-active" data-ag-status="all" aria-pressed="true"><span>전체</span><span class="stat-pill-v">15</span></button>
+        <button type="button" class="ag-status-chip" data-ag-status="working" data-ag-quick-status="working" data-sample-val="6개" aria-pressed="false"><span class="cs-dot" style="background:var(--sig-sre)"></span><span>작업 중</span><span class="stat-pill-v">미측정</span></button>
+        <button type="button" class="ag-status-chip" data-ag-status="watching" data-ag-quick-status="watching" data-sample-val="6개" aria-pressed="false"><span class="cs-dot" style="background:var(--sig-live)"></span><span>감시 중</span><span class="stat-pill-v">미측정</span></button>
+        <button type="button" class="ag-status-chip" data-ag-status="idle" data-ag-quick-status="idle" data-sample-val="2개" aria-pressed="false"><span class="cs-dot" style="background:var(--sig-human)"></span><span>대기</span><span class="stat-pill-v">미측정</span></button>
+        <button type="button" class="ag-status-chip" data-ag-status="unobserved" data-ag-quick-status="unobserved" data-sample-val="1개" aria-pressed="false"><span class="cs-dot" style="background:var(--cs-text-soft)"></span><span>미확인</span><span class="stat-pill-v">미측정</span></button>
       </div>
       <div class="ag-filter-row">
+        <div class="seg-group" role="tablist" aria-label="에이전트 현황 보기 전환">
+          <button type="button" role="tab" class="seg-btn is-active" aria-selected="true" data-ag-view="constellation">별자리</button>
+          <button type="button" role="tab" class="seg-btn" aria-selected="false" data-ag-view="table">목록 표</button>
+          <button type="button" role="tab" class="seg-btn" aria-selected="false" data-ag-view="cards">카드 뷰</button>
+        </div>
         <div class="search-wrap">
           <svg class="search-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.8"/><path d="M10.7 10.7L14 14"/></svg>
-          <input type="search" class="cs-input search-input" id="agSearchInput" placeholder="에이전트 이름, 역할, 작업 검색..." aria-label="에이전트 검색">
+          <input type="search" class="cs-input search-input" id="agSearchInput" placeholder="에이전트, 역할, 리소스 검색..." aria-label="에이전트 검색">
           <button type="button" class="search-clear" id="agSearchClear" aria-label="검색어 지우기" hidden>×</button>
         </div>
         <select class="cs-select" id="agLayerSelect" aria-label="담당 계층 필터">
@@ -791,13 +1188,39 @@
           <option value="pipeline">핵심 운영 파이프라인 (7)</option>
           <option value="domain">도메인 전문 (3)</option>
         </select>
+        <div class="ag-live-chip-wrap" id="agLiveChipWrap">
+          <button type="button" class="ag-live-chip" id="agLivePulseBanner" role="status" aria-live="polite" aria-pressed="false" title="클릭 시 실시간 스트림 연결/일시정지 · 호버 시 최근 3건 브리핑">
+            <span class="ag-pulse-dot is-live" id="agLivePulseDot" aria-hidden="true"></span>
+            <span class="ag-live-chip-text" id="agLivePulseText">실시간 동기화 확인 중</span>
+            <span class="ag-live-chip-meta" id="agLivePulseMeta"></span>
+          </button>
+          <div class="ag-live-popover" id="agLivePopover" role="region" aria-label="최근 판테온 실시간 브리핑 3건">
+            <div class="ag-live-pop-head">
+              <span id="agLiveBoundaryBadge">실시간 판테온 동기화</span>
+              <span id="agSseToggleBtn" style="font-size:11px;color:var(--cs-text-soft)">클릭 시 연결 전환</span>
+            </div>
+            <div class="ag-live-pop-list" id="agLivePopoverList"></div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- View 1: 15-Agent Constellation + Left Roster + Right Profile Inspector -->
+    <!-- View 1: 15-Agent Constellation + Left Roster + Right Floating Rich Inspector -->
     <div class="ag-const-grid" id="agPaneConstellation">
       <aside class="ag-const-list" id="agRosterList" aria-label="고정 15개 에이전트 전체 목록"></aside>
       <div class="graph-canvas-wrap">
+        <div class="ag-canvas-head-bar">
+          <div class="ag-canvas-legend-pills" aria-label="별자리 상태 범례">
+            <span class="ag-canvas-legend-item"><span class="cs-dot" style="background:var(--sig-sre)"></span>작업 중</span>
+            <span class="ag-canvas-legend-item"><span class="cs-dot" style="background:var(--sig-live)"></span>감시 중</span>
+            <span class="ag-canvas-legend-item"><span class="cs-dot" style="background:var(--sig-human)"></span>대기</span>
+            <span class="ag-canvas-legend-item"><span class="cs-dot" style="background:var(--cs-text-soft)"></span>미확인</span>
+          </div>
+          <div class="ag-filter-row">
+            <button type="button" class="ag-pill-btn is-active" id="agFlowToggleBtn" aria-pressed="true" style="min-height:24px;padding:1px 8px;font-size:11.5px">활성 흐름 강조</button>
+            <span id="agVisibleCount" style="font-size:12px">15 / 15 표시</span>
+          </div>
+        </div>
         <div class="graph-canvas-stage">
           <svg class="ag-svg-stage" id="agConstellationSvg" viewBox="0 0 820 430" role="img" aria-label="공식 에이전트 아이콘 15종 개별 별자리 그래프">
             <circle class="ag-const-ring" cx="410" cy="215" r="185" fill="none" stroke="var(--cs-hairline)" stroke-dasharray="4 4"/>
@@ -918,9 +1341,10 @@
             </g>
           </svg>
         </div>
+        <div class="ag-canvas-summary" id="agCanvasSummaryCard" aria-label="선택된 에이전트 요약"></div>
         <div class="graph-canvas-foot">
-          <span id="agConstellationLegend">실선: 보고 연결 · 점선 테두리: 미관측 또는 상태 미확인 (0 대체 금지)</span>
-          <span id="agVisibleCount">15 / 15 표시</span>
+          <span id="agConstellationLegend">실선: 보고 연결 · 흐르는 선: 실측 활성 경로 · 점선 테두리: 미관측 또는 상태 미확인 (0 대체 금지)</span>
+          <span id="agCanvasModeHint">노드 클릭 시 상세 드로어 열기</span>
         </div>
       </div>
       <aside class="wb-col-inspector" id="agInspector" aria-label="선택 에이전트 프로필 인스펙터"></aside>
@@ -933,10 +1357,9 @@
           <thead>
             <tr>
               <th>에이전트 · 역할</th>
-              <th>계층 · 보고 상위</th>
               <th>상태</th>
-              <th>현재 작업</th>
-              <th>활성 인시던트</th>
+              <th>최근 실측 사건</th>
+              <th>활동량</th>
               <th>최근 관측</th>
               <th>작업</th>
             </tr>
@@ -1211,6 +1634,13 @@
   </section>
 </section>
 <section class="panel-view" data-panel-id="agent-activity" data-hub-root="agent-activity" data-panel-title="에이전트 작업 이력" data-panel-summary="에이전트 6단계 처리 흐름, 멀티 에이전트 스윔레인 및 이벤트 버스 페이로드 추적" hidden>
+  <div class="ag-live-pulse-strip" id="actLivePulseBanner" role="status" aria-live="polite">
+    <span style="display:inline-flex;align-items:center;gap:8px;min-width:0">
+      <span class="ag-pulse-dot is-live" id="actLivePulseDot" aria-hidden="true"></span>
+      <strong style="color:var(--cs-text);font-weight:600" id="actLivePulseText">실시간 작업 이력 스트림 연결 대기 중...</strong>
+    </span>
+    <span style="font-size:12px;color:var(--cs-text-soft)" id="actLivePulseMeta">실시간 원장 동기화 확인 중</span>
+  </div>
   <div class="ag-notice-bar">
     <div class="ag-filter-row">
       <div class="seg-group" role="tablist" aria-label="에이전트 작업 이력 보기 전환">
@@ -1816,6 +2246,11 @@
       "decision-evidence.admission-retained": "판단 근거 증적 보존 완료",
       "measurement.control_loop.v1": "운영 제어 루프 관측 완료",
       "measurement.control_loop": "운영 제어 루프 관측 완료",
+      "audit.record": "감사 원장 해시 봉인",
+      "semantic.graph_evidence_refresh": "온톨로지 대화 근거 갱신",
+      "observer.deployment.refreshed": "배포 환경 관측 갱신",
+      "rca.hypothesis": "원인 분석 가설 수립",
+      "hil.request.dispatch_unavailable": "승인 알림 전달 대기",
       "fdai.event.normalized": "원천 이벤트 정규화",
       "fdai.anomaly.detected": "운영 이상 징후 감지",
       "fdai.anomaly.resolved": "운영 이상 정상화 확인",
@@ -1876,7 +2311,11 @@
       hil: "승인 대기",
       pending: "대기 중",
       completed: "완료",
-      observed: "관측 완료"
+      observed: "관측 완료",
+      t1_similarity: "규칙 유사도 평가",
+      trust_router: "신뢰 경로 판정",
+      t0_deterministic: "결정론 규칙",
+      t2_verifier: "검증 추론"
     };
 
     const H = {
@@ -1926,13 +2365,56 @@
         if (h && typeof h.mode === "function") return h.mode(s);
         return s;
       },
+      modeShort(raw) {
+        const s = String(raw || "").trim().toLowerCase();
+        if (!s) return "미측정";
+        if (s === "shadow") return "관찰 전용";
+        if (s === "enforce") return "자동 적용";
+        if (s === "dry_run" || s === "dry-run") return "사전 검증";
+        if (s === "advisory") return "권고 전용";
+        return this.mode(s).replace(/\s*\([^)]*\)\s*/g, "").trim() || s;
+      },
+      ruleId(raw) {
+        const s = String(raw || "").trim();
+        if (!s) return "";
+        const h = this.humanize();
+        if (h && typeof h.ruleId === "function") return h.ruleId(s);
+        return s.replace(/[._-]+/g, " ");
+      },
+      remediationAction(raw) {
+        const s = String(raw || "").trim();
+        if (!s) return "";
+        const h = this.humanize();
+        if (h && typeof h.remediationAction === "function") return h.remediationAction(s);
+        return this.action(s);
+      },
+      severity(raw) {
+        const s = String(raw || "").trim();
+        if (!s) return "";
+        const h = this.humanize();
+        if (h && typeof h.severity === "function") return h.severity(s);
+        const k = s.toLowerCase();
+        if (k === "critical" || k === "sev1" || k === "p0") return "긴급";
+        if (k === "high" || k === "sev2" || k === "p1") return "높음";
+        if (k === "medium" || k === "sev3" || k === "p2") return "보통";
+        if (k === "low" || k === "sev4" || k === "p3") return "낮음";
+        if (k === "info" || k === "informational") return "정보";
+        return s;
+      },
+      localClock(isoOrMs) {
+        const ms = parseEventEpochMs(isoOrMs);
+        const h = this.humanize();
+        if (ms != null && h && typeof h.localClock === "function") return h.localClock(ms);
+        if (ms != null) return formatLocalTime(ms);
+        return "--:--:--";
+      },
       stage(raw) {
         const s = String(raw || "").trim();
         if (!s) return "기록 완료";
         const low = s.toLowerCase();
         if (STAGE_KO[low]) return STAGE_KO[low];
         if (AGENT_ACTION_KO[low]) return AGENT_ACTION_KO[low];
-        return this.mode(s);
+        return this.modeShort(s);
       },
       category(raw) {
         const key = String(raw || "").trim().toLowerCase();
@@ -1947,6 +2429,57 @@
         if (ms != null && h && typeof h.timestamp === "function") return h.timestamp(ms);
         if (ms != null) return formatLocalTime(ms, { withDate: true });
         return typeof isoOrMs === "string" && isoOrMs ? isoOrMs : "미측정";
+      },
+      composeIncidentCopy(ev) {
+        const agName = String(ev?.agent || ev?.canonical_agent || "").trim();
+        const agMeta = AGENT_MAP[agName];
+        const agentShort = agMeta ? `${agMeta.name}(${agMeta.shortRole})` : this.actor(ev?.actor || "");
+        const targetName = String(ev?.target_resource_name || "").trim();
+        const rawTarget = String(ev?.target || ev?.target_resource_ref || "").trim();
+        const targetDisplay = targetName || (rawTarget ? this.resourceType(rawTarget) : "");
+        const hasRealTarget = Boolean(targetDisplay && targetDisplay !== "관측 대상" && targetDisplay !== "구독 전체");
+        const ruleKo = ev?.rule_id ? this.ruleId(ev.rule_id) : "";
+        const remedKo = ev?.remediation_action ? this.remediationAction(ev.remediation_action) : "";
+        const sevKo = ev?.severity ? this.severity(ev.severity) : "";
+        const actionKo = this.action(ev?.action_kind || ev?.topic || "");
+        const modeShort = ev?.mode ? this.modeShort(ev.mode) : "";
+
+        const coreAction = ruleKo || actionKo;
+        const parts = [];
+        if (hasRealTarget) parts.push(targetDisplay);
+        if (coreAction) parts.push(coreAction);
+        let headline = parts.join(" — ") || actionKo;
+        if (remedKo && remedKo !== coreAction) {
+          headline = `${headline} → ${remedKo}`;
+        }
+
+        let sentence;
+        if (hasRealTarget && ruleKo && remedKo) {
+          sentence = `${agentShort}가 ${targetDisplay}에서 '${ruleKo}' 규칙을 평가해 '${remedKo}' 조치를 제안했습니다.`;
+        } else if (hasRealTarget && ruleKo) {
+          sentence = `${agentShort}가 ${targetDisplay} 대상으로 '${ruleKo}' 규칙을 점검했습니다.`;
+        } else if (hasRealTarget && remedKo) {
+          sentence = `${agentShort}가 ${targetDisplay} 대상으로 '${remedKo}' 조치를 준비했습니다.`;
+        } else if (hasRealTarget) {
+          sentence = `${agentShort}가 ${targetDisplay} 대상으로 '${actionKo}' 작업을 처리했습니다.`;
+        } else if (ruleKo) {
+          sentence = `${agentShort}가 '${ruleKo}' 규칙을 평가했습니다 (특정 리소스 미지정).`;
+        } else {
+          sentence = `${agentShort}가 '${actionKo}' 작업을 처리했습니다 (특정 리소스 미지정).`;
+        }
+        if (modeShort && modeShort !== "미측정") {
+          sentence = `${sentence} 현재 모드는 ${modeShort}입니다.`;
+        }
+        return {
+          headline,
+          sentence,
+          targetDisplay: hasRealTarget ? targetDisplay : "",
+          ruleKo,
+          remedKo,
+          sevKo,
+          actionKo,
+          modeShort
+        };
       },
       eventSummary(ev) {
         const h = this.humanize();
@@ -2062,6 +2595,68 @@
       });
     }
 
+    const Shimmer = {
+      api() {
+        return (window.fdaiV4Shimmer && typeof window.fdaiV4Shimmer === "object")
+          ? window.fdaiV4Shimmer
+          : (window.fdaiV4Live && window.fdaiV4Live.shimmer) || null;
+      },
+      fallbackTrigger(el, cls, ms) {
+        if (!el || !(el instanceof Element)) return;
+        const dur = typeof ms === "number" && ms > 0 ? ms : 1150;
+        el.classList.remove("fdai-shimmer-border", "fdai-shimmer-bg", "fdai-shimmer-pulse");
+        void el.offsetWidth;
+        el.classList.add(cls);
+        if (el._agShimmerTimer) window.clearTimeout(el._agShimmerTimer);
+        el._agShimmerTimer = window.setTimeout(() => {
+          el.classList.remove(cls);
+          el._agShimmerTimer = null;
+        }, dur);
+      },
+      border(el, ms) {
+        if (!el) return;
+        const api = this.api();
+        if (api && typeof api.border === "function") api.border(el, ms);
+        else this.fallbackTrigger(el, "fdai-shimmer-border", ms);
+      },
+      bg(el, ms) {
+        if (!el) return;
+        const api = this.api();
+        if (api && typeof api.bg === "function") api.bg(el, ms);
+        else this.fallbackTrigger(el, "fdai-shimmer-bg", ms);
+      },
+      pulse(el, ms) {
+        if (!el) return;
+        const api = this.api();
+        if (api && typeof api.pulse === "function") api.pulse(el, ms);
+        else this.fallbackTrigger(el, "fdai-shimmer-pulse", ms);
+      },
+      markStreaming(el, active) {
+        if (!el) return;
+        const api = this.api();
+        if (api && typeof api.markStreaming === "function") api.markStreaming(el, active);
+        else if (el instanceof Element) el.classList.toggle("fdai-live-streaming", Boolean(active));
+      }
+    };
+
+    const liveRecentActiveAgents = new Set();
+    const liveRecentBriefings = [];
+
+    function syncStreamingContainers(active) {
+      const on = Boolean(active) && isLiveModeNow();
+      const ids = [
+        "agLivePulseBanner",
+        "actLivePulseBanner",
+        "actPaneSwimlane",
+        "actPaneLiveLog",
+        "actPaneHeatmap"
+      ];
+      ids.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) Shimmer.markStreaming(el, on && !(id === "actPaneLiveLog" && actState.logPaused));
+      });
+    }
+
     function setBadgeTextSafe(el, tone, text) {
       if (!el) return;
       el.className = `cs-badge tone-${safeTone(tone)}`;
@@ -2072,7 +2667,258 @@
       el.appendChild(document.createTextNode(String(text || "")));
     }
 
-    function openSafeAgentDrawer(a) {
+    const AGENT_HANDOFF_GRAPH = {
+      Odin: { upstream: ["Forseti", "Heimdall", "Norns"], downstream: ["Thor", "Saga", "Mimir", "Muninn"] },
+      Huginn: { upstream: [], downstream: ["Heimdall", "Muninn"] },
+      Heimdall: { upstream: ["Huginn", "Freyr"], downstream: ["Forseti", "Odin", "Vidar"] },
+      Forseti: { upstream: ["Heimdall", "Njord", "Freyr", "Mimir"], downstream: ["Var", "Odin", "Saga"] },
+      Var: { upstream: ["Forseti", "Loki"], downstream: ["Thor", "Bragi", "Saga"] },
+      Thor: { upstream: ["Var", "Odin"], downstream: ["Vidar", "Saga"] },
+      Vidar: { upstream: ["Thor", "Heimdall"], downstream: ["Saga", "Norns"] },
+      Bragi: { upstream: ["Odin", "Var", "Muninn"], downstream: ["Saga"] },
+      Njord: { upstream: ["Muninn"], downstream: ["Forseti", "Bragi"] },
+      Freyr: { upstream: ["Huginn", "Heimdall"], downstream: ["Forseti"] },
+      Loki: { upstream: ["Forseti"], downstream: ["Var", "Vidar", "Saga"] },
+      Mimir: { upstream: ["Norns", "Odin"], downstream: ["Forseti"] },
+      Muninn: { upstream: ["Huginn", "Odin"], downstream: ["Heimdall", "Njord", "Bragi"] },
+      Saga: { upstream: ["Forseti", "Var", "Thor", "Vidar", "Odin"], downstream: ["Norns"] },
+      Norns: { upstream: ["Saga", "Vidar"], downstream: ["Mimir", "Odin"] }
+    };
+
+    const agentRecentCache = new Map();
+    let agentDetailReqSeq = 0;
+
+    function getPantheonTotalEvents() {
+      if (liveSummaryCache && typeof liveSummaryCache.audit_total === "number" && liveSummaryCache.audit_total > 0) {
+        return liveSummaryCache.audit_total;
+      }
+      return AGENTS.reduce((acc, a) => acc + (typeof a.liveEventCount === "number" ? a.liveEventCount : 0), 0);
+    }
+
+    function getMaxAgentEvents() {
+      let mx = 0;
+      AGENTS.forEach((a) => {
+        if (typeof a.liveEventCount === "number" && a.liveEventCount > mx) mx = a.liveEventCount;
+      });
+      return mx;
+    }
+
+    async function fetchAgentRecentEvents(agentName) {
+      const live = window.fdaiV4Live;
+      if (!live || !isLiveModeNow() || typeof live.fetchJson !== "function") return;
+      const a = AGENT_MAP[agentName];
+      if (!a) return;
+      const cached = agentRecentCache.get(agentName);
+      if (cached && (Date.now() - cached.ts) < 30000) {
+        a.liveRecentItems = cached.items;
+        return;
+      }
+      const mySeq = ++agentDetailReqSeq;
+      const myHydrate = liveHydrateSeq;
+      const res = await live.fetchJson(`/api/v4/agents/pantheon/${encodeURIComponent(a.id)}`);
+      if (mySeq !== agentDetailReqSeq || myHydrate !== liveHydrateSeq || !isLiveModeNow()) return;
+      if (!res.ok || !res.data) return;
+      const ms = res.data.measurement_status || res.data.measurement_state;
+      if (ms !== "measured" || !res.data.live_activity) return;
+      const la = res.data.live_activity;
+      const items = Array.isArray(la.items) ? la.items.slice(0, 4) : [];
+      agentRecentCache.set(agentName, { ts: Date.now(), items });
+      a.liveRecentItems = items;
+      if (la.event_count != null) a.liveEventCount = Number(la.event_count);
+      if (Array.isArray(la.modes)) a.liveModes = la.modes;
+      const tsMs = parseEventEpochMs(la);
+      if (tsMs != null) a.since = H.timestamp(tsMs);
+      if (agState.selected === agentName) {
+        renderAgentsInspector(agentName, { skipFetch: true });
+        renderCanvasSummaryCard(agentName);
+      }
+      const bd = document.getElementById("fdaiDrawerBackdrop");
+      if (bd && !bd.hidden && bd.getAttribute("data-drawer-agent") === agentName) {
+        openSafeAgentDrawer(a, { skipFetch: true });
+      }
+    }
+
+    function buildRichAgentBlocks(a, opts) {
+      const options = opts || {};
+      const liveMode = isLiveModeNow();
+      const totalAll = getPantheonTotalEvents();
+      const evCount = typeof a.liveEventCount === "number" ? a.liveEventCount : null;
+      const sharePct = (evCount != null && totalAll > 0) ? Math.round((evCount / totalAll) * 1000) / 10 : null;
+      const modeVal = a.liveModes && a.liveModes.length
+        ? a.liveModes.map((mv) => H.modeShort(mv)).join(" · ")
+        : (liveMode ? (evCount != null ? "기록 없음" : "미측정") : "Sample 표본");
+      const stewardPrimary = liveMode && !a.stewardMeasured ? "미측정" : a.primary;
+      const stewardBackup = liveMode && !a.stewardMeasured
+        ? "미측정"
+        : (a.backup || (a.name === "Loki" || a.isAutonomousOnly ? "자율 예외 (HIL)" : "미지정"));
+
+      const blocks = [];
+
+      // Block 1: 3-second operator briefing
+      const sharePhrase = sharePct != null && evCount > 0
+        ? `전체 판테온 활동의 ${sharePct}% (${evCount.toLocaleString()} / ${totalAll.toLocaleString()}건)를 처리 중입니다. `
+        : "";
+      blocks.push(createSummaryCallout(`${sharePhrase}${a.work} · ${a.separation}`));
+
+      // Block 2: Activity Share Gauge & Runtime Mode
+      const gaugeFillPct = sharePct != null ? Math.max(evCount > 0 ? 4 : 0, Math.min(100, sharePct)) : (liveMode ? 0 : (a.status === "working" ? 68 : a.status === "watching" ? 36 : 8));
+      const gaugeBar = createEl("div", { className: "ag-dr-bar" },
+        createEl("span", { style: `width:${gaugeFillPct}%;background:${statusDotColor(a.status)}` })
+      );
+      const eventValText = evCount != null
+        ? (evCount > 0 ? `${evCount.toLocaleString()}건 (${sharePct != null ? `${sharePct}%` : "실측"})` : "활동 0건 · 대기")
+        : (liveMode ? "미측정" : "Sample 표본");
+      blocks.push(createEl("div", { className: "ag-dr-section" },
+        createEl("div", { className: "ag-dr-sec-head" },
+          createEl("span", { text: "활동 비중 및 실행 모드" }),
+          createEl("span", { className: "cell-mono", text: eventValText })
+        ),
+        gaugeBar,
+        createEl("div", { className: "ag-dr-bar-legend" },
+          createEl("span", { text: `모드: ${modeVal}` }),
+          createEl("span", { text: `최근 관측: ${a.observed && a.since ? a.since : "미측정"}` })
+        )
+      ));
+
+      // Block 3: Top Recent Observed Events (with one-click deep links to /agents/agent-activity)
+      let recentRows = [];
+      if (liveMode) {
+        if (Array.isArray(a.liveRecentItems)) {
+          recentRows = a.liveRecentItems.slice(0, 3).map((r) => {
+            const copy = H.composeIncidentCopy({
+              agent: a.name,
+              actor: r.actor || a.name,
+              action_kind: r.action_kind || "",
+              target_resource_name: r.target_resource_name || "",
+              target: r.target_resource_ref || "",
+              rule_id: r.rule_id || "",
+              remediation_action: r.remediation_action || "",
+              severity: r.severity || "",
+              mode: r.mode || ""
+            });
+            const cid = (r.correlation_id && String(r.correlation_id).trim()) ? String(r.correlation_id).trim() : `audit-seq-${r.seq || 0}`;
+            return {
+              title: copy.headline,
+              sub: `${H.timestamp(r.created_at_ms || r.created_at)} · ${copy.modeShort}`,
+              badge: copy.sevKo || H.stage(r.stage || r.mode || "recorded"),
+              tone: copy.sevKo === "긴급" || copy.sevKo === "높음" ? "sre" : "live",
+              href: Sel.buildUrl("agent-activity", `${cid}::seq-${r.seq || 0}`)
+            };
+          });
+        } else if (!options.skipFetch) {
+          fetchAgentRecentEvents(a.name);
+        }
+      } else {
+        recentRows = TRAJECTORIES.flatMap((tr) => tr.steps.filter((s) => s.agent === a.name).map((s) => ({
+          title: `${s.target} — ${s.result}`,
+          sub: `${s.time} · ${s.topic}`,
+          badge: s.tier,
+          tone: s.tone,
+          href: Sel.buildUrl("agent-activity", `${tr.id}::${s.id}`)
+        }))).slice(0, 3);
+      }
+
+      const evList = createEl("div", { className: "ag-dr-event-list" });
+      if (recentRows.length > 0) {
+        recentRows.forEach((ev) => {
+          evList.appendChild(createEl("a", { className: "ag-dr-event-row", href: ev.href },
+            createEl("div", { style: "min-width:0;display:grid;gap:2px" },
+              createEl("span", { className: "ag-dr-event-title", text: ev.title }),
+              createEl("span", { className: "ag-dr-event-sub", text: ev.sub })
+            ),
+            createBadgeEl(ev.tone, `${ev.badge} →`)
+          ));
+        });
+      } else {
+        const emptyMsg = liveMode
+          ? (evCount === 0
+              ? "최근 기록된 활동이 없어 대기 중입니다."
+              : (Array.isArray(a.liveRecentItems) ? "표시할 상세 사건 기록이 없습니다." : "최근 실측 사건을 불러오는 중..."))
+          : "Sample 표본 이력에 이 에이전트 단계가 없습니다.";
+        evList.appendChild(createEl("p", {
+          className: "insp-summary",
+          style: "color:var(--cs-text-soft);margin:0",
+          text: emptyMsg
+        }));
+      }
+      blocks.push(createEl("div", { className: "ag-dr-section" },
+        createEl("div", { className: "ag-dr-sec-head" },
+          createEl("span", { text: `최근 실측 사건 (Top ${Math.max(recentRows.length, 3)})` }),
+          createEl("a", {
+            href: Sel.buildUrl("agent-activity", "", { agent: a.name }),
+            style: "font-size:11.5px;color:var(--cs-text-soft);text-decoration:none",
+            text: "전체 이력 →"
+          })
+        ),
+        evList
+      ));
+
+      // Block 4: Handoff Collaboration Chain & Accountability Steward
+      const graph = AGENT_HANDOFF_GRAPH[a.name] || { upstream: [], downstream: [] };
+      const chainWrap = createEl("div", { className: "ag-handoff-chain" });
+      const pickPeer = (peerName) => {
+        const peer = AGENT_MAP[peerName];
+        if (!peer) return;
+        agState.selected = peer.name;
+        Sel.syncIfActive("agents", peer.id);
+        renderAgentsPanel();
+        const bd = document.getElementById("fdaiDrawerBackdrop");
+        if (bd && !bd.hidden) openSafeAgentDrawer(peer);
+      };
+      if (graph.upstream.length) {
+        graph.upstream.slice(0, 3).forEach((nm) => {
+          chainWrap.appendChild(createEl("button", {
+            type: "button", className: "ag-handoff-chip", text: nm,
+            onClick: () => pickPeer(nm)
+          }));
+        });
+        chainWrap.appendChild(createEl("span", { text: "→" }));
+      }
+      chainWrap.appendChild(createEl("span", { className: "ag-handoff-chip is-current", text: a.name }));
+      if (graph.downstream.length) {
+        chainWrap.appendChild(createEl("span", { text: "→" }));
+        graph.downstream.slice(0, 3).forEach((nm) => {
+          chainWrap.appendChild(createEl("button", {
+            type: "button", className: "ag-handoff-chip", text: nm,
+            onClick: () => pickPeer(nm)
+          }));
+        });
+      }
+      blocks.push(createEl("div", { className: "ag-dr-section" },
+        createEl("div", { className: "ag-dr-sec-head" },
+          createEl("span", { text: "협력 핸드오프 및 담당자" }),
+          createEl("span", { text: a.branchLabel })
+        ),
+        chainWrap,
+        createKvEl("주 / 백업 담당자", `${stewardPrimary} / ${stewardBackup}`)
+      ));
+
+      // Block 5: Next Recommended Actions + Collapsible Technical Details
+      const techRows = [
+        ["에이전트 식별자", a.id],
+        ["역할 정의", a.role],
+        ["보고 상위", a.reportsTo],
+        ["권한 경계", a.authority],
+        ["소유 리소스 유형", `${a.owns.length}종`],
+        ["구독 토픽", a.subscribes.join(", ")],
+        ["발행 토픽", a.publishes.join(", ")]
+      ];
+      if (a.rawIncidentKey) techRows.push(["최신 원본 액션 키", a.rawIncidentKey]);
+      if (a.liveDirectCount != null) {
+        techRows.push(["원장 집계 내역", `직접 ${Number(a.liveDirectCount).toLocaleString()}건 · 귀속 ${Number(a.liveAttributedCount || 0).toLocaleString()}건`]);
+      }
+      const techDetails = createTechDetailsEl(techRows, [
+        createEl("div", { style: "margin-top:4px" },
+          createEl("span", { style: "font-size:11.5px;color:var(--cs-text-soft);display:block;margin-bottom:4px", text: `담당 리소스 유형 (${a.owns.length})` }),
+          createCodeChipsEl(a.owns)
+        )
+      ]);
+      if (techDetails) blocks.push(techDetails);
+
+      return blocks;
+    }
+
+    function openSafeAgentDrawer(a, opts) {
       if (!a) return;
       Sel.syncIfActive("agents", a.id);
       const floatScrim = document.getElementById("fdaiFloatDrawerScrim");
@@ -2084,7 +2930,7 @@
       const f = document.getElementById("fdaiDrawerFacts");
       const foot = document.querySelector("#fdaiDrawerPanel .drawer-foot");
       if (!bd) return;
-      const liveMode = isLiveModeNow();
+      bd.setAttribute("data-drawer-agent", a.name);
       if (t) t.textContent = `${a.name} · ${a.shortRole}`;
       if (m) {
         m.replaceChildren(
@@ -2093,45 +2939,11 @@
         );
       }
       if (b) {
-        b.className = "drawer-summary-card";
-        b.textContent = `${a.work} (${a.separation})`;
+        b.hidden = true;
+        b.textContent = "";
       }
       if (f) {
-        const eventVal = a.liveEventCount != null
-          ? (a.liveEventCount > 0 ? `${Number(a.liveEventCount).toLocaleString()}건` : "활동 0건 · 대기")
-          : (liveMode ? "미측정" : (a.observed ? "표본 관측" : "미수집"));
-        const modeVal = a.liveModes && a.liveModes.length
-          ? a.liveModes.map((mv) => H.mode(mv)).join(", ")
-          : (liveMode ? (a.liveEventCount != null ? "기록 없음" : "미측정") : "Sample 표본");
-        const stewardVal = liveMode && !a.stewardMeasured
-          ? "미측정"
-          : `${a.primary} / ${a.backup || (a.name === "Loki" || a.isAutonomousOnly ? "자율 예외 (HIL 필수)" : "미지정")}`;
-
-        const kvGrid = createKvGridEl([
-          ["현재 상태", a.statusLabel],
-          ["최근 작업", a.incidentLabel || a.incident || "—"],
-          ["관측 이벤트", eventVal],
-          ["최근 관측 시각", a.observed && a.since ? a.since : "미측정"],
-          ["실행 모드", modeVal],
-          ["주 / 백업 담당자", stewardVal]
-        ]);
-
-        const techRows = [
-          ["에이전트 식별자", a.id],
-          ["역할 정의", a.role],
-          ["보고 상위", a.reportsTo],
-          ["권한 경계", a.authority],
-          ["담당 리소스 유형", a.owns.join(", ")],
-          ["구독 토픽", a.subscribes.join(", ")],
-          ["발행 토픽", a.publishes.join(", ")]
-        ];
-        if (a.rawIncidentKey) techRows.push(["최신 원본 액션 키", a.rawIncidentKey]);
-        if (a.liveDirectCount != null) {
-          techRows.push(["원장 집계 내역", `직접 ${Number(a.liveDirectCount).toLocaleString()}건 · 귀속 ${Number(a.liveAttributedCount || 0).toLocaleString()}건`]);
-        }
-
-        const techDetails = createTechDetailsEl(techRows);
-        f.replaceChildren(kvGrid, ...(techDetails ? [techDetails] : []));
+        f.replaceChildren(...buildRichAgentBlocks(a, opts));
       }
 
       if (foot) {
@@ -2236,7 +3048,7 @@
     /* =======================================================================
        1. AGENTS PANEL (Constellation / Table / Cards + 15-Agent Inspector)
        ======================================================================= */
-    const agState = { view: "constellation", status: "all", layer: "all", q: "", selected: "Odin" };
+    const agState = { view: "constellation", status: "all", layer: "all", q: "", selected: "Odin", sort: "org", showFlow: true, idleCardsCollapsed: false };
 
     function filteredAgents() {
       const q = agState.q.trim().toLowerCase();
@@ -2319,15 +3131,9 @@
       });
     }
 
-    function renderAgentsInspector(name) {
+    function renderAgentsInspector(name, opts) {
       const a = AGENT_MAP[name] || AGENTS[0];
-      const liveMode = isLiveModeNow();
-      const eventText = a.liveEventCount != null
-        ? (a.liveEventCount > 0 ? `${Number(a.liveEventCount).toLocaleString()}건` : "활동 0건 · 대기")
-        : (liveMode ? "미측정" : (a.observed ? "Sample 표본" : "미수집"));
-      const sinceText = a.observed && a.since ? a.since : (liveMode ? "미측정" : "미수집");
-
-      const cardProfile = createEl("div", { className: "insp-card" },
+      const cardHead = createEl("div", { className: "insp-card" },
         createEl("div", { className: "ag-insp-head" },
           createEl("span", { className: "ag-avatar ag-avatar-lg" }, createIconEl(a.name, "ag-icon ag-icon-lg")),
           createEl("div", null,
@@ -2335,43 +3141,18 @@
             createEl("p", { text: `${a.branchLabel} · ${a.layerLabel}` })
           )
         ),
-        createSummaryCallout(a.work),
-        createKvGridEl([
-          ["현재 상태", createBadgeEl(a.tone, a.statusLabel)],
-          ["최근 작업", a.incidentLabel || a.incident || "—"],
-          ["관측 이벤트", eventText],
-          ["최근 관측 시각", sinceText]
-        ])
-      );
-
-      const cardAuth = createEl("div", { className: "insp-card" },
-        createEl("div", { className: "insp-title", text: "권한 경계 및 안전 분리" }),
-        createKvEl("권한 범위", a.authority),
-        createKvEl("안전 분리", a.separation)
-      );
-
-      const techRows = [
-        ["에이전트 식별자", a.id],
-        ["역할 정의", a.role],
-        ["보고 상위", a.reportsTo],
-        ["소유 리소스 유형", `${a.owns.length}종`],
-        ["실행 모드", a.liveModes && a.liveModes.length ? a.liveModes.map((mv) => H.mode(mv)).join(", ") : (liveMode ? "미측정" : "Sample")]
-      ];
-      if (a.rawIncidentKey) techRows.push(["최신 원본 액션 키", a.rawIncidentKey]);
-      if (a.liveDirectCount != null) {
-        techRows.push(["원장 집계 내역", `직접 ${Number(a.liveDirectCount).toLocaleString()}건 · 귀속 ${Number(a.liveAttributedCount || 0).toLocaleString()}건`]);
-      }
-      const techDetails = createTechDetailsEl(techRows, [
-        createEl("div", { style: "margin-top:4px" },
-          createEl("span", { style: "font-size:11.5px;color:var(--cs-text-soft);display:block;margin-bottom:4px", text: `담당 리소스 유형 (${a.owns.length})` }),
-          createCodeChipsEl(a.owns)
+        createEl("div", { style: "display:flex;align-items:center;justify-content:space-between;gap:8px" },
+          createBadgeEl(a.tone, a.statusLabel),
+          createEl("span", { className: "cell-mono", style: "font-size:12px;color:var(--cs-text-soft)", text: a.observed && a.since ? a.since : "미측정" })
         )
-      ]);
+      );
+
+      const richBlocks = buildRichAgentBlocks(a, opts);
 
       const btnDrawer = createEl("button", {
         type: "button", className: "insp-action-item",
         onClick: () => openSafeAgentDrawer(a)
-      }, createEl("span", { text: "우측 상세 드로어에서 보기" }), createEl("span", { text: "→" }));
+      }, createEl("span", { text: "확대 드로어에서 보기" }), createEl("span", { text: "→" }));
 
       const btnOrg = createEl("button", {
         type: "button", className: "insp-action-item",
@@ -2385,7 +3166,7 @@
           jumpToTab("pantheon");
           Sel.set(a.id);
         }
-      }, createEl("span", { text: "역할 · 담당 영역에서 보기" }), createEl("span", { text: "→" }));
+      }, createEl("span", { text: "역할 · 3-Branch 협력 구조 확인" }), createEl("span", { text: "→" }));
 
       const btnAct = createEl("button", {
         type: "button", className: "insp-action-item",
@@ -2400,7 +3181,7 @@
           jumpToTab("agent-activity");
           Sel.set(a.id);
         }
-      }, createEl("span", { text: `${a.name} 작업 이력 필터` }), createEl("span", { text: "→" }));
+      }, createEl("span", { text: `${a.name} 작업 이력 전체 보기` }), createEl("span", { text: "→" }));
 
       const btnHo = createEl("button", {
         type: "button", className: "insp-action-item",
@@ -2412,7 +3193,7 @@
           jumpToTab("handover");
           Sel.set(a.id);
         }
-      }, createEl("span", { text: "담당자 · 인수인계 확인" }), createEl("span", { text: "→" }));
+      }, createEl("span", { text: "담당자 · 백업 위험(Bus-Factor) 점검" }), createEl("span", { text: "→" }));
 
       const btnRow = createEl("div", { style: "display:flex;gap:6px;flex-wrap:wrap" },
         createCopyLinkBtn("agents", a.id, `${a.name} 고유 링크`),
@@ -2424,11 +3205,52 @@
       );
 
       const cardActions = createEl("div", { className: "insp-card" },
-        createEl("div", { className: "insp-title", text: "바로 이동 · 연계 작업" }),
-        btnDrawer, btnOrg, btnAct, btnHo, btnRow
+        createEl("div", { className: "insp-title", text: "권장 다음 행동 · 공유" }),
+        btnAct, btnOrg, btnHo, btnDrawer, btnRow
       );
 
-      setInspectorContent(document.getElementById("agInspector"), [cardProfile, cardAuth, techDetails, cardActions]);
+      setInspectorContent(document.getElementById("agInspector"), [cardHead, ...richBlocks, cardActions]);
+    }
+
+    function renderCanvasSummaryCard(name) {
+      const host = document.getElementById("agCanvasSummaryCard");
+      if (!host) return;
+      const a = AGENT_MAP[name] || AGENTS[0];
+      const evTxt = typeof a.liveEventCount === "number"
+        ? `작업 이력 ${a.liveEventCount.toLocaleString()}건 →`
+        : "작업 이력 보기 →";
+      const left = createEl("div", { className: "ag-canvas-summary-left" },
+        createEl("span", { className: "ag-avatar" }, createIconEl(a.name)),
+        createEl("div", { className: "ag-canvas-summary-copy" },
+          createEl("div", { className: "ag-canvas-summary-top" },
+            createEl("strong", { text: `${a.name} · ${a.shortRole}` }),
+            createBadgeEl(a.tone, a.statusLabel),
+            createEl("span", { style: "font-size:11.5px;color:var(--cs-text-soft)", text: a.observed && a.since ? `최근 ${a.since}` : "미측정" })
+          ),
+          createEl("span", { className: "ag-canvas-summary-line", text: a.work })
+        )
+      );
+      const actions = createEl("div", { className: "ag-canvas-summary-actions" },
+        createEl("button", {
+          type: "button", className: "cs-btn cs-btn-sm", text: evTxt,
+          onClick: () => {
+            actState.agent = a.name;
+            const sel = document.getElementById("actAgentSelect");
+            if (sel) sel.value = a.name;
+            renderActivityPanel();
+            if (isLiveModeNow() && typeof probeActivityWithFilters === "function") {
+              probeActivityWithFilters();
+            }
+            jumpToTab("agent-activity");
+            Sel.set(a.id);
+          }
+        }),
+        createEl("button", {
+          type: "button", className: "cs-btn cs-btn-accent cs-btn-sm", text: "상세 드로어 →",
+          onClick: () => openSafeAgentDrawer(a)
+        })
+      );
+      host.replaceChildren(left, actions);
     }
 
     function syncConstellationSvgModeAndDots() {
@@ -2439,7 +3261,7 @@
       const legend = document.getElementById("agConstellationLegend");
       if (legend) {
         legend.textContent = liveMode
-          ? "실선: 보고 연결 · 점선 테두리: 미관측 또는 상태 미확인 (0 대체 금지)"
+          ? "실선: 보고 연결 · 흐르는 선: 실측 활성 경로 · 점선 테두리: 미관측 또는 상태 미확인 (0 대체 금지)"
           : "실선: 보고 연결 · 주황 점선: 활성 인시던트(INC-2026-441) 협력 · 점선 테두리: 상태 미확인 (Sample)";
       }
       AGENTS.forEach((a) => {
@@ -2457,7 +3279,62 @@
               rect.removeAttribute("stroke-dasharray");
             }
           }
+          const isIdle = a.status === "idle" || a.status === "unobserved";
+          node.classList.toggle("is-idle-node", isIdle);
+
+          // Compact live event count badge inside node box
+          let cntText = node.querySelector("text[data-ag-count]");
+          const showCnt = typeof a.liveEventCount === "number" && a.liveEventCount > 0;
+          if (showCnt && rect) {
+            if (!cntText) {
+              cntText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+              cntText.setAttribute("data-ag-count", a.name);
+              cntText.setAttribute("font-size", "9.5");
+              cntText.setAttribute("font-weight", "600");
+              cntText.setAttribute("text-anchor", "end");
+              cntText.setAttribute("fill", "var(--cs-text-soft)");
+              cntText.setAttribute("pointer-events", "none");
+              const rx = Number(rect.getAttribute("x") || 0) + Number(rect.getAttribute("width") || 120) - 7;
+              const ry = Number(rect.getAttribute("y") || 0) + Number(rect.getAttribute("height") || 44) - 4;
+              cntText.setAttribute("x", String(rx));
+              cntText.setAttribute("y", String(ry));
+              node.appendChild(cntText);
+            }
+            cntText.textContent = `${a.liveEventCount}건`;
+          } else if (cntText) {
+            cntText.remove();
+          }
+
+          const isStreamingActive = liveMode && (liveRecentActiveAgents.has(a.name) || a.status === "working");
+          let ring = node.querySelector("rect.fdai-svg-live-ring");
+          if (isStreamingActive && rect) {
+            if (!ring) {
+              ring = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+              ring.setAttribute("class", "fdai-svg-live-ring");
+              ring.setAttribute("x", String(Number(rect.getAttribute("x") || 0) - 3));
+              ring.setAttribute("y", String(Number(rect.getAttribute("y") || 0) - 3));
+              ring.setAttribute("width", String(Number(rect.getAttribute("width") || 120) + 6));
+              ring.setAttribute("height", String(Number(rect.getAttribute("height") || 44) + 6));
+              ring.setAttribute("rx", "7");
+              ring.setAttribute("pointer-events", "none");
+              node.insertBefore(ring, rect);
+            }
+          } else if (ring) {
+            ring.remove();
+          }
         }
+      });
+
+      // Highlight real active control-loop paths when both endpoints have observed activity
+      document.querySelectorAll("#agConstellationEdges .ag-edge-line:not(.is-collab)").forEach((edge) => {
+        const pair = (edge.getAttribute("data-edge") || "").split(",");
+        const a1 = AGENT_MAP[pair[0]];
+        const a2 = AGENT_MAP[pair[1]];
+        const bothActive = Boolean(
+          agState.showFlow && liveMode && a1 && a2
+          && ((a1.liveEventCount || 0) > 0 && (a2.liveEventCount || 0) > 0)
+        );
+        edge.classList.toggle("is-active-flow", bothActive);
       });
     }
 
@@ -2478,7 +3355,7 @@
       };
       Object.entries(panes).forEach(([k, el]) => { if (el) el.hidden = agState.view !== k; });
 
-      // Count label & status filter counts
+      // Count label & unified status filter chip values (preserve dots/labels inside chips)
       const cnt = document.getElementById("agVisibleCount");
       if (cnt) cnt.textContent = `${list.length} / ${AGENTS.length} 표시`;
       const countsByStatus = {
@@ -2488,44 +3365,57 @@
         idle: AGENTS.filter((x) => x.status === "idle").length,
         unobserved: AGENTS.filter((x) => x.status === "unobserved").length
       };
-      const statusLabels = { all: "전체", working: "작업 중", watching: "감시 중", idle: "대기", unobserved: "상태 미확인" };
       document.querySelectorAll("[data-ag-status]").forEach((btn) => {
         const key = btn.getAttribute("data-ag-status") || "all";
-        if (Object.prototype.hasOwnProperty.call(countsByStatus, key)) {
-          const val = key === "all" ? String(countsByStatus.all) : (agentsMeasured ? String(countsByStatus[key]) : "—");
-          btn.textContent = `${statusLabels[key]} (${val})`;
+        const valEl = btn.querySelector(".stat-pill-v");
+        if (valEl && Object.prototype.hasOwnProperty.call(countsByStatus, key)) {
+          valEl.textContent = key === "all"
+            ? String(countsByStatus.all)
+            : (agentsMeasured ? String(countsByStatus[key]) : "—");
         }
       });
 
-      // Left 15-agent list (grouped by branch)
+      const maxEv = getMaxAgentEvents();
+
+      // Left 15-agent list (with org/activity sort toggle + micro activity bar)
       const rosterEl = document.getElementById("agRosterList");
       if (rosterEl) {
-        const groups = [
-          { title: "총괄 조정 (1)", items: list.filter((a) => a.branch === "root") },
-          { title: "관측 · 판정 · 전문 (6)", items: list.filter((a) => a.branch === "forseti") },
-          { title: "승인 · 실행 · 복구 · 대화 (4)", items: list.filter((a) => a.branch === "thor") },
-          { title: "규칙 · 기억 · 감사 · 학습 (4)", items: list.filter((a) => a.branch === "staff") }
-        ].filter((g) => g.items.length > 0);
         const frag = document.createDocumentFragment();
-        if (groups.length === 0) {
-          frag.appendChild(createEl("p", {
-            style: "padding:12px;font-size:12.5px;color:var(--cs-text-soft)",
-            text: "조건에 일치하는 에이전트가 없습니다."
-          }));
-        } else {
-          groups.forEach((g) => {
-            frag.appendChild(createEl("div", { className: "tree-group-lbl", text: g.title }));
-            g.items.forEach((a) => {
-              const btn = createEl("button", {
-                type: "button",
-                className: `ag-list-btn${a.name === agState.selected ? " is-active" : ""}`,
-                attrs: { "data-ag-pick": a.name },
-                onClick: () => {
-                  agState.selected = a.name;
-                  Sel.syncIfActive("agents", a.id);
-                  renderAgentsPanel();
-                }
-              },
+        const sortBar = createEl("div", { className: "ag-roster-head" },
+          createEl("span", { className: "ag-roster-head-title", text: `판테온 (${list.length})` }),
+          createEl("div", { className: "ag-sort-seg", attrs: { role: "group", "aria-label": "목록 정렬" } },
+            createEl("button", {
+              type: "button",
+              className: `ag-sort-btn${agState.sort === "org" ? " is-active" : ""}`,
+              text: "조직순",
+              onClick: () => { agState.sort = "org"; renderAgentsPanel(); }
+            }),
+            createEl("button", {
+              type: "button",
+              className: `ag-sort-btn${agState.sort === "activity" ? " is-active" : ""}`,
+              text: "활성순",
+              onClick: () => { agState.sort = "activity"; renderAgentsPanel(); }
+            })
+          )
+        );
+        frag.appendChild(sortBar);
+
+        const buildRosterBtn = (a) => {
+          const evCount = typeof a.liveEventCount === "number" ? a.liveEventCount : null;
+          const pct = (evCount != null && maxEv > 0) ? Math.round((evCount / maxEv) * 100) : 0;
+          const cntLabel = evCount != null ? (evCount > 0 ? String(evCount) : "0") : (liveMode ? "—" : "");
+          return createEl("button", {
+            type: "button",
+            className: `ag-list-btn${a.name === agState.selected ? " is-active" : ""}`,
+            attrs: { "data-ag-pick": a.name },
+            onClick: () => {
+              agState.selected = a.name;
+              Sel.syncIfActive("agents", a.id);
+              renderAgentsPanel();
+            }
+          },
+            createEl("span", { className: "ag-list-btn-inner" },
+              createEl("span", { className: "ag-list-btn-top" },
                 createEl("span", { className: "ag-list-left" },
                   createIconEl(a.name, "ag-icon"),
                   createEl("span", { className: "ag-list-copy" },
@@ -2533,16 +3423,49 @@
                     createEl("span", { text: a.shortRole })
                   )
                 ),
-                createEl("span", { className: "cs-dot", style: `background:${statusDotColor(a.status)}` })
-              );
-              frag.appendChild(btn);
-            });
+                createEl("span", { className: "ag-list-right" },
+                  cntLabel ? createEl("span", { className: "ag-list-cnt", text: cntLabel }) : null,
+                  createEl("span", { className: "cs-dot", style: `background:${statusDotColor(a.status)}` })
+                )
+              ),
+              pct > 0
+                ? createEl("span", { className: "ag-roster-bar" },
+                    createEl("span", { className: "ag-roster-bar-fill", style: `width:${Math.max(5, pct)}%;background:${statusDotColor(a.status)}` })
+                  )
+                : null
+            )
+          );
+        };
+
+        if (list.length === 0) {
+          frag.appendChild(createEl("p", {
+            style: "padding:12px;font-size:12.5px;color:var(--cs-text-soft)",
+            text: "조건에 일치하는 에이전트가 없습니다."
+          }));
+        } else if (agState.sort === "activity") {
+          const sorted = [...list].sort((x, y) => {
+            const cx = typeof x.liveEventCount === "number" ? x.liveEventCount : -1;
+            const cy = typeof y.liveEventCount === "number" ? y.liveEventCount : -1;
+            if (cy !== cx) return cy - cx;
+            return x.name.localeCompare(y.name);
+          });
+          sorted.forEach((a) => frag.appendChild(buildRosterBtn(a)));
+        } else {
+          const groups = [
+            { title: "총괄 조정 (1)", items: list.filter((a) => a.branch === "root") },
+            { title: "관측 · 판정 · 전문 (6)", items: list.filter((a) => a.branch === "forseti") },
+            { title: "승인 · 실행 · 복구 · 대화 (4)", items: list.filter((a) => a.branch === "thor") },
+            { title: "규칙 · 기억 · 감사 · 학습 (4)", items: list.filter((a) => a.branch === "staff") }
+          ].filter((g) => g.items.length > 0);
+          groups.forEach((g) => {
+            frag.appendChild(createEl("div", { className: "tree-group-lbl", text: g.title }));
+            g.items.forEach((a) => frag.appendChild(buildRosterBtn(a)));
           });
         }
         rosterEl.replaceChildren(frag);
       }
 
-      // Update Constellation SVG nodes, dots & edge highlights
+      // Update Constellation SVG nodes, live counts, active flow & highlights
       syncConstellationSvgModeAndDots();
       document.querySelectorAll("#agConstellationSvg [data-ag-node]").forEach((node) => {
         const nm = node.getAttribute("data-ag-node") || "";
@@ -2554,62 +3477,73 @@
         edge.classList.toggle("is-highlighted", pair.includes(agState.selected));
       });
 
+      renderCanvasSummaryCard(agState.selected);
       renderAgentsInspector(agState.selected);
 
-      // Render Roster Table View (XSS-safe DOM creation)
+      // Render Roster Table View (6 clean scannable columns + inline activity bar)
       const tb = document.getElementById("agTableBody");
       if (tb) {
         const frag = document.createDocumentFragment();
         if (list.length === 0) {
           frag.appendChild(createEl("tr", null,
             createEl("td", {
-              attrs: { colspan: "7" },
+              attrs: { colspan: "6" },
               style: "text-align:center;color:var(--cs-text-soft);padding:20px",
               text: "조건에 일치하는 에이전트가 없습니다."
             })
           ));
         } else {
-          list.forEach((a) => {
+          const tableList = [...list].sort((x, y) => {
+            const cx = typeof x.liveEventCount === "number" ? x.liveEventCount : -1;
+            const cy = typeof y.liveEventCount === "number" ? y.liveEventCount : -1;
+            return cy - cx;
+          });
+          tableList.forEach((a) => {
+            const evCount = typeof a.liveEventCount === "number" ? a.liveEventCount : null;
+            const pct = (evCount != null && maxEv > 0) ? Math.round((evCount / maxEv) * 100) : 0;
+            const meterCell = createEl("div", { className: "ag-tbl-meter" },
+              createEl("span", {
+                className: "ag-tbl-meter-val",
+                text: evCount != null ? `${evCount.toLocaleString()}건` : (liveMode ? "미측정" : "표본")
+              }),
+              createEl("span", { className: "ag-roster-bar" },
+                createEl("span", { className: "ag-roster-bar-fill", style: `width:${pct}%;background:${statusDotColor(a.status)}` })
+              )
+            );
             const tr = createEl("tr", {
               className: a.name === agState.selected ? "ag-table-row-active" : "",
-              attrs: { "data-ag-row": a.name }
+              attrs: { "data-ag-row": a.name },
+              style: "cursor:pointer",
+              onClick: (ev) => {
+                if (ev.target instanceof Element && ev.target.closest("button")) return;
+                agState.selected = a.name;
+                Sel.syncIfActive("agents", a.id);
+                renderAgentsPanel();
+                openSafeAgentDrawer(a);
+              }
             },
               createEl("td", null,
                 createEl("div", { style: "display:flex;align-items:center;gap:9px" },
                   createEl("span", { className: "ag-avatar" }, createIconEl(a.name)),
                   createEl("div", null,
                     createEl("strong", { style: "display:block", text: a.name }),
-                    createEl("span", { style: "font-size:12px;color:var(--cs-text-soft)", text: a.shortRole })
+                    createEl("span", { style: "font-size:12px;color:var(--cs-text-soft)", text: `${a.shortRole} · ${a.branchLabel}` })
                   )
                 )
               ),
-              createEl("td", null,
-                createEl("span", { style: "display:block", text: a.layerLabel }),
-                createEl("span", { style: "font-size:12px;color:var(--cs-text-soft)", text: `상위: ${a.reportsTo}` })
-              ),
               createEl("td", null, createBadgeEl(a.tone, a.statusLabel)),
               createEl("td", { text: a.work }),
-              createEl("td", { text: a.incidentLabel || a.incident || "—" }),
+              createEl("td", null, meterCell),
               createEl("td", { className: "cell-mono", text: a.observed && a.since ? a.since : "—" }),
               createEl("td", null,
                 createEl("div", { style: "display:flex;gap:6px;flex-wrap:wrap" },
                   createEl("button", {
-                    type: "button", className: "cs-btn cs-btn-sm", text: "상세 보기",
+                    type: "button", className: "cs-btn cs-btn-sm", text: "상세",
                     onClick: () => {
                       agState.selected = a.name;
                       Sel.syncIfActive("agents", a.id);
                       renderAgentsPanel();
                       openSafeAgentDrawer(a);
-                    }
-                  }),
-                  createEl("button", {
-                    type: "button", className: "cs-btn cs-btn-sm", text: "별자리",
-                    onClick: () => {
-                      agState.selected = a.name;
-                      agState.view = "constellation";
-                      Sel.syncIfActive("agents", a.id);
-                      syncAgViewTabs();
-                      renderAgentsPanel();
                     }
                   }),
                   createEl("button", {
@@ -2635,86 +3569,116 @@
         tb.replaceChildren(frag);
       }
 
-      // Render Cards View (XSS-safe DOM creation)
+      // Render Cards View (Active-First grouping + activity meter + collapsible idle section)
       const cardsEl = document.getElementById("agPaneCards");
       if (cardsEl) {
         const frag = document.createDocumentFragment();
+        const buildCard = (a) => {
+          const evCount = typeof a.liveEventCount === "number" ? a.liveEventCount : null;
+          const pct = (evCount != null && maxEv > 0) ? Math.round((evCount / maxEv) * 100) : 0;
+          return createEl("article", {
+            className: `ag-roster-tile${!a.observed ? " is-unobserved" : ""}${a.name === agState.selected ? " is-selected" : ""}${a.justPulsed ? " is-pulsing" : ""}`,
+            attrs: { "data-ag-card": a.name }
+          },
+            createEl("div", { className: "ag-tile-head" },
+              createEl("div", { className: "ag-tile-id" },
+                createEl("span", { className: "ag-avatar" }, createIconEl(a.name)),
+                createEl("div", null,
+                  createEl("strong", { style: "display:block;font-size:14px", text: a.name }),
+                  createEl("span", { style: "font-size:12px;color:var(--cs-text-soft)", text: `${a.shortRole} · ${a.branchLabel}` })
+                )
+              ),
+              createBadgeEl(a.tone, `${a.statusLabel}${a.justPulsed ? " · 방금 감지" : ""}`)
+            ),
+            createEl("p", { className: "ag-tile-work", text: a.work }),
+            createEl("div", { className: "ag-card-meter" },
+              createEl("strong", { text: evCount != null ? `${evCount.toLocaleString()}건` : (liveMode ? "미측정" : "표본") }),
+              createEl("span", { className: "ag-roster-bar" },
+                createEl("span", { className: "ag-roster-bar-fill", style: `width:${pct}%;background:${statusDotColor(a.status)}` })
+              ),
+              createEl("span", {
+                className: "cell-mono",
+                attrs: { "data-ag-card-since": a.name },
+                text: a.observed && a.since ? a.since : "—"
+              })
+            ),
+            createEl("div", { className: "ag-tile-actions" },
+              createEl("button", {
+                type: "button", className: "cs-btn cs-btn-sm", text: "상세 드로어",
+                onClick: () => {
+                  agState.selected = a.name;
+                  Sel.syncIfActive("agents", a.id);
+                  renderAgentsPanel();
+                  openSafeAgentDrawer(a);
+                }
+              }),
+              createEl("button", {
+                type: "button", className: "cs-btn cs-btn-sm", text: "역할 구조",
+                onClick: () => {
+                  orgState.selected = a.name;
+                  renderOrgInspector(a.name);
+                  highlightOrgNode(a.name);
+                  if (isLiveModeNow() && typeof fetchPantheonAgentLive === "function") {
+                    fetchPantheonAgentLive(a.name);
+                  }
+                  jumpToTab("pantheon");
+                  Sel.set(a.id);
+                }
+              }),
+              createEl("button", {
+                type: "button", className: "cs-btn cs-btn-sm", text: "작업 이력",
+                onClick: () => {
+                  actState.agent = a.name;
+                  const sel = document.getElementById("actAgentSelect");
+                  if (sel) sel.value = a.name;
+                  renderActivityPanel();
+                  if (isLiveModeNow() && typeof probeActivityWithFilters === "function") {
+                    probeActivityWithFilters();
+                  }
+                  jumpToTab("agent-activity");
+                  Sel.set(a.id);
+                }
+              }),
+              createEl("button", {
+                type: "button", className: "cs-btn cs-btn-accent cs-btn-sm", text: "질문",
+                onClick: () => askInChat(`${a.name} 에이전트의 현재 상태와 담당 리소스 유형을 알려 줘.`)
+              })
+            )
+          );
+        };
+
         if (list.length === 0) {
           frag.appendChild(createEl("div", {
             style: "grid-column:1/-1;text-align:center;color:var(--cs-text-soft);padding:24px",
             text: "조건에 일치하는 에이전트가 없습니다."
           }));
         } else {
-          list.forEach((a) => {
-            const tile = createEl("article", {
-              className: `ag-roster-tile${!a.observed ? " is-unobserved" : ""}${a.name === agState.selected ? " is-selected" : ""}${a.justPulsed ? " is-pulsing" : ""}`,
-              attrs: { "data-ag-card": a.name }
-            },
-              createEl("div", { className: "ag-tile-head" },
-                createEl("div", { className: "ag-tile-id" },
-                  createEl("span", { className: "ag-avatar" }, createIconEl(a.name)),
-                  createEl("div", null,
-                    createEl("strong", { style: "display:block;font-size:14px", text: a.name }),
-                    createEl("span", { style: "font-size:12px;color:var(--cs-text-soft)", text: `${a.shortRole} · ${a.branchLabel}` })
-                  )
-                ),
-                createBadgeEl(a.tone, `${a.statusLabel}${a.justPulsed ? " · 방금 감지" : ""}`)
-              ),
-              createEl("p", { className: "ag-tile-work", text: a.work }),
-              createEl("div", { className: "ag-tile-meta" },
-                createEl("span", null, "최근 작업: ", createEl("strong", { text: a.incidentLabel || a.incident || "—" })),
-                createEl("span", { text: "·" }),
-                createEl("span", null, "관측: ", createEl("strong", {
-                  className: "cell-mono",
-                  attrs: { "data-ag-card-since": a.name },
-                  text: a.observed && a.since ? a.since : "—"
-                }))
-              ),
-              createEl("div", { className: "ag-tile-actions" },
-                createEl("button", {
-                  type: "button", className: "cs-btn cs-btn-sm", text: "상세 드로어",
-                  onClick: () => {
-                    agState.selected = a.name;
-                    Sel.syncIfActive("agents", a.id);
-                    renderAgentsPanel();
-                    openSafeAgentDrawer(a);
-                  }
-                }),
-                createEl("button", {
-                  type: "button", className: "cs-btn cs-btn-sm", text: "역할 구조",
-                  onClick: () => {
-                    orgState.selected = a.name;
-                    renderOrgInspector(a.name);
-                    highlightOrgNode(a.name);
-                    if (isLiveModeNow() && typeof fetchPantheonAgentLive === "function") {
-                      fetchPantheonAgentLive(a.name);
-                    }
-                    jumpToTab("pantheon");
-                    Sel.set(a.id);
-                  }
-                }),
-                createEl("button", {
-                  type: "button", className: "cs-btn cs-btn-sm", text: "작업 이력",
-                  onClick: () => {
-                    actState.agent = a.name;
-                    const sel = document.getElementById("actAgentSelect");
-                    if (sel) sel.value = a.name;
-                    renderActivityPanel();
-                    if (isLiveModeNow() && typeof probeActivityWithFilters === "function") {
-                      probeActivityWithFilters();
-                    }
-                    jumpToTab("agent-activity");
-                    Sel.set(a.id);
-                  }
-                }),
-                createEl("button", {
-                  type: "button", className: "cs-btn cs-btn-accent cs-btn-sm", text: "질문하기",
-                  onClick: () => askInChat(`${a.name} 에이전트의 현재 상태와 담당 리소스 유형을 알려 줘.`)
-                })
-              )
-            );
-            frag.appendChild(tile);
-          });
+          const activeCards = list
+            .filter((a) => a.status === "working" || a.status === "watching")
+            .sort((x, y) => (Number(y.liveEventCount || 0) - Number(x.liveEventCount || 0)));
+          const idleCards = list.filter((a) => a.status !== "working" && a.status !== "watching");
+
+          if (activeCards.length > 0) {
+            frag.appendChild(createEl("div", { className: "ag-cards-section-head" },
+              createEl("span", { text: `활성 에이전트 · 작업 중 / 감시 중 (${activeCards.length})` }),
+              createEl("span", { style: "font-weight:500", text: "활동량 높은 순 정렬" })
+            ));
+            activeCards.forEach((a) => frag.appendChild(buildCard(a)));
+          }
+          if (idleCards.length > 0) {
+            const toggleBtn = createEl("button", {
+              type: "button", className: "cs-btn cs-btn-sm",
+              text: agState.idleCardsCollapsed ? `펼치기 (${idleCards.length})` : "접기",
+              onClick: () => { agState.idleCardsCollapsed = !agState.idleCardsCollapsed; renderAgentsPanel(); }
+            });
+            frag.appendChild(createEl("div", { className: "ag-cards-section-head" },
+              createEl("span", { text: `대기 · 미확인 에이전트 (${idleCards.length})` }),
+              toggleBtn
+            ));
+            if (!agState.idleCardsCollapsed) {
+              idleCards.forEach((a) => frag.appendChild(buildCard(a)));
+            }
+          }
         }
         cardsEl.replaceChildren(frag);
       }
@@ -2745,18 +3709,17 @@
     });
     document.querySelectorAll("[data-ag-status]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        agState.status = btn.getAttribute("data-ag-status") || "all";
+        const nextSt = btn.getAttribute("data-ag-status") || "all";
+        agState.status = (nextSt !== "all" && agState.status === nextSt) ? "all" : nextSt;
         syncAgStatusButtons();
         renderAgentsPanel();
       });
     });
-    document.querySelectorAll("[data-ag-quick-status]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const st = btn.getAttribute("data-ag-quick-status") || "all";
-        agState.status = agState.status === st ? "all" : st;
-        syncAgStatusButtons();
-        renderAgentsPanel();
-      });
+    document.getElementById("agFlowToggleBtn")?.addEventListener("click", (e) => {
+      agState.showFlow = !agState.showFlow;
+      e.currentTarget.classList.toggle("is-active", agState.showFlow);
+      e.currentTarget.setAttribute("aria-pressed", String(agState.showFlow));
+      syncConstellationSvgModeAndDots();
     });
     const agSearch = document.getElementById("agSearchInput");
     const agClear = document.getElementById("agSearchClear");
@@ -2959,6 +3922,7 @@
         if (ag) Sel.syncIfActive("pantheon", ag.id);
         highlightOrgNode(orgState.selected);
         renderOrgInspector(orgState.selected);
+        Shimmer.border(document.getElementById("agOrgInspector"), 850);
         if (typeof fetchPantheonAgentLive === "function") {
           fetchPantheonAgentLive(orgState.selected);
         }
@@ -3341,7 +4305,7 @@
         hoState.revision = 1;
         hoState.revisionLabel = `로컬 확인 #${hoState.revision}`;
       }
-      hoState.lastSaved = `${new Date().toTimeString().slice(0, 8)} (${getLocalTzLabel()})`;
+      hoState.lastSaved = `${H.localClock(Date.now())} (${getLocalTzLabel()})`;
       renderHandoverChecklist();
       showLocalToast(`${hoState.target} 교대 인수인계 확인이 ${hoState.revisionLabel}로 기록되었습니다 (권한 변경 없음).`);
     });
@@ -3519,7 +4483,8 @@
     const actState = {
       view: "swimlane",
       agent: "all",
-      corr: "corr-8a91f",
+      corrFilter: "all",
+      selectedCorr: "corr-8a91f",
       q: "",
       selectedStepId: "s4",
       logLane: "all",
@@ -3545,25 +4510,28 @@
 
       const stepItemId = `${traj.id}::${step.id}`;
       const actionKo = step.actionLabel || H.action(step.topic);
-      const targetKo = step.targetLabel || H.resourceType(step.target);
-      const modeKo = step.modeLabel || H.mode(step.dur);
-      const summarySentence = step.humanSummary || step.summary || `${H.actor(step.agent)}에서 ${targetKo} 대상으로 '${actionKo}' 작업을 처리했습니다.`;
+      const targetKo = step.targetLabel || "특정 리소스 미지정";
+      const modeKo = step.modeShortLabel || H.modeShort(step.dur);
+      const ruleKo = step.ruleLabel || "기록 없음";
+      const remedKo = step.remediationLabel || actionKo;
+      const sevKo = step.severityLabel || "미기록";
+      const summarySentence = step.humanSummary || step.summary || `${step.agent}에서 '${actionKo}' 작업을 처리했습니다.`;
 
       const cardHead = createEl("div", { className: "insp-card" },
         createEl("div", { className: "ag-insp-head" },
           createEl("span", { className: "ag-avatar" }, createIconEl(step.agent)),
           createEl("div", null,
             createEl("h4", { text: `${step.agent} · ${step.result}` }),
-            createEl("p", { text: `${actionKo} · ${step.time}` })
+            createEl("p", { text: `${step.headline || actionKo} · ${step.time}` })
           )
         ),
         createSummaryCallout(summarySentence),
         createKvGridEl([
-          ["담당 에이전트", H.actor(step.agent)],
-          ["처리 결과", step.result],
           ["대상 리소스", targetKo],
+          ["발동 규칙", ruleKo],
+          ["수행 · 제안 조치", remedKo],
+          ["실제 심각도", sevKo],
           ["실행 모드", modeKo],
-          ["판단 티어", step.tierLabel || step.tier],
           ["발생 시각", step.time]
         ])
       );
@@ -3571,9 +4539,12 @@
       const techRows = [
         ["상관 작업 ID", traj.id],
         ["이벤트 토픽 / 액션 키", step.topic],
-        ["원본 대상 키", step.target],
+        ["원본 대상 참조", step.targetRef || step.target || "미기록"],
+        ["원본 규칙 ID", step.rawRuleId || "미기록"],
+        ["원본 조치 키", step.rawRemediation || "미기록"],
         ["감사 해시", step.hash]
       ];
+      if (step.incidentNumber) techRows.push(["연결 인시던트", step.incidentNumber]);
       if (step.seq != null) techRows.push(["원장 시퀀스", `#${step.seq}`]);
       if (step.rawActor) techRows.push(["원본 행위자", step.rawActor]);
       if (step.elapsedLabel) techRows.push(["상대 경과", step.elapsedLabel]);
@@ -3655,10 +4626,10 @@
           frag.appendChild(opt);
         });
         corrSel.replaceChildren(frag);
-        if (actState.corr !== "all" && !TRAJECTORIES.some((tr) => tr.id === actState.corr)) {
-          actState.corr = "all";
+        if (actState.corrFilter !== "all" && !TRAJECTORIES.some((tr) => tr.id === actState.corrFilter)) {
+          actState.corrFilter = "all";
         }
-        corrSel.value = actState.corr;
+        corrSel.value = actState.corrFilter;
       }
 
       // View pane visibility
@@ -3694,13 +4665,14 @@
 
       const q = actState.q.trim().toLowerCase();
       const filteredTrajs = TRAJECTORIES.filter((tr) => {
-        if (actState.corr !== "all" && tr.id !== actState.corr) return false;
+        if (actState.corrFilter !== "all" && tr.id !== actState.corrFilter) return false;
         if (actState.agent !== "all" && !tr.steps.some((s) => s.agent === actState.agent)) return false;
         if (!q) return true;
-        return `${tr.id} ${tr.title} ${tr.steps.map((s) => `${s.agent} ${s.topic} ${s.target} ${s.summary}`).join(" ")}`.toLowerCase().includes(q);
+        return `${tr.id} ${tr.title} ${tr.steps.map((s) => `${s.agent} ${s.topic} ${s.actionLabel || ""} ${s.target} ${s.targetLabel || ""} ${s.summary}`).join(" ")}`.toLowerCase().includes(q);
       });
 
-      const activeTraj = filteredTrajs.find((tr) => tr.id === actState.corr) || filteredTrajs[0] || null;
+      const activeTraj = filteredTrajs.find((tr) => tr.id === actState.selectedCorr) || filteredTrajs[0] || null;
+      if (activeTraj) actState.selectedCorr = activeTraj.id;
       const cntEl = document.getElementById("actTrajCount");
       if (cntEl) cntEl.textContent = measured ? `${filteredTrajs.length}건 표시` : "미측정";
 
@@ -3718,7 +4690,7 @@
                 "data-ut-title": p.label,
                 "data-ut-val": pState === "done" ? "완료" : pState === "attention" ? "승인 대기" : "대기",
                 "data-ut-body": p.note,
-                "data-ut-meta": `${activeTraj.id} 6단계 수명주기`,
+                "data-ut-meta": `${activeTraj.title} · 6단계 수명주기`,
                 "data-ut-tone": pTone
               }
             },
@@ -3733,7 +4705,7 @@
         }
       }
 
-      // Left Trajectory List
+      // Left Trajectory List (selecting an item never wipes sibling items!)
       const trajListEl = document.getElementById("actTrajList");
       if (trajListEl) {
         const frag = document.createDocumentFragment();
@@ -3751,11 +4723,12 @@
               className: `wb-item${activeTraj && tr.id === activeTraj.id ? " is-active" : ""}`,
               attrs: { "data-pick-traj": tr.id, "data-item-id": tr.id },
               onClick: () => {
-                actState.corr = tr.id;
-                if (corrSel) corrSel.value = actState.corr;
+                actState.selectedCorr = tr.id;
                 if (tr.steps && tr.steps[0]) actState.selectedStepId = tr.steps[0].id;
                 Sel.syncIfActive("agent-activity", tr.id);
                 renderActivityPanel();
+                Shimmer.pulse(document.querySelector("#actPaneSwimlane .ag-swim-wrap"), 900);
+                Shimmer.border(document.getElementById("actPayloadInspector"), 900);
               }
             },
               createEl("div", { className: "wb-item-top" },
@@ -3822,6 +4795,7 @@
                 actState.selectedStepId = s.id;
                 Sel.syncIfActive("agent-activity", `${activeTraj.id}::${s.id}`);
                 renderActivityPanel();
+                Shimmer.pulse(document.getElementById("actPayloadInspector"), 900);
                 openDomainInspector("actPayloadInspector", ev.currentTarget);
               }
             }, createEl("span", { text: s.result }));
@@ -3873,24 +4847,29 @@
           ));
         } else {
           allLogs.forEach((row) => {
-            const actionKo = row.actionLabel || H.action(row.topic);
-            const targetKo = row.targetLabel || H.resourceType(row.target);
-            const modeKo = row.modeLabel || H.mode(row.dur);
+            const actionKo = row.headline || row.actionLabel || H.action(row.topic);
+            const targetKo = row.targetLabel || "특정 리소스 미지정";
+            const modeShort = row.modeShortLabel || H.modeShort(row.dur);
+            const badgeText = row.severityLabel
+              ? `${row.severityLabel} · ${row.result}`
+              : (modeShort === row.result || row.result.includes(modeShort) ? row.result : `${modeShort} · ${row.result}`);
             const trEl = createEl("tr", {
               style: "cursor:pointer",
               attrs: { "data-item-id": `${row.traj.id}::${row.id}` },
-              onClick: () => {
-                actState.corr = row.traj.id;
+              onClick: (ev) => {
+                actState.selectedCorr = row.traj.id;
                 actState.selectedStepId = row.id;
                 actState.view = "swimlane";
                 Sel.syncIfActive("agent-activity", `${row.traj.id}::${row.id}`);
-                if (corrSel) corrSel.value = row.traj.id;
                 document.querySelectorAll("[data-act-view]").forEach((b) => {
                   const on = b.getAttribute("data-act-view") === "swimlane";
                   b.classList.toggle("is-active", on);
                   b.setAttribute("aria-selected", String(on));
                 });
                 renderActivityPanel();
+                Shimmer.pulse(document.querySelector("#actPaneSwimlane .ag-swim-wrap"), 900);
+                Shimmer.border(document.getElementById("actPayloadInspector"), 900);
+                openDomainInspector("actPayloadInspector", ev.currentTarget);
               }
             },
               createEl("td", { className: "cell-mono", text: row.time }),
@@ -3905,7 +4884,7 @@
                 createEl("strong", { text: targetKo }),
                 document.createTextNode(` · ${row.humanSummary || row.summary}`)
               ),
-              createEl("td", null, createBadgeEl(row.tone, `${modeKo} · ${row.result}`)),
+              createEl("td", null, createBadgeEl(row.tone, badgeText)),
               createEl("td", { style: "font-size:12px;color:var(--cs-text-soft)", text: row.traj.displayLabel || row.traj.id })
             );
             frag.appendChild(trEl);
@@ -4064,34 +5043,44 @@
         const activePane = paneMap[nextView];
         if (activePane) {
           activePane.setAttribute("data-view-activated-at", String(Date.now()));
+          Shimmer.border(activePane, 900);
         }
         const labelMap = {
           swimlane: "스윔레인 타임라인",
           livelog: "실시간 로그",
           heatmap: "활동 히트맵"
         };
-        if (wasSame && nextView === "swimlane" && window.fdaiV4Live && window.fdaiV4Live.isLiveMode() && typeof probeActivityWithFilters === "function") {
+        if (wasSame && nextView === "swimlane" && window.fdaiV4Live && isLiveModeNow() && typeof probeActivityWithFilters === "function") {
           probeActivityWithFilters();
         }
         const viewStatusEl = document.getElementById("actViewStatus");
-        if (viewStatusEl && wasSame) {
-          const ts = new Date().toTimeString().slice(0, 8);
-          setBadgeTextSafe(viewStatusEl, "live", `보기: ${labelMap[nextView] || nextView} · 동기화 ${ts}`);
+        if (viewStatusEl) {
+          if (wasSame) {
+            const ts = H.localClock(Date.now());
+            setBadgeTextSafe(viewStatusEl, "live", `보기: ${labelMap[nextView] || nextView} · 동기화 ${ts}`);
+          }
+          Shimmer.bg(viewStatusEl, 900);
         }
         showLocalToast(`${labelMap[nextView] || nextView} 보기를 표시합니다.`);
       });
     });
     document.getElementById("actAgentSelect")?.addEventListener("change", (e) => {
       actState.agent = e.target.value || "all";
-      if (window.fdaiV4Live && window.fdaiV4Live.isLiveMode() && typeof probeActivityWithFilters === "function") {
+      Shimmer.bg(document.getElementById("actViewStatus"), 850);
+      if (window.fdaiV4Live && isLiveModeNow() && typeof probeActivityWithFilters === "function") {
         probeActivityWithFilters();
       } else {
         renderActivityPanel();
       }
     });
     document.getElementById("actCorrSelect")?.addEventListener("change", (e) => {
-      actState.corr = e.target.value || "all";
-      if (window.fdaiV4Live && window.fdaiV4Live.isLiveMode() && typeof probeActivityWithFilters === "function") {
+      actState.corrFilter = e.target.value || "all";
+      if (actState.corrFilter !== "all") {
+        actState.selectedCorr = actState.corrFilter;
+        Sel.syncIfActive("agent-activity", actState.corrFilter);
+      }
+      Shimmer.bg(document.getElementById("actViewStatus"), 850);
+      if (window.fdaiV4Live && isLiveModeNow() && typeof probeActivityWithFilters === "function") {
         probeActivityWithFilters();
       } else {
         renderActivityPanel();
@@ -4117,12 +5106,14 @@
           b.setAttribute("aria-pressed", String(on));
         });
         renderActivityPanel();
+        Shimmer.border(document.getElementById("actPaneLiveLog"), 850);
       });
     });
     document.getElementById("actLogPauseBtn")?.addEventListener("click", (e) => {
       actState.logPaused = !actState.logPaused;
       e.currentTarget.setAttribute("aria-pressed", String(actState.logPaused));
       e.currentTarget.textContent = actState.logPaused ? "스트림 재개" : "스트림 일시정지";
+      syncStreamingContainers(Boolean(agentsSse) || isLiveModeNow());
       showLocalToast(actState.logPaused ? "실시간 로그 스크롤을 일시정지했습니다." : "실시간 로그 스트림을 재개했습니다.");
     });
 
@@ -4290,6 +5281,7 @@
                 skillState.selected = sk.id;
                 Sel.syncIfActive("skills", sk.id);
                 renderSkillsPanel();
+                Shimmer.border(document.getElementById("skillDetailInspector"), 850);
                 openDomainInspector("skillDetailInspector", ev.currentTarget);
               }
             },
@@ -4586,6 +5578,7 @@
                 capState.selected = c.id;
                 Sel.syncIfActive("capabilities", c.id);
                 renderCapabilitiesPanel();
+                Shimmer.border(document.getElementById("capDetailInspector"), 850);
                 openDomainInspector("capDetailInspector", ev.currentTarget);
               }
             },
@@ -4820,7 +5813,7 @@
           pendingDeepLinkOpenDrawer = shouldOpenDrawer;
           return false;
         }
-        actState.corr = matchedTraj.id;
+        actState.selectedCorr = matchedTraj.id;
         actState.selectedStepId = (targetStep && matchedTraj.steps.some((s) => s.id === targetStep))
           ? targetStep
           : (matchedTraj.steps[0] ? matchedTraj.steps[0].id : "");
@@ -4955,6 +5948,10 @@
       clearAllPulseTimers();
       liveSummaryCache = null;
       lastPulseKey = "";
+      liveRecentActiveAgents.clear();
+      agentRecentCache.clear();
+      liveRecentBriefings.length = 0;
+      syncStreamingContainers(false);
       Object.keys(panelMeasurementState).forEach((k) => { delete panelMeasurementState[k]; });
 
       // Keep immutable 15-agent Pantheon static definitions; clear all runtime & steward sample fields
@@ -4974,6 +5971,7 @@
         a.liveAttributedCount = null;
         a.liveModes = [];
         a.liveRecentActions = [];
+        a.liveRecentItems = null;
         a.justPulsed = false;
         a.stewardMeasured = false;
         a.isAutonomousOnly = base.name === "Loki";
@@ -4988,7 +5986,8 @@
       actState.heatmapMeasured = false;
       actState.liveHeatmap = null;
       actState.liveHeatmapTz = null;
-      actState.corr = "all";
+      actState.corrFilter = "all";
+      actState.selectedCorr = "";
       actState.selectedStepId = "";
 
       SKILLS.splice(0, SKILLS.length);
@@ -5025,6 +6024,7 @@
       renderSkillsPanel();
       renderCapabilitiesPanel();
       hydrateAgentNodeTooltips();
+      renderLivePopoverList();
     }
 
     function applyNotMeasuredPanel(panelId, reason) {
@@ -5070,7 +6070,8 @@
         actState.heatmapMeasured = false;
         actState.liveHeatmap = null;
         actState.liveHeatmapTz = null;
-        actState.corr = "all";
+        actState.corrFilter = "all";
+        actState.selectedCorr = "";
         actState.selectedStepId = "";
         setBadgeTextSafe(document.getElementById("actLiveBadge"), "neutral", `Live · ${detail}`);
         renderActivityPanel();
@@ -5129,24 +6130,61 @@
     }
 
     function updateLivePulseBanner(mode, text, meta, beat) {
-      const banner = document.getElementById("agLivePulseBanner");
-      const textEl = document.getElementById("agLivePulseText");
-      const metaEl = document.getElementById("agLivePulseMeta");
-      const dotEl = document.getElementById("agLivePulseDot");
-      if (!banner) return;
-      if (textEl) textEl.textContent = String(text || "");
-      if (metaEl && meta !== undefined) metaEl.textContent = String(meta || "");
-      if (dotEl) {
-        dotEl.classList.toggle("is-live", mode === "measured");
-        dotEl.style.background = mode === "measured"
-          ? "var(--sig-live)"
-          : mode === "sample"
-            ? "var(--sig-human)"
-            : "var(--cs-text-soft)";
-      }
-      if (beat) {
-        banner.classList.add("is-beat");
-        window.setTimeout(() => banner.classList.remove("is-beat"), 420);
+      const targets = [
+        {
+          banner: document.getElementById("agLivePulseBanner"),
+          textEl: document.getElementById("agLivePulseText"),
+          metaEl: document.getElementById("agLivePulseMeta"),
+          dotEl: document.getElementById("agLivePulseDot")
+        },
+        {
+          banner: document.getElementById("actLivePulseBanner"),
+          textEl: document.getElementById("actLivePulseText"),
+          metaEl: document.getElementById("actLivePulseMeta"),
+          dotEl: document.getElementById("actLivePulseDot")
+        }
+      ];
+      targets.forEach(({ banner, textEl, metaEl, dotEl }) => {
+        if (!banner) return;
+        if (textEl) textEl.textContent = String(text || "");
+        if (metaEl && meta !== undefined) metaEl.textContent = String(meta || "");
+        if (dotEl) {
+          dotEl.classList.toggle("is-live", mode === "measured");
+          dotEl.style.background = mode === "measured"
+            ? "var(--sig-live)"
+            : mode === "sample"
+              ? "var(--sig-human)"
+              : "var(--cs-text-soft)";
+        }
+        if (mode === "measured") {
+          if (beat) {
+            Shimmer.pulse(banner, 1150);
+          } else {
+            Shimmer.border(banner, 900);
+          }
+        }
+      });
+    }
+
+    function shimmerActivitySurface(isNewDelta) {
+      if (!isLiveModeNow()) return;
+      const badge = document.getElementById("actLiveBadge");
+      const viewBadge = document.getElementById("actViewStatus");
+      if (isNewDelta) {
+        Shimmer.pulse(badge, 1150);
+        Shimmer.pulse(viewBadge, 1150);
+        Shimmer.pulse(document.getElementById("actPhaseBar"), 1100);
+        Shimmer.pulse(document.querySelector("#actTrajList .wb-item.is-active") || document.querySelector("#actTrajList .wb-item"), 1150);
+        Shimmer.pulse(document.querySelector("#actSwimLanes .ag-swim-bar.is-selected") || document.querySelector("#actSwimLanes .ag-swim-bar"), 1150);
+        Shimmer.pulse(document.querySelector("#actLiveLogBody tr"), 1150);
+      } else {
+        Shimmer.bg(badge, 950);
+        const activePane = actState.view === "livelog"
+          ? document.getElementById("actPaneLiveLog")
+          : actState.view === "heatmap"
+            ? document.getElementById("actPaneHeatmap")
+            : document.querySelector("#actPaneSwimlane .ag-swim-wrap");
+        Shimmer.border(activePane, 900);
       }
     }
 
@@ -5154,6 +6192,7 @@
       if (!isLiveModeNow()) return;
       const a = AGENT_MAP[agentName];
       if (!a) return;
+      liveRecentActiveAgents.add(agentName);
       const rawAction = latestEvent && latestEvent.action_kind ? String(latestEvent.action_kind) : "";
       const actionKo = rawAction ? H.action(rawAction) : (a.incidentLabel || a.incident);
       const createdAt = latestEvent && (latestEvent.created_at_ms || latestEvent.created_at)
@@ -5176,7 +6215,7 @@
         window.clearTimeout(pulseTimers.get(agentName));
       }
 
-      // Soft visual highlight in place (no full DOM rebuild or layout jump)
+      // Soft visual shimmer in place (no full DOM rebuild or layout jump)
       const selectors = [
         `#agRosterList [data-ag-pick="${CSS.escape(agentName)}"]`,
         `#agConstellationSvg [data-ag-node="${CSS.escape(agentName)}"]`,
@@ -5187,6 +6226,9 @@
       selectors.forEach((sel) => {
         document.querySelectorAll(sel).forEach((el) => {
           el.classList.add(el.tagName === "TR" ? "ag-table-row-pulsing" : "is-pulsing");
+          if (el.tagName !== "g") {
+            Shimmer.pulse(el, 1150);
+          }
         });
       });
       const cardSince = document.querySelector(`[data-ag-card-since="${CSS.escape(agentName)}"]`);
@@ -5215,7 +6257,7 @@
       try {
         const tasks = [probePanelEndpoint("agents")];
         if (!actState.logPaused) {
-          tasks.push(probeActivityWithFilters());
+          tasks.push(probeActivityWithFilters({ shimmerDelta: true }));
         }
         await Promise.all(tasks);
         if (isLiveModeNow() && activePanelId() === "pantheon") {
@@ -5226,17 +6268,116 @@
       }
     }
 
+    let liveSyncTimer = null;
+    let lastLiveSyncMeta = { rxAt: 0, auditTotal: null, latencyMs: null };
+
+    function formatRelativeSecKo(rxAtMs) {
+      if (!rxAtMs) return "확인 중";
+      const sec = Math.max(0, Math.floor((Date.now() - rxAtMs) / 1000));
+      if (sec <= 2) return "방금 전";
+      if (sec < 60) return `${sec}초 전`;
+      return `${Math.floor(sec / 60)}분 전`;
+    }
+
+    function renderLivePopoverList() {
+      const listEl = document.getElementById("agLivePopoverList");
+      if (!listEl) return;
+      const frag = document.createDocumentFragment();
+      if (!isLiveModeNow()) {
+        frag.appendChild(createEl("div", {
+          style: "font-size:12px;color:var(--cs-text-soft);padding:6px 4px",
+          text: "Sample 모드에서는 실시간 스트림이 일시정지됩니다."
+        }));
+        listEl.replaceChildren(frag);
+        return;
+      }
+      if (liveRecentBriefings.length === 0) {
+        frag.appendChild(createEl("div", {
+          style: "font-size:12px;color:var(--cs-text-soft);padding:6px 4px",
+          text: "실시간 판테온 활동 수신 대기 중입니다."
+        }));
+        listEl.replaceChildren(frag);
+        return;
+      }
+      liveRecentBriefings.slice(0, 3).forEach((item) => {
+        const btn = createEl("button", {
+          type: "button",
+          className: "ag-live-pop-item",
+          onClick: () => {
+            if (item.agent && AGENT_MAP[item.agent]) {
+              agState.selected = item.agent;
+              Sel.syncIfActive("agents", AGENT_MAP[item.agent].id);
+              renderAgentsPanel();
+              openSafeAgentDrawer(AGENT_MAP[item.agent]);
+            }
+          }
+        },
+          createEl("span", { className: "cs-dot", style: `background:${statusDotColor(item.status || "working")}` }),
+          createEl("span", { text: item.text }),
+          createEl("span", { className: "cell-mono", style: "font-size:11px;color:var(--cs-text-soft)", text: `${item.clock} →` })
+        );
+        frag.appendChild(btn);
+      });
+      listEl.replaceChildren(frag);
+    }
+
+    function pushLiveBriefing(agentName, headline) {
+      if (!headline) return;
+      const label = agentName ? `${agentName} · ${headline}` : headline;
+      if (liveRecentBriefings[0] && liveRecentBriefings[0].text === label) {
+        liveRecentBriefings[0].clock = H.localClock(Date.now());
+      } else {
+        liveRecentBriefings.unshift({
+          agent: agentName || "",
+          status: (agentName && AGENT_MAP[agentName]) ? AGENT_MAP[agentName].status : "working",
+          text: label,
+          clock: H.localClock(Date.now())
+        });
+        if (liveRecentBriefings.length > 6) liveRecentBriefings.length = 6;
+      }
+      renderLivePopoverList();
+    }
+
+    function renderLiveSyncClockMeta() {
+      if (!isLiveModeNow() || !lastLiveSyncMeta.rxAt) return;
+      const nowClock = H.localClock(Date.now());
+      const tzLabel = getLocalTzLabel();
+      const ageTxt = formatRelativeSecKo(lastLiveSyncMeta.rxAt);
+      const totalTxt = lastLiveSyncMeta.auditTotal != null ? `누적 관측 ${Number(lastLiveSyncMeta.auditTotal).toLocaleString()}건` : "실시간 연결됨";
+      const latTxt = lastLiveSyncMeta.latencyMs != null ? ` · DB 응답 ${Number(lastLiveSyncMeta.latencyMs)}ms` : "";
+      const agMetaEl = document.getElementById("agLivePulseMeta");
+      if (agMetaEl) agMetaEl.textContent = ageTxt;
+      const actMetaEl = document.getElementById("actLivePulseMeta");
+      if (actMetaEl) actMetaEl.textContent = `${totalTxt} · 동기화 ${ageTxt} (${nowClock} ${tzLabel})${latTxt}`;
+    }
+
+    function ensureLiveSyncClock() {
+      if (liveSyncTimer || !isLiveModeNow()) return;
+      liveSyncTimer = window.setInterval(renderLiveSyncClockMeta, 1000);
+    }
+
+    function stopLiveSyncClock() {
+      if (liveSyncTimer) {
+        window.clearInterval(liveSyncTimer);
+        liveSyncTimer = null;
+      }
+      lastLiveSyncMeta.rxAt = 0;
+    }
+
     function handleLivePulse(payload) {
       const live = window.fdaiV4Live;
       if (!live || !isLiveModeNow() || !payload || typeof payload !== "object") return;
       const ms = payload.measurement_status || payload.measurement_state || "not-measured";
       const seq = Number(payload.audit_latest_seq || (payload.latest_event && payload.latest_event.seq) || 0);
       const delta = Number(payload.delta_audit || 0);
-      const key = `${seq}:${delta}:${ms}`;
-      if (key === lastPulseKey && lastObservedAuditSeq > 0) return;
+      const tick = Number(payload.tick || 0);
+      const key = `${tick}:${seq}:${delta}:${ms}`;
+      if (key === lastPulseKey) return;
       lastPulseKey = key;
 
       if (ms !== "measured") {
+        syncStreamingContainers(false);
+        stopLiveSyncClock();
         updateLivePulseBanner(
           "not-measured",
           "실시간 판테온 동기화 대기 · 미측정 (DB/상위 미연결 — 0 대체 금지)",
@@ -5246,48 +6387,62 @@
         return;
       }
 
+      syncStreamingContainers(true);
       const ev = payload.latest_event && typeof payload.latest_event === "object" ? payload.latest_event : null;
       const rawActor = ev && ev.actor ? String(ev.actor) : "";
       const rawAction = ev && ev.action_kind ? String(ev.action_kind) : "";
-      const rawTarget = ev && ev.target ? String(ev.target) : "";
       const canonAgent = mapActorToPantheon(rawActor, rawAction);
-      const actorKo = rawActor ? H.actor(rawActor) : (canonAgent || "운영 원장");
-      const actionKo = rawAction ? H.action(rawAction) : "운영 상태 관측";
-      const targetKo = rawTarget ? H.resourceType(rawTarget) : "";
-      const latency = payload.db_latency_ms != null ? `${Number(payload.db_latency_ms)}ms` : "—";
+      if (canonAgent) liveRecentActiveAgents.add(canonAgent);
+      const copy = H.composeIncidentCopy({
+        agent: canonAgent || "",
+        actor: rawActor,
+        action_kind: rawAction,
+        target: ev && ev.target ? ev.target : "",
+        target_resource_name: ev && ev.target_resource_name ? ev.target_resource_name : "",
+        rule_id: ev && ev.rule_id ? ev.rule_id : "",
+        remediation_action: ev && ev.remediation_action ? ev.remediation_action : "",
+        severity: ev && ev.severity ? ev.severity : ""
+      });
+      const actorShort = canonAgent || H.actor(rawActor || "");
       const deltaSuffix = delta > 0 ? ` · 새 기록 +${delta.toLocaleString()}건` : "";
-      const auditTotal = payload.audit_total != null ? Number(payload.audit_total).toLocaleString() : "—";
-      const evWhen = ev && (ev.created_at_ms || ev.created_at) ? H.timestamp(ev.created_at_ms || ev.created_at) : "";
 
       const seqAdvanced = lastObservedAuditSeq > 0 && seq > lastObservedAuditSeq;
       if (seq > lastObservedAuditSeq) {
         lastObservedAuditSeq = seq;
       }
+      const isNewDelta = delta > 0 || seqAdvanced;
 
-      const activityPhrase = targetKo && targetKo !== "관측 대상"
-        ? `${actorKo} · ${targetKo} — ${actionKo}`
-        : `${actorKo} — ${actionKo}`;
+      lastLiveSyncMeta = {
+        rxAt: Date.now(),
+        auditTotal: payload.audit_total != null ? Number(payload.audit_total) : null,
+        latencyMs: payload.db_latency_ms != null ? Number(payload.db_latency_ms) : null
+      };
+      ensureLiveSyncClock();
 
       updateLivePulseBanner(
         "measured",
-        `실시간 판테온 동기화 중 · 최근 활동: ${activityPhrase}${deltaSuffix}`,
-        `누적 관측 ${auditTotal}건${evWhen ? ` · 최근 ${evWhen}` : ""} · DB 응답 ${latency}`,
-        delta > 0 || seqAdvanced
+        `실시간 동기화 중 · ${actorShort} · ${copy.headline}${deltaSuffix}`,
+        undefined,
+        isNewDelta
       );
+      pushLiveBriefing(canonAgent || actorShort, copy.headline);
+      renderLiveSyncClockMeta();
 
-      // Only pulse nodes / refresh when new audit events actually arrive (prevents chart/node jitter on idle ticks)
-      if ((delta > 0 || seqAdvanced) && canonAgent && ev) {
+      syncConstellationSvgModeAndDots();
+      Shimmer.bg(document.getElementById("agLiveBoundaryBadge"), 900);
+      shimmerActivitySurface(isNewDelta);
+
+      if (isNewDelta && canonAgent && ev) {
         pulseAgentSurface(canonAgent, ev);
+      } else if (canonAgent) {
+        const activeCard = document.querySelector(`#agPaneCards [data-ag-card="${CSS.escape(canonAgent)}"]`);
+        const activeRow = document.querySelector(`#agRosterList [data-ag-pick="${CSS.escape(canonAgent)}"]`);
+        if (activeCard) Shimmer.border(activeCard, 900);
+        if (activeRow) Shimmer.bg(activeRow, 900);
       }
-      if (delta > 0 || seqAdvanced) {
+      if (isNewDelta) {
         refreshOnAuditDelta();
       }
-    }
-
-    function formatUtcShort(iso) {
-      if (!iso || typeof iso !== "string") return "-";
-      const m = iso.match(/T(\d{2}:\d{2}:\d{2})/);
-      return m ? `${m[1]} UTC` : iso.slice(0, 19);
     }
 
     function shortPrincipal(id) {
@@ -5333,18 +6488,16 @@
 
     function syncSseButton() {
       const btn = document.getElementById("agSseToggleBtn");
+      const chip = document.getElementById("agLivePulseBanner");
+      const isLive = isLiveModeNow();
+      if (chip) chip.setAttribute("aria-pressed", String(Boolean(agentsSse) && isLive));
       if (!btn) return;
-      const isLive = window.fdaiV4Live ? window.fdaiV4Live.isLiveMode() : true;
       if (!isLive) {
-        btn.disabled = true;
-        btn.setAttribute("aria-pressed", "false");
-        btn.textContent = "SSE (Sample 비활성)";
+        btn.textContent = "Sample 모드 (스트림 비활성)";
         return;
       }
-      btn.disabled = false;
       const connected = Boolean(agentsSse);
-      btn.setAttribute("aria-pressed", String(connected));
-      btn.textContent = connected ? "SSE 연결 중" : "SSE 재연결";
+      btn.textContent = connected ? "실시간 연결 중 · 클릭 해제" : "연결 대기 · 클릭 재연결";
     }
 
     function closeAgentsSse() {
@@ -5352,15 +6505,18 @@
         agentsSse.close();
       }
       agentsSse = null;
+      syncStreamingContainers(false);
+      stopLiveSyncClock();
       syncSseButton();
     }
 
     function openAgentsSse() {
       const live = window.fdaiV4Live;
-      if (!live || !live.isLiveMode() || typeof live.openSse !== "function") return;
+      if (!live || !isLiveModeNow() || typeof live.openSse !== "function") return;
       if (agentsSse) return;
       agentsSseErrors = 0;
       const onStateEv = (ev) => {
+        if (!isLiveModeNow()) return;
         agentsSseErrors = 0;
         try {
           const payload = typeof ev === "string" ? JSON.parse(ev) : (ev && ev.data ? JSON.parse(ev.data) : ev);
@@ -5370,35 +6526,66 @@
             : null;
           const total = active && active.audit_total;
           const seq = Number(active && active.latest_seq || 0);
+          const delta = Number(payload && payload.delta_audit || 0);
+          const latencyMs = payload && payload.db_latency_ms != null
+            ? payload.db_latency_ms
+            : (active && active.db_latency_ms != null ? active.db_latency_ms : null);
           const detail = ms === "measured"
             ? (total != null ? `실측 연결됨 (누적 ${Number(total).toLocaleString()}건)` : "실시간 스트림 연결됨")
             : "상위 미연결 · 0 대체 금지";
           updateLiveBoundaryBadge(ms, detail);
+          syncStreamingContainers(ms === "measured");
           if (ms === "measured" && active) {
+            if (Array.isArray(active.active_agents_recent)) {
+              liveRecentActiveAgents.clear();
+              active.active_agents_recent.forEach((nm) => {
+                if (AGENT_MAP[nm]) liveRecentActiveAgents.add(nm);
+              });
+            }
             const latestRec = Array.isArray(active.recent) && active.recent[0] ? active.recent[0] : null;
             const seqAdvanced = lastObservedAuditSeq > 0 && seq > lastObservedAuditSeq;
             if (seq > lastObservedAuditSeq) lastObservedAuditSeq = seq;
+            const isNewDelta = delta > 0 || seqAdvanced;
             if (latestRec) {
               const canon = mapActorToPantheon(latestRec.canonical_agent || latestRec.actor, latestRec.action_kind);
-              if (seqAdvanced && canon) {
+              if (canon) liveRecentActiveAgents.add(canon);
+              if (isNewDelta && canon) {
                 pulseAgentSurface(canon, latestRec);
               }
-              if (!lastPulseKey) {
-                const actorKo = H.actor(latestRec.actor || canon || "");
-                const actionKo = H.action(latestRec.action_kind || "");
-                const whenKo = latestRec.created_at_ms || latestRec.created_at
-                  ? H.timestamp(latestRec.created_at_ms || latestRec.created_at)
-                  : "";
-                updateLivePulseBanner(
-                  "measured",
-                  `실시간 판테온 동기화 중 · 최근 활동: ${actorKo} — ${actionKo}`,
-                  `누적 관측 ${Number(total || 0).toLocaleString()}건${whenKo ? ` · 최근 ${whenKo}` : ""}`,
-                  seqAdvanced
-                );
-              }
+              const copy = H.composeIncidentCopy({
+                agent: canon || "",
+                actor: latestRec.actor || "",
+                action_kind: latestRec.action_kind || "",
+                target: latestRec.target || "",
+                target_resource_name: latestRec.target_resource_name || "",
+                rule_id: latestRec.rule_id || "",
+                remediation_action: latestRec.remediation_action || "",
+                severity: latestRec.severity || ""
+              });
+              const actorShort = canon || H.actor(latestRec.actor || "");
+              const deltaTxt = delta > 0 ? ` · 새 기록 +${delta.toLocaleString()}건` : "";
+              lastLiveSyncMeta = {
+                rxAt: Date.now(),
+                auditTotal: total != null ? Number(total) : null,
+                latencyMs: latencyMs != null ? Number(latencyMs) : null
+              };
+              ensureLiveSyncClock();
+              updateLivePulseBanner(
+                "measured",
+                `실시간 동기화 중 · ${actorShort} · ${copy.headline}${deltaTxt}`,
+                undefined,
+                isNewDelta
+              );
+              pushLiveBriefing(canon || actorShort, copy.headline);
+              renderLiveSyncClockMeta();
             }
-            if (seqAdvanced) {
+            syncConstellationSvgModeAndDots();
+            Shimmer.bg(document.getElementById("agLiveBoundaryBadge"), 900);
+            shimmerActivitySurface(isNewDelta);
+            if (isNewDelta) {
               refreshOnAuditDelta();
+            } else if (!actState.logPaused && activePanelId() === "agent-activity" && TRAJECTORIES.length === 0 && Array.isArray(active.recent) && active.recent.length > 0) {
+              probeActivityWithFilters({ shimmerDelta: true });
             }
           }
         } catch (_e) {}
@@ -5407,6 +6594,7 @@
         onStateEv(msg);
       }, () => {
         agentsSseErrors += 1;
+        syncStreamingContainers(false);
         updateLiveBoundaryBadge("not-measured", "SSE 재연결 대기 · 0 대체 금지");
         if (agentsSseErrors >= 3) {
           closeAgentsSse();
@@ -5416,6 +6604,7 @@
         agentsSse.addEventListener("agents-snapshot", onStateEv);
         agentsSse.addEventListener("agents-heartbeat", onStateEv);
         agentsSse.addEventListener("agents-stream-end", () => closeAgentsSse());
+        syncStreamingContainers(true);
       }
       syncSseButton();
     }
@@ -5426,15 +6615,15 @@
         const valEl = pill.querySelector(".stat-pill-v");
         if (!valEl) return;
         const key = pill.getAttribute("data-ag-quick-status") || "";
-        const sampleVal = pill.getAttribute("data-sample-val") || valEl.textContent || "";
+        const sampleVal = (pill.getAttribute("data-sample-val") || "").replace(/개$/, "");
         if (!isLive) {
-          valEl.textContent = sampleVal;
+          valEl.textContent = sampleVal || String(AGENTS.filter((a) => a.status === key).length);
         } else if (measurementState === "measured" && liveCounts && typeof liveCounts[key] === "number") {
-          valEl.textContent = `${liveCounts[key]}개`;
+          valEl.textContent = String(liveCounts[key]);
         } else if (measurementState === "measured") {
-          valEl.textContent = `${AGENTS.filter((a) => a.status === key).length}개`;
+          valEl.textContent = String(AGENTS.filter((a) => a.status === key).length);
         } else {
-          valEl.textContent = "미측정";
+          valEl.textContent = "—";
         }
       });
     }
@@ -5446,18 +6635,21 @@
       if (!badge) return;
       const isLive = isLiveModeNow();
       if (!isLive) {
-        setBadgeTextSafe(badge, "human", "Sample 모드 · 이벤트 버스 전용 (비인가 호출 0건)");
+        badge.textContent = "Sample 모드 · 표본 데이터";
         return;
       }
       if (state === "measured") {
-        setBadgeTextSafe(badge, "live", `Live · ${detail || "PostgreSQL 실측 연결됨"} · 이벤트 버스 전용`);
+        badge.textContent = `Live · ${detail || "실측 연결됨"}`;
       } else {
-        setBadgeTextSafe(badge, "neutral", `Live · 미측정 (${detail || "DB/상위 미연결 — 0 대체 금지"})`);
+        badge.textContent = `Live · 미측정 (${detail || "DB/상위 미연결"})`;
       }
     }
 
     function restoreSampleData() {
       clearAllPulseTimers();
+      liveRecentActiveAgents.clear();
+      syncStreamingContainers(false);
+      stopLiveSyncClock();
       liveHydrateSeq += 1;
       activityReqSeq += 1;
       AGENTS.splice(0, AGENTS.length, ...JSON.parse(JSON.stringify(SAMPLE_AGENTS_SNAPSHOT)));
@@ -5483,7 +6675,8 @@
       actState.heatmapMeasured = false;
       actState.liveHeatmap = null;
       actState.liveHeatmapTz = null;
-      actState.corr = TRAJECTORIES[0] ? TRAJECTORIES[0].id : "all";
+      actState.corrFilter = "all";
+      actState.selectedCorr = TRAJECTORIES[0] ? TRAJECTORIES[0].id : "";
       actState.selectedStepId = (TRAJECTORIES[0] && TRAJECTORIES[0].steps[0]) ? TRAJECTORIES[0].steps[0].id : "";
 
       skillState.measured = true;
@@ -5548,12 +6741,25 @@
           const tsMs = parseEventEpochMs(rec);
           a.since = tsMs != null ? H.timestamp(tsMs) : (rec.last_seen_at ? H.timestamp(rec.last_seen_at) : "—");
           a.rawIncidentKey = rec.latest_action_kind || "";
-          a.incidentLabel = rec.latest_action_kind ? H.action(rec.latest_action_kind) : "운영 기록 없음";
+          const copy = H.composeIncidentCopy({
+            agent: a.name,
+            action_kind: rec.latest_action_kind || "",
+            target_resource_name: rec.latest_target_name || "",
+            rule_id: rec.latest_rule_id || "",
+            remediation_action: rec.latest_remediation_action || "",
+            severity: rec.latest_severity || "",
+            mode: a.liveModes[0] || ""
+          });
+          a.incidentLabel = copy.targetDisplay
+            ? `${copy.targetDisplay}${copy.sevKo ? ` · ${copy.sevKo}` : ""}`
+            : (copy.ruleKo || copy.actionKo);
           a.incident = a.incidentLabel;
           a.liveDirectCount = Number(rec.direct_event_count || 0);
           a.liveAttributedCount = Number(rec.attributed_event_count || 0);
-          const modeLabel = a.liveModes.length ? a.liveModes.map((mv) => H.mode(mv)).join(" · ") : "기록 없음";
-          a.work = `누적 관측 ${a.liveEventCount.toLocaleString()}건 · 최신 작업: ${a.incidentLabel} (${modeLabel})`;
+          const modeLabel = a.liveModes.length ? a.liveModes.map((mv) => H.modeShort(mv)).join(" · ") : "기록 없음";
+          a.work = copy.targetDisplay || copy.ruleKo || copy.remedKo
+            ? `${copy.headline} · 누적 ${a.liveEventCount.toLocaleString()}건 (${modeLabel})`
+            : `누적 관측 ${a.liveEventCount.toLocaleString()}건 · ${copy.actionKo} · ${modeLabel}`;
         } else {
           a.since = "기록 없음";
           a.rawIncidentKey = "";
@@ -5573,6 +6779,17 @@
       renderAgentsPanel();
       renderOrgInspector(orgState.selected);
       hydrateAgentNodeTooltips();
+      // Seed hover popover with top active agents on first summary load
+      if (liveRecentBriefings.length === 0) {
+        const topActive = AGENTS
+          .filter((x) => (x.liveEventCount || 0) > 0)
+          .sort((x, y) => (y.liveEventCount || 0) - (x.liveEventCount || 0))
+          .slice(0, 3);
+        topActive.reverse().forEach((x) => {
+          pushLiveBriefing(x.name, x.incidentLabel || x.work);
+        });
+      }
+      Shimmer.bg(document.getElementById("agLivePulseBanner"), 950);
       tryResolvePendingDeepLink("agents");
       tryResolvePendingDeepLink("pantheon");
     }
@@ -5593,7 +6810,7 @@
       a.liveEventCount = Number(la.event_count || 0);
       a.observed = la.observed !== false;
       const tsMs = parseEventEpochMs(la);
-      a.since = tsMs != null ? `${formatLocalTime(tsMs, { withDate: true })} (${getLocalTzLabel()})` : (la.last_seen_at ? formatUtcShort(la.last_seen_at) : "기록 없음");
+      a.since = tsMs != null ? H.timestamp(tsMs) : (la.last_seen_at ? H.timestamp(la.last_seen_at) : "기록 없음");
       a.liveModes = Array.isArray(la.modes) ? la.modes : [];
       if (Array.isArray(la.items)) {
         a.liveRecentActions = la.items.slice(0, 5);
@@ -5678,6 +6895,7 @@
       renderHandoverChecklist();
       renderOrgInspector(orgState.selected);
       hydrateAgentNodeTooltips();
+      Shimmer.bg(document.getElementById("hoFilterSummary"), 950);
       tryResolvePendingDeepLink("handover");
     }
 
@@ -5697,7 +6915,22 @@
         return { grid, tz: getLocalTzLabel() };
       }
       if (Array.isArray(data.heatmap) && data.heatmap.length === 7) {
-        return { grid: data.heatmap, tz: "UTC" };
+        // Shift UTC 7x12 buckets into browser local timezone so KST/local clock matches
+        const offsetHours = -new Date().getTimezoneOffset() / 60;
+        const slotShift = Math.round(offsetHours / 2);
+        const shifted = Array.from({ length: 7 }, () => Array(12).fill(0));
+        for (let di = 0; di < 7; di += 1) {
+          const row = Array.isArray(data.heatmap[di]) ? data.heatmap[di] : [];
+          for (let si = 0; si < 12; si += 1) {
+            const cnt = Number(row[si] || 0);
+            if (cnt <= 0) continue;
+            const totalSlot = (di * 12 + si + slotShift + 84 * 4) % 84;
+            const ndi = Math.floor(totalSlot / 12);
+            const nsi = totalSlot % 12;
+            shifted[ndi][nsi] += cnt;
+          }
+        }
+        return { grid: shifted, tz: getLocalTzLabel() };
       }
       return null;
     }
@@ -5748,21 +6981,18 @@
         const axisLabels = minTs == null
           ? ["시각 미측정", "", "", "", ""]
           : spanMs === 0
-            ? [formatLocalTime(minTs, { withDate: true }), "", `동일 시각 기록 (${tzLabel})`, "", formatLocalTime(maxTs)]
+            ? [H.localClock(minTs), "", `동일 시각 기록 (${tzLabel})`, "", H.localClock(maxTs)]
             : [0, 0.25, 0.5, 0.75, 1].map((frac, idx) => {
                 const tickMs = minTs + Math.round(spanMs * frac);
-                return idx === 0
-                  ? formatLocalTime(tickMs, { withDate: true })
-                  : idx === 4
-                    ? `${formatLocalTime(tickMs)} (+${formatElapsedMs(spanMs)})`
-                    : formatLocalTime(tickMs);
+                const clk = H.localClock(tickMs);
+                return idx === 4 ? `${clk} (+${formatElapsedMs(spanMs)})` : clk;
               });
 
         const durationLabel = minTs == null
           ? "시각 미측정"
           : spanMs === 0
-            ? `${formatLocalTime(maxTs)} · 단일 시점`
-            : `${formatElapsedMs(spanMs)} · ${formatLocalTime(maxTs)}`;
+            ? `${H.localClock(maxTs)} · 단일 시점`
+            : `${formatElapsedMs(spanMs)} · ${H.localClock(maxTs)}`;
 
         const steps = ordered.map((r, sIdx) => {
           const agName = AGENT_MAP[r.canonical_agent] ? r.canonical_agent : "Odin";
@@ -5789,18 +7019,23 @@
               : "audit";
           const tone = lane === "judge" ? (agName === "Var" ? "human" : "sre") : "live";
           const rawAction = r.action_kind || "audit.record";
-          const rawTarget = r.target || r.source || "";
-          const evSum = H.eventSummary({
-            id: r.seq != null ? `seq-${r.seq}` : undefined,
+          const copy = H.composeIncidentCopy({
+            agent: agName,
             actor: r.actor || agName,
             action_kind: rawAction,
-            target: rawTarget,
+            target: r.target || "",
+            target_resource_name: r.target_resource_name || "",
+            target_resource_ref: r.target_resource_ref || "",
+            rule_id: r.rule_id || "",
+            remediation_action: r.remediation_action || "",
+            severity: r.severity || "",
             mode: r.mode || "shadow"
           });
           const rawResultKey = r.stage || r.outcome || r.mode || "recorded";
-          const resultKo = H.stage(rawResultKey);
+          const resultKo = copy.remedKo || H.stage(rawResultKey);
           const tierRaw = (r.tier || r.mode || "shadow").toUpperCase();
-          const tierKo = r.tier ? `${String(r.tier).toUpperCase()} 판단` : H.mode(r.mode || "shadow");
+          const tierKo = r.tier ? `${String(r.tier).toUpperCase()} 판단` : copy.modeShort;
+          const summaryText = r.reason ? `${copy.sentence} 사유: ${r.reason}` : copy.sentence;
           return {
             id: `seq-${r.seq || sIdx}`,
             seq: r.seq != null ? r.seq : null,
@@ -5813,17 +7048,26 @@
             offset: elapsedMs != null ? `+${formatElapsedMs(elapsedMs)}` : "단일 시점",
             elapsedLabel: elapsedMs != null ? `+${formatElapsedMs(elapsedMs)}` : "—",
             dur: r.mode || "shadow",
-            modeLabel: evSum.modeKo || H.mode(r.mode || "shadow"),
+            modeLabel: H.mode(r.mode || "shadow"),
+            modeShortLabel: copy.modeShort,
             topic: rawAction,
-            actionLabel: evSum.actionKo,
+            actionLabel: copy.actionKo,
+            headline: copy.headline,
+            ruleLabel: copy.ruleKo,
+            rawRuleId: r.rule_id || "",
+            remediationLabel: copy.remedKo,
+            rawRemediation: r.remediation_action || "",
+            severityLabel: copy.sevKo,
+            incidentNumber: r.incident_number || "",
             tier: tierRaw,
             tierLabel: tierKo,
             result: resultKo,
             tone,
-            target: rawTarget || r.actor || agName,
-            targetLabel: rawTarget ? evSum.targetKo : `${agName} 운영 대상`,
-            summary: r.reason ? `${evSum.description} (사유: ${r.reason})` : evSum.description,
-            humanSummary: r.reason ? `${evSum.description} (사유: ${r.reason})` : evSum.description,
+            target: r.target_resource_ref || r.target || "",
+            targetRef: r.target_resource_ref || r.target || "",
+            targetLabel: copy.targetDisplay,
+            summary: summaryText,
+            humanSummary: summaryText,
             hash: r.entry_hash ? `sha256:${String(r.entry_hash).slice(0, 20)}` : `seq:${r.seq || 0}`,
             payload: {
               seq: r.seq,
@@ -5832,6 +7076,11 @@
               canonical_agent: agName,
               action_kind: r.action_kind,
               mode: r.mode,
+              target_resource_name: r.target_resource_name || null,
+              rule_id: r.rule_id || null,
+              remediation_action: r.remediation_action || null,
+              severity: r.severity || null,
+              incident_number: r.incident_number || null,
               stage: r.stage || null,
               reason: r.reason || null,
               source: r.source || null,
@@ -5841,17 +7090,18 @@
           };
         });
 
-        const latestActionKo = latestRow && latestRow.action_kind ? H.action(latestRow.action_kind) : "운영 이벤트 처리";
+        const richestStep = steps.find((s) => s.targetLabel || s.ruleLabel || s.remediationLabel) || steps[steps.length - 1];
+        const trajHeadline = richestStep ? richestStep.headline : "운영 이벤트 처리";
         const latestWhenKo = maxTs != null ? H.timestamp(maxTs) : "시각 미측정";
-        const corrLabel = cid.startsWith("audit-seq-")
-          ? `단일 기록 · ${latestWhenKo}`
-          : `작업 묶음 · ${latestWhenKo}`;
+        const corrLabel = richestStep && richestStep.incidentNumber
+          ? `${richestStep.incidentNumber} · ${latestWhenKo}`
+          : (cid.startsWith("audit-seq-") ? `단일 기록 · ${latestWhenKo}` : `작업 묶음 · ${latestWhenKo}`);
 
         nextTrajs.push({
           id: cid,
           displayLabel: corrLabel,
-          title: `${latestActionKo} (${stepCount}단계)`,
-          status: statusText,
+          title: `${trajHeadline} (${stepCount}단계)`,
+          status: richestStep && richestStep.severityLabel ? `${richestStep.severityLabel} · ${statusText}` : statusText,
           tone: statusTone,
           totalMs: spanMs,
           durationLabel,
@@ -5861,27 +7111,27 @@
             { label: "2. 근거", state: hasIngest || agentsInTraj.has("Norns") ? "done" : "pending", note: `${agentsInTraj.size}개 에이전트 참여` },
             { label: "3. 판단", state: hasJudge ? "done" : "pending", note: hasJudge ? "정책 심의 (Forseti)" : "대기" },
             { label: "4. 승인", state: hasHil ? "attention" : "pending", note: hasHil ? "사람 승인 중재 (Var)" : "해당 없음" },
-            { label: "5. 실행", state: latestRow && latestRow.mode === "enforce" ? "done" : "pending", note: latestRow ? H.mode(latestRow.mode) : "대기" },
+            { label: "5. 실행", state: latestRow && latestRow.mode === "enforce" ? "done" : "pending", note: latestRow ? H.modeShort(latestRow.mode) : "대기" },
             { label: "6. 감사", state: hasAudit || stepCount > 0 ? "done" : "pending", note: "감사 원장 기록 완료" }
           ],
           steps
         });
       }
 
-      const prevCorr = actState.corr;
+      const prevSelected = actState.selectedCorr;
       const prevStep = actState.selectedStepId;
       TRAJECTORIES.splice(0, TRAJECTORIES.length, ...nextTrajs);
       actState.activityMeasured = true;
-      if (prevCorr !== "all" && TRAJECTORIES.some((tr) => tr.id === prevCorr)) {
-        actState.corr = prevCorr;
-        const foundPrev = TRAJECTORIES.find((tr) => tr.id === prevCorr);
+      if (prevSelected && TRAJECTORIES.some((tr) => tr.id === prevSelected)) {
+        actState.selectedCorr = prevSelected;
+        const foundPrev = TRAJECTORIES.find((tr) => tr.id === prevSelected);
         if (foundPrev && prevStep && foundPrev.steps.some((s) => s.id === prevStep)) {
           actState.selectedStepId = prevStep;
         } else if (foundPrev && foundPrev.steps[0]) {
           actState.selectedStepId = foundPrev.steps[0].id;
         }
       } else {
-        actState.corr = "all";
+        actState.selectedCorr = TRAJECTORIES[0] ? TRAJECTORIES[0].id : "";
         actState.selectedStepId = (TRAJECTORIES[0] && TRAJECTORIES[0].steps[0]) ? TRAJECTORIES[0].steps[0].id : "";
       }
 
@@ -5897,8 +7147,9 @@
       }
 
       const totalMatching = Number(data.total_matching || items.length);
+      const actBadge = document.getElementById("actLiveBadge");
       setBadgeTextSafe(
-        document.getElementById("actLiveBadge"),
+        actBadge,
         totalMatching > 0 ? "live" : "neutral",
         totalMatching > 0
           ? `실측 연결됨 · 조건 일치 ${totalMatching.toLocaleString()}건 · 무결성 검증`
@@ -5909,15 +7160,15 @@
     }
 
     let activityReqSeq = 0;
-    async function probeActivityWithFilters() {
+    async function probeActivityWithFilters(opts) {
       const live = window.fdaiV4Live;
       if (!live || !isLiveModeNow() || typeof live.fetchJson !== "function") return;
       const mySeq = ++activityReqSeq;
       const myHydrate = liveHydrateSeq;
       const params = new URLSearchParams({ limit: "60" });
       if (actState.agent && actState.agent !== "all") params.set("agent", actState.agent);
-      if (actState.corr && actState.corr !== "all" && !actState.corr.startsWith("audit-seq-")) {
-        params.set("correlation_id", actState.corr);
+      if (actState.corrFilter && actState.corrFilter !== "all" && !actState.corrFilter.startsWith("audit-seq-")) {
+        params.set("correlation_id", actState.corrFilter);
       }
       const res = await live.fetchJson(`/api/v4/agents/activity?${params.toString()}`);
       if (mySeq !== activityReqSeq || myHydrate !== liveHydrateSeq || !isLiveModeNow()) return;
@@ -5925,6 +7176,7 @@
       panelMeasurementState["agent-activity"] = ms || "not-measured";
       if (ms === "measured") {
         applyLiveActivity(res.data);
+        shimmerActivitySurface(Boolean(opts && opts.shimmerDelta));
       } else {
         applyNotMeasuredPanel("agent-activity", (res.data && res.data.reason) || (res.ok ? "not-measured" : `http_${res.status}`));
       }
@@ -5957,9 +7209,9 @@
           version: wf.workflow_version || "1.0.0",
           publisher: `workflow.${wf.origin || "upstream"}`,
           status,
-          statusLabel: status === "disabled" ? "비활성" : `적격 (${H.mode(lc)})`,
+          statusLabel: status === "disabled" ? "비활성" : `적격 · ${H.modeShort(lc)}`,
           tone: status === "disabled" ? "neutral" : "live",
-          summary: `선언된 운영 워크플로우 정의입니다 (${H.mode(lc)} · 실행 권한 부여 없음).`,
+          summary: `선언된 운영 워크플로우 정의입니다 · ${H.modeShort(lc)} · 실행 권한 부여 없음`,
           allowedAgents: inferSkillAgents(wf.workflow_name),
           requiredTools: reqTools.length ? reqTools : ["event_bus_contract"],
           missingTools: [],
@@ -6018,6 +7270,7 @@
         `실측 연결됨 · 워크플로우 ${workflows.length} · 작업 유형 ${actionTypes.length} · 권한 승격: 해당 없음`
       );
       renderSkillsPanel();
+      Shimmer.bg(document.getElementById("skillLiveBadge"), 950);
       tryResolvePendingDeepLink("skills");
     }
 
@@ -6092,6 +7345,7 @@
         `실측 연결됨 · 선언 ${CAPABILITIES.length}건 · 변경 수반 ${mutCount}건 · 실행 권한 부여: 0건`
       );
       renderCapabilitiesPanel();
+      Shimmer.bg(document.getElementById("capLiveBadge"), 950);
       tryResolvePendingDeepLink("capabilities");
     }
 
@@ -6190,7 +7444,8 @@
       };
     }
 
-    document.getElementById("agSseToggleBtn")?.addEventListener("click", () => {
+    document.getElementById("agLivePulseBanner")?.addEventListener("click", () => {
+      if (!isLiveModeNow()) return;
       if (agentsSse) {
         agentsSseManualPaused = true;
         closeAgentsSse();
@@ -6246,6 +7501,7 @@
     });
     window.addEventListener("beforeunload", () => {
       closeAgentsSse();
+      stopLiveSyncClock();
       if (typeof unsubscribePulse === "function") unsubscribePulse();
     });
   })();

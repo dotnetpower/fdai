@@ -677,6 +677,186 @@
     .ov-live-bar strong {
       color: var(--cs-text);
     }
+    /* Bottom ticker styles are owned by shared /assets/fdai-console-shared.css (.fdai-global-ticker) */
+    /* Rich Dashboard Drawer (5-block operator-first layout, neutral hairline borders, zero colored rails) */
+    .ov-dr-rich {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .ov-dr-section {
+      display: grid;
+      gap: 9px;
+      padding: 12px 13px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-card);
+    }
+    .ov-dr-sec-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--cs-text-soft);
+    }
+    .ov-dr-bar {
+      display: flex;
+      gap: 2px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--cs-shade);
+      overflow: hidden;
+    }
+    .ov-dr-bar > span {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+      min-width: 2px;
+    }
+    .ov-dr-bar-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 12px;
+      font-size: 12px;
+      color: var(--cs-text-soft);
+    }
+    .ov-dr-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .ov-dr-stat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .ov-dr-stat {
+      display: grid;
+      gap: 2px;
+      padding: 8px 10px;
+      border: 1px solid var(--cs-hairline-soft);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-shade);
+      min-width: 0;
+    }
+    .ov-dr-stat-label {
+      font-size: 11.5px;
+      color: var(--cs-text-soft);
+    }
+    .ov-dr-stat-val {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--cs-text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ov-dr-list {
+      display: grid;
+      gap: 6px;
+    }
+    .ov-dr-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-card);
+      color: inherit;
+      text-decoration: none;
+      transition: border-color 140ms ease, background-color 140ms ease;
+    }
+    .ov-dr-item:hover,
+    .ov-dr-item:focus-visible {
+      border-color: var(--cs-text-soft);
+      background: var(--cs-shade);
+      outline: none;
+    }
+    .ov-dr-item-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+    .ov-dr-item-copy {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+    }
+    .ov-dr-item-title {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--cs-text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ov-dr-item-sub {
+      font-size: 11.5px;
+      color: var(--cs-text-soft);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ov-dr-item-right {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex: 0 0 auto;
+      font-size: 12px;
+      color: var(--cs-text-soft);
+    }
+    .ov-dr-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .ov-dr-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: 999px;
+      background: var(--cs-shade);
+      font-size: 11.5px;
+      color: var(--cs-text);
+    }
+    .ov-dr-actions {
+      display: grid;
+      gap: 6px;
+    }
+    .ov-dr-action {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 11px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-shade);
+      color: var(--cs-text);
+      text-decoration: none;
+      font-size: 12.5px;
+      font-weight: 500;
+      transition: border-color 140ms ease, background-color 140ms ease;
+    }
+    .ov-dr-action:hover,
+    .ov-dr-action:focus-visible {
+      border-color: var(--cs-text-soft);
+      background: var(--cs-card);
+      outline: none;
+    }
+    .ov-dr-loading {
+      font-size: 12px;
+      color: var(--cs-text-soft);
+      padding: 4px 2px;
+    }
 
     @container (max-width: 1040px) {
       .ov-res-layout,
@@ -737,11 +917,9 @@
 <div class="ov-live-bar" id="ovLiveHydrationBanner" role="status" aria-live="polite">
   <div class="ov-live-bar-left">
     <span class="cs-badge" id="ovLiveStateBadge"><span class="cs-dot"></span>Live 연결 확인 중</span>
-    <span id="ovLiveStateText">실시간 운영 원장(<span class="cell-mono">/api/v4/overview/dashboard</span>)에서 관측 상태를 확인하고 있습니다.</span>
     <span class="cell-mono" id="ovLivePulseMeta"></span>
   </div>
   <div class="toolbar-inline">
-    <span class="cell-mono" id="ovLiveEndpointMeta">/api/v4/overview/dashboard</span>
     <button type="button" class="cs-btn cs-btn-sm" id="ovLiveRefreshBtn">새로고침</button>
   </div>
 </div>
@@ -1952,7 +2130,25 @@
     </div>
   </section>
 </section>
-<div class="principle-bar" role="note"><span>미수집 지표는 0으로 대체하지 않음 · 안전 정책 위반 허용치 0 · 모든 변경은 승인 후 실행</span><span>전체 현황</span></div>
+<div class="principle-bar ov-bottom-ticker-bar" id="ovBottomTickerBar" role="note" aria-label="실측 연동 상태 및 운영 안내 티커">
+  <span class="cs-badge tone-live ov-bottom-ticker-badge" id="ovBottomTickerBadge"><span class="cs-dot"></span>실측 안내</span>
+  <div class="ov-marquee-viewport" tabindex="0" aria-label="운영 안내 티커 (마우스를 올리면 최근 3건 표시 및 일시정지)">
+    <div class="ov-marquee-track" id="ovBottomTickerTrack">
+      <span class="ov-marquee-item" id="ovLiveStateText">실시간 운영 원장에서 관측 상태를 확인하고 있습니다.</span>
+    </div>
+  </div>
+  <span class="ov-bottom-ticker-right">
+    <span class="ov-bottom-ticker-count" id="ovBottomTickerCounter">1 / 58</span>
+    <button type="button" class="ov-bottom-ticker-next" id="ovBottomTickerNextBtn" aria-label="다음 운영 안내 메시지 보기">다음</button>
+  </span>
+  <div class="ov-ticker-popover" id="ovBottomTickerPopover" role="region" aria-label="최근 운영 안내 3건">
+    <div class="ov-ticker-pop-head">
+      <span>최근 운영 안내 (최근 3건)</span>
+      <span>항목 클릭 시 관련 화면 이동 · 호버 중 일시정지</span>
+    </div>
+    <div class="ov-ticker-pop-list" id="ovBottomTickerHistoryList"></div>
+  </div>
+</div>
 
         </div>
       </main>
@@ -3408,6 +3604,42 @@
           const s = String(raw || "").trim();
           return s ? s.slice(0, 19).replace("T", " ") : "미측정";
         },
+        localClock(raw) {
+          if (window.fdaiV4Humanize && typeof window.fdaiV4Humanize.localClock === "function") {
+            return window.fdaiV4Humanize.localClock(raw);
+          }
+          if (raw == null || raw === "") return "--:--:--";
+          const d = typeof raw === "number" ? new Date(raw) : new Date(String(raw));
+          if (Number.isNaN(d.getTime())) return String(raw);
+          const pad = (n) => String(n).padStart(2, "0");
+          return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        },
+        ruleId(raw) {
+          if (window.fdaiV4Humanize && typeof window.fdaiV4Humanize.ruleId === "function") {
+            return window.fdaiV4Humanize.ruleId(raw);
+          }
+          const s = String(raw || "").trim();
+          return s ? s.replace(/[._-]+/g, " ") : "";
+        },
+        remediationAction(raw) {
+          if (window.fdaiV4Humanize && typeof window.fdaiV4Humanize.remediationAction === "function") {
+            return window.fdaiV4Humanize.remediationAction(raw);
+          }
+          const s = String(raw || "").trim();
+          return s ? this.action(s) : "";
+        },
+        severity(raw) {
+          if (window.fdaiV4Humanize && typeof window.fdaiV4Humanize.severity === "function") {
+            return window.fdaiV4Humanize.severity(raw);
+          }
+          const k = String(raw || "").trim().toLowerCase();
+          if (k === "critical") return "긴급";
+          if (k === "high") return "높음";
+          if (k === "medium") return "보통";
+          if (k === "low") return "낮음";
+          if (k === "info") return "정보";
+          return raw ? String(raw) : "정보";
+        },
         eventSummary(ev) {
           if (window.fdaiV4Humanize && typeof window.fdaiV4Humanize.eventSummary === "function") {
             return window.fdaiV4Humanize.eventSummary(ev);
@@ -3798,6 +4030,11 @@
         liveLlmData = null;
         const pulseMeta = document.getElementById("ovLivePulseMeta");
         if (pulseMeta) pulseMeta.textContent = "";
+        dashTimelineMode = "live";
+        stopDashSlidingTimer();
+        const modeBar = document.getElementById("ovTimelineModeBar");
+        if (modeBar) modeBar.hidden = true;
+        syncStreamingContainers(false);
 
         restoreSelectOptions(document.getElementById("ovGlobalSubFilter"), SAMPLE_SNAPSHOT.globalSubOpts, resState.sub);
 
@@ -4328,6 +4565,177 @@
       let liveDashData = null;
       let activeDashChartMode = "scatter";
 
+      let dashTimelineMode = "live";
+      let dashSlidingTimer = null;
+      const liveWatchTicks = [];
+
+      function stopDashSlidingTimer() {
+        if (dashSlidingTimer) {
+          window.clearInterval(dashSlidingTimer);
+          dashSlidingTimer = null;
+        }
+      }
+
+      function startDashSlidingTimer() {
+        if (dashSlidingTimer) return;
+        dashSlidingTimer = window.setInterval(() => {
+          if (!isLiveModeActive() || dashPulsePaused || dashTimelineMode !== "live") {
+            stopDashSlidingTimer();
+            return;
+          }
+          if (resolveActivePanelId() !== "dashboard" || !liveDashData) return;
+          renderLiveDashboardScatter(liveDashData);
+        }, 2000);
+      }
+
+      function windowDurationMs(win) {
+        if (win === "1h") return 60 * 60 * 1000;
+        if (win === "24h") return 24 * 60 * 60 * 1000;
+        return 15 * 60 * 1000;
+      }
+
+      function approvalStatusLabelKo(raw) {
+        const k = String(raw || "").trim().toLowerCase();
+        if (k === "pending") return "승인 대기";
+        if (k === "expired" || k === "timeout") return "승인 만료";
+        if (k === "approved") return "승인 완료";
+        if (k === "rejected" || k === "denied") return "승인 거부";
+        return "";
+      }
+
+      function buildScatterEventView(pt, sKey) {
+        const ruleKo = pt.rule_id ? ovHumanize.ruleId(pt.rule_id) : "";
+        const remedyKo = pt.action_type ? ovHumanize.remediationAction(pt.action_type) : "";
+        const actionKo = ovHumanize.action(pt.action_kind || "audit.record");
+        const resTypeKo = pt.resource_type ? ovHumanize.resourceType(pt.resource_type) : "";
+        const resName = String(pt.resource_name || "").trim();
+        const actorClean = ovHumanize.actor(pt.actor || "").replace(/\s*\(([^)]+)\)/g, " · $1");
+        const modeKo = ovHumanize.mode(pt.mode || "shadow").replace(/\s*\(([^)]+)\)/g, "");
+        const sevKo = ovHumanize.severity(pt.severity || "info");
+        const apprKo = approvalStatusLabelKo(pt.approval_status);
+        const statusKo = apprKo || (
+          sKey === "human" ? "승인 요청"
+            : sKey === "sec" ? "위험 관문"
+              : sKey === "sre" ? "이상 주의"
+                : "관측 완료"
+        );
+        const epochVal = typeof pt.recorded_epoch_ms === "number" ? pt.recorded_epoch_ms : pt.recorded_at;
+        const clockKo = ovHumanize.localClock(epochVal);
+        const timeFullKo = ovHumanize.timestamp(epochVal);
+
+        let resDisplay = "대상 리소스 미지정";
+        if (resName && resTypeKo && resName.toLowerCase() !== String(pt.resource_type || "").toLowerCase()) {
+          resDisplay = `${resName} · ${resTypeKo}`;
+        } else if (resName) {
+          resDisplay = resName;
+        } else if (resTypeKo) {
+          resDisplay = resTypeKo;
+        }
+
+        let title = "";
+        if (ruleKo && remedyKo) {
+          title = `${ruleKo} — ${remedyKo} ${statusKo}`;
+        } else if (ruleKo) {
+          title = `${ruleKo} — ${statusKo}`;
+        } else if (remedyKo) {
+          title = `${resTypeKo || resName || "운영 리소스"} — ${remedyKo}`;
+        } else {
+          title = `${resTypeKo || resName || "운영 리소스"} — ${actionKo}`;
+        }
+
+        const causeLine = ruleKo || pt.reason || actionKo;
+        const actionLine = remedyKo || actionKo;
+        const headerBadge = `${statusKo} · ${sevKo}`;
+        const tipHeaderVal = `${headerBadge} · ${clockKo}`;
+        const tipBody = [
+          `대상: ${resDisplay}`,
+          `규칙·원인: ${causeLine}`,
+          `조치·처리: ${actionLine}`,
+          `상태: ${statusKo} · ${modeKo}`,
+        ].join("\n");
+        const drawerBody = `${actorClean}가 ${resDisplay} 대상으로 '${causeLine}' 사유에 따라 '${actionLine}' 작업을 '${statusKo}' 상태로 기록했습니다. 현재 실행 모드는 ${modeKo}입니다.`;
+        const tipStr = `${clockKo} · ${headerBadge} · ${title}`;
+
+        return {
+          title,
+          headerBadge,
+          tipHeaderVal,
+          tipBody,
+          drawerBody,
+          tipStr,
+          resDisplay,
+          causeLine,
+          actionLine,
+          statusKo,
+          sevKo,
+          actorClean,
+          modeKo,
+          clockKo,
+          timeFullKo,
+        };
+      }
+
+      function ensureTimelineModeControl(sec, meta, liveInWindowCount) {
+        if (!sec) return;
+        const chartBox = sec.querySelector('[data-chart-view="scatter"]');
+        if (!chartBox) return;
+        let bar = document.getElementById("ovTimelineModeBar");
+        if (!bar) {
+          bar = createEl("div", "toolbar-inline");
+          bar.id = "ovTimelineModeBar";
+          bar.style.justifyContent = "space-between";
+          bar.style.marginTop = "6px";
+          bar.style.marginBottom = "4px";
+          bar.style.fontSize = "12px";
+          const tip = chartBox.querySelector("[data-chart-tip]");
+          if (tip) chartBox.insertBefore(bar, tip);
+          else chartBox.appendChild(bar);
+        }
+        if (!isLiveModeActive()) {
+          bar.hidden = true;
+          return;
+        }
+        const anchorIso = meta && meta.anchor_at ? String(meta.anchor_at) : "";
+        const anchorKo = anchorIso ? ovHumanize.timestamp(anchorIso) : "";
+        const hasPastRecords = Boolean(anchorIso && liveDashData && Array.isArray(liveDashData.scatter_points) && liveDashData.scatter_points.length);
+
+        const frag = document.createDocumentFragment();
+        const statusSpan = createEl("span", "cell-muted");
+        if (dashTimelineMode === "last-recorded") {
+          statusSpan.textContent = anchorKo
+            ? `마지막 기록 구간 보기 (${anchorKo} 기준 · 로컬 시각)`
+            : "마지막 기록 구간 보기 (로컬 시각)";
+          const backBtn = createEl("button", "cs-btn cs-btn-sm cs-btn-accent", "실시간 시간축으로 돌아가기");
+          backBtn.type = "button";
+          backBtn.addEventListener("click", () => {
+            dashTimelineMode = "live";
+            if (liveDashData) {
+              renderLiveDashboardScatter(liveDashData);
+              updateDashboardChartSummary();
+            }
+          });
+          frag.append(statusSpan, backBtn);
+          bar.hidden = false;
+        } else if (liveInWindowCount === 0 && hasPastRecords) {
+          statusSpan.textContent = `최근 ${activeDashWindow} 신규 이상·감사 이벤트 없음 · 실시간 감시 중 (마지막 기록: ${anchorKo})`;
+          const viewLastBtn = createEl("button", "cs-btn cs-btn-sm", `마지막 기록 구간 보기 (${anchorKo})`);
+          viewLastBtn.type = "button";
+          viewLastBtn.addEventListener("click", () => {
+            dashTimelineMode = "last-recorded";
+            stopDashSlidingTimer();
+            if (liveDashData) {
+              renderLiveDashboardScatter(liveDashData);
+              updateDashboardChartSummary();
+            }
+          });
+          frag.append(statusSpan, viewLastBtn);
+          bar.hidden = false;
+        } else {
+          bar.hidden = true;
+        }
+        bar.replaceChildren(frag);
+      }
+
       function renderLiveDashboardScatter(data, emptyReason) {
         const svg = document.getElementById("ovScatterSvg");
         if (!svg) return;
@@ -4337,6 +4745,9 @@
         const forecast = (data && data.forecast && typeof data.forecast === "object") ? data.forecast : {};
         const forecastPts = Array.isArray(forecast.points) ? forecast.points : [];
         const winLabel = meta.window || activeDashWindow || "15m";
+        const winMs = windowDurationMs(winLabel);
+        const nowMs = Date.now();
+        const isSlidingLive = dashTimelineMode === "live";
 
         const frag = document.createDocumentFragment();
         const defs = createSvgEl("defs");
@@ -4350,32 +4761,34 @@
         defs.appendChild(pat);
         frag.appendChild(defs);
 
-        // Future (+5m) region hatch: x = 640..800 (strictly right of NOW=640)
+        // Future (+5m) region hatch: x = 640..800 (strictly right of divider=640)
         frag.appendChild(createSvgEl("rect", { x: "640", y: "18", width: "160", height: "176", fill: "url(#forecastHatch)" }));
 
-        // Y-axis grid & ticks (0..100 risk score)
+        // Y-axis grid & honest 5-level severity bands (never fabricated 0..100 numeric risk)
         [
-          { y: 194, label: "0", dashed: false },
-          { y: 150, label: "25", dashed: true },
-          { y: 106, label: "50", dashed: true },
-          { y: 62, label: "75", dashed: true },
-          { y: 18, label: "100", dashed: true },
+          { y: 194, label: "관측", dashed: false },
+          { y: 150, label: "낮음", dashed: true },
+          { y: 106, label: "보통", dashed: true },
+          { y: 62, label: "높음", dashed: true },
+          { y: 18, label: "긴급", dashed: true },
         ].forEach((g) => {
           const lineAttrs = { x1: "44", y1: String(g.y), x2: "800", y2: String(g.y), stroke: "var(--cs-hairline)" };
           if (g.dashed) lineAttrs["stroke-dasharray"] = "3 3";
           frag.appendChild(createSvgEl("line", lineAttrs));
-          const txt = createSvgEl("text", { x: "36", y: String(g.y + 4), "text-anchor": "end", fill: "var(--cs-text-soft)", "font-size": "12" });
+          const txt = createSvgEl("text", { x: "38", y: String(g.y + 4), "text-anchor": "end", fill: "var(--cs-text-soft)", "font-size": "11" });
           txt.textContent = g.label;
           frag.appendChild(txt);
         });
 
-        // NOW vertical divider at x = 640
+        // Right-edge divider at x = 640
         frag.appendChild(createSvgEl("line", {
           x1: "640", y1: "18", x2: "640", y2: "194",
           stroke: "var(--sig-live)", "stroke-width": "1.5", "stroke-dasharray": "4 3",
         }));
         const nowHdr = createSvgEl("text", { x: "648", y: "34", fill: "var(--sig-live-text)", "font-size": "12", "font-weight": "600" });
-        nowHdr.textContent = forecastPts.length ? "NOW · 실측 예측 (+5m)" : "NOW · 미래 예측 (+5m)";
+        nowHdr.textContent = isSlidingLive
+          ? (forecastPts.length ? "NOW · 실측 예측 (+5m)" : "NOW · 미래 예측 (+5m)")
+          : "마지막 기록 · 미래 (+5m)";
         frag.appendChild(nowHdr);
 
         // Series groups for past..=NOW real points (x in [44, 640])
@@ -4394,7 +4807,7 @@
           });
         }
 
-        const radiusBySeries = { auto: "4.2", sre: "5.2", sec: "5.6", human: "6.0" };
+        const radiusBySeries = { auto: "4.2", sre: "5.2", sec: "5.6", human: "5.8" };
         const fillBySeries = {
           auto: "var(--sig-auto)",
           sre: "var(--sig-sre)",
@@ -4402,65 +4815,76 @@
           human: "var(--sig-human)",
         };
         const toneBySeries = { auto: "auto", sre: "sre", sec: "sec", human: "human" };
-        const seriesLabelByKey = {
-          auto: "자동 · 관측 기록",
-          sre: "SRE 이상 · 주의",
-          sec: "보안 · 위험 관문",
-          human: "사람 확인 필요",
+
+        // Resolve honest X positions & local-timezone axis labels for sliding live vs last-recorded mode
+        const startWindowMs = nowMs - winMs;
+        let visiblePts = pts;
+        let axisLabels = [];
+        let endTickIsNow = isSlidingLive;
+
+        const ptEpochMs = (pt) => {
+          if (typeof pt.recorded_epoch_ms === "number" && Number.isFinite(pt.recorded_epoch_ms)) return pt.recorded_epoch_ms;
+          const parsed = Date.parse(String(pt.recorded_at || ""));
+          return Number.isNaN(parsed) ? null : parsed;
         };
 
-        // Compute initial positions in past..=NOW [54, 628] and apply deterministic repulsion so no two dots overlap (<16px)
-        const placedPts = pts.map((pt, idx) => {
+        if (isSlidingLive) {
+          visiblePts = pts.filter((pt) => {
+            const ep = ptEpochMs(pt);
+            return ep !== null && ep >= startWindowMs && ep <= nowMs + 5000;
+          });
+          axisLabels = [
+            ovHumanize.localClock(startWindowMs),
+            ovHumanize.localClock(startWindowMs + winMs / 3),
+            ovHumanize.localClock(startWindowMs + (winMs * 2) / 3),
+            `NOW ${ovHumanize.localClock(nowMs)}`,
+          ];
+        } else {
+          const epochs = pts.map(ptEpochMs).filter((v) => v !== null);
+          const minMs = epochs.length ? Math.min(...epochs) : startWindowMs;
+          const maxMs = epochs.length ? Math.max(...epochs) : nowMs;
+          if (epochs.length >= 2) {
+            axisLabels = [
+              ovHumanize.localClock(minMs),
+              ovHumanize.localClock(minMs + (maxMs - minMs) / 3),
+              ovHumanize.localClock(minMs + ((maxMs - minMs) * 2) / 3),
+              ovHumanize.localClock(maxMs),
+            ];
+          } else if (epochs.length === 1) {
+            axisLabels = ["—", "—", ovHumanize.localClock(minMs), ovHumanize.localClock(maxMs)];
+          } else {
+            axisLabels = ["-15m", "-10m", "-5m", "기록 없음"];
+          }
+        }
+
+        // Honest Y placement by real severity_band (0=관측, 1=낮음, 2=보통, 3=높음, 4=긴급)
+        const bandCenterY = [184, 150, 106, 62, 30];
+        const placedPts = visiblePts.map((pt, idx) => {
           const sKey = groups[pt.series] ? pt.series : "auto";
-          const ratio = Math.max(0.02, Math.min(0.98, typeof pt.offset_ratio === "number" ? pt.offset_ratio : 0.5));
-          const risk = Math.max(4, Math.min(96, typeof pt.risk_score === "number" ? pt.risk_score : 22));
+          let ratio = typeof pt.offset_ratio === "number" ? pt.offset_ratio : 0.5;
+          if (isSlidingLive) {
+            const ep = ptEpochMs(pt);
+            ratio = ep !== null ? Math.max(0.015, Math.min(0.99, (ep - startWindowMs) / winMs)) : 0.98;
+          } else {
+            ratio = Math.max(0.015, Math.min(0.99, ratio));
+          }
+          const band = typeof pt.severity_band === "number"
+            ? Math.max(0, Math.min(4, Math.round(pt.severity_band)))
+            : (sKey === "auto" ? 0 : sKey === "human" ? 1 : 2);
+          const seqSeed = Number(pt.seq || idx);
+          const microY = ((Math.abs(seqSeed) % 5) - 2) * 3;
           return {
             pt,
             idx,
             sKey,
-            risk,
-            cx: Math.max(54, Math.min(628, 44 + ratio * (640 - 44))),
-            cy: Math.max(28, Math.min(184, 194 - (risk / 100) * 176)),
+            band,
+            cx: Math.max(52, Math.min(634, 44 + ratio * (640 - 44))),
+            cy: Math.max(22, Math.min(188, bandCenterY[band] + microY)),
           };
         });
-        const MIN_PT_DIST = 16;
-        for (let pass = 0; pass < 24; pass += 1) {
-          let moved = false;
-          for (let i = 0; i < placedPts.length; i += 1) {
-            for (let j = i + 1; j < placedPts.length; j += 1) {
-              const a = placedPts[i];
-              const b = placedPts[j];
-              let dx = b.cx - a.cx;
-              let dy = b.cy - a.cy;
-              let dist = Math.hypot(dx, dy);
-              if (dist < MIN_PT_DIST) {
-                moved = true;
-                if (dist < 0.01) {
-                  const angle = ((i * 7 + j * 13 + pass) % 12) * (Math.PI / 6);
-                  dx = Math.cos(angle);
-                  dy = Math.sin(angle);
-                  dist = 1;
-                }
-                const push = (MIN_PT_DIST - dist) * 0.55;
-                const ux = dx / dist;
-                const uy = dy / dist;
-                a.cx = Math.max(54, Math.min(628, a.cx - ux * push));
-                a.cy = Math.max(28, Math.min(184, a.cy - uy * push));
-                b.cx = Math.max(54, Math.min(628, b.cx + ux * push));
-                b.cy = Math.max(28, Math.min(184, b.cy + uy * push));
-              }
-            }
-          }
-          if (!moved) break;
-        }
 
-        placedPts.forEach(({ pt, idx, sKey, risk, cx, cy }) => {
-
-          const evSum = ovHumanize.eventSummary(pt);
-          const seriesKo = seriesLabelByKey[sKey] || "자동 · 관측 기록";
-          const timeKo = ovHumanize.timestamp(pt.recorded_at || pt.time_label);
-          const modeKo = evSum.modeKo || ovHumanize.mode(pt.mode || "shadow");
-          const tipStr = `${timeKo} · ${seriesKo} · ${evSum.title} (${evSum.actorKo})`;
+        placedPts.forEach(({ pt, idx, sKey, cx, cy }) => {
+          const ev = buildScatterEventView(pt, sKey);
           const itemId = String(pt.id || `audit:${pt.seq || idx}`);
           const dlPanel = pt.deep_link_panel || "audit";
           const dlItem = pt.deep_link_item || itemId;
@@ -4470,19 +4894,26 @@
             : dlPanel === "ontology"
               ? "온톨로지 리소스 열기 →"
               : "감사 원장 기록 열기 →";
-          const factsStr = ovFormatKv([
-            ["대상", evSum.targetKo],
-            ["담당 주체", evSum.actorKo],
-            ["처리 유형", evSum.actionKo],
-            ["실행 모드", modeKo],
-            ["위험도 점수", `${risk} / 100`],
-            ["발생 시각", timeKo],
-          ]);
+          const factRows = [
+            ["대상 리소스", ev.resDisplay],
+            ["발동 규칙 · 원인", ev.causeLine],
+            ["제안 · 처리 조치", ev.actionLine],
+            ["현재 상태 · 심각도", ev.headerBadge],
+            ["담당 주체", ev.actorClean],
+            ["발생 시각", ev.timeFullKo],
+          ];
+          if (typeof pt.risk_score === "number") {
+            factRows.push(["실측 위험도 점수", `${pt.risk_score} / 100`]);
+          }
           const techPairs = [
             ["항목 식별자", itemId],
+            ["승인 요청 ID", pt.approval_id || ""],
+            ["연관 추적 ID", pt.correlation_id || ""],
+            ["원본 규칙 키", pt.rule_id || ""],
+            ["원본 조치 키", pt.action_type || ""],
             ["원본 액션 키", pt.action_kind || ""],
             ["원본 행위자", pt.actor || ""],
-            ["원본 대상 키", pt.target || ""],
+            ["원본 리소스 경로", pt.resource_ref || pt.target || ""],
             ["원본 모드", pt.mode || ""],
             ["출처 원장", ovHumanize.tableName(pt.source_table || "audit_log")],
             ["기록 시각 (UTC)", pt.recorded_at || ""],
@@ -4497,19 +4928,19 @@
             r: radiusBySeries[sKey],
             fill: fillBySeries[sKey],
             tabindex: idx === 0 ? "0" : "-1",
-            "data-tip-text": tipStr,
-            "data-ut-title": evSum.title,
-            "data-ut-val": `${seriesKo} · 위험도 ${risk}`,
-            "data-ut-body": evSum.description,
-            "data-ut-meta": `${evSum.actorKo} · ${timeKo} · 클릭하여 상세 확인`,
+            "data-tip-text": ev.tipStr,
+            "data-ut-title": ev.title,
+            "data-ut-val": ev.tipHeaderVal,
+            "data-ut-body": ev.tipBody,
+            "data-ut-meta": `${ev.actorClean} · 클릭하여 상세 근거 열기`,
             "data-ut-tone": toneBySeries[sKey],
-            "data-drawer-title": evSum.title,
-            "data-drawer-badge": seriesKo,
+            "data-drawer-title": ev.title,
+            "data-drawer-badge": ev.headerBadge,
             "data-drawer-tone": toneBySeries[sKey],
-            "data-drawer-meta": `${timeKo} · ${modeKo}`,
-            "data-drawer-facts": factsStr,
+            "data-drawer-meta": `${ev.timeFullKo} · ${ev.modeKo}`,
+            "data-drawer-facts": ovFormatKv(factRows),
             "data-drawer-tech": ovFormatKv(techPairs),
-            "data-drawer-body": evSum.description,
+            "data-drawer-body": ev.drawerBody,
             "data-drawer-item-id": itemId,
             "data-drawer-href": safeRouteHref(dlHref, "/evidence/audit"),
             "data-drawer-href-label": dlHrefLabel,
@@ -4519,11 +4950,60 @@
 
         frag.append(groups.auto, groups.sre, groups.sec, groups.human);
 
-        if (!pts.length) {
-          const emptyPast1 = createSvgEl("text", { x: "342", y: "102", "text-anchor": "middle", fill: "var(--cs-text-soft)", "font-size": "13" });
-          emptyPast1.textContent = emptyReason || `선택 구간(${winLabel}) 실측 관제 이벤트 없음`;
-          const emptyPast2 = createSvgEl("text", { x: "342", y: "122", "text-anchor": "middle", fill: "var(--cs-text-soft)", "font-size": "12" });
-          emptyPast2.textContent = "Live 모드에서는 예제 산점도를 표시하지 않습니다.";
+        // In live sliding mode, render quiet baseline watch ticks (관측 줄 y=188, strictly <= NOW 640)
+        if (isSlidingLive && isLiveModeActive() && liveWatchTicks.length) {
+          const watchGrp = createSvgEl("g", { id: "ovLiveWatchTicks", "aria-label": "실시간 감시 동기화 틱" });
+          liveWatchTicks.forEach((tk) => {
+            if (tk.ts < startWindowMs || tk.ts > nowMs + 5000) return;
+            const r = Math.max(0.015, Math.min(0.992, (tk.ts - startWindowMs) / winMs));
+            const wx = 44 + r * (640 - 44);
+            watchGrp.appendChild(createSvgEl("circle", {
+              cx: wx.toFixed(1),
+              cy: "188",
+              r: "2.8",
+              fill: "var(--sig-live)",
+              "fill-opacity": "0.75",
+              "data-ut-title": "실시간 원장 감시 동기화",
+              "data-ut-val": `정상 감시 · ${ovHumanize.localClock(tk.ts)}`,
+              "data-ut-body": `대상: 운영 원장 전체\n상태: 신규 이상 없음 · 정상 동기화 완료`,
+              "data-ut-tone": "live",
+            }));
+          });
+          frag.appendChild(watchGrp);
+        }
+
+        // Live SVG pulse ring anchored strictly <= NOW 640 (never future region)
+        const liveRingGroup = createSvgEl("g", { id: "ovScatterLiveRing", "aria-hidden": "true" });
+        if (placedPts.length) {
+          const latestPt = placedPts[placedPts.length - 1];
+          liveRingGroup.appendChild(createSvgEl("circle", {
+            class: "fdai-svg-live-ring",
+            cx: latestPt.cx.toFixed(1),
+            cy: latestPt.cy.toFixed(1),
+            r: "9.5",
+            stroke: fillBySeries[latestPt.sKey] || "var(--sig-live)",
+          }));
+        } else if (isSlidingLive && isLiveModeActive() && !dashPulsePaused) {
+          liveRingGroup.appendChild(createSvgEl("circle", {
+            class: "fdai-svg-live-ring",
+            cx: "636",
+            cy: "188",
+            r: "7.5",
+          }));
+        }
+        frag.appendChild(liveRingGroup);
+
+        if (!placedPts.length) {
+          const emptyPast1 = createSvgEl("text", { x: "342", y: "98", "text-anchor": "middle", fill: "var(--cs-text-soft)", "font-size": "13", "font-weight": "600" });
+          emptyPast1.textContent = emptyReason || (
+            isSlidingLive
+              ? `최근 ${winLabel} 신규 이상·감사 이벤트 없음 · 실시간 감시 중`
+              : `선택 구간(${winLabel}) 실측 관제 이벤트 없음`
+          );
+          const emptyPast2 = createSvgEl("text", { x: "342", y: "118", "text-anchor": "middle", fill: "var(--cs-text-soft)", "font-size": "12" });
+          emptyPast2.textContent = isSlidingLive && meta.anchor_at
+            ? `마지막 원장 기록: ${ovHumanize.timestamp(meta.anchor_at)} (아래 버튼으로 마지막 기록 구간 확인 가능)`
+            : "Live 모드에서는 예제 산점도를 표시하지 않습니다.";
           frag.append(emptyPast1, emptyPast2);
         }
 
@@ -4537,8 +5017,8 @@
         } else {
           forecastPts.slice(0, 4).forEach((fp, idx) => {
             const fx = 668 + idx * 32;
-            const fr = Math.max(10, Math.min(92, Number(fp.risk_score || 60)));
-            const fy = 194 - (fr / 100) * 176;
+            const fb = typeof fp.severity_band === "number" ? Math.max(0, Math.min(4, fp.severity_band)) : 2;
+            const fy = bandCenterY[fb];
             const tone = fp.series === "sec" ? "sec" : "sre";
             const fg = createSvgEl("g", {
               class: "forecast-marker",
@@ -4546,7 +5026,7 @@
               role: "button",
               "data-tip-text": fp.summary || `실측 예측 (+5m) · ${fp.target || ""}`,
               "data-ut-title": fp.title || `실측 예측 (+5m) · ${fp.target || ""}`,
-              "data-ut-val": `위험도 ${fr}`,
+              "data-ut-val": `예측 · ${ovHumanize.severity(fp.severity || "medium")}`,
               "data-ut-tone": tone,
             });
             fg.appendChild(createSvgEl("polygon", {
@@ -4557,42 +5037,41 @@
           });
         }
 
-        // X-axis tick labels: 4 past..=NOW ticks + future tick
-        const defaultAxis = winLabel === "1h"
-          ? ["-60m", "-40m", "-20m", "NOW"]
-          : winLabel === "24h"
-            ? ["-24h", "-16h", "-8h", "NOW"]
-            : ["-15m", "-10m", "-5m", "NOW"];
-        const axisLabels = Array.isArray(meta.axis_labels) && meta.axis_labels.length >= 4
-          ? meta.axis_labels
-          : defaultAxis;
+        // X-axis tick labels: unified browser local timezone (KST, etc.)
         [
-          { x: "82", text: axisLabels[0], isNow: false },
-          { x: "264", text: axisLabels[1], isNow: false },
-          { x: "448", text: axisLabels[2], isNow: false },
-          { x: "640", text: axisLabels[3] || "NOW", isNow: true },
-          { x: "720", text: forecastPts.length ? "+5m" : "+5m (미측정)", isNow: false },
+          { x: "82", text: axisLabels[0], isHighlight: false },
+          { x: "264", text: axisLabels[1], isHighlight: false },
+          { x: "448", text: axisLabels[2], isHighlight: false },
+          { x: "636", text: axisLabels[3], isHighlight: endTickIsNow },
+          { x: "724", text: forecastPts.length ? "+5m" : "+5m (미측정)", isHighlight: false },
         ].forEach((tk) => {
           const attrs = {
             x: tk.x,
             y: "218",
             "text-anchor": "middle",
-            fill: tk.isNow ? "var(--sig-live-text)" : "var(--cs-text-soft)",
-            "font-size": "12",
+            fill: tk.isHighlight ? "var(--sig-live-text)" : "var(--cs-text-soft)",
+            "font-size": "11.5",
           };
-          if (tk.isNow) attrs["font-weight"] = "600";
+          if (tk.isHighlight) attrs["font-weight"] = "600";
           const t = createSvgEl("text", attrs);
           t.textContent = String(tk.text || "");
           frag.appendChild(t);
         });
 
         svg.replaceChildren(frag);
+        ensureTimelineModeControl(sec, meta, isSlidingLive ? placedPts.length : pts.length);
 
         const tip = sec?.querySelector('[data-chart-view="scatter"] [data-chart-tip]');
         if (tip) {
-          tip.textContent = pts.length
-            ? `실측 관제 이벤트 ${pts.length}건 표시 중 · 점을 클릭하거나 좌·우 방향키로 이동해 상세 근거를 확인하세요.`
-            : (emptyReason || "선택한 시간 구간에 실측 관제 이벤트가 없습니다. 미래(+5m) 구간은 미측정 상태입니다.");
+          tip.textContent = placedPts.length
+            ? `${isSlidingLive ? "실시간" : "마지막 기록 구간"} 실측 이벤트 ${placedPts.length}건 표시 중 (로컬 시각 기준) · 점을 클릭해 상세 근거를 확인하세요.`
+            : (emptyReason || `최근 ${winLabel} 신규 이상·감사 이벤트가 없어 실시간 감시를 유지 중입니다.`);
+        }
+
+        if (isSlidingLive && isLiveModeActive() && !dashPulsePaused) {
+          startDashSlidingTimer();
+        } else {
+          stopDashSlidingTimer();
         }
       }
 
@@ -4721,7 +5200,8 @@
             : `누적 막대 (실측 · ${activeDashWindow}): 구간 데이터 없음`;
         } else {
           const evTxt = evCount !== null ? `${evCount.toLocaleString()}건` : "미측정";
-          chartSum.textContent = `실측 원장(${activeDashWindow} · 점 ${scatterCnt}건): 감사 ${evTxt} (준수 ${fmtNum(byOut.auto)} · 승인 ${fmtNum(byOut.approval)} · 보류 ${fmtNum(byOut.deferred)} · 정책위반 ${policyEsc})`;
+          const modeNote = dashTimelineMode === "last-recorded" ? "마지막 기록 구간" : `실시간 ${activeDashWindow}`;
+          chartSum.textContent = `${modeNote} (로컬 시각): 누적 감사 ${evTxt} · 준수 ${fmtNum(byOut.auto)} · 승인 ${fmtNum(byOut.approval)} · 보류 ${fmtNum(byOut.deferred)} · 정책위반 ${policyEsc}`;
         }
       }
 
@@ -4931,6 +5411,7 @@
             const g = createSvgEl("g");
             const hPts = [];
             tBuckets.forEach((b, idx) => {
+              const bLabel = b.bucket_at ? ovHumanize.localClock(b.bucket_at) : String(b.label || "");
               const x = startX + idx * (barW + gap);
               const autoV = Number(b.auto || 0);
               const sreV = Number(b.sre || 0);
@@ -4945,28 +5426,28 @@
                 curY -= hAuto;
                 g.appendChild(createSvgEl("rect", {
                   x: x.toFixed(1), y: curY.toFixed(1), width: barW, height: hAuto.toFixed(1), rx: 3, fill: "var(--sig-auto)",
-                  "data-ut-title": `${b.label} · 자동·기록`, "data-ut-val": `${autoV.toLocaleString()}건`, "data-ut-meta": `구간 합계 ${totV.toLocaleString()}건`, "data-ut-tone": "auto",
+                  "data-ut-title": `${bLabel} · 자동·기록`, "data-ut-val": `${autoV.toLocaleString()}건`, "data-ut-meta": `구간 합계 ${totV.toLocaleString()}건`, "data-ut-tone": "auto",
                 }));
               }
               if (hSre > 0) {
                 curY -= hSre;
                 g.appendChild(createSvgEl("rect", {
                   x: x.toFixed(1), y: curY.toFixed(1), width: barW, height: hSre.toFixed(1), rx: 2, fill: "var(--sig-sre)",
-                  "data-ut-title": `${b.label} · SRE·보류`, "data-ut-val": `${sreV.toLocaleString()}건`, "data-ut-meta": `구간 합계 ${totV.toLocaleString()}건`, "data-ut-tone": "sre",
+                  "data-ut-title": `${bLabel} · SRE·보류`, "data-ut-val": `${sreV.toLocaleString()}건`, "data-ut-meta": `구간 합계 ${totV.toLocaleString()}건`, "data-ut-tone": "sre",
                 }));
               }
               if (hSec > 0) {
                 curY -= hSec;
                 g.appendChild(createSvgEl("rect", {
                   x: x.toFixed(1), y: curY.toFixed(1), width: barW, height: hSec.toFixed(1), rx: 2, fill: "var(--sig-sec)",
-                  "data-ut-title": `${b.label} · 위험 관문`, "data-ut-val": `${secV.toLocaleString()}건`, "data-ut-meta": `구간 합계 ${totV.toLocaleString()}건`, "data-ut-tone": "sec",
+                  "data-ut-title": `${bLabel} · 위험 관문`, "data-ut-val": `${secV.toLocaleString()}건`, "data-ut-meta": `구간 합계 ${totV.toLocaleString()}건`, "data-ut-tone": "sec",
                 }));
               }
               const lbl = createSvgEl("text", { x: (x + barW / 2).toFixed(1), y: 206, "text-anchor": "middle", fill: "var(--cs-text-soft)", "font-size": 12 });
-              lbl.textContent = String(b.label || "");
+              lbl.textContent = bLabel;
               g.appendChild(lbl);
               const hy = baseY - Math.min(scaleH, Math.max(6, (humV / Math.max(1, maxTot * 0.05)) * 40));
-              hPts.push({ x: x + barW / 2, y: hy, v: humV, l: b.label });
+              hPts.push({ x: x + barW / 2, y: hy, v: humV, l: bLabel });
             });
             frag.appendChild(g);
             if (hPts.length > 1) {
@@ -5082,9 +5563,31 @@
             });
           }
         }
+        function formatObservationLabel(item) {
+          if (!item) return "관측 대상";
+          const rawTarget = String(item.target || item.id || "").trim();
+          if (item.deep_link_panel === "incidents" || rawTarget.startsWith("corr-")) {
+            const vertKo = item.raw_vertical === "resilience"
+              ? "복원력"
+              : (item.raw_vertical === "change_safety" || item.raw_vertical === "change-safety")
+                ? "변경 안전"
+                : (item.raw_vertical === "cost_governance" || item.raw_vertical === "cost-governance")
+                  ? "비용 거버넌스"
+                  : "운영";
+            const sevKo = ovHumanize.severity(item.raw_severity || "medium");
+            const numMatch = rawTarget.match(/(\d+)$/);
+            const suffix = numMatch ? ` #${numMatch[1]}` : "";
+            return `${vertKo} ${sevKo} 인시던트${suffix}`;
+          }
+          if (rawTarget.includes("vmss") || rawTarget.includes("aks-") || rawTarget.includes("rg-")) {
+            return rawTarget;
+          }
+          return ovHumanize.resourceType(rawTarget);
+        }
+
         if (sigChips[1]) {
           const topObs = obs[0] || null;
-          const topName = topObs ? ovHumanize.resourceType(topObs.target || topObs.id) : (inc !== null ? `진행 인시던트 ${inc.toLocaleString()}건` : "관측 대기");
+          const topName = topObs ? formatObservationLabel(topObs) : (inc !== null ? `진행 인시던트 ${inc.toLocaleString()}건` : "관측 대기");
           const topPanel = topObs ? (topObs.deep_link_panel || "incidents") : "incidents";
           const topItem = topObs ? (topObs.deep_link_item || topObs.id || "") : "";
           setSignalChip(
@@ -5092,7 +5595,7 @@
             topObs || (inc && inc > 0) ? "var(--sig-sre)" : "var(--sig-live)",
             topObs ? `최근 감지 · ${topName}` : (inc !== null ? `진행 인시던트 ${inc.toLocaleString()}건` : "진행 인시던트: 미측정"),
             {
-              title: topObs ? `${topName} — ${topObs.badge_label || "실측 관측"}` : "운영 인시던트 실측 현황",
+              title: topObs ? `${topName} — ${topObs.status || topObs.badge_label || "실측 관측"}` : "운영 인시던트 실측 현황",
               badge: topObs ? (topObs.badge_label || "실측 관측") : "인시던트",
               tone: topObs ? (topObs.tone || "sre") : "live",
               meta: topObs ? `${topObs.category || "관측"} · ${ovHumanize.timestamp(topObs.observed_at)}` : "인시던트 투영 실측",
@@ -5200,7 +5703,7 @@
               const tr = document.createElement("tr");
               tr.setAttribute("data-row-tone", item.tone || "live");
               const itemId = String(item.deep_link_item || item.id || "");
-              const targetKo = ovHumanize.resourceType(item.target || item.id);
+              const targetKo = formatObservationLabel(item);
               const timeKo = ovHumanize.timestamp(item.observed_at);
               const dlPanel = item.deep_link_panel || "audit";
               const dlHref = ovBuildItemUrl(dlPanel, itemId);
@@ -5276,6 +5779,7 @@
           }
         }
         applyDeepLinkSelection("dashboard");
+        ovTickerEngine.ingestDashboardData(data);
       }
 
       function applyLiveResources(data) {
@@ -6811,11 +7315,51 @@
         }
       }
 
+      /* Delegate bottom ticker to shared window.fdaiV4Ticker (/assets/fdai-console-live.js) */
+      const ovTickerEngine = (() => {
+        const pending = [];
+        function flush() {
+          if (!window.fdaiV4Ticker) return false;
+          while (pending.length) {
+            const [fn, args] = pending.shift();
+            try { window.fdaiV4Ticker[fn](...args); } catch (_e) {}
+          }
+          return true;
+        }
+        function call(fn, ...args) {
+          if (window.fdaiV4Ticker && typeof window.fdaiV4Ticker[fn] === "function") {
+            flush();
+            return window.fdaiV4Ticker[fn](...args);
+          }
+          pending.push([fn, args]);
+          return undefined;
+        }
+        document.addEventListener("DOMContentLoaded", () => {
+          flush();
+        });
+        return {
+          init: () => call("init"),
+          enqueue: (msg, interrupt) => call("enqueue", msg, interrupt),
+          playNext: () => call("playNext"),
+          ingestDashboardData: (data) => call("ingestDashboardData", data),
+          pushRealtimeEvent: (evSum, seqNum) => call("pushRealtimeEvent", evSum, seqNum),
+        };
+      })();
+
+      function setBottomTickerMessage(message, badgeLabel, badgeClass, priority) {
+        const key = `status:${badgeLabel || "info"}:${String(message || "").slice(0, 36)}`;
+        ovTickerEngine.enqueue({
+          id: key,
+          priority: priority || (badgeClass && badgeClass.includes("tone-sec") ? "critical" : badgeClass && (badgeClass.includes("tone-sre") || badgeClass.includes("tone-human")) ? "warn" : "highlight"),
+          badge: badgeLabel || "실측 안내",
+          badgeClass: badgeClass || "cs-badge tone-live",
+          text: String(message || ""),
+        }, true);
+      }
+
       async function hydrateActivePanel(forcedPanelId) {
         const banner = document.getElementById("ovLiveHydrationBanner");
         const badge = document.getElementById("ovLiveStateBadge");
-        const text = document.getElementById("ovLiveStateText");
-        const meta = document.getElementById("ovLiveEndpointMeta");
         const isLive = isLiveModeActive();
 
         if (!isLive) {
@@ -6826,6 +7370,11 @@
             banner.setAttribute("data-hydration-state", "sample");
             banner.setAttribute("data-hydrated-panel", "");
           }
+          setBottomTickerMessage(
+            "현재 Sample 시연 데이터 모드를 표시 중입니다. 운영 근거 링크는 Live 원장을 기준으로 열리며 샘플 값을 입증하지 않습니다.",
+            "Sample 모드",
+            "cs-badge tone-human"
+          );
           restoreSampleSnapshot();
           return;
         }
@@ -6844,12 +7393,15 @@
 
         const res = await fetchOverviewJson(url, liveAbortCtrl ? liveAbortCtrl.signal : undefined);
         if (reqId !== liveReqSeq) return;
-        if (meta) meta.textContent = url.split("?")[0];
 
         if (!res.ok || !res.data) {
           applyLivePanelEmptyState(panelId, "상위 API 응답을 확인할 수 없습니다 (미측정 · 0 대체 금지)");
           setBadgeWithDot(badge, "cs-badge", "Live 미측정 (0 대체 금지)");
-          if (text) text.textContent = "상위 API 응답을 확인할 수 없어 예제 데이터나 0으로 대체하지 않고 미측정 상태로 표시합니다.";
+          setBottomTickerMessage(
+            "상위 API 응답을 확인할 수 없어 예제 데이터나 0으로 대체하지 않고 미측정 상태로 표시합니다.",
+            "미측정",
+            "cs-badge"
+          );
           if (banner) {
             banner.setAttribute("data-hydration-state", "error");
             banner.setAttribute("data-hydrated-panel", panelId);
@@ -6859,32 +7411,50 @@
 
         const env = res.data;
         const mState = env.measurement_status || env.measurement_state || "not-measured";
-        const srcName = env.source === "postgres-direct" ? "PostgreSQL 실측" : (env.source || "operator-service");
+        const srcName = env.source === "postgres-direct" ? "PostgreSQL 실측" : (env.source || "운영 서비스");
         if (mState === "measured") {
           applyLivePanelData(panelId, env);
           setBadgeWithDot(badge, "cs-badge tone-live", `Live 실측 연동 · ${srcName}`);
-          if (text) {
-            text.textContent = env.source === "postgres-direct"
+          setBottomTickerMessage(
+            env.source === "postgres-direct"
               ? "로컬 PostgreSQL 실측 원장과 직접 연동되었습니다. 미수집 필드는 0이나 예제 값으로 대체하지 않습니다."
-              : "operator-service 실측 응답과 연동되었습니다. 미수집 필드는 0이나 예제 값으로 대체하지 않습니다.";
-          }
+              : "운영 서비스 실측 응답과 연동되었습니다. 미수집 필드는 0이나 예제 값으로 대체하지 않습니다.",
+            "실측 연동",
+            "cs-badge tone-live"
+          );
+          syncStreamingContainers(isLiveModeActive() && !dashPulsePaused);
+          triggerActivePanelLiveShimmer(panelId, true);
         } else if (mState === "partial") {
           applyLivePanelData(panelId, env);
           const missingList = Array.isArray(env.not_measured_fields) && env.not_measured_fields.length
             ? ` (미측정 분리: ${env.not_measured_fields.join(", ")})`
             : "";
           setBadgeWithDot(badge, "cs-badge tone-sre", "Live 부분 실측");
-          if (text) text.textContent = `일부 수집기만 실측 연결되었습니다${missingList}. 미측정 항목은 0이나 예제 값으로 합산하지 않습니다.`;
+          setBottomTickerMessage(
+            `일부 수집기만 실측 연결되었습니다${missingList}. 미측정 항목은 0이나 예제 값으로 합산하지 않습니다.`,
+            "부분 실측",
+            "cs-badge tone-sre"
+          );
+          syncStreamingContainers(isLiveModeActive() && !dashPulsePaused);
+          triggerActivePanelLiveShimmer(panelId, false);
         } else if (env.auth_required === true) {
           const st = env.upstream_status ? `HTTP ${env.upstream_status}` : "401/403";
           applyLivePanelEmptyState(panelId, `인증 필요 (${st}) · 실측 데이터 미측정`);
           setBadgeWithDot(badge, "cs-badge tone-human", "Live 인증 필요 (0 대체 금지)");
-          if (text) text.textContent = `operator-service 인증이 필요합니다(${st}). 미인증 수치를 0이나 예제 데이터로 대체하지 않고 미측정 상태로 표시합니다.`;
+          setBottomTickerMessage(
+            `운영 서비스 인증이 필요합니다(${st}). 미인증 수치를 0이나 예제 데이터로 대체하지 않고 미측정 상태로 표시합니다.`,
+            "인증 필요",
+            "cs-badge tone-human"
+          );
         } else {
           const reason = env.reason ? ` (${env.reason})` : "";
           applyLivePanelEmptyState(panelId, `실측 수집기 오프라인 또는 미구성${reason}`);
           setBadgeWithDot(badge, "cs-badge", "Live 미측정 (0 대체 금지)");
-          if (text) text.textContent = `실측 수집기가 오프라인 또는 미구성 상태입니다${reason}. 예제 데이터나 0으로 대체하지 않고 미측정 상태로 표시합니다.`;
+          setBottomTickerMessage(
+            `실측 수집기가 오프라인 또는 미구성 상태입니다${reason}. 예제 데이터나 0으로 대체하지 않고 미측정 상태로 표시합니다.`,
+            "미측정",
+            "cs-badge"
+          );
         }
         if (banner) {
           banner.setAttribute("data-hydration-state", "ready");
@@ -6892,12 +7462,200 @@
         }
       }
 
-      /* 8. Real-Time Live Pulse Subscription (/api/v4/live/pulse — status badge & ticker only, zero jitter on scatter chart) */
+      /* 8. Real-Time Live Pulse Subscription & Shimmer Emphasis (/api/v4/live/pulse) */
       let dashPulsePaused = false;
       let lastPulseKey = "";
       let lastPulsePayload = null;
       let lastPulseRxAt = 0;
       let lastAutoRefreshAt = 0;
+
+      const ovShimmer = {
+        border(el, ms) {
+          if (window.fdaiV4Shimmer && typeof window.fdaiV4Shimmer.border === "function") {
+            window.fdaiV4Shimmer.border(el, ms);
+          }
+        },
+        bg(el, ms) {
+          if (window.fdaiV4Shimmer && typeof window.fdaiV4Shimmer.bg === "function") {
+            window.fdaiV4Shimmer.bg(el, ms);
+          }
+        },
+        pulse(el, ms) {
+          if (window.fdaiV4Shimmer && typeof window.fdaiV4Shimmer.pulse === "function") {
+            window.fdaiV4Shimmer.pulse(el, ms);
+          }
+        },
+        markStreaming(el, active) {
+          if (window.fdaiV4Shimmer && typeof window.fdaiV4Shimmer.markStreaming === "function") {
+            window.fdaiV4Shimmer.markStreaming(el, active);
+          }
+        },
+      };
+
+      function syncStreamingContainers(active) {
+        const on = Boolean(active);
+        [
+          document.getElementById("ovLiveHydrationBanner"),
+          document.querySelector('.panel-view[data-panel-id="dashboard"] .chart-panel'),
+          document.querySelector('#ovResourceWorkbench .surface-card'),
+          document.querySelector('.panel-view[data-panel-id="operating-outcomes"] .surface-card'),
+          document.querySelector('.panel-view[data-panel-id="control-assurance"] .ov-banner'),
+          document.querySelector('.panel-view[data-panel-id="verticals"] .ov-evidence-bar'),
+          document.querySelector('.panel-view[data-panel-id="cost-governance"] .ov-evidence-bar'),
+          document.querySelector('.panel-view[data-panel-id="llm-cost"] .ov-evidence-bar'),
+        ].forEach((el) => ovShimmer.markStreaming(el, on));
+      }
+
+      function triggerActivePanelLiveShimmer(panelId, isDataChange) {
+        if (!isLiveModeActive() || dashPulsePaused) return;
+        const activeId = panelId || resolveActivePanelId();
+        const banner = document.getElementById("ovLiveHydrationBanner");
+        if (banner && !banner.hidden) ovShimmer.bg(banner, 1050);
+
+        const sec = document.querySelector(`.panel-view[data-panel-id="${activeId}"]`);
+        if (!sec || sec.hidden) return;
+
+        if (activeId === "dashboard") {
+          const chartCard = sec.querySelector(".chart-panel");
+          const streamBadge = sec.querySelector("[data-stream-badge]");
+          const ticker = sec.querySelector(".decision-ticker");
+          const cards = sec.querySelectorAll(".kpi-grid > .kpi-card");
+          const sigChips = sec.querySelectorAll(".signal-rail .signal-chip");
+          if (chartCard) (isDataChange ? ovShimmer.pulse(chartCard, 1150) : ovShimmer.border(chartCard, 1100));
+          if (streamBadge) ovShimmer.pulse(streamBadge, 1100);
+          if (ticker) ovShimmer.pulse(ticker, 1150);
+          if (isDataChange) {
+            cards.forEach((c) => ovShimmer.border(c, 1100));
+            sigChips.forEach((chip) => ovShimmer.bg(chip, 1050));
+          } else {
+            if (cards[0]) ovShimmer.border(cards[0], 1050);
+            if (sigChips[0]) ovShimmer.bg(sigChips[0], 1000);
+          }
+          const firstRow = sec.querySelector("#tbl-dashboard tbody tr:not(.empty-row)");
+          if (firstRow && isDataChange) ovShimmer.bg(firstRow, 1100);
+        } else if (activeId === "dashboard-v2") {
+          ovShimmer.border(document.getElementById("ovResStatStrip"), 1100);
+          ovShimmer.pulse(document.getElementById("ovResViewBadge"), 1050);
+          ovShimmer.border(document.getElementById("ovResInspector"), 1100);
+          const firstChip = sec.querySelector(".ov-res-chip, .ov-hex-tile, #ovResListPane tbody tr");
+          if (firstChip && isDataChange) ovShimmer.bg(firstChip, 1100);
+        } else if (activeId === "operating-outcomes") {
+          ovShimmer.bg(sec.querySelector(".ov-evidence-bar"), 1050);
+          ovShimmer.pulse(document.getElementById("ovOutRuleCountBadge"), 1050);
+          const kpis = sec.querySelectorAll(".kpi-grid > .kpi-card");
+          if (isDataChange) kpis.forEach((c) => ovShimmer.border(c, 1100));
+          else if (kpis[0]) ovShimmer.border(kpis[0], 1050);
+          const firstRule = document.querySelector("#ovOutcomeRuleTbody tr:not(.empty-row)");
+          if (firstRule && isDataChange) ovShimmer.bg(firstRule, 1100);
+        } else if (activeId === "control-assurance") {
+          ovShimmer.pulse(sec.querySelector(".ov-banner"), 1150);
+          ovShimmer.border(sec.querySelector('section[aria-label*="성숙도"]'), 1100);
+          const firstGuard = sec.querySelector(".ov-guard-list .ov-guard-row");
+          if (firstGuard) ovShimmer.bg(firstGuard, 1050);
+          const firstAside = sec.querySelector("aside .ov-inspector-card");
+          if (firstAside && isDataChange) ovShimmer.border(firstAside, 1100);
+        } else if (activeId === "verticals") {
+          ovShimmer.bg(sec.querySelector(".ov-evidence-bar"), 1050);
+          ovShimmer.pulse(sec.querySelector(".ov-vertical-card.is-selected"), 1150);
+          ovShimmer.border(sec.querySelector('section[aria-label*="선택 영역"]'), 1100);
+        } else if (activeId === "cost-governance") {
+          ovShimmer.bg(sec.querySelector(".ov-evidence-bar"), 1050);
+          ovShimmer.border(sec.querySelector('[data-cost-pane="overview"] .surface-card'), 1100);
+          const firstCard = sec.querySelector('[data-cost-pane="overview"] .kanban-card, #tbl-cost-eff tbody tr:not(.empty-row)');
+          if (firstCard) ovShimmer.bg(firstCard, 1050);
+        } else if (activeId === "llm-cost") {
+          ovShimmer.bg(sec.querySelector(".ov-evidence-bar"), 1050);
+          ovShimmer.pulse(document.getElementById("ovLlmTotalBadge"), 1100);
+          ovShimmer.border(sec.querySelector('section[aria-label*="토큰 추이"]'), 1100);
+          const firstRow = sec.querySelector("#tbl-llm-models tbody tr:not(.empty-row)");
+          if (firstRow && isDataChange) ovShimmer.bg(firstRow, 1100);
+        }
+      }
+
+      function classifyPulseEventSeries(actionKind) {
+        const k = String(actionKind || "").trim().toLowerCase();
+        if (k.startsWith("hil.")) return { series: "human", severity: k === "hil.timeout" ? "medium" : "low", severity_band: k === "hil.timeout" ? 2 : 1 };
+        if (k.includes("escape") || k.includes("policy_violation")) {
+          return { series: "sec", severity: "critical", severity_band: 4 };
+        }
+        if (k.includes("security")) {
+          return { series: "sec", severity: "high", severity_band: 3 };
+        }
+        if (k === "risk_gate.unified" || k === "mimir.rule-source.observed") {
+          return { series: "sec", severity: "medium", severity_band: 2 };
+        }
+        if (k === "rca.hypothesis") {
+          return { series: "sre", severity: "medium", severity_band: 2 };
+        }
+        if (k === "control_loop.abstain" || k === "control_loop.t1_evaluate" || k.startsWith("observation-campaign.")) {
+          return { series: "sre", severity: "low", severity_band: 1 };
+        }
+        return { series: "auto", severity: "info", severity_band: 0 };
+      }
+
+      function appendRealtimePulseEventToScatter(payload) {
+        if (!payload || payload.measurement_status !== "measured") return false;
+        const nowTick = Date.now();
+        liveWatchTicks.push({ ts: nowTick });
+        if (liveWatchTicks.length > 60) liveWatchTicks.shift();
+
+        if (!liveDashData) return false;
+        const latestEv = payload.latest_event && typeof payload.latest_event === "object" ? payload.latest_event : null;
+        if (!latestEv || !latestEv.seq) {
+          if (dashTimelineMode === "live") renderLiveDashboardScatter(liveDashData);
+          return false;
+        }
+        const pts = Array.isArray(liveDashData.scatter_points) ? liveDashData.scatter_points : [];
+        const newId = `audit:${latestEv.seq}`;
+        if (pts.some((p) => p && (p.id === newId || Number(p.seq) === Number(latestEv.seq)))) {
+          if (dashTimelineMode === "live") {
+            renderLiveDashboardScatter(liveDashData);
+          } else {
+            const ringGroup = document.getElementById("ovScatterLiveRing");
+            if (ringGroup) {
+              const clones = Array.from(ringGroup.childNodes).map((n) => n.cloneNode(true));
+              ringGroup.replaceChildren(...clones);
+            }
+          }
+          return false;
+        }
+        const cls = classifyPulseEventSeries(latestEv.action_kind);
+        const recAt = String(latestEv.created_at || new Date().toISOString());
+        const parsedMs = Date.parse(recAt);
+        const rawTarget = String(latestEv.target || "").trim();
+        const newPt = {
+          id: newId,
+          seq: Number(latestEv.seq),
+          source_table: "audit_log",
+          series: cls.series,
+          risk_score: null,
+          severity: cls.severity,
+          severity_band: cls.severity_band,
+          offset_ratio: 0.99,
+          recorded_at: recAt,
+          recorded_epoch_ms: Number.isNaN(parsedMs) ? nowTick : parsedMs,
+          time_label: ovHumanize.localClock(Number.isNaN(parsedMs) ? nowTick : parsedMs),
+          actor: String(latestEv.actor || "fdai"),
+          action_kind: String(latestEv.action_kind || "audit.record"),
+          target: rawTarget,
+          resource_name: rawTarget,
+          resource_type: rawTarget,
+          rule_id: "",
+          action_type: "",
+          approval_status: String(latestEv.action_kind || "").startsWith("hil.") ? "pending" : null,
+          mode: "shadow",
+          tier: "",
+          deep_link_panel: "audit",
+          deep_link_item: newId,
+          href: ovBuildItemUrl("audit", newId),
+        };
+        const nextPts = pts.concat([newPt]);
+        if (nextPts.length > 96) nextPts.shift();
+        liveDashData.scatter_points = nextPts;
+        renderLiveDashboardScatter(liveDashData);
+        updateDashboardChartSummary();
+        return true;
+      }
 
       function formatPulseAge(rxAt) {
         if (!rxAt) return "연결 중";
@@ -6940,7 +7698,11 @@
 
         if (typeof payload.ontology_resources_total === "number" && cards[0]) {
           const valEl = cards[0].querySelector('[data-ov-kpi="resources"]');
-          if (valEl) valEl.textContent = `${payload.ontology_resources_total.toLocaleString()}개`;
+          const nextTxt = `${payload.ontology_resources_total.toLocaleString()}개`;
+          if (valEl && valEl.textContent !== nextTxt) {
+            valEl.textContent = nextTxt;
+            ovShimmer.pulse(cards[0], 1150);
+          }
           const foots = cards[0].querySelectorAll(".kpi-foot span");
           if (foots[0] && typeof payload.azure_resources_total === "number") {
             foots[0].textContent = `Azure 리소스 ${payload.azure_resources_total.toLocaleString()}개`;
@@ -6948,11 +7710,19 @@
         }
         if (typeof payload.open_incidents === "number" && cards[1]) {
           const valEl = cards[1].querySelector('[data-ov-kpi="risks"]');
-          if (valEl) valEl.textContent = `${payload.open_incidents.toLocaleString()}건`;
+          const nextTxt = `${payload.open_incidents.toLocaleString()}건`;
+          if (valEl && valEl.textContent !== nextTxt) {
+            valEl.textContent = nextTxt;
+            ovShimmer.pulse(cards[1], 1150);
+          }
         }
         if (typeof payload.hil_pending === "number") {
           const el = sec.querySelector('[data-ov-kpi="human"]');
-          if (el) el.textContent = `${payload.hil_pending.toLocaleString()}건`;
+          const nextTxt = `${payload.hil_pending.toLocaleString()}건`;
+          if (el && el.textContent !== nextTxt) {
+            el.textContent = nextTxt;
+            if (cards[2]) ovShimmer.pulse(cards[2], 1150);
+          }
           const ctrlHil = document.getElementById("ovCtrlHilCount");
           if (ctrlHil) ctrlHil.textContent = `${payload.hil_pending.toLocaleString()}건 →`;
         }
@@ -6961,7 +7731,11 @@
           if (foots[1]) {
             const parts = foots[1].textContent.split("·");
             const prefix = parts.length > 1 ? `${parts[0].trim()} · ` : "";
-            foots[1].textContent = `${prefix}감사 ${payload.audit_total.toLocaleString()}건`;
+            const nextAudit = `${prefix}감사 ${payload.audit_total.toLocaleString()}건`;
+            if (foots[1].textContent !== nextAudit) {
+              foots[1].textContent = nextAudit;
+              ovShimmer.pulse(cards[3], 1150);
+            }
           }
         }
 
@@ -6988,6 +7762,7 @@
               tMono.textContent = ovHumanize.timestamp(latestEv.created_at);
             }
             const evSum = ovHumanize.eventSummary(latestEv);
+            const actorClean = evSum.actorKo.replace(/\s*\(([^)]+)\)/g, " · $1");
             const rawKind = String(latestEv.action_kind || "").toLowerCase();
             const badgeTone = rawKind.startsWith("hil.")
               ? "tone-human"
@@ -6998,7 +7773,10 @@
                   : "tone-live";
             setBadgeWithDot(tBadge, `cs-badge ${badgeTone}`, dAudit > 0 ? "새 기록 감지" : "최근 기록");
             if (tText) {
-              tText.textContent = `${evSum.actorKo} · ${evSum.title}`;
+              tText.textContent = `${actorClean} — ${evSum.title}`;
+            }
+            if (dAudit > 0) {
+              ovTickerEngine.pushRealtimeEvent(evSum, latestEv.seq || payload.audit_latest_seq);
             }
             if (tLink && (latestEv.seq || payload.audit_latest_seq)) {
               const seqNum = latestEv.seq || payload.audit_latest_seq;
@@ -7017,6 +7795,8 @@
             }
           }
         }
+
+        appendRealtimePulseEventToScatter(payload);
       }
 
       function handleLivePulse(payload) {
@@ -7028,11 +7808,17 @@
         lastPulseRxAt = Date.now();
 
         renderLivePulseMeta();
-        if (dashPulsePaused) return;
+        if (dashPulsePaused) {
+          syncStreamingContainers(false);
+          return;
+        }
 
+        syncStreamingContainers(true);
         applyLivePulseToDashboard(payload);
 
         const changed = Number(payload.delta_audit || 0) > 0 || Number(payload.delta_watermark || 0) > 0;
+        triggerActivePanelLiveShimmer(resolveActivePanelId(), changed);
+
         const now = Date.now();
         if (changed && now - lastAutoRefreshAt >= 2500) {
           lastAutoRefreshAt = now;
@@ -7050,6 +7836,13 @@
           window.requestAnimationFrame(() => {
             dashPulsePaused = btn.getAttribute("aria-pressed") === "true";
             renderLivePulseMeta();
+            syncStreamingContainers(isLiveModeActive() && !dashPulsePaused);
+            if (dashPulsePaused) {
+              stopDashSlidingTimer();
+            } else if (isLiveModeActive() && dashTimelineMode === "live") {
+              startDashSlidingTimer();
+              if (liveDashData) renderLiveDashboardScatter(liveDashData);
+            }
             const streamBadge = document.querySelector('.panel-view[data-panel-id="dashboard"] [data-stream-badge]');
             if (streamBadge && isLiveModeActive()) {
               if (dashPulsePaused) {
@@ -7060,6 +7853,627 @@
             }
           });
         });
+      });
+
+      // Full-row click responsiveness for dynamic overview tables (consistent with operating-outcomes)
+      ["#tbl-dashboard tbody", "#tbl-llm-models tbody", '.panel-view[data-panel-id="verticals"] table.cs-table tbody'].forEach((sel) => {
+        const tbody = document.querySelector(sel);
+        if (!tbody) return;
+        tbody.addEventListener("click", (e) => {
+          if (!(e.target instanceof Element)) return;
+          if (e.target.closest("button, a")) return;
+          const tr = e.target.closest("tr:not(.empty-row)");
+          tr?.querySelector("button[data-drawer-title]")?.click();
+        });
+      });
+
+      /* 9. Rich Operator-First Dashboard Drawer (5-block visual hierarchy + cached lazy live enrichment) */
+      let drawerRichReqSeq = 0;
+      let drawerRichAbort = null;
+      const drawerLazyCache = new Map();
+      const DRAWER_CACHE_TTL_MS = 30000;
+
+      async function fetchDrawerLazyJson(url, signal) {
+        const cached = drawerLazyCache.get(url);
+        if (cached && Date.now() - cached.at < DRAWER_CACHE_TTL_MS) {
+          return cached.data;
+        }
+        const res = await fetchOverviewJson(url, signal);
+        if (!res.ok || !res.data) return null;
+        const payload = res.data.data || res.data;
+        drawerLazyCache.set(url, { at: Date.now(), data: payload });
+        return payload;
+      }
+
+      function drSection(title, rightText) {
+        const sec = createEl("section", "ov-dr-section");
+        const head = createEl("div", "ov-dr-sec-head");
+        head.appendChild(createEl("span", "", title));
+        if (rightText) head.appendChild(createEl("span", "cell-mono", rightText));
+        sec.appendChild(head);
+        return sec;
+      }
+
+      function drBar(segments) {
+        const wrap = document.createDocumentFragment();
+        const bar = createEl("div", "ov-dr-bar");
+        const leg = createEl("div", "ov-dr-bar-legend");
+        segments.forEach((seg) => {
+          const pct = Math.max(0, Math.min(100, Number(seg.pct || 0)));
+          if (pct > 0) {
+            const span = document.createElement("span");
+            span.style.width = `${pct}%`;
+            span.style.background = seg.color || "var(--sig-live)";
+            bar.appendChild(span);
+          }
+          const li = createEl("span", "ov-dr-legend-item");
+          const dot = createEl("span", "cs-dot");
+          dot.style.background = seg.color || "var(--sig-live)";
+          li.append(dot, document.createTextNode(seg.label));
+          leg.appendChild(li);
+        });
+        wrap.append(bar, leg);
+        return wrap;
+      }
+
+      function drStatGrid(stats) {
+        const grid = createEl("div", "ov-dr-stat-grid");
+        stats.forEach(([label, val]) => {
+          const box = createEl("div", "ov-dr-stat");
+          box.append(createEl("span", "ov-dr-stat-label", label), createEl("strong", "ov-dr-stat-val", val || "—"));
+          grid.appendChild(box);
+        });
+        return grid;
+      }
+
+      function drItemLink(opts) {
+        const a = createEl("a", "ov-dr-item");
+        a.href = safeRouteHref(opts.href, "/overview/dashboard");
+        const left = createEl("div", "ov-dr-item-left");
+        if (opts.icon) {
+          const ico = createEl("img", "ov-az-ico");
+          ico.src = safeRouteHref(opts.icon, "/azure-icons/monitor.svg");
+          ico.alt = "";
+          ico.setAttribute("aria-hidden", "true");
+          left.appendChild(ico);
+        }
+        const copy = createEl("div", "ov-dr-item-copy");
+        copy.appendChild(createEl("span", "ov-dr-item-title", opts.title || "항목"));
+        if (opts.sub) copy.appendChild(createEl("span", "ov-dr-item-sub", opts.sub));
+        left.appendChild(copy);
+        const right = createEl("div", "ov-dr-item-right");
+        if (opts.badge) {
+          const b = createEl("span", `cs-badge ${opts.tone ? "tone-" + opts.tone : ""}`.trim());
+          setBadgeWithDot(b, `cs-badge ${opts.tone ? "tone-" + opts.tone : ""}`.trim(), opts.badge);
+          right.appendChild(b);
+        }
+        right.appendChild(createEl("span", "", "→"));
+        a.append(left, right);
+        return a;
+      }
+
+      function drActionsSection(actions) {
+        const sec = drSection("권장 다음 행동");
+        const list = createEl("div", "ov-dr-actions");
+        actions.forEach((act, idx) => {
+          const a = createEl("a", "ov-dr-action");
+          a.href = safeRouteHref(act.href, "/overview/dashboard");
+          a.append(createEl("span", "", `${idx + 1}. ${act.label}`), createEl("span", "", "→"));
+          list.appendChild(a);
+        });
+        sec.appendChild(list);
+        return sec;
+      }
+
+      function drCheckPills(title, pills) {
+        const sec = drSection(title);
+        const wrap = createEl("div", "ov-dr-pills");
+        pills.forEach((p) => {
+          const el = createEl("span", "ov-dr-pill");
+          const dot = createEl("span", "cs-dot");
+          dot.style.background = p.color || "var(--sig-live)";
+          el.append(dot, document.createTextNode(p.label));
+          wrap.appendChild(el);
+        });
+        sec.appendChild(wrap);
+        return sec;
+      }
+
+      function mountRichDrawerSlot(richRoot, keepDefaultGrid) {
+        const factsHost = document.getElementById("fdaiDrawerFacts");
+        if (!factsHost) return;
+        const oldRich = factsHost.querySelector("#ovDrawerRichSlot");
+        if (oldRich) oldRich.remove();
+        const kvGrid = factsHost.querySelector(".drawer-kv-grid");
+        if (kvGrid) kvGrid.hidden = !keepDefaultGrid;
+        const techDetails = factsHost.querySelector(".drawer-tech-details");
+        richRoot.id = "ovDrawerRichSlot";
+        if (techDetails) {
+          factsHost.insertBefore(richRoot, techDetails);
+        } else {
+          factsHost.appendChild(richRoot);
+        }
+      }
+
+      function extractRgFromArmPath(rawPath) {
+        const m = String(rawPath || "").match(/\/resource-group\/([^/]+)/i) || String(rawPath || "").match(/\/resourceGroups\/([^/]+)/i);
+        return m ? m[1] : "";
+      }
+
+      async function enhanceDashboardDrawer(triggerEl) {
+        if (!triggerEl || !triggerEl.closest('.panel-view[data-panel-id="dashboard"]')) return;
+        const bd = document.getElementById("fdaiDrawerBackdrop");
+        if (!bd || bd.hidden) return;
+
+        const reqId = ++drawerRichReqSeq;
+        if (drawerRichAbort) drawerRichAbort.abort();
+        drawerRichAbort = typeof AbortController === "function" ? new AbortController() : null;
+        const signal = drawerRichAbort ? drawerRichAbort.signal : undefined;
+
+        const itemId = (triggerEl.getAttribute("data-drawer-item-id") || "").trim();
+        const isLive = isLiveModeActive();
+        const rich = createEl("div", "ov-dr-rich");
+
+        // Category E: Sample forecast diamond
+        if (!isLive && triggerEl.classList.contains("forecast-marker")) {
+          const sec = drSection("Sample 시연 예측 안내", "시뮬레이션");
+          sec.appendChild(drCheckPills("예측 경계 (Sample 전용)", [
+            { label: "Sample 시연 시나리오", color: "var(--sig-human)" },
+            { label: "Live 모드에서는 미측정 분리", color: "var(--sig-live)" },
+          ]).querySelector(".ov-dr-pills"));
+          rich.appendChild(sec);
+          rich.appendChild(drActionsSection([
+            { label: "Live 모드로 전환해 실제 관측 원장 확인", href: "/overview/dashboard" },
+            { label: "장애 대응 화면에서 실측 인시던트 확인", href: "/operations/incidents" },
+          ]));
+          mountRichDrawerSlot(rich, true);
+          return;
+        }
+
+        if (!isLive || !liveDashData) {
+          return;
+        }
+
+        const d = liveDashData;
+        const sig = d.signals || {};
+        const posture = d.posture || {};
+        const routing = d.routing || {};
+        const byOut = routing.by_outcome || {};
+        const byTier = routing.by_tier || {};
+        const obs = Array.isArray(d.recent_observations) ? d.recent_observations : [];
+        const scopes = Array.isArray(d.scope_options) ? d.scope_options : [];
+
+        // A-1: Observed Azure Resources KPI
+        if (itemId === "kpi:resources") {
+          const cov = typeof d.coverage_pct === "number" ? d.coverage_pct : 0;
+          const unobsPct = Math.max(0, 100 - cov);
+          const sCov = drSection("관측 커버리지 분포", `${cov.toFixed(1)}%`);
+          sCov.appendChild(drBar([
+            { pct: cov, color: "var(--sig-live)", label: `정상 관측 ${cov.toFixed(1)}%` },
+            { pct: unobsPct, color: "var(--sig-auto)", label: `상태 미수집 ${unobsPct.toFixed(1)}%` },
+          ]));
+          sCov.appendChild(drStatGrid([
+            ["전체 온톨로지", `${fmtNum(d.observed_resources)}개`],
+            ["Azure 실리소스", `${fmtNum(d.azure_resources)}개`],
+            ["온톨로지 관계 링크", `${fmtNum(d.ontology_links_total)}개`],
+            ["상태 미수집 · 실패", `미수집 ${fmtNum(d.unobserved_resources)} · 실패 ${fmtNum(d.failed_resources)}`],
+          ]));
+          rich.appendChild(sCov);
+
+          if (scopes.length) {
+            const sTop = drSection("리소스 밀집 상위 그룹", `상위 ${Math.min(4, scopes.length)}개`);
+            const list = createEl("div", "ov-dr-list");
+            const azDen = Math.max(1, Number(d.azure_resources || 1));
+            scopes.slice(0, 4).forEach((sc) => {
+              const share = ((Number(sc.count || 0) / azDen) * 100).toFixed(1);
+              list.appendChild(drItemLink({
+                icon: "/azure-icons/resource-groups.svg",
+                title: sc.id,
+                sub: `Azure 리소스 중 ${share}% 차지 · 클릭 시 리소스 맵 필터`,
+                badge: `${fmtNum(sc.count)}개`,
+                tone: "live",
+                href: ovBuildItemUrl("dashboard-v2", sc.id),
+              }));
+            });
+            sTop.appendChild(list);
+            rich.appendChild(sTop);
+          }
+
+          const sUnobs = drSection("상태 미수집 우선 복구 대상 (Top 3)", "실측 조회");
+          const unobsList = createEl("div", "ov-dr-list");
+          unobsList.appendChild(createEl("div", "ov-dr-loading", "상태 미수집 리소스 상위 항목을 불러오는 중..."));
+          sUnobs.appendChild(unobsList);
+          rich.appendChild(sUnobs);
+
+          rich.appendChild(drActionsSection([
+            { label: `상태 미수집 ${fmtNum(d.unobserved_resources)}개 리소스만 필터링해 원인 확인`, href: "/overview/dashboard-v2?status=uncollected" },
+            { label: "진단 로그 · 수집기 연동 상태 점검", href: "/settings/environment" },
+          ]));
+          mountRichDrawerSlot(rich, false);
+
+          const unobsData = await fetchDrawerLazyJson("/api/v4/overview/resources?status=uncollected&limit=3", signal);
+          if (reqId !== drawerRichReqSeq) return;
+          const unobsItems = unobsData && (Array.isArray(unobsData.resources) ? unobsData.resources : unobsData.items);
+          if (Array.isArray(unobsItems) && unobsItems.length) {
+            const frag = document.createDocumentFragment();
+            unobsItems.slice(0, 3).forEach((r) => {
+              frag.appendChild(drItemLink({
+                icon: r.icon || "/azure-icons/monitor.svg",
+                title: r.name || r.id,
+                sub: `${ovHumanize.resourceType(r.resource_type || r.type)} · ${r.rg || r.sub || "스코프 미지정"}`,
+                badge: "상태 미수집",
+                tone: "neutral",
+                href: ovBuildItemUrl("dashboard-v2", r.id),
+              }));
+            });
+            unobsList.replaceChildren(frag);
+          } else {
+            unobsList.replaceChildren(createEl("div", "ov-dr-loading", "현재 상태 미수집 리소스가 없거나 조회할 수 없습니다."));
+          }
+          return;
+        }
+
+        // A-2: Detected Risks KPI
+        if (itemId === "kpi:risks") {
+          const sStat = drSection("리스크 유형별 현황", "실측 통합");
+          sStat.appendChild(drStatGrid([
+            ["진행 중 인시던트", `${fmtNum(sig.active_incidents)}건 (누적 ${fmtNum(sig.total_incidents)}건)`],
+            ["코드 보안 이슈", `${fmtNum(sig.code_security_issues)}건`],
+            ["분석기 감지 기록", `${fmtNum(obs.filter((o) => o.deep_link_panel === "audit").length)}건`],
+            ["안전 정책 위반", `${fmtNum(posture.policy_escape_count)}건 (허용치 0)`],
+          ]));
+          rich.appendChild(sStat);
+
+          if (obs.length) {
+            const sObs = drSection("지금 확인해야 할 운영 리스크", `상위 ${Math.min(3, obs.length)}건`);
+            const list = createEl("div", "ov-dr-list");
+            obs.slice(0, 3).forEach((o) => {
+              const titleTxt = o.deep_link_panel === "incidents"
+                ? `${ovHumanize.severity(o.raw_severity || "high")} 인시던트 · ${o.status || "진행 중"}`
+                : `${o.target || o.id} · ${o.badge_label || "이상 감지"}`;
+              list.appendChild(drItemLink({
+                icon: o.icon || "/azure-icons/monitor.svg",
+                title: titleTxt,
+                sub: `${o.category || "관측"} · ${ovHumanize.timestamp(o.observed_at)}`,
+                badge: o.badge_label || o.status || "관측",
+                tone: o.tone || "sre",
+                href: ovBuildItemUrl(o.deep_link_panel || "incidents", o.deep_link_item || o.id || ""),
+              }));
+            });
+            sObs.appendChild(list);
+            rich.appendChild(sObs);
+          }
+
+          const sSec = drSection("코드 보안 취약점 최우선 항목 (Top 3)", "실측 조회");
+          const secBox = createEl("div", "ov-dr-list");
+          secBox.appendChild(createEl("div", "ov-dr-loading", "보안 스캔 심각도 분포와 최우선 CVE를 불러오는 중..."));
+          sSec.appendChild(secBox);
+          rich.appendChild(sSec);
+
+          rich.appendChild(drActionsSection([
+            { label: "진행 중인 인시던트 원인(RCA) 및 대응 이력 확인", href: "/operations/incidents" },
+            { label: "코드 보안 취약점 치명 · 높음 항목 우선 분류", href: "/operations/code-security" },
+          ]));
+          mountRichDrawerSlot(rich, false);
+
+          const secData = await fetchDrawerLazyJson("/api/v4/operations/security", signal);
+          if (reqId !== drawerRichReqSeq) return;
+          const issues = secData && Array.isArray(secData.code_security_issues) ? secData.code_security_issues : [];
+          if (issues.length) {
+            const counts = { critical: 0, high: 0, medium: 0, low: 0 };
+            issues.forEach((it) => {
+              const sv = String(it.severity || "low").toLowerCase();
+              if (counts[sv] != null) counts[sv] += 1;
+            });
+            const totI = Math.max(1, issues.length);
+            const frag = document.createDocumentFragment();
+            frag.appendChild(drBar([
+              { pct: (counts.critical / totI) * 100, color: "var(--sig-sec)", label: `치명 ${counts.critical}` },
+              { pct: (counts.high / totI) * 100, color: "var(--sig-sre)", label: `높음 ${counts.high}` },
+              { pct: (counts.medium / totI) * 100, color: "var(--sig-human)", label: `보통 ${counts.medium}` },
+              { pct: (counts.low / totI) * 100, color: "var(--sig-auto)", label: `낮음 ${counts.low}` },
+            ]));
+            issues.slice(0, 3).forEach((it) => {
+              const cve = Array.isArray(it.advisory_ids) && it.advisory_ids.length ? it.advisory_ids[0] : it.issue_id;
+              const scanner = Array.isArray(it.producers) && it.producers.length ? it.producers.join(", ") : "보안 스캐너";
+              const sevKo = ovHumanize.severity(it.severity || "medium");
+              frag.appendChild(drItemLink({
+                icon: "/azure-icons/key-vault.svg",
+                title: `${cve} · ${it.repo || "저장소"}`,
+                sub: `${scanner} 탐지 · ${it.priority || "우선순위"} · 조치 기한 ${it.due_days || "—"}일`,
+                badge: sevKo,
+                tone: it.severity === "critical" ? "sec" : "sre",
+                href: ovBuildItemUrl("code-security", it.issue_id || cve),
+              }));
+            });
+            secBox.replaceChildren(frag);
+          } else {
+            secBox.replaceChildren(createEl("div", "ov-dr-loading", "현재 상세 코드 보안 이슈 목록이 없습니다."));
+          }
+          return;
+        }
+
+        // A-3 & C-1: Human Approval Needed KPI / Signal Chip
+        if (itemId === "kpi:human" || itemId === "signal:hil") {
+          const autoN = Number(byOut.auto || 0);
+          const apprN = Number(byOut.approval || 0);
+          const defN = Number(byOut.deferred || 0);
+          const sumN = Math.max(1, autoN + apprN + defN);
+          const sPath = drSection("제어 판단 경로 분포", `총 ${sumN.toLocaleString()}건`);
+          sPath.appendChild(drBar([
+            { pct: (autoN / sumN) * 100, color: "var(--sig-live)", label: `자동 준수 ${autoN}건 (${Math.round((autoN / sumN) * 100)}%)` },
+            { pct: (apprN / sumN) * 100, color: "var(--sig-human)", label: `승인 요청 ${apprN}건 (${Math.round((apprN / sumN) * 100)}%)` },
+            { pct: (defN / sumN) * 100, color: "var(--sig-auto)", label: `검토 보류 ${defN}건 (${Math.round((defN / sumN) * 100)}%)` },
+          ]));
+          sPath.appendChild(drStatGrid([
+            ["승인 대기 추정", `${fmtNum(sig.hil_pending)}건`],
+            ["누적 승인 요청", `${fmtNum(sig.hil_requested_total)}건`],
+            ["응답 시간 만료", `${fmtNum(sig.hil_timeout_total)}건`],
+            ["자동 준수 완료", `${autoN.toLocaleString()}건`],
+          ]));
+          rich.appendChild(sPath);
+
+          const sQueue = drSection("대기 중인 승인 요청 미리보기 (Top 4)", "실측 조회");
+          const qList = createEl("div", "ov-dr-list");
+          qList.appendChild(createEl("div", "ov-dr-loading", "실제 승인 대기열 항목을 불러오는 중..."));
+          sQueue.appendChild(qList);
+          rich.appendChild(sQueue);
+
+          rich.appendChild(drActionsSection([
+            { label: `대기 중인 ${fmtNum(sig.hil_pending)}건 승인 요청 검토 및 결정`, href: "/operations/hil-queue" },
+            { label: "반복 승인 규칙의 자동화 승격 심사 검토", href: "/governance/promotion-gates" },
+          ]));
+          mountRichDrawerSlot(rich, false);
+
+          const hilData = await fetchDrawerLazyJson("/api/v4/operations/hil-queue?limit=4", signal);
+          if (reqId !== drawerRichReqSeq) return;
+          const hItems = hilData && Array.isArray(hilData.items) ? hilData.items : [];
+          if (hItems.length) {
+            const frag = document.createDocumentFragment();
+            hItems.slice(0, 4).forEach((it) => {
+              const ruleKo = ovHumanize.ruleId(it.rule_id || "");
+              const actKo = ovHumanize.remediationAction(it.action_type || "");
+              const resShort = String(it.target_resource_ref || "").split("/").pop() || "대상 리소스";
+              const sevKo = ovHumanize.severity(it.severity || "low");
+              const stKo = approvalStatusLabelKo(it.status) || "승인 대기";
+              frag.appendChild(drItemLink({
+                icon: "/azure-icons/virtual-machine.svg",
+                title: ruleKo || actKo || "승인 요청",
+                sub: `대상: ${resShort} · 조치: ${actKo || "승인 검토"}`,
+                badge: `${stKo} · ${sevKo}`,
+                tone: it.severity === "critical" || it.severity === "high" ? "sec" : "human",
+                href: ovBuildItemUrl("hil-queue", it.approval_id || it.correlation_id || ""),
+              }));
+            });
+            qList.replaceChildren(frag);
+          } else {
+            qList.replaceChildren(createEl("div", "ov-dr-loading", "현재 대기 중인 승인 요청 항목이 없습니다."));
+          }
+          return;
+        }
+
+        // A-4: Governance Maintenance KPI
+        if (itemId === "kpi:governance") {
+          const shPct = typeof posture.shadow_share === "number" ? posture.shadow_share * 100 : 100;
+          const enPct = typeof posture.enforce_share === "number" ? posture.enforce_share * 100 : 0;
+          const sMat = drSection("자율성 성숙도 & AI 호출 절감", `감사 ${fmtNum(posture.event_count)}건`);
+          sMat.appendChild(drBar([
+            { pct: shPct, color: "var(--sig-auto)", label: `관찰(Shadow) ${shPct.toFixed(1)}%` },
+            { pct: enPct, color: "var(--sig-live)", label: `실행(Enforce) ${enPct.toFixed(1)}%` },
+          ]));
+          sMat.appendChild(drStatGrid([
+            ["안전 정책 위반", `${fmtNum(posture.policy_escape_count)}건 (허용치 0)`],
+            ["활성 운영 규칙", `${fmtNum(d.active_rules_count)}개`],
+            ["T0 무토큰 / T1 경량", `T0 ${fmtNum(byTier.T0)} · T1 ${fmtNum(byTier.T1)}`],
+            ["T2 심층 추론 호출", `${fmtNum(byTier.T2)}건`],
+          ]));
+          rich.appendChild(sMat);
+
+          const sGuard = drSection("6대 결정론적 안전 가드 요약", "실측 조회");
+          const gList = createEl("div", "ov-dr-list");
+          gList.appendChild(createEl("div", "ov-dr-loading", "6대 안전 가드 평가 현황을 불러오는 중..."));
+          sGuard.appendChild(gList);
+          rich.appendChild(sGuard);
+
+          rich.appendChild(drActionsSection([
+            { label: "6대 안전 가드 상세 및 벤치마크 검증 확인", href: "/overview/control-assurance" },
+            { label: "관찰 → 실행 승격 심사 게이트 검토", href: "/governance/promotion-gates" },
+          ]));
+          mountRichDrawerSlot(rich, false);
+
+          const ctrlData = await fetchDrawerLazyJson("/api/v4/overview/control-assurance", signal);
+          if (reqId !== drawerRichReqSeq) return;
+          const guards = ctrlData && Array.isArray(ctrlData.guards) ? ctrlData.guards : [];
+          if (guards.length) {
+            const frag = document.createDocumentFragment();
+            guards.slice(0, 6).forEach((g) => {
+              const isUnm = g.status === "not-measured";
+              const bdg = isUnm
+                ? "미측정"
+                : `${g.status === "pass" ? "통과" : "추적"} ${typeof g.value_pct === "number" ? g.value_pct.toFixed(1) + "%" : ""}`.trim();
+              const tone = isUnm ? "neutral" : (g.status === "pass" ? "live" : (g.status === "fail" ? "sec" : "sre"));
+              frag.appendChild(drItemLink({
+                icon: "/azure-icons/monitor.svg",
+                title: g.title || g.code,
+                sub: g.detail || g.threshold || "",
+                badge: bdg,
+                tone,
+                href: ovBuildItemUrl("control-assurance", `guard:${g.code || ""}`),
+              }));
+            });
+            gList.replaceChildren(frag);
+          } else {
+            gList.replaceChildren(createEl("div", "ov-dr-loading", "안전 가드 실측 데이터를 불러올 수 없습니다."));
+          }
+          return;
+        }
+
+        // C-3: Security Signal Chip
+        if (itemId === "signal:security") {
+          const sSec = drSection("보안 취약점 심각도 분포 및 최우선 CVE (Top 4)", `총 ${fmtNum(sig.code_security_issues)}건`);
+          const secList = createEl("div", "ov-dr-list");
+          secList.appendChild(createEl("div", "ov-dr-loading", "코드 보안 스캔 결과를 불러오는 중..."));
+          sSec.appendChild(secList);
+          rich.appendChild(sSec);
+
+          rich.appendChild(drCheckPills("보안 거버넌스 경계", [
+            { label: `안전 정책 위반 ${fmtNum(posture.policy_escape_count)}건`, color: "var(--sig-live)" },
+            { label: `활성 보안·운영 규칙 ${fmtNum(d.active_rules_count)}개`, color: "var(--sig-auto)" },
+            { label: "무단 변경 차단 유지", color: "var(--sig-live)" },
+          ]));
+          rich.appendChild(drActionsSection([
+            { label: "코드 보안 화면에서 치명 · 높음 취약점 전체 보기", href: "/operations/code-security" },
+            { label: "운영 규칙 카탈로그에서 보안 정책 확인", href: "/governance/rules" },
+          ]));
+          mountRichDrawerSlot(rich, false);
+
+          const secData = await fetchDrawerLazyJson("/api/v4/operations/security", signal);
+          if (reqId !== drawerRichReqSeq) return;
+          const issues = secData && Array.isArray(secData.code_security_issues) ? secData.code_security_issues : [];
+          if (issues.length) {
+            const counts = { critical: 0, high: 0, medium: 0, low: 0 };
+            issues.forEach((it) => {
+              const sv = String(it.severity || "low").toLowerCase();
+              if (counts[sv] != null) counts[sv] += 1;
+            });
+            const totI = Math.max(1, issues.length);
+            const frag = document.createDocumentFragment();
+            frag.appendChild(drBar([
+              { pct: (counts.critical / totI) * 100, color: "var(--sig-sec)", label: `치명 ${counts.critical}` },
+              { pct: (counts.high / totI) * 100, color: "var(--sig-sre)", label: `높음 ${counts.high}` },
+              { pct: (counts.medium / totI) * 100, color: "var(--sig-human)", label: `보통 ${counts.medium}` },
+              { pct: (counts.low / totI) * 100, color: "var(--sig-auto)", label: `낮음 ${counts.low}` },
+            ]));
+            issues.slice(0, 4).forEach((it) => {
+              const cve = Array.isArray(it.advisory_ids) && it.advisory_ids.length ? it.advisory_ids[0] : it.issue_id;
+              const scanner = Array.isArray(it.producers) && it.producers.length ? it.producers.join(", ") : "보안 스캐너";
+              frag.appendChild(drItemLink({
+                icon: "/azure-icons/key-vault.svg",
+                title: `${cve} · ${it.repo || "저장소"}`,
+                sub: `${scanner} · ${it.priority || "우선순위"} · 조치 기한 ${it.due_days || "—"}일`,
+                badge: ovHumanize.severity(it.severity || "medium"),
+                tone: it.severity === "critical" ? "sec" : "sre",
+                href: ovBuildItemUrl("code-security", it.issue_id || cve),
+              }));
+            });
+            secList.replaceChildren(frag);
+          } else {
+            secList.replaceChildren(createEl("div", "ov-dr-loading", "표시할 상세 보안 스캔 항목이 없습니다."));
+          }
+          return;
+        }
+
+        // B-1 & B-2: Scatter Point Event
+        if (triggerEl.classList.contains("scatter-pt")) {
+          const pts = Array.isArray(d.scatter_points) ? d.scatter_points : [];
+          const pt = pts.find((p) => String(p.id || "") === itemId);
+          if (pt) {
+            const ev = buildScatterEventView(pt, pt.series || "auto");
+            const sInfo = drSection("사건 핵심 정보", ev.clockKo);
+            const statPairs = [
+              ["대상 리소스", ev.resDisplay],
+              ["발동 규칙 · 원인", ev.causeLine],
+              ["제안 · 처리 조치", ev.actionLine],
+              ["현재 상태 · 심각도", ev.headerBadge],
+              ["담당 주체", ev.actorClean],
+              ["발생 시각", ev.timeFullKo],
+            ];
+            if (typeof pt.risk_score === "number") {
+              statPairs.push(["실측 위험도 점수", `${pt.risk_score} / 100`]);
+            }
+            sInfo.appendChild(drStatGrid(statPairs));
+            rich.appendChild(sInfo);
+
+            const isApproval = pt.series === "human" || Boolean(pt.approval_id);
+            rich.appendChild(drCheckPills("안전장치 및 실행 경계", [
+              { label: ev.modeKo, color: "var(--sig-auto)" },
+              { label: isApproval ? "사전 승인 필수" : "자동 관측 기록", color: isApproval ? "var(--sig-human)" : "var(--sig-live)" },
+              { label: "감사 해시 체인 검증", color: "var(--sig-live)" },
+            ]));
+
+            const acts = [];
+            if (pt.approval_id) {
+              acts.push({ label: "승인 대기열에서 변경 diff 확인 후 승인 · 반려", href: ovBuildItemUrl("hil-queue", pt.approval_id) });
+            }
+            if (pt.resource_name) {
+              acts.push({ label: `${pt.resource_name} 6축 리소스 상태 확인`, href: ovBuildItemUrl("dashboard-v2", pt.resource_name) });
+            }
+            if (pt.correlation_id) {
+              acts.push({ label: "같은 추적 흐름(Trace)에서 전후 판단 과정 보기", href: ovBuildItemUrl("trace", pt.correlation_id) });
+            }
+            acts.push({ label: "감사 원장에서 기록 원문 및 무결성 확인", href: ovBuildItemUrl("audit", pt.id || itemId) });
+            rich.appendChild(drActionsSection(acts.slice(0, 3)));
+            mountRichDrawerSlot(rich, false);
+            return;
+          }
+        }
+
+        // C-2, D-1, D-2: Recent Observations (Incidents & Analyzer Findings)
+        const matchedObs = obs.find((o) => String(o.deep_link_item || o.id || "") === itemId);
+        if (matchedObs) {
+          const isIncident = matchedObs.deep_link_panel === "incidents";
+          if (isIncident) {
+            const vertKo = matchedObs.raw_vertical === "resilience"
+              ? "복원력 (Resilience)"
+              : (matchedObs.raw_vertical === "change_safety" || matchedObs.raw_vertical === "change-safety")
+                ? "변경 안전 (Change Safety)"
+                : "운영 일반";
+            const sInc = drSection("인시던트 핵심 상태", matchedObs.status || "관측 중");
+            sInc.appendChild(drStatGrid([
+              ["운영 영역", vertKo],
+              ["심각도", ovHumanize.severity(matchedObs.raw_severity || "medium")],
+              ["진행 상태", matchedObs.status || "관측 중"],
+              ["최초 감지 시각", ovHumanize.timestamp(matchedObs.observed_at)],
+            ]));
+            rich.appendChild(sInc);
+
+            rich.appendChild(drActionsSection([
+              { label: "장애 대응 화면에서 인시던트 타임라인 및 RCA 확인", href: ovBuildItemUrl("incidents", itemId) },
+              { label: "실행 추적(Trace)에서 연관 판단 워터폴 보기", href: ovBuildItemUrl("trace", itemId) },
+            ]));
+            mountRichDrawerSlot(rich, false);
+            return;
+          }
+
+          // D-2: Analyzer Finding (e.g. VMSS Host CPU)
+          const rgName = extractRgFromArmPath(matchedObs.id || "") || "확인 필요";
+          const resTypeKo = ovHumanize.resourceType(
+            String(matchedObs.id || "").toLowerCase().includes("virtualmachinescalesets")
+              ? "compute.vm-scale-set"
+              : (matchedObs.target || "")
+          );
+          const sFind = drSection("대상 리소스 컨텍스트", matchedObs.badge_label || "자동 분석");
+          sFind.appendChild(drStatGrid([
+            ["대상 리소스", matchedObs.target || itemId],
+            ["리소스 유형", resTypeKo],
+            ["소속 리소스 그룹", rgName],
+            ["감지 신호 · 상태", `${matchedObs.badge_label || "이상 감지"} · ${matchedObs.status || "게시됨"}`],
+            ["감지 시각", ovHumanize.timestamp(matchedObs.observed_at)],
+            ["분석 출처", ovHumanize.actor(matchedObs.assessed_by || "analyzer")],
+          ]));
+          rich.appendChild(sFind);
+
+          rich.appendChild(drActionsSection([
+            { label: `${matchedObs.target || "리소스"} 6축 기록 상태 확인`, href: ovBuildItemUrl("dashboard-v2", matchedObs.target || itemId) },
+            { label: "온톨로지 관계도에서 영향 받는 워크로드 보기", href: ovBuildItemUrl("ontology", matchedObs.id || itemId) },
+            { label: "감사 원장에서 분석기 감지 영수증 확인", href: ovBuildItemUrl("audit", matchedObs.id || itemId) },
+          ]));
+          mountRichDrawerSlot(rich, false);
+        }
+      }
+
+      document.addEventListener("click", (ev) => {
+        if (!(ev.target instanceof Element)) return;
+        const trigger = ev.target.closest('.panel-view[data-panel-id="dashboard"] [data-drawer-title]');
+        if (!trigger) return;
+        window.requestAnimationFrame(() => enhanceDashboardDrawer(trigger));
+      });
+      document.addEventListener("keydown", (ev) => {
+        if (ev.key !== "Enter" && ev.key !== " ") return;
+        if (!(ev.target instanceof Element)) return;
+        const trigger = ev.target.closest('.panel-view[data-panel-id="dashboard"] [data-drawer-title]');
+        if (!trigger || trigger.tagName === "BUTTON" || trigger.tagName === "A") return;
+        window.requestAnimationFrame(() => enhanceDashboardDrawer(trigger));
       });
 
       document.getElementById("ovLiveRefreshBtn")?.addEventListener("click", () => {
@@ -7146,6 +8560,7 @@
       });
 
       /* Initial render: strictly isolate Live vs Sample from the very first frame */
+      ovTickerEngine.init();
       if (isLiveModeActive()) {
         applyAllPanelsLiveReset("실측 원장 연결 확인 중...");
       } else {

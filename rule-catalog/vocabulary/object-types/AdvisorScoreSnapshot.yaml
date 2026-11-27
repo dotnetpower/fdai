@@ -1,0 +1,42 @@
+schema_version: 1.0.0
+name: AdvisorScoreSnapshot
+version: 1.0.0
+key: id
+description: Point-in-time Well-Architected Advisor posture score across overall and five pillars with explicit not-measured fidelity.
+properties:
+  id:
+    type: string
+    required: true
+  scope_key:
+    type: string
+    required: true
+    description: Evaluated scope identifier (all, subscription, resource_group, workload).
+  formula_version:
+    type: string
+    required: true
+    description: Deterministic scoring formula version identifier.
+  overall_score_pct:
+    type: number
+    required: false
+    description: Weighted overall Advisor score (0-100); omitted when no pillars are measured.
+  pillar_scores:
+    type: object
+    required: true
+    description: Map of cost, security, reliability, operational_excellence, performance score objects and measurement state.
+  evaluated_resources:
+    type: integer
+    required: true
+  active_recommendations:
+    type: integer
+    required: true
+  recorded_at:
+    type: datetime
+    required: true
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:AdvisorScoreSnapshot@1.0.0
+  content_hash: sha256:fa7e2401baaeea9fcaf57bf81620d9d12a9d015bffe2527909dcfe641dc41d02
+  license: MIT
+  retrieved_at: '2026-11-27T00:00:00Z'
+authority_class: projection_owned
+freshness_max_age_seconds: 900

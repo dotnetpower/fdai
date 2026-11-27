@@ -15,8 +15,13 @@ if [[ -f "$PID_FILE" ]]; then
   sleep 0.5
 fi
 
+CARGO_BUILD_ARGS=(--manifest-path "$ROOT/Cargo.toml" --locked)
+if [[ "${FDAI_CARGO_OFFLINE:-0}" == "1" ]]; then
+  CARGO_BUILD_ARGS+=(--offline)
+fi
+
 echo "[fullstack] Building all 9 Pure-Rust services (6 core + Release Hub + Lifecycle Hub + Console v4)..."
-cargo build --manifest-path "$ROOT/Cargo.toml" --offline \
+cargo build "${CARGO_BUILD_ARGS[@]}" \
   -p fdai-operator-service --bin fdai-operator-service \
   -p fdai-document-ingestion-api --bin fdai-document-ingestion-api \
   -p fdai-document-processing-worker --bin fdai-document-processing-worker \
@@ -123,3 +128,7 @@ wait_url "Release Hub (Axum)"         "http://127.0.0.1:${FDAI_RELEASE_HUB_PORT:
 wait_url "Lifecycle Hub (Axum)"       "http://127.0.0.1:${FDAI_LIFECYCLE_HUB_PORT:-8021}/healthz"
 wait_url "Console v4 (Pure-Rust)"     "http://127.0.0.1:${FDAI_CONSOLE_PORT:-5290}/api/v4/meta"
 echo "[fullstack] ALL PURE-RUST SERVICES READY (PIDs in $PID_FILE)"
+echo "  Console Web (v4): http://127.0.0.1:${FDAI_CONSOLE_PORT:-5290}"
+echo "  Release Hub:      http://127.0.0.1:${FDAI_RELEASE_HUB_PORT:-8022}"
+echo "  Lifecycle Hub:    http://127.0.0.1:${FDAI_LIFECYCLE_HUB_PORT:-8021}"
+echo "  Operator API:     http://127.0.0.1:8010/healthz"

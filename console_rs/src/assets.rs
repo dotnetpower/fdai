@@ -14,6 +14,8 @@ use crate::AppState;
 pub const SHARED_CSS: &str = include_str!("../assets/css/fdai-console-shared.css");
 pub const SHARED_SHELL_JS: &str = include_str!("../assets/js/fdai-console-shell.js");
 pub const LIVE_CLIENT_JS: &str = include_str!("../assets/js/fdai-console-live.js");
+pub const CHAT_ENGINE_JS: &str = include_str!("../assets/js/fdai-chat-engine.js");
+pub const ADVISOR_INLINE_JS: &str = include_str!("../assets/js/fdai-advisor-inline.js");
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -23,6 +25,10 @@ pub fn router() -> Router<AppState> {
         .route("/fdai-console-shell.js", get(serve_shared_shell_js))
         .route("/assets/fdai-console-live.js", get(serve_live_client_js))
         .route("/fdai-console-live.js", get(serve_live_client_js))
+        .route("/assets/fdai-chat-engine.js", get(serve_chat_engine_js))
+        .route("/fdai-chat-engine.js", get(serve_chat_engine_js))
+        .route("/assets/fdai-advisor-inline.js", get(serve_advisor_inline_js))
+        .route("/fdai-advisor-inline.js", get(serve_advisor_inline_js))
         .route("/brand/{*path}", get(serve_brand_asset))
         .route("/azure-icons/{*path}", get(serve_azure_icon))
         .route("/agent-icons/{*path}", get(serve_agent_icon))
@@ -60,6 +66,30 @@ async fn serve_live_client_js() -> Response {
             (header::CACHE_CONTROL, "no-store"),
         ],
         LIVE_CLIENT_JS,
+    )
+        .into_response()
+}
+
+async fn serve_chat_engine_js() -> Response {
+    (
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, "application/javascript; charset=utf-8"),
+            (header::CACHE_CONTROL, "no-store"),
+        ],
+        CHAT_ENGINE_JS,
+    )
+        .into_response()
+}
+
+async fn serve_advisor_inline_js() -> Response {
+    (
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, "application/javascript; charset=utf-8"),
+            (header::CACHE_CONTROL, "no-store"),
+        ],
+        ADVISOR_INLINE_JS,
     )
         .into_response()
 }

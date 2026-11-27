@@ -1,0 +1,46 @@
+schema_version: 1.0.0
+name: AdvisorScopeConfig
+version: 1.0.0
+key: id
+description: Scope inclusion/exclusion and deterministic rule threshold configuration (including VM/VMSS right-sizing CPU thresholds and RI/Savings Plan parameters).
+properties:
+  id:
+    type: string
+    required: true
+  excluded_resource_groups:
+    type: array
+    required: true
+  excluded_subscriptions:
+    type: array
+    required: true
+  low_cpu_threshold_p95:
+    type: integer
+    required: true
+    description: Low CPU utilization P95 percentage threshold for VM/VMSS right-sizing (5, 10, 15, or 20).
+  lookback_days:
+    type: integer
+    required: true
+    description: Telemetry lookback window in days (7, 14, 30, or 60).
+  ri_term:
+    type: string
+    required: true
+    description: Default Reserved Instance / Savings Plan commitment term (P1Y or P3Y).
+  min_monthly_savings_usd:
+    type: number
+    required: true
+    description: Minimum monthly savings cutoff to suppress low-value noise.
+  environment_profile:
+    type: string
+    required: true
+    description: Evaluation strictness profile (balanced, prod_strict, dev_cost_first).
+  updated_at:
+    type: datetime
+    required: true
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:AdvisorScopeConfig@1.0.0
+  content_hash: sha256:50f9655855e6382dafea9fb1c044c5c7e76ebe23348f54cc0639cc38e8483597
+  license: MIT
+  retrieved_at: '2026-11-27T00:00:00Z'
+authority_class: projection_owned
+freshness_max_age_seconds: 900

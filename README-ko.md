@@ -1,7 +1,7 @@
 ---
 translation_of: README.md
-translation_source_sha: 8b357039b60323b195a6b60401b82a66985f70f3
-translation_revised: 2026-10-25
+translation_source_sha: 463c67f0c4214f4c7e2e6f5b95d03b711cd5de92
+translation_revised: 2026-11-27
 ---
 
 # FDAI
@@ -127,8 +127,27 @@ FDAI를 오래 운영할수록 T2 비중은 작아지고 자동 해결 비율은
 
 ## 시작하기
 
+저장소를 복제한 뒤 Rust stable 도구 모음(`rustup` / `cargo`)과 `make`만 있으면
+콘솔 웹(`http://127.0.0.1:5290`)과 Release Hub(`http://127.0.0.1:8022`)를 바로
+실행할 수 있습니다. 로컬 루프백 실행에는 Python, Node.js 빌드 단계, Azure 로그인이
+필요하지 않습니다.
+
+```bash
+# 콘솔 웹(Pure-Rust Console v4) 실행 -> http://127.0.0.1:5290
+make console-v4-up
+
+# Release Hub(Pure-Rust 서버 + 사전 빌드 UI) 실행 -> http://127.0.0.1:8022
+make release-hub-up
+
+# 또는 9개 Pure-Rust 서비스 전체 동시 실행(Core + Operator + Hubs + Console v4)
+make rust-fullstack-up
+# 전체 서비스 중지
+make rust-fullstack-down
+```
+
+- **로컬 빠른 시작(콘솔 웹, Release Hub, Docker DB)**: [docs/user-guide/local-development-quickstart-ko.md](docs/user-guide/local-development-quickstart-ko.md)
+- **개발자 점검 목록**: [DEVELOPING.md](DEVELOPING.md)
 - **사용자 가이드**: [docs/user-guide/get-started-ko.md](docs/user-guide/get-started-ko.md)
-- **로컬 개발**: [docs/user-guide/local-development-quickstart-ko.md](docs/user-guide/local-development-quickstart-ko.md)
 - **Azure 배포**: [docs/user-guide/deploy-quickstart-ko.md](docs/user-guide/deploy-quickstart-ko.md).
   복제 후 배포는 `hub.msfdai.com`을 통해 서명된 이미지를 선택합니다. 명시적 소스 및
   오프라인 설치도 유지하며, Release Hub 운영자는 자체 신고된 구독 요청을 조회할 수 있습니다.
@@ -143,7 +162,9 @@ FDAI를 오래 운영할수록 T2 비중은 작아지고 자동 해결 비율은
 
 | 학습 대상 | 문서 |
 |-----------|------|
-| Docker 및 전체 로컬 스택 | [docs/user-guide/local-development-quickstart-ko.md](docs/user-guide/local-development-quickstart-ko.md) |
+| 콘솔 웹, Release Hub 및 로컬 스택 실행 | [docs/user-guide/local-development-quickstart-ko.md](docs/user-guide/local-development-quickstart-ko.md) |
+| 로컬 개발 설정 점검 목록 | [DEVELOPING.md](DEVELOPING.md) |
+| Release Hub 로컬 실행 및 UI 안내 | [lifecycle_rs/release-hub/README.md](lifecycle_rs/release-hub/README.md) |
 | Azure 구독 배포 | [docs/user-guide/deploy-quickstart-ko.md](docs/user-guide/deploy-quickstart-ko.md) |
 | 컨트롤 루프와 3-tier 라우팅 | [architecture.instructions.md](.github/instructions/architecture.instructions.md) |
 | 배포 토폴로지 (headless core + PR delivery + thin console + ChatOps) | [app-shape.instructions.md](.github/instructions/app-shape.instructions.md) |

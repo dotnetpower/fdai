@@ -1,0 +1,16 @@
+schema_version: "1.0.0"
+name: retirement_affects_resource
+version: "1.0.0"
+from_type: ServiceRetirementNotice
+to_type: Resource
+cardinality: many_to_many
+forward_role: affects_resource
+reverse_role: subject_to_retirement
+semantic_traits: [dependency, evidence]
+description: Connects a tracked ServiceRetirementNotice to impacted live cloud resources.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:retirement_affects_resource@1.0.0
+  content_hash: sha256:d0e33acc023fbcddcbc465bb62937ecddc7fc3cdb4e16cc1dbbcdd28fb9c6ce0
+  license: MIT
+  retrieved_at: "2026-11-27T00:00:00Z"

@@ -5,9 +5,20 @@
 //! (`DbHandle::execute_audited_kv_mutation`). Never fabricates `0` when unreachable.
 
 use crate::db::{cell_i64, cell_str, clamp_limit, quote_like_contains, DbHandle};
+use crate::governance_security_policy::{
+    format_kst_ymd_date, kev_alert_watermark_triggered, promotion_gate_margin_passed,
+    security_coverage_ratio, wilson_assurance_lb95, SecurityGovernanceAssurance,
+};
+use crate::lineage_graph_layout::{
+    lineage_coverage_wilson_lb95, lineage_stage_ratio, LineageGraphMetrics,
+};
 use fdai_adapter_postgres::pg_quote_literal;
 use serde_json::{json, Map, Value};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const MANDATORY_SEVERITIES_SQL: &str =
     "('critical', 'high', 'sev1', 'sev2', 'p0', 'p1', '긴급', '높음')";
@@ -48,6 +59,93 @@ pub fn ontology_type_label_ko(object_type: &str) -> &'static str {
 }
 
 #[must_use]
+pub fn is_uuid_like(raw: &str) -> bool {
+    let b = raw.trim().as_bytes();
+    if b.len() != 36 {
+        return false;
+    }
+    b.iter().enumerate().all(|(idx, ch)| match idx {
+        8 | 13 | 18 | 23 => *ch == b'-',
+        _ => ch.is_ascii_hexdigit(),
+    })
+}
+
+#[must_use]
+pub fn resource_type_label_ko(raw: &str) -> &'static str {
+    let s = raw.trim();
+    if s.eq_ignore_ascii_case("resource-group") || s.eq_ignore_ascii_case("resourcegroup") {
+        return "리소스 그룹";
+    }
+    if s.eq_ignore_ascii_case("authorization.role-assignment") || s.eq_ignore_ascii_case("role-assignment") {
+        return "RBAC 역할 할당";
+    }
+    if s.eq_ignore_ascii_case("anomaly-alert-rule") || s.eq_ignore_ascii_case("smartdetectoralertrules") {
+        return "이상 탐지 알림 규칙";
+    }
+    if s.eq_ignore_ascii_case("api-gateway") || s.eq_ignore_ascii_case("api-management") {
+        return "API 게이트웨이";
+    }
+    if s.eq_ignore_ascii_case("llm-endpoint") || s.eq_ignore_ascii_case("cognitive-account") {
+        return "AI 모델 엔드포인트";
+    }
+    if s.eq_ignore_ascii_case("compute.container-app-job") {
+        return "컨테이너 앱 작업";
+    }
+    if s.eq_ignore_ascii_case("compute.container-app") {
+        return "컨테이너 앱";
+    }
+    if s.eq_ignore_ascii_case("compute.vm-scale-set") {
+        return "가상 머신 확장 집합 (VMSS)";
+    }
+    if s.eq_ignore_ascii_case("compute.vm") || s.eq_ignore_ascii_case("compute.virtual-machine") {
+        return "가상 머신 (VM)";
+    }
+    if s.eq_ignore_ascii_case("kubernetes-cluster") || s.eq_ignore_ascii_case("compute.kubernetes-cluster") {
+        return "AKS 쿠버네티스 클러스터";
+    }
+    if s.eq_ignore_ascii_case("kubernetes-node-pool") {
+        return "AKS 노드 풀";
+    }
+    if s.eq_ignore_ascii_case("network.load-balancer") {
+        return "로드 밸런서";
+    }
+    if s.eq_ignore_ascii_case("network.virtual-network") {
+        return "가상 네트워크 (VNet)";
+    }
+    if s.eq_ignore_ascii_case("network.nsg") || s.eq_ignore_ascii_case("network.network-security-group") {
+        return "네트워크 보안 그룹 (NSG)";
+    }
+    if s.eq_ignore_ascii_case("network.private-endpoint") {
+        return "비공개 엔드포인트 (PE)";
+    }
+    if s.eq_ignore_ascii_case("network.public-ip") {
+        return "공용 IP 주소";
+    }
+    if s.eq_ignore_ascii_case("security.key-vault") || s.eq_ignore_ascii_case("key-vault") {
+        return "키 볼트 (Key Vault)";
+    }
+    if s.eq_ignore_ascii_case("managed-identity") {
+        return "관리 ID";
+    }
+    if s.eq_ignore_ascii_case("database.postgresql") || s.eq_ignore_ascii_case("postgresql-flexible") {
+        return "PostgreSQL 데이터베이스";
+    }
+    if s.eq_ignore_ascii_case("storage.account") || s.eq_ignore_ascii_case("storage-account") {
+        return "스토리지 계정";
+    }
+    if s.eq_ignore_ascii_case("disk") {
+        return "관리 디스크";
+    }
+    if s.eq_ignore_ascii_case("cache") || s.eq_ignore_ascii_case("cache-redis") {
+        return "캐시 서비스";
+    }
+    if s.eq_ignore_ascii_case("ResourceType") {
+        return "리소스 유형";
+    }
+    ""
+}
+
+#[must_use]
 pub fn resolve_ontology_display_name(id: &str, object_type: &str, props: &Value) -> String {
     let pick = |key: &str| -> Option<String> {
         props
@@ -57,7 +155,25 @@ pub fn resolve_ontology_display_name(id: &str, object_type: &str, props: &Value)
             .filter(|s| !s.is_empty())
             .map(String::from)
     };
+    let rt_raw = pick("resource_type").unwrap_or_default();
+    let rt_ko = resource_type_label_ko(&rt_raw);
+    let format_uuid_label = |uuid_str: &str| -> String {
+        let short: String = uuid_str.chars().take(8).collect();
+        if let Some(role_name) = pick("role_definition_name").or_else(|| pick("role_name")) {
+            return format!("{role_name} · {short}");
+        }
+        if !rt_ko.is_empty() {
+            return format!("{rt_ko} · {short}");
+        }
+        if id.to_ascii_lowercase().contains("roleassignments/") {
+            return format!("RBAC 역할 할당 · {short}");
+        }
+        format!("{} · {short}", ontology_type_label_ko(object_type))
+    };
     if let Some(name) = pick("name") {
+        if is_uuid_like(&name) {
+            return format_uuid_label(&name);
+        }
         return name;
     }
     if let Some(title) = pick("title") {
@@ -73,8 +189,12 @@ pub fn resolve_ontology_display_name(id: &str, object_type: &str, props: &Value)
         }
         return readable;
     }
-    if let Some(ptype) = pick("provider_type") {
-        return format!("{id} ({ptype})");
+    if pick("provider_type").is_some() {
+        let ko = resource_type_label_ko(id);
+        if !ko.is_empty() {
+            return ko.to_string();
+        }
+        return id.replace(['-', '_'], " ");
     }
     if let Some(sem) = pick("semantic_id") {
         let short_id = id.strip_prefix("property.").unwrap_or(id);
@@ -83,16 +203,16 @@ pub fn resolve_ontology_display_name(id: &str, object_type: &str, props: &Value)
     if let Some(rest) = id.strip_prefix("review-") {
         let short: String = rest.chars().take(8).collect();
         let st = pick("status").unwrap_or_else(|| "open".to_string());
-        return format!("검토 케이스 #{short} ({st})");
+        return format!("검토 케이스 · {short} ({st})");
     }
     if let Some(rest) = id.strip_prefix("check-") {
         let short: String = rest.chars().take(8).collect();
         let st = pick("status").unwrap_or_else(|| "open".to_string());
-        return format!("검토 점검 #{short} ({st})");
+        return format!("검토 점검 · {short} ({st})");
     }
     if let Some(rest) = id.strip_prefix("benchmark-validation:") {
         let short: String = rest.chars().take(8).collect();
-        return format!("벤치마크 검증 #{short}");
+        return format!("벤치마크 검증 · {short}");
     }
     let stripped = id
         .strip_prefix("rule-objective-binding:")
@@ -104,13 +224,24 @@ pub fn resolve_ontology_display_name(id: &str, object_type: &str, props: &Value)
     let clean = stripped.split('@').next().unwrap_or(stripped);
     if clean.contains('/') {
         if let Some(last) = clean.rsplit('/').next().filter(|s| !s.is_empty()) {
+            if is_uuid_like(last) {
+                return format_uuid_label(last);
+            }
             return last.to_string();
         }
+    }
+    if is_uuid_like(clean) {
+        return format_uuid_label(clean);
     }
     if clean.is_empty() {
         ontology_type_label_ko(object_type).to_string()
     } else {
-        clean.to_string()
+        let ko = resource_type_label_ko(clean);
+        if !ko.is_empty() {
+            ko.to_string()
+        } else {
+            clean.to_string()
+        }
     }
 }
 
@@ -716,9 +847,12 @@ pub async fn fetch_ontology_instances_explore(
                 .map(|row| {
                     let nid = cell_str(row, 0);
                     let ot = cell_str(row, 2);
+                    let rt = cell_str(row, 4);
                     let props: Value =
                         serde_json::from_str(&cell_str(row, 6)).unwrap_or_else(|_| json!({}));
                     let dname = resolve_ontology_display_name(&nid, &ot, &props);
+                    let (sub, rg) = extract_sub_and_rg(&nid, &props);
+                    let rt_ko = resource_type_label_ko(&rt);
                     json!({
                         "id": nid,
                         "hop": cell_i64(row, 1),
@@ -726,7 +860,10 @@ pub async fn fetch_ontology_instances_explore(
                         "object_type_ko": ontology_type_label_ko(&ot),
                         "name": dname,
                         "display_name": dname,
-                        "resource_type": cell_str(row, 4),
+                        "resource_type": rt,
+                        "resource_type_ko": if rt_ko.is_empty() { ontology_type_label_ko(&ot) } else { rt_ko },
+                        "subscription": sub,
+                        "resource_group": rg,
                         "location": cell_str(row, 5),
                     })
                 })
@@ -1266,7 +1403,35 @@ pub async fn fetch_rules_filtered(
     limit: Option<usize>,
     offset: Option<usize>,
 ) -> Value {
-    let lim = clamp_limit(limit, 100, 200);
+    fetch_rules_filtered_view(
+        db,
+        activation_state,
+        search,
+        severity_filter,
+        category_filter,
+        origin_filter,
+        framework_filter,
+        limit,
+        offset,
+        false,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn fetch_rules_filtered_view(
+    db: &DbHandle,
+    activation_state: Option<&str>,
+    search: Option<&str>,
+    severity_filter: Option<&str>,
+    category_filter: Option<&str>,
+    origin_filter: Option<&str>,
+    framework_filter: Option<&str>,
+    limit: Option<usize>,
+    offset: Option<usize>,
+    summary_only: bool,
+) -> Value {
+    let lim = clamp_limit(limit, if summary_only { 30 } else { 100 }, 200);
     let off = offset.unwrap_or(0).min(100_000);
 
     let summary_sql = format!(
@@ -1548,56 +1713,83 @@ pub async fn fetch_rules_filtered(
             )
         };
 
-        rules.push(json!({
-            "id": rule_id,
-            "rule_id": rule_id,
-            "title": title_ko,
-            "title_ko": title_ko,
-            "title_en": title_en,
-            "description_ko": description_ko,
-            "description_en": description_en,
-            "summary": summary_ko,
-            "category": category,
-            "severity": severity,
-            "origin": if enabled { "active" } else { origin.as_str() },
-            "raw_origin": origin,
-            "source": source,
-            "resource_type": resource_type,
-            "remediates": remediation_action,
-            "remediation_action": remediation_action,
-            "remediation_template_ref": remediation_template_ref,
-            "evaluated_properties": evaluated_properties,
-            "trigger_signals": trigger_signals,
-            "check_logic_kind": check_logic_kind,
-            "check_logic_ref": check_ref,
-            "check_logic_body": check_logic_body,
-            "condition": condition_display,
-            "parameters": params_val,
-            "source_url": source_url,
-            "current_state_ko": current_state_ko,
-            "recommended_config_ko": recommended_config_ko,
-            "benefit_ko": benefit_ko,
-            "verify_ko": verify_ko,
-            "baseline_outcomes": baseline_outcomes,
-            "findings_24h": outcome.map_or(0, |o| o.violated),
-            "mode": mode,
-            "enabled": enabled,
-            "mandatory_active": mandatory_active,
-            "can_deactivate": can_deactivate,
-            "activation_updated_by": updated_by,
-            "activation_reason": reason,
-            "activation_policy": if mandatory_active { "mandatory_critical_high" } else { "operator_configurable" }
-        }));
+        if summary_only {
+            rules.push(json!({
+                "id": rule_id,
+                "rule_id": rule_id,
+                "title": title_ko,
+                "title_ko": title_ko,
+                "title_en": title_en,
+                "summary": utf8_truncate(&summary_ko, 180),
+                "category": category,
+                "severity": severity,
+                "origin": if enabled { "active" } else { origin.as_str() },
+                "source": source,
+                "resource_type": resource_type,
+                "remediation_action": remediation_action,
+                "findings_24h": outcome.map_or(0, |o| o.violated),
+                "mode": mode,
+                "enabled": enabled,
+                "mandatory_active": mandatory_active,
+                "can_deactivate": can_deactivate,
+                "detail_loaded": false
+            }));
+        } else {
+            rules.push(json!({
+                "id": rule_id,
+                "rule_id": rule_id,
+                "title": title_ko,
+                "title_ko": title_ko,
+                "title_en": title_en,
+                "description_ko": description_ko,
+                "description_en": description_en,
+                "summary": summary_ko,
+                "category": category,
+                "severity": severity,
+                "origin": if enabled { "active" } else { origin.as_str() },
+                "raw_origin": origin,
+                "source": source,
+                "resource_type": resource_type,
+                "remediates": remediation_action,
+                "remediation_action": remediation_action,
+                "remediation_template_ref": remediation_template_ref,
+                "evaluated_properties": evaluated_properties,
+                "trigger_signals": trigger_signals,
+                "check_logic_kind": check_logic_kind,
+                "check_logic_ref": check_ref,
+                "check_logic_body": check_logic_body,
+                "condition": condition_display,
+                "parameters": params_val,
+                "source_url": source_url,
+                "current_state_ko": current_state_ko,
+                "recommended_config_ko": recommended_config_ko,
+                "benefit_ko": benefit_ko,
+                "verify_ko": verify_ko,
+                "baseline_outcomes": baseline_outcomes,
+                "findings_24h": outcome.map_or(0, |o| o.violated),
+                "mode": mode,
+                "enabled": enabled,
+                "mandatory_active": mandatory_active,
+                "can_deactivate": can_deactivate,
+                "activation_updated_by": updated_by,
+                "activation_reason": reason,
+                "activation_policy": if mandatory_active { "mandatory_critical_high" } else { "operator_configurable" },
+                "detail_loaded": true
+            }));
+        }
     }
 
-    json!({
+    let has_more = off.saturating_add(rules.len()) < (filtered_total.max(0) as usize);
+    let mut payload = json!({
         "measurement_status": "measured",
         "source": "postgres-direct",
+        "view": if summary_only { "summary" } else { "full" },
         "mandatory_severities": ["critical", "high"],
         "total": total_all,
         "filtered_total": filtered_total,
         "limit": lim,
         "offset": off,
+        "has_more": has_more,
         "facets": {
             "by_origin": {
                 "active": enabled_total,
@@ -1618,9 +1810,55 @@ pub async fn fetch_rules_filtered(
             "enabled_count": enabled_total,
             "disabled_count": disabled_total
         },
-        "rules": rules,
-        "items": rules
-    })
+        "rules": rules
+    });
+    if !summary_only {
+        if let Some(obj) = payload.as_object_mut() {
+            let items_clone = obj.get("rules").cloned().unwrap_or_else(|| json!([]));
+            obj.insert("items".to_string(), items_clone);
+        }
+    }
+    payload
+}
+
+pub async fn fetch_rule_detail(db: &DbHandle, rule_id: &str) -> Value {
+    let res = fetch_rules_filtered_view(
+        db,
+        None,
+        Some(rule_id),
+        None,
+        None,
+        None,
+        None,
+        Some(10),
+        Some(0),
+        false,
+    )
+    .await;
+    if res.get("measurement_status").and_then(Value::as_str) != Some("measured") {
+        return res;
+    }
+    let found = res
+        .get("rules")
+        .and_then(Value::as_array)
+        .and_then(|arr| {
+            arr.iter()
+                .find(|r| r.get("id").and_then(Value::as_str) == Some(rule_id))
+                .or_else(|| arr.first())
+        })
+        .cloned();
+    match found {
+        Some(rule) => json!({
+            "measurement_status": "measured",
+            "source": "postgres-direct",
+            "rule": rule
+        }),
+        None => json!({
+            "measurement_status": "measured",
+            "source": "postgres-direct",
+            "rule": Value::Null
+        }),
+    }
 }
 
 pub async fn fetch_rules_findings_summary(db: &DbHandle) -> Value {
@@ -1850,7 +2088,8 @@ pub async fn fetch_trust_routing(db: &DbHandle, window: Option<&str>) -> Value {
                       COALESCE(entry->>'gate_route', entry->>'t1_outcome', 'observed'), \
                       COALESCE(entry->>'source', actor), \
                       COALESCE(entry->>'resource_type', entry->>'event_type', action_kind), \
-                      COALESCE(entry->>'reason', entry->>'t1_reason', entry->>'stage', action_kind) \
+                      COALESCE(entry->>'reason', entry->>'t1_reason', entry->>'stage', action_kind), \
+                      to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
                       FROM audit_log \
                       WHERE action_kind IN ('measurement.control_loop.v1', 'control_loop.t1_evaluate', \
                                             'control_loop.compliant', 'control_loop.abstain') \
@@ -1952,6 +2191,7 @@ pub async fn fetch_trust_routing(db: &DbHandle, window: Option<&str>) -> Value {
                     json!({
                         "seq": cell_i64(row, 0),
                         "time": cell_str(row, 1),
+                        "created_at": cell_str(row, 8),
                         "action_kind": cell_str(row, 2),
                         "tier": cell_str(row, 3).to_ascii_uppercase(),
                         "gate_route": cell_str(row, 4),
@@ -2891,7 +3131,8 @@ pub async fn fetch_promotion_gates(
                     action_kind, \
                     actor, \
                     COALESCE(NULLIF(entry->>'action_type_name', ''), NULLIF(entry->>'action_type', ''), NULLIF(entry->>'target', ''), action_kind), \
-                    COALESCE(NULLIF(entry->>'reason', ''), NULLIF(entry->>'outcome', ''), NULLIF(entry->>'mode', ''), '') \
+                    COALESCE(NULLIF(entry->>'reason', ''), NULLIF(entry->>'outcome', ''), NULLIF(entry->>'mode', ''), ''), \
+                    to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
                     FROM audit_log \
                     WHERE action_kind ILIKE '%promot%' OR action_kind ILIKE '%recall%' OR action_kind ILIKE '%demot%' \
                     ORDER BY seq DESC LIMIT 12";
@@ -2975,6 +3216,7 @@ pub async fn fetch_promotion_gates(
                     json!({
                         "seq": cell_i64(row, 0),
                         "time": cell_str(row, 1),
+                        "created_at": cell_str(row, 6),
                         "action_kind": cell_str(row, 2),
                         "actor": cell_str(row, 3),
                         "target": cell_str(row, 4),
@@ -3373,42 +3615,11 @@ pub async fn fetch_frameworks(
         );
         (a, b, Some(c))
     } else {
-        let search_clause = match clean_opt(search) {
-            Some(q) => {
-                let pat = quote_like_contains(q);
-                format!(
-                    " AND (COALESCE(d.val->>'id','') ILIKE {pat} ESCAPE '\\' \
-                     OR COALESCE(d.val->'explanation'->'details'->>'title_ko','') ILIKE {pat} ESCAPE '\\')"
-                )
-            }
-            None => String::new(),
-        };
-        let msrc_list_sql = format!(
-            "SELECT \
-                COALESCE(d.val->>'id', ''), \
-                COALESCE(d.val->>'id', ''), \
-                COALESCE(d.val->'explanation'->'details'->>'title_ko', d.val->'explanation'->>'title', d.val->>'id', ''), \
-                COALESCE(d.val->>'category', 'security'), \
-                COALESCE(d.val->>'severity', 'high'), \
-                COALESCE(d.val->'explanation'->'details'->>'description_ko', ''), \
-                COALESCE(d.val->'provenance'->>'source_url', ''), \
-                'security-owner', \
-                COALESCE(d.val->>'origin', 'collected'), \
-                '{{}}', \
-                '[]', \
-                '[]' \
-             FROM state_kv sk, jsonb_each(sk.value->'details') AS d(k, val) \
-             WHERE sk.key = 'operator-projection:workflow:rule.list' \
-               AND lower(COALESCE(d.val->>'source','')) IN ('msrc', 'msrc_csaf', 'csaf', 'security_advisory') \
-               {search_clause} \
-             LIMIT {lim} OFFSET {off}"
-        );
-        let (a, b, c) = tokio::join!(
+        let (a, b) = tokio::join!(
             db.query_single_readonly(counts_sql),
             db.query_single_readonly(msrc_cnt_sql),
-            db.query_single_readonly(&msrc_list_sql),
         );
-        (a, b, Some(c))
+        (a, b, None)
     };
 
     let Ok(cq) = counts_res else {
@@ -3454,7 +3665,7 @@ pub async fn fetch_frameworks(
         eval_sources.insert(fw_name.to_string(), Value::String(esrc));
     }
 
-    let (msrc_cnt, security_rule_cnt) = msrc_res
+    let (rule_list_msrc_cnt, security_rule_cnt) = msrc_res
         .ok()
         .and_then(|r| r.rows.first().cloned())
         .map(|row| {
@@ -3465,8 +3676,135 @@ pub async fn fetch_frameworks(
         })
         .unwrap_or((0, 0));
 
+    let msrc_catalog = load_msrc_csaf_catalog_async().await;
+    let (msrc_proj_cnt, runtime_cves, _rt_db_ok) =
+        fetch_msrc_projection_and_runtime_cves(db).await;
+    let catalog_cve_cnt = msrc_catalog.cves.len() as i64;
+    let msrc_cnt = msrc_proj_cnt.max(catalog_cve_cnt).max(rule_list_msrc_cnt);
+    let msrc_eval_source = if msrc_proj_cnt > 0 {
+        "msrc-csaf-shadow-assessment"
+    } else if catalog_cve_cnt > 0 {
+        "repository-catalog"
+    } else {
+        "state_kv"
+    };
+    versions.insert(
+        "msrc".to_string(),
+        Value::String(msrc_catalog.source_revision.clone()),
+    );
+    eval_sources.insert("msrc".to_string(), Value::String(msrc_eval_source.to_string()));
+
     let mut controls: Vec<Value> = Vec::new();
-    if let Some(Ok(lq)) = controls_res {
+    if target_fw == "msrc" {
+        let filtered = query_msrc_cves_from_cache(
+            msrc_catalog,
+            &runtime_cves,
+            search,
+            None,
+            None,
+            None,
+            false,
+            lim,
+            off,
+        );
+        for item in filtered.items {
+            let cve_id = item
+                .get("cve_id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            let title_ko = item
+                .get("title_ko")
+                .or_else(|| item.get("title"))
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            let title_en = item
+                .get("title_en")
+                .or_else(|| item.get("title"))
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            let sev = item
+                .get("severity")
+                .and_then(Value::as_str)
+                .unwrap_or("medium")
+                .to_string();
+            let exploit = item
+                .get("exploit_status")
+                .and_then(Value::as_str)
+                .unwrap_or("unproven")
+                .to_string();
+            let priority = item
+                .get("priority_tier")
+                .and_then(Value::as_str)
+                .unwrap_or("P2")
+                .to_string();
+            let sla_ko = item
+                .get("kev_sla_ko")
+                .and_then(Value::as_str)
+                .unwrap_or("표준 조치")
+                .to_string();
+            let runtime_hit = item
+                .get("runtime_detected")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            let area_ko = if runtime_hit {
+                "런타임 실측 탐지 CVE".to_string()
+            } else if exploit == "exploited" {
+                "실제 악용 확인 (KEV)".to_string()
+            } else if item
+                .get("publicly_disclosed")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+            {
+                "공개 취약점 (0-Day 위험)".to_string()
+            } else {
+                item.get("primary_product_name")
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or("MSRC CSAF 보안 권고")
+                    .to_string()
+            };
+            let sat = if runtime_hit || exploit == "exploited" {
+                "failed"
+            } else {
+                "unknown"
+            };
+            let rationale = item
+                .get("remediation_summary")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            let source_url = item
+                .get("source_url")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            let rec_actions = item
+                .get("recommended_actions")
+                .cloned()
+                .unwrap_or_else(|| json!([]));
+            controls.push(json!({
+                "control_id": cve_id,
+                "id": cve_id,
+                "framework": "msrc",
+                "title": title_en,
+                "title_ko": format!("[{priority} · {sla_ko}] {title_ko}"),
+                "area": exploit,
+                "area_ko": area_ko,
+                "severity": sev,
+                "rationale": utf8_truncate(&rationale, 500),
+                "source_url": source_url,
+                "owner_slot": "security-owner",
+                "satisfaction": sat,
+                "enablement": { "mode": if runtime_hit { "enforce" } else { "shadow" } },
+                "crosswalk": item.get("affected_products").cloned().unwrap_or_else(|| json!([])),
+                "rule_ids": rec_actions,
+                "cve_detail": item
+            }));
+        }
+    } else if let Some(Ok(lq)) = controls_res {
         for row in &lq.rows {
             let control_id = cell_str(row, 0);
             let raw_id = cell_str(row, 1);
@@ -3535,6 +3873,13 @@ pub async fn fetch_frameworks(
         .unwrap_or("state_kv")
         .to_string();
 
+    let runtime_cve_count = runtime_cves.len() as i64;
+    let msrc_runtime_matched = msrc_catalog
+        .cves
+        .iter()
+        .filter(|c| runtime_cves.contains(&c.cve_id))
+        .count() as i64;
+
     json!({
         "measurement_status": "measured",
         "source": "postgres-direct",
@@ -3548,6 +3893,17 @@ pub async fn fetch_frameworks(
             "wara": wara_cnt,
             "waf": waf_cnt,
             "msrc": msrc_cnt
+        },
+        "msrc_summary": {
+            "total_cves": msrc_catalog.cves.len(),
+            "total_advisories": msrc_catalog.total_advisories,
+            "exploited_count": msrc_catalog.exploited_count,
+            "publicly_disclosed_count": msrc_catalog.publicly_disclosed_count,
+            "product_mapping_count": msrc_catalog.product_mapping_count,
+            "runtime_detected_cves": runtime_cve_count,
+            "runtime_msrc_matched": msrc_runtime_matched,
+            "source_revision": msrc_catalog.source_revision,
+            "evaluation_source": msrc_eval_source
         },
         "msrc_security_rules_linked": security_rule_cnt,
         "total_frameworks_controls": mcsb_cnt + caf_cnt + wara_cnt + waf_cnt + msrc_cnt,
@@ -3877,3 +4233,2311 @@ fn active_rule_guidance_ko(
         _ => None,
     }
 }
+
+// ============================================================================
+// Security Governance: MSRC CSAF 9,058 CVEs + Unknown-Vulnerability (0-Day)
+// LLM Lenses, Interprocedural Engines, Dynamic Proof & Live DB Crosswalk
+// ============================================================================
+
+#[derive(Clone, Debug)]
+pub struct MsrcProductRef {
+    pub product_id: String,
+    pub product_name: String,
+    pub canonical_resource_types: Vec<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct MsrcCveEntry {
+    pub cve_id: String,
+    pub tracking_id: String,
+    pub title: String,
+    pub severity: String,
+    pub cvss_base_score: f64,
+    pub cvss_temporal_score: f64,
+    pub cvss_vector: String,
+    pub exploit_status: String,
+    pub publicly_disclosed: bool,
+    pub priority_tier: String,
+    pub kev_sla_tier: String,
+    pub kev_sla_ko: String,
+    pub release_date: String,
+    pub source_url: String,
+    pub signature_verified: bool,
+    pub affected_product_ids: Vec<String>,
+    pub primary_product_name: String,
+    pub canonical_resource_types: Vec<String>,
+    pub remediation_summary: String,
+    pub recommended_actions: Vec<String>,
+    pub search_blob: String,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct MsrcCsafCatalogCache {
+    pub source_revision: String,
+    pub advisories_digest: String,
+    pub crosswalk_digest: String,
+    pub total_advisories: usize,
+    pub product_mapping_count: usize,
+    pub exploited_count: usize,
+    pub publicly_disclosed_count: usize,
+    pub critical_count: usize,
+    pub high_count: usize,
+    pub medium_count: usize,
+    pub low_count: usize,
+    pub loaded_at_unix: u64,
+    pub cves: Vec<MsrcCveEntry>,
+}
+
+#[derive(Clone, Debug)]
+pub struct UnknownVulnLensEntry {
+    pub id: String,
+    pub title_ko: String,
+    pub weakness_class: String,
+    pub cwes: Vec<String>,
+    pub languages: Vec<String>,
+    pub sink_hint_count: usize,
+    pub focus: String,
+    pub quorum: u64,
+    pub mode: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct AnalysisComponentEntry {
+    pub id: String,
+    pub version: String,
+    pub purpose: String,
+    pub status: String,
+    pub license: String,
+    pub integration: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct SecurityPolicyDocSummary {
+    pub id: String,
+    pub title_ko: String,
+    pub file: String,
+    pub version: String,
+    pub item_count: usize,
+    pub summary_ko: String,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct CodeSecurityCatalogCache {
+    pub lenses: Vec<UnknownVulnLensEntry>,
+    pub lens_languages: Vec<String>,
+    pub lens_quorum: u64,
+    pub lens_limits: BTreeMap<String, String>,
+    pub analysis_components: Vec<AnalysisComponentEntry>,
+    pub analysis_rule_files: Vec<String>,
+    pub proof_harnesses: Vec<String>,
+    pub policy_docs: Vec<SecurityPolicyDocSummary>,
+    pub loaded_at_unix: u64,
+}
+
+#[derive(Clone, Debug)]
+struct FilteredCvePage {
+    total_filtered: usize,
+    items: Vec<Value>,
+}
+
+const MAX_CATALOG_FILE_BYTES: u64 = 16 * 1024 * 1024;
+const MAX_MSRC_SHARDS: usize = 64;
+const MAX_RUNTIME_CVE_ROWS: usize = 200;
+
+static MSRC_CSAF_CACHE: OnceLock<MsrcCsafCatalogCache> = OnceLock::new();
+static CODE_SECURITY_CACHE: OnceLock<CodeSecurityCatalogCache> = OnceLock::new();
+
+fn read_catalog_file_bounded(path: &Path) -> Option<String> {
+    let meta = fs::symlink_metadata(path).ok()?;
+    if meta.file_type().is_symlink() || !meta.is_file() || meta.len() > MAX_CATALOG_FILE_BYTES {
+        return None;
+    }
+    fs::read_to_string(path).ok()
+}
+
+fn encode_query_component(raw: &str) -> String {
+    let mut out = String::with_capacity(raw.len());
+    for b in raw.bytes() {
+        if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'~' | b':') {
+            out.push(char::from(b));
+        } else {
+            use std::fmt::Write as _;
+            let _ = write!(out, "%{b:02X}");
+        }
+    }
+    out
+}
+
+fn sanitize_https_url(raw: &str) -> String {
+    let trimmed = raw.trim();
+    if trimmed.starts_with("https://") && !trimmed.chars().any(char::is_control) {
+        trimmed.to_string()
+    } else {
+        String::new()
+    }
+}
+
+fn now_unix_secs() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+async fn load_msrc_csaf_catalog_async() -> &'static MsrcCsafCatalogCache {
+    if let Some(cached) = MSRC_CSAF_CACHE.get() {
+        return cached;
+    }
+    tokio::task::spawn_blocking(load_msrc_csaf_catalog_cached)
+        .await
+        .unwrap_or_else(|_| load_msrc_csaf_catalog_cached())
+}
+
+async fn load_code_security_governance_async() -> &'static CodeSecurityCatalogCache {
+    if let Some(cached) = CODE_SECURITY_CACHE.get() {
+        return cached;
+    }
+    tokio::task::spawn_blocking(load_code_security_governance_cached)
+        .await
+        .unwrap_or_else(|_| load_code_security_governance_cached())
+}
+
+fn resolve_rule_catalog_root() -> Option<PathBuf> {
+    if let Ok(cwd) = std::env::current_dir() {
+        let direct = cwd.join("rule-catalog");
+        if direct.is_dir() {
+            return Some(direct);
+        }
+        if let Some(parent) = cwd.parent() {
+            let up = parent.join("rule-catalog");
+            if up.is_dir() {
+                return Some(up);
+            }
+        }
+    }
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+    if let Some(repo) = manifest.parent() {
+        let rc = repo.join("rule-catalog");
+        if rc.is_dir() {
+            return Some(rc);
+        }
+    }
+    None
+}
+
+fn classify_cve_priority_and_sla(
+    severity: &str,
+    exploit_status: &str,
+    publicly_disclosed: bool,
+    cvss: f64,
+) -> (&'static str, &'static str, &'static str) {
+    let sev = severity.trim().to_ascii_lowercase();
+    let exp = exploit_status.trim().to_ascii_lowercase();
+    if exp == "exploited" {
+        ("P0", "immediate_24h", "24시간 긴급 조치 (KEV)")
+    } else if publicly_disclosed || sev == "critical" || cvss >= 9.0 {
+        ("P1", "urgent_72h", "72시간 우선 조치")
+    } else if exp == "exploitation_more_likely" || sev == "high" || cvss >= 7.0 {
+        ("P2", "high_14d", "14일 이내 조치")
+    } else if sev == "medium" || cvss >= 4.0 {
+        ("P3", "standard_30d", "30일 표준 조치")
+    } else {
+        ("P3", "monitor_90d", "90일 정기 모니터링")
+    }
+}
+
+fn severity_sort_rank(severity: &str) -> u8 {
+    match severity.trim().to_ascii_lowercase().as_str() {
+        "critical" => 0,
+        "high" => 1,
+        "medium" => 2,
+        "low" => 3,
+        _ => 4,
+    }
+}
+
+fn exploit_sort_rank(exploit: &str, publicly_disclosed: bool) -> u8 {
+    match exploit.trim().to_ascii_lowercase().as_str() {
+        "exploited" => 0,
+        "exploitation_more_likely" => 1,
+        _ if publicly_disclosed => 2,
+        "exploitation_less_likely" => 3,
+        "exploitation_unlikely" => 4,
+        _ => 5,
+    }
+}
+
+#[must_use]
+pub fn load_msrc_csaf_catalog_cached() -> &'static MsrcCsafCatalogCache {
+    MSRC_CSAF_CACHE.get_or_init(build_msrc_csaf_catalog)
+}
+
+fn build_msrc_csaf_catalog() -> MsrcCsafCatalogCache {
+    let Some(rc_root) = resolve_rule_catalog_root() else {
+        return MsrcCsafCatalogCache::default();
+    };
+    let msrc_dir = rc_root.join("collected").join("msrc-csaf");
+    let manifest_path = msrc_dir.join("crosswalk.json");
+    let Some(raw_manifest) = read_catalog_file_bounded(&manifest_path) else {
+        return MsrcCsafCatalogCache::default();
+    };
+    let Ok(manifest) = serde_json::from_str::<Value>(&raw_manifest) else {
+        return MsrcCsafCatalogCache::default();
+    };
+
+    let source_revision = manifest
+        .get("source_revision")
+        .and_then(Value::as_str)
+        .unwrap_or("msrc-csaf")
+        .to_string();
+    let advisories_digest = manifest
+        .get("advisories_digest")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let crosswalk_digest = manifest
+        .get("crosswalk_digest")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+
+    let mut product_map: HashMap<String, MsrcProductRef> = HashMap::new();
+    if let Some(pms) = manifest.get("product_mappings").and_then(Value::as_array) {
+        for pm in pms {
+            let pid = pm
+                .get("product_id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            if pid.is_empty() {
+                continue;
+            }
+            let pname = pm
+                .get("product_name")
+                .and_then(Value::as_str)
+                .unwrap_or(&pid)
+                .trim()
+                .to_string();
+            let mut rtypes: Vec<String> = pm
+                .get("canonical_resource_types")
+                .and_then(Value::as_array)
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(Value::as_str)
+                        .map(String::from)
+                        .collect()
+                })
+                .unwrap_or_default();
+            if rtypes.is_empty() {
+                if let Some(single) = pm.get("canonical_resource_type").and_then(Value::as_str) {
+                    if !single.is_empty() {
+                        rtypes.push(single.to_string());
+                    }
+                }
+            }
+            product_map.insert(
+                pid.clone(),
+                MsrcProductRef {
+                    product_id: pid,
+                    product_name: pname,
+                    canonical_resource_types: rtypes,
+                },
+            );
+        }
+    }
+
+    let shards_dir = msrc_dir.join("shards");
+    let mut shard_paths: Vec<PathBuf> = fs::read_dir(&shards_dir)
+        .ok()
+        .map(|rd| {
+            rd.filter_map(Result::ok)
+                .map(|e| e.path())
+                .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("json"))
+                .collect()
+        })
+        .unwrap_or_default();
+    shard_paths.sort();
+    shard_paths.truncate(MAX_MSRC_SHARDS);
+
+    let mut total_advisories = 0usize;
+    let mut seen_cves: HashSet<String> = HashSet::new();
+    let mut cves: Vec<MsrcCveEntry> = Vec::with_capacity(9_200);
+
+    for sp in shard_paths {
+        let Some(raw_shard) = read_catalog_file_bounded(&sp) else {
+            continue;
+        };
+        let Ok(shard_val) = serde_json::from_str::<Value>(&raw_shard) else {
+            continue;
+        };
+        let advisories_opt = shard_val
+            .get("advisories")
+            .and_then(Value::as_array)
+            .or_else(|| shard_val.as_array());
+        let Some(advisories) = advisories_opt else {
+            continue;
+        };
+        total_advisories += advisories.len();
+        for adv in advisories {
+            let tracking_id = adv
+                .get("tracking_id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            let adv_title = adv
+                .get("title")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            let release_date = adv
+                .get("current_release_date")
+                .or_else(|| adv.get("initial_release_date"))
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            let adv_url = adv
+                .get("source_url")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            let sig_ok = adv
+                .get("signature_verified")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+
+            let mut local_products: HashMap<String, String> = HashMap::new();
+            if let Some(prods) = adv.get("products").and_then(Value::as_array) {
+                for p in prods {
+                    if let Some(pid) = p.get("product_id").and_then(Value::as_str) {
+                        let name = p
+                            .get("name")
+                            .and_then(Value::as_str)
+                            .unwrap_or(pid)
+                            .to_string();
+                        local_products.insert(pid.to_string(), name);
+                    }
+                }
+            }
+
+            let Some(vulns) = adv.get("vulnerabilities").and_then(Value::as_array) else {
+                continue;
+            };
+            for v in vulns {
+                let cve_id = v
+                    .get("cve_id")
+                    .or_else(|| v.get("cve"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .trim()
+                    .to_ascii_uppercase();
+                if cve_id.is_empty() || !seen_cves.insert(cve_id.clone()) {
+                    continue;
+                }
+                let title = v
+                    .get("title")
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.trim().is_empty())
+                    .unwrap_or(&adv_title)
+                    .to_string();
+                let cvss_base = v
+                    .get("cvss_base_score")
+                    .and_then(Value::as_f64)
+                    .unwrap_or(0.0);
+                let cvss_temp = v
+                    .get("cvss_temporal_score")
+                    .and_then(Value::as_f64)
+                    .unwrap_or(cvss_base);
+                let cvss_vector = v
+                    .get("cvss_vector")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+                let severity = v
+                    .get("severity")
+                    .and_then(Value::as_str)
+                    .unwrap_or_else(|| {
+                        if cvss_base >= 9.0 {
+                            "critical"
+                        } else if cvss_base >= 7.0 {
+                            "high"
+                        } else if cvss_base >= 4.0 {
+                            "medium"
+                        } else {
+                            "low"
+                        }
+                    })
+                    .to_ascii_lowercase();
+                let exploit_status = v
+                    .get("exploit_status")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unproven")
+                    .to_ascii_lowercase();
+                let publicly_disclosed = v
+                    .get("publicly_disclosed")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
+                let (priority_tier, kev_sla_tier, kev_sla_ko) =
+                    classify_cve_priority_and_sla(&severity, &exploit_status, publicly_disclosed, cvss_base);
+
+                let affected_ids: Vec<String> = v
+                    .get("known_affected_product_ids")
+                    .and_then(Value::as_array)
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(Value::as_str)
+                            .map(String::from)
+                            .collect()
+                    })
+                    .unwrap_or_default();
+
+                let mut primary_product_name = String::new();
+                let mut canonical_rtypes: Vec<String> = Vec::new();
+                for pid in &affected_ids {
+                    if let Some(pm) = product_map.get(pid) {
+                        if primary_product_name.is_empty() {
+                            primary_product_name = pm.product_name.clone();
+                        }
+                        for rt in &pm.canonical_resource_types {
+                            if !canonical_rtypes.contains(rt) {
+                                canonical_rtypes.push(rt.clone());
+                            }
+                        }
+                    } else if primary_product_name.is_empty() {
+                        if let Some(lp) = local_products.get(pid) {
+                            primary_product_name = lp.clone();
+                        }
+                    }
+                }
+
+                let mut remediation_summary = String::new();
+                let mut recommended_actions: Vec<String> = Vec::new();
+                let mut vuln_url = adv_url.clone();
+                if let Some(rems) = v.get("remediations").and_then(Value::as_array) {
+                    for rem in rems {
+                        if remediation_summary.is_empty() {
+                            if let Some(det) = rem.get("details").and_then(Value::as_str) {
+                                remediation_summary = det.trim().to_string();
+                            }
+                        }
+                        if let Some(act) = rem.get("recommended_action_type").and_then(Value::as_str) {
+                            let s = act.trim().to_string();
+                            if !s.is_empty() && !recommended_actions.contains(&s) {
+                                recommended_actions.push(s);
+                            }
+                        }
+                        if let Some(u) = rem.get("url").and_then(Value::as_str) {
+                            if !u.trim().is_empty() {
+                                vuln_url = u.trim().to_string();
+                            }
+                        }
+                    }
+                }
+
+                let search_blob = format!(
+                    "{} {} {} {} {} {}",
+                    cve_id,
+                    tracking_id,
+                    title,
+                    primary_product_name,
+                    severity,
+                    exploit_status
+                )
+                .to_ascii_lowercase();
+
+                cves.push(MsrcCveEntry {
+                    cve_id,
+                    tracking_id: tracking_id.clone(),
+                    title,
+                    severity,
+                    cvss_base_score: cvss_base,
+                    cvss_temporal_score: cvss_temp,
+                    cvss_vector,
+                    exploit_status,
+                    publicly_disclosed,
+                    priority_tier: priority_tier.to_string(),
+                    kev_sla_tier: kev_sla_tier.to_string(),
+                    kev_sla_ko: kev_sla_ko.to_string(),
+                    release_date: release_date.clone(),
+                    source_url: vuln_url,
+                    signature_verified: sig_ok,
+                    affected_product_ids: affected_ids,
+                    primary_product_name,
+                    canonical_resource_types: canonical_rtypes,
+                    remediation_summary,
+                    recommended_actions,
+                    search_blob,
+                });
+            }
+        }
+    }
+
+    cves.sort_by(|a, b| {
+        exploit_sort_rank(&a.exploit_status, a.publicly_disclosed)
+            .cmp(&exploit_sort_rank(&b.exploit_status, b.publicly_disclosed))
+            .then_with(|| severity_sort_rank(&a.severity).cmp(&severity_sort_rank(&b.severity)))
+            .then_with(|| {
+                b.cvss_base_score
+                    .partial_cmp(&a.cvss_base_score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .then_with(|| b.cve_id.cmp(&a.cve_id))
+    });
+
+    let mut exploited_count = 0usize;
+    let mut publicly_disclosed_count = 0usize;
+    let mut critical_count = 0usize;
+    let mut high_count = 0usize;
+    let mut medium_count = 0usize;
+    let mut low_count = 0usize;
+    for c in &cves {
+        if c.exploit_status == "exploited" {
+            exploited_count += 1;
+        }
+        if c.publicly_disclosed {
+            publicly_disclosed_count += 1;
+        }
+        match c.severity.as_str() {
+            "critical" => critical_count += 1,
+            "high" => high_count += 1,
+            "medium" => medium_count += 1,
+            _ => low_count += 1,
+        }
+    }
+
+    MsrcCsafCatalogCache {
+        source_revision,
+        advisories_digest,
+        crosswalk_digest,
+        total_advisories,
+        product_mapping_count: product_map.len(),
+        exploited_count,
+        publicly_disclosed_count,
+        critical_count,
+        high_count,
+        medium_count,
+        low_count,
+        loaded_at_unix: now_unix_secs(),
+        cves,
+    }
+}
+
+fn lens_title_ko(lens_id: &str) -> &'static str {
+    match lens_id {
+        "missing-authorization" => "인가 누락 · 객체 권한 우회 (IDOR/BOLA)",
+        "authentication-bypass" => "인증 우회 · 토큰/세션 검증 누락",
+        "sql-injection" => "SQL 인젝션 · 비바인딩 쿼리 조합",
+        "command-injection" => "OS 명령어 인젝션 · 셸 호출 오염",
+        "path-traversal" => "경로 순회 · 임의 파일 읽기/쓰기",
+        "server-side-request-forgery" => "서버 측 요청 위조 (SSRF · 메타데이터 노출)",
+        "unsafe-deserialization" => "안전하지 않은 역직렬화 · 임의 코드 실행",
+        "memory-safety" => "메모리 안전성 · 버퍼/UAF/널 역참조 (C/C++/Rust/Zig)",
+        "xml-external-entity" => "XML 외부 엔티티 주입 (XXE)",
+        "weak-cryptography" => "취약 암호 알고리즘 · 안전하지 않은 난수/서명",
+        _ => "미지 취약점 분석 렌즈",
+    }
+}
+
+fn parse_inline_yaml_list(raw: &str) -> Vec<String> {
+    let trimmed = raw.trim();
+    if let Some(inner) = trimmed.strip_prefix('[').and_then(|s| s.strip_suffix(']')) {
+        inner
+            .split(',')
+            .map(|x| x.trim().trim_matches('"').trim_matches('\'').to_string())
+            .filter(|x| !x.is_empty())
+            .collect()
+    } else {
+        Vec::new()
+    }
+}
+
+fn strip_yaml_quotes(raw: &str) -> String {
+    raw.trim()
+        .trim_matches('"')
+        .trim_matches('\'')
+        .to_string()
+}
+
+fn parse_lenses_yaml(
+    content: &str,
+) -> (
+    Vec<UnknownVulnLensEntry>,
+    Vec<String>,
+    u64,
+    BTreeMap<String, String>,
+) {
+    let mut lenses: Vec<UnknownVulnLensEntry> = Vec::new();
+    let mut global_langs: Vec<String> = Vec::new();
+    let mut quorum: u64 = 2;
+    let mut lens_limits: BTreeMap<String, String> = BTreeMap::new();
+
+    let mut section = "";
+    let mut current_id = String::new();
+    let mut current_wc = String::new();
+    let mut current_cwes: Vec<String> = Vec::new();
+    let mut current_langs: Vec<String> = Vec::new();
+    let mut current_sinks: usize = 0;
+    let mut current_focus = String::new();
+    let mut sub_field = "";
+
+    let flush = |lenses: &mut Vec<UnknownVulnLensEntry>,
+                 id: &mut String,
+                 wc: &mut String,
+                 cwes: &mut Vec<String>,
+                 langs: &mut Vec<String>,
+                 sinks: &mut usize,
+                 focus: &mut String,
+                 q: u64| {
+        if !id.is_empty() {
+            lenses.push(UnknownVulnLensEntry {
+                id: id.clone(),
+                title_ko: lens_title_ko(id).to_string(),
+                weakness_class: if wc.is_empty() {
+                    id.replace('-', "_")
+                } else {
+                    wc.clone()
+                },
+                cwes: cwes.clone(),
+                languages: langs.clone(),
+                sink_hint_count: *sinks,
+                focus: focus.trim().to_string(),
+                quorum: q,
+                mode: "shadow".to_string(),
+            });
+            id.clear();
+            wc.clear();
+            cwes.clear();
+            langs.clear();
+            *sinks = 0;
+            focus.clear();
+        }
+    };
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        let indent = line.len() - line.trim_start().len();
+        if indent == 0 {
+            if section == "lenses" {
+                flush(
+                    &mut lenses,
+                    &mut current_id,
+                    &mut current_wc,
+                    &mut current_cwes,
+                    &mut current_langs,
+                    &mut current_sinks,
+                    &mut current_focus,
+                    quorum,
+                );
+            }
+            if trimmed.starts_with("languages:") {
+                section = "languages";
+            } else if trimmed.starts_with("limits:") {
+                section = "limits";
+            } else if trimmed.starts_with("lenses:") {
+                section = "lenses";
+            } else {
+                section = "";
+            }
+            sub_field = "";
+            continue;
+        }
+
+        if section == "limits" {
+            if let Some((lk, lv)) = trimmed.split_once(':') {
+                let lkey = lk.trim().to_string();
+                let lval = strip_yaml_quotes(lv);
+                if lkey == "quorum" {
+                    if let Ok(parsed) = lval.parse::<u64>() {
+                        quorum = parsed.max(1);
+                    }
+                }
+                if !lkey.is_empty() && !lval.is_empty() {
+                    lens_limits.insert(lkey, lval);
+                }
+            }
+            continue;
+        }
+        if section == "languages" && indent == 2 && trimmed.ends_with(':') {
+            let lang = trimmed.trim_end_matches(':').trim().to_string();
+            if !lang.is_empty() && !global_langs.contains(&lang) {
+                global_langs.push(lang);
+            }
+            continue;
+        }
+        if section == "lenses" {
+            if indent == 2 && trimmed.ends_with(':') && !trimmed.starts_with('-') {
+                flush(
+                    &mut lenses,
+                    &mut current_id,
+                    &mut current_wc,
+                    &mut current_cwes,
+                    &mut current_langs,
+                    &mut current_sinks,
+                    &mut current_focus,
+                    quorum,
+                );
+                current_id = trimmed.trim_end_matches(':').trim().to_string();
+                sub_field = "";
+            } else if indent == 4 && !trimmed.starts_with('-') {
+                if let Some((k, rest)) = trimmed.split_once(':') {
+                    let key = k.trim();
+                    let val = rest.trim();
+                    sub_field = match key {
+                        "weakness_class" => {
+                            current_wc = strip_yaml_quotes(val);
+                            ""
+                        }
+                        "cwe" => {
+                            let parsed = parse_inline_yaml_list(val);
+                            for c in parsed {
+                                current_cwes.push(if c.starts_with("CWE-") {
+                                    c
+                                } else {
+                                    format!("CWE-{c}")
+                                });
+                            }
+                            "cwe"
+                        }
+                        "languages" => {
+                            current_langs.extend(parse_inline_yaml_list(val));
+                            "languages"
+                        }
+                        "sink_hints" => "sink_hints",
+                        "focus" => {
+                            if !val.is_empty() && val != ">" && val != "|" && val != ">-" {
+                                current_focus.push_str(&strip_yaml_quotes(val));
+                            }
+                            "focus"
+                        }
+                        _ => "",
+                    };
+                }
+            } else if indent >= 6 {
+                if sub_field == "sink_hints" && trimmed.starts_with('-') {
+                    current_sinks += 1;
+                } else if sub_field == "cwe" && trimmed.starts_with('-') {
+                    let c = strip_yaml_quotes(trimmed.trim_start_matches('-'));
+                    if !c.is_empty() {
+                        current_cwes.push(if c.starts_with("CWE-") {
+                            c
+                        } else {
+                            format!("CWE-{c}")
+                        });
+                    }
+                } else if sub_field == "languages" && trimmed.starts_with('-') {
+                    let l = strip_yaml_quotes(trimmed.trim_start_matches('-'));
+                    if !l.is_empty() {
+                        current_langs.push(l);
+                    }
+                } else if sub_field == "focus" {
+                    if !current_focus.is_empty() {
+                        current_focus.push(' ');
+                    }
+                    current_focus.push_str(trimmed);
+                }
+            }
+        }
+    }
+    flush(
+        &mut lenses,
+        &mut current_id,
+        &mut current_wc,
+        &mut current_cwes,
+        &mut current_langs,
+        &mut current_sinks,
+        &mut current_focus,
+        quorum,
+    );
+    (lenses, global_langs, quorum, lens_limits)
+}
+
+fn parse_analysis_components_yaml(content: &str) -> Vec<AnalysisComponentEntry> {
+    let mut out = Vec::new();
+    let mut cur: Option<AnalysisComponentEntry> = None;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        if let Some(rest) = trimmed.strip_prefix("- id:") {
+            if let Some(prev) = cur.take() {
+                out.push(prev);
+            }
+            cur = Some(AnalysisComponentEntry {
+                id: strip_yaml_quotes(rest),
+                version: String::new(),
+                purpose: String::new(),
+                status: String::new(),
+                license: String::new(),
+                integration: String::new(),
+            });
+        } else if let Some(entry) = cur.as_mut() {
+            if let Some((k, v)) = trimmed.split_once(':') {
+                let val = strip_yaml_quotes(v);
+                match k.trim() {
+                    "version" => entry.version = val,
+                    "purpose" => entry.purpose = val,
+                    "status" => entry.status = val,
+                    "license" => entry.license = val,
+                    "integration" => entry.integration = val,
+                    _ => {}
+                }
+            }
+        }
+    }
+    if let Some(prev) = cur {
+        out.push(prev);
+    }
+    out
+}
+
+fn summarize_policy_yaml(
+    dir: &Path,
+    file: &str,
+    default_id: &str,
+    title_ko: &str,
+    summary_ko: &str,
+) -> Option<SecurityPolicyDocSummary> {
+    let raw = read_catalog_file_bounded(&dir.join(file))?;
+    let mut id = default_id.to_string();
+    let mut version = "1.0.0".to_string();
+    let mut item_count = 0usize;
+    for line in raw.lines() {
+        let tr = line.trim();
+        if let Some(v) = tr
+            .strip_prefix("policy_id:")
+            .or_else(|| tr.strip_prefix("rubric_id:"))
+            .or_else(|| tr.strip_prefix("catalog_id:"))
+        {
+            id = strip_yaml_quotes(v);
+        } else if let Some(v) = tr.strip_prefix("version:") {
+            version = strip_yaml_quotes(v);
+        } else if tr.starts_with("- id:") || tr.starts_with("- name:") || tr.starts_with("- band:") {
+            item_count += 1;
+        } else if (line.starts_with("  ") && !line.starts_with("    "))
+            && tr.ends_with(':')
+            && !tr.starts_with('-')
+            && !tr.starts_with('#')
+        {
+            item_count += 1;
+        }
+    }
+    Some(SecurityPolicyDocSummary {
+        id,
+        title_ko: title_ko.to_string(),
+        file: format!("rule-catalog/code-security/{file}"),
+        version,
+        item_count: item_count.max(1),
+        summary_ko: summary_ko.to_string(),
+    })
+}
+
+#[must_use]
+pub fn load_code_security_governance_cached() -> &'static CodeSecurityCatalogCache {
+    CODE_SECURITY_CACHE.get_or_init(build_code_security_governance_cache)
+}
+
+fn build_code_security_governance_cache() -> CodeSecurityCatalogCache {
+    let Some(rc_root) = resolve_rule_catalog_root() else {
+        return CodeSecurityCatalogCache::default();
+    };
+    let cs_dir = rc_root.join("code-security");
+    if !cs_dir.is_dir() {
+        return CodeSecurityCatalogCache::default();
+    }
+
+    let (lenses, lens_languages, lens_quorum, lens_limits) =
+        read_catalog_file_bounded(&cs_dir.join("lenses.yaml"))
+            .map(|s| parse_lenses_yaml(&s))
+            .unwrap_or_else(|| (Vec::new(), Vec::new(), 2, BTreeMap::new()));
+
+    let analysis_components = read_catalog_file_bounded(&cs_dir.join("analysis-components.yaml"))
+        .map(|s| parse_analysis_components_yaml(&s))
+        .unwrap_or_default();
+
+    let mut analysis_rule_files: Vec<String> = fs::read_dir(cs_dir.join("analysis-rules"))
+        .ok()
+        .map(|rd| {
+            rd.filter_map(Result::ok)
+                .filter_map(|e| e.file_name().into_string().ok())
+                .filter(|n| n.ends_with(".yaml") || n.ends_with(".yml"))
+                .collect()
+        })
+        .unwrap_or_default();
+    analysis_rule_files.sort();
+
+    let mut proof_harnesses: Vec<String> = fs::read_dir(cs_dir.join("prove"))
+        .ok()
+        .map(|rd| {
+            rd.filter_map(Result::ok)
+                .filter_map(|e| e.file_name().into_string().ok())
+                .filter(|n| !n.starts_with('.'))
+                .collect()
+        })
+        .unwrap_or_default();
+    proof_harnesses.sort();
+
+    let mut policy_docs = Vec::new();
+    for (file, did, title, desc) in [
+        (
+            "severity-rubric.yaml",
+            "fdai.code-security.severity-rubric",
+            "심각도 결정 기준표 (Severity Rubric)",
+            "영향도·공격 벡터·복잡도·권한 요건·사용자 개입 페널티로 결정론적 심각도 상/하한 산정",
+        ),
+        (
+            "priority-policy.yaml",
+            "fdai.code-security.priority-policy",
+            "우선순위 · KEV/EPSS 조치 기한 정책",
+            "KEV 악용 여부·외부 노출도·신뢰도 계단을 결합해 P0~P3 조치 기한을 결정론적으로 배정",
+        ),
+        (
+            "weakness-classes.yaml",
+            "fdai.code-security.weakness-classes",
+            "약점 분류 · CWE 표준 매핑 카탈로그",
+            "CWE 계통별 약점 클래스와 검증기·입증 하네스 적용 범위를 정의",
+        ),
+        (
+            "remediation-policy.yaml",
+            "fdai.code-security.remediation-policy",
+            "자동 수정 경계 · 금지 경로 보안 정책",
+            "패치 제안 시 수정 금지 경로·허용 변경 한도·필수 테스트 단언문 검증 규칙 정의",
+        ),
+    ] {
+        if let Some(doc) = summarize_policy_yaml(&cs_dir, file, did, title, desc) {
+            policy_docs.push(doc);
+        }
+    }
+
+    CodeSecurityCatalogCache {
+        lenses,
+        lens_languages,
+        lens_quorum,
+        lens_limits,
+        analysis_components,
+        analysis_rule_files,
+        proof_harnesses,
+        policy_docs,
+        loaded_at_unix: now_unix_secs(),
+    }
+}
+
+async fn fetch_msrc_projection_and_runtime_cves(db: &DbHandle) -> (i64, HashSet<String>, bool) {
+    let proj_sql = "SELECT COALESCE(jsonb_array_length(value->'controls'), 0) \
+        FROM state_kv WHERE key = 'operator-projection:workflow:msrc-csaf.list' LIMIT 1";
+    let runtime_cve_sql = "SELECT DISTINCT upper(a.val) \
+        FROM state_kv sk, \
+             jsonb_array_elements(COALESCE(sk.value->'issues', '[]'::jsonb)) AS iss(val), \
+             jsonb_array_elements_text(COALESCE(iss.val->'advisory_ids', '[]'::jsonb)) AS a(val) \
+        WHERE sk.key LIKE 'runtime:code-security-issues:%' \
+          AND sk.key NOT LIKE '%:artifacts%' \
+          AND upper(a.val) LIKE 'CVE-%' \
+        LIMIT 5000";
+    let (proj_res, rt_res) = tokio::join!(
+        db.query_single_readonly(proj_sql),
+        db.query_single_readonly(runtime_cve_sql),
+    );
+    let db_ok = proj_res.is_ok() || rt_res.is_ok();
+    let proj_cnt = proj_res
+        .ok()
+        .and_then(|q| q.rows.first().and_then(|r| cell_i64(r, 0)))
+        .unwrap_or(0);
+    let mut rt_set = HashSet::new();
+    if let Ok(q) = rt_res {
+        for row in &q.rows {
+            let cid = cell_str(row, 0).trim().to_ascii_uppercase();
+            if cid.starts_with("CVE-") {
+                rt_set.insert(cid);
+            }
+        }
+    }
+    (proj_cnt, rt_set, db_ok)
+}
+
+fn humanize_msrc_title_ko(raw_title: &str, primary_product: &str) -> String {
+    let trimmed = raw_title.trim();
+    if trimmed.is_empty() || trimmed.to_ascii_uppercase().starts_with("CVE-") {
+        if !primary_product.trim().is_empty() {
+            return format!("{} 보안 취약점", primary_product.trim());
+        }
+        return "보안 취약점 권고".to_string();
+    }
+    let mut s = trimmed.to_string();
+    for (en, ko) in [
+        ("Remote Code Execution Vulnerability", "원격 코드 실행(RCE) 취약점"),
+        ("Elevation of Privilege Vulnerability", "권한 상승(EoP) 취약점"),
+        ("Privilege Escalation Vulnerability", "권한 상승(EoP) 취약점"),
+        ("Security Feature Bypass Vulnerability", "보안 기능 우회 취약점"),
+        ("Information Disclosure Vulnerability", "민감 정보 노출 취약점"),
+        ("Denial of Service Vulnerability", "서비스 거부(DoS) 취약점"),
+        ("Spoofing Vulnerability", "스푸핑(위장) 취약점"),
+        ("Tampering Vulnerability", "데이터 변조 취약점"),
+        ("Memory Corruption Vulnerability", "메모리 손상 취약점"),
+        ("Cross-site Scripting Vulnerability", "크로스 사이트 스크립팅(XSS) 취약점"),
+        ("Cross-Site Scripting Vulnerability", "크로스 사이트 스크립팅(XSS) 취약점"),
+        ("SQL Injection Vulnerability", "SQL 인젝션 취약점"),
+        ("Command Injection Vulnerability", "명령어 인젝션 취약점"),
+        ("Path Traversal Vulnerability", "경로 순회 취약점"),
+        ("Buffer Overflow Vulnerability", "버퍼 오버플로 취약점"),
+        ("Use After Free Vulnerability", "메모리 해제 후 재사용(UAF) 취약점"),
+        ("Authentication Bypass Vulnerability", "인증 우회 취약점"),
+        ("Legacy TLS Downgrade", "레거시 TLS 다운그레이드 취약점"),
+        ("Elevation of Privilege", "권한 상승(EoP) 취약점"),
+        ("Remote Code Execution", "원격 코드 실행(RCE) 취약점"),
+        ("Security Feature Bypass", "보안 기능 우회 취약점"),
+        ("Information Disclosure", "민감 정보 노출 취약점"),
+        ("Denial of Service", "서비스 거부(DoS) 취약점"),
+        ("Node Image", "노드 이미지"),
+        ("Vulnerability", "보안 취약점"),
+    ] {
+        if s.contains(en) {
+            s = s.replace(en, ko);
+        }
+    }
+    s.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn weakness_class_label_ko(wc: &str) -> &'static str {
+    match wc.trim().to_ascii_lowercase().as_str() {
+        "vulnerable_dependency" | "dependency" | "sca" => "취약 종속성 보안 취약점",
+        "sql_injection" => "SQL 인젝션 취약점",
+        "command_injection" => "명령어 인젝션 취약점",
+        "missing_authorization" => "인가 누락 · 권한 우회 취약점",
+        "authentication_bypass" => "인증 우회 취약점",
+        "path_traversal" => "경로 순회 취약점",
+        "server_side_request_forgery" | "ssrf" => "서버 측 요청 위조(SSRF) 취약점",
+        "unsafe_deserialization" => "안전하지 않은 역직렬화 취약점",
+        "memory_safety" => "메모리 안전성 취약점",
+        "xml_external_entity" | "xxe" => "XML 외부 엔티티 주입(XXE) 취약점",
+        "weak_cryptography" => "취약 암호 알고리즘 취약점",
+        "hardcoded_secret" | "secret_exposure" => "하드코딩된 비밀정보 노출 취약점",
+        "misconfiguration" | "iac_misconfiguration" => "인프라 보안 구성 오류 취약점",
+        _ => "코드·패키지 보안 취약점",
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn humanize_runtime_cve_title_ko(
+    cve_id: &str,
+    sarif_title: &str,
+    weakness_class: &str,
+    pkg: &str,
+    lang: &str,
+    file_path: &str,
+    cvss: f64,
+    producer: &str,
+) -> String {
+    let raw = sarif_title.trim();
+    let is_bare = raw.is_empty()
+        || raw.eq_ignore_ascii_case(cve_id)
+        || raw.to_ascii_uppercase().starts_with("CVE-")
+        || raw.to_ascii_uppercase().starts_with("GHSA-")
+        || raw.eq_ignore_ascii_case("vulnerable_dependency");
+    if !is_bare {
+        return humanize_msrc_title_ko(raw, pkg);
+    }
+    let wc_ko = weakness_class_label_ko(weakness_class);
+    let target = if !pkg.trim().is_empty() {
+        if !lang.trim().is_empty() {
+            format!("{} {}", lang.trim(), pkg.trim())
+        } else {
+            pkg.trim().to_string()
+        }
+    } else if !file_path.trim().is_empty() {
+        let fname = file_path.rsplit('/').next().unwrap_or(file_path.trim());
+        if !lang.trim().is_empty() {
+            format!("{} {fname}", lang.trim())
+        } else {
+            fname.to_string()
+        }
+    } else if !lang.trim().is_empty() {
+        lang.trim().to_string()
+    } else {
+        "오픈소스 종속성".to_string()
+    };
+    let mut meta: Vec<String> = Vec::new();
+    if !producer.trim().is_empty() {
+        meta.push(producer.trim().to_string());
+    }
+    if cvss > 0.0 {
+        meta.push(format!("CVSS {cvss:.1}"));
+    }
+    if meta.is_empty() {
+        format!("{target} {wc_ko}")
+    } else {
+        format!("{target} {wc_ko} ({})", meta.join(" · "))
+    }
+}
+
+fn cve_entry_to_json(c: &MsrcCveEntry, runtime_detected: bool) -> Value {
+    let exploit_ko = match c.exploit_status.as_str() {
+        "exploited" => "실제 악용 확인 (KEV)",
+        "exploitation_more_likely" => "악용 가능성 높음",
+        "exploitation_less_likely" => "악용 가능성 낮음",
+        "exploitation_unlikely" => "악용 가능성 희박",
+        "publicly_disclosed" => "공개 취약점",
+        _ => "미확인",
+    };
+    let sev_ko = match c.severity.as_str() {
+        "critical" => "긴급",
+        "high" => "높음",
+        "medium" => "보통",
+        _ => "낮음",
+    };
+    let title_ko = humanize_msrc_title_ko(&c.title, &c.primary_product_name);
+    let kev_triggered = kev_alert_watermark_triggered(c.cvss_base_score, 7.0, 3_600, 60);
+    json!({
+        "cve_id": c.cve_id,
+        "tracking_id": c.tracking_id,
+        "title": title_ko,
+        "title_ko": title_ko,
+        "title_en": c.title,
+        "severity": c.severity,
+        "severity_ko": sev_ko,
+        "cvss_base_score": c.cvss_base_score,
+        "cvss_temporal_score": c.cvss_temporal_score,
+        "cvss_vector": c.cvss_vector,
+        "exploit_status": c.exploit_status,
+        "exploit_status_ko": exploit_ko,
+        "publicly_disclosed": c.publicly_disclosed,
+        "priority_tier": c.priority_tier,
+        "kev_sla_tier": c.kev_sla_tier,
+        "kev_sla_ko": c.kev_sla_ko,
+        "kev_watermark_alert": kev_triggered && (c.exploit_status == "exploited" || c.publicly_disclosed),
+        "runtime_detected": runtime_detected,
+        "release_date": c.release_date,
+        "source_url": sanitize_https_url(&c.source_url),
+        "signature_verified": c.signature_verified,
+        "primary_product_name": c.primary_product_name,
+        "affected_products": c.affected_product_ids,
+        "canonical_resource_types": c.canonical_resource_types,
+        "remediation_summary": c.remediation_summary,
+        "recommended_actions": c.recommended_actions,
+        "operations_link": format!("/operations/code-security?item={}", encode_query_component(&c.cve_id))
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn query_msrc_cves_from_cache(
+    catalog: &MsrcCsafCatalogCache,
+    runtime_cves: &HashSet<String>,
+    search: Option<&str>,
+    severity: Option<&str>,
+    exploit: Option<&str>,
+    priority: Option<&str>,
+    runtime_only: bool,
+    limit: usize,
+    offset: usize,
+) -> FilteredCvePage {
+    let q_low = clean_opt(search).map(str::to_ascii_lowercase);
+    let sev_low = clean_opt(severity).map(str::to_ascii_lowercase);
+    let exp_low = clean_opt(exploit).map(str::to_ascii_lowercase);
+    let pri_up = clean_opt(priority).map(str::to_ascii_uppercase);
+
+    let mut matched: Vec<(&MsrcCveEntry, bool)> = Vec::new();
+    for c in &catalog.cves {
+        let rt_hit = runtime_cves.contains(&c.cve_id);
+        if runtime_only && !rt_hit {
+            continue;
+        }
+        if let Some(ref s) = sev_low {
+            if s != "all" && c.severity != *s {
+                continue;
+            }
+        }
+        if let Some(ref e) = exp_low {
+            if e != "all" {
+                if e == "publicly_disclosed" {
+                    if !c.publicly_disclosed {
+                        continue;
+                    }
+                } else if c.exploit_status != *e {
+                    continue;
+                }
+            }
+        }
+        if let Some(ref p) = pri_up {
+            if p != "ALL" && c.priority_tier != *p {
+                continue;
+            }
+        }
+        if let Some(ref q) = q_low {
+            if !c.search_blob.contains(q.as_str()) {
+                continue;
+            }
+        }
+        matched.push((c, rt_hit));
+    }
+
+    // Prioritize runtime-detected CVEs at the very top while preserving catalog sort order
+    matched.sort_by_key(|(_, rt_hit)| if *rt_hit { 0u8 } else { 1u8 });
+
+    let total_filtered = matched.len();
+    let items: Vec<Value> = matched
+        .into_iter()
+        .skip(offset)
+        .take(limit)
+        .map(|(c, rt_hit)| cve_entry_to_json(c, rt_hit))
+        .collect();
+
+    FilteredCvePage {
+        total_filtered,
+        items,
+    }
+}
+
+pub async fn fetch_security_cves(
+    db: &DbHandle,
+    search: Option<&str>,
+    severity: Option<&str>,
+    exploit: Option<&str>,
+    priority: Option<&str>,
+    runtime_only: bool,
+    limit: Option<usize>,
+    offset: Option<usize>,
+) -> Value {
+    let lim = clamp_limit(limit, 80, 300);
+    let off = offset.unwrap_or(0).min(100_000);
+    let catalog = load_msrc_csaf_catalog_async().await;
+
+    let (proj_and_rt, ops_sec) = tokio::join!(
+        fetch_msrc_projection_and_runtime_cves(db),
+        crate::repos::operations::fetch_security(db),
+    );
+    let (msrc_proj_cnt, mut runtime_cves, rt_proj_ok) = proj_and_rt;
+    let ops_sec_ok = ops_sec.get("measurement_status").and_then(Value::as_str) == Some("measured");
+    let db_available = rt_proj_ok || ops_sec_ok;
+
+    let msrc_title_by_cve: HashMap<&str, &MsrcCveEntry> = catalog
+        .cves
+        .iter()
+        .map(|c| (c.cve_id.as_str(), c))
+        .collect();
+
+    let mut runtime_cve_rows: Vec<Value> = Vec::new();
+    let mut seen_rt_cves: HashSet<String> = HashSet::new();
+    if let Some(issues) = ops_sec.get("code_security_issues").and_then(Value::as_array) {
+        let q_low = clean_opt(search).map(str::to_ascii_lowercase);
+        for iss in issues {
+            let issue_id = iss.get("issue_id").and_then(Value::as_str).unwrap_or("").to_string();
+            let rule_id = iss.get("rule_id").and_then(Value::as_str).unwrap_or("").to_string();
+            let weakness_class = iss
+                .get("weakness_class")
+                .and_then(Value::as_str)
+                .unwrap_or(&rule_id)
+                .to_string();
+            let sarif_title = iss.get("sarif_title").and_then(Value::as_str).unwrap_or("").to_string();
+            let sev = iss
+                .get("severity")
+                .and_then(Value::as_str)
+                .unwrap_or("undetermined")
+                .to_ascii_lowercase();
+            let conf = iss
+                .get("confidence")
+                .and_then(Value::as_str)
+                .unwrap_or("reported")
+                .to_ascii_lowercase();
+            let repo = iss.get("repo").and_then(Value::as_str).unwrap_or("").to_string();
+            let file_path = iss.get("file_path").and_then(Value::as_str).unwrap_or("").to_string();
+            let pkg = iss.get("package").and_then(Value::as_str).unwrap_or("").to_string();
+            let lang = iss.get("language").and_then(Value::as_str).unwrap_or("").to_string();
+            let pri = iss.get("priority").and_then(Value::as_str).unwrap_or("P2").to_string();
+            let kev = iss.get("known_exploited").and_then(Value::as_bool).unwrap_or(false);
+            let cvss_val = iss.get("cvss_score").and_then(Value::as_f64).unwrap_or(0.0);
+            let rationale = iss
+                .get("severity_rationale")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            let producer = iss
+                .get("producers")
+                .and_then(Value::as_array)
+                .and_then(|arr| arr.first())
+                .and_then(Value::as_str)
+                .unwrap_or("Trivy")
+                .to_string();
+            let cve_list: Vec<String> = iss
+                .get("advisory_ids")
+                .and_then(Value::as_array)
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(Value::as_str)
+                        .map(str::to_ascii_uppercase)
+                        .filter(|s| s.starts_with("CVE-"))
+                        .collect()
+                })
+                .unwrap_or_default();
+            for cve_id in cve_list {
+                runtime_cves.insert(cve_id.clone());
+                if !seen_rt_cves.insert(cve_id.clone()) {
+                    continue;
+                }
+                let title_ko = if let Some(msrc_hit) = msrc_title_by_cve.get(cve_id.as_str()) {
+                    humanize_msrc_title_ko(&msrc_hit.title, &msrc_hit.primary_product_name)
+                } else {
+                    humanize_runtime_cve_title_ko(
+                        &cve_id,
+                        &sarif_title,
+                        &weakness_class,
+                        &pkg,
+                        &lang,
+                        &file_path,
+                        cvss_val,
+                        &producer,
+                    )
+                };
+                if let Some(ref q) = q_low {
+                    let blob = format!(
+                        "{cve_id} {title_ko} {sarif_title} {repo} {pkg} {file_path} {rule_id} {weakness_class} {lang}"
+                    )
+                    .to_ascii_lowercase();
+                    if !blob.contains(q.as_str()) {
+                        continue;
+                    }
+                }
+                if let Some(s) = clean_opt(severity) {
+                    let sl = s.to_ascii_lowercase();
+                    if sl != "all" && sev != sl {
+                        continue;
+                    }
+                }
+                runtime_cve_rows.push(json!({
+                    "cve_id": cve_id,
+                    "issue_id": issue_id,
+                    "rule_id": rule_id,
+                    "weakness_class": weakness_class,
+                    "title": title_ko,
+                    "title_ko": title_ko,
+                    "title_en": sarif_title,
+                    "severity": sev,
+                    "confidence": conf,
+                    "repo": repo,
+                    "file_path": file_path,
+                    "package": pkg,
+                    "language": lang,
+                    "producer": producer,
+                    "severity_rationale": rationale,
+                    "priority": pri,
+                    "known_exploited": kev,
+                    "cvss_score": if cvss_val > 0.0 { json!(cvss_val) } else { Value::Null },
+                    "source": "runtime-code-security",
+                    "operations_link": format!("/operations/code-security?item={}", encode_query_component(&issue_id))
+                }));
+            }
+        }
+    }
+    runtime_cve_rows.sort_by_key(|v| {
+        (
+            severity_sort_rank(v.get("severity").and_then(Value::as_str).unwrap_or("low")),
+            v.get("cve_id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+        )
+    });
+
+    let page = query_msrc_cves_from_cache(
+        catalog,
+        &runtime_cves,
+        search,
+        severity,
+        exploit,
+        priority,
+        runtime_only,
+        lim,
+        off,
+    );
+
+    let msrc_cve_ids: HashSet<&str> = catalog.cves.iter().map(|c| c.cve_id.as_str()).collect();
+    let msrc_runtime_matched = catalog
+        .cves
+        .iter()
+        .filter(|c| runtime_cves.contains(&c.cve_id))
+        .count();
+
+    // Unify runtime-detected CVEs (Trivy/OSV-Scanner) not already in MSRC CSAF so runtime_only=1 and CVE search never miss them.
+    let exp_filter = clean_opt(exploit).map(str::to_ascii_lowercase);
+    let pri_filter = clean_opt(priority).map(str::to_ascii_uppercase);
+    let mut extra_runtime_entries: Vec<Value> = Vec::new();
+    for rc in &runtime_cve_rows {
+        let cid = rc.get("cve_id").and_then(Value::as_str).unwrap_or("");
+        if msrc_cve_ids.contains(cid) {
+            continue;
+        }
+        let kev = rc.get("known_exploited").and_then(Value::as_bool).unwrap_or(false);
+        let exploit_st = if kev { "exploited" } else { "unproven" };
+        if let Some(ref e) = exp_filter {
+            if e != "all" && e != exploit_st {
+                continue;
+            }
+        }
+        let sev = rc.get("severity").and_then(Value::as_str).unwrap_or("medium");
+        let cvss = rc.get("cvss_score").and_then(Value::as_f64).unwrap_or(0.0);
+        let (ptier, ksla, kslako) = classify_cve_priority_and_sla(sev, exploit_st, false, cvss);
+        let rc_pri = rc
+            .get("priority")
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty())
+            .unwrap_or(ptier)
+            .to_ascii_uppercase();
+        if let Some(ref p) = pri_filter {
+            if p != "ALL" && rc_pri != *p {
+                continue;
+            }
+        }
+        let sev_ko = match sev {
+            "critical" => "긴급",
+            "high" => "높음",
+            "medium" => "보통",
+            "low" => "낮음",
+            _ => "미분류",
+        };
+        let repo = rc.get("repo").and_then(Value::as_str).unwrap_or("");
+        let pkg = rc.get("package").and_then(Value::as_str).unwrap_or("");
+        let fpath = rc.get("file_path").and_then(Value::as_str).unwrap_or("");
+        let prod_label = if !repo.is_empty() && !pkg.is_empty() {
+            format!("{repo} · {pkg}")
+        } else if !pkg.is_empty() {
+            pkg.to_string()
+        } else if !repo.is_empty() && !fpath.is_empty() {
+            format!("{repo} · {fpath}")
+        } else if !fpath.is_empty() {
+            fpath.to_string()
+        } else {
+            repo.to_string()
+        };
+        let title_ko = rc
+            .get("title_ko")
+            .or_else(|| rc.get("title"))
+            .and_then(Value::as_str)
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or("오픈소스 종속성 보안 취약점");
+        let title_en = rc.get("title_en").and_then(Value::as_str).unwrap_or("");
+        let rationale = rc
+            .get("severity_rationale")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let producer = rc.get("producer").and_then(Value::as_str).unwrap_or("Trivy");
+        let rem_text = if !pkg.is_empty() {
+            format!(
+                "운영 코드 보안 스캔({producer})이 {repo} 저장소({fpath})의 {pkg} 패키지에서 실측 탐지했습니다.{} 최신 보안 패치 버전으로 업그레이드하고 회귀 검증하세요.",
+                if rationale.is_empty() { String::new() } else { format!(" ({rationale})") }
+            )
+        } else {
+            format!(
+                "운영 코드 보안 스캔({producer})이 {repo} 저장소({fpath})에서 실측 탐지했습니다. 취약 종속성/코드를 보안 패치 버전으로 업데이트하세요."
+            )
+        };
+        extra_runtime_entries.push(json!({
+            "cve_id": cid,
+            "tracking_id": rc.get("issue_id").and_then(Value::as_str).unwrap_or(""),
+            "title": title_ko,
+            "title_ko": title_ko,
+            "title_en": title_en,
+            "severity": sev,
+            "severity_ko": sev_ko,
+            "cvss_base_score": cvss,
+            "cvss_temporal_score": cvss,
+            "cvss_vector": "",
+            "exploit_status": exploit_st,
+            "exploit_status_ko": if kev { "실제 악용 확인 (KEV)" } else { "런타임 스캐너 탐지" },
+            "publicly_disclosed": false,
+            "priority_tier": rc_pri,
+            "kev_sla_tier": ksla,
+            "kev_sla_ko": kslako,
+            "kev_watermark_alert": kev,
+            "runtime_detected": true,
+            "release_date": "",
+            "source_url": "",
+            "signature_verified": false,
+            "primary_product_name": prod_label,
+            "affected_products": if pkg.is_empty() { json!([]) } else { json!([pkg]) },
+            "canonical_resource_types": [],
+            "remediation_summary": rem_text,
+            "recommended_actions": [],
+            "operations_link": rc.get("operations_link").and_then(Value::as_str).unwrap_or("/operations/code-security"),
+            "source": "runtime-code-security"
+        }));
+    }
+
+    let extra_cnt = extra_runtime_entries.len();
+    let total_filtered = extra_cnt + page.total_filtered;
+    let combined_items: Vec<Value> = if off < extra_cnt {
+        let mut out: Vec<Value> = extra_runtime_entries
+            .into_iter()
+            .skip(off)
+            .take(lim)
+            .collect();
+        if out.len() < lim {
+            let need = lim - out.len();
+            let msrc_head = query_msrc_cves_from_cache(
+                catalog,
+                &runtime_cves,
+                search,
+                severity,
+                exploit,
+                priority,
+                runtime_only,
+                need,
+                0,
+            );
+            out.extend(msrc_head.items);
+        }
+        out
+    } else {
+        let shifted = query_msrc_cves_from_cache(
+            catalog,
+            &runtime_cves,
+            search,
+            severity,
+            exploit,
+            priority,
+            runtime_only,
+            lim,
+            off - extra_cnt,
+        );
+        shifted.items
+    };
+
+    let eval_source = if msrc_proj_cnt > 0 {
+        "msrc-csaf-shadow-assessment"
+    } else {
+        "repository-catalog"
+    };
+    let runtime_cves_truncated = runtime_cve_rows.len() > MAX_RUNTIME_CVE_ROWS;
+    if runtime_cves_truncated {
+        runtime_cve_rows.truncate(MAX_RUNTIME_CVE_ROWS);
+    }
+    let db_status = if db_available { "measured" } else { "not-measured" };
+
+    json!({
+        "measurement_status": "measured",
+        "db_measurement_status": db_status,
+        "runtime_metrics_available": db_available,
+        "source": if db_available { "msrc-csaf-catalog+postgres" } else { "msrc-csaf-catalog" },
+        "evaluation_source": eval_source,
+        "source_revision": catalog.source_revision,
+        "advisories_digest": catalog.advisories_digest,
+        "crosswalk_digest": catalog.crosswalk_digest,
+        "loaded_at_unix": catalog.loaded_at_unix,
+        "summary": {
+            "msrc_total_cves": catalog.cves.len(),
+            "unified_total_cves": catalog.cves.len() + runtime_cves.len().saturating_sub(msrc_runtime_matched),
+            "msrc_total_advisories": catalog.total_advisories,
+            "exploited_count": catalog.exploited_count,
+            "publicly_disclosed_count": catalog.publicly_disclosed_count,
+            "critical_count": catalog.critical_count,
+            "high_count": catalog.high_count,
+            "medium_count": catalog.medium_count,
+            "low_count": catalog.low_count,
+            "product_mapping_count": catalog.product_mapping_count,
+            "runtime_detected_unique_cves": if db_available { json!(runtime_cves.len()) } else { Value::Null },
+            "runtime_msrc_crosswalk_matched": if db_available { json!(msrc_runtime_matched) } else { Value::Null },
+            "filtered_total": total_filtered
+        },
+        "limit": lim,
+        "offset": off,
+        "cves": combined_items,
+        "runtime_cves": runtime_cve_rows,
+        "runtime_cves_truncated": runtime_cves_truncated
+    })
+}
+
+pub async fn fetch_security_unknown_vulns(db: &DbHandle) -> Value {
+    let cs = load_code_security_governance_async().await;
+
+    let conf_sql = "SELECT lower(COALESCE(iss.val->>'confidence', 'reported')), count(*) \
+        FROM state_kv sk, \
+             jsonb_array_elements(COALESCE(sk.value->'issues', '[]'::jsonb)) AS iss(val) \
+        WHERE sk.key LIKE 'runtime:code-security-issues:%' \
+          AND sk.key NOT LIKE '%:artifacts%' \
+        GROUP BY 1";
+    let worker_sql = "SELECT key, COALESCE(value::text, '{}'), COALESCE(updated_at::text, '') \
+        FROM state_kv \
+        WHERE key = 'runtime:code-security-worker:v1' \
+           OR key LIKE 'runtime:code-security-pack:%' \
+           OR key LIKE 'runtime:code-security-review:%' \
+           OR key LIKE 'runtime:code-security-repository:%' \
+        LIMIT 64";
+
+    let (conf_res, worker_res) = tokio::join!(
+        db.query_single_readonly(conf_sql),
+        db.query_single_readonly(worker_sql),
+    );
+
+    let mut conf_counts: BTreeMap<String, i64> = BTreeMap::new();
+    for k in ["hypothesis", "reported", "corroborated", "verified", "proven"] {
+        conf_counts.insert(k.to_string(), 0);
+    }
+    let db_available = conf_res.is_ok();
+    if let Ok(cq) = conf_res {
+        for row in &cq.rows {
+            let k = cell_str(row, 0);
+            let cnt = cell_i64(row, 1).unwrap_or(0);
+            *conf_counts.entry(k).or_insert(0) += cnt;
+        }
+    }
+
+    let mut worker_status = json!({
+        "recorded": false,
+        "status": "unrecorded",
+        "message_ko": "오프패스 LLM 렌즈 및 동적 입증(Kata) 워커 실행 이력이 아직 기록되지 않았습니다. 현재 실측 이슈는 결정론적 정적/패키지 스캐너 결과입니다."
+    });
+    let mut pack_count = 0usize;
+    let mut review_count = 0usize;
+    let mut repo_count = 0usize;
+    if let Ok(wq) = worker_res {
+        for row in &wq.rows {
+            let k = cell_str(row, 0);
+            if k == "runtime:code-security-worker:v1" {
+                let parsed: Value = serde_json::from_str(&cell_str(row, 1)).unwrap_or_else(|_| json!({}));
+                worker_status = json!({
+                    "recorded": true,
+                    "status": parsed.get("status").and_then(Value::as_str).unwrap_or("recorded"),
+                    "updated_at": cell_str(row, 2),
+                    "detail": parsed
+                });
+            } else if k.starts_with("runtime:code-security-pack:") {
+                pack_count += 1;
+            } else if k.starts_with("runtime:code-security-review:") {
+                review_count += 1;
+            } else if k.starts_with("runtime:code-security-repository:") {
+                repo_count += 1;
+            }
+        }
+    }
+
+    let hypothesis_cnt = *conf_counts.get("hypothesis").unwrap_or(&0);
+    let reported_cnt = *conf_counts.get("reported").unwrap_or(&0);
+    let corroborated_cnt = *conf_counts.get("corroborated").unwrap_or(&0);
+    let verified_cnt = *conf_counts.get("verified").unwrap_or(&0);
+    let proven_cnt = *conf_counts.get("proven").unwrap_or(&0);
+
+    let active_components = cs
+        .analysis_components
+        .iter()
+        .filter(|c| c.status == "active")
+        .count();
+    let total_components = cs.analysis_components.len();
+    let engine_wilson_lb95 = wilson_assurance_lb95(active_components as u64, total_components as u64);
+    let active_ratio = security_coverage_ratio(active_components as u64, total_components as u64);
+    let gate_ready = promotion_gate_margin_passed(active_ratio, 0.50, 0.10) && cs.lens_quorum >= 2;
+
+    let lenses_json: Vec<Value> = cs
+        .lenses
+        .iter()
+        .map(|l| {
+            json!({
+                "id": l.id,
+                "item_id": format!("lens:{}", l.id),
+                "title_ko": l.title_ko,
+                "weakness_class": l.weakness_class,
+                "cwes": l.cwes,
+                "languages": l.languages,
+                "language_count": l.languages.len(),
+                "sink_hint_count": l.sink_hint_count,
+                "focus": l.focus,
+                "quorum": l.quorum,
+                "mode": l.mode,
+                "mode_ko": "모의 검증 (Shadow · 자동 변경 금지)",
+                "promotion_gate_ready": gate_ready,
+                "live_hypothesis_count": hypothesis_cnt
+            })
+        })
+        .collect();
+
+    let components_json: Vec<Value> = cs
+        .analysis_components
+        .iter()
+        .map(|c| {
+            let status_ko = if c.status == "active" {
+                "활성 엔진"
+            } else {
+                "연구·비교 전용"
+            };
+            json!({
+                "id": c.id,
+                "version": c.version,
+                "purpose": c.purpose,
+                "status": c.status,
+                "status_ko": status_ko,
+                "license": c.license,
+                "integration": c.integration
+            })
+        })
+        .collect();
+
+    let policies_json: Vec<Value> = cs
+        .policy_docs
+        .iter()
+        .map(|p| {
+            json!({
+                "id": p.id,
+                "title_ko": p.title_ko,
+                "file": p.file,
+                "version": p.version,
+                "item_count": p.item_count,
+                "summary_ko": p.summary_ko
+            })
+        })
+        .collect();
+
+    let db_status = if db_available { "measured" } else { "not-measured" };
+    let opt_db_i64 = |v: i64| -> Value {
+        if db_available {
+            json!(v)
+        } else {
+            Value::Null
+        }
+    };
+
+    json!({
+        "measurement_status": "measured",
+        "db_measurement_status": db_status,
+        "runtime_metrics_available": db_available,
+        "loaded_at_unix": cs.loaded_at_unix,
+        "source": if db_available { "code-security-catalog+postgres" } else { "code-security-catalog" },
+        "constitutional_invariant": {
+            "non_mixing_enforced": true,
+            "summary_ko": "미지 취약점 가설(hypothesis)은 확정 취약점(CVE·verified·proven)과 절대 합산하지 않으며, 자동 변경 권한 없이 Shadow·결정론적 검증·Kata 동적 입증 경로만 허용됩니다."
+        },
+        "confidence_ladder": {
+            "confirmed_or_scanner_total": opt_db_i64(reported_cnt + corroborated_cnt + verified_cnt + proven_cnt),
+            "unknown_hypothesis_separate_total": opt_db_i64(hypothesis_cnt),
+            "stages": [
+                {
+                    "stage": "hypothesis",
+                    "label_ko": "① 미지 취약점 가설 (LLM 렌즈)",
+                    "count": opt_db_i64(hypothesis_cnt),
+                    "separate_from_confirmed": true,
+                    "gate_ko": "이종 모델 정족수(quorum=2) · 자동 변경 금지"
+                },
+                {
+                    "stage": "reported",
+                    "label_ko": "② 스캐너 보고 (SAST/SCA)",
+                    "count": opt_db_i64(reported_cnt),
+                    "separate_from_confirmed": false,
+                    "gate_ko": "Trivy · OSV-Scanner · Gitleaks 결정론 보고"
+                },
+                {
+                    "stage": "corroborated",
+                    "label_ko": "③ 교차 확인 (다중 근거)",
+                    "count": opt_db_i64(corroborated_cnt),
+                    "separate_from_confirmed": false,
+                    "gate_ko": "복수 분석기/규칙 교차 일치"
+                },
+                {
+                    "stage": "verified",
+                    "label_ko": "④ 결정론적 검증 (코드 그래프)",
+                    "count": opt_db_i64(verified_cnt),
+                    "separate_from_confirmed": false,
+                    "gate_ko": "함수 간 데이터흐름(Taint) · AST/컴파일러 검증"
+                },
+                {
+                    "stage": "proven",
+                    "label_ko": "⑤ 동적 입증 (Kata 샌드박스)",
+                    "count": opt_db_i64(proven_cnt),
+                    "separate_from_confirmed": false,
+                    "gate_ko": "격리 Kata 샌드박스 PoC 재현(fdai_prove)"
+                }
+            ]
+        },
+        "summary": {
+            "lens_count": cs.lenses.len(),
+            "supported_language_count": cs.lens_languages.len(),
+            "supported_languages": cs.lens_languages,
+            "multi_model_quorum": cs.lens_quorum,
+            "lens_limits": cs.lens_limits,
+            "active_analysis_engines": active_components,
+            "total_analysis_engines": total_components,
+            "analysis_rule_files_count": cs.analysis_rule_files.len(),
+            "proof_harness_count": cs.proof_harnesses.len(),
+            "policy_doc_count": cs.policy_docs.len(),
+            "engine_wilson_lb95": (engine_wilson_lb95 * 1000.0).round() / 1000.0,
+            "promotion_gate_ready": gate_ready,
+            "live_pack_projections": if db_available { json!(pack_count) } else { Value::Null },
+            "live_review_projections": if db_available { json!(review_count) } else { Value::Null },
+            "live_repository_projections": if db_available { json!(repo_count) } else { Value::Null }
+        },
+        "worker_status": worker_status,
+        "lenses": lenses_json,
+        "analysis_components": components_json,
+        "analysis_rule_files": cs.analysis_rule_files,
+        "proof_harnesses": cs.proof_harnesses,
+        "policy_docs": policies_json,
+        "operations_vulnerability_risk_url": "/operations/vulnerability-risk"
+    })
+}
+
+pub async fn fetch_security_governance_posture(db: &DbHandle) -> Value {
+    let (msrc, cs) = tokio::join!(
+        load_msrc_csaf_catalog_async(),
+        load_code_security_governance_async(),
+    );
+
+    let sec_rules_sql = "SELECT \
+            count(*), \
+            count(*) FILTER (WHERE lower(COALESCE(d.val->>'category','')) = 'security'), \
+            count(*) FILTER (WHERE lower(COALESCE(d.val->>'category','')) = 'security' AND lower(COALESCE(d.val->>'origin','')) = 'active'), \
+            count(*) FILTER (WHERE lower(COALESCE(d.val->>'source','')) LIKE '%kube%'), \
+            count(*) FILTER (WHERE lower(COALESCE(d.val->>'source','')) LIKE '%azure%' OR lower(COALESCE(d.val->>'source','')) LIKE '%policy%'), \
+            count(*) FILTER (WHERE lower(COALESCE(d.val->>'source','')) LIKE '%mcsb%') \
+        FROM state_kv sk, jsonb_each(sk.value->'details') AS d(k, val) \
+        WHERE sk.key = 'operator-projection:workflow:rule.list'";
+
+    let (rules_res, proj_rt, unknown_val) = tokio::join!(
+        db.query_single_readonly(sec_rules_sql),
+        fetch_msrc_projection_and_runtime_cves(db),
+        fetch_security_unknown_vulns(db),
+    );
+
+    let rules_db_ok = rules_res.is_ok();
+    let (total_rules, sec_rules, active_sec_rules, kube_bench_cnt, azure_policy_cnt, mcsb_rules_cnt) =
+        rules_res
+            .ok()
+            .and_then(|q| q.rows.first().cloned())
+            .map(|r| {
+                (
+                    cell_i64(&r, 0).unwrap_or(0),
+                    cell_i64(&r, 1).unwrap_or(0),
+                    cell_i64(&r, 2).unwrap_or(0),
+                    cell_i64(&r, 3).unwrap_or(0),
+                    cell_i64(&r, 4).unwrap_or(0),
+                    cell_i64(&r, 5).unwrap_or(0),
+                )
+            })
+            .unwrap_or((0, 0, 0, 0, 0, 0));
+
+    let (_msrc_proj_cnt, runtime_cves, rt_db_ok) = proj_rt;
+    let db_available = rules_db_ok || rt_db_ok;
+    let db_status = if db_available { "measured" } else { "not-measured" };
+    let msrc_runtime_matched = msrc
+        .cves
+        .iter()
+        .filter(|c| runtime_cves.contains(&c.cve_id))
+        .count() as u64;
+    let hypothesis_count = unknown_val
+        .pointer("/confidence_ladder/unknown_hypothesis_separate_total")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+
+    let wilson_lb95 = wilson_assurance_lb95(sec_rules.max(0) as u64, total_rules.max(0) as u64);
+    let sec_share_ratio = security_coverage_ratio(sec_rules.max(0) as u64, total_rules.max(0) as u64);
+    let kst_audit_date = format_kst_ymd_date(now_unix_secs());
+
+    let assurance = SecurityGovernanceAssurance {
+        total_cves: msrc.cves.len() as u64,
+        exploited_cves: msrc.exploited_count as u64,
+        runtime_matched_cves: msrc_runtime_matched,
+        unknown_lens_count: cs.lenses.len() as u64,
+        hypothesis_count,
+        wilson_lb95: (wilson_lb95 * 1000.0).round() / 1000.0,
+    };
+
+    json!({
+        "measurement_status": "measured",
+        "db_measurement_status": db_status,
+        "runtime_metrics_available": db_available,
+        "loaded_at_unix": msrc.loaded_at_unix,
+        "source": if db_available { "governance-security-unified" } else { "governance-security-catalog-only" },
+        "audit_date_kst": kst_audit_date,
+        "security_assurance": assurance,
+        "security_rules": {
+            "total_rules": if rules_db_ok { json!(total_rules) } else { Value::Null },
+            "security_rules_total": if rules_db_ok { json!(sec_rules) } else { Value::Null },
+            "security_rules_share_pct": if rules_db_ok { json!((sec_share_ratio * 1000.0).round() / 10.0) } else { Value::Null },
+            "security_rules_active": if rules_db_ok { json!(active_sec_rules) } else { Value::Null },
+            "security_rules_collected": if rules_db_ok { json!((sec_rules - active_sec_rules).max(0)) } else { Value::Null },
+            "kube_bench_rules": if rules_db_ok { json!(kube_bench_cnt) } else { Value::Null },
+            "azure_policy_rules": if rules_db_ok { json!(azure_policy_cnt) } else { Value::Null },
+            "mcsb_linked_rules": if rules_db_ok { json!(mcsb_rules_cnt) } else { Value::Null }
+        },
+        "msrc_csaf": {
+            "source_revision": msrc.source_revision,
+            "total_cves": msrc.cves.len(),
+            "total_advisories": msrc.total_advisories,
+            "exploited_count": msrc.exploited_count,
+            "publicly_disclosed_count": msrc.publicly_disclosed_count,
+            "critical_count": msrc.critical_count,
+            "high_count": msrc.high_count,
+            "medium_count": msrc.medium_count,
+            "low_count": msrc.low_count,
+            "product_mapping_count": msrc.product_mapping_count,
+            "runtime_detected_unique_cves": if rt_db_ok { json!(runtime_cves.len()) } else { Value::Null },
+            "runtime_msrc_crosswalk_matched": if rt_db_ok { json!(msrc_runtime_matched) } else { Value::Null }
+        },
+        "unknown_vulnerability_governance": unknown_val
+    })
+}
+
+// ============================================================================
+// Full-Node Ontology Data Lineage DAG (WebGL2 + 2D Canvas Fallback Backend)
+// ============================================================================
+
+fn intern_dict(dict: &mut Vec<String>, map: &mut HashMap<String, usize>, label: &str) -> usize {
+    if let Some(&idx) = map.get(label) {
+        return idx;
+    }
+    let idx = dict.len();
+    dict.push(label.to_string());
+    map.insert(label.to_string(), idx);
+    idx
+}
+
+fn lineage_audit_action_label_ko(action: &str) -> String {
+    match action.trim() {
+        "measurement.control_loop.v1" => "제어 루프 계측".to_string(),
+        "control_loop.compliant" => "정책 준수 판정".to_string(),
+        "control_loop.abstain" => "근거 부족 보류".to_string(),
+        "hil.requested" => "사람 승인(HIL) 요청".to_string(),
+        "hil.approved" => "사람 승인 완료".to_string(),
+        "hil.rejected" => "사람 승인 거절".to_string(),
+        "governance.rule.activation.updated" => "규칙 활성화 변경".to_string(),
+        "governance.rule.enforce_mandatory" => "필수 규칙 일괄 동기화".to_string(),
+        other if other.starts_with("inventory.") => format!("인벤토리 동기화 ({other})"),
+        other if other.starts_with("remediate.") => format!("자동 교정 ({other})"),
+        other if other.is_empty() => "감사 이벤트".to_string(),
+        other => other.to_string(),
+    }
+}
+
+pub async fn fetch_lineage_graph(db: &DbHandle, mode: &str) -> Value {
+    let norm_mode = if mode.eq_ignore_ascii_case("full") {
+        "full"
+    } else {
+        "clustered"
+    };
+
+    let src_sql = "SELECT COALESCE(NULLIF(source_identity, ''), 'azure.inventory'), count(*) \
+        FROM inventory_observation_journal \
+        GROUP BY 1 ORDER BY 2 DESC LIMIT 24";
+    let snap_sql = "SELECT id, COALESCE(status, 'active'), COALESCE(source, 'inventory'), \
+        COALESCE(resource_count, 0), COALESCE(link_count, 0) \
+        FROM inventory_snapshot ORDER BY started_at DESC LIMIT 8";
+    let res_sql = "SELECT id, object_type, \
+        COALESCE(NULLIF(properties->>'name', ''), id), \
+        COALESCE(NULLIF(properties->>'type', ''), object_type), \
+        COALESCE(properties->>'resource_group', '') \
+        FROM ontology_resource \
+        ORDER BY COALESCE(NULLIF(properties->>'type', ''), object_type) ASC, id ASC \
+        LIMIT 5000";
+    let link_sql = "SELECT from_id, to_id, COALESCE(NULLIF(link_type, ''), 'related_to') \
+        FROM ontology_link LIMIT 15000";
+    let audit_sql = "SELECT COALESCE(NULLIF(action_kind, ''), 'audit.event'), count(*) \
+        FROM audit_log GROUP BY 1 ORDER BY 2 DESC LIMIT 24";
+
+    let (src_res, snap_res, res_q, link_q, aud_res) = tokio::join!(
+        db.query_single_readonly(src_sql),
+        db.query_single_readonly(snap_sql),
+        db.query_single_readonly(res_sql),
+        db.query_single_readonly(link_sql),
+        db.query_single_readonly(audit_sql),
+    );
+
+    let (Ok(rq), Ok(lq)) = (res_q, link_q) else {
+        return db.not_measured(
+            "governance",
+            "/api/v4/governance/ontology/lineage/graph",
+            "postgres_unreachable",
+        );
+    };
+
+    let mut type_dict: Vec<String> = Vec::new();
+    let mut type_map: HashMap<String, usize> = HashMap::new();
+    let mut edge_dict: Vec<String> = Vec::new();
+    let mut edge_map: HashMap<String, usize> = HashMap::new();
+
+    // Columnar node row: [idx, id, label, type_idx, stage(0..4), count, x, y, rg]
+    let mut nodes: Vec<Value> = Vec::with_capacity(if norm_mode == "full" { 2_400 } else { 180 });
+    // Columnar edge row: [src_idx, dst_idx, kind_idx]
+    let mut edges: Vec<Value> = Vec::with_capacity(if norm_mode == "full" { 6_500 } else { 400 });
+
+    let e_collect = intern_dict(&mut edge_dict, &mut edge_map, "관측 수집");
+    let e_normalize = intern_dict(&mut edge_dict, &mut edge_map, "온톨로지 정규화");
+    let e_member = intern_dict(&mut edge_dict, &mut edge_map, "유형 소속");
+    let e_audit = intern_dict(&mut edge_dict, &mut edge_map, "감사 기록");
+
+    // Stage 0: Source collectors
+    let mut src_rows: Vec<(String, i64)> = src_res
+        .ok()
+        .map(|q| {
+            q.rows
+                .iter()
+                .map(|r| (cell_str(r, 0), cell_i64(r, 1).unwrap_or(0)))
+                .collect()
+        })
+        .unwrap_or_default();
+    if src_rows.is_empty() {
+        src_rows.push(("azure.inventory.collector".to_string(), rq.rows.len() as i64));
+    }
+    let t_source = intern_dict(&mut type_dict, &mut type_map, "원천 수집기");
+    let mut src_indices: Vec<usize> = Vec::new();
+    let src_total = src_rows.len().max(1) as u64;
+    for (i, (sid, cnt)) in src_rows.iter().enumerate() {
+        let idx = nodes.len();
+        let y = 0.12 + 0.76 * lineage_stage_ratio(i as u64 + 1, src_total + 1);
+        let disp = if sid.contains("inventory") {
+            format!("인벤토리 수집기 ({sid})")
+        } else {
+            sid.clone()
+        };
+        nodes.push(json!([idx, format!("src:{sid}"), disp, t_source, 0, *cnt, 0.05, (y * 10000.0).round() / 10000.0, ""]));
+        src_indices.push(idx);
+    }
+
+    // Stage 1: Inventory Snapshots
+    let mut snap_rows: Vec<(String, String, i64)> = snap_res
+        .ok()
+        .map(|q| {
+            q.rows
+                .iter()
+                .map(|r| {
+                    (
+                        cell_str(r, 0),
+                        cell_str(r, 1),
+                        cell_i64(r, 3).unwrap_or(rq.rows.len() as i64),
+                    )
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    if snap_rows.is_empty() {
+        snap_rows.push(("snapshot-active".to_string(), "active".to_string(), rq.rows.len() as i64));
+    }
+    let t_snap = intern_dict(&mut type_dict, &mut type_map, "인벤토리 스냅샷");
+    let mut snap_indices: Vec<usize> = Vec::new();
+    let snap_total = snap_rows.len().max(1) as u64;
+    for (i, (snap_id, status, cnt)) in snap_rows.iter().enumerate() {
+        let idx = nodes.len();
+        let y = 0.14 + 0.72 * lineage_stage_ratio(i as u64 + 1, snap_total + 1);
+        let short_id = if snap_id.len() > 14 {
+            &snap_id[..14]
+        } else {
+            snap_id.as_str()
+        };
+        let lbl = format!("스냅샷 {short_id} ({status})");
+        nodes.push(json!([idx, format!("snap:{snap_id}"), lbl, t_snap, 1, *cnt, 0.19, (y * 10000.0).round() / 10000.0, ""]));
+        snap_indices.push(idx);
+        for &s_idx in &src_indices {
+            edges.push(json!([s_idx, idx, e_collect]));
+        }
+    }
+    let primary_snap_idx = snap_indices[0];
+
+    // Group ALL resources by canonical resource_type
+    struct RawResRow {
+        id: String,
+        label: String,
+        type_ko: String,
+        rg: String,
+    }
+    let mut by_type: BTreeMap<String, Vec<RawResRow>> = BTreeMap::new();
+    for row in &rq.rows {
+        let rid = cell_str(row, 0);
+        let obj_type = cell_str(row, 1);
+        let raw_name = cell_str(row, 2);
+        let raw_type = cell_str(row, 3);
+        let rg = cell_str(row, 4);
+        let type_ko = resource_type_label_ko(&raw_type).to_string();
+        let label = resolve_ontology_display_name(
+            &rid,
+            &obj_type,
+            &json!({ "name": raw_name, "type": raw_type }),
+        );
+        by_type.entry(type_ko.clone()).or_default().push(RawResRow {
+            id: rid,
+            label,
+            type_ko,
+            rg,
+        });
+    }
+
+    let total_resources = rq.rows.len();
+    let mut sorted_clusters: Vec<(String, Vec<RawResRow>)> = by_type.into_iter().collect();
+    sorted_clusters.sort_by_key(|(tko, list)| (std::cmp::Reverse(list.len()), tko.clone()));
+    let cluster_count = sorted_clusters.len();
+
+    // Stage 2: Resource-Type Cluster Supernodes
+    let mut cluster_node_by_type: HashMap<String, usize> = HashMap::new();
+    let mut res_id_to_cluster_node: HashMap<String, usize> = HashMap::with_capacity(total_resources);
+    let mut res_id_to_node_idx: HashMap<String, usize> = HashMap::with_capacity(total_resources);
+
+    let cl_total = cluster_count.max(1) as u64;
+    let total_res_f = (total_resources.max(1)) as f64;
+    let mut y_cursor: f64 = 0.04;
+
+    for (ci, (tko, members)) in sorted_clusters.iter().enumerate() {
+        let c_idx = nodes.len();
+        let t_idx = intern_dict(&mut type_dict, &mut type_map, tko);
+        let band_h = ((members.len() as f64 / total_res_f) * 0.90).clamp(0.014, 0.24);
+        let cy = if norm_mode == "full" {
+            (y_cursor + band_h * 0.5).clamp(0.04, 0.96)
+        } else {
+            0.05 + 0.90 * lineage_stage_ratio(ci as u64 + 1, cl_total + 1)
+        };
+        let cl_x = if norm_mode == "full" { 0.34 } else { 0.44 };
+        let cl_label = format!("{tko} ({}개)", members.len());
+        nodes.push(json!([
+            c_idx,
+            format!("cluster:{tko}"),
+            cl_label,
+            t_idx,
+            2,
+            members.len(),
+            cl_x,
+            (cy * 10000.0).round() / 10000.0,
+            ""
+        ]));
+        cluster_node_by_type.insert(tko.clone(), c_idx);
+        edges.push(json!([primary_snap_idx, c_idx, e_normalize]));
+
+        for m in members {
+            res_id_to_cluster_node.insert(m.id.clone(), c_idx);
+        }
+
+        // Stage 3 (Full Mode): ALL individual resources laid out cleanly inside their cluster band (zero overlaps!)
+        if norm_mode == "full" {
+            let n_mem = members.len();
+            let cols = if n_mem <= 4 {
+                1usize
+            } else if n_mem <= 24 {
+                4usize
+            } else if n_mem <= 90 {
+                9usize
+            } else {
+                18usize
+            };
+            let rows_in_band = n_mem.div_ceil(cols).max(1);
+            for (mi, m) in members.iter().enumerate() {
+                let r_idx = nodes.len();
+                let col_i = mi % cols;
+                let row_i = mi / cols;
+                let rx = 0.48 + 0.34 * ((col_i as f64 + 0.5) / cols as f64);
+                let ry = (y_cursor + band_h * ((row_i as f64 + 0.5) / rows_in_band as f64)).clamp(0.025, 0.975);
+                let rt_idx = intern_dict(&mut type_dict, &mut type_map, &m.type_ko);
+                nodes.push(json!([
+                    r_idx,
+                    m.id,
+                    m.label,
+                    rt_idx,
+                    3,
+                    1,
+                    (rx * 10000.0).round() / 10000.0,
+                    (ry * 10000.0).round() / 10000.0,
+                    m.rg
+                ]));
+                res_id_to_node_idx.insert(m.id.clone(), r_idx);
+                edges.push(json!([c_idx, r_idx, e_member]));
+            }
+            y_cursor = (y_cursor + band_h + 0.004).min(0.95);
+        }
+    }
+
+    // Add real ontology_link edges (resource-to-resource in full mode, cluster-to-cluster aggregated in clustered mode)
+    let mut linked_resources: HashSet<usize> = HashSet::new();
+    let mut seen_cluster_edges: HashSet<(usize, usize, usize)> = HashSet::new();
+    let mut ontology_links_attached = 0usize;
+    for row in &lq.rows {
+        let from_id = cell_str(row, 0);
+        let to_id = cell_str(row, 1);
+        let ltype = cell_str(row, 2);
+        let ek = intern_dict(&mut edge_dict, &mut edge_map, &ltype);
+        if norm_mode == "full" {
+            if let (Some(&fi), Some(&ti)) = (res_id_to_node_idx.get(&from_id), res_id_to_node_idx.get(&to_id)) {
+                if fi != ti {
+                    edges.push(json!([fi, ti, ek]));
+                    linked_resources.insert(fi);
+                    linked_resources.insert(ti);
+                    ontology_links_attached += 1;
+                }
+            }
+        } else if let (Some(&fc), Some(&tc)) = (
+            res_id_to_cluster_node.get(&from_id),
+            res_id_to_cluster_node.get(&to_id),
+        ) {
+            if fc != tc && seen_cluster_edges.insert((fc, tc, ek)) {
+                edges.push(json!([fc, tc, ek]));
+                ontology_links_attached += 1;
+            }
+        }
+    }
+
+    // Stage 4: Audit Log Sinks
+    let mut aud_rows: Vec<(String, i64)> = aud_res
+        .ok()
+        .map(|q| {
+            q.rows
+                .iter()
+                .map(|r| (cell_str(r, 0), cell_i64(r, 1).unwrap_or(0)))
+                .collect()
+        })
+        .unwrap_or_default();
+    if aud_rows.is_empty() {
+        aud_rows.push(("measurement.control_loop.v1".to_string(), 0));
+    }
+    let t_audit = intern_dict(&mut type_dict, &mut type_map, "감사 원장");
+    let aud_total = aud_rows.len().max(1) as u64;
+    let top_cluster_indices: Vec<usize> = sorted_clusters
+        .iter()
+        .take(8)
+        .filter_map(|(tko, _)| cluster_node_by_type.get(tko).copied())
+        .collect();
+    for (i, (ak, cnt)) in aud_rows.iter().enumerate() {
+        let a_idx = nodes.len();
+        let y = 0.08 + 0.84 * lineage_stage_ratio(i as u64 + 1, aud_total + 1);
+        let lbl = format!("{} ({cnt}건)", lineage_audit_action_label_ko(ak));
+        nodes.push(json!([
+            a_idx,
+            format!("audit:{ak}"),
+            lbl,
+            t_audit,
+            4,
+            *cnt,
+            0.94,
+            (y * 10000.0).round() / 10000.0,
+            ""
+        ]));
+        if !top_cluster_indices.is_empty() {
+            let src_cl = top_cluster_indices[i % top_cluster_indices.len()];
+            edges.push(json!([src_cl, a_idx, e_audit]));
+        }
+    }
+
+    let mapped_count = if norm_mode == "full" {
+        res_id_to_node_idx.len() as u64
+    } else {
+        total_resources as u64
+    };
+    let cov_lb95 = lineage_coverage_wilson_lb95(mapped_count, total_resources as u64);
+    let metrics = LineageGraphMetrics {
+        total_nodes: nodes.len() as u64,
+        total_edges: edges.len() as u64,
+        total_resources: total_resources as u64,
+        cluster_count: cluster_count as u64,
+        coverage_wilson_lb95: (cov_lb95 * 1000.0).round() / 1000.0,
+    };
+
+    json!({
+        "measurement_status": "measured",
+        "source": "postgres-direct",
+        "mode": norm_mode,
+        "types": type_dict,
+        "edge_kinds": edge_dict,
+        "nodes": nodes,
+        "edges": edges,
+        "metrics": metrics,
+        "ontology_links_attached": ontology_links_attached,
+        "linked_resource_nodes": linked_resources.len(),
+        "stages": [
+            { "stage": 0, "key": "source", "label_ko": "① 원천 소스", "count": src_indices.len() },
+            { "stage": 1, "key": "snapshot", "label_ko": "② 수집 스냅샷", "count": snap_indices.len() },
+            { "stage": 2, "key": "cluster", "label_ko": "③ 리소스 유형 클러스터", "count": cluster_count },
+            { "stage": 3, "key": "resource", "label_ko": "④ 온톨로지 인스턴스", "count": if norm_mode == "full" { res_id_to_node_idx.len() } else { total_resources } },
+            { "stage": 4, "key": "audit", "label_ko": "⑤ 규칙 · 이벤트 · 감사", "count": aud_rows.len() }
+        ]
+    })
+}
+

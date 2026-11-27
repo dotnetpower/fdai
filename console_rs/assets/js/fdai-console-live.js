@@ -541,13 +541,77 @@
     return { title, actorKo, actionKo, targetKo, modeKo, description, techRows };
   }
 
+  const RULE_ID_KO = {
+    "compute.vm.environment-tag.required": "가상 머신 필수 environment 태그 기준",
+    "compute.vm-scale-set.zone-redundancy": "가상 머신 확장 집합(VMSS) 가용성 영역 이중화 기준",
+    "disk.snapshot-policy.required": "디스크 스냅샷 정책 필수 기준",
+    "network.nsg.open-ssh": "NSG 공용 SSH 포트 차단 기준",
+    "security.key-vault.public-access": "Key Vault 공용 접근 차단 기준",
+  };
+
+  const REMEDIATION_ACTION_KO = {
+    "remediate.tag-add": "필수 태그 자동 추가",
+    "remediate.tag-update": "리소스 태그 보정",
+    "remediate.scale-out": "노드 풀 확장",
+    "remediate.restart": "워크로드 재시작",
+    "remediate.revoke-access": "임시 접근 권한 회수",
+    "remediate.restrict-network": "네트워크 접근 제한",
+  };
+
+  function humanizeRuleId(raw) {
+    const s = String(raw || "").trim();
+    if (!s) return "";
+    const key = s.toLowerCase();
+    if (RULE_ID_KO[key]) return RULE_ID_KO[key];
+    if (key.includes("environment-tag")) return "필수 environment 태그 기준";
+    if (key.includes("snapshot")) return "디스크 스냅샷 정책 기준";
+    if (key.includes("zone-redundancy")) return "가용성 영역 이중화 기준";
+    if (key.includes("ddos")) return "DDoS 보호 정책 기준";
+    if (key.includes("public-access")) return "공용 접근 차단 기준";
+    if (key.includes("tag")) return "리소스 태그 정책 기준";
+    return s.replace(/[._-]+/g, " ");
+  }
+
+  function humanizeRemediationAction(raw) {
+    const s = String(raw || "").trim();
+    if (!s) return "";
+    const key = s.toLowerCase();
+    if (REMEDIATION_ACTION_KO[key]) return REMEDIATION_ACTION_KO[key];
+    if (key.startsWith("remediate.")) {
+      return key.slice("remediate.".length).replace(/[._-]+/g, " ") + " 조치";
+    }
+    return humanizeAction(s);
+  }
+
+  function humanizeLocalClock(isoOrMs) {
+    if (isoOrMs == null || isoOrMs === "") return "--:--:--";
+    const d = typeof isoOrMs === "number" ? new Date(isoOrMs) : new Date(String(isoOrMs));
+    if (Number.isNaN(d.getTime())) return String(isoOrMs);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+
+  function humanizeSeverity(raw) {
+    const k = String(raw || "").trim().toLowerCase();
+    if (k === "critical" || k === "sev1" || k === "p0") return "긴급";
+    if (k === "high" || k === "sev2" || k === "p1") return "높음";
+    if (k === "medium" || k === "moderate" || k === "sev3" || k === "p2") return "보통";
+    if (k === "low" || k === "sev4" || k === "p3") return "낮음";
+    if (k === "info" || k === "informational") return "정보";
+    return raw ? String(raw) : "미측정";
+  }
+
   window.fdaiV4Humanize = {
     resourceType: humanizeResourceType,
     action: humanizeAction,
+    remediationAction: humanizeRemediationAction,
+    ruleId: humanizeRuleId,
     actor: humanizeActor,
     mode: humanizeMode,
+    severity: humanizeSeverity,
     tableName: humanizeTableName,
     timestamp: humanizeTimestamp,
+    localClock: humanizeLocalClock,
     eventSummary: humanizeEventSummary,
   };
 
@@ -632,7 +696,8 @@
           const pill = document.getElementById("fdaiGlobalLivePulse");
           if (pill) {
             pill.classList.add("is-beat");
-            setTimeout(() => { pill.classList.remove("is-beat"); }, 320);
+            triggerShimmerClass(pill, "fdai-shimmer-pulse", 1150);
+            setTimeout(() => { pill.classList.remove("is-beat"); }, 360);
           }
           window.dispatchEvent(new CustomEvent("fdai:live-pulse", { detail: payload }));
           for (const cb of pulseListeners) {
@@ -659,9 +724,688 @@
     return () => { pulseListeners.delete(cb); };
   }
 
+  function triggerShimmerClass(el, cls, durationMs) {
+    if (!el || !(el instanceof Element)) return;
+    el.classList.remove("fdai-shimmer-border", "fdai-shimmer-bg", "fdai-shimmer-pulse");
+    void el.offsetWidth;
+    el.classList.add(cls);
+    const ms = durationMs || 1200;
+    if (el._fdaiShimmerTimer) clearTimeout(el._fdaiShimmerTimer);
+    el._fdaiShimmerTimer = setTimeout(() => {
+      el.classList.remove(cls);
+      el._fdaiShimmerTimer = null;
+    }, ms);
+  }
+
+  window.fdaiV4Shimmer = {
+    border: (el, ms) => triggerShimmerClass(el, "fdai-shimmer-border", ms),
+    bg: (el, ms) => triggerShimmerClass(el, "fdai-shimmer-bg", ms),
+    pulse: (el, ms) => triggerShimmerClass(el, "fdai-shimmer-pulse", ms),
+    markStreaming: (el, active) => {
+      if (el && el instanceof Element) el.classList.toggle("fdai-live-streaming", Boolean(active));
+    },
+  };
+
+  /* =========================================================================
+     Global Bottom Ticker Bar (All Console v4 Pages)
+     - 58+ curated & live-ledger messages, deduplicated across page transitions
+     - Vertical slide-up every 5s, pause on hover/focus, compact recent-3 popover
+     - Clickable links both inline and inside the hover popover
+     ========================================================================= */
+  const GLOBAL_TICKER_STATIC_CATALOG = [
+    { id: "s01", priority: "highlight", badge: "실측 연동", tone: "live", text: "로컬 PostgreSQL 실측 원장과 직접 연동되었습니다. 미수집 필드는 0이나 예제 값으로 대체하지 않습니다." },
+    { id: "s02", priority: "info", badge: "운영 원칙", tone: "live", text: "결정론 규칙(T0)으로 반복 이벤트를 우선 처리하고, 잔여 모호성만 근거 검증을 거쳐 AI(T1/T2)로 분석합니다.", href: "/governance/trust-routing", linkText: "신뢰 라우팅" },
+    { id: "s03", priority: "info", badge: "안전 경계", tone: "sec", text: "모든 상태 변경은 명시적 사람 승인 또는 유효한 상시 위임 없이 실행되지 않으며, 침묵은 승인이 아닙니다.", href: "/operations/hil-queue", linkText: "승인 대기열" },
+    { id: "s04", priority: "info", badge: "7대 안전장치", tone: "live", text: "모든 변경 조치에는 중단 조건·검증 롤백·영향 제한·사전 시뮬레이션·잠금·멱등키·2단계 감사가 적용됩니다.", href: "/overview/control-assurance", linkText: "안전 통제" },
+    { id: "s05", priority: "info", badge: "관찰 우선", tone: "auto", text: "신규 자동화 기능은 관찰(Shadow) 모드로 시작하며, 승격 게이트 증거 또는 승인된 전환으로만 실행 단계에 진입합니다.", href: "/governance/promotion-gates", linkText: "승격 심사" },
+    { id: "s06", priority: "info", badge: "역할 분리", tone: "human", text: "사람 승인자(Var)와 변경 실행자(Thor)의 정체성은 항상 분리 기록되어 단일 권한 오남용을 차단합니다.", href: "/agents/pantheon", linkText: "에이전트 구성" },
+    { id: "s07", priority: "info", badge: "결과 검증", tone: "live", text: "API 호출 성공이나 요청 접수는 완료로 간주하지 않으며, 독립된 권위 관측으로 실제 효과를 검증합니다.", href: "/evidence/audit", linkText: "감사 원장" },
+    { id: "s08", priority: "info", badge: "온톨로지", tone: "auto", text: "모든 리소스·관계·근거·조치는 표준 운영 온톨로지에 근거하며, 온톨로지는 의미를 검증하되 권한을 부여하지 않습니다.", href: "/governance/ontology", linkText: "온톨로지" },
+    { id: "s09", priority: "info", badge: "인과 분리", tone: "sre", text: "시계열 상관관계와 원인은 엄격히 구분하며, 근거가 부족하거나 오래된 경우 추정 대신 보류·확인을 선택합니다.", href: "/evidence/rca", linkText: "원인 분석" },
+    { id: "s10", priority: "info", badge: "시간축 안내", tone: "live", text: "대시보드 차트·툴팁·드로어 시각은 모두 브라우저 로컬 시간대 기준으로 통일되어 표시됩니다.", href: "/overview/dashboard", linkText: "대시보드" },
+    { id: "s11", priority: "info", badge: "예측 영역", tone: "auto", text: "실측 예측 모델 결과가 없는 경우 미래(+5m) 예측 구간은 예제 점 없이 미측정 상태로 정직하게 비워둡니다." },
+    { id: "s12", priority: "info", badge: "즉시 회수", tone: "sec", text: "이상 징후나 회귀가 감지되면 즉시 회수(Recall)와 자동 강등(Demotion)이 모든 운영자 예외보다 최우선 적용됩니다.", href: "/overview/control-assurance", linkText: "회수 현황" },
+    { id: "s13", priority: "info", badge: "감사 무결성", tone: "live", text: "감사 원장은 추가 전용(Append-only) 해시 체인으로 기록되어 사후 변조 검증과 타임라인 재생을 지원합니다.", href: "/evidence/audit", linkText: "감사 원장" },
+    { id: "s14", priority: "info", badge: "단축키 팁", tone: "auto", text: "어느 화면에서나 Ctrl+K(⌘K)로 전체 메뉴를 빠르게 검색하고 Ctrl+J로 AI 운영 채팅을 열 수 있습니다." },
+    { id: "s15", priority: "info", badge: "링크 공유", tone: "auto", text: "카드·행·산점도 항목을 선택하면 주소창에 고유 ?item= URL이 반영되어 팀원에게 동일 상태를 바로 공유할 수 있습니다." },
+    { id: "s16", priority: "info", badge: "Live / Sample", tone: "live", text: "상단 Live / Sample 토글로 실측 PostgreSQL 원장 화면과 교육용 예제 화면을 데이터 혼합 없이 전환할 수 있습니다." },
+    { id: "s17", priority: "info", badge: "스코프 필터", tone: "auto", text: "구독·리소스 그룹 필터를 변경하면 대시보드 지표·관측 항목·시계열이 선택한 범위에 맞춰 즉시 재집계됩니다." },
+    { id: "s18", priority: "info", badge: "영향 반경", tone: "sre", text: "변경 전 Blast Radius(영향 반경) 시뮬레이션으로 다운스트림 의존성과 동시 장애 위험을 사전에 확인하세요.", href: "/governance/blast-radius", linkText: "영향 반경" },
+    { id: "s19", priority: "info", badge: "비용 거버넌스", tone: "auto", text: "미수집 과금·절감 지표는 0원으로 표시하지 않고 미측정으로 유지하며, 확인된 비용 항목만 집계합니다.", href: "/overview/cost-governance", linkText: "비용 거버넌스" },
+    { id: "s20", priority: "info", badge: "AI 토큰 절감", tone: "live", text: "결정론 규칙(T0) 비중이 높을수록 AI 추론 비용과 응답 지연이 동시에 감소합니다. 모델별 호출 분포를 점검하세요.", href: "/overview/llm-cost", linkText: "AI 모델 비용" },
+    { id: "s21", priority: "info", badge: "관측 신선도", tone: "auto", text: "Heimdall 관측 수집기는 리소스 상태의 유효 시각·수집 시각·기록 시각을 분리해 신선도 저하를 즉시 알립니다.", href: "/overview/dashboard-v2", linkText: "리소스 현황" },
+    { id: "s22", priority: "info", badge: "보안 기준선", tone: "sec", text: "구성 드리프트와 보안 기준선 이탈 항목은 구성 기준선 화면에서 정책별 준수 상태와 근거를 함께 확인할 수 있습니다.", href: "/operations/configuration-baselines", linkText: "구성 기준선" },
+    { id: "s23", priority: "info", badge: "취약점 위험", tone: "sec", text: "코드·컨테이너 취약점은 실제 노출 경로와 운영 중요도를 함께 평가해 우선순위를 산정합니다.", href: "/operations/vulnerability-risk", linkText: "취약점 위험" },
+    { id: "s24", priority: "info", badge: "경보 품질", tone: "sre", text: "중복·노이즈 알림을 억제해 운영자에게 정말 확인이 필요한 신호만 전달합니다. 억제율은 경보 품질에서 확인하세요.", href: "/operations/alert-quality", linkText: "경보 품질" },
+    { id: "s25", priority: "info", badge: "탐지 준비도", tone: "auto", text: "장애 시나리오별 탐지 규칙 커버리지와 미연결 텔레메트리 공백은 탐지 준비도 매트릭스에서 점검할 수 있습니다.", href: "/operations/detection-readiness", linkText: "탐지 준비도" },
+    { id: "s26", priority: "info", badge: "에이전트 책임", tone: "human", text: "15개 고정 에이전트 역할마다 담당 운영자(Steward)가 지정되어 에스컬레이션과 인수인계 경로가 명확합니다.", href: "/agents/handover", linkText: "담당자 인수인계" },
+    { id: "s27", priority: "info", badge: "이벤트 버스", tone: "auto", text: "권한이 수반되는 에이전트 협업은 직접 함수 호출 없이 스키마 검증된 이벤트 버스 pub/sub으로만 전달됩니다.", href: "/agents/agent-activity", linkText: "에이전트 활동" },
+    { id: "s28", priority: "info", badge: "운영 성과", tone: "live", text: "자동 처리율·평균 인지 시간·안전 준수 추이는 운영 성과 화면에서 기간별로 비교할 수 있습니다.", href: "/overview/operating-outcomes", linkText: "운영 성과" },
+    { id: "s29", priority: "info", badge: "영역별 현황", tone: "auto", text: "복원력(SRE)·변경 안전·비용 거버넌스·보안 4개 영역의 통합 상태는 영역별 현황에서 한눈에 확인할 수 있습니다.", href: "/overview/verticals", linkText: "영역별 현황" },
+    { id: "s30", priority: "info", badge: "어드바이저", tone: "live", text: "Well-Architected 5대 축(안정성·보안·비용·운영·성능) 기반 개선 권고사항을 어드바이저 허브에서 검토하세요.", href: "/advisor/overview", linkText: "어드바이저" },
+    { id: "s31", priority: "info", badge: "규칙 카탈로그", tone: "auto", text: "모든 정책 규칙은 조건·위험 등급·롤백 경로와 함께 버전 관리되며 규칙 카탈로그에서 즉시 조회할 수 있습니다.", href: "/governance/rules", linkText: "규칙 카탈로그" },
+    { id: "s32", priority: "info", badge: "아키텍처 맵", tone: "auto", text: "서비스 간 의존 관계와 네트워크·데이터 계층 토폴로지는 아키텍처 맵에서 확대·탐색할 수 있습니다.", href: "/governance/architecture", linkText: "아키텍처 맵" },
+    { id: "s33", priority: "info", badge: "스코프 경계", tone: "sec", text: "허용된 구독·리소스 그룹 경계 밖의 리소스는 읽기·변경 대상에서 자동 차단됩니다.", href: "/governance/scope", linkText: "스코프 설정" },
+    { id: "s34", priority: "info", badge: "승인 만료 정책", tone: "human", text: "응답 기한이 지난 승인 요청은 자동 실행되지 않고 만료 처리되어 안전하게 종료됩니다.", href: "/operations/hil-queue", linkText: "승인 대기열" },
+    { id: "s35", priority: "info", badge: "실시간 펄스", tone: "live", text: "상단 실시간 연결 배지를 클릭하면 SSE 실시간 동기화를 일시정지하거나 즉시 재개할 수 있습니다." },
+    { id: "s36", priority: "info", badge: "심각도 기준", tone: "auto", text: "산점도 Y축은 임의 합성 점수가 아닌 실제 심각도 등급(관측·낮음·보통·높음·긴급)을 그대로 반영합니다." },
+    { id: "s37", priority: "info", badge: "추적 로그", tone: "auto", text: "특정 사건의 제어 루프 전체 단계와 지연 분포는 분산 추적(Trace) 화면에서 구간별로 확인할 수 있습니다.", href: "/evidence/trace", linkText: "분산 추적" },
+    { id: "s38", priority: "info", badge: "보고서 내보내기", tone: "auto", text: "경영진 요약 및 감사 제출용 증적 리포트는 보고서 화면에서 기간별로 생성할 수 있습니다.", href: "/evidence/reports", linkText: "보고서" },
+    { id: "s39", priority: "info", badge: "워크플로 점검", tone: "auto", text: "승인 후 실행되는 자동화 워크플로와 사전 드라이런 결과는 워크플로 빌더에서 검증할 수 있습니다.", href: "/governance/workflow-builder", linkText: "워크플로" },
+    { id: "s40", priority: "info", badge: "지식 베이스", tone: "auto", text: "런북·장애 대응 절차·아키텍처 문서는 지식 베이스에 인덱싱되어 원인 분석 시 근거로 인용됩니다.", href: "/governance/knowledge", linkText: "지식 베이스" },
+    { id: "s41", priority: "info", badge: "대화 검색", tone: "auto", text: "과거 운영자 질의와 AI 판단 근거, 인용된 감사 원장 기록은 대화 검색 화면에서 다시 조회할 수 있습니다.", href: "/evidence/conversation-search", linkText: "대화 검색" },
+    { id: "s42", priority: "info", badge: "스케줄러", tone: "auto", text: "주기적 인벤토리 동기화·기준선 점검·비용 집계 작업의 실행 상태는 스케줄러 실행 이력에서 확인하세요.", href: "/operations/scheduler-runs", linkText: "스케줄러 이력" },
+    { id: "s43", priority: "info", badge: "백그라운드 작업", tone: "auto", text: "장기 실행되는 수집·분석·검증 파이프라인의 진행 상황과 실패 재시도 내역을 한곳에서 모니터링합니다.", href: "/operations/background-tasks", linkText: "백그라운드 작업" },
+    { id: "s44", priority: "info", badge: "비밀 보호", tone: "sec", text: "자격 증명·토큰·고객 식별 정보는 콘솔 화면·로그·티커·채팅 출력에서 자동으로 제외됩니다." },
+  ];
+
+  const globalTickerEngine = (() => {
+    const STORAGE_KEY = "fdai_v4_ticker_state_v1";
+    const CACHE_KEY = "fdai_v4_ticker_dash_cache_v1";
+    const TICKER_INTERVAL_MS = 5000;
+    const PRIORITY_RANK = { critical: 0, warn: 1, highlight: 2, info: 3 };
+
+    const seenIds = new Set();
+    const priorityQueue = [];
+    let recentHistory = [];
+    let catalogCursor = 0;
+    let currentMsg = null;
+    let shownCount = 0;
+    let totalPoolSize = GLOBAL_TICKER_STATIC_CATALOG.length + 14;
+    let rotateTimer = null;
+    let isHoverPaused = false;
+    let mountedBar = null;
+    let initialized = false;
+    let dashboardIngested = false;
+
+    function safeHref(url) {
+      if (!url || typeof url !== "string") return "";
+      const t = url.trim();
+      if (t.startsWith("/") && !t.startsWith("//")) return t;
+      return "";
+    }
+
+    function loadPersistedState() {
+      try {
+        const raw = window.sessionStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed.seenIds)) {
+          parsed.seenIds.slice(-120).forEach((id) => {
+            if (typeof id === "string" && id && id !== "boot:init") seenIds.add(id);
+          });
+        }
+        if (Array.isArray(parsed.recentHistory)) {
+          recentHistory = parsed.recentHistory
+            .filter((it) => it && typeof it.id === "string" && typeof it.text === "string")
+            .slice(0, 3);
+        }
+        if (typeof parsed.catalogCursor === "number" && Number.isFinite(parsed.catalogCursor)) {
+          catalogCursor = Math.max(0, parsed.catalogCursor % GLOBAL_TICKER_STATIC_CATALOG.length);
+        }
+      } catch (_e) {}
+    }
+
+    function persistState() {
+      try {
+        window.sessionStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({
+            seenIds: Array.from(seenIds).slice(-120),
+            recentHistory: recentHistory.slice(0, 3),
+            catalogCursor,
+          })
+        );
+      } catch (_e) {}
+    }
+
+    function toneClassFor(msg) {
+      if (msg.badgeClass) return msg.badgeClass;
+      if (msg.tone === "sec" || msg.priority === "critical") return "cs-badge tone-sec";
+      if (msg.tone === "sre" || msg.priority === "warn") return "cs-badge tone-sre";
+      if (msg.tone === "human") return "cs-badge tone-human";
+      if (msg.tone === "live" || msg.priority === "highlight") return "cs-badge tone-live";
+      return "cs-badge";
+    }
+
+    function setBadge(el, cls, label) {
+      if (!el) return;
+      el.className = cls;
+      const dot = document.createElement("span");
+      dot.className = "cs-dot";
+      el.replaceChildren(dot, document.createTextNode(label || "운영 안내"));
+    }
+
+    function buildTickerShell(hostEl) {
+      hostEl.classList.add("principle-bar", "fdai-global-ticker");
+      hostEl.setAttribute("role", "note");
+      hostEl.setAttribute("aria-label", "실측 연동 상태 및 운영 안내 티커");
+
+      const badge = document.createElement("span");
+      badge.className = "cs-badge tone-live fdai-ticker-badge";
+      badge.id = hostEl.id === "ovBottomTickerBar" ? "ovBottomTickerBadge" : "fdaiGlobalTickerBadge";
+      badge.dataset.tickerRole = "badge";
+      setBadge(badge, "cs-badge tone-live fdai-ticker-badge", "실측 안내");
+
+      const viewport = document.createElement("div");
+      viewport.className = "fdai-ticker-viewport";
+      viewport.tabIndex = 0;
+      viewport.setAttribute("aria-label", "운영 안내 티커 (마우스를 올리면 최근 3건 표시 및 일시정지)");
+
+      const track = document.createElement("div");
+      track.className = "fdai-ticker-track";
+      track.id = hostEl.id === "ovBottomTickerBar" ? "ovBottomTickerTrack" : "fdaiGlobalTickerTrack";
+      track.dataset.tickerRole = "track";
+
+      const item = document.createElement("span");
+      item.className = "fdai-ticker-item";
+      item.id = hostEl.id === "ovBottomTickerBar" ? "ovLiveStateText" : "fdaiGlobalTickerText";
+      item.dataset.tickerRole = "text";
+      item.textContent = "실시간 운영 원장에서 관측 상태를 확인하고 있습니다.";
+
+      track.appendChild(item);
+      viewport.appendChild(track);
+
+      const right = document.createElement("span");
+      right.className = "fdai-ticker-right";
+
+      const counter = document.createElement("span");
+      counter.className = "fdai-ticker-count";
+      counter.id = hostEl.id === "ovBottomTickerBar" ? "ovBottomTickerCounter" : "fdaiGlobalTickerCounter";
+      counter.dataset.tickerRole = "counter";
+      counter.textContent = `1 / ${totalPoolSize}`;
+
+      const nextBtn = document.createElement("button");
+      nextBtn.type = "button";
+      nextBtn.className = "fdai-ticker-next";
+      nextBtn.id = hostEl.id === "ovBottomTickerBar" ? "ovBottomTickerNextBtn" : "fdaiGlobalTickerNextBtn";
+      nextBtn.dataset.tickerRole = "next";
+      nextBtn.setAttribute("aria-label", "다음 운영 안내 메시지 보기");
+      nextBtn.textContent = "다음";
+
+      right.append(counter, nextBtn);
+
+      const popover = document.createElement("div");
+      popover.className = "fdai-ticker-popover";
+      popover.id = hostEl.id === "ovBottomTickerBar" ? "ovBottomTickerPopover" : "fdaiGlobalTickerPopover";
+      popover.dataset.tickerRole = "popover";
+      popover.setAttribute("role", "region");
+      popover.setAttribute("aria-label", "최근 운영 안내 3건");
+
+      const popHead = document.createElement("div");
+      popHead.className = "fdai-ticker-pop-head";
+      const popTitle = document.createElement("span");
+      popTitle.textContent = "최근 안내 (3건)";
+      const popHint = document.createElement("span");
+      popHint.textContent = "클릭 이동 · 호버 일시정지";
+      popHead.append(popTitle, popHint);
+
+      const popList = document.createElement("div");
+      popList.className = "fdai-ticker-pop-list";
+      popList.id = hostEl.id === "ovBottomTickerBar" ? "ovBottomTickerHistoryList" : "fdaiGlobalTickerHistoryList";
+      popList.dataset.tickerRole = "history";
+
+      popover.append(popHead, popList);
+      hostEl.replaceChildren(badge, viewport, right, popover);
+      return hostEl;
+    }
+
+    function ensureFallbackStyles() {
+      if (document.querySelector('link[href*="fdai-console-shared.css"]')) return;
+      if (document.getElementById("fdaiTickerFallbackStyle")) return;
+      const st = document.createElement("style");
+      st.id = "fdaiTickerFallbackStyle";
+      st.textContent = [
+        ".fdai-global-ticker{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:8px 16px;margin-top:16px;border-top:1px solid var(--line,#e5e7eb);background:var(--surface,#fff);font-size:12px;color:var(--text-soft,#4b5563);overflow:visible;z-index:25;}",
+        ".fdai-ticker-viewport{overflow:hidden;min-width:0;min-height:22px;display:flex;align-items:center;}",
+        ".fdai-ticker-track{display:flex;align-items:center;min-width:0;width:100%;}",
+        ".fdai-ticker-item{display:inline-flex;align-items:center;gap:8px;min-width:0;max-width:100%;}",
+        ".fdai-ticker-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}",
+        ".fdai-ticker-right{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;}",
+        ".fdai-ticker-next{border:1px solid var(--line,#d1d5db);background:transparent;color:inherit;border-radius:999px;padding:2px 8px;font-size:12px;cursor:pointer;}",
+        ".fdai-ticker-popover{position:absolute;left:0;bottom:calc(100% + 6px);width:min(540px,calc(100vw - 40px));padding:6px 8px;border:1px solid var(--line,#d1d5db);border-radius:8px;background:var(--surface,#fff);box-shadow:0 8px 20px rgba(15,23,42,.13);display:grid;gap:4px;opacity:0;transform:translateY(4px);pointer-events:none;transition:opacity .14s ease,transform .14s ease;z-index:65;}",
+        ".fdai-ticker-popover::after{content:'';position:absolute;left:0;right:0;top:100%;height:10px;}",
+        ".fdai-global-ticker:hover .fdai-ticker-popover,.fdai-global-ticker:focus-within .fdai-ticker-popover{opacity:1;transform:translateY(0);pointer-events:auto;}",
+        ".fdai-ticker-pop-head{display:flex;justify-content:space-between;font-size:12px;font-weight:600;}",
+        ".fdai-ticker-pop-list{display:grid;gap:3px;}",
+        ".fdai-ticker-pop-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:7px;padding:4px 7px;border:1px solid var(--line,#e5e7eb);border-radius:6px;text-decoration:none;color:inherit;font-size:12px;}",
+        ".fdai-ticker-pop-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}",
+        ".fdai-ticker-pop-item:hover .fdai-ticker-pop-text{white-space:normal;}",
+      ].join("");
+      document.head.appendChild(st);
+    }
+
+    function ensureMountedBar() {
+      if (mountedBar && document.body.contains(mountedBar)) return mountedBar;
+      ensureFallbackStyles();
+      let target = document.getElementById("ovBottomTickerBar");
+      if (!target) {
+        const candidates = Array.from(document.querySelectorAll("#fdaiMain .principle-bar, .content-wrap > .principle-bar, #fdaiMain .footer-note, .content-wrap > .footer-note"));
+        target = candidates.find((el) => !el.closest("[hidden]")) || candidates[0] || null;
+      }
+      if (!target) {
+        const container = document.querySelector("#fdaiMain > .content-wrap") || document.getElementById("fdaiMain") || document.querySelector("main");
+        if (!container) return null;
+        target = document.createElement("div");
+        target.id = "fdaiGlobalTickerBar";
+        container.appendChild(target);
+      }
+      buildTickerShell(target);
+      mountedBar = target;
+
+      const pause = () => {
+        isHoverPaused = true;
+        if (rotateTimer) {
+          window.clearTimeout(rotateTimer);
+          rotateTimer = null;
+        }
+      };
+      const resume = () => {
+        isHoverPaused = false;
+        scheduleNext();
+      };
+      target.addEventListener("mouseenter", pause);
+      target.addEventListener("mouseleave", resume);
+      target.addEventListener("focusin", pause);
+      target.addEventListener("focusout", (ev) => {
+        if (!target.contains(ev.relatedTarget)) resume();
+      });
+      const nextBtn = target.querySelector('[data-ticker-role="next"]');
+      if (nextBtn) {
+        nextBtn.addEventListener("click", () => {
+          playNext();
+        });
+      }
+      return mountedBar;
+    }
+
+    function scheduleNext() {
+      if (rotateTimer) {
+        window.clearTimeout(rotateTimer);
+        rotateTimer = null;
+      }
+      if (isHoverPaused) return;
+      rotateTimer = window.setTimeout(() => {
+        rotateTimer = null;
+        if (!isHoverPaused) playNext();
+      }, TICKER_INTERVAL_MS);
+    }
+
+    function renderHistoryPopover() {
+      const bar = ensureMountedBar();
+      if (!bar) return;
+      const list = bar.querySelector('[data-ticker-role="history"]');
+      if (!list) return;
+      const frag = document.createDocumentFragment();
+      recentHistory.slice(0, 3).forEach((item, idx) => {
+        const href = safeHref(item.href);
+        const row = document.createElement(href ? "a" : "div");
+        row.className = "fdai-ticker-pop-item";
+        if (href) row.href = href;
+        row.title = item.text;
+
+        const bdg = document.createElement("span");
+        setBadge(bdg, toneClassFor(item), item.badge || "운영 안내");
+
+        const txt = document.createElement("span");
+        txt.className = "fdai-ticker-pop-text"
+          + (item.priority === "critical" ? " is-critical" : item.priority === "warn" ? " is-warn" : item.priority === "highlight" ? " is-highlight" : "");
+        txt.textContent = item.text;
+
+        const rightMeta = document.createElement("span");
+        rightMeta.className = "fdai-ticker-pop-action";
+        rightMeta.textContent = href ? `${item.linkText || "열기"} →` : (idx === 0 ? "현재" : (item.shownAt || ""));
+
+        row.append(bdg, txt, rightMeta);
+        frag.appendChild(row);
+      });
+      list.replaceChildren(frag);
+    }
+
+    function renderMessage(msg, recordSeen) {
+      const bar = ensureMountedBar();
+      if (!bar || !msg) return;
+      currentMsg = msg;
+      if (recordSeen !== false && msg.id && msg.id !== "boot:init") {
+        seenIds.add(msg.id);
+        const existingIdx = recentHistory.findIndex((h) => h.id === msg.id);
+        if (existingIdx >= 0) recentHistory.splice(existingIdx, 1);
+        recentHistory.unshift(Object.assign({}, msg, { shownAt: humanizeLocalClock(Date.now()) }));
+        if (recentHistory.length > 3) recentHistory.length = 3;
+        persistState();
+      }
+      shownCount = Math.min(totalPoolSize, Math.max(1, seenIds.size));
+      renderHistoryPopover();
+
+      const badge = bar.querySelector('[data-ticker-role="badge"]');
+      const track = bar.querySelector('[data-ticker-role="track"]');
+      const textEl = bar.querySelector('[data-ticker-role="text"]');
+      const counter = bar.querySelector('[data-ticker-role="counter"]');
+
+      if (badge) setBadge(badge, `${toneClassFor(msg)} fdai-ticker-badge`, msg.badge || "운영 안내");
+      if (counter) counter.textContent = `${shownCount} / ${Math.max(totalPoolSize, shownCount)}`;
+      if (textEl) {
+        textEl.className = "fdai-ticker-item"
+          + (msg.priority === "critical" ? " is-critical" : msg.priority === "warn" ? " is-warn" : msg.priority === "highlight" ? " is-highlight" : "");
+        const txtSpan = document.createElement("span");
+        txtSpan.className = "fdai-ticker-text";
+        txtSpan.textContent = msg.text;
+        textEl.replaceChildren(txtSpan);
+        const href = safeHref(msg.href);
+        if (href && msg.linkText) {
+          const a = document.createElement("a");
+          a.className = "fdai-ticker-link";
+          a.href = href;
+          a.textContent = `${msg.linkText} →`;
+          textEl.appendChild(a);
+        }
+      }
+      if (msg.priority === "critical") triggerShimmerClass(bar, "fdai-shimmer-pulse", 1150);
+      else if (msg.priority === "warn" || msg.priority === "highlight") triggerShimmerClass(bar, "fdai-shimmer-border", 1050);
+
+      if (track) {
+        track.classList.remove("is-entering");
+        void track.offsetWidth;
+        track.classList.add("is-entering");
+      }
+      scheduleNext();
+    }
+
+    function enqueue(msg, interruptIfInfo) {
+      if (!msg || !msg.id || !msg.text) return;
+      if (seenIds.has(msg.id)) return;
+      if (priorityQueue.some((q) => q.id === msg.id)) return;
+      priorityQueue.push(msg);
+      priorityQueue.sort((a, b) => (PRIORITY_RANK[a.priority] ?? 3) - (PRIORITY_RANK[b.priority] ?? 3));
+      if (interruptIfInfo && !isHoverPaused && (!currentMsg || currentMsg.priority === "info" || currentMsg.id === "boot:init")) {
+        playNext();
+      }
+    }
+
+    function pullNextMessage() {
+      while (priorityQueue.length) {
+        const candidate = priorityQueue.shift();
+        if (!seenIds.has(candidate.id)) return candidate;
+      }
+      const staticLen = GLOBAL_TICKER_STATIC_CATALOG.length;
+      for (let tries = 0; tries < staticLen; tries += 1) {
+        const item = GLOBAL_TICKER_STATIC_CATALOG[(catalogCursor + tries) % staticLen];
+        if (!seenIds.has(item.id)) {
+          catalogCursor = (catalogCursor + tries + 1) % staticLen;
+          return item;
+        }
+      }
+      GLOBAL_TICKER_STATIC_CATALOG.forEach((it) => seenIds.delete(it.id));
+      catalogCursor = 0;
+      return GLOBAL_TICKER_STATIC_CATALOG[0];
+    }
+
+    function playNext() {
+      const next = pullNextMessage();
+      if (next) renderMessage(next, true);
+    }
+
+    function fmtNum(v) {
+      return typeof v === "number" && Number.isFinite(v) ? v.toLocaleString("ko-KR") : "미측정";
+    }
+
+    function ingestDashboardData(data) {
+      if (!data) return;
+      dashboardIngested = true;
+      const activeMode = document.querySelector("[data-data-mode].is-active");
+      if (activeMode && activeMode.getAttribute("data-data-mode") === "sample") return;
+
+      const sig = data.signals || {};
+      const posture = data.posture || {};
+      const routing = data.routing || {};
+      const byTier = routing.by_tier || {};
+      const policyEsc = Number(posture.policy_escape_count || 0);
+      const dynamicMsgs = [];
+
+      if (policyEsc > 0) {
+        dynamicMsgs.push({
+          id: `live:policy-escape:${policyEsc}`,
+          priority: "critical",
+          badge: "긴급 · 정책 위반",
+          tone: "sec",
+          text: `안전 정책 위반 ${policyEsc}건이 감지되었습니다. 즉시 안전 통제 현황에서 회수(Recall) 및 감사 원장을 확인하세요.`,
+          href: "/overview/control-assurance",
+          linkText: "안전 통제",
+        });
+      } else if (typeof posture.event_count === "number") {
+        dynamicMsgs.push({
+          id: `live:policy-zero:${posture.event_count}`,
+          priority: "highlight",
+          badge: "안전 유지",
+          tone: "live",
+          text: `감사 원장 ${posture.event_count.toLocaleString()}건 전수 대조 결과 안전 정책 위반 0건 불변식이 정상 유지되고 있습니다.`,
+          href: "/overview/control-assurance",
+          linkText: "안전 통제",
+        });
+      }
+      if (typeof sig.hil_pending_estimate === "number" && sig.hil_pending_estimate > 0) {
+        dynamicMsgs.push({
+          id: `live:hil-pending:${sig.hil_pending_estimate}`,
+          priority: "warn",
+          badge: "승인 필요",
+          tone: "human",
+          text: `운영자 확인이 필요한 사람 승인 요청 ${sig.hil_pending_estimate}건이 대기 중입니다. 승인 대기열에서 변경 내용을 검토하세요.`,
+          href: "/operations/hil-queue",
+          linkText: "승인 대기열",
+        });
+      }
+      if (typeof sig.hil_expired === "number" && sig.hil_expired > 0) {
+        dynamicMsgs.push({
+          id: `live:hil-expired:${sig.hil_expired}`,
+          priority: "warn",
+          badge: "승인 만료",
+          tone: "sre",
+          text: `응답 시간 만료된 승인 요청이 누적 ${sig.hil_expired}건 있습니다. 반복 규칙은 자동화 승격 심사를 검토하세요.`,
+          href: "/governance/promotion-gates",
+          linkText: "승격 심사",
+        });
+      }
+      if (typeof sig.open_incidents === "number" && sig.open_incidents > 0) {
+        const latestInc = Array.isArray(data.incidents) && data.incidents[0];
+        const incId = latestInc && latestInc.id ? String(latestInc.id) : "";
+        dynamicMsgs.push({
+          id: `live:open-incidents:${sig.open_incidents}:${incId}`,
+          priority: "warn",
+          badge: "진행 인시던트",
+          tone: "sre",
+          text: `진행 중인 운영 인시던트 ${sig.open_incidents}건이 추적 중입니다. 원인 분석과 최근 영향 범위를 확인하세요.`,
+          href: incId && window.fdaiV4Selection ? window.fdaiV4Selection.buildItemUrl("incidents", incId) : "/operations/incidents",
+          linkText: "인시던트",
+        });
+      }
+      if (typeof sig.code_security_findings === "number" && sig.code_security_findings > 0) {
+        dynamicMsgs.push({
+          id: `live:code-sec:${sig.code_security_findings}`,
+          priority: "warn",
+          badge: "보안 경고",
+          tone: "sec",
+          text: `코드 보안 스캔에서 취약점 이슈 ${sig.code_security_findings.toLocaleString()}건이 검출되었습니다. 치명·높음 항목을 우선 분류하세요.`,
+          href: "/operations/code-security",
+          linkText: "보안 취약점",
+        });
+      }
+      if (typeof data.uncollected_resource_count === "number" && data.uncollected_resource_count > 0) {
+        dynamicMsgs.push({
+          id: `live:uncollected:${data.uncollected_resource_count}`,
+          priority: "highlight",
+          badge: "미수집 분리",
+          tone: "sre",
+          text: `상태 미수집 리소스 ${data.uncollected_resource_count.toLocaleString()}개는 정상이나 0으로 합산하지 않고 별도 분리했습니다.`,
+          href: "/overview/dashboard-v2",
+          linkText: "리소스 현황",
+        });
+      }
+      if (typeof data.resource_count === "number") {
+        const cov = typeof data.coverage_pct === "number" ? `${data.coverage_pct.toFixed(1)}%` : "미측정";
+        dynamicMsgs.push({
+          id: `live:inventory:${data.resource_count}:${cov}`,
+          priority: "info",
+          badge: "관측 현황",
+          tone: "live",
+          text: `전체 온톨로지 ${data.resource_count.toLocaleString()}개(Azure ${fmtNum(data.azure_resource_count)}개 · 관계 ${fmtNum(data.relationship_count)}개)를 커버리지 ${cov}로 상시 관측 중입니다.`,
+          href: "/overview/dashboard-v2",
+          linkText: "리소스 현황",
+        });
+      }
+      if (typeof posture.shadow_ratio_pct === "number") {
+        dynamicMsgs.push({
+          id: `live:posture:${posture.shadow_ratio_pct}:${posture.enforced_ratio_pct}`,
+          priority: "info",
+          badge: "자율 경계",
+          tone: "auto",
+          text: `현재 제어 자세는 관찰(Shadow) ${posture.shadow_ratio_pct}% · 실행(Enforced) ${posture.enforced_ratio_pct ?? 0}%입니다.`,
+          href: "/overview/control-assurance",
+          linkText: "안전 통제",
+        });
+      }
+      if (typeof byTier.T0 === "number" || typeof byTier.T1 === "number") {
+        const t0 = Number(byTier.T0 || 0);
+        const t1 = Number(byTier.T1 || 0);
+        const t2 = Number(byTier.T2 || 0);
+        const total = t0 + t1 + t2;
+        const t0Pct = total > 0 ? ((t0 / total) * 100).toFixed(1) : "0.0";
+        dynamicMsgs.push({
+          id: `live:tier:${t0}:${t1}:${t2}`,
+          priority: "highlight",
+          badge: "AI 비용 절감",
+          tone: "live",
+          text: `결정론 T0 규칙 ${t0}건(${t0Pct}%)을 토큰 0으로 처리했고, T1 경량 ${t1}건 · T2 심층 ${t2}건만 선별 호출했습니다.`,
+          href: "/overview/llm-cost",
+          linkText: "AI 모델 비용",
+        });
+      }
+      if (typeof data.active_rules_count === "number") {
+        dynamicMsgs.push({
+          id: `live:rules:${data.active_rules_count}`,
+          priority: "info",
+          badge: "운영 규칙",
+          tone: "auto",
+          text: `활성 운영 규칙 ${data.active_rules_count.toLocaleString()}개가 상시 평가 중이며, 위험 관문 평가 ${fmtNum(sig.risk_gate_evaluations)}건이 기록되었습니다.`,
+          href: "/governance/rules",
+          linkText: "규칙 카탈로그",
+        });
+      }
+      if (data.timeline_meta && data.timeline_meta.anchor_at && data.timeline_meta.has_recent_events === false) {
+        dynamicMsgs.push({
+          id: `live:quiet-window:${data.timeline_meta.anchor_at}`,
+          priority: "info",
+          badge: "실시간 감시",
+          tone: "live",
+          text: `최근 15분 신규 이상 이벤트 없이 정상 감시 중입니다. 마지막 원장 기록은 ${humanizeTimestamp(data.timeline_meta.anchor_at)}입니다.`,
+          href: "/overview/dashboard",
+          linkText: "대시보드",
+        });
+      }
+      if (posture.audit_sample && typeof posture.audit_sample.row_count === "number") {
+        dynamicMsgs.push({
+          id: `live:audit-sample:${posture.audit_sample.row_count}`,
+          priority: "info",
+          badge: "원장 무결성",
+          tone: "live",
+          text: `추가 전용 감사 원장 ${posture.audit_sample.row_count.toLocaleString()}건이 연속 해시 체인으로 기록되어 사후 변조 없이 검증 가능합니다.`,
+          href: "/evidence/audit",
+          linkText: "감사 원장",
+        });
+      }
+
+      totalPoolSize = GLOBAL_TICKER_STATIC_CATALOG.length + dynamicMsgs.length;
+      dynamicMsgs.forEach((m) => enqueue(m, false));
+      if (!currentMsg || currentMsg.id === "boot:init") {
+        playNext();
+      } else {
+        const bar = ensureMountedBar();
+        const counter = bar && bar.querySelector('[data-ticker-role="counter"]');
+        if (counter) counter.textContent = `${shownCount} / ${Math.max(totalPoolSize, shownCount)}`;
+      }
+    }
+
+    function pushRealtimeEvent(evSum, seqNum) {
+      if (!evSum || !evSum.title) return;
+      const actorTxt = evSum.actorKo ? evSum.actorKo.replace(/\s*\(([^)]+)\)/g, " · $1") : "운영 엔진";
+      enqueue({
+        id: `live:rt:${seqNum || Date.now()}`,
+        priority: "highlight",
+        badge: "새 기록 감지",
+        tone: "live",
+        text: `실시간 새 이벤트 감지: ${evSum.title} (${actorTxt})`,
+        href: seqNum && window.fdaiV4Selection ? window.fdaiV4Selection.buildItemUrl("audit", `audit:${seqNum}`) : "/evidence/audit",
+        linkText: "감사 원장",
+      }, true);
+    }
+
+    async function hydrateFromBackgroundDashboard() {
+      if (dashboardIngested) return;
+      const activeMode = document.querySelector("[data-data-mode].is-active");
+      if (activeMode && activeMode.getAttribute("data-data-mode") === "sample") return;
+      try {
+        const cachedRaw = window.sessionStorage.getItem(CACHE_KEY);
+        if (cachedRaw) {
+          const cached = JSON.parse(cachedRaw);
+          if (cached && cached.ts && (Date.now() - cached.ts) < 30000 && cached.data) {
+            ingestDashboardData(cached.data);
+            return;
+          }
+        }
+      } catch (_e) {}
+      try {
+        const data = await fetchJsonSafe("/api/v4/overview/dashboard?subscription=all&window=15m");
+        if (data && data.measurement_status !== "error") {
+          try {
+            window.sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
+          } catch (_e) {}
+          if (!dashboardIngested) ingestDashboardData(data);
+        }
+      } catch (_err) {}
+    }
+
+    function init() {
+      if (initialized) return;
+      initialized = true;
+      loadPersistedState();
+      const bar = ensureMountedBar();
+      if (!bar) return;
+
+      if (recentHistory.length > 0) {
+        renderMessage(recentHistory[0], false);
+      } else {
+        playNext();
+      }
+
+      window.addEventListener("fdai:live-pulse", (ev) => {
+        const p = ev && ev.detail;
+        if (!p || p.measurement_status !== "measured") return;
+        if ((p.delta_audit || 0) > 0 && p.latest_event) {
+          const evSum = humanizeEventSummary(p.latest_event);
+          pushRealtimeEvent(evSum, p.latest_event.seq || p.audit_latest_seq);
+        }
+      });
+
+      window.setTimeout(() => {
+        if (!dashboardIngested) hydrateFromBackgroundDashboard();
+      }, 750);
+    }
+
+    return {
+      init,
+      enqueue,
+      ingestDashboardData,
+      pushRealtimeEvent,
+      playNext,
+      getCatalogSize: () => totalPoolSize,
+    };
+  })();
+
+  window.fdaiV4Ticker = globalTickerEngine;
+
   function bootGlobalLiveSubscriptions() {
     hydrateGlobalSubscriptionSelects().catch(() => {});
     startGlobalLivePulse();
+    globalTickerEngine.init();
     document.addEventListener("click", (ev) => {
       const btn = ev.target && ev.target.closest ? ev.target.closest("[data-data-mode]") : null;
       if (btn) {
@@ -688,6 +1432,8 @@
     bootstrap: boot,
     panelContracts: PANEL_CONTRACTS,
     humanize: window.fdaiV4Humanize,
+    shimmer: window.fdaiV4Shimmer,
+    ticker: window.fdaiV4Ticker,
     fetchJson: fetchJsonSafe,
     openSse: openSseSafe,
     hydratePanel,

@@ -166,7 +166,7 @@ pub fn finalize_v4_html(
         .replace("</", "<\\/")
         .replace("<!--", "<\\!--");
     let inject = format!(
-        "<script>window.__FDAI_V4_BOOTSTRAP__={safe_json};</script>\n<script defer src=\"/assets/fdai-console-live.js\"></script>\n</body>"
+        "<script>window.__FDAI_V4_BOOTSTRAP__={safe_json};</script>\n<script defer src=\"/assets/fdai-console-live.js\"></script>\n<script defer src=\"/assets/fdai-chat-engine.js\"></script>\n<script defer src=\"/assets/fdai-advisor-inline.js\"></script>\n</body>"
     );
 
     if let Some(pos) = rewritten.rfind("</body>") {

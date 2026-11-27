@@ -64,18 +64,38 @@ registry availability or production trust.
 
 ## Running locally
 
-From the repository root, use Python 3.12 or newer:
+The active Release Hub implementation is the Pure-Rust Axum server in
+[`lifecycle_rs/release-hub/`](../../lifecycle_rs/release-hub/README.md). From the repository root,
+only the Rust stable toolchain (`cargo`) and `make` are required:
 
 ```bash
-uv run --project lifecycle/release-hub fdai-release-hub dev-init /private/release-hub
-uv run --project lifecycle/release-hub fdai-release-hub serve /private/release-hub --port 8091
-npm --prefix lifecycle/release-hub/ui ci
-npm --prefix lifecycle/release-hub/ui run dev
+# Run Pure-Rust Release Hub + pre-built UI on http://127.0.0.1:8022
+make release-hub-up
+
+# Equivalent direct Cargo command
+cargo run --locked -p fdai-release-hub -- \
+  --host 127.0.0.1 \
+  --port 8022 \
+  --static-dir lifecycle_rs/release-hub/ui/dist
 ```
 
-The API and UI bind only to `127.0.0.1`. The UI uses port `5291`, proxies the API on `8091`,
-and rejects cross-origin mutation requests. No production authentication or key management is
-implemented. The key is never returned by an API or accepted through a browser form.
+If you edit the Preact UI sources under `lifecycle_rs/release-hub/ui/`, rebuild the static assets
+or run the Vite dev server (`http://127.0.0.1:5291`, proxying to port `8091`):
+
+```bash
+# Rebuild dist/ served by fdai-release-hub on :8022
+npm --prefix lifecycle_rs/release-hub/ui ci
+npm --prefix lifecycle_rs/release-hub/ui run build
+
+# Or run Vite HMR against Release Hub on :8091
+cargo run --locked -p fdai-release-hub -- --host 127.0.0.1 --port 8091
+npm --prefix lifecycle_rs/release-hub/ui run dev
+```
+
+The API and UI bind only to `127.0.0.1` in local development mode (`{"profile":"local-development"}`
+on `/auth/config`) and persist local state to `.fdai/release-hub-state.json` by default. No
+production authentication or key management is enabled unless Entra remote settings are configured.
+The key is never returned by an API or accepted through a browser form.
 The shared Hub login bootstrap bounds the authentication-configuration request to
 10 seconds and displays an authentication error if the service does not respond.
 For design review, `/design-previews/edition` is the sole Release Hub preview

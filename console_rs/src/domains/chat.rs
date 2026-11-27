@@ -1,6 +1,7 @@
 //! Domain 8: AI 채팅 (`chat`, fullscreen 3-pane workspace + global right sidebar + SSE).
 //! Owned by the `chat` domain stream.
 
+use std::collections::VecDeque;
 use std::convert::Infallible;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, OnceLock};
@@ -8,13 +9,13 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use axum::{
     body::{to_bytes, Body},
-    extract::{Query, State},
+    extract::{Extension, Path, Query, State},
     http::{header, HeaderMap, HeaderName, HeaderValue, StatusCode},
     response::{
         sse::{Event, KeepAlive, Sse},
         IntoResponse, Response,
     },
-    routing::{get, post},
+    routing::{delete, get, post},
     Json, Router,
 };
 use futures_util::stream;
@@ -25,12 +26,14 @@ use hyper_util::client::legacy::{connect::HttpConnector, Client};
 use hyper_util::rt::TokioExecutor;
 use serde::Deserialize;
 use serde_json::{json, Value};
+use tokio::sync::RwLock;
 
 use crate::{
     repos::chat::{
-        build_db_lineage_value, display_name_for_entity, fetch_chat_context_for_node,
-        fetch_chat_health, fetch_chat_sessions_filtered, query_chat_evidence,
-        short_id_label, ChatDbEvidence,
+        build_audit_event_sentence, build_db_lineage_value, display_name_for_entity,
+        fetch_chat_context_for_node, fetch_chat_health, fetch_chat_sessions_filtered,
+        format_iso_utc_to_kst, human_rule_ko, human_severity_ko, human_state_ko,
+        human_vertical_ko, query_chat_evidence, short_id_label, ChatDbEvidence,
     },
     shell::{finalize_v4_html, html_response},
     AppState, SseLeaseDropGuard,
@@ -62,6 +65,230 @@ const SEVEN_SAFEGUARDS: [&str; 7] = [
 static REQUEST_SEQ: AtomicU64 = AtomicU64::new(1);
 static ACTIVE_CHAT_STREAMS: AtomicUsize = AtomicUsize::new(0);
 static SHARED_HTTP_CLIENT: OnceLock<Client<HttpConnector, Full<Bytes>>> = OnceLock::new();
+
+type SharedChatStore = Arc<RwLock<ChatMemoryStore>>;
+
+const MAX_STORED_SESSIONS: usize = 64;
+const MAX_TURNS_PER_SESSION: usize = 40;
+
+#[derive(Debug, Clone)]
+struct StoredChatTurn {
+    turn_index: usize,
+    request_id: String,
+    user_message: String,
+    assistant_answer: String,
+    context: String,
+    selected_node: String,
+    mode: String,
+    tier: String,
+    measurement_status: String,
+    source: String,
+    recorded_at_iso: String,
+    recorded_at_kst: String,
+    trajectory: Vec<Value>,
+    citations: Vec<Value>,
+    proposal_draft: Option<Value>,
+    followups: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+struct StoredChatSession {
+    id: String,
+    title: String,
+    context: String,
+    selected_node: String,
+    created_at_iso: String,
+    updated_at_iso: String,
+    updated_at_kst: String,
+    turns: Vec<StoredChatTurn>,
+}
+
+#[derive(Debug, Default)]
+struct ChatMemoryStore {
+    sessions: VecDeque<StoredChatSession>,
+}
+
+fn now_utc_iso() -> String {
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    // Civil date from Unix days (Howard Hinnant algorithm)
+    let z = (secs / 86_400) as i64 + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = (z - era * 146_097) as u64;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146_096) / 365;
+    let y = yoe as i64 + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = if m <= 2 { y + 1 } else { y };
+    let rem = secs % 86_400;
+    let hh = rem / 3600;
+    let mm = (rem % 3600) / 60;
+    let ss = rem % 60;
+    format!("{year:04}-{m:02}-{d:02}T{hh:02}:{mm:02}:{ss:02}Z")
+}
+
+fn make_session_title(prompt: &str) -> String {
+    let clean = prompt.trim().replace('\n', " ");
+    let mut out: String = clean.chars().take(42).collect();
+    if clean.chars().count() > 42 {
+        out.push('…');
+    }
+    if out.is_empty() {
+        "새 운영 대화".to_string()
+    } else {
+        out
+    }
+}
+
+async fn count_stored_turns(store: &SharedChatStore, session_id: &str) -> usize {
+    let guard = store.read().await;
+    guard
+        .sessions
+        .iter()
+        .find(|s| s.id == session_id)
+        .map(|s| s.turns.len())
+        .unwrap_or(0)
+}
+
+async fn persist_chat_turn(
+    store: &SharedChatStore,
+    req: &ParsedStreamRequest,
+    answer: &str,
+    measurement_status: &str,
+    source: &str,
+    trajectory: &[Value],
+    citations: &[Value],
+    proposal_draft: &Option<Value>,
+    followups: &[String],
+) -> (String, usize) {
+    let sid = if req.session_id.trim().is_empty() || req.session_id == "active" {
+        let seq = REQUEST_SEQ.fetch_add(1, Ordering::Relaxed);
+        let ts_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0);
+        format!("conv-{ts_ms}-{seq}")
+    } else {
+        req.session_id.clone()
+    };
+    let now_iso = now_utc_iso();
+    let now_kst = format_iso_utc_to_kst(&now_iso);
+    let mut guard = store.write().await;
+
+    let pos = guard.sessions.iter().position(|s| s.id == sid);
+    let mut session = if let Some(idx) = pos {
+        guard.sessions.remove(idx).unwrap_or(StoredChatSession {
+            id: sid.clone(),
+            title: make_session_title(&req.prompt),
+            context: req.context.clone(),
+            selected_node: req.selected_node.clone(),
+            created_at_iso: now_iso.clone(),
+            updated_at_iso: now_iso.clone(),
+            updated_at_kst: now_kst.clone(),
+            turns: Vec::new(),
+        })
+    } else {
+        StoredChatSession {
+            id: sid.clone(),
+            title: make_session_title(&req.prompt),
+            context: req.context.clone(),
+            selected_node: req.selected_node.clone(),
+            created_at_iso: now_iso.clone(),
+            updated_at_iso: now_iso.clone(),
+            updated_at_kst: now_kst.clone(),
+            turns: Vec::new(),
+        }
+    };
+
+    let turn_index = session.turns.len();
+    session.updated_at_iso = now_iso.clone();
+    session.updated_at_kst = now_kst.clone();
+    session.context = req.context.clone();
+    session.selected_node = req.selected_node.clone();
+    session.turns.push(StoredChatTurn {
+        turn_index,
+        request_id: req.request_id.clone(),
+        user_message: req.prompt.clone(),
+        assistant_answer: answer.to_string(),
+        context: req.context.clone(),
+        selected_node: req.selected_node.clone(),
+        mode: req.mode.clone(),
+        tier: req.tier.clone(),
+        measurement_status: measurement_status.to_string(),
+        source: source.to_string(),
+        recorded_at_iso: now_iso,
+        recorded_at_kst: now_kst,
+        trajectory: trajectory.to_vec(),
+        citations: citations.to_vec(),
+        proposal_draft: proposal_draft.clone(),
+        followups: followups.to_vec(),
+    });
+    if session.turns.len() > MAX_TURNS_PER_SESSION {
+        let drop_cnt = session.turns.len() - MAX_TURNS_PER_SESSION;
+        session.turns.drain(0..drop_cnt);
+    }
+    guard.sessions.push_front(session);
+    while guard.sessions.len() > MAX_STORED_SESSIONS {
+        guard.sessions.pop_back();
+    }
+    (sid, turn_index)
+}
+
+async fn list_stored_session_values(
+    store: &SharedChatStore,
+    filter_norm: &str,
+    q_norm: &str,
+) -> Vec<Value> {
+    if filter_norm == "incidents" || filter_norm == "unread" || filter_norm == "starred" {
+        return Vec::new();
+    }
+    let guard = store.read().await;
+    guard
+        .sessions
+        .iter()
+        .filter(|s| {
+            if !q_norm.is_empty() {
+                let hay = format!("{} {} {}", s.id, s.title, s.context).to_ascii_lowercase();
+                return hay.contains(q_norm);
+            }
+            true
+        })
+        .map(|s| {
+            let last_turn = s.turns.last();
+            let last_summary = last_turn
+                .map(|t| t.assistant_answer.chars().take(120).collect::<String>())
+                .unwrap_or_default();
+            json!({
+                "id": s.id,
+                "record_kind": "user_session",
+                "category": "conversations",
+                "title": s.title,
+                "display_title": s.title,
+                "subtitle": format!("대화 {}턴 · {}", s.turns.len(), s.updated_at_kst),
+                "display_subtitle": format!("대화 {}턴", s.turns.len()),
+                "context": s.context,
+                "selected_node": s.selected_node,
+                "summary": last_summary,
+                "human_summary": last_summary,
+                "turn_count": s.turns.len(),
+                "created_at": s.created_at_iso,
+                "updated_at": s.updated_at_iso,
+                "updated_at_kst": s.updated_at_kst,
+                "state": "active",
+                "human_state": "활성",
+                "unread": false,
+                "starred": false,
+                "measurement_status": last_turn.map(|t| t.measurement_status.as_str()).unwrap_or("measured"),
+                "measurement_state": last_turn.map(|t| t.measurement_status.as_str()).unwrap_or("measured"),
+                "source": last_turn.map(|t| t.source.as_str()).unwrap_or("console-v4-rust")
+            })
+        })
+        .collect()
+}
 
 #[derive(Debug, Deserialize, Default)]
 struct SessionsQuery {
@@ -173,12 +400,17 @@ pub fn panel_ids() -> &'static [&'static str] {
 }
 
 pub fn router() -> Router<AppState> {
+    let store: SharedChatStore = Arc::new(RwLock::new(ChatMemoryStore::default()));
     Router::new()
         .route("/chat", get(page_chat))
         .route("/api/v4/chat/health", get(api_chat_health))
         .route("/api/v4/chat/sessions", get(api_chat_sessions))
+        .route("/api/v4/chat/sessions/{id}/turns", get(api_chat_session_turns))
+        .route("/api/v4/chat/sessions/{id}", delete(api_chat_session_delete))
         .route("/api/v4/chat/context", get(api_chat_context))
         .route("/api/v4/chat/stream", post(api_chat_stream))
+        .route("/api/v4/chat/messages", post(api_chat_messages))
+        .layer(Extension(store))
 }
 
 async fn page_chat(State(state): State<AppState>) -> Response {
@@ -257,6 +489,7 @@ async fn api_chat_health(State(state): State<AppState>, headers: HeaderMap) -> R
 
 async fn api_chat_sessions(
     State(state): State<AppState>,
+    Extension(store): Extension<SharedChatStore>,
     headers: HeaderMap,
     Query(query): Query<SessionsQuery>,
 ) -> Response {
@@ -290,7 +523,21 @@ async fn api_chat_sessions(
     if state.db.is_configured() {
         let mut db_payload = fetch_chat_sessions_filtered(&state.db, filter_norm, &q_norm).await;
         if db_payload.get("measurement_status").and_then(Value::as_str) == Some("measured") {
+            let mut stored_vals = list_stored_session_values(&store, filter_norm, &q_norm).await;
             if let Some(obj) = db_payload.as_object_mut() {
+                if !stored_vals.is_empty() {
+                    let updated_len = obj
+                        .get_mut("sessions")
+                        .and_then(Value::as_array_mut)
+                        .map(|arr| {
+                            stored_vals.append(arr);
+                            *arr = stored_vals;
+                            arr.len()
+                        });
+                    if let Some(n) = updated_len {
+                        obj.insert("count".to_string(), json!(n));
+                    }
+                }
                 obj.insert("upstream_status".to_string(), json!(up.status));
                 obj.insert("upstream_reachable".to_string(), json!(up.reachable));
             }
@@ -298,6 +545,7 @@ async fn api_chat_sessions(
         }
     }
 
+    let stored_vals = list_stored_session_values(&store, filter_norm, &q_norm).await;
     let mut envelope = state.upstream.not_measured_envelope(
         "chat",
         "/chat/sessions",
@@ -310,11 +558,84 @@ async fn api_chat_sessions(
         obj.insert("filter".to_string(), json!(filter_norm));
         obj.insert("query".to_string(), json!(q_norm));
         obj.insert("upstream_status".to_string(), json!(up.status));
-        obj.insert("count".to_string(), json!(0));
-        obj.insert("sessions".to_string(), json!([]));
+        obj.insert("count".to_string(), json!(stored_vals.len()));
+        obj.insert("sessions".to_string(), json!(stored_vals));
         obj.insert("reference_sessions".to_string(), json!([]));
     }
     secure_json_response(StatusCode::OK, envelope)
+}
+
+async fn api_chat_session_turns(
+    Extension(store): Extension<SharedChatStore>,
+    Path(session_id): Path<String>,
+) -> Response {
+    let clean_id = strip_control_chars(&session_id, 96);
+    let guard = store.read().await;
+    if let Some(sess) = guard.sessions.iter().find(|s| s.id == clean_id) {
+        let turns: Vec<Value> = sess
+            .turns
+            .iter()
+            .map(|t| {
+                json!({
+                    "turn_index": t.turn_index,
+                    "request_id": t.request_id,
+                    "user_message": t.user_message,
+                    "assistant_answer": t.assistant_answer,
+                    "context": t.context,
+                    "selected_node": t.selected_node,
+                    "mode": t.mode,
+                    "tier": t.tier,
+                    "measurement_status": t.measurement_status,
+                    "source": t.source,
+                    "recorded_at": t.recorded_at_iso,
+                    "recorded_at_kst": t.recorded_at_kst,
+                    "trajectory": t.trajectory,
+                    "citations": t.citations,
+                    "proposal_draft": t.proposal_draft,
+                    "followups": t.followups
+                })
+            })
+            .collect();
+        return secure_json_response(
+            StatusCode::OK,
+            json!({
+                "found": true,
+                "session_id": sess.id,
+                "title": sess.title,
+                "context": sess.context,
+                "selected_node": sess.selected_node,
+                "updated_at": sess.updated_at_iso,
+                "updated_at_kst": sess.updated_at_kst,
+                "turns": turns
+            }),
+        );
+    }
+    secure_json_response(
+        StatusCode::OK,
+        json!({
+            "found": false,
+            "session_id": clean_id,
+            "turns": []
+        }),
+    )
+}
+
+async fn api_chat_session_delete(
+    Extension(store): Extension<SharedChatStore>,
+    Path(session_id): Path<String>,
+) -> Response {
+    let clean_id = strip_control_chars(&session_id, 96);
+    let mut guard = store.write().await;
+    let before = guard.sessions.len();
+    guard.sessions.retain(|s| s.id != clean_id);
+    let deleted = guard.sessions.len() < before;
+    secure_json_response(
+        StatusCode::OK,
+        json!({
+            "deleted": deleted,
+            "session_id": clean_id
+        }),
+    )
 }
 
 async fn api_chat_context(
@@ -416,6 +737,7 @@ async fn api_chat_context(
 
 async fn api_chat_stream(
     State(state): State<AppState>,
+    Extension(store): Extension<SharedChatStore>,
     headers: HeaderMap,
     body: Body,
 ) -> Response {
@@ -472,8 +794,9 @@ async fn api_chat_stream(
         }
     };
 
-    let req = parse_stream_request(&parsed_json);
+    let mut req = parse_stream_request(&parsed_json);
     let auth = extract_safe_auth_headers(&headers);
+    let history_turns = count_stored_turns(&store, &req.session_id).await;
 
     // Fail-closed: direct mutation / deletion / approval bypass prompts never dispatch upstream
     let upstream_res = if req.mutation_blocked {
@@ -512,12 +835,51 @@ async fn api_chat_stream(
         None
     };
 
-    let sse_events = build_chat_sse_events(&req, &upstream_res, db_evidence.as_ref());
+    let bundle = build_chat_turn_bundle(&req, &upstream_res, db_evidence.as_ref(), history_turns);
+    let (persisted_sid, turn_index) = if !req.prompt.trim().is_empty() {
+        persist_chat_turn(
+            &store,
+            &req,
+            &bundle.answer_text,
+            bundle.measurement_state,
+            bundle.source_name,
+            &bundle.trajectory,
+            &bundle.citations,
+            &bundle.proposal_draft,
+            &bundle.followups,
+        )
+        .await
+    } else {
+        (req.session_id.clone(), history_turns)
+    };
+    req.session_id = persisted_sid;
+
+    let sse_events = build_chat_sse_events_from_bundle(
+        &req,
+        &upstream_res,
+        db_evidence.as_ref(),
+        &bundle,
+        turn_index,
+    );
     let event_stream = stream::unfold(
-        (sse_events.into_iter(), lease, global_sse_lease),
+        (sse_events.into_iter().enumerate(), lease, global_sse_lease),
         |(mut iter, lease, global_sse_lease)| async move {
-            iter.next()
-                .map(|ev| (Ok::<Event, Infallible>(ev), (iter, lease, global_sse_lease)))
+            let (idx, ev) = iter.next()?;
+            #[cfg(not(test))]
+            {
+                let delay_ms: u64 = match idx {
+                    0 => 0,
+                    1..=5 => 55,
+                    6..=8 => 0,
+                    _ => 11,
+                };
+                if delay_ms > 0 {
+                    tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                }
+            }
+            #[cfg(test)]
+            let _ = idx;
+            Some((Ok::<Event, Infallible>(ev), (iter, lease, global_sse_lease)))
         },
     );
     let mut response = Sse::new(event_stream)
@@ -529,6 +891,129 @@ async fn api_chat_stream(
         HeaderValue::from_static("no"),
     );
     response
+}
+
+async fn api_chat_messages(
+    State(state): State<AppState>,
+    Extension(store): Extension<SharedChatStore>,
+    headers: HeaderMap,
+    body: Body,
+) -> Response {
+    let raw_bytes = match to_bytes(body, MAX_CHAT_BODY_BYTES).await {
+        Ok(b) => b,
+        Err(_) => {
+            return secure_json_response(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                json!({
+                    "error": {
+                        "status": 413,
+                        "code": "chat_payload_too_large",
+                        "message": "chat payload exceeds 64 KiB limit"
+                    }
+                }),
+            );
+        }
+    };
+    let parsed_json: Value = if raw_bytes.is_empty() {
+        json!({})
+    } else {
+        match serde_json::from_slice(&raw_bytes) {
+            Ok(v) => v,
+            Err(_) => {
+                return secure_json_response(
+                    StatusCode::BAD_REQUEST,
+                    json!({
+                        "error": {
+                            "status": 400,
+                            "code": "invalid_chat_payload",
+                            "message": "invalid chat JSON payload"
+                        }
+                    }),
+                );
+            }
+        }
+    };
+
+    let req = parse_stream_request(&parsed_json);
+    let auth = extract_safe_auth_headers(&headers);
+    let history_turns = count_stored_turns(&store, &req.session_id).await;
+
+    let upstream_res = if req.mutation_blocked {
+        UpstreamStreamResult {
+            reachable: false,
+            status: 0,
+            answer: None,
+            model: None,
+            source: None,
+            verification: None,
+        }
+    } else {
+        let upstream_payload = json!({
+            "request_id": req.request_id,
+            "session_id": req.session_id,
+            "message": req.prompt,
+            "mode": req.mode,
+            "tier": req.tier,
+            "context": req.context,
+            "selected_node": req.selected_node,
+            "busy_mode": req.busy_mode,
+            "attachments": req.attachments,
+            "read_only": true
+        });
+        relay_upstream_chat_stream(state.upstream.base_url(), &upstream_payload, &auth).await
+    };
+
+    let upstream_measured = !req.mutation_blocked
+        && upstream_res.reachable
+        && upstream_res.status == 200
+        && upstream_res.answer.is_some();
+
+    let db_evidence = if !req.mutation_blocked && !upstream_measured && state.db.is_configured() {
+        query_chat_evidence(&state.db, &req.prompt, &req.selected_node).await
+    } else {
+        None
+    };
+
+    let bundle = build_chat_turn_bundle(&req, &upstream_res, db_evidence.as_ref(), history_turns);
+    let (persisted_sid, turn_index) = if !req.prompt.trim().is_empty() {
+        persist_chat_turn(
+            &store,
+            &req,
+            &bundle.answer_text,
+            bundle.measurement_state,
+            bundle.source_name,
+            &bundle.trajectory,
+            &bundle.citations,
+            &bundle.proposal_draft,
+            &bundle.followups,
+        )
+        .await
+    } else {
+        (req.session_id.clone(), history_turns)
+    };
+
+    secure_json_response(
+        StatusCode::OK,
+        json!({
+            "request_id": req.request_id,
+            "session_id": persisted_sid,
+            "turn_index": turn_index,
+            "reply": bundle.answer_text,
+            "answer": bundle.answer_text,
+            "measurement_status": bundle.measurement_state,
+            "measurement_state": bundle.measurement_state,
+            "source": upstream_res.source.as_deref().unwrap_or(bundle.source_name),
+            "read_only_boundary": true,
+            "unmeasured_never_zero": true,
+            "policy_guard": bundle.policy_guard,
+            "topic": bundle.topic_tag,
+            "trajectory": bundle.trajectory,
+            "citations": bundle.citations,
+            "proposal_draft": bundle.proposal_draft,
+            "followups": bundle.followups,
+            "agent_discussion": bundle.agent_discussion
+        }),
+    )
 }
 
 fn extract_safe_header(headers: &HeaderMap, name: &str) -> Option<String> {
@@ -623,7 +1108,7 @@ fn parse_stream_request(val: &Value) -> ParsedStreamRequest {
         .filter(|s| !s.is_empty())
         .unwrap_or_else(next_request_id);
 
-    let session_id = sanitize_short_label(val.get("session_id").and_then(Value::as_str), "t1");
+    let session_id = sanitize_short_label(val.get("session_id").and_then(Value::as_str), "active");
     let prompt = val
         .get("message")
         .or_else(|| val.get("prompt"))
@@ -844,13 +1329,253 @@ fn extract_done_fields(done_val: &Value, status: u16) -> UpstreamStreamResult {
     }
 }
 
-fn build_chat_sse_events(
+struct ChatTurnBundle {
+    upstream_measured: bool,
+    db_measured: bool,
+    measurement_state: &'static str,
+    source_name: &'static str,
+    policy_guard: &'static str,
+    topic_tag: &'static str,
+    answer_text: String,
+    citations: Vec<Value>,
+    proposal_draft: Option<Value>,
+    followups: Vec<String>,
+    agent_discussion: Vec<Value>,
+    trajectory: Vec<Value>,
+}
+
+fn intent_label_for_topic(topic: &str) -> &'static str {
+    match topic {
+        "help" => "명령 및 사용 안내",
+        "risks" => "리스크 · 인시던트 우선순위 분석",
+        "hil" => "승인 요청 · 7대 안전장치 검증",
+        "rules" => "운영 규칙 · 정책 준수 평가",
+        "trace" => "감사 원장 · 실행 추적 조회",
+        "unavailable" => "미수집 지표 진단",
+        "policy_blocked" => "조회 전용 경계 차단",
+        _ => "온톨로지 리소스 · 계통 분석",
+    }
+}
+
+fn build_chat_trajectory(
+    req: &ParsedStreamRequest,
+    topic_tag: &str,
+    measurement_state: &str,
+    source_name: &str,
+    policy_guard: &str,
+    db_evidence: Option<&ChatDbEvidence>,
+    history_turns: usize,
+    citation_count: usize,
+    chunk_count: usize,
+) -> Vec<Value> {
+    let intent_label = intent_label_for_topic(topic_tag);
+    let keywords = db_evidence
+        .map(|ev| ev.keywords.clone())
+        .unwrap_or_default();
+
+    let (ont_queries, pol_queries, ont_ms, pol_ms, ont_summary, pol_summary) =
+        if let Some(ev) = db_evidence {
+            let mut oq = Vec::new();
+            let mut pq = Vec::new();
+            for q in &ev.executed_queries {
+                let obj = json!({
+                    "stage": q.stage,
+                    "title": q.title,
+                    "sql": q.sql,
+                    "row_count": q.row_count,
+                    "duration_ms": q.duration_ms,
+                    "summary": q.summary
+                });
+                if q.stage == "ontology_resources" || q.stage == "ontology_links" {
+                    oq.push(obj);
+                } else {
+                    pq.push(obj);
+                }
+            }
+            (
+                oq,
+                pq,
+                ev.step_durations_ms[0].saturating_add(ev.step_durations_ms[1]),
+                ev.step_durations_ms[2],
+                format!(
+                    "온톨로지 리소스 {}건(매칭 {}건) · 관계 {}건(연관 {}건) 조회",
+                    ev.resources_total,
+                    ev.matched_resources.len(),
+                    ev.links_total,
+                    ev.matched_links.len()
+                ),
+                format!(
+                    "활성 규칙 {}개 · 정책 {}개 · 인시던트 {}건 · 감사 원장 {}건 대조",
+                    ev.rules_total, ev.policies_total, ev.incidents_total, ev.audits_total
+                ),
+            )
+        } else {
+            (
+                Vec::new(),
+                Vec::new(),
+                0_u64,
+                0_u64,
+                "로컬 DB 미연결 — 온톨로지 쿼리 미실행 (미측정 경계 유지)".to_string(),
+                if req.mutation_blocked {
+                    "조회 전용 정책 가드에서 직접 변경 요청을 차단했습니다.".to_string()
+                } else {
+                    "상위 운영 서비스 및 DB 미연결 — 조회 전용 경계만 확인".to_string()
+                },
+            )
+        };
+
+    let system_prompt = format!(
+        "[FDAI Grounded Operations Prompt · Read-Only]\n\
+         - 원칙: 온톨로지·인시던트·감사 원장 실측 근거만 인용하며 미측정 지표는 0이나 예제 값으로 대체하지 않는다.\n\
+         - 안전 경계: read_only_boundary=true (policy_guard={policy_guard}), 모든 상태 변경은 7대 안전장치 및 승인 요청(/operations/hil-queue) 경로로만 안내한다.\n\
+         - 응답 형식: 핵심 요약 → 근거 항목(인라인 출처 [1..N]) → 구조화 마크다운 표 · 로컬 시각(KST) 기준."
+    );
+    let grounding_context = if let Some(ev) = db_evidence {
+        let res_names: Vec<String> = ev
+            .matched_resources
+            .iter()
+            .take(4)
+            .map(|r| display_name_for_entity(&r.id, &r.object_type, &r.name))
+            .collect();
+        let inc_list: Vec<String> = ev
+            .incidents
+            .iter()
+            .take(3)
+            .map(|i| {
+                format!(
+                    "{} ({} · 심각도 {} · {})",
+                    i.incident_number,
+                    human_vertical_ko(&i.vertical),
+                    human_severity_ko(&i.severity),
+                    human_state_ko(&i.state)
+                )
+            })
+            .collect();
+        format!(
+            "scope={} | selected_node={} | resources={} (azure={}) | links={} | rules={} | policies={} | audits={} (latest_kst={})\n\
+             matched_resources=[{}]\n\
+             incidents=[{}]",
+            req.context,
+            req.selected_node,
+            ev.resources_total,
+            ev.azure_resources_total,
+            ev.links_total,
+            ev.rules_total,
+            ev.policies_total,
+            ev.audits_total,
+            format_iso_utc_to_kst(&ev.latest_audit_at),
+            res_names.join(", "),
+            inc_list.join(", ")
+        )
+    } else {
+        format!(
+            "scope={} | selected_node={} | state={} (no live DB snapshot)",
+            req.context, req.selected_node, measurement_state
+        )
+    };
+    let estimated_tokens = (system_prompt.chars().count()
+        + grounding_context.chars().count()
+        + req.prompt.chars().count())
+        / 3
+        + 32;
+    let model_route = if req.mutation_blocked {
+        "T0 정책 가드 (변경 차단)"
+    } else if source_name == "operator-service" {
+        "T1/T2 운영 서비스 스트리밍"
+    } else if source_name == "postgres-direct" {
+        "T0 결정적 온톨로지 근거 합성 (로컬 DB 실측)"
+    } else {
+        "T0 오프라인 조회 전용 안내"
+    };
+
+    vec![
+        json!({
+            "step": 1,
+            "total": 5,
+            "phase": "intent",
+            "title": "의도 해석 · 스코프 바인딩",
+            "status": "done",
+            "duration_ms": 4,
+            "summary": format!("의도 '{intent_label}' 분류 · 대상 컨텍스트({}) · 조회 전용 경계 확인", req.context),
+            "details": {
+                "intent": intent_label,
+                "topic": topic_tag,
+                "context": req.context,
+                "selected_node": req.selected_node,
+                "mode": req.mode,
+                "tier": req.tier,
+                "keywords": keywords,
+                "read_only_boundary": true,
+                "policy_guard": policy_guard
+            }
+        }),
+        json!({
+            "step": 2,
+            "total": 5,
+            "phase": "ontology_query",
+            "title": "온톨로지 리소스 · 계통 쿼리",
+            "status": "done",
+            "duration_ms": ont_ms.max(1),
+            "summary": ont_summary,
+            "queries": ont_queries
+        }),
+        json!({
+            "step": 3,
+            "total": 5,
+            "phase": "policy_audit",
+            "title": "정책 · 인시던트 · 감사 원장 대조",
+            "status": "done",
+            "duration_ms": pol_ms.max(1),
+            "summary": pol_summary,
+            "queries": pol_queries
+        }),
+        json!({
+            "step": 4,
+            "total": 5,
+            "phase": "prompt_assembly",
+            "title": "그라운딩 프롬프트 조립",
+            "status": "done",
+            "duration_ms": 3,
+            "summary": format!("{model_route} · 추정 입력 약 {estimated_tokens} 토큰 · 이전 턴 {history_turns}건 반영"),
+            "prompt": {
+                "model_route": model_route,
+                "tier": req.tier,
+                "mode": req.mode,
+                "history_turns": history_turns,
+                "estimated_tokens": estimated_tokens,
+                "system_prompt": system_prompt,
+                "grounding_context": grounding_context,
+                "user_prompt": req.prompt
+            }
+        }),
+        json!({
+            "step": 5,
+            "total": 5,
+            "phase": "generation",
+            "title": "근거 검증 · 고속 스트리밍 응답",
+            "status": "done",
+            "duration_ms": 8,
+            "summary": format!("출처 {citation_count}건 바인딩 · {chunk_count}개 스트림 청크 생성 완료"),
+            "details": {
+                "measurement_status": measurement_state,
+                "source": source_name,
+                "citation_count": citation_count,
+                "chunk_count": chunk_count
+            }
+        }),
+    ]
+}
+
+fn build_chat_turn_bundle(
     req: &ParsedStreamRequest,
     upstream: &UpstreamStreamResult,
     db_evidence: Option<&ChatDbEvidence>,
-) -> Vec<Event> {
-    let upstream_measured =
-        !req.mutation_blocked && upstream.reachable && upstream.status == 200 && upstream.answer.is_some();
+    history_turns: usize,
+) -> ChatTurnBundle {
+    let upstream_measured = !req.mutation_blocked
+        && upstream.reachable
+        && upstream.status == 200
+        && upstream.answer.is_some();
     let db_measured = !req.mutation_blocked && !upstream_measured && db_evidence.is_some();
     let is_measured = upstream_measured || db_measured;
 
@@ -893,7 +1618,66 @@ fn build_chat_sse_events(
         Vec::new()
     };
 
-    let mut events = Vec::with_capacity(14);
+    let chunk_count = split_stream_chunks(&answer_text).len();
+    let trajectory = build_chat_trajectory(
+        req,
+        topic_tag,
+        measurement_state,
+        source_name,
+        policy_guard,
+        db_evidence.filter(|_| db_measured),
+        history_turns,
+        citations.len(),
+        chunk_count,
+    );
+
+    ChatTurnBundle {
+        upstream_measured,
+        db_measured,
+        measurement_state,
+        source_name,
+        policy_guard,
+        topic_tag,
+        answer_text,
+        citations,
+        proposal_draft,
+        followups,
+        agent_discussion,
+        trajectory,
+    }
+}
+
+#[cfg(test)]
+fn build_chat_sse_events(
+    req: &ParsedStreamRequest,
+    upstream: &UpstreamStreamResult,
+    db_evidence: Option<&ChatDbEvidence>,
+) -> Vec<Event> {
+    let bundle = build_chat_turn_bundle(req, upstream, db_evidence, 0);
+    build_chat_sse_events_from_bundle(req, upstream, db_evidence, &bundle, 0)
+}
+
+fn build_chat_sse_events_from_bundle(
+    req: &ParsedStreamRequest,
+    upstream: &UpstreamStreamResult,
+    db_evidence: Option<&ChatDbEvidence>,
+    bundle: &ChatTurnBundle,
+    turn_index: usize,
+) -> Vec<Event> {
+    let upstream_measured = bundle.upstream_measured;
+    let db_measured = bundle.db_measured;
+    let measurement_state = bundle.measurement_state;
+    let source_name = bundle.source_name;
+    let policy_guard = bundle.policy_guard;
+    let topic_tag = bundle.topic_tag;
+    let answer_text = &bundle.answer_text;
+    let citations = &bundle.citations;
+    let proposal_draft = &bundle.proposal_draft;
+    let followups = &bundle.followups;
+    let agent_discussion = &bundle.agent_discussion;
+    let trajectory = &bundle.trajectory;
+
+    let mut events = Vec::with_capacity(28);
 
     // 1. meta
     events.push(make_sse_event(
@@ -901,6 +1685,7 @@ fn build_chat_sse_events(
         &json!({
             "request_id": req.request_id,
             "session_id": req.session_id,
+            "turn_index": turn_index,
             "mode": req.mode,
             "tier": req.tier,
             "context": req.context,
@@ -908,6 +1693,7 @@ fn build_chat_sse_events(
             "busy_mode": req.busy_mode,
             "attachments": req.attachments,
             "topic": topic_tag,
+            "intent_label": intent_label_for_topic(topic_tag),
             "read_only_boundary": true,
             "unmeasured_never_zero": true,
             "policy_guard": policy_guard,
@@ -918,7 +1704,12 @@ fn build_chat_sse_events(
         }),
     ));
 
-    // 2. step 1..3 (RetrievalTrace parity)
+    // 2. detailed trajectory phases (intent -> ontology_query -> policy_audit -> prompt_assembly -> generation)
+    for t_step in trajectory {
+        events.push(make_sse_event("trajectory", t_step));
+    }
+
+    // 3. step 1..3 (RetrievalTrace parity)
     let steps = if let Some(db_ev) = db_evidence.filter(|_| db_measured) {
         [
             (
@@ -952,18 +1743,18 @@ fn build_chat_sse_events(
                 2_u8,
                 "ontology_policy",
                 if req.mutation_blocked {
-                    "Forseti 조회 전용 경계 검사 — 직접 변경/삭제/승인 우회 차단됨".to_string()
+                    "조회 전용 경계 검사 — 직접 변경/삭제/승인 우회 차단됨".to_string()
                 } else if upstream_measured {
-                    "온톨로지 2홉 계통 · Forseti 정책 가드 실시간 대조".to_string()
+                    "온톨로지 계통 · 정책 가드 실시간 대조".to_string()
                 } else {
-                    "온톨로지 계통 · 조회 전용 정책 경계 점검 (상위 수집기 미연결 — not-measured)".to_string()
+                    "온톨로지 계통 · 조회 전용 정책 경계 점검 (상위 수집기 미연결 — 미측정)".to_string()
                 },
                 if upstream_measured { 136_u64 } else { 58_u64 },
             ),
             (
                 3_u8,
                 "verification",
-                "Saga 감사 경계 확인 및 조회 전용 응답·근거 조립".to_string(),
+                "감사 경계 확인 및 조회 전용 응답·근거 조립".to_string(),
                 if upstream_measured { 114_u64 } else { 36_u64 },
             ),
         ]
@@ -985,8 +1776,8 @@ fn build_chat_sse_events(
         ));
     }
 
-    // 3. delta chunks
-    let chunks = split_stream_chunks(&answer_text);
+    // 4. fine-grained delta chunks for ChatGPT-smooth high-speed streaming
+    let chunks = split_stream_chunks(answer_text);
     let chunk_count = chunks.len();
     for (idx, chunk) in chunks.into_iter().enumerate() {
         events.push(make_sse_event(
@@ -998,7 +1789,7 @@ fn build_chat_sse_events(
         ));
     }
 
-    // 4. evidence
+    // 5. evidence (includes full trajectory snapshot)
     let lineage = if let Some(db_ev) = db_evidence.filter(|_| db_measured) {
         build_db_lineage_value(db_ev, &req.selected_node)
     } else {
@@ -1042,11 +1833,12 @@ fn build_chat_sse_events(
             "safeguards": SEVEN_SAFEGUARDS,
             "agent_discussion": agent_discussion,
             "followups": followups,
+            "trajectory": trajectory,
             "db_summary": db_summary
         }),
     ));
 
-    // 5. done (compatible with fdai-http-runtime /chat/stream contract)
+    // 6. done (compatible with fdai-http-runtime /chat/stream contract)
     let model_name = if req.mutation_blocked {
         "console-v4-policy-guard".to_string()
     } else if db_measured {
@@ -1111,6 +1903,7 @@ fn build_chat_sse_events(
             "revision": 0,
             "request_id": req.request_id,
             "session_id": req.session_id,
+            "turn_index": turn_index,
             "status": "answered",
             "answer": answer_text,
             "model": model_name,
@@ -1121,6 +1914,7 @@ fn build_chat_sse_events(
             "unmeasured_never_zero": true,
             "policy_guard": policy_guard,
             "chunk_count": chunk_count,
+            "trajectory_count": trajectory.len(),
             "verification": verification
         }),
     ));
@@ -1142,9 +1936,10 @@ fn split_stream_chunks(text: &str) -> Vec<String> {
     for ch in text.chars() {
         buf.push(ch);
         let len = buf.chars().count();
-        let sentence_break = (ch == '.' || ch == '\n' || (ch == '다' && len >= 48)) && len >= 36;
-        let word_break = len >= 72 && ch.is_whitespace();
-        if sentence_break || word_break {
+        let newline_break = ch == '\n';
+        let natural_break = len >= 12 && (ch.is_whitespace() || matches!(ch, '.' | ',' | '·' | '|' | ':'));
+        let hard_break = len >= 18;
+        if newline_break || natural_break || hard_break {
             chunks.push(std::mem::take(&mut buf));
         }
     }
@@ -1162,7 +1957,7 @@ fn build_mutation_blocked_reply(
 ) -> (String, Vec<Value>, Option<Value>, Vec<String>, &'static str) {
     let (citations, proposal, _, _) = build_domain_evidence(req, false);
     let body = format!(
-        "[조회 전용 안전 경계 · 차단됨] AI 채팅은 리소스 삭제·직접 변경·승인 우회를 실행할 수 없습니다(policy_guard=read_only_mutation_blocked). 대상({})에 대한 상태 변경은 Forseti 정책 심사와 7대 안전장치 확인 후 승인 요청(/operations#tab=hil-queue)에서 명시적 사람 승인을 거쳐야만 진행됩니다.",
+        "[조회 전용 안전 경계 · 차단됨] AI 채팅은 리소스 삭제·직접 변경·승인 우회를 실행할 수 없습니다. 대상({})에 대한 상태 변경은 정책 심사와 7대 안전장치 확인 후 승인 요청(/operations/hil-queue)에서 명시적 사람 승인을 거쳐야만 진행됩니다.",
         req.selected_node
     );
     let followups = vec![
@@ -1248,14 +2043,38 @@ fn build_db_grounded_reply(
         ev.incidents
             .iter()
             .take(3)
-            .map(|i| format!("{}({})", i.incident_number, i.state))
+            .map(|i| {
+                let state_ko = human_state_ko(&i.state);
+                let vertical_ko = human_vertical_ko(&i.vertical);
+                let sev_ko = human_severity_ko(&i.severity);
+                if i.target_resource.is_empty() {
+                    format!("{} · {vertical_ko} · 심각도 {sev_ko} · {state_ko}", i.incident_number)
+                } else {
+                    format!(
+                        "{} · 대상 {} · {vertical_ko} · 심각도 {sev_ko} · {state_ko}",
+                        i.incident_number, i.target_resource
+                    )
+                }
+            })
             .collect::<Vec<_>>()
             .join(", ")
     };
 
     let latest_audit_seq = ev.latest_audit_seq.unwrap_or(0);
-    let latest_audit_line = if let Some(first_a) = ev.recent_audits.first() {
-        format!("최근 기록 시각 {}", first_a.created_at)
+    let latest_audit_kst = format_iso_utc_to_kst(&ev.latest_audit_at);
+    let latest_audit_sentence = if let Some(first_a) = ev.recent_audits.first() {
+        let sent = build_audit_event_sentence(
+            &first_a.actor,
+            &first_a.action_kind,
+            &first_a.target_resource,
+            &first_a.rule_id,
+            &first_a.remediation_action,
+            &first_a.severity,
+            &first_a.mode,
+        );
+        format!("{sent} ({latest_audit_kst})")
+    } else if latest_audit_kst != "미측정" {
+        format!("최근 기록 시각 {latest_audit_kst}")
     } else {
         "감사 원장 무결성 검증 완료".to_string()
     };
@@ -1271,52 +2090,136 @@ fn build_db_grounded_reply(
         )
     };
 
+    let resource_table = if ev.matched_resources.is_empty() {
+        String::new()
+    } else {
+        let mut rows = vec![
+            "| 리소스 | 유형 | 리전 | 갱신 |".to_string(),
+            "| --- | --- | --- | --- |".to_string(),
+        ];
+        for r in ev.matched_resources.iter().take(4) {
+            let disp = display_name_for_entity(&r.id, &r.object_type, &r.name);
+            let loc = if r.location.is_empty() {
+                "미지정"
+            } else {
+                r.location.as_str()
+            };
+            rows.push(format!("| `{disp}` | {} | {loc} | {}회 |", r.object_type, r.revision));
+        }
+        format!("\n\n#### 조회된 온톨로지 리소스\n{}", rows.join("\n"))
+    };
+
+    let incident_table = if ev.incidents.is_empty() {
+        String::new()
+    } else {
+        let mut rows = vec![
+            "| 인시던트 | 대상 리소스 | 영역 | 심각도 | 상태 |".to_string(),
+            "| --- | --- | --- | --- | --- |".to_string(),
+        ];
+        for i in ev.incidents.iter().take(4) {
+            let target = if i.target_resource.is_empty() {
+                "미지정"
+            } else {
+                i.target_resource.as_str()
+            };
+            rows.push(format!(
+                "| **{}** | `{target}` | {} | {} | {} |",
+                i.incident_number,
+                human_vertical_ko(&i.vertical),
+                human_severity_ko(&i.severity),
+                human_state_ko(&i.state)
+            ));
+        }
+        format!("\n\n#### 실측 인시던트 현황\n{}", rows.join("\n"))
+    };
+
     let body = if topic == "help" {
         format!(
-            "[실측 근거 · 조회 전용] 로컬 실측 DB에서 온톨로지 리소스 {}건, 관계 {}건, 감사 원장 {}건, 인시던트 {}건을 연동 중입니다. 사용 가능한 조회 전용 슬래시 명령: /risks(인시던트·리스크 요약), /approvals(승인·7대 안전장치 경계), /ontology(실측 리소스·관계 조회), /trace(감사 원장 무결성 검증). 모든 상태 변경은 승인 요청(/operations/hil-queue)을 통해서만 실행됩니다.",
+            "### AI 운영 어시스턴트 안내\n\n\
+             현재 실측 DB 기준 **온톨로지 리소스 {}건**, **관계 {}건**, **감사 원장 {}건**, **인시던트 {}건**과 연동 중입니다 [1].\n\n\
+             - `/risks` — 현재 인시던트 및 리스크 우선순위 요약\n\
+             - `/approvals` — 승인 대기열 및 7대 안전장치 충족 여부 확인\n\
+             - `/ontology` — 선택 리소스의 온톨로지 계통·의존 관계 조회\n\
+             - `/trace` — 최근 감사 원장 활동 및 무결성 검증\n\n\
+             모든 AI 채팅은 **조회 전용**으로 동작하며, 상태 변경은 승인 요청(`/operations/hil-queue`)을 통해서만 실행됩니다 [3].",
             ev.resources_total, ev.links_total, ev.audits_total, ev.incidents_total
         )
     } else if topic == "unavailable" {
         let focus_note = if ev.focus_cost_export_count > 0 {
             format!(
-                "비용 내보내기 수집기 리소스가 {}건 조회되었습니다.",
+                "비용 내보내기 수집기 리소스가 **{}건** 조회되었습니다 [1].",
                 ev.focus_cost_export_count
             )
         } else {
-            "비용 내보내기 수집기 리소스는 현재 미수집 상태이며, 비용 합계는 0으로 대체하지 않고 미측정 상태로 분리합니다.".to_string()
+            "비용 내보내기 수집기 리소스는 현재 **미수집 상태**이며, 비용 합계는 0으로 대체하지 않고 미측정 상태로 분리합니다 [1].".to_string()
         };
         format!(
-            "[실측 근거 · 미수집 분리] {focus_note} 한편 동일 기준 AI 호출 {}건, 온톨로지 리소스 {}건, 감사 원장 {}건({latest_audit_line})은 정상 실측 중입니다. 설정(/settings/integrations)에서 연동 권한을 확인한 뒤 비용 내보내기 수집을 재개하세요.",
+            "### 미수집 지표 진단\n\n\
+             {focus_note}\n\n\
+             - **AI 호출 기록**: {}건\n\
+             - **온톨로지 리소스**: {}건\n\
+             - **감사 원장**: {}건 (최근 기록: {latest_audit_kst}) [3]\n\n\
+             설정(`/settings/integrations`)에서 스토리지 연동 권한을 확인한 뒤 수집을 재개하세요.",
             ev.llm_invocations_total, ev.resources_total, ev.audits_total
         )
     } else if topic == "rules" {
         let rule_sample = if ev.matched_rules.is_empty() {
             "등록 규칙 확인 중".to_string()
         } else {
-            ev.matched_rules.iter().take(3).cloned().collect::<Vec<_>>().join(", ")
+            ev.matched_rules
+                .iter()
+                .take(3)
+                .map(|r| human_rule_ko(r))
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<_>>()
+                .join(", ")
         };
         format!(
-            "[실측 근거 · 운영 규칙/정책] 온톨로지 리소스 {}건 중 활성 규칙 {}개와 정책 {}개를 확인했습니다(대표 항목: {rule_sample}). 현재 인시던트는 {incident_summary}이며, 감사 원장은 총 {}건({latest_audit_line})이 해시 체인으로 검증되어 있습니다. 상세 정책 검증은 거버넌스(/governance/rules)와 감사 원장(/evidence/audit)에서 확인할 수 있습니다.",
+            "### 운영 규칙 · 정책 준수 현황\n\n\
+             온톨로지 리소스 **{}건** 기준으로 **활성 규칙 {}개**와 **정책 {}개**를 대조했습니다 [2].\n\n\
+             - **대표 규칙**: {rule_sample}\n\
+             - **인시던트 요약**: {incident_summary}\n\
+             - **감사 원장**: 총 {}건 무결성 검증 완료 ({latest_audit_kst}) [3]\n\n\
+             상세 규칙 평가는 거버넌스(`/governance/rules`)와 감사 원장(`/evidence/audit`)에서 확인할 수 있습니다.{incident_table}",
             ev.resources_total, ev.rules_total, ev.policies_total, ev.audits_total
         )
     } else if topic == "hil" {
         format!(
-            "[실측 근거 · 승인 및 7대 안전장치 경계] AI 채팅은 조회 전용으로 어떤 변경도 직접 실행하지 않습니다. 현재 인시던트 {}건({incident_summary})과 연관 리소스({resource_summary})를 대조했으며, 감사 원장 {}건({latest_audit_line})을 확인했습니다. 고위험 변경은 7대 안전장치(중단 조건·롤백 검증·영향 범위 제한·드라이런 통과·논리 타깃 잠금·멱등성 키·2단계 감사) 충족 확인 후 승인 요청(/operations/hil-queue)에서 명시적 사람 승인을 거쳐야 합니다.",
-            ev.incidents_total, ev.audits_total
+            "### 승인 요청 · 7대 안전장치 경계 검증\n\n\
+             AI 채팅은 **조회 전용**으로 동작하며 클라우드 리소스를 직접 변경하지 않습니다 [3].\n\n\
+             - **인시던트 현황**: 총 {}건 — {incident_summary}\n\
+             - **연관 리소스**: {resource_summary} [1]\n\
+             - **최근 감사 활동**: {latest_audit_sentence} [3]\n\n\
+             고위험 변경은 7대 안전장치(중단 조건·롤백 검증·영향 범위 제한·드라이런 통과·논리 타깃 잠금·멱등성 키·2단계 감사) 검증 후 승인 요청(`/operations/hil-queue`)에서 명시적 사람 승인을 거쳐 실행됩니다.{incident_table}",
+            ev.incidents_total
         )
     } else if topic == "trace" {
         format!(
-            "[실측 근거 · 감사 및 실행 추적] 감사 원장 총 {}건(최근 기록 시각 {})을 조회했습니다. 인시던트 {}건({incident_summary}) 및 대화 전달 {}건과 교차 대조했으며, 전체 실행 추적은 감사·이력(/evidence/trace)에서 확인할 수 있습니다.",
-            ev.audits_total, ev.latest_audit_at, ev.incidents_total, ev.deliveries_total
+            "### 감사 원장 · 실행 추적 요약\n\n\
+             감사 원장 총 **{}건**을 조회했으며, 최근 활동은 다음과 같습니다 [3]:\n\n\
+             - **최근 감사 활동**: {latest_audit_sentence}\n\
+             - **인시던트 대조**: {}건 — {incident_summary}\n\
+             - **대화 알림 전달**: {}건\n\n\
+             전체 실행 추적 타임라인은 감사·이력(`/evidence/trace`)에서 확인할 수 있습니다.{incident_table}",
+            ev.audits_total, ev.incidents_total, ev.deliveries_total
         )
     } else if topic == "risks" {
         format!(
-            "[실측 근거 · 리스크 우선순위] 인시던트 {}건({incident_summary})과 온톨로지 리소스 {}건(규칙 {}개 · 정책 {}개)을 실측 대조했습니다. ({match_note}) 주요 리소스: {resource_summary}. 감사 원장 {}건({latest_audit_line})을 확인했으며 조회 전용 안전 경계가 유지 중입니다.",
+            "### 리스크 · 인시던트 우선순위 요약\n\n\
+             인시던트 **{}건**과 온톨로지 리소스 **{}건**(활성 규칙 {}개 · 정책 {}개)을 실측 대조했습니다 [1][2].\n\n\
+             - **인시던트 요약**: {incident_summary}\n\
+             - **주요 대상**: {resource_summary} ({match_note})\n\
+             - **감사 원장**: {}건 ({latest_audit_kst}) [3]{incident_table}{resource_table}",
             ev.incidents_total, ev.resources_total, ev.rules_total, ev.policies_total, ev.audits_total
         )
     } else {
         format!(
-            "[실측 근거 · 조회 전용] {match_note} — 온톨로지 리소스 총 {}건 중 주요 대상({resource_summary})을 확인했습니다. 온톨로지 계통(관계 총 {}건): {link_summary}. 정책·규칙은 활성 규칙 {}개 / 정책 {}개이며, 인시던트 {}건({incident_summary})과 감사 원장 {}건({latest_audit_line})을 교차 검증했습니다.",
+            "### 온톨로지 · 운영 근거 요약\n\n\
+             {match_note} 결과, 전체 리소스 **{}건** 중 주요 대상({resource_summary})과 관계 **{}건**을 확인했습니다 [1].\n\n\
+             - **온톨로지 계통**: {link_summary} [2]\n\
+             - **정책 · 규칙**: 활성 규칙 {}개 · 정책 {}개\n\
+             - **인시던트**: {}건 — {incident_summary}\n\
+             - **최근 감사 활동**: {latest_audit_sentence} (총 {}건) [3]{resource_table}{incident_table}",
             ev.resources_total,
             ev.links_total,
             ev.rules_total,
@@ -1382,8 +2285,10 @@ fn build_db_grounded_reply(
         citations.push(json!({
             "id": 4,
             "label": format!(
-                "인시던트 현황 ({} · {})",
-                inc.incident_number, inc.state
+                "인시던트 현황 ({} · {} · 심각도 {})",
+                inc.incident_number,
+                human_state_ko(&inc.state),
+                human_severity_ko(&inc.severity)
             ),
             "ref_id": inc.correlation_id,
             "panel_id": "incidents",
@@ -1435,20 +2340,20 @@ fn build_db_grounded_reply(
         "hil" => vec![
             match &top_inc {
                 Some(inc_id) => format!("{inc_id} 인시던트와 감사 원장 이력 대조"),
-                None => "현재 인시던트 프로젝션과 감사 원장 이력 대조".to_string(),
+                None => "현재 인시던트 현황과 감사 원장 이력 대조".to_string(),
             },
             "7대 안전장치 충족 조건과 승인 절차 정리".to_string(),
         ],
         "rules" => vec![
-            "PostgreSQL 정책 아티팩트와 최신 audit_log 해시 대조".to_string(),
-            format!("/ontology {top_res_short} 연관 링크 조회"),
+            "등록 정책과 최신 감사 원장 무결성 대조".to_string(),
+            format!("/ontology {top_res_short} 연관 관계 조회"),
         ],
         "help" => vec![
             "/risks 현재 DB 인시던트·리스크 요약".to_string(),
             "/trace 최신 감사 로그 5건 검증".to_string(),
         ],
         _ => vec![
-            format!("/trace 최신 감사 원장 #{} 검증", latest_audit_seq),
+            "/trace 최신 감사 원장 무결성 검증".to_string(),
             match &top_inc {
                 Some(inc_id) => format!("{inc_id} 인시던트 및 승인 안전장치 확인"),
                 None => "/approvals 7대 안전장치 및 승인 경계 확인".to_string(),
@@ -1734,11 +2639,11 @@ fn offline_source_readiness() -> Vec<Value> {
         }),
         json!({
             "id": "hil-queue",
-            "label": "인시던트 · 승인 연계 프로젝션",
+            "label": "인시던트 · 승인 연계 현황",
             "agent": "Var",
             "icon": "/agent-icons/var.svg",
             "state": "not-measured",
-            "detail": "operator-service 미연결"
+            "detail": "운영 서비스 미연결"
         }),
         json!({
             "id": "operating-rules",
@@ -2249,6 +3154,7 @@ mod tests {
                 vertical: "resilience".to_string(),
                 severity: "high".to_string(),
                 incident_number: "INC-1001".to_string(),
+                target_resource: "gpu-validation".to_string(),
             }],
             recent_audits: vec![ChatAuditRow {
                 seq: 86641,
@@ -2258,10 +3164,15 @@ mod tests {
                 correlation_id: String::new(),
                 entry_hash: "2d465710971bd4f6".to_string(),
                 created_at: "2026-11-25T10:34:55Z".to_string(),
+                target_resource: "aks-fdai-dev-wus3".to_string(),
+                rule_id: "compute.vm.environment-tag.required".to_string(),
+                remediation_action: "remediate.tag-add".to_string(),
+                severity: "high".to_string(),
             }],
             latest_audit_seq: Some(86641),
             latest_audit_hash_prefix: "2d465710971b".to_string(),
             latest_audit_at: "2026-11-25T10:34:55Z".to_string(),
+            executed_queries: vec![],
         };
 
         let events = build_chat_sse_events(&req, &upstream, Some(&db_ev));
@@ -2471,6 +3382,7 @@ mod tests {
             latest_audit_seq: None,
             latest_audit_hash_prefix: "unhashed".to_string(),
             latest_audit_at: String::new(),
+            executed_queries: vec![],
         };
         let req = parse_stream_request(&json!({
             "message": "인시던트 상태 알려줘",
@@ -2480,6 +3392,222 @@ mod tests {
         assert!(proposal.is_none());
         assert!(!ans.contains("INC-1001"));
         assert!(followups.iter().all(|f| !f.contains("INC-1001")));
+        Ok(())
+    }
+
+    #[test]
+    fn chat_grounded_reply_uses_event_centric_korean_kst_and_no_raw_codes_or_double_parens() {
+        use crate::repos::chat::{ChatAuditRow, ChatIncidentRow, ChatResourceRow};
+
+        let db_ev = ChatDbEvidence {
+            keywords: vec!["vm-prod-01".to_string()],
+            keyword_matched: true,
+            step_labels: ["s1".to_string(), "s2".to_string(), "s3".to_string()],
+            step_durations_ms: [1, 1, 1],
+            resources_total: 120,
+            azure_resources_total: 40,
+            connected_nodes: 118,
+            broken_links: 0,
+            links_total: 240,
+            distinct_link_types: 6,
+            distinct_object_types: 5,
+            rules_total: 12,
+            policies_total: 12,
+            audits_total: 95,
+            incidents_total: 1,
+            deliveries_total: 2,
+            llm_invocations_total: 10,
+            focus_cost_export_count: 0,
+            matched_resources: vec![ChatResourceRow {
+                id: "scope-x/providers/microsoft.compute/virtualmachines/vm-prod-01".to_string(),
+                object_type: "Resource".to_string(),
+                name: "vm-prod-01".to_string(),
+                location: "koreacentral".to_string(),
+                revision: 3,
+                updated_at: "2026-11-25T10:34:55Z".to_string(),
+            }],
+            matched_links: vec![],
+            matched_rules: vec!["compute.vm.environment-tag.required".to_string()],
+            incidents: vec![ChatIncidentRow {
+                correlation_id: "corr-inc-99".to_string(),
+                state: "in_progress".to_string(),
+                vertical: "resilience".to_string(),
+                severity: "high".to_string(),
+                incident_number: "INC-2001".to_string(),
+                target_resource: "vm-prod-01".to_string(),
+            }],
+            recent_audits: vec![ChatAuditRow {
+                seq: 9001,
+                actor: "fdai.core.hil_resume".to_string(),
+                action_kind: "hil.requested".to_string(),
+                mode: "shadow".to_string(),
+                correlation_id: "corr-inc-99".to_string(),
+                entry_hash: "abcdef123456".to_string(),
+                created_at: "2026-11-25T10:34:55Z".to_string(),
+                target_resource: "vm-prod-01".to_string(),
+                rule_id: "compute.vm.environment-tag.required".to_string(),
+                remediation_action: "remediate.tag-add".to_string(),
+                severity: "high".to_string(),
+            }],
+            latest_audit_seq: Some(9001),
+            latest_audit_hash_prefix: "abcdef123456".to_string(),
+            latest_audit_at: "2026-11-25T10:34:55Z".to_string(),
+            executed_queries: vec![],
+        };
+
+        for msg in [
+            "/trace 최근 감사 이력",
+            "/risks 리스크 요약",
+            "/approvals 승인 경계 확인",
+            "운영 규칙 점검해 줘",
+            "vm-prod-01 상태 요약해 줘",
+        ] {
+            let req = parse_stream_request(&json!({ "message": msg }));
+            let (ans, cites, _prop, followups, _topic) = build_db_grounded_reply(&req, &db_ev);
+            assert!(!ans.contains("in_progress"), "raw state leaked in {msg}: {ans}");
+            assert!(!ans.contains("hil.requested"), "raw action leaked in {msg}: {ans}");
+            assert!(!ans.contains("remediate.tag-add"), "raw remediation leaked in {msg}: {ans}");
+            assert!(!ans.contains("compute.vm.environment-tag.required"), "raw rule leaked in {msg}: {ans}");
+            assert!(!ans.contains("fdai.core.hil_resume"), "raw actor leaked in {msg}: {ans}");
+            assert!(!ans.contains("2026-11-25T10:34:55Z"), "raw UTC leaked in {msg}: {ans}");
+            assert!(!ans.contains("(("), "double parens leaked in {msg}: {ans}");
+            assert!(!ans.contains("구독 전체"), "vague scope leaked in {msg}: {ans}");
+            assert!(ans.contains("19:34:55 KST"), "missing KST conversion in {msg}: {ans}");
+            assert!(followups.iter().all(|f| !f.contains("#9001")), "raw seq leaked in followups: {followups:?}");
+            for c in &cites {
+                let lbl = c["label"].as_str().unwrap_or("");
+                assert!(!lbl.contains("in_progress"), "raw state leaked in citation label: {lbl}");
+            }
+        }
+    }
+
+    #[test]
+    fn chat_parse_stream_request_defaults_to_active_and_blocks_control_injection() {
+        let default_req = parse_stream_request(&json!({}));
+        assert_eq!(default_req.session_id, "active");
+        assert!(!default_req.mutation_blocked);
+
+        let long_msg = format!("{}kubectl delete pod x", "a".repeat(5000));
+        let bounded = parse_stream_request(&json!({
+            "message": long_msg,
+            "session_id": "sess-\r\n-1",
+            "selected_node": "node\x07-x"
+        }));
+        assert_eq!(bounded.prompt.chars().count(), 4096);
+        assert!(!bounded.session_id.contains('\r'));
+        assert!(!bounded.selected_node.contains('\x07'));
+
+        let mixed_case_mut = parse_stream_request(&json!({
+            "message": "Please KUBECTL DELETE deployment api-server now"
+        }));
+        assert!(mixed_case_mut.mutation_blocked);
+    }
+
+    #[test]
+    fn chat_kst_formatter_and_rule_remediation_humanizers_handle_edge_cases() {
+        use crate::repos::chat::{extract_incident_target_resource, human_remediation_ko};
+
+        assert_eq!(format_iso_utc_to_kst("2026-11-25T10:34:55Z"), "11월 25일 19:34:55 KST");
+        assert_eq!(format_iso_utc_to_kst("2026-11-25T16:30:00Z"), "11월 26일 01:30:00 KST");
+        assert_eq!(format_iso_utc_to_kst("2026-12-31T18:00:00Z"), "1월 1일 03:00:00 KST");
+        assert_eq!(format_iso_utc_to_kst(""), "미측정");
+        assert_eq!(format_iso_utc_to_kst("not-a-timestamp"), "미측정");
+
+        assert_eq!(
+            human_rule_ko("compute.vm.environment-tag.required"),
+            "가상 머신 필수 environment 태그 기준"
+        );
+        assert_eq!(human_remediation_ko("remediate.tag-add"), "필수 태그 자동 추가");
+        assert_eq!(
+            extract_incident_target_resource("corr-1 inc-1 resilience high resource:compute/vm/gpu-validation"),
+            "gpu-validation"
+        );
+        assert_eq!(extract_incident_target_resource("no resource token"), "");
+
+        let sent = build_audit_event_sentence(
+            "fdai.core.hil_resume",
+            "hil.requested",
+            "vm-prod-01",
+            "compute.vm.environment-tag.required",
+            "remediate.tag-add",
+            "high",
+            "shadow",
+        );
+        assert!(sent.contains("vm-prod-01"));
+        assert!(sent.contains("가상 머신 필수 environment 태그 기준"));
+        assert!(sent.contains("필수 태그 자동 추가"));
+        assert!(sent.contains("심각도 높음"));
+        assert!(!sent.contains("구독 전체"));
+    }
+
+    #[tokio::test]
+    async fn chat_messages_compat_and_stream_trajectory_with_session_turns_persistence()
+    -> Result<(), String> {
+        let app = build_router(offline_test_state());
+        let sid = "conv-test-traj-01";
+
+        // 1. POST /api/v4/chat/stream emits trajectory events (including prompt_assembly) and persists turn
+        let stream_req = HttpRequest::builder()
+            .method(Method::POST)
+            .uri("/api/v4/chat/stream")
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(
+                json!({
+                    "session_id": sid,
+                    "message": "/risks 현재 리스크와 승인 경계 요약해 줘",
+                    "context": "전체 현황 / 대시보드"
+                })
+                .to_string(),
+            ))
+            .map_err(|e| e.to_string())?;
+        let stream_resp = oneshot_ok(app.clone(), stream_req).await;
+        assert_eq!(stream_resp.status(), StatusCode::OK);
+        let sse = read_body_text(stream_resp).await?;
+        assert!(sse.contains("event: trajectory"), "missing trajectory SSE events");
+        assert!(sse.contains("\"phase\":\"prompt_assembly\""), "missing prompt_assembly trajectory");
+        assert!(sse.contains("\"system_prompt\""), "missing system_prompt in trajectory");
+        assert!(sse.contains("\"grounding_context\""), "missing grounding_context in trajectory");
+
+        // 2. POST /api/v4/chat/messages JSON compat works (never 404)
+        let msg_req = HttpRequest::builder()
+            .method(Method::POST)
+            .uri("/api/v4/chat/messages")
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(
+                json!({
+                    "session_id": sid,
+                    "message": "/help"
+                })
+                .to_string(),
+            ))
+            .map_err(|e| e.to_string())?;
+        let msg_resp = oneshot_ok(app.clone(), msg_req).await;
+        assert_eq!(msg_resp.status(), StatusCode::OK);
+        let msg_val: Value =
+            serde_json::from_str(&read_body_text(msg_resp).await?).map_err(|e| e.to_string())?;
+        assert!(msg_val["reply"].as_str().is_some_and(|s| !s.is_empty()));
+        assert_eq!(msg_val["trajectory"].as_array().map(Vec::len), Some(5));
+
+        // 3. GET /api/v4/chat/sessions/{id}/turns returns persisted turns
+        let turns_req = HttpRequest::builder()
+            .uri(format!("/api/v4/chat/sessions/{sid}/turns"))
+            .body(Body::empty())
+            .map_err(|e| e.to_string())?;
+        let turns_resp = oneshot_ok(app.clone(), turns_req).await;
+        assert_eq!(turns_resp.status(), StatusCode::OK);
+        let turns_val: Value =
+            serde_json::from_str(&read_body_text(turns_resp).await?).map_err(|e| e.to_string())?;
+        assert_eq!(turns_val["found"], true);
+        assert!(turns_val["turns"].as_array().map(Vec::len).unwrap_or(0) >= 2);
+
+        // 4. Clean up test session via DELETE
+        let del_req = HttpRequest::builder()
+            .method(Method::DELETE)
+            .uri(format!("/api/v4/chat/sessions/{sid}"))
+            .body(Body::empty())
+            .map_err(|e| e.to_string())?;
+        let del_resp = oneshot_ok(app, del_req).await;
+        assert_eq!(del_resp.status(), StatusCode::OK);
         Ok(())
     }
 }

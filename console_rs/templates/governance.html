@@ -242,6 +242,139 @@
     }
     .gov-chip-btn:hover { background: var(--cs-shade); }
     .gov-chip-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--cs-focus-ring); }
+    .gov-sec-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .gov-sec-kpi {
+      display: grid;
+      gap: 3px;
+      padding: 10px 12px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      min-width: 0;
+    }
+    .gov-sec-kpi-label { font-size: 12px; color: var(--cs-text-soft); font-weight: 600; }
+    .gov-sec-kpi-val { font-size: 18px; font-weight: 700; color: var(--cs-text); font-variant-numeric: tabular-nums; }
+    .gov-sec-kpi-sub { font-size: 12px; color: var(--cs-text-soft); }
+    .gov-ladder-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .gov-ladder-step {
+      display: grid;
+      gap: 4px;
+      padding: 10px 11px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      min-width: 0;
+    }
+    .gov-ladder-step.is-separate {
+      border-style: dashed;
+      background: var(--cs-shade);
+    }
+    .gov-sec-subgrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .gov-sec-card {
+      display: grid;
+      gap: 5px;
+      padding: 11px 12px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      min-width: 0;
+    }
+    .gov-sec-pager {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 10px;
+      font-size: 12.5px;
+      color: var(--cs-text-soft);
+    }
+    .lin-webgl-host {
+      position: relative;
+      width: 100%;
+      height: 540px;
+      min-height: 460px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      overflow: hidden;
+      cursor: grab;
+      user-select: none;
+    }
+    .lin-webgl-host.is-dragging { cursor: grabbing; }
+    .lin-webgl-canvas,
+    .lin-label-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .lin-label-canvas { pointer-events: none; }
+    .lin-webgl-hud {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 4;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 8px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: color-mix(in srgb, var(--cs-card) 92%, transparent);
+      backdrop-filter: blur(6px);
+      font-size: 12px;
+    }
+    .lin-webgl-legend {
+      position: absolute;
+      left: 10px;
+      bottom: 10px;
+      z-index: 4;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding: 5px 10px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: color-mix(in srgb, var(--cs-card) 92%, transparent);
+      font-size: 12px;
+      color: var(--cs-text-soft);
+      pointer-events: none;
+    }
+    .lin-webgl-legend-item { display: inline-flex; align-items: center; gap: 5px; }
+    .lin-webgl-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .lin-webgl-tip {
+      position: absolute;
+      z-index: 5;
+      pointer-events: none;
+      max-width: 300px;
+      padding: 7px 10px;
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-card);
+      color: var(--cs-text);
+      box-shadow: var(--cs-shadow-md);
+      font-size: 12px;
+      line-height: 1.4;
+    }
     .gov-textarea {
       width: 100%;
       min-height: 70px;
@@ -282,19 +415,35 @@
     }
     .panel-view[data-panel-id="rules"],
     .panel-view[data-panel-id="documents"],
-    .panel-view[data-panel-id="blast-radius"] {
+    .panel-view[data-panel-id="blast-radius"],
+    .panel-view[data-panel-id="ontology"] {
       overflow-y: auto !important;
     }
     .panel-view[data-panel-id="rules"] .gov-rules-wb,
     .panel-view[data-panel-id="documents"] .gov-doc-3pane,
     .panel-view[data-panel-id="blast-radius"] > .graph-wb,
     .panel-view[data-panel-id="blast-radius"] .graph-grid {
+      flex: 0 0 auto !important;
       height: auto !important;
       overflow: visible !important;
       align-items: start !important;
+      position: relative;
+      z-index: 1;
     }
-    .panel-view[data-panel-id="rules"] .gov-rules-wb > *,
-    .panel-view[data-panel-id="documents"] .gov-doc-3pane > *,
+    .panel-view[data-panel-id="ontology"] > .graph-wb {
+      flex: 0 0 auto !important;
+      min-height: 620px !important;
+    }
+    .panel-view[data-panel-id="rules"] > .adv-inline-disclosure,
+    .panel-view[data-panel-id="ontology"] > .adv-inline-disclosure,
+    .panel-view[data-panel-id="scope"] > .adv-inline-disclosure {
+      flex: 0 0 auto !important;
+      position: relative;
+      z-index: 2;
+      margin: 14px 16px 24px !important;
+    }
+    .panel-view[data-panel-id="rules"] .gov-rules-wb > *:not([data-float-inspector="panel"]),
+    .panel-view[data-panel-id="documents"] .gov-doc-3pane > *:not([data-float-inspector="panel"]),
     .panel-view[data-panel-id="blast-radius"] .graph-tree {
       max-height: none !important;
       overflow: visible !important;
@@ -604,6 +753,9 @@
         <button type="button" class="gov-rail-btn" data-rule-rail="rules-collected">
           <span>수집 코퍼스</span><span class="gov-rail-count" id="govRailCountCollected">2,366</span>
         </button>
+        <button type="button" class="gov-rail-btn" data-rule-rail="rules-security">
+          <span>보안 규칙 전용</span><span class="gov-rail-count" id="govRailCountSecurity">—</span>
+        </button>
       </div>
       <hr style="border:0;border-top:1px solid var(--cs-hairline-soft);margin:2px 0">
       <div class="gov-rail-group">
@@ -625,9 +777,31 @@
           <span>모범 사례 (Best Practices)</span><span class="gov-rail-count" id="govFwCountWaf">54</span>
         </button>
       </div>
+      <hr style="border:0;border-top:1px solid var(--cs-hairline-soft);margin:2px 0">
+      <div class="gov-rail-group">
+        <div class="gov-rail-title">3. 보안 취약점 · 0-Day 거버넌스</div>
+        <p class="gov-rail-hint">MSRC 전체 CVE · 런타임 크로스워크 · 미지 취약점 LLM 렌즈·입증 체계</p>
+        <button type="button" class="gov-rail-btn" data-rule-rail="sec-cves">
+          <span>전체 CVE · 크로스워크</span><span class="gov-rail-count" id="govSecCountCves">—</span>
+        </button>
+        <button type="button" class="gov-rail-btn" data-rule-rail="sec-unknown">
+          <span>미지 취약점 (0-Day 렌즈)</span><span class="gov-rail-count" id="govSecCountUnknown">—</span>
+        </button>
+        <button type="button" class="gov-rail-btn" data-rule-rail="sec-policies">
+          <span>보안 정책 · 런타임 CVE</span><span class="gov-rail-count" id="govSecCountPolicies">—</span>
+        </button>
+      </div>
+      <hr style="border:0;border-top:1px solid var(--cs-hairline-soft);margin:2px 0">
+      <div class="gov-rail-group">
+        <div class="gov-rail-title">4. Well-Architected 개선 권장</div>
+        <p class="gov-rail-hint">5대 필러 · 서비스 은퇴 · 워크로드 평가 (선택 시 지연 로드)</p>
+        <button type="button" class="gov-rail-btn" data-rule-rail="adv-waf">
+          <span>5대 필러 개선 권장</span><span class="gov-rail-count" id="govAdvWafCount">지연 로드</span>
+        </button>
+      </div>
       <div class="insp-card">
         <div class="insp-title">약어 안내</div>
-        <p class="insp-summary">MCSB(클라우드 보안 기준) · CAF(클라우드 도입 기준) · WARA(신뢰성 평가) · MSRC CSAF(취약점 권고) · Shadow(모의 검증) → Enforce(자동 적용)</p>
+        <p class="insp-summary">MCSB(클라우드 보안 기준) · CAF(클라우드 도입 기준) · WARA(신뢰성 평가) · MSRC CSAF(취약점 권고) · KEV(악용 확인 취약점) · Shadow(모의 검증) → Enforce(자동 적용)</p>
       </div>
     </aside>
 
@@ -706,6 +880,13 @@
             <tbody id="govRulesTbody"></tbody>
           </table>
         </div>
+        <div class="gov-sec-pager" id="govRulesInfiniteBar" hidden>
+          <span id="govRulesInfiniteInfo" aria-live="polite">—</span>
+          <div class="toolbar-inline">
+            <button type="button" class="cs-btn cs-btn-sm" id="govRulesLoadMoreBtn">30건 더 보기</button>
+          </div>
+        </div>
+        <div id="govRulesInfiniteSentinel" aria-hidden="true" style="height:2px;width:100%;"></div>
       </div>
 
       <div id="govFrameworkPane" hidden>
@@ -738,6 +919,90 @@
             </thead>
             <tbody id="govFwTbody"></tbody>
           </table>
+        </div>
+      </div>
+
+      <div id="govSecurityVulnPane" hidden>
+        <div class="card-head" style="margin-bottom:10px">
+          <div>
+            <h3 class="card-title" id="govSecTitle">보안 취약점 · CVE · 0-Day 거버넌스</h3>
+            <p class="card-desc" id="govSecDesc">MSRC CSAF 전체 CVE 카탈로그, 런타임 탐지 크로스워크, 알려지지 않은 취약점(0-Day) 오프패스 LLM 10종 렌즈 및 입증 거버넌스를 통합 조회합니다.</p>
+          </div>
+          <span class="cs-badge tone-neutral" id="govSecStatusBadge">조회 준비</span>
+        </div>
+
+        <div class="gov-sec-kpi-grid" id="govSecKpiGrid" aria-label="보안 취약점 거버넌스 핵심 지표"></div>
+        <div class="gov-fw-banner" id="govSecBanner" role="status" aria-live="polite" style="margin-bottom:10px">
+          <span id="govSecBannerText">확정 취약점(CVE·KEV·verified·proven)과 미지 취약점 가설(hypothesis)은 헌법 원칙에 따라 절대 합산하지 않습니다.</span>
+          <div class="toolbar-inline">
+            <a class="cs-btn cs-btn-sm" href="/operations/code-security">운영 코드 보안 ↗</a>
+            <a class="cs-btn cs-btn-sm" href="/operations/vulnerability-risk">취약점 · 위험 예측 ↗</a>
+          </div>
+        </div>
+
+        <div id="govSecCveToolbar" class="gov-facet-bar" role="search" aria-label="CVE 카탈로그 필터" style="margin-bottom:10px" hidden>
+          <div class="gov-facet-search-row">
+            <div class="search-wrap">
+              <svg class="search-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.8"/><path d="M10.7 10.7L14 14"/></svg>
+              <input type="search" class="cs-input search-input" id="govSecCveSearch" placeholder="CVE ID(예: CVE-2026-20001), 제품명, 취약점 제목 검색..." aria-label="CVE 검색">
+            </div>
+            <button type="button" class="cs-btn cs-btn-sm" id="govSecCveReset">초기화</button>
+          </div>
+          <select class="cs-select" id="govSecCveSev" aria-label="CVE 심각도 필터">
+            <option value="all">심각도: 전체</option>
+            <option value="critical">긴급 (Critical)</option>
+            <option value="high">높음 (High)</option>
+            <option value="medium">보통 (Medium)</option>
+            <option value="low">낮음 (Low)</option>
+          </select>
+          <select class="cs-select" id="govSecCveExploit" aria-label="CVE 악용 상태 필터">
+            <option value="all">악용 상태: 전체</option>
+            <option value="exploited">실제 악용 확인 (KEV)</option>
+            <option value="publicly_disclosed">공개 취약점 (0-Day 위험)</option>
+            <option value="exploitation_more_likely">악용 가능성 높음</option>
+          </select>
+          <select class="cs-select" id="govSecCvePriority" aria-label="CVE 우선순위 필터">
+            <option value="ALL">우선순위: 전체</option>
+            <option value="P0">P0 · 24시간 긴급</option>
+            <option value="P1">P1 · 72시간 우선</option>
+            <option value="P2">P2 · 14일 이내</option>
+            <option value="P3">P3 · 표준/모니터링</option>
+          </select>
+          <label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--cs-text);white-space:nowrap;cursor:pointer">
+            <input type="checkbox" id="govSecCveRuntimeOnly">
+            <span>런타임 실측 매칭만</span>
+          </label>
+        </div>
+
+        <div id="govSecLadderWrap" hidden>
+          <div class="gov-ladder-grid" id="govSecLadderGrid" aria-label="취약점 신뢰도 계단"></div>
+        </div>
+
+        <div class="table-wrap" id="govSecTableWrap">
+          <table class="cs-table" id="tbl-gov-security" aria-label="보안 취약점 및 미지 취약점 렌즈 목록">
+            <thead id="govSecThead"></thead>
+            <tbody id="govSecTbody"></tbody>
+          </table>
+        </div>
+
+        <div class="gov-sec-pager" id="govSecPager" hidden>
+          <span id="govSecPagerInfo" aria-live="polite">—</span>
+          <div class="toolbar-inline">
+            <button type="button" class="cs-btn cs-btn-sm" id="govSecPrevBtn">← 이전</button>
+            <button type="button" class="cs-btn cs-btn-sm" id="govSecNextBtn">다음 →</button>
+          </div>
+        </div>
+
+        <div id="govSecExtraCards" class="gov-sec-subgrid" hidden></div>
+      </div>
+
+      <div id="govAdvisorWafPane" hidden>
+        <div class="card-head" style="margin-bottom:10px">
+          <div>
+            <h3 class="card-title">Well-Architected 5대 필러 개선 권장 · 서비스 은퇴 · 워크로드 평가</h3>
+            <p class="card-desc">탭 선택 시 최신 권장사항과 워크로드 평가를 불러옵니다.</p>
+          </div>
+          <span class="cs-badge tone-neutral">불러오는 중…</span>
         </div>
       </div>
     </div>
@@ -1071,6 +1336,29 @@
             <span>⑤ 규칙 · 이벤트 · 감사</span>
           </div>
           <div class="lin-canvas-viewport svg-graph-stage" id="linCanvasViewport">
+            <div class="lin-webgl-host" id="linWebglHost" hidden>
+              <canvas class="lin-webgl-canvas" id="linWebglCanvas" aria-label="온톨로지 전체 노드 데이터 계통 WebGL 그래프"></canvas>
+              <canvas class="lin-label-canvas" id="linLabelCanvas" aria-hidden="true"></canvas>
+              <div class="lin-webgl-hud" role="toolbar" aria-label="데이터 계통 WebGL 제어">
+                <div class="seg-group" role="group" aria-label="노드 표시 모드">
+                  <button type="button" class="seg-btn is-active" id="linModeFullBtn" data-lin-graph-mode="full" aria-pressed="true">전체 노드 (WebGL)</button>
+                  <button type="button" class="seg-btn" id="linModeClusterBtn" data-lin-graph-mode="clustered" aria-pressed="false">클러스터 요약</button>
+                </div>
+                <button type="button" class="cs-btn cs-btn-sm" id="linZoomInBtn" aria-label="확대">+</button>
+                <button type="button" class="cs-btn cs-btn-sm" id="linZoomOutBtn" aria-label="축소">−</button>
+                <button type="button" class="cs-btn cs-btn-sm" id="linZoomFitBtn">전체 맞춤</button>
+                <span class="cs-badge tone-live" id="linWebglStatsBadge"><span class="cs-dot"></span>WebGL 준비</span>
+              </div>
+              <div class="lin-webgl-legend" aria-hidden="true">
+                <span class="lin-webgl-legend-item"><span class="lin-webgl-dot" style="background:#0ea5e9"></span>① 원천</span>
+                <span class="lin-webgl-legend-item"><span class="lin-webgl-dot" style="background:#6366f1"></span>② 스냅샷</span>
+                <span class="lin-webgl-legend-item"><span class="lin-webgl-dot" style="background:#8b5cf6"></span>③ 유형 클러스터</span>
+                <span class="lin-webgl-legend-item"><span class="lin-webgl-dot" style="background:#10b981"></span>④ 전체 리소스</span>
+                <span class="lin-webgl-legend-item"><span class="lin-webgl-dot" style="background:#f59e0b"></span>⑤ 감사 원장</span>
+                <span>드래그 이동 · 휠 확대/축소 · 클릭 시 상/하류 계통 추적</span>
+              </div>
+              <div class="lin-webgl-tip" id="linWebglTip" hidden></div>
+            </div>
             <svg class="graph-canvas-svg" id="linStageSvg" style="width:100%;height:auto;max-height:500px" viewBox="0 0 1200 440" role="img" aria-label="원천 소스부터 FDAI 파이프라인을 거쳐 온톨로지 인스턴스 및 감사 원장까지 연결되는 5단계 데이터 계통 그래프"></svg>
           </div>
         </div>
@@ -1593,7 +1881,7 @@
           <div class="insp-kv"><span>리소스 이름</span><strong data-ginsp-name>리소스를 선택하세요</strong></div>
           <div class="insp-kv"><span>리소스 유형</span><strong data-ginsp-type>-</strong></div>
           <div class="insp-kv"><span>위치 · 리비전</span><strong data-ginsp-status>-</strong></div>
-          <div class="insp-kv"><span>소속 영역 · 연결</span><strong data-ginsp-lineage>-</strong></div>
+          <div class="insp-kv"><span>리소스 그룹 · 연결</span><strong data-ginsp-lineage>-</strong></div>
         </div>
         <div class="insp-card"><div class="insp-title">온톨로지 식별자 · 메타</div><p class="insp-summary" data-ginsp-note>가운데 구성도 카드 또는 좌측 트리에서 리소스를 클릭하면 실측 속성과 연결된 링크 목록이 표시됩니다.</p></div>
         <div class="insp-card">
@@ -2280,6 +2568,7 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
     /* ── Humanize & Selection / Deep-Link Helpers (bridging fdaiV4Humanize & fdaiV4Selection) ── */
     const EXTRA_RESOURCE_TYPE_KO = {
       "resource-group": "리소스 그룹",
+      "subscription": "Azure 구독",
       "azure-resource": "Azure 리소스",
       "azure.resource": "Azure 리소스",
       "resourcetype": "리소스 유형",
@@ -2290,6 +2579,10 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
       "policyartifact": "정책 아티팩트",
       "ruleobjectivebinding": "규칙-목표 연결",
       "controlobjective": "통제 목표",
+      "authorization.role-assignment": "RBAC 역할 할당",
+      "role-assignment": "RBAC 역할 할당",
+      "anomaly-alert-rule": "이상 탐지 알림 규칙",
+      "api-gateway": "API 게이트웨이",
       "cache": "캐시 서비스",
       "disk": "관리 디스크",
       "compute.vm": "가상 머신 (VM)",
@@ -2301,7 +2594,7 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
       "kubernetes-cluster": "AKS 쿠버네티스 클러스터",
       "kubernetes-node-pool": "AKS 노드 풀",
       "llm-endpoint": "AI 모델 엔드포인트",
-      "managed-identity": "관리 ID (Managed Identity)",
+      "managed-identity": "관리 ID",
       "network.nsg": "네트워크 보안 그룹 (NSG)",
       "network.load-balancer": "로드 밸런서",
       "network.virtual-network": "가상 네트워크 (VNet)",
@@ -2349,6 +2642,10 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
       if (!s) return "운영 규칙";
       const low = s.toLowerCase();
       if (RULE_KEY_KO[low]) return RULE_KEY_KO[low];
+      if (window.fdaiV4Humanize && typeof window.fdaiV4Humanize.ruleId === "function") {
+        const fromShared = window.fdaiV4Humanize.ruleId(s);
+        if (fromShared && fromShared !== s && !fromShared.includes(".")) return fromShared;
+      }
       if (low.includes("policy.required") || low.endsWith(".required")) {
         const prefix = s.split(".")[0];
         return `${hResourceType(prefix)} 필수 정책 검증`;
@@ -2463,11 +2760,55 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
       if (low === "control_loop.t1_evaluate") return "T1 정책·온톨로지 평가";
       if (low === "control_loop.abstain") return "근거 부족 안전 보류";
       if (low === "control_loop.compliant") return "정책 기준 준수 확인";
+      if (low === "no_neighbour_found") return "연결된 이웃 리소스 없음 · 안전 보류";
       if (low === "governance.grant-exemption") return "거버넌스 예외 승인";
-      if (low.startsWith("remediate.")) return `자동 교정 (${s.slice(10).replace(/[-_.]+/g, " ")})`;
-      if (low.startsWith("governance.")) return `거버넌스 조치 (${s.slice(11).replace(/[-_.]+/g, " ")})`;
+      if (low === "remediate.right-size-role") return "최소 권한 역할 조정";
+      if (low.startsWith("remediate.")) {
+        if (window.fdaiV4Humanize && typeof window.fdaiV4Humanize.remediationAction === "function") {
+          return window.fdaiV4Humanize.remediationAction(s);
+        }
+        return `자동 교정 · ${s.slice(10).replace(/[-_.]+/g, " ")}`;
+      }
+      if (low.startsWith("governance.")) return `거버넌스 조치 · ${s.slice(11).replace(/[-_.]+/g, " ")}`;
       if (window.fdaiV4Humanize && typeof window.fdaiV4Humanize.action === "function") {
         return window.fdaiV4Humanize.action(s);
+      }
+      return s;
+    }
+
+    function hRemediation(raw) {
+      const s = String(raw || "").trim();
+      if (!s) return "정책 기준 준수";
+      if (s.toLowerCase() === "remediate.right-size-role") return "최소 권한 역할 조정";
+      if (window.fdaiV4Humanize && typeof window.fdaiV4Humanize.remediationAction === "function") {
+        return window.fdaiV4Humanize.remediationAction(s);
+      }
+      return hAction(s);
+    }
+
+    function hSeverity(raw) {
+      if (window.fdaiV4Humanize && typeof window.fdaiV4Humanize.severity === "function") {
+        return window.fdaiV4Humanize.severity(raw);
+      }
+      return String(raw || "미측정");
+    }
+
+    function hLocalClock(isoOrMs) {
+      if (isoOrMs == null || isoOrMs === "") return "";
+      if (window.fdaiV4Humanize && typeof window.fdaiV4Humanize.localClock === "function") {
+        return window.fdaiV4Humanize.localClock(isoOrMs);
+      }
+      const d = typeof isoOrMs === "number" ? new Date(isoOrMs) : new Date(String(isoOrMs));
+      if (Number.isNaN(d.getTime())) return String(isoOrMs);
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
+    function hDisplayName(rawName, rawType) {
+      const s = String(rawName || "").trim();
+      if (!s) return hResourceType(rawType);
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) {
+        return `${hResourceType(rawType || "authorization.role-assignment")} · ${s.slice(0, 8)}`;
       }
       return s;
     }
@@ -2543,9 +2884,18 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
     }
 
     function selSetItem(itemId, opts) {
+      const clean = itemId == null ? "" : String(itemId).trim();
       if (window.fdaiV4Selection && typeof window.fdaiV4Selection.setSelectedItem === "function") {
-        window.fdaiV4Selection.setSelectedItem(itemId, opts || {});
+        try { window.fdaiV4Selection.setSelectedItem(clean || null, opts || {}); } catch (_e) {}
       }
+      try {
+        const url = new URL(location.href);
+        if ((url.searchParams.get("item") || "") !== clean) {
+          if (clean) url.searchParams.set("item", clean);
+          else url.searchParams.delete("item");
+          history.replaceState(history.state, "", `${url.pathname}${url.search}${url.hash}`);
+        }
+      } catch (_e) {}
     }
 
     function selBuildUrl(panelId, itemId, extra) {
@@ -2592,6 +2942,27 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
         window.fdaiOpenFloatingDrawer(triggerEl);
       } else {
         triggerEl.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      }
+    }
+
+    function shimmerBorder(el, ms) {
+      if (el && isGovernanceLiveMode() && window.fdaiV4Shimmer && typeof window.fdaiV4Shimmer.border === "function") {
+        window.fdaiV4Shimmer.border(el, ms || 1100);
+      }
+    }
+    function shimmerBg(el, ms) {
+      if (el && isGovernanceLiveMode() && window.fdaiV4Shimmer && typeof window.fdaiV4Shimmer.bg === "function") {
+        window.fdaiV4Shimmer.bg(el, ms || 1100);
+      }
+    }
+    function shimmerPulse(el, ms) {
+      if (el && isGovernanceLiveMode() && window.fdaiV4Shimmer && typeof window.fdaiV4Shimmer.pulse === "function") {
+        window.fdaiV4Shimmer.pulse(el, ms || 1150);
+      }
+    }
+    function shimmerStream(el, on) {
+      if (el && window.fdaiV4Shimmer && typeof window.fdaiV4Shimmer.markStreaming === "function") {
+        window.fdaiV4Shimmer.markStreaming(el, Boolean(on && isGovernanceLiveMode()));
       }
     }
 
@@ -3400,7 +3771,7 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
         resEl.appendChild(mkEl("img", { src: safeAssetPath(rule.icon), width: "16", height: "16", alt: "" }));
         resEl.appendChild(document.createTextNode(hResourceType(rule.resLabel)));
       }
-      set("inspRuleBeforeAfter", hAction(rule.remediationAction || rule.beforeAfter));
+      set("inspRuleBeforeAfter", hRemediation(rule.remediationAction || rule.beforeAfter));
       const inspCard1 = document.getElementById("inspRuleSummary")?.closest(".insp-card");
       renderInspectorTechDetails(inspCard1, [
         ["규칙 ID", rule.id],
@@ -3475,6 +3846,10 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
       set("inspActPolicy", rule.mandatoryActive ? "필수 활성화 (Critical/High — 비활성화 불가)" : "선택 관리 (Medium/Low — 관리자 ON/OFF 전환 가능)");
       set("inspActActors", rule.actActors);
       set("inspActAt", rule.actAt);
+
+      if (isGovernanceLiveMode() && rule.detailLoaded === false && typeof fetchLazyRuleDetail === "function") {
+        fetchLazyRuleDetail(rule);
+      }
 
       const quickBtn = document.getElementById("inspQuickToggleBtn");
       const quickHint = document.getElementById("inspQuickToggleHint");
@@ -3867,24 +4242,53 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
       });
       const catPane = document.getElementById("govRulesCatalogPane");
       const fwPane = document.getElementById("govFrameworkPane");
+      const secPane = document.getElementById("govSecurityVulnPane");
+      const advPane = document.getElementById("govAdvisorWafPane");
       const isFw = railKey.startsWith("fw-");
-      if (catPane) catPane.hidden = isFw;
+      const isSec = railKey.startsWith("sec-");
+      const isAdv = railKey === "adv-waf";
+      if (catPane) catPane.hidden = isFw || isSec || isAdv;
       if (fwPane) fwPane.hidden = !isFw;
+      if (secPane) secPane.hidden = !isSec;
+      if (advPane) advPane.hidden = !isAdv;
       if (window.FdaiUrlState && activeGovernancePanelId() === "rules") {
-        window.FdaiUrlState.set({ framework: isFw ? railKey.replace(/^fw-/, "") : null });
+        window.FdaiUrlState.set({ framework: isFw ? railKey.replace(/^fw-/, "") : ((isSec || isAdv) ? railKey : null) });
       }
       if (isFw) {
         renderFrameworkMatrix(railKey);
         if (typeof loadLiveFramework === "function") {
           loadLiveFramework(railKey, false);
         }
+      } else if (isSec) {
+        if (typeof renderSecurityGovernanceView === "function") {
+          renderSecurityGovernanceView(railKey);
+        }
+      } else if (isAdv) {
+        if (window.fdaiAdvisor && typeof window.fdaiAdvisor.loadRulesPane === "function" && advPane) {
+          window.fdaiAdvisor.loadRulesPane(advPane);
+        }
       } else {
+        const catSel = document.getElementById("govRuleCat");
+        if (railKey === "rules-security") {
+          if (catSel) catSel.value = "보안";
+          if (isGovernanceLiveMode() && typeof fetchLiveRulesPage === "function") {
+            fetchLiveRulesPage({ reset: true, category: "security" });
+          }
+        } else if (catSel && catSel.value === "보안" && railKey === "rules-all") {
+          catSel.value = "all";
+          if (isGovernanceLiveMode() && typeof fetchLiveRulesPage === "function") {
+            fetchLiveRulesPage({ reset: true, category: "" });
+          }
+        }
         renderRulesTable();
       }
     }
 
     document.querySelectorAll("[data-rule-rail]").forEach((btn) => {
-      btn.addEventListener("click", () => activateRulesRail(btn.getAttribute("data-rule-rail") || "rules-all"));
+      btn.addEventListener("click", () => {
+        selSetItem(null);
+        activateRulesRail(btn.getAttribute("data-rule-rail") || "rules-all");
+      });
     });
     ["govRuleSearch", "govRuleCat", "govRuleSev", "govRuleSrc", "govRuleMode", "govRuleActState"].forEach((id) => {
       const el = document.getElementById(id);
@@ -5142,7 +5546,7 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
       if (s.includes("atomic") || s.includes("fdai")) return "Atomic";
       return rawSrc ? String(rawSrc).toUpperCase() : "Catalog";
     }
-    function hydrateLiveRulesFromApi(payload) {
+    function hydrateLiveRulesFromApi(payload, appendMode) {
       if (!isGovernanceLiveMode()) return;
       const list = Array.isArray(payload?.rules) ? payload.rules : (Array.isArray(payload?.items) ? payload.items : []);
       rulesSourceMode = "live";
@@ -5201,18 +5605,34 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
             }
           ],
           citations: [],
-          findings: []
+          findings: [],
+          detailLoaded: raw.detail_loaded !== false
         });
       });
-      RULES.length = 0;
-      mapped.forEach((item) => RULES.push(item));
+      if (appendMode) {
+        const seenIds = new Set(RULES.map((r) => r.id));
+        mapped.forEach((item) => {
+          if (!seenIds.has(item.id)) RULES.push(item);
+        });
+      } else {
+        RULES.length = 0;
+        mapped.forEach((item) => RULES.push(item));
+      }
       const sum = payload.summary || {};
       rulesLiveTotal = typeof payload.total === "number" ? payload.total : (typeof sum.total === "number" ? sum.total : mapped.length);
+      rulesLiveFilteredTotal = typeof payload.filtered_total === "number" ? payload.filtered_total : rulesLiveTotal;
+      rulesLiveOffset = typeof payload.offset === "number" ? payload.offset : 0;
+      rulesHasMore = typeof payload.has_more === "boolean"
+        ? payload.has_more
+        : (RULES.length < rulesLiveFilteredTotal);
       const byOrigin = payload.facets?.by_origin || {};
       rulesLiveActive = typeof sum.enabled_count === "number" ? sum.enabled_count : (typeof byOrigin.active === "number" ? byOrigin.active : mapped.filter((r) => r.enabled).length);
       rulesLiveCollected = typeof sum.disabled_count === "number" ? sum.disabled_count : (typeof byOrigin.collected === "number" ? byOrigin.collected : mapped.filter((r) => !r.enabled).length);
-      selectedRuleId = RULES.length ? RULES[0].id : "";
+      if (!appendMode || !selectedRuleId) {
+        selectedRuleId = RULES.length ? RULES[0].id : "";
+      }
       renderRulesTable();
+      updateRulesInfiniteBar();
       const badge = document.getElementById("govRulePolicySummaryBadge");
       if (badge && typeof sum.mandatory_count === "number") {
         const optEnabled = Math.max(0, (rulesLiveActive || 0) - sum.mandatory_count);
@@ -5223,7 +5643,129 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
           true
         );
       }
-      loadLiveFramework("fw-mcsb", true);
+      if (!appendMode) {
+        if (!loadedLiveFrameworks.size) loadLiveFramework("fw-mcsb", true);
+        if (!secPostureCache && typeof loadLiveSecurityPosture === "function") {
+          loadLiveSecurityPosture();
+        }
+      }
+    }
+
+    const RULES_PAGE_SIZE = 30;
+    let rulesLiveOffset = 0;
+    let rulesLiveFilteredTotal = 0;
+    let rulesHasMore = false;
+    let rulesInfLoading = false;
+    let rulesReqSeq = 0;
+    const ruleDetailCache = new Map();
+
+    function updateRulesInfiniteBar() {
+      const bar = document.getElementById("govRulesInfiniteBar");
+      const info = document.getElementById("govRulesInfiniteInfo");
+      const btn = document.getElementById("govRulesLoadMoreBtn");
+      if (!bar) return;
+      if (!isGovernanceLiveMode() || activeRail.startsWith("fw-") || activeRail.startsWith("sec-") || activeRail === "adv-waf") {
+        bar.hidden = true;
+        return;
+      }
+      bar.hidden = false;
+      if (info) {
+        info.textContent = rulesInfLoading
+          ? `규칙 추가 불러오는 중… (현재 ${RULES.length.toLocaleString("ko-KR")} / ${rulesLiveFilteredTotal.toLocaleString("ko-KR")}건)`
+          : `로드됨 ${RULES.length.toLocaleString("ko-KR")} / 전체 ${rulesLiveFilteredTotal.toLocaleString("ko-KR")}건${rulesHasMore ? " · 스크롤하면 자동으로 이어서 로드됩니다" : " · 모두 표시됨"}`;
+      }
+      if (btn) {
+        btn.hidden = !rulesHasMore;
+        btn.disabled = rulesInfLoading;
+        btn.textContent = rulesInfLoading ? "불러오는 중…" : `${RULES_PAGE_SIZE}건 더 보기`;
+      }
+    }
+
+    async function fetchLiveRulesPage(opts = {}) {
+      if (!isGovernanceLiveMode()) return;
+      const live = window.fdaiV4Live;
+      if (!live || typeof live.fetchJson !== "function") return;
+      const reset = opts.reset !== false;
+      if (!reset && (rulesInfLoading || !rulesHasMore)) return;
+      const nextOffset = reset ? 0 : (rulesLiveOffset + RULES_PAGE_SIZE);
+      const q = (opts.search !== undefined ? opts.search : (document.getElementById("govRuleSearch")?.value || "")).trim();
+      const catVal = opts.category !== undefined
+        ? opts.category
+        : (activeRail === "rules-security" ? "security" : "");
+      const qs = new URLSearchParams({
+        limit: String(RULES_PAGE_SIZE),
+        offset: String(nextOffset),
+        view: "summary"
+      });
+      if (q) qs.set("search", q);
+      if (catVal) qs.set("category", catVal);
+
+      const seq = ++rulesReqSeq;
+      rulesInfLoading = true;
+      updateRulesInfiniteBar();
+      const res = await live.fetchJson(`/api/v4/governance/rules?${qs.toString()}`);
+      rulesInfLoading = false;
+      if (!isGovernanceLiveMode() || seq !== rulesReqSeq) {
+        updateRulesInfiniteBar();
+        return;
+      }
+      if (res && res.ok && res.data && res.data.measurement_state === "measured" && res.data.data) {
+        hydrateLiveRulesFromApi(res.data.data, !reset);
+      } else {
+        updateRulesInfiniteBar();
+      }
+    }
+
+    async function fetchLazyRuleDetail(rule) {
+      if (!rule || !rule.id || rule.detailLoaded) return;
+      if (ruleDetailCache.has(rule.id)) {
+        Object.assign(rule, ruleDetailCache.get(rule.id), { detailLoaded: true });
+        if (selectedRuleId === rule.id) renderInspectorRule(rule);
+        return;
+      }
+      const live = window.fdaiV4Live;
+      if (!live || typeof live.fetchJson !== "function") return;
+      rule.detailLoaded = true;
+      const res = await live.fetchJson(`/api/v4/governance/rules/${encodeURIComponent(rule.id)}`);
+      if (!isGovernanceLiveMode() || !res || !res.ok || !res.data?.data?.rule) return;
+      const raw = res.data.data.rule;
+      const patch = {
+        descriptionKo: String(raw.description_ko || raw.summary || rule.descriptionKo || ""),
+        summary: String(raw.description_ko || raw.summary || rule.summary || ""),
+        currentStateKo: String(raw.current_state_ko || ""),
+        recommendedConfigKo: String(raw.recommended_config_ko || ""),
+        benefitKo: String(raw.benefit_ko || ""),
+        verifyKo: String(raw.verify_ko || ""),
+        remediationTemplateRef: String(raw.remediation_template_ref || ""),
+        evaluatedProperties: String(raw.evaluated_properties || ""),
+        triggerSignals: String(raw.trigger_signals || ""),
+        sourceUrl: String(raw.source_url || ""),
+        baselineOutcomes: raw.baseline_outcomes || null,
+        condition: String(raw.check_logic_body || raw.condition || rule.condition || ""),
+        actActors: String(raw.activation_updated_by || "system-policy"),
+        actAt: String(raw.activation_updated_at || "PostgreSQL 실DB 동기화"),
+        detailLoaded: true
+      };
+      ruleDetailCache.set(rule.id, patch);
+      Object.assign(rule, patch);
+      if (selectedRuleId === rule.id) renderInspectorRule(rule);
+    }
+
+    document.getElementById("govRulesLoadMoreBtn")?.addEventListener("click", () => {
+      fetchLiveRulesPage({ reset: false });
+    });
+    if (typeof IntersectionObserver === "function") {
+      const sentinel = document.getElementById("govRulesInfiniteSentinel");
+      if (sentinel) {
+        const obs = new IntersectionObserver((entries) => {
+          if (entries.some((e) => e.isIntersecting)) {
+            if (isGovernanceLiveMode() && activeGovernancePanelId() === "rules" && !activeRail.startsWith("fw-") && !activeRail.startsWith("sec-") && activeRail !== "adv-waf" && rulesHasMore && !rulesInfLoading) {
+              fetchLiveRulesPage({ reset: false });
+            }
+          }
+        }, { rootMargin: "240px 0px" });
+        obs.observe(sentinel);
+      }
     }
 
     const loadedLiveFrameworks = new Set();
@@ -5235,19 +5777,9 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
         window.FdaiUrlState.set({ q: q || null });
       }
       window.clearTimeout(liveRuleSearchTimer);
-      liveRuleSearchTimer = window.setTimeout(async () => {
-        if (!isGovernanceLiveMode()) return;
-        const live = window.fdaiV4Live;
-        if (!live || typeof live.fetchJson !== "function") return;
-        const url = q
-          ? `/api/v4/governance/rules?limit=100&search=${encodeURIComponent(q)}`
-          : "/api/v4/governance/rules?limit=100";
-        const res = await live.fetchJson(url);
-        if (!isGovernanceLiveMode()) return;
-        if (res && res.ok && res.data && res.data.measurement_state === "measured" && res.data.data) {
-          hydrateLiveRulesFromApi(res.data.data);
-        }
-      }, 260);
+      liveRuleSearchTimer = window.setTimeout(() => {
+        fetchLiveRulesPage({ reset: true, search: q });
+      }, 240);
     });
 
     async function loadLiveFramework(fwKey, countsOnly) {
@@ -5259,7 +5791,8 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
         renderFrameworkMatrix(fwKey);
         return;
       }
-      const res = await live.fetchJson(`/api/v4/governance/frameworks?framework=${encodeURIComponent(apiKey)}&limit=200`);
+      const lim = countsOnly ? 1 : 200;
+      const res = await live.fetchJson(`/api/v4/governance/frameworks?framework=${encodeURIComponent(apiKey)}&limit=${lim}`);
       if (!isGovernanceLiveMode()) return;
       if (!res || !res.ok || !res.data || res.data.measurement_state !== "measured" || !res.data.data) {
         ["govFwCountMcsb", "govFwCountCaf", "govFwCountWara", "govFwCountMsrc", "govFwCountWaf"].forEach((id) => {
@@ -5308,8 +5841,8 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
           desc: `PostgreSQL state_kv (operator-projection:workflow:best-practice.list · ${d.framework_version || "v1"}) 실측 기준`
         },
         "fw-msrc": {
-          title: `보안 권고 (MSRC CSAF · 실DB ${c.msrc ?? 0}건)`,
-          desc: `PostgreSQL rule.list 기준 MSRC/CSAF 직접 수집 ${c.msrc ?? 0}건 · 일반 보안 규칙 ${Number(d.msrc_security_rules_linked || 0).toLocaleString("ko-KR")}건 연계`
+          title: `보안 권고 (MSRC CSAF · ${Number(c.msrc ?? 0).toLocaleString("ko-KR")} CVE)`,
+          desc: `MSRC CSAF ${d.msrc_summary?.source_revision || "카탈로그"} 기준 ${Number(c.msrc ?? 0).toLocaleString("ko-KR")}개 CVE (악용 확인 ${Number(d.msrc_summary?.exploited_count || 0).toLocaleString("ko-KR")} · 공개 ${Number(d.msrc_summary?.publicly_disclosed_count || 0).toLocaleString("ko-KR")} · 런타임 탐지 ${Number(d.msrc_summary?.runtime_detected_cves || 0).toLocaleString("ko-KR")} · 보안 규칙 ${Number(d.msrc_security_rules_linked || 0).toLocaleString("ko-KR")}건 연계)`
         }
       };
 
@@ -5347,7 +5880,9 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
         emptyMessage: "해당 프레임워크에 수집된 통제 기준이 없습니다.",
         items: mappedItems
       };
-      loadedLiveFrameworks.add(fwKey);
+      if (!countsOnly) {
+        loadedLiveFrameworks.add(fwKey);
+      }
 
       const domSel = document.getElementById("govFwDomainFilter");
       if (domSel && domSel.getAttribute("data-fw-loaded") === fwKey) {
@@ -5357,6 +5892,850 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
         renderFrameworkMatrix(fwKey);
       }
     }
+
+    /* ── 9b-sec. Security Governance (MSRC 9,058 CVEs · 10 Unknown-Vuln LLM Lenses · Policies) ── */
+    let secPostureCache = null;
+    let secCvePageCache = null;
+    let secUnknownCache = null;
+    let secCveOffset = 0;
+    let secCveReqSeq = 0;
+    const SEC_CVE_LIMIT = 40;
+
+    function fmtNumKo(v) {
+      return typeof v === "number" && Number.isFinite(v) ? Number(v).toLocaleString("ko-KR") : "미측정";
+    }
+
+    function setSecPaneBusy(isBusy) {
+      const pane = document.getElementById("govSecurityVulnPane");
+      if (pane) pane.setAttribute("aria-busy", isBusy ? "true" : "false");
+    }
+
+    function bindSecRowKeyboard(el, onActivate) {
+      if (!el || typeof onActivate !== "function") return;
+      el.setAttribute("tabindex", "0");
+      el.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") {
+          ev.preventDefault();
+          onActivate();
+        }
+      });
+    }
+
+    function renderSecErrorState(title, message) {
+      const statusBadge = document.getElementById("govSecStatusBadge");
+      const titleEl = document.getElementById("govSecTitle");
+      const bannerEl = document.getElementById("govSecBannerText");
+      const thead = document.getElementById("govSecThead");
+      const tbody = document.getElementById("govSecTbody");
+      const extraCards = document.getElementById("govSecExtraCards");
+      const ladderGrid = document.getElementById("govSecLadderGrid");
+      setSecPaneBusy(false);
+      if (titleEl && title) titleEl.textContent = title;
+      if (bannerEl && message) bannerEl.textContent = message;
+      setBadgeEl(statusBadge, "sec", "미측정 · 응답 오류", true);
+      if (thead) clearEl(thead);
+      if (tbody) {
+        clearEl(tbody);
+        const tr = mkEl("tr");
+        tr.appendChild(mkEl("td", { colSpan: "5", className: "cell-muted" }, message || "미측정 · 보안 거버넌스 데이터를 불러오지 못했습니다."));
+        tbody.appendChild(tr);
+      }
+      if (extraCards) clearEl(extraCards);
+      if (ladderGrid) clearEl(ladderGrid);
+    }
+
+    function renderSecKpiCards(cards) {
+      const grid = document.getElementById("govSecKpiGrid");
+      if (!grid) return;
+      clearEl(grid);
+      cards.forEach((c) => {
+        const box = mkEl("div", { className: "gov-sec-kpi" });
+        box.appendChild(mkEl("span", { className: "gov-sec-kpi-label" }, c.label));
+        box.appendChild(mkEl("strong", { className: "gov-sec-kpi-val" }, c.value));
+        if (c.sub) box.appendChild(mkEl("span", { className: "gov-sec-kpi-sub" }, c.sub));
+        grid.appendChild(box);
+      });
+    }
+
+    function renderSecurityInspectorDetail(item) {
+      if (!item) return;
+      const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+      set("inspRuleId", item.id || "—");
+      set("inspRuleTitle", item.title || "—");
+      const titleEnEl = document.getElementById("inspRuleTitleEn");
+      if (titleEnEl) {
+        if (item.subtitle) {
+          titleEnEl.textContent = item.subtitle;
+          titleEnEl.hidden = false;
+        } else {
+          titleEnEl.hidden = true;
+        }
+      }
+      const copyBtn = document.getElementById("inspRuleCopyBtn");
+      if (copyBtn) copyBtn.setAttribute("data-copy-text", item.id || "");
+      const badges = document.getElementById("inspRuleBadges");
+      if (badges) {
+        clearEl(badges);
+        (item.badges || []).forEach((b) => {
+          const sp = mkEl("span", { className: `cs-badge tone-${b.tone || "neutral"}` });
+          sp.appendChild(mkEl("span", { className: "cs-dot" }));
+          sp.appendChild(document.createTextNode(b.label));
+          badges.appendChild(sp);
+        });
+      }
+      set("inspRuleSummary", item.summary || "—");
+      set("inspRuleObjType", item.target || "—");
+      const resEl = document.getElementById("inspRuleResource");
+      if (resEl) {
+        clearEl(resEl);
+        resEl.appendChild(document.createTextNode(item.scope || "—"));
+      }
+      set("inspRuleBeforeAfter", item.action || "—");
+      const srcRow = document.getElementById("inspRuleSourceRow");
+      const srcLink = document.getElementById("inspRuleSourceLink");
+      if (srcRow && srcLink) {
+        if (item.sourceUrl && /^https?:\/\//i.test(item.sourceUrl)) {
+          srcLink.setAttribute("href", item.sourceUrl);
+          srcLink.textContent = item.sourceLabel || "공식 권고/출처 열기 ↗";
+          srcRow.hidden = false;
+        } else {
+          srcRow.hidden = true;
+        }
+      }
+      set("inspRuleCurrentState", item.currentState || "—");
+      set("inspRuleRecommended", item.recommended || "—");
+      const baseBadge = document.getElementById("inspRuleBaselineBadge");
+      if (baseBadge) setBadgeEl(baseBadge, item.baseTone || "neutral", item.baseLabel || "기준 평가", false);
+      const remBadge = document.getElementById("inspRuleRemBadge");
+      if (remBadge) setBadgeEl(remBadge, item.remTone || "live", item.remLabel || "권장 조치", false);
+      const condEl = document.getElementById("inspRuleCondition");
+      if (condEl) {
+        condEl.textContent = item.summary || "—";
+        if (condEl.parentElement) {
+          const rows = Array.isArray(item.techRows) && item.techRows.length
+            ? item.techRows
+            : (item.techDetail ? [["원시 기술 상세", item.techDetail]] : []);
+          renderInspectorTechDetails(condEl.parentElement, rows, "secInspectorTechDetails");
+        }
+      }
+      const actState = document.getElementById("inspActState");
+      if (actState) actState.textContent = item.gateState || "Shadow · 검증 게이트 적용";
+      const actActors = document.getElementById("inspActActors");
+      if (actActors) actActors.textContent = item.actors || "보안 거버넌스 정책";
+      const actAt = document.getElementById("inspActAt");
+      if (actAt) actAt.textContent = item.updatedAt || "카탈로그 · 실DB 동기화";
+    }
+
+    async function loadLiveSecurityPosture() {
+      if (!isGovernanceLiveMode()) return null;
+      const live = window.fdaiV4Live;
+      if (!live || typeof live.fetchJson !== "function") return null;
+      const res = await live.fetchJson("/api/v4/governance/security/posture");
+      if (!isGovernanceLiveMode()) return null;
+      if (!res || !res.ok || !res.data || res.data.measurement_state !== "measured" || !res.data.data) {
+        return null;
+      }
+      const d = res.data.data;
+      secPostureCache = d;
+      const setTxt = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+      setTxt("govRailCountSecurity", fmtNumKo(d.security_rules?.security_rules_total));
+      setTxt("govSecCountCves", fmtNumKo(d.msrc_csaf?.total_cves));
+      setTxt("govSecCountUnknown", `${fmtNumKo(d.unknown_vulnerability_governance?.summary?.lens_count)} 렌즈`);
+      setTxt("govSecCountPolicies", `${fmtNumKo(d.msrc_csaf?.runtime_detected_unique_cves)} CVE`);
+      if (d.msrc_csaf?.total_cves > 0) {
+        setTxt("govFwCountMsrc", fmtNumKo(d.msrc_csaf.total_cves));
+      }
+      return d;
+    }
+
+    async function loadAndRenderSecurityCves(resetOffset) {
+      if (resetOffset) secCveOffset = 0;
+      const statusBadge = document.getElementById("govSecStatusBadge");
+      const titleEl = document.getElementById("govSecTitle");
+      const descEl = document.getElementById("govSecDesc");
+      const bannerEl = document.getElementById("govSecBannerText");
+      const toolbar = document.getElementById("govSecCveToolbar");
+      const ladderWrap = document.getElementById("govSecLadderWrap");
+      const extraCards = document.getElementById("govSecExtraCards");
+      const pager = document.getElementById("govSecPager");
+      if (toolbar) toolbar.hidden = false;
+      if (ladderWrap) ladderWrap.hidden = true;
+      if (extraCards) extraCards.hidden = true;
+      if (pager) pager.hidden = false;
+
+      if (!isGovernanceLiveMode()) {
+        if (titleEl) titleEl.textContent = "전체 CVE · 크로스워크 (샘플 미리보기)";
+        if (descEl) descEl.textContent = "Sample 모드 예시입니다. Live 모드에서 MSRC CSAF 9,058개 CVE와 실시간 탐지 79개 CVE 교차 결과를 조회합니다.";
+        setBadgeEl(statusBadge, "human", "Sample 모드", true);
+        renderSecKpiCards([
+          { label: "MSRC CSAF CVE", value: "예시 2건", sub: "Live 모드에서 9,058건 실측" },
+          { label: "실제 악용 확인 (KEV)", value: "예시 1건", sub: "24시간 긴급 조치 기준" },
+          { label: "공개 취약점 (0-Day 위험)", value: "예시 1건", sub: "72시간 우선 조치 기준" },
+          { label: "런타임 실측 탐지 CVE", value: "예시 1건", sub: "저장소·인프라 교차매칭" }
+        ]);
+        const sampleRows = [
+          {
+            cve_id: "CVE-2026-20001",
+            title: "AKS 노드 이미지 권한 상승 취약점 (샘플)",
+            severity: "high",
+            severity_ko: "높음",
+            cvss_base_score: 8.8,
+            exploit_status: "exploited",
+            exploit_status_ko: "실제 악용 확인 (KEV)",
+            priority_tier: "P0",
+            kev_sla_ko: "24시간 긴급 조치 (KEV)",
+            primary_product_name: "Azure Kubernetes Service 1.28",
+            runtime_detected: true,
+            remediation_summary: "AKS Kubernetes 버전을 1.28.9 이상으로 업그레이드하고 공용 네트워크 접근을 비활성화합니다.",
+            source_url: "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-20001",
+            cvss_vector: "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H"
+          },
+          {
+            cve_id: "CVE-2026-20002",
+            title: "Azure Storage 레거시 TLS 다운그레이드 (샘플)",
+            severity: "critical",
+            severity_ko: "긴급",
+            cvss_base_score: 9.1,
+            exploit_status: "exploitation_more_likely",
+            exploit_status_ko: "악용 가능성 높음",
+            priority_tier: "P1",
+            kev_sla_ko: "72시간 우선 조치",
+            primary_product_name: "Azure Storage Account",
+            runtime_detected: false,
+            remediation_summary: "스토리지 계정의 최소 TLS 버전을 1.2 이상으로 강제합니다.",
+            source_url: "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-20002",
+            cvss_vector: "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N"
+          }
+        ];
+        renderSecCveRows(sampleRows, sampleRows.length, 0, SEC_CVE_LIMIT);
+        return;
+      }
+
+      const live = window.fdaiV4Live;
+      if (!live || typeof live.fetchJson !== "function") return;
+      const q = (document.getElementById("govSecCveSearch")?.value || "").trim();
+      const sev = document.getElementById("govSecCveSev")?.value || "all";
+      const exp = document.getElementById("govSecCveExploit")?.value || "all";
+      const pri = document.getElementById("govSecCvePriority")?.value || "ALL";
+      const rtOnly = Boolean(document.getElementById("govSecCveRuntimeOnly")?.checked);
+
+      const qs = new URLSearchParams();
+      if (q) qs.set("search", q);
+      if (sev !== "all") qs.set("severity", sev);
+      if (exp !== "all") qs.set("exploit", exp);
+      if (pri !== "ALL") qs.set("priority", pri);
+      if (rtOnly) qs.set("runtime_only", "1");
+      qs.set("limit", String(SEC_CVE_LIMIT));
+      qs.set("offset", String(secCveOffset));
+
+      if (window.FdaiUrlState && activeGovernancePanelId() === "rules") {
+        window.FdaiUrlState.set({
+          sec_q: q || null,
+          sec_sev: sev !== "all" ? sev : null,
+          sec_exp: exp !== "all" ? exp : null
+        });
+      }
+
+      const mySeq = ++secCveReqSeq;
+      setSecPaneBusy(true);
+      setBadgeEl(statusBadge, "neutral", "CVE 조회 중…", true);
+      const res = await live.fetchJson(`/api/v4/governance/security/cves?${qs.toString()}`);
+      if (!isGovernanceLiveMode() || activeRail !== "sec-cves" || mySeq !== secCveReqSeq) return;
+      setSecPaneBusy(false);
+      if (!res || !res.ok || !res.data || !res.data.data) {
+        renderSecErrorState("전체 CVE · 크로스워크 (미측정)", "보안 CVE 카탈로그 API 응답을 불러오지 못했습니다. 잠시 후 다시 시도하세요.");
+        return;
+      }
+      const d = res.data.data;
+      secCvePageCache = d;
+      const s = d.summary || {};
+      const dbMeasured = d.db_measurement_status !== "not-measured";
+      if (titleEl) titleEl.textContent = `전체 CVE · MSRC CSAF 크로스워크 (${fmtNumKo(s.msrc_total_cves)}건)`;
+      if (descEl) descEl.textContent = `MSRC CSAF ${d.source_revision || ""} (${d.evaluation_source || "catalog"}) · 제품 매핑 ${fmtNumKo(s.product_mapping_count)}개 · 런타임 코드 보안 탐지 고유 CVE ${dbMeasured ? `${fmtNumKo(s.runtime_detected_unique_cves)}건` : "미측정"} 교차 조회`;
+      if (bannerEl) bannerEl.textContent = `확정 CVE 기준(${fmtNumKo(s.msrc_total_cves)}건)은 미지 취약점 가설(hypothesis)과 분리 집계됩니다. 현재 조건 일치 ${fmtNumKo(s.filtered_total)}건.`;
+      setBadgeEl(statusBadge, "live", `실측 ${fmtNumKo(s.filtered_total)} / ${fmtNumKo(s.msrc_total_cves)} CVE`, true);
+
+      renderSecKpiCards([
+        { label: "MSRC CSAF 전체 CVE", value: fmtNumKo(s.msrc_total_cves), sub: `권고 ${fmtNumKo(s.msrc_total_advisories)}건 · 매핑 ${fmtNumKo(s.product_mapping_count)}개` },
+        { label: "실제 악용 확인 (KEV)", value: fmtNumKo(s.exploited_count), sub: "P0 · 24시간 긴급 조치 대상" },
+        { label: "공개 취약점 (0-Day 위험)", value: fmtNumKo(s.publicly_disclosed_count), sub: "P1 · 72시간 우선 조치 대상" },
+        { label: "런타임 탐지 고유 CVE", value: dbMeasured ? fmtNumKo(s.runtime_detected_unique_cves) : "미측정", sub: dbMeasured ? `MSRC 교차 일치 ${fmtNumKo(s.runtime_msrc_crosswalk_matched)}건` : "실시간 DB 연결 대기 (0 대체 금지)" }
+      ]);
+
+      renderSecCveRows(Array.isArray(d.cves) ? d.cves : [], Number(s.filtered_total || 0), Number(d.offset || 0), Number(d.limit || SEC_CVE_LIMIT));
+    }
+
+    function renderSecCveRows(rows, totalFiltered, offset, limit) {
+      const thead = document.getElementById("govSecThead");
+      const tbody = document.getElementById("govSecTbody");
+      const pagerInfo = document.getElementById("govSecPagerInfo");
+      const prevBtn = document.getElementById("govSecPrevBtn");
+      const nextBtn = document.getElementById("govSecNextBtn");
+      if (!thead || !tbody) return;
+      clearEl(thead);
+      clearEl(tbody);
+
+      const htr = mkEl("tr");
+      ["CVE ID · 취약점명", "심각도 · CVSS", "악용 상태 · SLA", "대상 제품", "런타임 매칭"].forEach((lbl) => {
+        htr.appendChild(mkEl("th", {}, lbl));
+      });
+      thead.appendChild(htr);
+
+      if (!rows.length) {
+        const emptyTr = mkEl("tr");
+        const td = mkEl("td", { colSpan: "5", className: "cell-muted" }, "조건에 일치하는 CVE 항목이 없습니다.");
+        emptyTr.appendChild(td);
+        tbody.appendChild(emptyTr);
+      } else {
+        const frag = document.createDocumentFragment();
+        rows.forEach((c, idx) => {
+          const tr = mkEl("tr", {
+            className: idx === 0 ? "gov-rule-row is-selected" : "gov-rule-row",
+            "data-sec-cve-id": c.cve_id || ""
+          });
+          const td1 = mkEl("td");
+          const cveTitle = (c.title_ko || c.title || "").trim();
+          const displayTitle = (!cveTitle || /^CVE-\d{4}-\d+$/i.test(cveTitle))
+            ? `${c.primary_product_name || "보안 패키지"} 취약점`
+            : cveTitle;
+          td1.appendChild(mkEl("span", { className: "gov-rule-title" }, displayTitle));
+          td1.appendChild(mkEl("span", { className: "gov-rule-id" }, c.cve_id || "—"));
+          tr.appendChild(td1);
+
+          const td2 = mkEl("td");
+          const sevTone = c.severity === "critical" || c.severity === "high" ? "sec" : (c.severity === "medium" ? "sre" : "neutral");
+          const sb = mkEl("span", { className: `cs-badge tone-${sevTone}` });
+          sb.appendChild(mkEl("span", { className: "cs-dot" }));
+          sb.appendChild(document.createTextNode(`${c.severity_ko || c.severity || "—"} · CVSS ${Number(c.cvss_base_score || 0).toFixed(1)}`));
+          td2.appendChild(sb);
+          tr.appendChild(td2);
+
+          const td3 = mkEl("td");
+          const expTone = c.exploit_status === "exploited" ? "sec" : (c.publicly_disclosed ? "human" : "neutral");
+          const ebAttrs = { className: `cs-badge tone-${expTone}` };
+          if (c.kev_watermark_alert) {
+            ebAttrs["data-ut-tip"] = `KEV 워터마크 경보: CVSS ${Number(c.cvss_base_score || 0).toFixed(1)} · ${c.kev_sla_ko || "24시간 긴급 조치"} 기준 적용`;
+          }
+          const eb = mkEl("span", ebAttrs);
+          eb.appendChild(mkEl("span", { className: "cs-dot" }));
+          eb.appendChild(document.createTextNode(`${c.priority_tier || "P2"} · ${c.exploit_status_ko || c.exploit_status || "미확인"}`));
+          td3.appendChild(eb);
+          tr.appendChild(td3);
+
+          tr.appendChild(mkEl("td", { className: "cell-muted" }, c.primary_product_name || "MSRC CSAF 제품"));
+
+          const td5 = mkEl("td");
+          if (c.runtime_detected) {
+            const rb = mkEl("span", { className: "cs-badge tone-sec" });
+            rb.appendChild(mkEl("span", { className: "cs-dot" }));
+            rb.appendChild(document.createTextNode("실측 탐지됨"));
+            td5.appendChild(rb);
+          } else {
+            td5.appendChild(mkEl("span", { className: "cell-muted" }, "카탈로그 기준"));
+          }
+          tr.appendChild(td5);
+
+          const selectCve = () => {
+            tbody.querySelectorAll("tr").forEach((r) => r.classList.toggle("is-selected", r === tr));
+            inspectCveItem(c);
+            if (activeGovernancePanelId() === "rules" && c.cve_id) selSetItem(c.cve_id);
+          };
+          tr.addEventListener("click", selectCve);
+          bindSecRowKeyboard(tr, selectCve);
+          frag.appendChild(tr);
+        });
+        tbody.appendChild(frag);
+        inspectCveItem(rows[0]);
+      }
+
+      if (pagerInfo) {
+        const start = totalFiltered === 0 ? 0 : offset + 1;
+        const end = Math.min(totalFiltered, offset + rows.length);
+        pagerInfo.textContent = `표시 ${fmtNumKo(start)}–${fmtNumKo(end)} / 전체 ${fmtNumKo(totalFiltered)}건`;
+      }
+      if (prevBtn) prevBtn.disabled = offset <= 0;
+      if (nextBtn) nextBtn.disabled = offset + limit >= totalFiltered;
+    }
+
+    function inspectCveItem(c) {
+      const cveTitle = (c.title_ko || c.title || "").trim();
+      const displayTitle = (!cveTitle || /^CVE-\d{4}-\d+$/i.test(cveTitle))
+        ? `${c.primary_product_name || "보안 패키지"} 취약점`
+        : cveTitle;
+      const enSub = c.title_en && c.title_en !== displayTitle && !/^CVE-\d{4}-\d+$/i.test(c.title_en.trim())
+        ? `${c.title_en} · `
+        : "";
+      renderSecurityInspectorDetail({
+        id: c.cve_id || "—",
+        title: displayTitle,
+        subtitle: `${enSub}${c.tracking_id ? `권고 번호: ${c.tracking_id} · ` : ""}우선순위 ${c.priority_tier || "P2"}`,
+        badges: [
+          { label: `${c.severity_ko || c.severity} (CVSS ${Number(c.cvss_base_score || 0).toFixed(1)})`, tone: c.severity === "critical" || c.severity === "high" ? "sec" : "sre" },
+          { label: c.exploit_status_ko || c.exploit_status || "미확인", tone: c.exploit_status === "exploited" ? "sec" : "human" },
+          { label: c.kev_sla_ko || "표준 조치", tone: "neutral" }
+        ],
+        summary: c.remediation_summary || `${c.cve_id} 보안 권고에 대한 표준 조치 및 영향 제품 매핑 정보입니다.`,
+        target: c.primary_product_name || "MSRC CSAF 매핑 제품",
+        scope: Array.isArray(c.canonical_resource_types) && c.canonical_resource_types.length
+          ? c.canonical_resource_types.map((t) => hResourceType(t)).join(", ")
+          : "제품 크로스워크 참조",
+        action: Array.isArray(c.recommended_actions) && c.recommended_actions.length
+          ? c.recommended_actions.map((a) => hRemediation(a)).join(", ")
+          : "패치 적용 · 버전 업그레이드",
+        sourceUrl: c.source_url || "",
+        sourceLabel: "MSRC 공식 취약점 가이드 열기 ↗",
+        currentState: c.runtime_detected
+          ? "현재 저장소/인프라 코드 보안 스캔에서 동일 CVE가 실측 탐지되었습니다. 운영 코드 보안 화면에서 즉시 트리아지할 수 있습니다."
+          : `MSRC CSAF 카탈로그 기준 항목입니다. 악용 상태: ${c.exploit_status_ko || "미확인"}, 공개 여부: ${c.publicly_disclosed ? "공개됨" : "비공개"}.`,
+        recommended: c.remediation_summary || "고정 버전 업그레이드 또는 완화 설정을 7대 안전장치(드라이런·롤백·승인) 절차에 따라 적용합니다.",
+        baseTone: c.runtime_detected ? "sec" : "neutral",
+        baseLabel: c.runtime_detected ? "런타임 실측 탐지" : "카탈로그 기준",
+        remTone: "live",
+        remLabel: c.kev_sla_ko || "권장 조치",
+        techDetail: `cve_id: ${c.cve_id}\ntracking_id: ${c.tracking_id || "—"}\ncvss_vector: ${c.cvss_vector || "—"}\nrelease_date: ${c.release_date || "—"}\naffected_product_ids: ${(c.affected_products || []).join(", ") || "—"}`,
+        gateState: c.runtime_detected ? "Enforce · 즉시 패치 심사 대상" : "Shadow · 카탈로그 추적",
+        actors: "MSRC CSAF · KEV SLA 정책",
+        updatedAt: c.release_date || "카탈로그 동기화"
+      });
+    }
+
+    async function loadAndRenderUnknownVulns() {
+      const statusBadge = document.getElementById("govSecStatusBadge");
+      const titleEl = document.getElementById("govSecTitle");
+      const descEl = document.getElementById("govSecDesc");
+      const bannerEl = document.getElementById("govSecBannerText");
+      const toolbar = document.getElementById("govSecCveToolbar");
+      const ladderWrap = document.getElementById("govSecLadderWrap");
+      const ladderGrid = document.getElementById("govSecLadderGrid");
+      const extraCards = document.getElementById("govSecExtraCards");
+      const pager = document.getElementById("govSecPager");
+      if (toolbar) toolbar.hidden = true;
+      if (ladderWrap) ladderWrap.hidden = false;
+      if (extraCards) extraCards.hidden = false;
+      if (pager) pager.hidden = true;
+
+      const live = window.fdaiV4Live;
+      let d = null;
+      if (isGovernanceLiveMode() && live && typeof live.fetchJson === "function") {
+        setSecPaneBusy(true);
+        setBadgeEl(statusBadge, "neutral", "0-Day 체계 조회 중…", true);
+        const res = await live.fetchJson("/api/v4/governance/security/unknown-vulns");
+        if (!isGovernanceLiveMode() || activeRail !== "sec-unknown") return;
+        setSecPaneBusy(false);
+        if (res && res.ok && res.data && res.data.data) {
+          d = res.data.data;
+          secUnknownCache = d;
+        } else {
+          renderSecErrorState("알려지지 않은 취약점 (0-Day) 분석 거버넌스 (미측정)", "미지 취약점 분석 거버넌스 API 응답을 불러오지 못했습니다.");
+          return;
+        }
+      }
+      if (!d) {
+        if (titleEl) titleEl.textContent = "알려지지 않은 취약점 (0-Day) 분석 거버넌스 (샘플)";
+        if (descEl) descEl.textContent = "오프패스 LLM 10종 약점 렌즈 · 이종 모델 정족수(quorum=2) · 함수 간 분석 엔진 · Kata 동적 입증 체계입니다.";
+        if (bannerEl) bannerEl.textContent = "Sample 모드 미리보기입니다. Live 모드에서 실제 10종 LLM 렌즈 카탈로그와 PostgreSQL 신뢰도 계단을 조회합니다.";
+        setBadgeEl(statusBadge, "human", isGovernanceLiveMode() ? "미측정" : "Sample 모드", true);
+        renderSecKpiCards([
+          { label: "오프패스 LLM 렌즈", value: "예시 10종", sub: "정족수 quorum=2 · Shadow 전용" },
+          { label: "미지 가설 (별도 집계)", value: "예시 0건", sub: "확정 취약점 합산 금지" },
+          { label: "함수 간 분석 엔진", value: "예시 5종", sub: "Python · TS · Java · C#" },
+          { label: "Kata 동적 입증 하네스", value: "예시 4종", sub: "격리 PoC 재현 검증" }
+        ]);
+        if (ladderGrid) clearEl(ladderGrid);
+        const thead = document.getElementById("govSecThead");
+        const tbody = document.getElementById("govSecTbody");
+        if (thead) clearEl(thead);
+        if (tbody) {
+          clearEl(tbody);
+          const tr = mkEl("tr");
+          tr.appendChild(mkEl("td", { colSpan: "5", className: "cell-muted" }, isGovernanceLiveMode() ? "미측정 · 미지 취약점 분석 카탈로그에 연결할 수 없습니다." : "Sample 모드입니다. Live 모드에서 10종 LLM 렌즈와 Kata 동적 입증 현황을 실측 조회합니다."));
+          tbody.appendChild(tr);
+        }
+        if (extraCards) clearEl(extraCards);
+        return;
+      }
+
+      const s = d.summary || {};
+      const ladder = d.confidence_ladder || {};
+      const ws = d.worker_status || {};
+      const dbMeasured = d.db_measurement_status !== "not-measured";
+      if (titleEl) titleEl.textContent = `알려지지 않은 취약점 (0-Day) 분석 거버넌스 · ${fmtNumKo(s.lens_count)}종 LLM 렌즈`;
+      if (descEl) descEl.textContent = `결정론적 싱크 힌트 + 이종 모델 정족수(quorum=${s.multi_model_quorum || 2}) · 지원 ${fmtNumKo(s.supported_language_count)}개 언어 · 활성 분석 엔진 ${fmtNumKo(s.active_analysis_engines)}/${fmtNumKo(s.total_analysis_engines)}종 · Kata 입증 하네스 ${fmtNumKo(s.proof_harness_count)}종`;
+      if (bannerEl) {
+        const invMsg = d.constitutional_invariant?.summary_ko || "";
+        const workerMsg = !dbMeasured
+          ? "PostgreSQL 실시간 DB 연결 대기 중 (런타임 신뢰도 계단은 미측정 표기 · 0 대체 금지)"
+          : (ws.recorded
+            ? `워커 상태: ${ws.status || "기록됨"} (팩 ${fmtNumKo(s.live_pack_projections)} · 리뷰 ${fmtNumKo(s.live_review_projections)} · 저장소 ${fmtNumKo(s.live_repository_projections)})`
+            : (ws.message_ko || "오프패스 LLM 렌즈/Kata 입증 워커 실행 이력 없음"));
+        bannerEl.textContent = `${invMsg} — ${workerMsg}`;
+      }
+      setBadgeEl(statusBadge, "live", `10종 렌즈 · Wilson LB95 ${Number(s.engine_wilson_lb95 || 0).toFixed(3)}`, true);
+
+      const hypDisplay = typeof ladder.unknown_hypothesis_separate_total === "number"
+        ? `${fmtNumKo(ladder.unknown_hypothesis_separate_total)}건`
+        : "미측정";
+      renderSecKpiCards([
+        { label: "오프패스 LLM 렌즈", value: `${fmtNumKo(s.lens_count)}종`, sub: `정족수 quorum=${s.multi_model_quorum || 2} · ${fmtNumKo(s.supported_language_count)}개 언어` },
+        { label: "미지 가설 (별도 집계)", value: hypDisplay, sub: "확정 취약점 합산 금지 · Shadow 전용" },
+        { label: "함수 간 분석 엔진", value: `${fmtNumKo(s.active_analysis_engines)} / ${fmtNumKo(s.total_analysis_engines)}`, sub: `분석 규칙 ${fmtNumKo(s.analysis_rule_files_count)}개 파일` },
+        { label: "Kata 동적 입증 하네스", value: `${fmtNumKo(s.proof_harness_count)}종`, sub: s.promotion_gate_ready ? "승격 게이트 기준 충족" : "Shadow 검증 유지" }
+      ]);
+
+      if (ladderGrid) {
+        clearEl(ladderGrid);
+        (ladder.stages || []).forEach((st) => {
+          const card = mkEl("div", { className: st.separate_from_confirmed ? "gov-ladder-step is-separate" : "gov-ladder-step" });
+          card.appendChild(mkEl("span", { className: "gov-sec-kpi-label" }, st.label_ko || st.stage));
+          const cntTxt = typeof st.count === "number" ? `${fmtNumKo(st.count)}건` : "미측정";
+          card.appendChild(mkEl("strong", { className: "gov-sec-kpi-val" }, cntTxt));
+          card.appendChild(mkEl("span", { className: "gov-sec-kpi-sub" }, st.gate_ko || ""));
+          ladderGrid.appendChild(card);
+        });
+      }
+
+      const thead = document.getElementById("govSecThead");
+      const tbody = document.getElementById("govSecTbody");
+      if (thead && tbody) {
+        clearEl(thead);
+        clearEl(tbody);
+        const htr = mkEl("tr");
+        ["미지 취약점 렌즈 · 약점 계통", "대상 CWE", "지원 언어", "싱크 힌트 · 정족수", "운영 모드"].forEach((lbl) => {
+          htr.appendChild(mkEl("th", {}, lbl));
+        });
+        thead.appendChild(htr);
+
+        const lenses = Array.isArray(d.lenses) ? d.lenses : [];
+        const frag = document.createDocumentFragment();
+        lenses.forEach((l, idx) => {
+          const tr = mkEl("tr", {
+            className: idx === 0 ? "gov-rule-row is-selected" : "gov-rule-row",
+            "data-sec-lens-id": l.item_id || `lens:${l.id}`
+          });
+          const td1 = mkEl("td");
+          td1.appendChild(mkEl("span", { className: "gov-rule-id" }, l.id));
+          td1.appendChild(mkEl("span", { className: "gov-rule-title" }, l.title_ko || l.id));
+          tr.appendChild(td1);
+
+          tr.appendChild(mkEl("td", { className: "cell-mono" }, (l.cwes || []).join(", ") || "—"));
+          tr.appendChild(mkEl("td", { className: "cell-muted" }, (l.languages || []).join(", ") || "—"));
+          tr.appendChild(mkEl("td", { className: "cell-mono" }, `힌트 ${fmtNumKo(l.sink_hint_count)} · quorum ${l.quorum || 2}`));
+
+          const td5 = mkEl("td");
+          const mb = mkEl("span", { className: "cs-badge tone-human" });
+          mb.appendChild(mkEl("span", { className: "cs-dot" }));
+          mb.appendChild(document.createTextNode("Shadow · 조사 전용"));
+          td5.appendChild(mb);
+          tr.appendChild(td5);
+
+          const selectLens = () => {
+            tbody.querySelectorAll("tr").forEach((r) => r.classList.toggle("is-selected", r === tr));
+            inspectLensItem(l);
+            if (activeGovernancePanelId() === "rules") selSetItem(l.item_id || `lens:${l.id}`);
+          };
+          tr.addEventListener("click", selectLens);
+          bindSecRowKeyboard(tr, selectLens);
+          frag.appendChild(tr);
+        });
+        tbody.appendChild(frag);
+        if (lenses.length) inspectLensItem(lenses[0]);
+      }
+
+      if (extraCards) {
+        clearEl(extraCards);
+        (d.analysis_components || []).forEach((comp) => {
+          const card = mkEl("div", { className: "gov-sec-card" });
+          const head = mkEl("div", { className: "gov-guide-label" });
+          head.appendChild(mkEl("span", {}, `${comp.id} (${comp.version || "—"})`));
+          const b = mkEl("span", { className: `cs-badge tone-${comp.status === "active" ? "live" : "neutral"}` }, comp.status_ko || comp.status);
+          head.appendChild(b);
+          card.appendChild(head);
+          card.appendChild(mkEl("p", { className: "insp-summary" }, comp.purpose || "—"));
+          card.appendChild(mkEl("span", { className: "gov-sec-kpi-sub" }, `통합 방식: ${comp.integration || "—"} · 라이선스: ${comp.license || "—"}`));
+          extraCards.appendChild(card);
+        });
+        if (Array.isArray(d.proof_harnesses) && d.proof_harnesses.length) {
+          const pCard = mkEl("div", { className: "gov-sec-card" });
+          pCard.appendChild(mkEl("div", { className: "gov-guide-label" }, "Kata 격리 동적 입증 하네스 (fdai_prove)"));
+          pCard.appendChild(mkEl("p", { className: "insp-summary" }, `발견된 가설(hypothesis)을 결정론적 검증(verified) 이후 격리 샌드박스에서 재현 입증(proven)하는 실행 하네스 ${d.proof_harnesses.length}종입니다.`));
+          pCard.appendChild(mkEl("span", { className: "cell-mono" }, d.proof_harnesses.join(" · ")));
+          extraCards.appendChild(pCard);
+        }
+      }
+    }
+
+    function inspectLensItem(l) {
+      renderSecurityInspectorDetail({
+        id: l.item_id || `lens:${l.id}`,
+        title: l.title_ko || l.id,
+        subtitle: `약점 계통: ${l.weakness_class} · 이종 모델 정족수 quorum=${l.quorum || 2}`,
+        badges: [
+          { label: "알려지지 않은 취약점 (0-Day)", tone: "human" },
+          { label: `싱크 힌트 ${fmtNumKo(l.sink_hint_count)}개`, tone: "neutral" },
+          { label: "확정 미합산 · Shadow 전용", tone: "sre" }
+        ],
+        summary: l.focus || "결정론적 싱크 힌트 주변 코드를 이종 LLM 패밀리 정족수로 교차 분석하여 미지 취약점 가설을 탐지합니다.",
+        target: (l.cwes || []).join(", ") || "CWE 매핑",
+        scope: (l.languages || []).join(", ") || "다중 언어",
+        action: "가설(hypothesis) 생성 → 결정론적 검증기(verified) → Kata 동적 입증(proven)",
+        sourceUrl: "",
+        currentState: `현재 Live DB 미지 가설 건수: ${fmtNumKo(l.live_hypothesis_count)}건. 확정 취약점 지표와 분리 보관됩니다.`,
+        recommended: "Shadow 모드에서 이종 모델 2개 이상 합의(quorum=2)를 통과한 후보만 결정론적 검증기 및 Kata 샌드박스 동적 입증으로 승격합니다.",
+        baseTone: "human",
+        baseLabel: "Shadow 검증",
+        remTone: l.promotion_gate_ready ? "live" : "neutral",
+        remLabel: l.promotion_gate_ready ? "승격 게이트 준비" : "추가 검증 필요",
+        techDetail: `lens_id: ${l.id}\nweakness_class: ${l.weakness_class}\ncwes: ${(l.cwes || []).join(", ")}\nlanguages: ${(l.languages || []).join(", ")}\nsink_hints: ${l.sink_hint_count}\nquorum: ${l.quorum || 2}`,
+        gateState: "Shadow 잠금 (자동 변경 권한 없음)",
+        actors: "오프패스 LLM 렌즈 · 검증기 · Kata 입증",
+        updatedAt: "rule-catalog/code-security/lenses.yaml"
+      });
+    }
+
+    async function loadAndRenderSecurityPolicies() {
+      const statusBadge = document.getElementById("govSecStatusBadge");
+      const titleEl = document.getElementById("govSecTitle");
+      const descEl = document.getElementById("govSecDesc");
+      const bannerEl = document.getElementById("govSecBannerText");
+      const toolbar = document.getElementById("govSecCveToolbar");
+      const ladderWrap = document.getElementById("govSecLadderWrap");
+      const extraCards = document.getElementById("govSecExtraCards");
+      const pager = document.getElementById("govSecPager");
+      if (toolbar) toolbar.hidden = true;
+      if (ladderWrap) ladderWrap.hidden = true;
+      if (extraCards) extraCards.hidden = false;
+      if (pager) pager.hidden = true;
+
+      const live = window.fdaiV4Live;
+      if (!isGovernanceLiveMode() || !live || typeof live.fetchJson !== "function") {
+        if (titleEl) titleEl.textContent = "보안 정책 · 런타임 CVE 기준 (샘플)";
+        if (descEl) descEl.textContent = "Live 모드에서 4대 보안 정책 카탈로그, 6,304개 보안 규칙 분포, 실시간 탐지 79개 고유 CVE를 표시합니다.";
+        if (bannerEl) bannerEl.textContent = "Sample 모드 미리보기입니다. Live 모드에서 PostgreSQL 실측 런타임 CVE와 4대 보안 정책 카탈로그를 표시합니다.";
+        setBadgeEl(statusBadge, "human", "Sample 모드", true);
+        renderSecKpiCards([
+          { label: "보안 규칙 비중", value: "샘플", sub: "Live 모드에서 6,304건 실측" },
+          { label: "커버리지 신뢰하한 (Wilson LB95)", value: "—", sub: "실측 시 자동 계산" },
+          { label: "보안 정책 카탈로그", value: "4종", sub: "심각도 · 우선순위 · 약점 · 조치경계" },
+          { label: "런타임 실측 고유 CVE", value: "샘플", sub: "Live 모드에서 운영 스캔 연동" }
+        ]);
+        const thead = document.getElementById("govSecThead");
+        const tbody = document.getElementById("govSecTbody");
+        if (thead) clearEl(thead);
+        if (tbody) {
+          clearEl(tbody);
+          const tr = mkEl("tr");
+          tr.appendChild(mkEl("td", { colSpan: "5", className: "cell-muted" }, "Sample 모드입니다. Live 모드로 전환하면 실시간 탐지 CVE 및 정책 카탈로그를 확인합니다."));
+          tbody.appendChild(tr);
+        }
+        if (extraCards) clearEl(extraCards);
+        return;
+      }
+
+      setSecPaneBusy(true);
+      setBadgeEl(statusBadge, "neutral", "보안 정책 조회 중…", true);
+      const [posture, cvesRes] = await Promise.all([
+        secPostureCache ? Promise.resolve(secPostureCache) : loadLiveSecurityPosture(),
+        live.fetchJson("/api/v4/governance/security/cves?limit=1")
+      ]);
+      if (!isGovernanceLiveMode() || activeRail !== "sec-policies") return;
+      setSecPaneBusy(false);
+      if (!posture && (!cvesRes || !cvesRes.ok)) {
+        renderSecErrorState("보안 정책 · 런타임 CVE (미측정)", "보안 정책 및 런타임 CVE API 응답을 불러오지 못했습니다.");
+        return;
+      }
+      const sr = posture?.security_rules || {};
+      const ba = posture?.security_assurance || {};
+      const policies = posture?.unknown_vulnerability_governance?.policy_docs || [];
+      const rtCves = Array.isArray(cvesRes?.data?.data?.runtime_cves) ? cvesRes.data.data.runtime_cves : [];
+      const dbMeasured = posture?.db_measurement_status !== "not-measured";
+
+      if (titleEl) titleEl.textContent = `보안 정책 카탈로그 · 런타임 실측 CVE (${dbMeasured ? `${fmtNumKo(rtCves.length)}건` : "미측정"})`;
+      if (descEl) descEl.textContent = dbMeasured
+        ? `전체 규칙 ${fmtNumKo(sr.total_rules)}건 중 보안 규칙 ${fmtNumKo(sr.security_rules_total)}건 (${sr.security_rules_share_pct ?? "—"}%) · 감사일자(KST) ${posture?.audit_date_kst || "—"}`
+        : `보안 정책 카탈로그 ${fmtNumKo(policies.length)}종 로드됨 · 실시간 DB 연결 대기 (미측정 · 0 대체 금지)`;
+      if (bannerEl) bannerEl.textContent = `보안 커버리지 신뢰하한(Wilson LB95) = ${Number(ba.wilson_lb95 || 0).toFixed(3)} · kube-bench ${fmtNumKo(sr.kube_bench_rules)}건 · Azure Policy ${fmtNumKo(sr.azure_policy_rules)}건 · MCSB 연계 ${fmtNumKo(sr.mcsb_linked_rules)}건`;
+      setBadgeEl(statusBadge, "live", `정책 ${fmtNumKo(policies.length)}종 · 런타임 ${dbMeasured ? `${fmtNumKo(rtCves.length)} CVE` : "미측정"}`, true);
+
+      renderSecKpiCards([
+        { label: "보안 규칙 비중", value: dbMeasured ? `${fmtNumKo(sr.security_rules_total)}건` : "미측정", sub: dbMeasured ? `전체 ${fmtNumKo(sr.total_rules)}건 중 ${sr.security_rules_share_pct ?? "—"}%` : "DB 연결 대기" },
+        { label: "커버리지 신뢰하한 (Wilson LB95)", value: Number(ba.wilson_lb95 || 0).toFixed(3), sub: `감사일(KST) ${posture?.audit_date_kst || "—"}` },
+        { label: "보안 정책 카탈로그", value: `${fmtNumKo(policies.length)}종`, sub: "심각도 · 우선순위 · 약점 · 조치경계" },
+        { label: "런타임 실측 고유 CVE", value: dbMeasured ? `${fmtNumKo(rtCves.length)}건` : "미측정", sub: "운영 코드 보안 스캔 실측" }
+      ]);
+
+      const thead = document.getElementById("govSecThead");
+      const tbody = document.getElementById("govSecTbody");
+      if (thead && tbody) {
+        clearEl(thead);
+        clearEl(tbody);
+        const htr = mkEl("tr");
+        ["런타임 CVE ID · 탐지 제목", "심각도 · 신뢰도", "대상 저장소 · 패키지", "우선순위", "운영 트리아지"].forEach((lbl) => {
+          htr.appendChild(mkEl("th", {}, lbl));
+        });
+        thead.appendChild(htr);
+
+        if (!rtCves.length) {
+          const emptyTr = mkEl("tr");
+          emptyTr.appendChild(mkEl("td", { colSpan: "5", className: "cell-muted" }, "현재 런타임 코드 보안 스캔에서 탐지된 CVE가 없습니다."));
+          tbody.appendChild(emptyTr);
+        } else {
+          const frag = document.createDocumentFragment();
+          rtCves.forEach((rc, idx) => {
+            const tr = mkEl("tr", { className: idx === 0 ? "gov-rule-row is-selected" : "gov-rule-row" });
+            const td1 = mkEl("td");
+            const rtTitle = (rc.title_ko || rc.title || "").trim();
+            const rtDisplayTitle = (!rtTitle || /^CVE-\d{4}-\d+$/i.test(rtTitle))
+              ? `${rc.package || rc.repo || "종속성"} 보안 취약점`
+              : rtTitle;
+            td1.appendChild(mkEl("span", { className: "gov-rule-title" }, rtDisplayTitle));
+            td1.appendChild(mkEl("span", { className: "gov-rule-id" }, rc.cve_id || "—"));
+            tr.appendChild(td1);
+
+            const td2 = mkEl("td");
+            const sevTone = rc.severity === "critical" || rc.severity === "high" ? "sec" : "sre";
+            const sb = mkEl("span", { className: `cs-badge tone-${sevTone}` });
+            sb.appendChild(mkEl("span", { className: "cs-dot" }));
+            sb.appendChild(document.createTextNode(`${rc.severity || "—"} · ${rc.confidence || "reported"}`));
+            td2.appendChild(sb);
+            tr.appendChild(td2);
+
+            tr.appendChild(mkEl("td", { className: "cell-muted" }, [rc.repo, rc.package].filter(Boolean).join(" · ") || rc.file_path || "—"));
+            tr.appendChild(mkEl("td", { className: "cell-mono" }, rc.priority || "P2"));
+
+            const td5 = mkEl("td");
+            const link = mkEl("a", { className: "cs-btn cs-btn-sm", href: rc.operations_link || "/operations/code-security" }, "운영에서 보기 ↗");
+            td5.appendChild(link);
+            tr.appendChild(td5);
+
+            tr.addEventListener("click", (ev) => {
+              if (ev.target instanceof Element && ev.target.closest("a")) return;
+              tbody.querySelectorAll("tr").forEach((r) => r.classList.toggle("is-selected", r === tr));
+              renderSecurityInspectorDetail({
+                id: rc.cve_id || rc.issue_id || "—",
+                title: rtDisplayTitle,
+                subtitle: `저장소: ${rc.repo || "—"} · 패키지: ${rc.package || "—"}${rc.language ? ` · ${rc.language}` : ""}`,
+                badges: [
+                  { label: `심각도 ${rc.severity || "—"}`, tone: sevTone },
+                  { label: `신뢰도 ${rc.confidence || "reported"}`, tone: "neutral" },
+                  { label: rc.priority || "P2", tone: "human" }
+                ],
+                summary: `운영 코드 보안 스캔(runtime:code-security-issues)에서 실측 탐지된 CVE입니다. 규칙 ${rc.rule_id || "—"}에 의해 보고되었습니다.`,
+                target: rc.package || rc.file_path || "저장소 종속성",
+                scope: rc.repo || "—",
+                action: "패키지 업그레이드 및 운영 코드 보안 Diff 검토",
+                sourceUrl: "",
+                currentState: `파일: ${rc.file_path || "—"}, 신뢰도: ${rc.confidence || "reported"}, KEV 악용 여부: ${rc.known_exploited ? "예" : "미확인"}`,
+                recommended: "운영(/operations/code-security) 화면에서 패치 PR 및 테스트 검증을 진행하세요.",
+                baseTone: sevTone,
+                baseLabel: "런타임 실측",
+                remTone: "live",
+                remLabel: "운영 연계",
+                techDetail: `cve_id: ${rc.cve_id}\nissue_id: ${rc.issue_id}\nrule_id: ${rc.rule_id}\nrepo: ${rc.repo}\nfile_path: ${rc.file_path}`,
+                gateState: "실측 탐지 · 운영 트리아지 연동",
+                actors: "코드 보안 스캐너 · 거버넌스 정책",
+                updatedAt: posture?.audit_date_kst || "실시간 동기화"
+              });
+              if (activeGovernancePanelId() === "rules" && rc.cve_id) selSetItem(rc.cve_id);
+            });
+            frag.appendChild(tr);
+          });
+          tbody.appendChild(frag);
+        }
+      }
+
+      if (extraCards) {
+        clearEl(extraCards);
+        policies.forEach((p) => {
+          const card = mkEl("div", { className: "gov-sec-card gov-rule-row", "data-sec-policy-id": `sec-policy:${p.id}` });
+          const head = mkEl("div", { className: "gov-guide-label" });
+          head.appendChild(mkEl("span", {}, p.title_ko || p.id));
+          head.appendChild(mkEl("span", { className: "cs-badge tone-live" }, `v${p.version || "1.0.0"} · ${fmtNumKo(p.item_count)}항목`));
+          card.appendChild(head);
+          card.appendChild(mkEl("p", { className: "insp-summary" }, p.summary_ko || "—"));
+          card.appendChild(mkEl("span", { className: "cell-mono" }, p.file || ""));
+          const onOpenPolicy = () => inspectPolicyDoc(p);
+          card.addEventListener("click", onOpenPolicy);
+          bindSecRowKeyboard(card, onOpenPolicy);
+          extraCards.appendChild(card);
+        });
+      }
+    }
+
+    function inspectPolicyDoc(p) {
+      if (!p) return;
+      const itemId = `sec-policy:${p.id}`;
+      renderSecurityInspectorDetail({
+        id: p.id || "—",
+        title: p.title_ko || p.id || "—",
+        subtitle: `버전 v${p.version || "1.0.0"} · ${fmtNumKo(p.item_count)}개 결정론 규칙`,
+        badges: [
+          { label: "보안 정책 카탈로그", tone: "live" },
+          { label: "결정론 기준", tone: "neutral" }
+        ],
+        summary: p.summary_ko || "FDAI 코드 보안 결정론 평가 정책 문서입니다.",
+        target: p.file || "rule-catalog/code-security",
+        scope: "전체 저장소 · 코드 보안 파이프라인",
+        action: "심각도 상/하한 · KEV 우선순위 · 자동 수정 금지 경계 강제",
+        sourceUrl: "",
+        currentState: `활성 버전 v${p.version || "1.0.0"} (${fmtNumKo(p.item_count)}항목 적용 중).`,
+        recommended: "정책 변경은 코드 리뷰 및 승격 게이트를 통해서만 반영하세요.",
+        baseTone: "live",
+        baseLabel: "정책 활성",
+        remTone: "neutral",
+        remLabel: "거버넌스 관리",
+        techRows: [
+          ["정책 ID", p.id || "—"],
+          ["파일 경로", p.file || "—"],
+          ["버전", p.version || "1.0.0"],
+          ["항목 수", String(p.item_count ?? 0)]
+        ],
+        gateState: "Enforce · 결정론 정책 적용 중",
+        actors: "보안 거버넌스 카탈로그",
+        updatedAt: p.file || "rule-catalog/code-security"
+      });
+      if (activeGovernancePanelId() === "rules") selSetItem(itemId);
+    }
+
+    function renderSecurityGovernanceView(railKey) {
+      if (railKey === "sec-cves") {
+        loadAndRenderSecurityCves(false);
+      } else if (railKey === "sec-unknown") {
+        loadAndRenderUnknownVulns();
+      } else if (railKey === "sec-policies") {
+        loadAndRenderSecurityPolicies();
+      }
+    }
+
+    let secCveSearchTimer = 0;
+    document.getElementById("govSecCveSearch")?.addEventListener("input", () => {
+      window.clearTimeout(secCveSearchTimer);
+      secCveSearchTimer = window.setTimeout(() => {
+        if (activeRail === "sec-cves") loadAndRenderSecurityCves(true);
+      }, 240);
+    });
+    ["govSecCveSev", "govSecCveExploit", "govSecCvePriority", "govSecCveRuntimeOnly"].forEach((id) => {
+      document.getElementById(id)?.addEventListener("change", () => {
+        if (activeRail === "sec-cves") loadAndRenderSecurityCves(true);
+      });
+    });
+    document.getElementById("govSecCveReset")?.addEventListener("click", () => {
+      const s = document.getElementById("govSecCveSearch"); if (s) s.value = "";
+      const sv = document.getElementById("govSecCveSev"); if (sv) sv.value = "all";
+      const ex = document.getElementById("govSecCveExploit"); if (ex) ex.value = "all";
+      const pr = document.getElementById("govSecCvePriority"); if (pr) pr.value = "ALL";
+      const rt = document.getElementById("govSecCveRuntimeOnly"); if (rt) rt.checked = false;
+      if (activeRail === "sec-cves") loadAndRenderSecurityCves(true);
+    });
+    document.getElementById("govSecPrevBtn")?.addEventListener("click", () => {
+      if (secCveOffset >= SEC_CVE_LIMIT) {
+        secCveOffset = Math.max(0, secCveOffset - SEC_CVE_LIMIT);
+        loadAndRenderSecurityCves(false);
+      }
+    });
+    document.getElementById("govSecNextBtn")?.addEventListener("click", () => {
+      secCveOffset += SEC_CVE_LIMIT;
+      loadAndRenderSecurityCves(false);
+    });
 
     function hydrateLiveTrustRouting(payload) {
       if (!isGovernanceLiveMode() || !payload || typeof payload.total_events !== "number") return;
@@ -5492,17 +6871,18 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
             const actionKo = hAction(ev.action_kind || ev.reason || "measurement.control_loop.v1");
             const actorKo = hActor(ev.source || "fdai.core.control_loop");
             const itemKey = `trust:${ev.seq ?? idx}`;
+            const timeKst = (ev.created_at ? hLocalClock(ev.created_at) : "") || ev.time || "—";
             const tr = mkEl("tr", {
               className: "gov-rule-row",
               tabindex: "0",
               "data-trust-item": itemKey,
               "data-drawer-title": `${targetKo} — ${actionKo}`,
-              "data-drawer-meta": `도메인: 거버넌스 · ${tierStr} 티어 · ${ev.time || "미측정"}`,
+              "data-drawer-meta": `도메인: 거버넌스 · ${tierStr} 티어 · ${timeKst} KST`,
               "data-drawer-facts": `처리 티어|${tierStr};대상 유형|${targetKo};판정 결과|${routeKo};처리 주체|${actorKo}`,
               "data-drawer-body": `${actorKo}에서 ${targetKo} 대상으로 '${actionKo}' 판단을 수행했으며 결과는 '${routeKo}'입니다.`,
-              "data-drawer-tech": `원본 시퀀스|#${ev.seq ?? "—"};원본 액션 키|${ev.action_kind || "—"};원본 대상 유형|${ev.resource_type || "—"};원본 라우트|${routeStr};원본 행위자|${ev.source || "—"}`
+              "data-drawer-tech": `원본 시퀀스|#${ev.seq ?? "—"};원본 시각(UTC)|${ev.created_at || ev.time || "—"};원본 액션 키|${ev.action_kind || "—"};원본 대상 유형|${ev.resource_type || "—"};원본 라우트|${routeStr};원본 행위자|${ev.source || "—"}`
             });
-            tr.appendChild(mkEl("td", { className: "cell-mono" }, ev.time || "—"));
+            tr.appendChild(mkEl("td", { className: "cell-mono" }, timeKst));
             tr.appendChild(mkEl("td", { className: "cell-strong" }, `${targetKo} · ${actionKo}`));
             const tdT = mkEl("td");
             tdT.appendChild(mkEl("span", { className: `cs-badge tone-${tierTone}` }, tierStr));
@@ -5547,6 +6927,74 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
     let liveLineageTargetDetail = null;
     let liveKgZoom = 1;
     let liveKgSelectedId = null;
+    let liveOntologySelectedNodeId = null;
+
+    function updateOntologyInspectorForNode(nodeObj, opts) {
+      const panel = document.querySelector('.panel-view[data-panel-id="ontology"]');
+      const ontoGrid = panel?.querySelector("[data-onto-grid]");
+      if (!ontoGrid || !nodeObj) return;
+
+      const rtRaw = String(nodeObj.resource_type || nodeObj.object_type || "Resource");
+      const nm = hDisplayName(nodeObj.display_name || nodeObj.name || shortRefName(nodeObj.id), rtRaw);
+      const rtKo = nodeObj.resource_type_ko || hResourceType(rtRaw);
+      const rg = String(nodeObj.resource_group || "");
+      const sub = String(nodeObj.subscription || "");
+      const loc = String(nodeObj.location || "global");
+      const rev = nodeObj.revision ?? 1;
+      const roleTag = opts && opts.roleLabel ? opts.roleLabel : "선택 리소스";
+      const relSummary = opts && opts.relSummary
+        ? opts.relSummary
+        : (rg ? `리소스 그룹: ${rg}` : "검증된 관계 기준");
+      const isCenter = Boolean(opts && opts.isCenter);
+
+      const setF = (sel, v) => { const el = ontoGrid.querySelector(sel); if (el) el.textContent = String(v); };
+      setF("[data-ginsp-name]", nm);
+      setF("[data-ginsp-type]", `${rtKo} · ${roleTag}`);
+      setF("[data-ginsp-status]", `${nodeObj.operational_state || "관측됨"} · ${loc}`);
+      setF("[data-ginsp-lineage]", relSummary);
+      setF(
+        "[data-ginsp-note]",
+        `${nm} · ${rtKo} 리소스의 관측 상태는 '${nodeObj.operational_state || "관측됨"}'입니다.${rg ? ` 리소스 그룹은 '${rg}'입니다.` : ""} 온톨로지는 의미와 관계만 검증하며 실행 권한을 부여하지 않습니다.`
+      );
+
+      const noteCard = ontoGrid.querySelector("[data-ginsp-note]")?.closest(".insp-card");
+      renderInspectorTechDetails(noteCard, [
+        ["원본 온톨로지 ID", nodeObj.id || nm],
+        ["원본 리소스 유형", rtRaw],
+        ["리소스 그룹", rg || "미지정"],
+        ["구독/스코프", sub || "미지정"],
+        ["최신 갱신", hTimestamp(nodeObj.updated_at)],
+        ["리비전", `Rev #${rev}`]
+      ], "ontoInstTechDetails");
+
+      // Add/update "이 리소스를 중심으로 관계 탐색" button when selecting a side neighbor node
+      const drillCard = ontoGrid.querySelector('a[href*="/governance/architecture"], a[href*="#tab=architecture"]')?.closest(".insp-card");
+      if (drillCard) {
+        let pivotBtn = drillCard.querySelector("#ontoPivotCenterBtn");
+        if (!isCenter && nodeObj.id && isGovernanceLiveMode()) {
+          if (!pivotBtn) {
+            pivotBtn = mkEl("button", { type: "button", className: "insp-action-item", id: "ontoPivotCenterBtn" });
+            pivotBtn.appendChild(mkEl("span", null, "이 리소스를 중심으로 관계 탐색"));
+            pivotBtn.appendChild(mkEl("span", null, "→"));
+            drillCard.insertBefore(pivotBtn, drillCard.children[1] || null);
+          }
+          pivotBtn.onclick = () => {
+            if (activeGovernancePanelId() === "ontology") selSetItem(nodeObj.id);
+            loadLiveOntologyExplore(nodeObj.id);
+          };
+          pivotBtn.hidden = false;
+        } else if (pivotBtn) {
+          pivotBtn.hidden = true;
+        }
+      }
+
+      const archLink = ontoGrid.querySelector('a[href*="#tab=architecture"], a[href*="/governance/architecture"]');
+      if (archLink && nodeObj.id) archLink.setAttribute("href", selBuildUrl("architecture", nodeObj.id));
+      const blastLink = ontoGrid.querySelector('a[href*="#tab=blast-radius"], a[href*="/governance/blast-radius"]');
+      if (blastLink && nodeObj.id) blastLink.setAttribute("href", selBuildUrl("blast-radius", nodeObj.id));
+
+      shimmerBorder(ontoGrid.querySelector("aside.wb-col-inspector .insp-card"), 900);
+    }
 
     function renderOntology3ZoneSvg(centerItem, incoming, outgoing, totalNodes, totalLinks) {
       const panel = document.querySelector('.panel-view[data-panel-id="ontology"]');
@@ -5554,11 +7002,12 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
       const svg = instPane?.querySelector("svg.graph-canvas-svg");
       if (!svg) return;
       clearEl(svg);
-      const inSlice = (incoming || []).slice(0, 5);
-      const outSlice = (outgoing || []).slice(0, 5);
+
+      const inSlice = (incoming || []).filter((n) => n && n.id && (!centerItem || n.id !== centerItem.id)).slice(0, 6);
+      const outSlice = (outgoing || []).filter((n) => n && n.id && (!centerItem || n.id !== centerItem.id)).slice(0, 6);
       const sideRows = Math.max(inSlice.length, outSlice.length, 1);
       const svgW = 1160;
-      const svgH = Math.max(500, 24 + sideRows * 96 + 20);
+      const svgH = Math.max(380, 32 + sideRows * 88 + 24);
       svg.setAttribute("viewBox", `0 0 ${svgW} ${svgH}`);
       svg.setAttribute("width", String(svgW));
       svg.setAttribute("height", String(svgH));
@@ -5571,13 +7020,13 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
       const head = document.getElementById("ontoInst3ZoneHead");
       if (head) {
         clearEl(head);
-        head.appendChild(mkEl("span", null, `유입 영역 (Incoming · ${inSlice.length})`));
-        head.appendChild(mkEl("span", { className: "is-center" }, centerItem ? `선택 중심 · ${shortRefName(centerItem.name || centerItem.id)}` : "선택 중심 (데이터 없음)"));
-        head.appendChild(mkEl("span", null, `유출 영역 (Outgoing · ${outSlice.length})`));
+        head.appendChild(mkEl("span", null, `유입 리소스 (${inSlice.length})`));
+        head.appendChild(mkEl("span", { className: "is-center" }, centerItem ? `중심 리소스 · ${shortRefName(centerItem.name || centerItem.id)}` : "중심 리소스 (데이터 없음)"));
+        head.appendChild(mkEl("span", null, `연결 · 유출 리소스 (${outSlice.length})`));
       }
 
       if (!centerItem) {
-        svg.appendChild(mkSvgEl("text", { x: "580", y: "235", "text-anchor": "middle", "font-size": "13", fill: "var(--cs-text-soft)" }, "수집된 온톨로지 인스턴스가 없습니다."));
+        svg.appendChild(mkSvgEl("text", { x: "580", y: "190", "text-anchor": "middle", "font-size": "13", fill: "var(--cs-text-soft)" }, "수집된 온톨로지 인스턴스가 없습니다."));
         return;
       }
 
@@ -5593,14 +7042,16 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
         defs.appendChild(m);
       });
       svg.appendChild(defs);
-      svg.appendChild(mkSvgEl("rect", { class: "onto-bg-frame", x: "394", y: "10", width: "372", height: String(svgH - 20), rx: "6", fill: "var(--sig-live)", "fill-opacity": "0.03", stroke: "var(--cs-hairline-soft)", "stroke-width": "1", "pointer-events": "none" }));
 
       const cName = String(centerItem.display_name || centerItem.name || shortRefName(centerItem.id));
       const cType = String(centerItem.resource_type || centerItem.object_type || "Resource");
-      const cSub = String(centerItem.subscription || "");
-      const cRg = String(centerItem.resource_group || "");
+      const cTypeKo = hResourceType(cType);
       const cLoc = String(centerItem.location || "global");
-      const cRev = centerItem.revision ?? 1;
+      const centerX = 436;
+      const centerW = 288;
+      const centerH = 88;
+      const centerY = Math.max(36, Math.round((svgH - centerH) / 2));
+      const centerMidY = centerY + Math.round(centerH / 2);
 
       const edgeKindFor = (lt) => {
         const s = String(lt || "").toLowerCase();
@@ -5612,162 +7063,187 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
       const edgeStrokeFor = (k) => k === "access" ? "var(--sig-sec)" : (k === "depends" ? "var(--sig-sre)" : (k === "runtime" ? "var(--sig-auto)" : "var(--sig-live)"));
       const edgeMarkerFor = (k) => k === "access" ? "inst-arr-sec" : (k === "depends" ? "inst-arr-sre" : (k === "runtime" ? "inst-arr-auto" : "inst-arr-live"));
 
+      const inStartY = Math.max(24, Math.round((svgH - (inSlice.length * 88 - 20)) / 2));
+      const outStartY = Math.max(24, Math.round((svgH - (outSlice.length * 88 - 20)) / 2));
+
+      // 1. Draw directed resource-to-resource edges first (pointer-events="none" so nodes are never blocked)
       inSlice.forEach((it, idx) => {
-        const y = 57 + idx * 96;
-        const cy = 96 + idx * 78;
+        const ny = inStartY + idx * 88 + 34;
         const kind = edgeKindFor(it.link_type);
         const eg = mkSvgEl("g", { class: "svg-edge-group", "pointer-events": "none", "data-edge-kind": kind, "data-edge-src": String(it.name || shortRefName(it.id)), "data-edge-dst": cName });
         eg.appendChild(mkSvgEl("path", {
-          d: `M214 ${y} C290 ${y}, 326 ${cy}, 398 ${cy}`,
+          d: `M290 ${ny} C346 ${ny}, 376 ${centerMidY}, ${centerX - 8} ${centerMidY}`,
           fill: "none",
           stroke: edgeStrokeFor(kind),
-          "stroke-width": "1.2",
-          "stroke-opacity": "0.8",
+          "stroke-width": "1.35",
+          "stroke-opacity": "0.82",
           "marker-end": `url(#${edgeMarkerFor(kind)})`
         }));
-        const lbl = truncateAsciiEllipsis(hLinkType(it.link_type || "linked"), 14);
-        const mx = 306;
-        const my = Math.round((y + cy) / 2);
-        eg.appendChild(mkSvgEl("rect", { x: String(mx - 54), y: String(my - 10), width: "108", height: "20", rx: "3", class: "svg-edge-lbl-bg" }));
+        const lbl = truncateAsciiEllipsis(hLinkType(it.link_type || "linked"), 12);
+        const mx = 360;
+        const my = Math.round((ny + centerMidY) / 2);
+        eg.appendChild(mkSvgEl("rect", { x: String(mx - 48), y: String(my - 10), width: "96", height: "20", rx: "3", class: "svg-edge-lbl-bg" }));
         eg.appendChild(mkSvgEl("text", { x: String(mx), y: String(my + 4), "text-anchor": "middle", class: "svg-edge-lbl-txt" }, lbl));
         svg.appendChild(eg);
       });
 
       outSlice.forEach((it, idx) => {
-        const y = 57 + idx * 96;
-        const cy = 96 + idx * 78;
+        const ny = outStartY + idx * 88 + 34;
         const kind = edgeKindFor(it.link_type);
         const eg = mkSvgEl("g", { class: "svg-edge-group", "pointer-events": "none", "data-edge-kind": kind, "data-edge-src": cName, "data-edge-dst": String(it.name || shortRefName(it.id)) });
         eg.appendChild(mkSvgEl("path", {
-          d: `M754 ${cy} C832 ${cy}, 868 ${y}, 940 ${y}`,
+          d: `M${centerX + centerW} ${centerMidY} C784 ${centerMidY}, 814 ${ny}, 864 ${ny}`,
           fill: "none",
           stroke: edgeStrokeFor(kind),
-          "stroke-width": "1.2",
-          "stroke-opacity": "0.8",
+          "stroke-width": "1.35",
+          "stroke-opacity": "0.82",
           "marker-end": `url(#${edgeMarkerFor(kind)})`
         }));
-        const lbl = truncateAsciiEllipsis(hLinkType(it.link_type || "linked"), 14);
-        const mx = 851;
-        const my = Math.round((y + cy) / 2);
-        eg.appendChild(mkSvgEl("rect", { x: String(mx - 54), y: String(my - 10), width: "108", height: "20", rx: "3", class: "svg-edge-lbl-bg" }));
+        const lbl = truncateAsciiEllipsis(hLinkType(it.link_type || "linked"), 12);
+        const mx = 798;
+        const my = Math.round((ny + centerMidY) / 2);
+        eg.appendChild(mkSvgEl("rect", { x: String(mx - 48), y: String(my - 10), width: "96", height: "20", rx: "3", class: "svg-edge-lbl-bg" }));
         eg.appendChild(mkSvgEl("text", { x: String(mx), y: String(my + 4), "text-anchor": "middle", class: "svg-edge-lbl-txt" }, lbl));
         svg.appendChild(eg);
       });
 
-      const drawSideNode = (it, x, y, dirLabel) => {
-        const nm = String(it.display_name || it.name || shortRefName(it.id));
-        const rt = String(it.resource_type || it.object_type || "Resource");
-        const rtKo = hResourceType(rt);
-        const loc = String(it.location || "global");
-        const g = mkSvgEl("g", {
-          class: "graph-node",
-          tabindex: "0",
-          style: "cursor:pointer",
-          "data-gnode-id": String(it.id || nm),
-          "data-gnode-name": nm,
-          "data-gnode-type": `${rtKo} (${dirLabel})`,
-          "data-gnode-status": `${it.operational_state || "관측됨"} · ${hLinkType(it.link_type || "linked")}`,
-          "data-gnode-lineage": `${nm} ↔ ${cName}`,
-          "data-gnode-note": `${rtKo} 리소스(${loc})로 중심 리소스 '${cName}'과 '${hLinkType(it.link_type || "linked")}'로 연결되어 있습니다.`
-        });
-        g.appendChild(mkSvgEl("rect", { class: "node-hit-area", x: String(x), y: String(y), width: "196", height: "70", rx: "5", fill: "transparent", "pointer-events": "all" }));
-        g.appendChild(mkSvgEl("rect", { x: String(x), y: String(y), width: "196", height: "70", rx: "5", fill: "var(--cs-card)", stroke: "var(--cs-hairline)", "stroke-width": "1" }));
-        g.appendChild(mkSvgEl("circle", { cx: String(x + 183), cy: String(y + 13), r: "3.5", fill: "var(--sig-live)" }));
-        g.appendChild(mkSvgEl("image", { href: safeAssetPath(iconForResourceType(rt)), x: String(x + 8), y: String(y + 20), width: "28", height: "28" }));
-        g.appendChild(mkSvgEl("text", { x: String(x + 44), y: String(y + 31), "font-size": "12.5", "font-weight": "700", fill: "var(--cs-text)" }, truncateAsciiEllipsis(nm, 15)));
-        g.appendChild(mkSvgEl("text", { x: String(x + 44), y: String(y + 51), "font-size": "12", fill: "var(--cs-text-soft)" }, truncateAsciiEllipsis(`${rtKo} · ${loc}`, 16)));
-        g.addEventListener("click", () => {
-          if (isGovernanceLiveMode() && it.id) {
-            if (activeGovernancePanelId() === "ontology") selSetItem(it.id);
-            loadLiveOntologyExplore(it.id);
+      const selectIndividualSvgNode = (targetG, nodeObj, opts) => {
+        const nodeKey = String(nodeObj.id || nodeObj.name || "");
+        liveOntologySelectedNodeId = nodeKey;
+        svg.querySelectorAll("g.graph-node").forEach((el) => {
+          const on = el === targetG;
+          el.classList.toggle("is-selected", on);
+          const bgRect = el.querySelector("rect.onto-card-bg");
+          if (bgRect) {
+            bgRect.setAttribute("stroke", on ? "var(--sig-live)" : "var(--cs-hairline)");
+            bgRect.setAttribute("stroke-width", on ? "1.8" : "1");
           }
         });
-        svg.appendChild(g);
+        updateOntologyInspectorForNode(nodeObj, opts);
+        if (nodeKey) {
+          selSetItem(nodeKey);
+        }
       };
 
-      inSlice.forEach((it, idx) => drawSideNode(it, 18, 22 + idx * 96, "유입"));
-      outSlice.forEach((it, idx) => drawSideNode(it, 946, 22 + idx * 96, "유출"));
+      // 2. Draw each Incoming & Outgoing resource as an independent selectable node card (or honest empty text)
+      const drawResourceCard = (it, x, y, w, h, roleLabel, isCenter) => {
+        const rt = String(it.resource_type || it.object_type || "Resource");
+        const nm = hDisplayName(it.display_name || it.name || shortRefName(it.id), rt);
+        const rtKo = it.resource_type_ko || hResourceType(rt);
+        const loc = String(it.location || "global");
+        const linkKo = it.link_type ? hLinkType(it.link_type) : "";
+        const relSummary = isCenter
+          ? `유입 ${inSlice.length}건 · 유출 ${outSlice.length}건${it.resource_group ? ` · ${it.resource_group}` : ""}`
+          : `${roleLabel} · ${linkKo || "연결 관계"} ↔ ${cName}`;
+        const rid = String(it.id || nm);
+        const g = mkSvgEl("g", {
+          class: `graph-node${isCenter ? " is-selected" : ""}`,
+          tabindex: "0",
+          role: "button",
+          "aria-label": `${nm} · ${rtKo}`,
+          style: "cursor:pointer",
+          "data-resource-id": rid,
+          "data-res-id": rid,
+          "data-gnode-id": rid,
+          "data-gnode-name": nm,
+          "data-gnode-type": `${rtKo} · ${roleLabel}`,
+          "data-gnode-status": `${it.operational_state || "관측됨"} · ${loc}`,
+          "data-gnode-lineage": relSummary,
+          "data-gnode-note": `${nm} · ${rtKo} · ${relSummary}`
+        });
+        g.appendChild(mkSvgEl("rect", { class: "node-hit-area", x: String(x), y: String(y), width: String(w), height: String(h), rx: "6", fill: "transparent", "pointer-events": "all" }));
+        g.appendChild(mkSvgEl("rect", { class: "onto-card-bg", x: String(x), y: String(y), width: String(w), height: String(h), rx: "6", fill: "var(--cs-card)", stroke: isCenter ? "var(--sig-live)" : "var(--cs-hairline)", "stroke-width": isCenter ? "1.8" : "1" }));
+        g.appendChild(mkSvgEl("circle", { cx: String(x + w - 13), cy: String(y + 14), r: "3.5", fill: "var(--sig-live)" }));
+        const icoSize = isCenter ? 32 : 26;
+        g.appendChild(mkSvgEl("image", { href: safeAssetPath(iconForResourceType(rt)), x: String(x + 12), y: String(y + Math.round((h - icoSize) / 2)), width: String(icoSize), height: String(icoSize) }));
+        const txtX = x + 12 + icoSize + 10;
+        const maxTitle = isCenter ? 22 : 19;
+        const maxSub = isCenter ? 26 : 21;
+        g.appendChild(mkSvgEl("text", { x: String(txtX), y: String(y + (isCenter ? 36 : 30)), "font-size": isCenter ? "13.5" : "12.5", "font-weight": "700", fill: "var(--cs-text)" }, truncateAsciiEllipsis(nm, maxTitle)));
+        g.appendChild(mkSvgEl("text", { x: String(txtX), y: String(y + (isCenter ? 58 : 50)), "font-size": "12", fill: "var(--cs-text-soft)" }, truncateAsciiEllipsis(`${rtKo} · ${loc}`, maxSub)));
+        if (isCenter && it.resource_group) {
+          g.appendChild(mkSvgEl("text", { x: String(txtX), y: String(y + 76), "font-size": "11.5", fill: "var(--cs-text-soft)" }, truncateAsciiEllipsis(`리소스 그룹: ${it.resource_group}`, 28)));
+        }
 
-      const cTypeKo = hResourceType(cType);
-      const cg = mkSvgEl("g", {
-        class: "graph-node is-selected",
-        tabindex: "0",
-        "data-gnode-id": String(centerItem.id || cName),
-        "data-gnode-name": cName,
-        "data-gnode-type": `${cTypeKo} (선택 중심)`,
-        "data-gnode-status": `${centerItem.operational_state || "관측됨"} · ${cLoc}`,
-        "data-gnode-lineage": `유입 ${inSlice.length} · 유출 ${outSlice.length} · ${cRg || cSub || "스코프"}`,
-        "data-gnode-note": `${cTypeKo} 중심 리소스입니다. 온톨로지는 의미와 관계만 검증하며 실행 권한을 부여하지 않습니다.`
-      });
-      cg.appendChild(mkSvgEl("rect", { class: "node-hit-area", x: "406", y: "20", width: "348", height: "428", rx: "6", fill: "transparent", "pointer-events": "all" }));
-      cg.appendChild(mkSvgEl("rect", { x: "406", y: "20", width: "348", height: "428", rx: "6", fill: "var(--cs-card)", stroke: "var(--sig-live)", "stroke-width": "1.5" }));
-      cg.appendChild(mkSvgEl("image", { href: safeAssetPath(iconForResourceType(cType)), x: "422", y: "34", width: "32", height: "32" }));
-      cg.appendChild(mkSvgEl("text", { x: "462", y: "48", "font-size": "13.5", "font-weight": "700", fill: "var(--cs-text)" }, truncateAsciiEllipsis(cName, 26)));
-      cg.appendChild(mkSvgEl("text", { x: "462", y: "66", "font-size": "12", fill: "var(--cs-text-soft)" }, truncateAsciiEllipsis(`${cTypeKo} · ${cLoc}`, 36)));
+        const handleSelect = () => {
+          selectIndividualSvgNode(g, it, { roleLabel, relSummary, isCenter });
+        };
+        g.addEventListener("click", handleSelect);
+        g.addEventListener("keydown", (ev) => {
+          if (ev.key === "Enter" || ev.key === " ") {
+            ev.preventDefault();
+            handleSelect();
+          }
+        });
+        if (!isCenter) {
+          g.addEventListener("dblclick", (ev) => {
+            ev.stopPropagation();
+            if (isGovernanceLiveMode() && it.id) {
+              selSetItem(it.id);
+              loadLiveOntologyExplore(it.id);
+            }
+          });
+        }
+        svg.appendChild(g);
+        return g;
+      };
 
-      const summaryCards = [
-        { title: "소속 리소스 그룹", val: cRg || cSub || "미측정", icon: "/azure-icons/resource-groups.svg" },
-        { title: "리소스 유형", val: `${centerItem.object_type_ko || "클라우드 리소스"} · ${cTypeKo}`, icon: iconForResourceType(cType) },
-        { title: "연결 관계 요약", val: `유입 ${inSlice.length}건 · 유출 ${outSlice.length}건 · 전체 링크 ${totalLinks != null ? Number(totalLinks).toLocaleString("ko-KR") : "—"}건`, icon: "/azure-icons/virtual-network.svg" },
-        { title: "관측 상태 · 최신 갱신", val: `${centerItem.operational_state || "관측됨"} · ${hTimestamp(centerItem.updated_at)}`, icon: "/azure-icons/monitor.svg" }
-      ];
-      summaryCards.forEach((sc, idx) => {
-        const cy = 92 + idx * 84;
-        cg.appendChild(mkSvgEl("rect", { x: "424", y: String(cy), width: "312", height: "70", rx: "4", fill: "var(--cs-bg)", stroke: "var(--cs-hairline)", "stroke-width": "1" }));
-        cg.appendChild(mkSvgEl("circle", { cx: "722", cy: String(cy + 14), r: "3.5", fill: "var(--sig-live)" }));
-        cg.appendChild(mkSvgEl("image", { href: safeAssetPath(sc.icon), x: "436", y: String(cy + 20), width: "26", height: "26" }));
-        cg.appendChild(mkSvgEl("text", { x: "472", y: String(cy + 30), "font-size": "12.5", "font-weight": "700", fill: "var(--cs-text)" }, sc.title));
-        cg.appendChild(mkSvgEl("text", { x: "472", y: String(cy + 50), "font-size": "12", fill: "var(--cs-text-soft)" }, truncateAsciiEllipsis(sc.val, 36)));
-      });
-      svg.appendChild(cg);
+      if (inSlice.length > 0) {
+        inSlice.forEach((it, idx) => drawResourceCard(it, 24, inStartY + idx * 88, 264, 68, "유입 리소스", false));
+      } else {
+        svg.appendChild(mkSvgEl("text", { x: "156", y: String(centerMidY + 4), "text-anchor": "middle", "font-size": "12.5", fill: "var(--cs-text-soft)", "pointer-events": "none" }, "연결된 유입 리소스 없음"));
+      }
+
+      // Single crisp standalone center resource card (NO outer grouping box, NO fake attribute sub-cards!)
+      drawResourceCard(centerItem, centerX, centerY, centerW, centerH, "중심 리소스", true);
+
+      if (outSlice.length > 0) {
+        outSlice.forEach((it, idx) => drawResourceCard(it, 872, outStartY + idx * 88, 264, 68, "연결 리소스", false));
+      } else {
+        svg.appendChild(mkSvgEl("text", { x: "1004", y: String(centerMidY + 4), "text-anchor": "middle", "font-size": "12.5", fill: "var(--cs-text-soft)", "pointer-events": "none" }, "연결된 유출 리소스 없음"));
+      }
 
       const covSum = document.getElementById("ontoInstCoverageSummary");
       if (covSum) {
         clearEl(covSum);
         covSum.appendChild(mkEl("strong", null, "표시 커버리지"));
-        covSum.appendChild(document.createTextNode(` · 실DB 전체 ${totalNodes != null ? Number(totalNodes).toLocaleString("ko-KR") : liveOntologyItems.length}인스턴스 / ${totalLinks != null ? Number(totalLinks).toLocaleString("ko-KR") : "—"}링크 · 캔버스 중심 1 + 인접 ${inSlice.length + outSlice.length}노드`));
+        covSum.appendChild(document.createTextNode(` · 실DB 전체 ${totalNodes != null ? Number(totalNodes).toLocaleString("ko-KR") : liveOntologyItems.length}인스턴스 / ${totalLinks != null ? Number(totalLinks).toLocaleString("ko-KR") : "—"}링크 · 중심 1 + 연결 리소스 ${inSlice.length + outSlice.length}개`));
       }
-      setBadgeEl(document.getElementById("ontoInstCoverageBadge"), "live", "PostgreSQL 실측 검증됨", true);
+      setBadgeEl(document.getElementById("ontoInstCoverageBadge"), "live", "실시간 원장 검증됨", true);
       const covDet = document.getElementById("ontoInstCoverageDetail");
       if (covDet) {
-        covDet.textContent = `선택 중심: ${cName} (${cTypeKo} · ${cLoc}) · 실시간 온톨로지 원장 기준`;
+        covDet.textContent = `중심 리소스: ${cName} (${cTypeKo} · ${cLoc}) · 개별 리소스를 클릭해 상세 속성을 확인하고 더블클릭으로 중심을 이동하세요.`;
       }
 
-      const ontoGrid = panel?.querySelector("[data-onto-grid]");
-      if (ontoGrid) {
-        const setF = (sel, v) => { const el = ontoGrid.querySelector(sel); if (el) el.textContent = String(v); };
-        setF("[data-ginsp-name]", cName);
-        setF("[data-ginsp-type]", `${cTypeKo} (선택 중심)`);
-        setF("[data-ginsp-status]", `${centerItem.operational_state || "관측됨"} · ${cLoc}`);
-        setF("[data-ginsp-lineage]", `유입 ${inSlice.length}건 · 유출 ${outSlice.length}건 · ${cRg || "스코프"}`);
-        setF("[data-ginsp-note]", `${cName} (${cTypeKo}) 리소스는 현재 '${centerItem.operational_state || "관측됨"}' 상태이며 유입 ${inSlice.length}건·유출 ${outSlice.length}건의 관계가 검증되었습니다. 온톨로지는 의미 검증 전용이며 실행 권한을 부여하지 않습니다.`);
-        const noteCard = ontoGrid.querySelector("[data-ginsp-note]")?.closest(".insp-card");
-        renderInspectorTechDetails(noteCard, [
-          ["원본 온톨로지 ID", centerItem.id || cName],
-          ["원본 리소스 유형", cType],
-          ["소속 스코프", cSub || "—"],
-          ["리소스 그룹", cRg || "—"],
-          ["리비전", `Rev #${cRev}`]
-        ], "ontoInstTechDetails");
-        const archLink = ontoGrid.querySelector('a[href*="#tab=architecture"], a[href*="/governance/architecture"]');
-        if (archLink && centerItem.id) archLink.setAttribute("href", selBuildUrl("architecture", centerItem.id));
-        const blastLink = ontoGrid.querySelector('a[href*="#tab=blast-radius"], a[href*="/governance/blast-radius"]');
-        if (blastLink && centerItem.id) blastLink.setAttribute("href", selBuildUrl("blast-radius", centerItem.id));
-      }
+      liveOntologySelectedNodeId = String(centerItem.id || cName);
+      updateOntologyInspectorForNode(centerItem, {
+        roleLabel: "중심 리소스",
+        relSummary: `유입 ${inSlice.length}건 · 유출 ${outSlice.length}건${centerItem.resource_group ? ` · ${centerItem.resource_group}` : ""}`,
+        isCenter: true
+      });
     }
 
     async function loadLiveOntologyExplore(rootId) {
-      if (!isGovernanceLiveMode() || !rootId) return;
+      if (!isGovernanceLiveMode()) return;
       const live = window.fdaiV4Live;
       if (!live || typeof live.fetchJson !== "function") return;
-      const res = await live.fetchJson(`/api/v4/governance/ontology/instances/explore?root=${encodeURIComponent(rootId)}&depth=1&limit=24`);
+      const url = rootId
+        ? `/api/v4/governance/ontology/instances/explore?root=${encodeURIComponent(rootId)}&depth=1&limit=24`
+        : "/api/v4/governance/ontology/instances/explore?depth=1&limit=24";
+      const res = await live.fetchJson(url);
       if (!isGovernanceLiveMode() || !res || !res.ok || !res.data || !res.data.data) return;
       const d = res.data.data;
       const nodes = Array.isArray(d.nodes) ? d.nodes : [];
       const edges = Array.isArray(d.edges) ? d.edges : [];
       const byId = new Map();
       nodes.forEach((n) => { if (n && n.id) byId.set(n.id, n); });
-      const center = byId.get(d.root) || nodes[0] || liveOntologyItems.find((x) => x.id === rootId) || liveOntologyItems[0];
+      const rootObj = d.root && typeof d.root === "object" ? d.root : null;
+      const rootKey = rootObj && rootObj.id ? String(rootObj.id) : String(d.root || rootId || "");
+      const center = (rootKey && byId.get(rootKey))
+        || rootObj
+        || (rootId && liveOntologyItems.find((x) => x.id === rootId))
+        || nodes[0]
+        || liveOntologyItems[0];
       if (!center) return;
       const incoming = [];
       const outgoing = [];
@@ -5785,6 +7261,7 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
         }
       });
       renderOntology3ZoneSvg(center, incoming, outgoing, liveOntologyTotalRes, liveOntologyLinkCnt);
+      shimmerBg(document.getElementById("ontoInstCoverage"), 900);
     }
 
     function renderLiveOntologyKnowledgeGraph(graphData) {
@@ -5886,7 +7363,8 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
         const kind = String(n.kind || n.node_kind || "object_type").toLowerCase();
         const fill = kindColor[kind] || "#44688e";
         const isSel = nid === liveKgSelectedId;
-        const g = mkSvgEl("g", { class: `graph-node${isSel ? " is-selected" : ""}`, tabindex: "0", style: "cursor:pointer", "data-kg-live-node": nid });
+        const g = mkSvgEl("g", { class: `graph-node${isSel ? " is-selected" : ""}`, tabindex: "0", style: "cursor:pointer", "data-resource-id": nid, "data-kg-live-node": nid });
+        g.appendChild(mkSvgEl("rect", { class: "node-hit-area", x: String(Math.round(p.x - 52)), y: String(Math.round(p.y - 16)), width: "104", height: "32", rx: "6", fill: "transparent", "pointer-events": "all" }));
         g.appendChild(mkSvgEl("rect", {
           x: String(Math.round(p.x - 52)),
           y: String(Math.round(p.y - 16)),
@@ -5905,7 +7383,8 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
           "font-weight": isSel ? "700" : "600",
           fill: "var(--cs-text)"
         }, truncateAsciiEllipsis(String(n.label || n.name || nid), 12)));
-        g.addEventListener("click", () => {
+        g.addEventListener("click", (ev) => {
+          ev.stopPropagation();
           liveKgSelectedId = nid;
           if (activeGovernancePanelId() === "ontology") selSetItem(`kg:${nid}`);
           renderLiveOntologyKnowledgeGraph(graphData);
@@ -6263,7 +7742,7 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
             opt.appendChild(mkEl("img", { src: safeAssetPath(iconForResourceType(rt)), width: "16", height: "16", alt: "" }));
             const txt = mkEl("span", { style: "display:grid;text-align:left;min-width:0" });
             txt.appendChild(mkEl("strong", null, nm));
-            txt.appendChild(mkEl("span", { className: "cell-muted", style: "font-size:11.5px" }, `${rt}${sub ? ` · ${sub}` : ""}`));
+            txt.appendChild(mkEl("span", { className: "cell-muted", style: "font-size:12px" }, `${rt}${sub ? ` · ${sub}` : ""}`));
             opt.appendChild(txt);
             opt.addEventListener("click", () => {
               listbox.hidden = true;
@@ -6582,8 +8061,11 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
       }
 
       if (items.length > 0) {
-        renderOntology3ZoneSvg(items[0], items.slice(1, 5), items.slice(5, 9), totalRes, linkCnt);
-        if (items[0].id) loadLiveOntologyExplore(items[0].id);
+        const deepItem = activeGovernancePanelId() === "ontology" ? selGetItem() : "";
+        const initialRoot = deepItem && !deepItem.startsWith("kg:") && !deepItem.startsWith("lin:") && !deepItem.startsWith("schema:")
+          ? deepItem
+          : "";
+        loadLiveOntologyExplore(initialRoot);
       } else {
         renderOntology3ZoneSvg(null, [], [], 0, 0);
       }
@@ -6696,6 +8178,9 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
       }
       renderLineageStageSvg(d, "", false);
       renderLineageInspectorTab();
+      if (typeof loadLiveLineageGraph === "function") {
+        loadLiveLineageGraph(linGraphState.mode || "full", false);
+      }
 
       const obs = Array.isArray(d.observations) ? d.observations : [];
       const tlTitle = document.getElementById("ontoInstTimelineTitle");
@@ -6728,6 +8213,753 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
           tlEvents.appendChild(mkEl("span", { className: "cell-muted", style: "font-size:12px" }, "수집된 최근 관측 이벤트가 없습니다."));
         }
       }
+    }
+
+    /* ── 9c-webgl. Pure WebGL2 (+ 2D Canvas Fallback + HiDPI Korean Labels) Full-Node Lineage Graph ── */
+    const linGraphState = {
+      mode: "full",
+      cache: new Map(),
+      data: null,
+      nodes: [],
+      edges: [],
+      outAdj: [],
+      inAdj: [],
+      types: [],
+      edgeKinds: [],
+      camX: 0.5,
+      camY: 0.5,
+      zoom: 1.0,
+      selectedIdx: -1,
+      hoveredIdx: -1,
+      highlightNodes: new Set(),
+      highlightEdges: new Set(),
+      searchMatches: new Set(),
+      showAncestors: true,
+      showDescendants: true,
+      backend: "uninitialized",
+      gl: null,
+      glNodeProg: null,
+      glEdgeProg: null,
+      glNodeBuf: null,
+      glEdgeBuf: null,
+      ctx2d: null,
+      rafPending: false,
+      dragging: false,
+      dragMoved: false,
+      dragStartX: 0,
+      dragStartY: 0,
+      dragCamX: 0.5,
+      dragCamY: 0.5,
+      lastRenderMs: 0,
+      wired: false,
+      reqSeq: 0
+    };
+
+    const LIN_STAGE_COLORS = [
+      [0.055, 0.647, 0.914], // 0: source (#0ea5e9)
+      [0.388, 0.400, 0.945], // 1: snapshot (#6366f1)
+      [0.545, 0.361, 0.965], // 2: cluster (#8b5cf6)
+      [0.063, 0.725, 0.506], // 3: resource (#10b981)
+      [0.961, 0.620, 0.043]  // 4: audit (#f59e0b)
+    ];
+
+    function compileWebGlShader(gl, type, src) {
+      const sh = gl.createShader(type);
+      if (!sh) return null;
+      gl.shaderSource(sh, src);
+      gl.compileShader(sh);
+      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+        gl.deleteShader(sh);
+        return null;
+      }
+      return sh;
+    }
+
+    function createWebGlProgram(gl, vsSrc, fsSrc) {
+      const vs = compileWebGlShader(gl, gl.VERTEX_SHADER, vsSrc);
+      const fs = compileWebGlShader(gl, gl.FRAGMENT_SHADER, fsSrc);
+      if (!vs || !fs) return null;
+      const prog = gl.createProgram();
+      if (!prog) return null;
+      gl.attachShader(prog, vs);
+      gl.attachShader(prog, fs);
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+        gl.deleteProgram(prog);
+        return null;
+      }
+      return prog;
+    }
+
+    function initLineageRenderer() {
+      if (linGraphState.backend !== "uninitialized") return;
+      const canvas = document.getElementById("linWebglCanvas");
+      if (!canvas) return;
+      let gl = null;
+      try {
+        gl = canvas.getContext("webgl2", { antialias: true, alpha: true, powerPreference: "high-performance" });
+      } catch (_e) { gl = null; }
+      if (gl) {
+        const edgeVs = `#version 300 es
+          precision highp float;
+          in vec2 aPos;
+          in vec4 aColor;
+          uniform vec2 uCam;
+          uniform float uZoom;
+          out vec4 vColor;
+          void main() {
+            vec2 p = (aPos - uCam) * uZoom * 2.0;
+            gl_Position = vec4(p.x, -p.y, 0.0, 1.0);
+            vColor = aColor;
+          }`;
+        const edgeFs = `#version 300 es
+          precision mediump float;
+          in vec4 vColor;
+          out vec4 outColor;
+          void main() { outColor = vColor; }`;
+        const nodeVs = `#version 300 es
+          precision highp float;
+          in vec2 aPos;
+          in float aSize;
+          in vec4 aColor;
+          uniform vec2 uCam;
+          uniform float uZoom;
+          uniform float uDpr;
+          out vec4 vColor;
+          void main() {
+            vec2 p = (aPos - uCam) * uZoom * 2.0;
+            gl_Position = vec4(p.x, -p.y, 0.0, 1.0);
+            gl_PointSize = clamp(aSize * sqrt(uZoom) * uDpr, 3.0 * uDpr, 36.0 * uDpr);
+            vColor = aColor;
+          }`;
+        const nodeFs = `#version 300 es
+          precision mediump float;
+          in vec4 vColor;
+          out vec4 outColor;
+          void main() {
+            vec2 c = gl_PointCoord - vec2(0.5);
+            float d = length(c);
+            if (d > 0.5) discard;
+            float aa = smoothstep(0.5, 0.41, d);
+            float ring = smoothstep(0.36, 0.44, d);
+            vec3 col = mix(vColor.rgb, vColor.rgb * 0.72, ring * 0.45);
+            outColor = vec4(col, vColor.a * aa);
+          }`;
+        const ep = createWebGlProgram(gl, edgeVs, edgeFs);
+        const np = createWebGlProgram(gl, nodeVs, nodeFs);
+        if (ep && np) {
+          linGraphState.gl = gl;
+          linGraphState.glEdgeProg = ep;
+          linGraphState.glNodeProg = np;
+          linGraphState.glEdgeBuf = gl.createBuffer();
+          linGraphState.glNodeBuf = gl.createBuffer();
+          linGraphState.backend = "webgl2";
+          return;
+        }
+      }
+      linGraphState.ctx2d = canvas.getContext("2d");
+      linGraphState.backend = "canvas2d";
+    }
+
+    function linWorldToScreen(wx, wy, w, h) {
+      return [
+        ((wx - linGraphState.camX) * linGraphState.zoom + 0.5) * w,
+        ((wy - linGraphState.camY) * linGraphState.zoom + 0.5) * h
+      ];
+    }
+
+    function linScreenToWorld(sx, sy, w, h) {
+      return [
+        ((sx / Math.max(1, w)) - 0.5) / linGraphState.zoom + linGraphState.camX,
+        ((sy / Math.max(1, h)) - 0.5) / linGraphState.zoom + linGraphState.camY
+      ];
+    }
+
+    function computeLineageHighlightSet() {
+      linGraphState.highlightNodes.clear();
+      linGraphState.highlightEdges.clear();
+      const sel = linGraphState.selectedIdx;
+      if (sel < 0 || sel >= linGraphState.nodes.length) return;
+      linGraphState.highlightNodes.add(sel);
+
+      if (linGraphState.showAncestors) {
+        const q = [sel];
+        const vis = new Set([sel]);
+        while (q.length) {
+          const cur = q.shift();
+          for (const eRef of (linGraphState.inAdj[cur] || [])) {
+            linGraphState.highlightEdges.add(eRef.edgeIdx);
+            if (!vis.has(eRef.nodeIdx)) {
+              vis.add(eRef.nodeIdx);
+              linGraphState.highlightNodes.add(eRef.nodeIdx);
+              q.push(eRef.nodeIdx);
+            }
+          }
+        }
+      }
+      if (linGraphState.showDescendants) {
+        const q = [sel];
+        const vis = new Set([sel]);
+        while (q.length) {
+          const cur = q.shift();
+          for (const eRef of (linGraphState.outAdj[cur] || [])) {
+            linGraphState.highlightEdges.add(eRef.edgeIdx);
+            if (!vis.has(eRef.nodeIdx)) {
+              vis.add(eRef.nodeIdx);
+              linGraphState.highlightNodes.add(eRef.nodeIdx);
+              q.push(eRef.nodeIdx);
+            }
+          }
+        }
+      }
+    }
+
+    function scheduleLineageRender() {
+      if (linGraphState.rafPending) return;
+      linGraphState.rafPending = true;
+      window.requestAnimationFrame(() => {
+        linGraphState.rafPending = false;
+        renderLineageWebGlFrame();
+      });
+    }
+
+    function renderLineageWebGlFrame() {
+      const host = document.getElementById("linWebglHost");
+      const canvas = document.getElementById("linWebglCanvas");
+      const labelCanvas = document.getElementById("linLabelCanvas");
+      if (!host || host.hidden || !canvas || !labelCanvas || !linGraphState.nodes.length) return;
+
+      initLineageRenderer();
+      const t0 = performance.now();
+      const rect = host.getBoundingClientRect();
+      const cssW = Math.max(320, Math.round(rect.width || 960));
+      const cssH = Math.max(360, Math.round(rect.height || 540));
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const pxW = Math.round(cssW * dpr);
+      const pxH = Math.round(cssH * dpr);
+      if (canvas.width !== pxW || canvas.height !== pxH) {
+        canvas.width = pxW;
+        canvas.height = pxH;
+      }
+      if (labelCanvas.width !== pxW || labelCanvas.height !== pxH) {
+        labelCanvas.width = pxW;
+        labelCanvas.height = pxH;
+      }
+
+      const nodes = linGraphState.nodes;
+      const edges = linGraphState.edges;
+      const hasSel = linGraphState.selectedIdx >= 0;
+      const hasSearch = linGraphState.searchMatches.size > 0;
+      const hiNodes = linGraphState.highlightNodes;
+      const hiEdges = linGraphState.highlightEdges;
+      const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+
+      if (linGraphState.backend === "webgl2" && linGraphState.gl) {
+        const gl = linGraphState.gl;
+        gl.viewport(0, 0, pxW, pxH);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+        // 1. Draw all edges in 1 GPU call
+        const edgeData = new Float32Array(edges.length * 12);
+        let eOff = 0;
+        for (let i = 0; i < edges.length; i += 1) {
+          const e = edges[i];
+          const a = nodes[e[0]];
+          const b = nodes[e[1]];
+          if (!a || !b) continue;
+          const isHi = hiEdges.has(i);
+          let r = isDark ? 0.58 : 0.35;
+          let g = isDark ? 0.64 : 0.42;
+          let bl = isDark ? 0.72 : 0.52;
+          let alpha = hasSel ? (isHi ? 0.88 : 0.04) : (linGraphState.mode === "full" ? 0.14 : 0.32);
+          if (isHi) {
+            r = 0.055; g = 0.647; bl = 0.914;
+          }
+          edgeData[eOff++] = a.x; edgeData[eOff++] = a.y;
+          edgeData[eOff++] = r; edgeData[eOff++] = g; edgeData[eOff++] = bl; edgeData[eOff++] = alpha;
+          edgeData[eOff++] = b.x; edgeData[eOff++] = b.y;
+          edgeData[eOff++] = r; edgeData[eOff++] = g; edgeData[eOff++] = bl; edgeData[eOff++] = alpha;
+        }
+        gl.useProgram(linGraphState.glEdgeProg);
+        gl.bindBuffer(gl.ARRAY_BUFFER, linGraphState.glEdgeBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, edgeData.subarray(0, eOff), gl.DYNAMIC_DRAW);
+        const ePosLoc = gl.getAttribLocation(linGraphState.glEdgeProg, "aPos");
+        const eColLoc = gl.getAttribLocation(linGraphState.glEdgeProg, "aColor");
+        gl.enableVertexAttribArray(ePosLoc);
+        gl.vertexAttribPointer(ePosLoc, 2, gl.FLOAT, false, 24, 0);
+        gl.enableVertexAttribArray(eColLoc);
+        gl.vertexAttribPointer(eColLoc, 4, gl.FLOAT, false, 24, 8);
+        gl.uniform2f(gl.getUniformLocation(linGraphState.glEdgeProg, "uCam"), linGraphState.camX, linGraphState.camY);
+        gl.uniform1f(gl.getUniformLocation(linGraphState.glEdgeProg, "uZoom"), linGraphState.zoom);
+        gl.drawArrays(gl.LINES, 0, eOff / 6);
+
+        // 2. Draw all nodes in 1 GPU call
+        const nodeData = new Float32Array(nodes.length * 7);
+        let nOff = 0;
+        for (let i = 0; i < nodes.length; i += 1) {
+          const n = nodes[i];
+          const baseCol = LIN_STAGE_COLORS[n.stage] || LIN_STAGE_COLORS[3];
+          const isSel = i === linGraphState.selectedIdx;
+          const isHov = i === linGraphState.hoveredIdx;
+          const isHi = hiNodes.has(i);
+          const isMatch = linGraphState.searchMatches.has(i);
+          let sz = n.stage === 3 ? 5.5 : (n.stage === 2 ? Math.min(18, 9 + Math.log2(Math.max(1, n.count)) * 1.4) : 12.5);
+          if (isSel || isHov) sz = Math.max(sz + 5, 16);
+          else if (isMatch) sz = Math.max(sz + 3, 12);
+          let r = baseCol[0], g = baseCol[1], bl = baseCol[2];
+          let alpha = 0.92;
+          if (hasSel && !isHi) alpha = 0.14;
+          if (hasSearch && !isMatch && !isSel) alpha = Math.min(alpha, 0.20);
+          if (isSel) { r = 0.937; g = 0.267; bl = 0.267; alpha = 1.0; }
+          else if (isMatch) { r = 0.961; g = 0.620; bl = 0.043; alpha = 1.0; }
+          nodeData[nOff++] = n.x; nodeData[nOff++] = n.y;
+          nodeData[nOff++] = sz;
+          nodeData[nOff++] = r; nodeData[nOff++] = g; nodeData[nOff++] = bl; nodeData[nOff++] = alpha;
+        }
+        gl.useProgram(linGraphState.glNodeProg);
+        gl.bindBuffer(gl.ARRAY_BUFFER, linGraphState.glNodeBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, nodeData.subarray(0, nOff), gl.DYNAMIC_DRAW);
+        const nPosLoc = gl.getAttribLocation(linGraphState.glNodeProg, "aPos");
+        const nSzLoc = gl.getAttribLocation(linGraphState.glNodeProg, "aSize");
+        const nColLoc = gl.getAttribLocation(linGraphState.glNodeProg, "aColor");
+        gl.enableVertexAttribArray(nPosLoc);
+        gl.vertexAttribPointer(nPosLoc, 2, gl.FLOAT, false, 28, 0);
+        gl.enableVertexAttribArray(nSzLoc);
+        gl.vertexAttribPointer(nSzLoc, 1, gl.FLOAT, false, 28, 8);
+        gl.enableVertexAttribArray(nColLoc);
+        gl.vertexAttribPointer(nColLoc, 4, gl.FLOAT, false, 28, 12);
+        gl.uniform2f(gl.getUniformLocation(linGraphState.glNodeProg, "uCam"), linGraphState.camX, linGraphState.camY);
+        gl.uniform1f(gl.getUniformLocation(linGraphState.glNodeProg, "uZoom"), linGraphState.zoom);
+        gl.uniform1f(gl.getUniformLocation(linGraphState.glNodeProg, "uDpr"), dpr);
+        gl.drawArrays(gl.POINTS, 0, nOff / 7);
+      } else if (linGraphState.ctx2d) {
+        // Automatic 2D Canvas viewport-culled fallback when WebGL2 is unavailable
+        const ctx = linGraphState.ctx2d;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, cssW, cssH);
+        ctx.lineWidth = 1;
+        for (let i = 0; i < edges.length; i += 1) {
+          const e = edges[i];
+          const a = nodes[e[0]];
+          const b = nodes[e[1]];
+          if (!a || !b) continue;
+          const [ax, ay] = linWorldToScreen(a.x, a.y, cssW, cssH);
+          const [bx, by] = linWorldToScreen(b.x, b.y, cssW, cssH);
+          if ((ax < -20 && bx < -20) || (ax > cssW + 20 && bx > cssW + 20) || (ay < -20 && by < -20) || (ay > cssH + 20 && by > cssH + 20)) continue;
+          const isHi = hiEdges.has(i);
+          ctx.strokeStyle = isHi
+            ? "rgba(14,165,233,0.85)"
+            : (hasSel ? "rgba(100,116,139,0.06)" : (linGraphState.mode === "full" ? "rgba(100,116,139,0.14)" : "rgba(100,116,139,0.32)"));
+          ctx.beginPath();
+          ctx.moveTo(ax, ay);
+          ctx.lineTo(bx, by);
+          ctx.stroke();
+        }
+        for (let i = 0; i < nodes.length; i += 1) {
+          const n = nodes[i];
+          const [sx, sy] = linWorldToScreen(n.x, n.y, cssW, cssH);
+          if (sx < -24 || sx > cssW + 24 || sy < -24 || sy > cssH + 24) continue;
+          const baseCol = LIN_STAGE_COLORS[n.stage] || LIN_STAGE_COLORS[3];
+          const isSel = i === linGraphState.selectedIdx;
+          const isHov = i === linGraphState.hoveredIdx;
+          const isHi = hiNodes.has(i);
+          const isMatch = linGraphState.searchMatches.has(i);
+          let rad = (n.stage === 3 ? 2.8 : (n.stage === 2 ? Math.min(9, 4.5 + Math.log2(Math.max(1, n.count)) * 0.7) : 6.2)) * Math.sqrt(linGraphState.zoom);
+          if (isSel || isHov) rad = Math.max(rad + 2.5, 8);
+          let alpha = hasSel && !isHi ? 0.14 : 0.92;
+          if (hasSearch && !isMatch && !isSel) alpha = Math.min(alpha, 0.20);
+          const rgb = isSel ? [239, 68, 68] : (isMatch ? [245, 158, 11] : [Math.round(baseCol[0] * 255), Math.round(baseCol[1] * 255), Math.round(baseCol[2] * 255)]);
+          ctx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`;
+          ctx.beginPath();
+          ctx.arc(sx, sy, Math.min(18, Math.max(2, rad)), 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // 3. Crisp HiDPI Korean label overlay (screen-space collision-culled so labels stay readable!)
+      const lctx = labelCanvas.getContext("2d");
+      if (lctx) {
+        lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        lctx.clearRect(0, 0, cssW, cssH);
+        lctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        lctx.textBaseline = "middle";
+        const occupied = new Set();
+        const tryDrawLabel = (n, priority) => {
+          const [sx, sy] = linWorldToScreen(n.x, n.y, cssW, cssH);
+          if (sx < 8 || sx > cssW - 12 || sy < 14 || sy > cssH - 14) return false;
+          const cellX = Math.floor(sx / 120);
+          const cellY = Math.floor(sy / 22);
+          const key = `${cellX}:${cellY}`;
+          if (!priority && occupied.has(key)) return false;
+          occupied.add(key);
+          const txt = truncateAsciiEllipsis(n.label, 24);
+          const tw = lctx.measureText(txt).width;
+          const lx = sx + 8;
+          const drawX = lx + tw + 10 > cssW ? sx - tw - 12 : lx;
+          lctx.fillStyle = isDark ? "rgba(15, 23, 42, 0.84)" : "rgba(255, 255, 255, 0.88)";
+          lctx.fillRect(drawX - 4, sy - 9, tw + 8, 18);
+          lctx.fillStyle = isDark ? "#f1f5f9" : "#0f172a";
+          lctx.fillText(txt, drawX, sy);
+          return true;
+        };
+
+        // Priority labels: selected, hovered, search matches
+        if (linGraphState.selectedIdx >= 0) tryDrawLabel(nodes[linGraphState.selectedIdx], true);
+        if (linGraphState.hoveredIdx >= 0 && linGraphState.hoveredIdx !== linGraphState.selectedIdx) {
+          tryDrawLabel(nodes[linGraphState.hoveredIdx], true);
+        }
+        let drawn = 0;
+        for (const mIdx of linGraphState.searchMatches) {
+          if (drawn >= 24) break;
+          if (tryDrawLabel(nodes[mIdx], false)) drawn += 1;
+        }
+        // Structural stage labels (source, snapshot, cluster, audit) + zoomed-in resources
+        for (let i = 0; i < nodes.length && drawn < 85; i += 1) {
+          const n = nodes[i];
+          if (hasSel && !hiNodes.has(i)) continue;
+          if (n.stage === 3 && !hasSel && linGraphState.zoom < 1.9) continue;
+          if (tryDrawLabel(n, false)) drawn += 1;
+        }
+      }
+
+      linGraphState.lastRenderMs = Math.max(0.1, performance.now() - t0);
+      const badge = document.getElementById("linWebglStatsBadge");
+      if (badge) {
+        const engineLbl = linGraphState.backend === "webgl2" ? "WebGL2 GPU" : "2D Canvas 폴백";
+        setBadgeEl(
+          badge,
+          "live",
+          `${engineLbl} · 노드 ${nodes.length.toLocaleString("ko-KR")} · 엣지 ${edges.length.toLocaleString("ko-KR")} · ${linGraphState.lastRenderMs.toFixed(1)}ms`,
+          true
+        );
+      }
+    }
+
+    function pickLineageNodeAt(sx, sy, w, h) {
+      const nodes = linGraphState.nodes;
+      let best = -1;
+      let bestDistSq = 18 * 18;
+      for (let i = nodes.length - 1; i >= 0; i -= 1) {
+        const n = nodes[i];
+        const [nx, ny] = linWorldToScreen(n.x, n.y, w, h);
+        const dx = sx - nx;
+        const dy = sy - ny;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < bestDistSq) {
+          bestDistSq = d2;
+          best = i;
+        }
+      }
+      return best;
+    }
+
+    function selectLineageGraphNode(idx, opts = {}) {
+      linGraphState.selectedIdx = idx;
+      computeLineageHighlightSet();
+      scheduleLineageRender();
+      const targetBadge = document.getElementById("linActiveTargetBadge");
+      if (idx < 0 || idx >= linGraphState.nodes.length) {
+        if (targetBadge) {
+          setBadgeEl(targetBadge, "live", `전체 ${Number(linGraphState.data?.metrics?.total_resources || linGraphState.nodes.length).toLocaleString("ko-KR")}개 리소스`, true);
+        }
+        return;
+      }
+      const n = linGraphState.nodes[idx];
+      const stageNames = ["① 원천 수집기", "② 수집 스냅샷", "③ 리소스 유형 클러스터", "④ 온톨로지 인스턴스", "⑤ 감사 원장"];
+      const typeName = linGraphState.types[n.typeIdx] || "온톨로지 노드";
+      if (targetBadge) {
+        setBadgeEl(targetBadge, "live", `${truncateAsciiEllipsis(n.label, 24)} · 연결 ${linGraphState.highlightNodes.size}노드`, true);
+      }
+      if (opts.center) {
+        linGraphState.camX = n.x;
+        linGraphState.camY = n.y;
+        linGraphState.zoom = Math.max(linGraphState.zoom, n.stage === 3 ? 3.0 : 1.6);
+        scheduleLineageRender();
+      }
+      if (opts.updateUrl !== false && activeGovernancePanelId() === "ontology") {
+        selSetItem(`lin:${n.id}`);
+      }
+
+      // Populate right forensic inspector with upstream & downstream neighbor lists
+      const setT = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+      setT("linInspTitle", n.label);
+      const badge = document.getElementById("linInspBadge");
+      if (badge) setBadgeEl(badge, "live", stageNames[n.stage] || "계통 노드", true);
+      setT("linInspSub", `${typeName}${n.rg ? ` · 리소스 그룹: ${n.rg}` : ""}${n.count > 1 ? ` · 포함 ${Number(n.count).toLocaleString("ko-KR")}건` : ""}`);
+
+      const body = document.getElementById("linInspBody");
+      if (body) {
+        clearEl(body);
+        const inList = (linGraphState.inAdj[idx] || []).map((e) => ({ node: linGraphState.nodes[e.nodeIdx], kind: linGraphState.edgeKinds[e.kindIdx] || "연결" }));
+        const outList = (linGraphState.outAdj[idx] || []).map((e) => ({ node: linGraphState.nodes[e.nodeIdx], kind: linGraphState.edgeKinds[e.kindIdx] || "연결" }));
+
+        const summary = mkEl("div", { className: "drawer-summary-card" });
+        summary.textContent = `${stageNames[n.stage] || "계통"} 노드 '${n.label}'의 전체 계통 경로입니다. 상류(유입) ${inList.length}건 · 하류(유출) ${outList.length}건 · 추적 경로 총 ${linGraphState.highlightNodes.size}개 노드.`;
+        body.appendChild(summary);
+
+        const mkNeighborCard = (title, items) => {
+          const card = mkEl("div", { className: "insp-card" });
+          card.appendChild(mkEl("div", { className: "insp-title" }, `${title} (${items.length}건)`));
+          if (!items.length) {
+            card.appendChild(mkEl("p", { className: "cell-muted" }, "연결된 노드가 없습니다."));
+          } else {
+            const wrap = mkEl("div", { className: "gov-chip-wrap" });
+            items.slice(0, 24).forEach((it) => {
+              const btn = mkEl("button", { type: "button", className: "gov-chip-btn" }, `${truncateAsciiEllipsis(it.node.label, 22)} (${it.kind})`);
+              btn.addEventListener("click", () => selectLineageGraphNode(it.node.idx, { center: true }));
+              wrap.appendChild(btn);
+            });
+            if (items.length > 24) {
+              wrap.appendChild(mkEl("span", { className: "cell-muted" }, `외 ${items.length - 24}건`));
+            }
+            card.appendChild(wrap);
+          }
+          return card;
+        };
+        body.appendChild(mkNeighborCard("◀ 상류 계통 (Upstream)", inList));
+        body.appendChild(mkNeighborCard("하류 계통 (Downstream) ▶", outList));
+        renderInspectorTechDetails(body, [
+          ["노드 ID", n.id],
+          ["유형", typeName],
+          ["단계", stageNames[n.stage] || String(n.stage)],
+          ["리소스 그룹", n.rg || "—"],
+          ["좌표 (DAG)", `(${n.x.toFixed(3)}, ${n.y.toFixed(3)})`]
+        ], "linWebglTechDetails");
+      }
+      if (opts.openDrawer !== false) {
+        const aside = document.querySelector('.panel-view[data-panel-id="ontology"] .lin-inspector, body > .lin-inspector.is-float-open');
+        if (aside && typeof window.fdaiOpenInlineInspector === "function") {
+          window.fdaiOpenInlineInspector(aside, document.getElementById("linWebglCanvas"));
+        }
+      }
+    }
+
+    function wireLineageWebglInteractions() {
+      if (linGraphState.wired) return;
+      linGraphState.wired = true;
+      const host = document.getElementById("linWebglHost");
+      const canvas = document.getElementById("linWebglCanvas");
+      const tip = document.getElementById("linWebglTip");
+      if (!host || !canvas) return;
+
+      canvas.addEventListener("pointerdown", (e) => {
+        linGraphState.dragging = true;
+        linGraphState.dragMoved = false;
+        linGraphState.dragStartX = e.clientX;
+        linGraphState.dragStartY = e.clientY;
+        linGraphState.dragCamX = linGraphState.camX;
+        linGraphState.dragCamY = linGraphState.camY;
+        host.classList.add("is-dragging");
+        canvas.setPointerCapture?.(e.pointerId);
+      });
+      canvas.addEventListener("pointermove", (e) => {
+        const rect = host.getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        if (linGraphState.dragging) {
+          const dx = e.clientX - linGraphState.dragStartX;
+          const dy = e.clientY - linGraphState.dragStartY;
+          if (Math.abs(dx) > 3 || Math.abs(dy) > 3) linGraphState.dragMoved = true;
+          linGraphState.camX = linGraphState.dragCamX - dx / (Math.max(1, rect.width) * linGraphState.zoom);
+          linGraphState.camY = linGraphState.dragCamY - dy / (Math.max(1, rect.height) * linGraphState.zoom);
+          if (tip) tip.hidden = true;
+          scheduleLineageRender();
+          return;
+        }
+        const hit = pickLineageNodeAt(sx, sy, rect.width, rect.height);
+        if (hit !== linGraphState.hoveredIdx) {
+          linGraphState.hoveredIdx = hit;
+          scheduleLineageRender();
+        }
+        if (tip) {
+          if (hit >= 0) {
+            const n = linGraphState.nodes[hit];
+            const tLbl = linGraphState.types[n.typeIdx] || "";
+            const degIn = (linGraphState.inAdj[hit] || []).length;
+            const degOut = (linGraphState.outAdj[hit] || []).length;
+            tip.textContent = `${n.label} · ${tLbl}${n.rg ? ` · ${n.rg}` : ""} (상류 ${degIn} / 하류 ${degOut})`;
+            tip.style.left = `${Math.min(rect.width - 260, Math.max(8, sx + 12))}px`;
+            tip.style.top = `${Math.min(rect.height - 48, Math.max(8, sy + 12))}px`;
+            tip.hidden = false;
+          } else {
+            tip.hidden = true;
+          }
+        }
+      });
+      const endDrag = (e) => {
+        if (!linGraphState.dragging) return;
+        const wasMoved = linGraphState.dragMoved;
+        linGraphState.dragging = false;
+        host.classList.remove("is-dragging");
+        if (!wasMoved) {
+          const rect = host.getBoundingClientRect();
+          const hit = pickLineageNodeAt(e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height);
+          selectLineageGraphNode(hit, { openDrawer: hit >= 0 });
+        }
+      };
+      canvas.addEventListener("pointerup", endDrag);
+      canvas.addEventListener("pointercancel", endDrag);
+      canvas.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        const rect = host.getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        const [wx0, wy0] = linScreenToWorld(sx, sy, rect.width, rect.height);
+        const factor = e.deltaY < 0 ? 1.18 : 0.85;
+        linGraphState.zoom = Math.max(0.6, Math.min(14.0, linGraphState.zoom * factor));
+        const [wx1, wy1] = linScreenToWorld(sx, sy, rect.width, rect.height);
+        linGraphState.camX += (wx0 - wx1);
+        linGraphState.camY += (wy0 - wy1);
+        scheduleLineageRender();
+      }, { passive: false });
+
+      document.querySelectorAll("[data-lin-graph-mode]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const m = btn.getAttribute("data-lin-graph-mode") || "full";
+          document.querySelectorAll("[data-lin-graph-mode]").forEach((b) => {
+            const on = b === btn;
+            b.classList.toggle("is-active", on);
+            b.setAttribute("aria-pressed", on ? "true" : "false");
+          });
+          loadLiveLineageGraph(m, false);
+        });
+      });
+      document.getElementById("linZoomInBtn")?.addEventListener("click", () => {
+        linGraphState.zoom = Math.min(14.0, linGraphState.zoom * 1.35);
+        scheduleLineageRender();
+      });
+      document.getElementById("linZoomOutBtn")?.addEventListener("click", () => {
+        linGraphState.zoom = Math.max(0.6, linGraphState.zoom * 0.74);
+        scheduleLineageRender();
+      });
+      const resetView = () => {
+        linGraphState.camX = 0.5;
+        linGraphState.camY = 0.5;
+        linGraphState.zoom = 1.0;
+        selectLineageGraphNode(-1, { openDrawer: false, updateUrl: false });
+      };
+      document.getElementById("linZoomFitBtn")?.addEventListener("click", resetView);
+      document.getElementById("linShowAllFleetBtn")?.addEventListener("click", resetView);
+      document.getElementById("linToggleAncestors")?.addEventListener("click", (e) => {
+        linGraphState.showAncestors = !linGraphState.showAncestors;
+        e.currentTarget?.setAttribute("aria-pressed", linGraphState.showAncestors ? "true" : "false");
+        computeLineageHighlightSet();
+        scheduleLineageRender();
+      });
+      document.getElementById("linToggleDescendants")?.addEventListener("click", (e) => {
+        linGraphState.showDescendants = !linGraphState.showDescendants;
+        e.currentTarget?.setAttribute("aria-pressed", linGraphState.showDescendants ? "true" : "false");
+        computeLineageHighlightSet();
+        scheduleLineageRender();
+      });
+      document.getElementById("linResSearch")?.addEventListener("input", (e) => {
+        const q = String(e.target?.value || "").trim().toLowerCase();
+        linGraphState.searchMatches.clear();
+        if (q) {
+          linGraphState.nodes.forEach((n, idx) => {
+            const tLbl = (linGraphState.types[n.typeIdx] || "").toLowerCase();
+            if (n.label.toLowerCase().includes(q) || n.id.toLowerCase().includes(q) || n.rg.toLowerCase().includes(q) || tLbl.includes(q)) {
+              linGraphState.searchMatches.add(idx);
+            }
+          });
+        }
+        scheduleLineageRender();
+      });
+      window.addEventListener("resize", () => {
+        if (!host.hidden) scheduleLineageRender();
+      });
+    }
+
+    function applyLineageGraphPayload(d) {
+      linGraphState.data = d;
+      linGraphState.types = Array.isArray(d.types) ? d.types : [];
+      linGraphState.edgeKinds = Array.isArray(d.edge_kinds) ? d.edge_kinds : [];
+      const rawNodes = Array.isArray(d.nodes) ? d.nodes : [];
+      const rawEdges = Array.isArray(d.edges) ? d.edges : [];
+      linGraphState.nodes = rawNodes.map((r) => ({
+        idx: Number(r[0]),
+        id: String(r[1] || ""),
+        label: String(r[2] || ""),
+        typeIdx: Number(r[3] || 0),
+        stage: Number(r[4] || 3),
+        count: Number(r[5] || 1),
+        x: Number(r[6] || 0.5),
+        y: Number(r[7] || 0.5),
+        rg: String(r[8] || "")
+      }));
+      linGraphState.edges = rawEdges;
+      linGraphState.outAdj = Array.from({ length: linGraphState.nodes.length }, () => []);
+      linGraphState.inAdj = Array.from({ length: linGraphState.nodes.length }, () => []);
+      rawEdges.forEach((e, eIdx) => {
+        const s = Number(e[0]), t = Number(e[1]), k = Number(e[2] || 0);
+        if (linGraphState.outAdj[s]) linGraphState.outAdj[s].push({ nodeIdx: t, edgeIdx: eIdx, kindIdx: k });
+        if (linGraphState.inAdj[t]) linGraphState.inAdj[t].push({ nodeIdx: s, edgeIdx: eIdx, kindIdx: k });
+      });
+      linGraphState.selectedIdx = -1;
+      linGraphState.hoveredIdx = -1;
+      linGraphState.highlightNodes.clear();
+      linGraphState.highlightEdges.clear();
+      linGraphState.camX = 0.5;
+      linGraphState.camY = 0.5;
+      linGraphState.zoom = 1.0;
+
+      const host = document.getElementById("linWebglHost");
+      const svg = document.getElementById("linStageSvg");
+      if (host) host.hidden = false;
+      if (svg) svg.hidden = true;
+      const totRes = Number(d.metrics?.total_resources || linGraphState.nodes.length);
+      const cntEl = document.getElementById("linInstanceCount");
+      if (cntEl) cntEl.textContent = `${totRes.toLocaleString("ko-KR")}개 전체 인스턴스`;
+      const targetBadge = document.getElementById("linActiveTargetBadge");
+      if (targetBadge) setBadgeEl(targetBadge, "live", `전체 ${totRes.toLocaleString("ko-KR")}개 리소스 · ${rawEdges.length.toLocaleString("ko-KR")}개 연결`, true);
+
+      // Populate left explorer list with top clusters + resources (clickable to pan & zoom on WebGL canvas!)
+      const listEl = document.getElementById("linInstanceList");
+      if (listEl) {
+        clearEl(listEl);
+        const frag = document.createDocumentFragment();
+        const showNodes = linGraphState.nodes.filter((n) => n.stage === 2 || n.stage === 3).slice(0, 120);
+        showNodes.forEach((n) => {
+          const btn = mkEl("button", { type: "button", className: "gov-rail-btn", "data-lin-node-idx": String(n.idx) });
+          btn.appendChild(mkEl("span", {}, truncateAsciiEllipsis(n.label, 24)));
+          btn.appendChild(mkEl("span", { className: "gov-rail-count" }, n.stage === 2 ? `${n.count}` : (linGraphState.types[n.typeIdx] || "리소스").slice(0, 8)));
+          btn.addEventListener("click", () => selectLineageGraphNode(n.idx, { center: true }));
+          frag.appendChild(btn);
+        });
+        listEl.appendChild(frag);
+      }
+
+      wireLineageWebglInteractions();
+      scheduleLineageRender();
+    }
+
+    async function loadLiveLineageGraph(mode, force) {
+      if (!isGovernanceLiveMode()) return;
+      const live = window.fdaiV4Live;
+      if (!live || typeof live.fetchJson !== "function") return;
+      const normMode = mode === "clustered" ? "clustered" : "full";
+      linGraphState.mode = normMode;
+      if (!force && linGraphState.cache.has(normMode)) {
+        applyLineageGraphPayload(linGraphState.cache.get(normMode));
+        return;
+      }
+      const seq = ++linGraphState.reqSeq;
+      const badge = document.getElementById("linWebglStatsBadge");
+      if (badge) setBadgeEl(badge, "neutral", "전체 계통 그래프 로딩 중…", true);
+      const res = await live.fetchJson(`/api/v4/governance/ontology/lineage/graph?mode=${encodeURIComponent(normMode)}`);
+      if (!isGovernanceLiveMode() || seq !== linGraphState.reqSeq) return;
+      if (!res || !res.ok || !res.data || res.data.measurement_state !== "measured" || !res.data.data) {
+        const host = document.getElementById("linWebglHost");
+        const svg = document.getElementById("linStageSvg");
+        if (host) host.hidden = true;
+        if (svg) svg.hidden = false;
+        return;
+      }
+      linGraphState.cache.set(normMode, res.data.data);
+      applyLineageGraphPayload(res.data.data);
     }
 
     function hydrateLiveScope(payload) {
@@ -7126,7 +9358,7 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
             nodePos.set(n.id, { x: nx, y: ny, w: CARD_W, h: CARD_H, cx: nx + CARD_W / 2, cy: ny + CARD_H / 2 });
 
             nodeParts.push(`
-              <g class="graph-node${isSel ? " is-selected" : ""}" tabindex="0" role="button" aria-label="${escapeHtml(dname)} (${escapeHtml(rtypeKo)})" data-gnode-id="${escapeHtml(n.id)}" data-gnode-name="${escapeHtml(dname)}" data-gnode-type="${escapeHtml(rtypeKo)}" data-gnode-status="${escapeHtml(loc)} · ${escapeHtml(hMode(n.status || "observed"))}" data-gnode-lineage="${escapeHtml(n.resource_group || n.subscription || "-")}" data-gnode-note="${escapeHtml(dname)} (${escapeHtml(rtypeKo)})" style="cursor:pointer">
+              <g class="graph-node${isSel ? " is-selected" : ""}" tabindex="0" role="button" aria-label="${escapeHtml(dname)} (${escapeHtml(rtypeKo)})" data-resource-id="${escapeHtml(n.id)}" data-gnode-id="${escapeHtml(n.id)}" data-gnode-name="${escapeHtml(dname)}" data-gnode-type="${escapeHtml(rtypeKo)}" data-gnode-status="${escapeHtml(loc)} · ${escapeHtml(hMode(n.status || "observed"))}" data-gnode-lineage="${escapeHtml(n.resource_group || n.subscription || "-")}" data-gnode-note="${escapeHtml(dname)} (${escapeHtml(rtypeKo)})" style="cursor:pointer">
                 <rect class="node-hit-area" x="${nx}" y="${ny}" width="${CARD_W}" height="${CARD_H}" rx="5" fill="transparent" pointer-events="all"/>
                 <rect class="arch-card-bg" x="${nx}" y="${ny}" width="${CARD_W}" height="${CARD_H}" rx="5" fill="var(--cs-card)" stroke="${isSel ? "var(--sig-live)" : "var(--cs-hairline)"}" stroke-width="${isSel ? "1.8" : "1"}"/>
                 <circle cx="${nx + CARD_W - 10}" cy="${ny + 11}" r="3" fill="var(--sig-live)"/>
@@ -7223,7 +9455,9 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
       svg?.addEventListener("click", (e) => {
         if (!(e.target instanceof Element)) return;
         const g = e.target.closest(".graph-node[data-gnode-id]");
-        if (g) handleNodePick(g);
+        if (g) {
+          handleNodePick(g);
+        }
       });
       svg?.addEventListener("keydown", (e) => {
         if (e.key !== "Enter" && e.key !== " ") return;
@@ -7342,12 +9576,11 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
       setPanelStatPillMeta("architecture", 3, `PE ${peCnt} · VNet ${vnetCnt}`, "도메인: governance · 실측 네트워크 경계", `VNet|${vnetCnt}개;Subnet|${snetCnt}개;Private Endpoint|${peCnt}개;NSG|${nsgCnt}개`, "실측 VNet, Subnet, Private Endpoint, NSG 수입니다.");
 
       const summaryBadge = document.getElementById("archSummaryBadge");
-      if (summaryBadge) {
-        summaryBadge.innerHTML = `<span class="cs-dot"></span>Private Endpoint ${peCnt}개 · VNet ${vnetCnt}개 · Subnet ${snetCnt}개 · NSG ${nsgCnt}개`;
-      }
+      const snapKst = snap.completed_at ? ` · 기준 ${hTimestamp(snap.completed_at)} KST` : "";
+      setBadgeEl(summaryBadge, "live", `Private Endpoint ${peCnt}개 · VNet ${vnetCnt}개 · Subnet ${snetCnt}개 · NSG ${nsgCnt}개${snapKst}`, true);
       const footEl = document.getElementById("archFootSummary");
       if (footEl) {
-        footEl.textContent = `PostgreSQL 실측 토폴로지: 컨테이너 ${containers.length}개 · 노드 ${nodes.length}개 · 실측 링크 ${edges.length}개`;
+        footEl.textContent = `실측 토폴로지: 경계 ${containers.length}개 · 리소스 ${nodes.length}개 · 연결 ${edges.length}개${snapKst}`;
       }
 
       // 1. Update #archScopeSelect from payload.views preserving active selection
@@ -7514,6 +9747,9 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
           const ng = mkSvgEl("g", {
             class: "graph-node",
             tabindex: "0",
+            role: "button",
+            style: "cursor:pointer",
+            "data-resource-id": String(sl.aff.id || nm),
             "data-hop-ring": String(sl.hop),
             "data-gnode-name": `${nm} (${hp}-Hop)`,
             "data-gnode-type": hResourceType(rt),
@@ -7526,12 +9762,26 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
           ng.appendChild(mkSvgEl("image", { href: safeAssetPath(iconForResourceType(rt)), x: String(sl.x + 10), y: String(sl.y + 13), width: "26", height: "26" }));
           ng.appendChild(mkSvgEl("text", { x: String(sl.x + 42), y: String(sl.y + 25), "font-size": "12", "font-weight": "700", fill: "var(--cs-text)" }, truncateAsciiEllipsis(nm, 15)));
           ng.appendChild(mkSvgEl("text", { x: String(sl.x + 42), y: String(sl.y + 43), "font-size": "11.5", fill: sl.hop === 1 ? "var(--sig-sre-text)" : "var(--cs-text-soft)" }, truncateAsciiEllipsis(`${hp}-Hop · ${hLinkType(sl.aff.link_type || "linked")}`, 17)));
+          ng.addEventListener("click", () => {
+            svg.querySelectorAll("g.graph-node").forEach((el) => el.classList.toggle("is-selected", el === ng));
+            const setF = (sel, v) => { const el = panel.querySelector(sel); if (el) el.textContent = String(v); };
+            setF("[data-ginsp-name]", nm);
+            setF("[data-ginsp-type]", `${hp}-Hop 파급 · ${hResourceType(rt)}`);
+            setF("[data-ginsp-status]", hLinkType(sl.aff.link_type || "linked"));
+            setF("[data-ginsp-lineage]", `${targetName} → ${nm}`);
+            setF("[data-ginsp-note]", `'${targetName}' 변경 시 '${hLinkType(sl.aff.link_type || "linked")}' 관계를 통해 ${hp}-Hop 범위에서 영향을 받는 ${hResourceType(rt)} 리소스입니다.`);
+            selSetItem(`blast-aff:${sl.aff.id || nm}`);
+            shimmerBorder(panel.querySelector("aside.wb-col-inspector .insp-card"), 900);
+          });
           svg.appendChild(ng);
         });
 
         const cg = mkSvgEl("g", {
           class: "graph-node is-selected",
           tabindex: "0",
+          role: "button",
+          style: "cursor:pointer",
+          "data-resource-id": String(payload.target_id || targetName),
           "data-gnode-name": targetName,
           "data-gnode-type": `변경 중심 대상 (${targetTypeKo})`,
           "data-gnode-status": `1-Hop ${h1} · 2-Hop ${h2} · 3-Hop ${h3} · ${rc}`,
@@ -7544,6 +9794,11 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
         cg.appendChild(mkSvgEl("image", { href: safeAssetPath(iconForResourceType(targetType)), x: "306", y: "154", width: "30", height: "30" }));
         cg.appendChild(mkSvgEl("text", { x: "344", y: "166", "font-size": "12.5", "font-weight": "700", fill: "var(--cs-text)" }, truncateAsciiEllipsis(targetName, 16)));
         cg.appendChild(mkSvgEl("text", { x: "344", y: "186", "font-size": "12", fill: "var(--sig-human-text)" }, `${rc} · 영향 ${total.toLocaleString("ko-KR")}건`));
+        cg.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          svg.querySelectorAll("g.graph-node").forEach((el) => el.classList.toggle("is-selected", el === cg));
+          if (activeGovernancePanelId() === "blast-radius" && payload.target_id) selSetItem(payload.target_id);
+        });
         svg.appendChild(cg);
       }
 
@@ -7734,7 +9989,8 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
         if (hist.length > 0) {
           hist.forEach((h) => {
             const li = mkEl("li", { className: "gov-timeline-item" });
-            li.appendChild(mkEl("strong", null, `${h.time || "—"} · ${hAction(h.target || h.action_kind || "promotion")}`));
+            const kstTime = (h.created_at ? hTimestamp(h.created_at) : "") || h.time || "—";
+            li.appendChild(mkEl("strong", null, `${kstTime} · ${hAction(h.target || h.action_kind || "promotion")}`));
             li.appendChild(mkEl("span", { className: "cell-muted" }, `${hAction(h.action_kind || "audit")} · ${hActor(h.actor || "system")}${h.detail ? ` · ${h.detail}` : ""}`));
             histEl.appendChild(li);
           });
@@ -8643,6 +10899,26 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
       docsLiveStatusText = "";
       renderDocsTable();
 
+      shimmerStream(document.getElementById("govLiveStatusBadge"), false);
+      ["govOntologyIntegrityBadge", "archSummaryBadge", "blastToolbarBadge", "govRulePolicySummaryBadge", "scopePolicyBadge"].forEach((id) => {
+        shimmerStream(document.getElementById(id), false);
+      });
+      secPostureCache = null;
+      secCvePageCache = null;
+      secUnknownCache = null;
+      const setSampleCnt = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+      setSampleCnt("govRailCountSecurity", "샘플");
+      setSampleCnt("govSecCountCves", "2");
+      setSampleCnt("govSecCountUnknown", "10 렌즈");
+      setSampleCnt("govSecCountPolicies", "4 정책");
+      if (activeRail.startsWith("sec-")) {
+        renderSecurityGovernanceView(activeRail);
+      }
+      const linHost = document.getElementById("linWebglHost");
+      const linSvgRestore = document.getElementById("linStageSvg");
+      if (linHost) linHost.hidden = true;
+      if (linSvgRestore) linSvgRestore.hidden = false;
+      linGraphState.cache.clear();
       renderLiveBadgeWithPulse(activeGovernancePanelId(), "not-measured", "sample");
     }
 
@@ -8655,6 +10931,30 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
       const pid = panelId || activeGovernancePanelId();
 
       if (pid === "rules") {
+        if (/^CVE-\d{4}-\d+/i.test(itemId)) {
+          const searchEl = document.getElementById("govSecCveSearch");
+          if (searchEl) searchEl.value = itemId.toUpperCase();
+          activateRulesRail("sec-cves");
+          await loadAndRenderSecurityCves(true);
+          const row = document.querySelector(`#govSecTbody [data-sec-cve-id="${CSS.escape(itemId.toUpperCase())}"]`);
+          if (row) selFocusEl(row);
+          return;
+        }
+        if (itemId.startsWith("lens:")) {
+          activateRulesRail("sec-unknown");
+          await loadAndRenderUnknownVulns();
+          const row = document.querySelector(`#govSecTbody [data-sec-lens-id="${CSS.escape(itemId)}"]`);
+          if (row) {
+            row.click();
+            selFocusEl(row);
+          }
+          return;
+        }
+        if (itemId.startsWith("sec-policy:")) {
+          activateRulesRail("sec-policies");
+          await loadAndRenderSecurityPolicies();
+          return;
+        }
         if (itemId.startsWith("fw-") && itemId.includes(":")) {
           const idx = itemId.indexOf(":");
           const fk = itemId.slice(0, idx);
@@ -8871,7 +11171,8 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
         applyAllLiveNeutralStates();
         const pid = activeGovernancePanelId();
         Promise.resolve(probeGovernanceApi(pid, true)).then(() => {
-          if (isGovernanceLiveMode()) prehydrateRemainingLivePanels();
+          const activePid = activeGovernancePanelId();
+          if (activePid) probeGovernanceApi(activePid, true);
         });
       }
     }
@@ -8883,8 +11184,8 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
       if (panelId === "rules") {
         const qParam = window.FdaiUrlState ? window.FdaiUrlState.getParam("q", "") : "";
         url = qParam
-          ? `/api/v4/governance/rules?limit=100&search=${encodeURIComponent(qParam)}`
-          : "/api/v4/governance/rules?limit=100";
+          ? `/api/v4/governance/rules?limit=${RULES_PAGE_SIZE}&offset=0&view=summary&search=${encodeURIComponent(qParam)}`
+          : `/api/v4/governance/rules?limit=${RULES_PAGE_SIZE}&offset=0&view=summary`;
       } else if (panelId === "architecture") {
         const scopeParam = archCurrentScope && archCurrentScope !== "all"
           ? archCurrentScope
@@ -8971,12 +11272,41 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
       const pid = activeGovernancePanelId();
       renderLiveBadgeWithPulse(pid, panelStates.get(pid) || "measured", panelSources.get(pid) || "postgres-direct");
 
+      // Emphasize real-time freshness via border/bg/pulse shimmer on active live controls & selected nodes
+      const liveBadge = document.getElementById("govLiveStatusBadge");
+      shimmerStream(liveBadge, true);
+      shimmerPulse(liveBadge, 1100);
+      const activePanelEl = document.querySelector(`.panel-view[data-panel-id="${pid}"]`);
+      if (activePanelEl) {
+        const activeSyncBar = activePanelEl.querySelector("#govOntologyIntegrityBadge, #archSummaryBadge, #blastToolbarBadge, #govRulePolicySummaryBadge, #scopePolicyBadge, .card-head .cs-badge");
+        if (activeSyncBar) {
+          shimmerStream(activeSyncBar, true);
+          shimmerBorder(activeSyncBar, 1050);
+        }
+        const activeCtrlBar = activePanelEl.querySelector("#ontoInstCoverage, .graph-toolbar, .gov-note-bar");
+        if (activeCtrlBar) shimmerBg(activeCtrlBar, 1050);
+        const selSvgNode = activePanelEl.querySelector("svg.graph-canvas-svg g.graph-node.is-selected");
+        if (selSvgNode) shimmerPulse(selSvgNode, 1100);
+        const firstLiveCard = activePanelEl.querySelector("#govRulesTbody tr.is-selected, #govPromoList .kanban-card.is-active, .stat-strip .stat-pill");
+        if (firstLiveCard) shimmerBorder(firstLiveCard, 1000);
+      }
+
+      const nowClock = hLocalClock(Date.now());
+      const ontoTlTitle = document.getElementById("ontoInstTimelineTitle");
+      if (ontoTlTitle && pid === "ontology") {
+        const latestObs = Array.isArray(liveLineagePayload?.observations) ? liveLineagePayload.observations[0] : null;
+        const latestAt = latestObs?.observed_at ? hTimestamp(latestObs.observed_at) : "실시간 원장 기준";
+        ontoTlTitle.textContent = `시간별 상태 · 감사 타임라인 (최신 관측: ${latestAt} · 동기화 ${nowClock} KST)`;
+        shimmerBg(ontoTlTitle, 850);
+      }
+
       if (typeof detail.journal_watermark === "number" && detail.journal_watermark > 0) {
         const meta = document.getElementById("linSourceModeMeta");
         if (meta) {
           const ll = detail.latest_lineage || {};
           const latestShort = ll.subject_ref ? ` · 최근 대상 ${truncateAsciiEllipsis(shortRefName(ll.subject_ref), 18)}` : "";
-          meta.textContent = `실시간 관측 동기화됨${latestShort}`;
+          meta.textContent = `실시간 동기화 ${nowClock} KST${latestShort}`;
+          shimmerBg(meta, 950);
         }
       }
 
@@ -9031,6 +11361,11 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
       if (e.target.closest('[data-graph-view-btn="knowledge"], [data-graph-view-btn="schema"]')) {
         if (isGovernanceLiveMode() && !liveOntologyGraphData) window.setTimeout(probeLiveOntologyGraph, 40);
       }
+      const ontoPicked = e.target.closest('.panel-view[data-panel-id="ontology"] .graph-node[data-resource-id], .panel-view[data-panel-id="ontology"] .graph-node[data-gnode-id], .panel-view[data-panel-id="ontology"] .tree-node-btn[data-gnode-id]');
+      if (ontoPicked) {
+        const rid = ontoPicked.getAttribute("data-resource-id") || ontoPicked.getAttribute("data-gnode-id") || "";
+        if (rid) selSetItem(rid);
+      }
     });
     window.addEventListener("hashchange", () => {
       window.setTimeout(() => {
@@ -9078,9 +11413,25 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
           const inp = document.getElementById("govRuleSearch");
           if (inp && inp.value !== params.q) inp.value = params.q;
         }
+        if (params.sec_q) {
+          const sinp = document.getElementById("govSecCveSearch");
+          if (sinp && sinp.value !== params.sec_q) sinp.value = params.sec_q;
+        }
+        if (params.sec_sev) {
+          const ssev = document.getElementById("govSecCveSev");
+          if (ssev && ssev.value !== params.sec_sev) ssev.value = params.sec_sev;
+        }
+        if (params.sec_exp) {
+          const sexp = document.getElementById("govSecCveExploit");
+          if (sexp && sexp.value !== params.sec_exp) sexp.value = params.sec_exp;
+        }
         if (params.framework) {
-          const fk = params.framework.startsWith("fw-") ? params.framework : `fw-${params.framework}`;
-          if (FRAMEWORKS[fk]) activateRulesRail(fk);
+          if (params.framework.startsWith("sec-") || params.framework.startsWith("rules-") || params.framework === "adv-waf") {
+            activateRulesRail(params.framework);
+          } else {
+            const fk = params.framework.startsWith("fw-") ? params.framework : `fw-${params.framework}`;
+            if (FRAMEWORKS[fk]) activateRulesRail(fk);
+          }
         }
       }
       if (selItem) {
@@ -9123,7 +11474,6 @@ verify: Vidar.verify_independent_metrics + Saga.seal_audit</div>
         }
         await probeGovernanceApi(pid, false);
         applyUrlStateToActivePanel(initParams);
-        prehydrateRemainingLivePanels();
       }, 80);
     });
   })();

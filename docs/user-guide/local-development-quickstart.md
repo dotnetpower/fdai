@@ -1,68 +1,63 @@
 ---
 title: Local Development Quickstart
-description: Learn how to configure Docker, local state, authentication, and the complete FDAI Console stack on a Linux or WSL workstation.
+description: Learn how to run FDAI Console Web, Release Hub, the 9-service Pure-Rust local stack, and the optional Docker data stack after cloning the repository.
 ---
 
 # Local Development Quickstart
 
-FDAI local development uses Docker for PostgreSQL, Redpanda, and ClamAV while the Python and
-Node.js services run on the host. Use this guide to choose the Docker-only data stack or prepare
-the complete Console stack with its Azure and Microsoft Entra bindings.
+After cloning FDAI, you can launch the Pure-Rust **Console Web** (`fdai-console-v4` on port
+`5290`), **Release Hub** (`fdai-release-hub` on port `8022`), or the complete 9-service Pure-Rust
+stack with only the Rust stable toolchain and `make`. Docker is optional for live PostgreSQL,
+Redpanda, and ClamAV bindings, and Node.js is only required when editing SPA source files.
 
 ## Choose a local path
 
-| Path | Use it for | Azure requirement |
-|------|------------|-------------------|
-| Docker data stack | Persistence tests, migrations, Kafka-compatible event development, and document scanning | None |
-| Complete Console stack | Console, all five backend services, inventory and observation loops, document processing, and Manual Studio | An active Azure CLI session, matching Entra app registrations, and either applied `infra/` state or an explicitly selected existing read-scope resource group |
+| Path | Command | Browser / health URL | External prerequisites |
+|------|---------|----------------------|------------------------|
+| Console Web standalone | `make console-v4-up` | `http://127.0.0.1:5290` | Rust stable (`cargo`), `make` |
+| Release Hub standalone | `make release-hub-up` | `http://127.0.0.1:8022` | Rust stable (`cargo`), `make` |
+| Lifecycle Hub standalone | `make lifecycle-hub-up` | `http://127.0.0.1:8021` | Rust stable (`cargo`), `make` |
+| Complete Pure-Rust stack (9 services) | `make rust-fullstack-up` | Console `5290`, Release Hub `8022`, Lifecycle Hub `8021`, Operator API `8010` | Rust stable (`cargo`), `make` |
+| Docker data stack | `make dev-up` | PostgreSQL `5432` / `5433`, Redpanda `19092`, ClamAV `3310` | Docker Engine + Compose v2 |
+| Optional SPA UI live-reload dev | `npm --prefix console run dev` or `npm --prefix lifecycle_rs/release-hub/ui run dev` | Console SPA `5273`, Release Hub UI `5291` | Node.js 22+ and `npm` |
 
-The complete stack is not an offline demo. Its databases and event transport are local, but its
-Azure readers and environment metadata are grounded in the selected deployment. If you don't yet
-have readable deployment state, start with the Docker data stack and deterministic tests.
-
-> The public contributor deployment keeps isolated Terraform state under
-> `.fdai/deploy/public-dev-<suffix>/`. Complete local-stack preparation currently reads the
-> initialized `infra/` backend and doesn't automatically adopt that isolated state. Don't copy or
-> move a state file to bypass this boundary.
+Console Web (`fdai-console-v4`) and Release Hub (`fdai-release-hub`) start cleanly on loopback
+without Azure sign-in, Entra app registrations, or Python. When PostgreSQL or upstream Azure
+sources are unconfigured, Console Web shows honest `not-measured` or offline states instead of
+fabricating runtime data.
 
 ## Install the prerequisites
 
-### One-command workstation setup
+### Required for Console Web and Release Hub
 
-On x86_64 Ubuntu or WSL, run the repository installer from the repository root:
+1. **Git and Make**: `git`, `bash`, `make`, and `curl`.
+2. **Rust stable toolchain**: install via [rustup](https://rustup.rs/) if `cargo` is not on your
+   `PATH`:
 
-```bash
-bash scripts/automation/setup-local-development.sh
-```
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+   source "$HOME/.cargo/env"
+   rustc --version
+   cargo --version
+   ```
 
-The script installs the system packages and repository-pinned command-line tools, configures
-Docker access, installs the locked Python and Console dependencies, downloads Playwright Chromium,
-enables the tracked Git hooks, and applies the shared VS Code settings and extensions. It also
-starts and waits for the Docker data stack: runtime and validation PostgreSQL with pgvector,
-Redpanda, and ClamAV. It prompts for `sudo` in the terminal when required. It doesn't sign in to
-Azure or GitHub and doesn't create tenant-specific configuration.
+3. **Optional tracked Git hooks** (recommended if you plan to commit changes):
 
-The installer can start the data stack during its first run by using the newly assigned Docker
-group. Reopen the WSL window before running Docker commands directly so existing terminals receive
-that group membership. Import `.vscode/fdai.code-profile` with `Profiles: Import Profile` because
-profile import remains a user-visible VS Code action. You can verify the toolchain and healthy data
-stack without changing them:
+   ```bash
+   make hooks-install
+   ```
 
-```bash
-bash scripts/automation/setup-local-development.sh --check
-```
+Fresh clones use `cargo ... --locked` by default so Cargo fetches the exact crate versions pinned
+in `Cargo.lock` once and reuses the local cache on later runs. In an air-gapped environment with a
+populated Cargo cache, pass `CARGO_FLAGS="--locked --offline"` to `make` or set
+`FDAI_CARGO_OFFLINE=1` before running `make rust-fullstack-up`.
 
-Use the following sections when you need to install a prerequisite manually or diagnose a failed
-check.
+### Optional: Docker data stack
 
-### Docker data stack
-
-Install Docker Engine or Docker Desktop and Docker Compose v2. On WSL, enable the Docker Desktop
-[WSL integration](https://docs.docker.com/desktop/features/wsl/) or expose another Docker Engine to
-the same WSL distribution. The user that runs VS Code and FDAI should be able to run Docker without
-`sudo`. The first start also needs access to the container registry for the images listed below.
-
-Verify the exact capabilities used by the startup script:
+Install Docker Engine or Docker Desktop with Docker Compose v2 when you want live loopback
+PostgreSQL backing Console Web, Redpanda event transport, or ClamAV document scanning. On WSL,
+enable Docker Desktop [WSL integration](https://docs.docker.com/desktop/features/wsl/) and verify
+that your shell can run Docker without `sudo`:
 
 ```bash
 docker version
@@ -70,114 +65,167 @@ docker compose version
 docker info
 ```
 
-If any command fails, follow the Docker
-[installation guide](https://docs.docker.com/engine/install/) before continuing. FDAI requires the
-Docker CLI, the `docker compose` v2 plugin, and a reachable daemon.
+### Optional: Node.js 22+ for SPA source editing
 
-### Complete Console stack
+Pre-built Release Hub UI assets (`lifecycle_rs/release-hub/ui/dist`) and Lifecycle Hub UI assets
+(`lifecycle_rs/hub/ui/dist`) are tracked in the repository, and Console v4 (`console_rs/`) serves
+its templates and assets directly from the Rust binary. Install Node.js 22 or later only when you
+modify TypeScript or Preact UI sources under `console/`, `lifecycle_rs/release-hub/ui/`, or
+`lifecycle_rs/hub/ui/`.
 
-Install these additional tools:
+## Run Console Web (`http://127.0.0.1:5290`)
 
-- Python 3.13 and `uv` for the workspace environment.
-- Node.js 22 or later with `npm` for Console and Manual Studio.
-- Terraform 1.9 or later and Azure CLI for deployed environment metadata.
-- OPA matching `OPA_VERSION` in the [Core image](../../services/core-control-plane/docker/Dockerfile).
-  Run `opa version` and `opa check policies` from the repository root. OPA must be on the VS Code
-  task's `PATH`; the workspace includes `~/.local/bin` for user-installed tools.
-- ShellCheck for validating repository shell scripts before commit and push.
-- `git`, `bash`, `make`, `curl`, and standard Linux command-line tools.
-- Tesseract with English and Korean language data. The Document Processing Worker runs on the host,
-  while ClamAV runs in Docker.
-
-On Ubuntu or WSL, install ShellCheck and Tesseract with:
+From the repository root, start the standalone Pure-Rust Console v4 server:
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y shellcheck tesseract-ocr tesseract-ocr-eng tesseract-ocr-kor
-shellcheck --version
-tesseract --list-langs
+make console-v4-up
 ```
 
-If you don't use the one-command installer, install the repository dependencies and hooks:
+Equivalent direct Cargo command:
 
 ```bash
-uv sync --extra dev
-make hooks-install
-npm --prefix console ci --no-audit --no-fund
+cargo run --locked -p fdai-console-v4 -- --host 127.0.0.1 --port 5290
 ```
 
-The [VS Code profile setup](../../DEVELOPING.md#1-vs-code-profile-recommended) is recommended but
-doesn't install Docker, Python, Node.js, OPA, Terraform, or Azure CLI.
-
-### Verify processing readiness
-
-Use the managed `console: start full stack` task. A frontend HTTP `200`, API liveness response,
-or `pantheon_ready` log entry alone does not prove that Core consumers are running. Missing OPA
-blocks Core processing; the preparation script checks for it before starting dependencies.
-Check the current readiness report and a fresh Pantheon heartbeat, then verify a conversation
-through the Console at `http://localhost:5273`.
-
-Generating `resolved-models.json` does not prove that its selected deployments exist or are
-reachable. Before treating model setup as complete, verify deployment names, endpoint bindings,
-identity access, and capacity for the full request including system prompts and output tokens.
-Do not hand-edit generated model records or remove required capabilities to bypass startup checks.
-A `429`, timeout, or unavailable planner is a failed conversation check, not a successful setup.
-Stop live retries and resolve the reported prerequisite; preserve network restrictions and RBAC.
-
-## Configure authentication and local files
-
-### Select the Azure and Terraform context
-
-Sign in and verify the default Azure CLI profile used by the committed full-stack launchers:
+Open `http://127.0.0.1:5290` in your browser, or verify readiness from another terminal:
 
 ```bash
-az login --use-device-code
-env -u AZURE_CONFIG_DIR az account show \
-  --query '{subscription:name,subscriptionId:id,tenant:tenantId,user:user.name}' \
-  --output table
+cargo run --locked -p fdai-console-v4 -- --check
+curl -sS http://127.0.0.1:5290/api/v4/meta
 ```
 
-Local Console preparation never initializes or reads Terraform state. If the selected deployment
-exposes only private endpoints, configure the optional
-[development VPN](../../tools/dev-access/README.md) before using those Azure-backed readers.
+### Console Web options and live PostgreSQL binding
 
-#### Select the Azure read scope
+- **Custom host or port**: pass `--host` / `--port` or set `FDAI_CONSOLE_V4_HOST` and
+  `FDAI_CONSOLE_V4_PORT`.
+- **Live local PostgreSQL binding**: start Docker with `make dev-up` and export
+  `FDAI_DATABASE_URL` (or let `fdai-console-v4` automatically read a loopback `FDAI_DATABASE_URL`
+  from `.fdai/local-runtime.env`). Set `FDAI_CONSOLE_V4_ALLOW_DB_WRITES=1` only when you
+  explicitly want local loopback write endpoints enabled.
+- **Operator API upstream proxy**: `fdai-console-v4` proxies operator routes to
+  `FDAI_OPERATOR_URL` (default `http://127.0.0.1:8010`).
 
-Set `FDAI_LOCAL_RESOURCE_GROUP=<existing-read-scope>` for every local Console stack. The preparation
-script verifies that group in the pinned local subscription and reads its region. A missing or
-invalid scope stops preparation; it never invents a resource group or silently selects the entire
-subscription.
+## Run Release Hub (`http://127.0.0.1:8022`)
 
-The Azure CLI default subscription is shared state that other terminals and projects can change, so
-the local stack does not follow it. The first preparation records the subscription of the current
-`az login` as `FDAI_LOCAL_SUBSCRIPTION_ID` in `console/.env.local`, and every later preparation reads
-that subscription explicitly. If the pinned subscription is not available to the login, preparation
-stops and asks for `az login` or a corrected value; edit the value only to move the stack on purpose.
+From the repository root, start the Pure-Rust Release Hub server with its pre-built UI:
 
-To reuse the same explicit scope from VS Code tasks, add the setting to the gitignored
-`console/.env.local` file described below:
-
-```dotenv
-FDAI_LOCAL_RESOURCE_GROUP=<existing-read-scope>
+```bash
+make release-hub-up
 ```
 
-An explicitly exported process environment takes precedence over values in the file. Keep the
-selected resource group local to the workstation and never commit it. After one successful run,
-preparation may reuse the same scope from the owner-only generated local runtime environment.
+Equivalent direct Cargo command:
 
-PostgreSQL, Redpanda, and ClamAV remain local. Preparation uses Azure CLI only for bounded reads in
-the selected scope. It binds a development operations gateway only when exactly one matching
-Function App resolves and the private `VITE_MSAL_API_SCOPE` supplies the validated Operator API
-audience. Zero candidates leave managed-resource execution unavailable, and multiple candidates
-stop preparation. The local Console receives no executor identity. Azure changes require a
-separately deployed Executor, durable per-ActionType
-promotion evidence, applicable human approval, dry-run, rollback, audit, and independent effect
-verification. Sign-in still uses an existing Entra registration or the explicit Azure CLI
-principal mode.
+```bash
+cargo run --locked -p fdai-release-hub -- \
+  --host 127.0.0.1 \
+  --port 8022 \
+  --static-dir lifecycle_rs/release-hub/ui/dist
+```
 
-### Create the Console environment
+Open `http://127.0.0.1:8022` in your browser, or verify readiness from another terminal:
 
-Create the gitignored `console/.env.local` with values from your Entra app registrations:
+```bash
+cargo run --locked -p fdai-release-hub -- --check
+curl -sS http://127.0.0.1:8022/healthz
+curl -sS http://127.0.0.1:8022/auth/config
+```
+
+### Release Hub options and UI development
+
+- **Local profile and state**: when Entra environment variables are unset, Release Hub starts in
+  loopback `local-development` mode (`{"profile":"local-development"}`) and persists state to
+  `.fdai/release-hub-state.json` by default. Override the file path with
+  `FDAI_RELEASE_HUB_STATE_PATH` and the port with `FDAI_RELEASE_HUB_PORT` or `--port`.
+- **Rebuilding the Release Hub UI after frontend edits**:
+
+  ```bash
+  npm --prefix lifecycle_rs/release-hub/ui ci
+  npm --prefix lifecycle_rs/release-hub/ui run build
+  ```
+
+- **Live-reload UI dev server**: Vite in `lifecycle_rs/release-hub/ui/vite.config.ts` serves on
+  `http://127.0.0.1:5291` and proxies `/v1`, `/healthz`, and `/auth` to `http://127.0.0.1:8091`.
+  To use Vite HMR, run Release Hub on port `8091` in one terminal and Vite in another:
+
+  ```bash
+  cargo run --locked -p fdai-release-hub -- --host 127.0.0.1 --port 8091
+  npm --prefix lifecycle_rs/release-hub/ui run dev
+  ```
+
+- **Lifecycle Hub**: run `make lifecycle-hub-up` to launch `fdai-hub` on `http://127.0.0.1:8021`.
+  See [lifecycle_rs/release-hub/README.md](../../lifecycle_rs/release-hub/README.md) and
+  [Hub lifecycle operator guide](../runbooks/hub-lifecycle-operator-guide.md) for catalog trust
+  and operator boundaries.
+
+## Run all 9 Pure-Rust services together
+
+To start Console Web, Release Hub, Lifecycle Hub, and all six core Pure-Rust Axum services with
+one command, run:
+
+```bash
+make rust-fullstack-up
+```
+
+This runs [`deploy_rs/start-fullstack-rust.sh`](../../deploy_rs/start-fullstack-rust.sh), builds
+all nine binaries, starts them in the background, verifies every health endpoint, and writes logs
+to `.fdai/logs/<service>.log` and PIDs to `.fdai/rust-fullstack.pids`. Stop the stack with:
+
+```bash
+make rust-fullstack-down
+```
+
+| Service | Default address | Health / metadata endpoint |
+|---------|-----------------|----------------------------|
+| Console Web (`fdai-console-v4`) | `http://127.0.0.1:5290` | `http://127.0.0.1:5290/api/v4/meta` |
+| Release Hub (`fdai-release-hub`) | `http://127.0.0.1:8022` | `http://127.0.0.1:8022/healthz` |
+| Lifecycle Hub (`fdai-hub`) | `http://127.0.0.1:8021` | `http://127.0.0.1:8021/healthz` |
+| Operator API (`fdai-operator-service`) | `http://127.0.0.1:8010` | `http://127.0.0.1:8010/healthz` |
+| Document Ingestion API | `http://127.0.0.1:8011` | `http://127.0.0.1:8011/healthz` |
+| Document Processing Worker | `http://127.0.0.1:8012` | `http://127.0.0.1:8012/healthz` |
+| Isolated Executor | `http://127.0.0.1:8013` | `http://127.0.0.1:8013/healthz` |
+| Core Control Plane | `http://127.0.0.1:8014` | `http://127.0.0.1:8014/healthz` |
+| System Knowledge Service | `http://127.0.0.1:8016` | `http://127.0.0.1:8016/healthz` |
+
+In VS Code, you can also open **Tasks: Run Task** and choose `console-v4: serve (5290)`,
+`release-hub: serve (8022)`, `lifecycle-hub: serve (8021)`, `fullstack: start Pure-Rust stack`,
+or `fullstack: stop Pure-Rust stack`.
+
+## Start and inspect the optional Docker data stack
+
+Start PostgreSQL, Redpanda, and ClamAV when you want live local database tables or integration
+tests:
+
+```bash
+make dev-up
+docker compose -f infra/local/docker-compose.yml ps
+```
+
+The first `make dev-up` copies `infra/local/.env.example` to the git-ignored `infra/local/.env`
+(using the local-only `devonly` password) and waits for every container health check.
+
+| Container | Image | Loopback port | Persistent volume |
+|-----------|-------|---------------|-------------------|
+| Runtime PostgreSQL | `pgvector/pgvector:pg16` | `5432` | `fdai-pgdata` |
+| Validation PostgreSQL | `pgvector/pgvector:pg16` | `5433` | `fdai-validation-pgdata` |
+| Redpanda | `redpandadata/redpanda:v26.2.2` (digest pinned) | Kafka `19092`, admin `9644` | `fdai-redpandadata` |
+| ClamAV | `clamav/clamav:stable` | `3310` | `fdai-clamavdata` |
+
+All published container ports bind to `127.0.0.1`. Host Kafka clients use `127.0.0.1:19092`, while
+containers on the `fdai-local` Docker network use `redpanda:29092`.
+
+### Stop or reset Docker data
+
+| Command | Effect |
+|---------|--------|
+| `make dev-down` | Stops the Docker containers and preserves all four named volumes. |
+| `make dev-up` | Restarts the containers with their existing data. |
+| `make dev-nuke` | Stops the containers and permanently removes all four Docker volumes. |
+
+## Optional: Azure, Entra, and legacy SPA setup
+
+When you want authenticated Browser Entra sign-in or Azure-backed readers against a real Azure
+subscription, configure `az login --use-device-code` and create the git-ignored `console/.env.local`
+with values from the [Entra app registration runbook](../runbooks/entra-app-registration.md):
 
 ```dotenv
 VITE_MSAL_CLIENT_ID=<spa-app-client-id>
@@ -187,161 +235,57 @@ VITE_OPERATOR_API_BASE_URL=http://127.0.0.1:8010
 VITE_INGESTION_API_BASE_URL=http://127.0.0.1:8011
 ```
 
-The tenant must match the default Azure CLI profile. Follow the
-[Entra app registration runbook](../runbooks/entra-app-registration.md) when the API audience,
-SPA registration, delegated scope, App Roles, or local redirect URIs do not exist yet. Never commit
-the populated file. Complete-stack preparation safely adds the two loopback SPA redirect URIs and
-stops before service startup if the signed-in identity cannot update that app registration.
+If `deploy_rs/start-fullstack-rust.sh` finds `.fdai/local-operator-service.env` or
+`console/.env.local`, it automatically loads the matching Entra tenant and audience settings for
+the local Operator API. To develop the legacy Preact SPA (`console/`, port `5273`), install
+dependencies with `npm --prefix console ci --no-audit --no-fund` and run
+`npm --prefix console run dev`.
 
-The preparation task creates `.fdai/local-runtime.env` and the service-specific
-`.fdai/local-*.env` files. Treat these as generated private files and don't edit or copy them into
-a deployment.
+## Troubleshoot startup
 
-### Understand the Docker environment
+### `cargo` not found or offline cache error
 
-The first `make dev-up` copies `infra/local/.env.example` to the gitignored `infra/local/.env`.
-The canonical stack uses the committed local-only `devonly` PostgreSQL password because its local
-DSNs use the same value. Don't reuse this value outside the loopback development stack.
-
-A root `resolved-models.json` is optional. Without it, startup reports that local LLM calls and
-metering are unavailable while deterministic paths continue to run. A
-`resolved-models-local.json` file is not selected automatically by the full-stack task.
-
-## Start and inspect Docker
-
-You can start the dependencies first to verify Docker independently:
-
-```bash
-make dev-up
-docker compose -f infra/local/docker-compose.yml ps
-```
-
-The complete-stack preparation task also runs `make dev-up`, so this separate step is optional.
-Startup waits for every container health check and reconciles the Redpanda community configuration
-and two-partition local topic default.
-
-| Container | Image | Loopback port | Persistent volume |
-|-----------|-------|---------------|-------------------|
-| Runtime PostgreSQL | `pgvector/pgvector:pg16` | `5432` | `fdai-pgdata` |
-| Validation PostgreSQL | `pgvector/pgvector:pg16` | `5433` | `fdai-validation-pgdata` |
-| Redpanda | `redpandadata/redpanda:v26.2.2` (digest pinned) | Kafka `19092`, admin `9644` | `fdai-redpandadata` |
-| ClamAV | `clamav/clamav:stable` | `3310` | `fdai-clamavdata` |
-
-All published container ports bind to `127.0.0.1`. The Compose project also creates the named
-`fdai-local` network; containers in another Compose project must explicitly join that network.
-Host Kafka clients use `127.0.0.1:19092`, while containers on `fdai-local` use
-`redpanda:29092`.
-
-## Start the complete stack
-
-For normal development, run `Tasks: Run Task` -> `console: start full stack` in VS Code. The task
-prepares dependencies, starts or reuses Docker, migrates both databases, creates service-owned
-roles, materializes local projections and catalogs, generates private service environments, and
-starts every service. It runs only from the primary Git checkout.
-
-Use `Run and Debug` -> `Console Web: Full Stack` when the service processes should be owned by the
-debugger. Both paths use the same preparation script. The first run can take longer because it
-pulls images and installs dependencies; later runs reuse stages whose inputs and outputs have not
-changed.
-
-If preparation succeeds but the service supervisor doesn't start, run `Tasks: Run Task` ->
-`console: start local services`. This visible background task reuses the prepared environments and
-starts the complete service set without repeating preparation. Then run
-`console: wait full stack ready`; a complete start reports `ready: 10/10` and `unavailable: none`.
-
-| Surface | Address or readiness signal |
-|---------|-----------------------------|
-| Console | `http://localhost:5273` |
-| Manual Studio | `http://127.0.0.1:5474` |
-| Operator API | `http://127.0.0.1:8010/healthz` |
-| Document Ingestion API | `http://127.0.0.1:8011` |
-| Document Processing Worker | Health listener on `127.0.0.1:8012` |
-| Isolated Executor | Health listener on `127.0.0.1:8013` |
-| Core Runtime | Ready after a fresh Pantheon heartbeat |
-
-Preparation registers both `http://localhost:5273` and `http://127.0.0.1:5273` as local SPA
-redirects. Use `http://localhost:5273` as the standard browser origin so authentication and
-session state do not split across hostnames.
-
-In a remote WSL workspace, the VS Code integrated browser can rewrite `localhost` to
-`127.0.0.1` while forwarding the remote port. This is browser forwarding behavior, not a change
-to the Console server or Entra configuration. Open `http://localhost:5273` in a regular host
-Chrome or Edge window when you need the canonical authentication and session origin.
-
-Use the `console: wait full stack ready` task only as a bounded diagnostic after a successful
-start. Service logs are under `.fdai/logs/`.
-
-## Stop or reset local data
-
-Stop the VS Code task or debug compound before stopping its Docker dependencies.
-
-| Command | Effect |
-|---------|--------|
-| `make dev-down` | Stops Docker containers and preserves all four named volumes. |
-| `make dev-up` | Restarts the containers with their existing data. |
-| `make dev-nuke` | Stops the containers and permanently removes all four Docker volumes. |
-
-After `make dev-nuke`, the next complete-stack preparation recreates the databases and reruns
-migrations. The command does not delete `.fdai/document-store`, generated environments, or service
-logs.
-
-## Troubleshoot Docker and startup
-
-### Docker is missing or unavailable
-
-Run the three verification commands from the same Linux or WSL shell that runs VS Code tasks. If
-`docker info` reports permission denied or cannot reach the daemon, fix daemon access for that user
-instead of running the FDAI stack with `sudo`. After adding the user to the `docker` group, reopen
-the WSL window or restart VS Code before running tasks so the extension host receives the new group
-membership.
-
-### A container is unhealthy
-
-Inspect status and bounded logs without deleting data:
-
-```bash
-docker compose -f infra/local/docker-compose.yml ps
-docker compose -f infra/local/docker-compose.yml logs --tail=100 \
-  postgres postgres-validation redpanda clamav
-```
-
-ClamAV may need extra time on its first start while its signatures initialize. Use
-`make dev-nuke` only when discarding all local database, event, and scanner state is intentional.
+- Install the Rust stable toolchain via `rustup` and add `$HOME/.cargo/bin` to your `PATH`.
+- On a fresh clone, use the default `--locked` build (`make console-v4-up`, `make release-hub-up`,
+  or `make rust-fullstack-up`). Avoid passing `--offline` until Cargo has downloaded the workspace
+  crates once.
 
 ### A required port is already in use
 
-The Docker ports are `5432`, `5433`, `19092`, `9644`, and `3310`. Stop the process or Compose
-project that owns the conflicting loopback port; don't change FDAI ports independently because the
-generated local service environments use these fixed values.
+- Default Pure-Rust service ports are `5290` (Console Web), `8022` (Release Hub), `8021`
+  (Lifecycle Hub), and `8010`-`8016` (Core and Operator services).
+- Stop a previous full-stack run with `make rust-fullstack-down`, or override ports with
+  `FDAI_CONSOLE_PORT`, `FDAI_RELEASE_HUB_PORT`, `FDAI_LIFECYCLE_HUB_PORT`, or `--port`.
+- Docker ports are fixed at `5432`, `5433`, `19092`, `9644`, and `3310`. Stop the conflicting
+  process rather than changing the Compose ports.
 
-### Console preparation stops before service startup
+### Docker is missing or a container is unhealthy
 
-- **Missing `console/.env.local`**: create the file from the Entra values above.
-- **Entra tenant mismatch**: compare `VITE_MSAL_TENANT_ID` with
-  `env -u AZURE_CONFIG_DIR az account show --query tenantId -o tsv`.
-- **Terraform output failure**: initialize the intended `infra/` backend and verify its deployment
-  state. Don't substitute an Azure PostgreSQL DSN or copy a state file.
-- **Linked-worktree rejection**: use the primary checkout or stop the primary stack first.
-- **Tesseract language failure**: confirm both `eng` and `kor` appear in `tesseract --list-langs`.
+- Run `docker version`, `docker compose version`, and `docker info` from the same shell without
+  `sudo`. After adding your user to the `docker` group, reopen your WSL window or restart VS Code.
+- Inspect container logs without deleting data:
 
-An unavailable Azure-backed panel is not automatically a Docker failure. Check the local service
-health first, then verify that the selected Azure source and capability are actually deployed and
-readable.
+  ```bash
+  docker compose -f infra/local/docker-compose.yml ps
+  docker compose -f infra/local/docker-compose.yml logs --tail=100 \
+    postgres postgres-validation redpanda clamav
+  ```
 
 ## Keep local and deployed state separate
 
-The local services use loopback PostgreSQL and Redpanda even when Azure readers are enabled. Never
-copy an Azure PostgreSQL DSN into a generated local environment, copy a local DSN into deployment
-configuration, or present local records as deployed evidence. The local isolated Executor remains
-a shadow consumer without a managed-resource identity.
+Local services use loopback PostgreSQL (`127.0.0.1:5432`) and local state files under `.fdai/`
+even when Azure readers are enabled. Never copy an Azure PostgreSQL DSN into a local environment
+file, copy a local DSN into deployment configuration, or present local records as deployed
+evidence.
 
 ## Next steps
 
 | To learn about | Read |
 |----------------|------|
-| Detailed local checklist | [Local development setup](../../DEVELOPING.md) |
-| Console authentication and service behavior | [Console local development](../../console/README.md#local-development) |
+| Detailed local checklist and verification commands | [Local development setup](../../DEVELOPING.md) |
+| Release Hub local startup, routes, and UI | [Release Hub README](../../lifecycle_rs/release-hub/README.md) |
+| Console SPA architecture and local auth behavior | [Console README](../../console/README.md) |
 | Entra registrations and App Roles | [Entra app registration](../runbooks/entra-app-registration.md) |
-| Optional private-endpoint access | [Isolated development access](../../tools/dev-access/README.md) |
+| Optional private-endpoint VPN access | [Isolated development access](../../tools/dev-access/README.md) |
 | Azure subscription deployment | [Deploy quickstart](deploy-quickstart.md) |
 | Contribution and verification workflow | [Contributing](../../CONTRIBUTING.md) |

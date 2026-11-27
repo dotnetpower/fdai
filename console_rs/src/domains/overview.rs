@@ -2302,6 +2302,39 @@ mod tests {
                 href.contains("?item="),
                 "scatter_point href must include ?item= deep link, got {href}"
             );
+            let sev_band = pt
+                .get("severity_band")
+                .and_then(Value::as_i64)
+                .ok_or_else(|| format!("missing severity_band in scatter point: {pt}"))?;
+            assert!(
+                (0..=4).contains(&sev_band),
+                "severity_band must be within 0..=4, got {sev_band}"
+            );
+            if pt.get("action_kind").and_then(Value::as_str) == Some("hil.requested") {
+                if pt.get("severity").and_then(Value::as_str) == Some("low") {
+                    assert_eq!(
+                        sev_band, 1,
+                        "low-severity hil.requested must map to severity_band 1 (low), got {pt}"
+                    );
+                    if let Some(score) = pt.get("risk_score").and_then(Value::as_i64) {
+                        assert!(
+                            score < 80,
+                            "low-severity hil.requested must never receive a fabricated high risk_score >= 80, got {score}"
+                        );
+                    }
+                }
+                let rule_id = pt.get("rule_id").and_then(Value::as_str).unwrap_or("");
+                let action_type = pt.get("action_type").and_then(Value::as_str).unwrap_or("");
+                assert!(
+                    !rule_id.is_empty() && !action_type.is_empty(),
+                    "hil.requested scatter point must carry joined rule_id and action_type metadata: {pt}"
+                );
+                let target_val = pt.get("target").and_then(Value::as_str).unwrap_or("");
+                assert_ne!(
+                    target_val, "fdai.core.hil_resume",
+                    "hil.requested must never collapse target to actor name fdai.core.hil_resume"
+                );
+            }
         }
         assert_eq!(
             dash.pointer("/data/forecast/measurement_status")
@@ -2426,5 +2459,38 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn overview_repo_hil_low_severity_never_fabricates_high_risk_and_extracts_resource() {
+        // Low-severity HIL tag remediation must stay in band 1 (low), never synthetic high/critical
+        assert_eq!(overview_repo::classify_audit_series("hil.requested"), "human");
+        assert_eq!(
+            overview_repo::normalize_event_severity("low", "hil.requested"),
+            ("low", 1)
+        );
+        assert_eq!(
+            overview_repo::normalize_event_severity("", "hil.requested"),
+            ("low", 1)
+        );
+        assert_eq!(
+            overview_repo::normalize_event_severity("critical", "hil.requested"),
+            ("critical", 4)
+        );
+        assert_eq!(
+            overview_repo::normalize_event_severity("", "measurement.control_loop.v1"),
+            ("info", 0)
+        );
+
+        let idem = "inventory-delta:b2b49845::compute.vm.environment-tag.required::scope-ddcc51/resource-group/rg-ci/providers/microsoft.compute/virtualmachines/fdai-ci-worker-01:hil_request";
+        let extracted = overview_repo::extract_resource_from_idempotency_key(idem);
+        assert_eq!(
+            extracted,
+            "scope-ddcc51/resource-group/rg-ci/providers/microsoft.compute/virtualmachines/fdai-ci-worker-01"
+        );
+        assert_eq!(
+            overview_repo::infer_resource_type_from_ref(&extracted, "compute.vm.environment-tag.required"),
+            "compute.vm"
+        );
     }
 }

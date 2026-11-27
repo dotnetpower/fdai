@@ -1,5 +1,6 @@
-//! Typed, schema-grounded PostgreSQL repository modules for all 8 Console v4 domains.
+//! Typed, schema-grounded PostgreSQL repository modules for all Console v4 domains.
 
+pub mod advisor;
 pub mod agents;
 pub mod chat;
 pub mod evidence;

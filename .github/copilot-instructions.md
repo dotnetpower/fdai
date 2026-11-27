@@ -147,6 +147,11 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
 
 ## Local Development Efficiency (MUST)
 
+- For Pure-Rust local launches right after cloning, prefer `make console-v4-up`
+  (`http://127.0.0.1:5290`), `make release-hub-up` (`http://127.0.0.1:8022`),
+  `make lifecycle-hub-up` (`http://127.0.0.1:8021`), or `make rust-fullstack-up` (all 9 Pure-Rust
+  Axum services via `deploy_rs/start-fullstack-rust.sh`); see
+  [Local Development Quickstart](../docs/user-guide/local-development-quickstart.md).
 - Use loopback Docker PostgreSQL, service-owned local DSNs, the active local environment, and local
   records first. Never use a remote database to explain locally reproduced state.
 - Azure PostgreSQL access is deployment work and runs only through the protected workflow or an

@@ -6,6 +6,8 @@
 use crate::db::{cell_i64, cell_str, clamp_limit, quote_like_contains, DbHandle};
 use fdai_adapter_postgres::pg_quote_literal;
 use serde_json::{json, Value};
+use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone, Default)]
 pub struct ResourceFilter<'a> {
@@ -83,27 +85,139 @@ fn dashboard_window_default_axis(window: &str) -> [&'static str; 4] {
     }
 }
 
-fn classify_audit_series(action_kind: &str, seq: i64) -> (&'static str, i64) {
+pub fn classify_audit_series(action_kind: &str) -> &'static str {
     let k = action_kind.trim().to_ascii_lowercase();
-    let jitter = (seq.unsigned_abs() % 9) as i64 - 4;
     if k.starts_with("hil.") {
-        ("human", (86 + jitter).clamp(80, 95))
+        "human"
     } else if k.contains("escape")
         || k.contains("policy_violation")
         || k.contains("security")
         || k == "risk_gate.unified"
         || k == "mimir.rule-source.observed"
     {
-        ("sec", (72 + jitter).clamp(65, 80))
+        "sec"
     } else if k == "rca.hypothesis"
         || k == "control_loop.abstain"
         || k == "control_loop.t1_evaluate"
         || k.starts_with("observation-campaign.")
     {
-        ("sre", (54 + jitter).clamp(44, 64))
+        "sre"
     } else {
-        ("auto", (22 + jitter).clamp(12, 34))
+        "auto"
     }
+}
+
+/// Maps explicit severity (from `hil_park`, `audit_log.entry`, or `operator_incident_projection`)
+/// or an honest action-kind baseline onto `(canonical_severity, y_band 0..=4)`.
+/// Never fabricates synthetic high numeric risk scores (e.g. 86..87) for low-severity events.
+pub fn normalize_event_severity(raw: &str, action_kind: &str) -> (&'static str, i64) {
+    let s = raw.trim().to_ascii_lowercase();
+    match s.as_str() {
+        "critical" | "sev1" | "p0" => return ("critical", 4),
+        "high" | "sev2" | "p1" => return ("high", 3),
+        "medium" | "moderate" | "sev3" | "p2" => return ("medium", 2),
+        "low" | "sev4" | "p3" => return ("low", 1),
+        "info" | "informational" | "none" => return ("info", 0),
+        _ => {}
+    }
+    let k = action_kind.trim().to_ascii_lowercase();
+    if k.contains("escape") || k.contains("policy_violation") {
+        ("critical", 4)
+    } else if k.contains("security") {
+        ("high", 3)
+    } else if k == "hil.timeout" || k == "risk_gate.unified" || k == "rca.hypothesis" {
+        ("medium", 2)
+    } else if k.starts_with("hil.")
+        || k == "control_loop.abstain"
+        || k == "control_loop.t1_evaluate"
+        || k.starts_with("observation-campaign.")
+    {
+        ("low", 1)
+    } else {
+        ("info", 0)
+    }
+}
+
+/// Extracts the target resource reference from canonical FDAI idempotency keys of the form
+/// `inventory-delta:<hash>::<rule_id>::<resource_ref>[:hil_request]`.
+pub fn extract_resource_from_idempotency_key(idem: &str) -> String {
+    let mut parts = idem.split("::");
+    let _prefix = parts.next();
+    let _rule = parts.next();
+    let Some(raw_ref) = parts.next() else {
+        return String::new();
+    };
+    let trimmed = raw_ref
+        .strip_suffix(":hil_request")
+        .or_else(|| raw_ref.strip_suffix(":hil_timeout"))
+        .or_else(|| raw_ref.strip_suffix(":execute"))
+        .unwrap_or(raw_ref)
+        .trim();
+    trimmed.to_string()
+}
+
+/// Infers canonical `resource_type` from a resource ARM/scope path or rule ID prefix when absent.
+pub fn infer_resource_type_from_ref(resource_ref: &str, rule_id: &str) -> String {
+    let r = resource_ref.trim().to_ascii_lowercase();
+    if r.contains("/virtualmachinescalesets/") {
+        return "compute.vm-scale-set".to_string();
+    }
+    if r.contains("/virtualmachines/") {
+        return "compute.vm".to_string();
+    }
+    if r.contains("/managedclusters/") {
+        return "kubernetes-cluster".to_string();
+    }
+    if r.contains("/networksecuritygroups/") {
+        return "network.nsg".to_string();
+    }
+    if r.contains("/networkinterfaces/") {
+        return "network.interface".to_string();
+    }
+    if r.contains("/loadbalancers/") {
+        return "network.load-balancer".to_string();
+    }
+    if r.contains("/vaults/") {
+        return "secret-store".to_string();
+    }
+    if r.contains("/storageaccounts/") {
+        return "object-storage".to_string();
+    }
+    if r.contains("/flexibleservers/") {
+        return "postgresql-server".to_string();
+    }
+    if r.contains("/disks/") {
+        return "disk".to_string();
+    }
+    if r.contains("/containerapps/") {
+        return "compute.container-app".to_string();
+    }
+    if r.contains("/jobs/") {
+        return "compute.container-app-job".to_string();
+    }
+    let rl = rule_id.trim().to_ascii_lowercase();
+    if rl.starts_with("compute.vm-scale-set.") {
+        return "compute.vm-scale-set".to_string();
+    }
+    if rl.starts_with("compute.vm.") {
+        return "compute.vm".to_string();
+    }
+    if rl.starts_with("compute.container-app-job.") {
+        return "compute.container-app-job".to_string();
+    }
+    if rl.starts_with("compute.container-app.") {
+        return "compute.container-app".to_string();
+    }
+    if rl.starts_with("disk.") {
+        return "disk".to_string();
+    }
+    if rl.starts_with("network.nsg.") {
+        return "network.nsg".to_string();
+    }
+    if rl.starts_with("security.key-vault.") {
+        return "secret-store".to_string();
+    }
+    String::new()
 }
 
 fn short_utc_axis_label(iso: &str, same_day: bool) -> String {
@@ -870,28 +984,48 @@ pub async fn fetch_dashboard(db: &DbHandle, subscription: &str, window: &str) ->
          count(*) FILTER (WHERE action_kind IN ('control_loop.compliant', 'audit.record', 'runtime.operational-state-recorded', 'measurement.control_loop.v1')), \
          count(*) FILTER (WHERE action_kind IN ('rca.hypothesis', 'control_loop.abstain', 'observation-campaign.source-transition', 'control_loop.t1_evaluate')), \
          count(*) FILTER (WHERE action_kind IN ('risk_gate.unified', 'mimir.rule-source.observed') OR action_kind ILIKE '%escape%' OR action_kind ILIKE '%policy_violation%' OR action_kind ILIKE '%security%'), \
-         count(*) FILTER (WHERE action_kind LIKE 'hil.%') \
+         count(*) FILTER (WHERE action_kind LIKE 'hil.%'), \
+         max(to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')) \
          FROM win_rows, span GROUP BY 1 ORDER BY 1 DESC LIMIT 6"
     );
     let scatter_sql = format!(
         "WITH anchor AS (SELECT COALESCE(max(created_at), NOW()) AS ts FROM audit_log) \
          SELECT a.seq, COALESCE(a.actor, 'fdai'), COALESCE(a.action_kind, 'audit.record'), \
          COALESCE(a.mode, 'shadow'), \
-         COALESCE(a.entry->>'resource_type', a.entry->>'target', a.entry->>'resource_id', ''), \
-         COALESCE(a.entry->>'tier', ''), \
+         COALESCE(a.entry->'payload'->>'resource_id', a.entry->>'resource_id', a.entry->>'target', ''), \
+         COALESCE(a.entry->>'tier', a.entry->>'rca_tier', ''), \
          EXTRACT(EPOCH FROM a.created_at)::double precision, \
          to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), \
          EXTRACT(EPOCH FROM anchor.ts)::double precision, \
-         COALESCE(a.entry->>'approval_id', a.entry->>'request_id', '') \
+         COALESCE(a.entry->>'approval_id', a.entry->>'request_id', ''), \
+         COALESCE(a.correlation_id, ''), \
+         COALESCE(a.entry->>'rule_id', ''), \
+         COALESCE(a.entry->>'action_type', ''), \
+         COALESCE(a.entry->>'severity', ''), \
+         COALESCE(a.entry->>'rca_cause', a.entry->>'reason', a.entry->>'t1_reason', ''), \
+         COALESCE(a.entry->>'decision', a.entry->>'outcome', ''), \
+         COALESCE(a.entry->>'idempotency_key', ''), \
+         COALESCE(a.entry->>'resource_type', ''), \
+         CASE WHEN COALESCE(a.entry->>'risk_score', '') ~ '^[0-9]+$' THEN (a.entry->>'risk_score')::bigint ELSE NULL END \
          FROM audit_log a, anchor \
          WHERE a.created_at >= anchor.ts - CAST({q_win_iv} AS interval) \
-         ORDER BY a.seq DESC LIMIT 40"
+         ORDER BY a.seq DESC LIMIT 80"
     );
     let journal_sql = "SELECT watermark, COALESCE(subject_ref, ''), \
          COALESCE(mutation_kind, 'observed'), COALESCE(source_identity, 'inventory'), \
          EXTRACT(EPOCH FROM observed_at)::double precision, \
          to_char(observed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
-         FROM inventory_observation_journal ORDER BY watermark DESC LIMIT 8";
+         FROM inventory_observation_journal ORDER BY watermark DESC LIMIT 12";
+    let hil_park_sql = "SELECT COALESCE(value->>'approval_id', REPLACE(key, 'hil_park:', '')), \
+         COALESCE(value->>'correlation_id', ''), \
+         COALESCE(value->>'target_resource_ref', ''), \
+         COALESCE(value->>'rule_id', ''), \
+         COALESCE(value->>'action_type', ''), \
+         COALESCE(value->>'severity', ''), \
+         COALESCE(value->>'status', ''), \
+         COALESCE(value->'approval_context'->>'expires_at', value->>'expires_at', ''), \
+         COALESCE(value->>'idempotency_key', '') \
+         FROM state_kv WHERE key LIKE 'hil_park:%' ORDER BY updated_at DESC LIMIT 120";
 
     let (
         audit_res,
@@ -910,6 +1044,7 @@ pub async fn fetch_dashboard(db: &DbHandle, subscription: &str, window: &str) ->
         links_res,
         scatter_res,
         journal_res,
+        hil_park_res,
     ) = tokio::join!(
         db.query_single_readonly(
             "SELECT count(*), \
@@ -996,6 +1131,7 @@ pub async fn fetch_dashboard(db: &DbHandle, subscription: &str, window: &str) ->
         db.query_single_readonly("SELECT count(*) FROM ontology_link"),
         db.query_single_readonly(&scatter_sql),
         db.query_single_readonly(journal_sql),
+        db.query_single_readonly(hil_park_sql),
     );
 
     let (Ok(a), Ok(r)) = (audit_res, res_stats) else {
@@ -1067,6 +1203,7 @@ pub async fn fetch_dashboard(db: &DbHandle, subscription: &str, window: &str) ->
     let mut total_incidents = 0_i64;
     let mut active_incidents = 0_i64;
     let mut recent_observations: Vec<Value> = Vec::new();
+    let mut inc_by_corr: HashMap<String, (String, String, String)> = HashMap::new();
     let mut resilience_inc = 0_i64;
     let mut change_safety_inc = 0_i64;
     let mut cost_inc = 0_i64;
@@ -1080,6 +1217,9 @@ pub async fn fetch_dashboard(db: &DbHandle, subscription: &str, window: &str) ->
             let sev = cell_str(row, 3);
             let hist_cnt = cell_i64(row, 4).unwrap_or(0);
             let opened = cell_str(row, 5);
+            if !cid.is_empty() {
+                inc_by_corr.insert(cid.clone(), (sev.clone(), st.clone(), vert.clone()));
+            }
             let is_open = !matches!(st.to_ascii_lowercase().as_str(), "resolved" | "closed");
             if is_open {
                 active_incidents += 1;
@@ -1188,8 +1328,10 @@ pub async fn fetch_dashboard(db: &DbHandle, subscription: &str, window: &str) ->
     let mut time_buckets: Vec<Value> = Vec::new();
     if let Ok(bres) = buckets_res {
         for row in bres.rows.iter().rev() {
+            let bkt_at = cell_str(row, 6);
             time_buckets.push(json!({
                 "label": cell_str(row, 0),
+                "bucket_at": if bkt_at.is_empty() { Value::Null } else { json!(bkt_at) },
                 "total": cell_i64(row, 1).unwrap_or(0),
                 "auto": cell_i64(row, 2).unwrap_or(0),
                 "sre": cell_i64(row, 3).unwrap_or(0),
@@ -1199,17 +1341,75 @@ pub async fn fetch_dashboard(db: &DbHandle, subscription: &str, window: &str) ->
         }
     }
 
+    #[derive(Clone)]
+    struct HilParkRow {
+        approval_id: String,
+        target_resource_ref: String,
+        rule_id: String,
+        action_type: String,
+        severity: String,
+        status: String,
+        expires_at: String,
+    }
+
+    let mut hil_by_corr: HashMap<String, HilParkRow> = HashMap::new();
+    let mut hil_by_id: HashMap<String, HilParkRow> = HashMap::new();
+    let mut hil_by_idem: HashMap<String, HilParkRow> = HashMap::new();
+    if let Ok(hres) = hil_park_res {
+        for row in &hres.rows {
+            let approval_id = cell_str(row, 0);
+            let corr_id = cell_str(row, 1);
+            let target_ref = cell_str(row, 2);
+            let rule_id = cell_str(row, 3);
+            let action_type = cell_str(row, 4);
+            let severity = cell_str(row, 5);
+            let status = cell_str(row, 6);
+            let expires_at = cell_str(row, 7);
+            let idem_key = cell_str(row, 8);
+            let entry = HilParkRow {
+                approval_id: approval_id.clone(),
+                target_resource_ref: target_ref,
+                rule_id,
+                action_type,
+                severity,
+                status,
+                expires_at,
+            };
+            if !corr_id.is_empty() {
+                hil_by_corr.entry(corr_id).or_insert_with(|| entry.clone());
+            }
+            if !approval_id.is_empty() {
+                hil_by_id.entry(approval_id).or_insert_with(|| entry.clone());
+            }
+            if !idem_key.is_empty() {
+                hil_by_idem.entry(idem_key).or_insert(entry);
+            }
+        }
+    }
+
     struct RawScatterPoint {
         id: String,
         seq: Option<i64>,
         source_table: &'static str,
         series: &'static str,
-        risk_score: i64,
+        risk_score: Option<i64>,
+        severity: &'static str,
+        severity_band: i64,
         epoch: f64,
         recorded_at: String,
         actor: String,
         action_kind: String,
         target: String,
+        resource_name: String,
+        resource_ref: String,
+        resource_type: String,
+        rule_id: String,
+        action_type: String,
+        approval_id: Option<String>,
+        approval_status: Option<String>,
+        expires_at: Option<String>,
+        correlation_id: String,
+        reason: String,
         mode: String,
         tier: String,
         deep_link_panel: &'static str,
@@ -1234,18 +1434,143 @@ pub async fn fetch_dashboard(db: &DbHandle, subscription: &str, window: &str) ->
             if anchor_epoch.is_none() {
                 anchor_epoch = cell_f64(row, 8);
             }
-            let approval_id = cell_str(row, 9);
-            let (series, risk_score) = classify_audit_series(&action_kind, seq);
-            let short_target = if target_raw.is_empty() {
-                actor.clone()
+            let entry_approval_id = cell_str(row, 9);
+            let corr_id = cell_str(row, 10);
+            let entry_rule_id = cell_str(row, 11);
+            let entry_action_type = cell_str(row, 12);
+            let entry_severity = cell_str(row, 13);
+            let entry_reason = cell_str(row, 14);
+            let entry_decision = cell_str(row, 15);
+            let idem_key = cell_str(row, 16);
+            let entry_res_type = cell_str(row, 17);
+            let measured_risk_score = cell_i64(row, 18);
+
+            let idem_base = idem_key
+                .strip_suffix(":hil_request")
+                .or_else(|| idem_key.strip_suffix(":hil_timeout"))
+                .unwrap_or(&idem_key);
+            let hil_match = if !corr_id.is_empty() {
+                hil_by_corr.get(&corr_id)
             } else {
-                target_raw.rsplit('/').next().unwrap_or(&target_raw).to_string()
+                None
+            }
+            .or_else(|| {
+                if !entry_approval_id.is_empty() {
+                    hil_by_id.get(&entry_approval_id)
+                } else {
+                    None
+                }
+            })
+            .or_else(|| {
+                if !idem_base.is_empty() {
+                    hil_by_idem.get(idem_base)
+                } else {
+                    None
+                }
+            });
+            let inc_match = if !corr_id.is_empty() {
+                inc_by_corr.get(&corr_id)
+            } else {
+                None
+            };
+
+            let series = classify_audit_series(&action_kind);
+            let rule_id = hil_match
+                .filter(|h| !h.rule_id.is_empty())
+                .map(|h| h.rule_id.clone())
+                .unwrap_or(entry_rule_id);
+            let action_type = hil_match
+                .filter(|h| !h.action_type.is_empty())
+                .map(|h| h.action_type.clone())
+                .unwrap_or(entry_action_type);
+            let raw_severity = hil_match
+                .filter(|h| !h.severity.is_empty())
+                .map(|h| h.severity.as_str())
+                .filter(|s| !s.is_empty())
+                .or_else(|| {
+                    if !entry_severity.is_empty() {
+                        Some(entry_severity.as_str())
+                    } else {
+                        inc_match.map(|(s, _, _)| s.as_str())
+                    }
+                })
+                .unwrap_or("");
+            let (severity, severity_band) = normalize_event_severity(raw_severity, &action_kind);
+
+            let idem_ref = extract_resource_from_idempotency_key(&idem_key);
+            let resource_ref = hil_match
+                .filter(|h| !h.target_resource_ref.is_empty())
+                .map(|h| h.target_resource_ref.clone())
+                .unwrap_or_else(|| {
+                    if !target_raw.is_empty() {
+                        target_raw.clone()
+                    } else if !idem_ref.is_empty() {
+                        idem_ref
+                    } else {
+                        String::new()
+                    }
+                });
+            let resource_name = if !resource_ref.is_empty() {
+                resource_ref
+                    .rsplit('/')
+                    .next()
+                    .unwrap_or(&resource_ref)
+                    .to_string()
+            } else {
+                String::new()
+            };
+            let resource_type = if !entry_res_type.is_empty() {
+                entry_res_type
+            } else {
+                infer_resource_type_from_ref(&resource_ref, &rule_id)
+            };
+
+            let approval_id = hil_match
+                .filter(|h| !h.approval_id.is_empty())
+                .map(|h| h.approval_id.clone())
+                .or_else(|| {
+                    if !entry_approval_id.is_empty() {
+                        Some(entry_approval_id)
+                    } else {
+                        None
+                    }
+                });
+            let approval_status = if action_kind.eq_ignore_ascii_case("hil.timeout") {
+                Some("expired".to_string())
+            } else if let Some(h) = hil_match {
+                if !h.status.is_empty() {
+                    Some(h.status.clone())
+                } else {
+                    Some("pending".to_string())
+                }
+            } else if action_kind.starts_with("hil.") {
+                Some("pending".to_string())
+            } else {
+                None
+            };
+            let expires_at = hil_match
+                .filter(|h| !h.expires_at.is_empty())
+                .map(|h| h.expires_at.clone());
+            let reason = if !entry_reason.is_empty() {
+                entry_reason
+            } else {
+                entry_decision
+            };
+
+            let display_target = if !resource_name.is_empty() {
+                resource_name.clone()
+            } else if !resource_type.is_empty() {
+                resource_type.clone()
+            } else if !rule_id.is_empty() {
+                rule_id.clone()
+            } else {
+                String::new()
             };
             let audit_item_id = format!("audit:{seq}");
             let (deep_link_panel, deep_link_item, href) =
-                if series == "human" && !approval_id.is_empty() {
-                    let link = format!("/operations/hil-queue?item={}", encode_item_param(&approval_id));
-                    ("hil-queue", approval_id, link)
+                if let Some(ref aid) = approval_id {
+                    let link = format!("/operations/hil-queue?item={}", encode_item_param(aid));
+                    ("hil-queue", aid.clone(), link)
                 } else {
                     let link = format!("/evidence/audit?item={}", encode_item_param(&audit_item_id));
                     ("audit", audit_item_id.clone(), link)
@@ -1255,12 +1580,24 @@ pub async fn fetch_dashboard(db: &DbHandle, subscription: &str, window: &str) ->
                 seq: Some(seq),
                 source_table: "audit_log",
                 series,
-                risk_score,
+                risk_score: measured_risk_score,
+                severity,
+                severity_band,
                 epoch: ep,
                 recorded_at: rec_at,
                 actor,
                 action_kind,
-                target: short_target,
+                target: display_target,
+                resource_name,
+                resource_ref,
+                resource_type,
+                rule_id,
+                action_type,
+                approval_id,
+                approval_status,
+                expires_at,
+                correlation_id: corr_id,
+                reason,
                 mode,
                 tier,
                 deep_link_panel,
@@ -1290,7 +1627,7 @@ pub async fn fetch_dashboard(db: &DbHandle, subscription: &str, window: &str) ->
                 continue;
             }
             let short_subj = subj.rsplit('/').next().unwrap_or(&subj).to_string();
-            let risk_score = 16 + (wm.unsigned_abs() % 11) as i64;
+            let inferred_rt = infer_resource_type_from_ref(&subj, "");
             let dl_item = if subj.is_empty() {
                 format!("journal:{wm}")
             } else {
@@ -1302,16 +1639,24 @@ pub async fn fetch_dashboard(db: &DbHandle, subscription: &str, window: &str) ->
                 seq: None,
                 source_table: "inventory_observation_journal",
                 series: "auto",
-                risk_score,
+                risk_score: None,
+                severity: "info",
+                severity_band: 0,
                 epoch: ep,
                 recorded_at: obs_at,
                 actor: src_id,
                 action_kind: format!("inventory.{mkind}"),
-                target: if short_subj.is_empty() {
-                    "인벤토리 관측 대상".to_string()
-                } else {
-                    short_subj
-                },
+                target: short_subj.clone(),
+                resource_name: short_subj,
+                resource_ref: subj,
+                resource_type: inferred_rt,
+                rule_id: String::new(),
+                action_type: String::new(),
+                approval_id: None,
+                approval_status: None,
+                expires_at: None,
+                correlation_id: String::new(),
+                reason: String::new(),
                 mode: "shadow".to_string(),
                 tier: "T0".to_string(),
                 deep_link_panel: "ontology",
@@ -1349,14 +1694,14 @@ pub async fn fetch_dashboard(db: &DbHandle, subscription: &str, window: &str) ->
             short_utc_axis_label(&raw_scatter[0].recorded_at, same_day),
             short_utc_axis_label(&raw_scatter[i1].recorded_at, same_day),
             short_utc_axis_label(&raw_scatter[i2].recorded_at, same_day),
-            "NOW".to_string(),
+            short_utc_axis_label(&raw_scatter[n_pts - 1].recorded_at, same_day),
         ]
     } else if n_pts == 1 {
         vec![
             default_axis[0].to_string(),
             default_axis[1].to_string(),
             short_utc_axis_label(&raw_scatter[0].recorded_at, true),
-            "NOW".to_string(),
+            short_utc_axis_label(&raw_scatter[0].recorded_at, true),
         ]
     } else {
         default_axis.iter().map(|s| (*s).to_string()).collect()
@@ -1366,6 +1711,23 @@ pub async fn fetch_dashboard(db: &DbHandle, subscription: &str, window: &str) ->
         .first()
         .map(|p| p.recorded_at.clone())
         .unwrap_or_default();
+
+    let server_now_epoch_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0);
+    let server_now_sec = (server_now_epoch_ms as f64) / 1000.0;
+    let anchor_epoch_ms = anchor_epoch
+        .or_else(|| if n_pts > 0 { Some(max_ep) } else { None })
+        .map(|ep| (ep * 1000.0).round() as i64);
+    let earliest_epoch_ms = if n_pts > 0 {
+        Some((min_ep * 1000.0).round() as i64)
+    } else {
+        None
+    };
+    let has_recent_events = anchor_epoch
+        .or_else(|| if n_pts > 0 { Some(max_ep) } else { None })
+        .is_some_and(|a_ep| (server_now_sec - a_ep).abs() <= win_secs);
 
     let scatter_points: Vec<Value> = raw_scatter
         .into_iter()
@@ -1384,31 +1746,34 @@ pub async fn fetch_dashboard(db: &DbHandle, subscription: &str, window: &str) ->
             };
             let offset_rounded = (offset_ratio * 10000.0).round() / 10000.0;
             let time_label = short_utc_axis_label(&pt.recorded_at, true);
-            let series_ko = match pt.series {
-                "human" => "사람 확인 필요",
-                "sec" => "보안·위험 관문",
-                "sre" => "SRE 이상·보류",
-                _ => "자동·관측 기록",
-            };
-            let summary = format!(
-                "{} · {} · {} ({}) [{}]",
-                time_label, series_ko, pt.target, pt.action_kind, pt.mode
-            );
+            let recorded_epoch_ms = (pt.epoch * 1000.0).round() as i64;
             json!({
                 "id": pt.id,
                 "seq": pt.seq,
                 "source_table": pt.source_table,
                 "series": pt.series,
                 "risk_score": pt.risk_score,
+                "severity": pt.severity,
+                "severity_band": pt.severity_band,
                 "offset_ratio": offset_rounded,
                 "recorded_at": pt.recorded_at,
+                "recorded_epoch_ms": recorded_epoch_ms,
                 "time_label": time_label,
                 "actor": pt.actor,
                 "action_kind": pt.action_kind,
                 "target": pt.target,
+                "resource_name": pt.resource_name,
+                "resource_ref": pt.resource_ref,
+                "resource_type": pt.resource_type,
+                "rule_id": pt.rule_id,
+                "action_type": pt.action_type,
+                "approval_id": pt.approval_id,
+                "approval_status": pt.approval_status,
+                "expires_at": pt.expires_at,
+                "correlation_id": pt.correlation_id,
+                "reason": pt.reason,
                 "mode": pt.mode,
                 "tier": pt.tier,
-                "summary": summary,
                 "deep_link_panel": pt.deep_link_panel,
                 "deep_link_item": pt.deep_link_item,
                 "href": pt.href
@@ -1418,10 +1783,15 @@ pub async fn fetch_dashboard(db: &DbHandle, subscription: &str, window: &str) ->
 
     let timeline_meta = json!({
         "window": window,
+        "window_seconds": win_secs as i64,
+        "server_now_epoch_ms": server_now_epoch_ms,
         "anchor_at": if latest_at.is_empty() { Value::Null } else { json!(latest_at) },
+        "anchor_epoch_ms": anchor_epoch_ms,
         "earliest_at": if earliest_at.is_empty() { Value::Null } else { json!(earliest_at) },
+        "earliest_epoch_ms": earliest_epoch_ms,
         "span_seconds": span_seconds,
         "point_count": scatter_points.len(),
+        "has_recent_events": has_recent_events,
         "axis_labels": axis_labels,
         "forecast_status": "not-measured",
         "forecast_reason": "실측 예측 시계열이 수집되지 않아 미래(+5m) 영역은 미측정으로 분리 표시합니다."

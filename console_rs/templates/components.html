@@ -878,6 +878,7 @@
             <button type="button" class="cat-tab" data-cat="states" aria-selected="false">상태 · 모달 <span class="cat-tab-count">4</span></button>
             <button type="button" class="cat-tab" data-cat="charts_graphs" aria-selected="false">차트 · 그래프 <span class="cat-tab-count">17</span></button>
             <button type="button" class="cat-tab" data-cat="attention_inbox" aria-selected="false">알림 · 협업 <span class="cat-tab-count">9</span></button>
+            <button type="button" class="cat-tab" data-cat="advisor_posture" aria-selected="false">어드바이저 · 포스처 <span class="cat-tab-count">6</span></button>
             <button type="button" class="cat-tab" data-cat="inventory" aria-selected="false">인벤토리 <span class="cat-tab-count">93</span></button>
           </nav>
 
@@ -1372,6 +1373,81 @@
               <div class="specimen-box">
                 <div class="specimen-title"><span>말줄임 원문 자동 감지</span><span class="specimen-src">scrollWidth &gt; clientWidth</span></div>
                 <div class="ut-trunc-demo" style="margin-top:8px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--cs-font-mono);font-size:12.5px;color:var(--cs-text);border:1px solid var(--cs-hairline);border-radius:6px;padding:6px 9px;background:var(--cs-card-subtle);">prod-core-kr/subscriptions/aks-orders-batch-pool-east-09</div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 8c. Advisor & Posture Hub Shared Primitives (Component-First) -->
+          <section class="cat-section" data-section="advisor_posture">
+            <div class="sec-head">
+              <div>
+                <h3>어드바이저 · 포스처 허브 공용 컴포넌트 (6종)</h3>
+                <p>Azure Advisor 5대 필러 커버리지 및 온톨로지·15-에이전트 기반 드릴다운 화면(<code class="inline-code">/advisor/*</code>)에 선행 등록된 공용 프리미티브입니다. 좌측·상단 컬러 레일 0건, 중립 1px 보더 + 국소 시맨틱 도트/배지, 최소 12px 타이포그래피를 준수합니다.</p>
+              </div>
+              <span class="sec-src">fdai-console-shared.css · fdai-advisor-inline.js</span>
+            </div>
+            <div class="specimen-grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));">
+              <div class="specimen-box">
+                <div class="specimen-title"><span>1. 필러 점수 링 &amp; 요약 카드</span><span class="specimen-src">.adv-pillar-card · .adv-score-ring</span></div>
+                <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:8px;">
+                  <div class="adv-pillar-card" style="padding:12px;border:1px solid var(--cs-hairline);border-radius:8px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;"><span>신뢰성</span><span style="font-size:12px;color:var(--cs-text-soft);font-weight:500;">Heimdall</span></div>
+                    <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
+                      <strong style="font-size:20px;color:var(--sig-live-text);">85%</strong>
+                      <span style="font-size:12px;color:var(--cs-text-soft);">활성 11건 · 106/304 리소스</span>
+                    </div>
+                  </div>
+                  <div class="adv-pillar-card" style="padding:12px;border:1px solid var(--cs-hairline);border-radius:8px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;"><span>비용 최적화</span><span style="font-size:12px;color:var(--cs-text-soft);font-weight:500;">Njord</span></div>
+                    <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
+                      <strong style="font-size:20px;color:var(--sig-sre-text);">62%</strong>
+                      <span style="font-size:12px;color:var(--cs-text-soft);">연 $10,124 절감 · 4.16 kgCO2e</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="specimen-box">
+                <div class="specimen-title"><span>2. 준수 진행률 미터 (분모/분자) &amp; 배지</span><span class="specimen-src">.adv-progress · .adv-dday-pill · .adv-carbon-pill</span></div>
+                <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
+                  <div style="display:flex;align-items:center;gap:10px;">
+                    <div style="flex:1;height:6px;border-radius:999px;background:var(--cs-shade);overflow:hidden;"><div style="width:68%;height:100%;background:var(--sig-live);"></div></div>
+                    <span style="font-size:12px;font-weight:600;color:var(--cs-text-soft);">68% (13/19 준수)</span>
+                  </div>
+                  <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                    <span class="status-pill pill-live">+4.2%p 점수 상승</span>
+                    <span class="status-pill pill-live">4.16 kgCO2e/년 감축</span>
+                    <span class="status-pill pill-sec">은퇴 D-28 · 조치 필요</span>
+                    <span class="status-pill pill-sre">비용 영향: Medium</span>
+                  </div>
+                </div>
+              </div>
+              <div class="specimen-box">
+                <div class="specimen-title"><span>3. 리소스 4-상태 탭 &amp; 벌크 액션 바</span><span class="specimen-src">.adv-state-tabs · .adv-bulk-bar</span></div>
+                <div style="display:flex;gap:8px;border-bottom:1px solid var(--cs-hairline);padding-bottom:6px;margin-top:8px;font-size:12px;font-weight:600;">
+                  <span style="color:var(--sig-live-text);border-bottom:2px solid var(--sig-live);padding-bottom:4px;">활성 (17)</span>
+                  <span style="color:var(--cs-text-soft);">완료 · 검증됨 (19)</span>
+                  <span style="color:var(--cs-text-soft);">연기됨 (2)</span>
+                  <span style="color:var(--cs-text-soft);">예외 처리 (1)</span>
+                </div>
+                <div style="margin-top:8px;padding:8px 10px;border:1px solid var(--cs-hairline);border-radius:6px;background:var(--cs-card-subtle);display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;">
+                  <span>3개 선택됨</span>
+                  <button type="button" class="cs-btn cs-btn-sm cs-btn-primary">에이전트 Review + Fix</button>
+                  <button type="button" class="cs-btn cs-btn-sm">완료 표시</button>
+                  <button type="button" class="cs-btn cs-btn-sm">연기</button>
+                </div>
+              </div>
+              <div class="specimen-box">
+                <div class="specimen-title"><span>4. 교차 필러 트레이드오프 &amp; 7대 안전장치</span><span class="specimen-src">.adv-tradeoff-box · .adv-safeguard-grid</span></div>
+                <div style="margin-top:8px;padding:10px;border:1px solid var(--cs-hairline);border-radius:6px;background:var(--cs-card-subtle);font-size:12px;line-height:1.5;">
+                  <div style="display:flex;justify-content:space-between;font-weight:700;"><span>비용 파급 요인 (Njord · Odin 중재)</span><span class="status-pill pill-sre">Medium</span></div>
+                  <div style="color:var(--cs-text-soft);margin-top:4px;">가용성 영역 멀티-AZ 배치 시 교차 존 트래픽 및 예비 인스턴스 비용 증가</div>
+                  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+                    <span class="status-pill pill-live">중단 조건 ✓</span>
+                    <span class="status-pill pill-live">롤백 검증 ✓</span>
+                    <span class="status-pill pill-live">Dry-Run ✓</span>
+                    <span class="status-pill pill-human">Var HIL 승인 대기</span>
+                  </div>
+                </div>
               </div>
             </div>
           </section>

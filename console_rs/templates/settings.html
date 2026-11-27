@@ -255,42 +255,42 @@
                   </div>
                   <span class="cs-badge tone-live" id="slGeneralStatusBadge"><span class="cs-dot"></span>개인 설정 편집 가능</span>
                 </div>
-                <div class="settings-group sl-selectable" data-sl-item-id="general:display" tabindex="0">
+                <div class="settings-group" data-sl-section="general:display">
                   <div class="card-head"><div class="insp-title">화면 · 표시 환경</div><span class="cs-badge tone-neutral">범위: 브라우저</span></div>
-                  <div class="settings-row">
-                    <div><strong>테마 (Theme)</strong><div class="wb-item-sub">라이트 또는 다크 화면 테마를 즉시 전환합니다.</div></div>
+                  <div class="settings-row sl-selectable" data-sl-item-id="general:theme" tabindex="0">
+                    <div><strong>화면 테마</strong><div class="wb-item-sub">라이트 또는 다크 화면 테마를 즉시 전환합니다.</div></div>
                     <div class="seg-group" role="group" aria-label="테마 선택">
                       <button type="button" class="seg-btn is-active" data-sl-theme="light">라이트</button>
                       <button type="button" class="seg-btn" data-sl-theme="dark">다크</button>
                     </div>
                   </div>
-                  <div class="settings-row">
-                    <div><strong>표시 언어 (Locale)</strong><div class="wb-item-sub">미번역 키는 자동으로 영어 원문으로 대체됩니다.</div></div>
+                  <div class="settings-row sl-selectable" data-sl-item-id="general:locale" tabindex="0">
+                    <div><strong>표시 언어</strong><div class="wb-item-sub">미번역 항목은 자동으로 영어 원문으로 대체됩니다.</div></div>
                     <select class="cs-select" id="slLocaleSelect" aria-label="표시 언어" data-sl-control data-initial-value="ko">
-                      <option value="ko" selected>한국어 (ko)</option>
-                      <option value="en">English (en)</option>
+                      <option value="ko" selected>한국어</option>
+                      <option value="en">English</option>
                     </select>
                   </div>
-                  <div class="settings-row">
-                    <div><strong>모션 축소 (Reduced Motion)</strong><div class="wb-item-sub">실시간 펄스 및 전환 애니메이션을 최소화합니다.</div></div>
+                  <div class="settings-row sl-selectable" data-sl-item-id="general:reduced-motion" tabindex="0">
+                    <div><strong>모션 축소</strong><div class="wb-item-sub">실시간 펄스 및 전환 애니메이션을 최소화합니다.</div></div>
                     <button type="button" class="cs-switch" role="switch" aria-checked="false" aria-label="모션 축소" id="slReducedMotionSwitch" data-sl-switch data-initial-checked="false"><span class="cs-switch-thumb" aria-hidden="true"></span></button>
                   </div>
-                  <div class="settings-row">
+                  <div class="settings-row sl-selectable" data-sl-item-id="general:collapse-trace" tabindex="0">
                     <div><strong>채팅 실행 기록 기본 접힘</strong><div class="wb-item-sub">AI 채팅의 근거 처리 단계를 기본 접힘 상태로 유지합니다.</div></div>
                     <button type="button" class="cs-switch" role="switch" aria-checked="true" aria-label="채팅 실행 기록 기본 접힘" id="slCollapseTraceSwitch" data-sl-switch data-initial-checked="true"><span class="cs-switch-thumb" aria-hidden="true"></span></button>
                   </div>
-                  <div class="settings-row">
+                  <div class="settings-row sl-selectable" data-sl-item-id="general:show-token" tabindex="0">
                     <div><strong>토큰 사용량 · 지연 표시</strong><div class="wb-item-sub">에이전트 응답 하단에 모델 티어와 토큰 사용량을 표시합니다.</div></div>
                     <button type="button" class="cs-switch" role="switch" aria-checked="true" aria-label="토큰 사용량 표시" id="slShowTokenSwitch" data-sl-switch data-initial-checked="true"><span class="cs-switch-thumb" aria-hidden="true"></span></button>
                   </div>
-                  <div class="settings-row">
+                  <div class="settings-row sl-selectable" data-sl-item-id="general:capture-trace" tabindex="0">
                     <div><strong>AI 모델 호출 추적 기록</strong><div class="wb-item-sub">이 브라우저의 대화 진단 추적 패널에 AI 모델 입출력 지표를 표시합니다.</div></div>
                     <button type="button" class="cs-switch" role="switch" aria-checked="true" aria-label="AI 모델 호출 추적 기록" id="slCaptureTraceSwitch" data-sl-switch data-initial-checked="true" data-ut-title="브라우저 로컬 진단 전용" data-ut-body="호출 추적 기록 설정은 이 브라우저에만 저장되며 시크릿·토큰은 서버에서 원천 제외됩니다." data-ut-tone="neutral"><span class="cs-switch-thumb" aria-hidden="true"></span></button>
                   </div>
                 </div>
-                <div class="settings-group sl-selectable" data-sl-item-id="general:preferences" tabindex="0">
+                <div class="settings-group" data-sl-section="general:preferences">
                   <div class="card-head"><div class="insp-title">운영자 답변 선호 · 일일 브리핑</div><span class="cs-badge tone-neutral" data-ut-title="계정 범위 저장" data-ut-body="계정 설정 저장소와 동기화되어 다른 기기에서도 동일한 답변 환경을 유지합니다." data-ut-tone="neutral">범위: 계정</span></div>
-                  <div class="settings-row">
+                  <div class="settings-row sl-selectable" data-sl-item-id="general:answer-detail" tabindex="0">
                     <div><strong>답변 상세도</strong><div class="wb-item-sub">AI 응답의 기본 설명 깊이를 지정합니다.</div></div>
                     <select class="cs-select" id="slAnswerDetail" aria-label="답변 상세도" data-sl-control data-initial-value="standard">
                       <option value="concise">간결 (핵심 요약)</option>
@@ -298,7 +298,7 @@
                       <option value="detailed">상세 (전체 단계·원인)</option>
                     </select>
                   </div>
-                  <div class="settings-row">
+                  <div class="settings-row sl-selectable" data-sl-item-id="general:answer-format" tabindex="0">
                     <div><strong>기본 답변 형식 (7종)</strong><div class="wb-item-sub">AI 채팅 응답의 기본 구조화 선호를 지정합니다.</div></div>
                     <select class="cs-select" id="slAnswerFormat" aria-label="기본 답변 형식" data-sl-control data-initial-value="mixed">
                       <option value="mixed" selected>혼합 (요약 + 표)</option>
@@ -310,19 +310,19 @@
                       <option value="executive">경영진 요약</option>
                     </select>
                   </div>
-                  <div class="settings-row">
+                  <div class="settings-row sl-selectable" data-sl-item-id="general:timezone" tabindex="0">
                     <div><strong>표준 시간대 (예: Asia/Seoul)</strong><div class="wb-item-sub" id="slTzHint">유효한 표준 시간대입니다 (Asia/Seoul).</div></div>
                     <input type="text" class="cs-input" id="slTzInput" value="Asia/Seoul" aria-label="표준 시간대" aria-invalid="false" data-sl-control data-initial-value="Asia/Seoul" data-ut-title="표준 시간대 형식 검증" data-ut-body="Asia/Seoul, UTC, America/New_York 등 국제 표준 시간대(IANA) 형식만 저장할 수 있습니다." data-ut-tone="live">
                   </div>
-                  <div class="settings-row">
+                  <div class="settings-row sl-selectable" data-sl-item-id="general:opening-briefing" tabindex="0">
                     <div><strong>시작 브리핑 자동 표시</strong><div class="wb-item-sub">세션 시작 시 우선 검토가 필요한 리스크와 근거 상태를 요약합니다.</div></div>
                     <button type="button" class="cs-switch" role="switch" aria-checked="true" aria-label="시작 브리핑" id="slOpeningBriefingSwitch" data-sl-switch data-initial-checked="true"><span class="cs-switch-thumb" aria-hidden="true"></span></button>
                   </div>
-                  <div class="settings-row">
+                  <div class="settings-row sl-selectable" data-sl-item-id="general:briefing-hour" tabindex="0">
                     <div><strong>일일 브리핑 시각 (0~23시)</strong><div class="wb-item-sub" id="slBriefingPreview">예상 실행: 매일 09:00 (Asia/Seoul)</div></div>
                     <input type="number" class="cs-input" id="slBriefingHour" min="0" max="23" value="9" style="min-width:96px;width:96px" aria-label="일일 브리핑 시각" data-sl-control data-initial-value="9">
                   </div>
-                  <div class="settings-row">
+                  <div class="settings-row sl-selectable" data-sl-item-id="general:share-learner" tabindex="0">
                     <div><strong>학습기 데이터 공유 (선택)</strong><div class="wb-item-sub">비식별화된 답변 형식 선호만 품질 개선 평가에 공유합니다.</div></div>
                     <button type="button" class="cs-switch" role="switch" aria-checked="false" aria-label="학습기 데이터 공유" id="slShareLearnerSwitch" data-sl-switch data-initial-checked="false"><span class="cs-switch-thumb" aria-hidden="true"></span></button>
                   </div>
@@ -365,7 +365,7 @@
                     <button type="button" class="cs-btn cs-btn-sm" id="slEnvRefreshBtn">근거 새로고침 ↻</button>
                   </div>
                 </div>
-                <div class="sl-venue-strip" role="status" aria-live="polite">
+                <div class="sl-venue-strip" id="slEnvVenueStrip" role="status" aria-live="polite">
                   <div class="sl-venue-item"><span>실행 환경</span><strong id="slEnvVenue">local</strong></div>
                   <div class="sl-venue-item"><span>상태 저장소</span><strong id="slEnvStore">PostgreSQL :5432 (Durable)</strong></div>
                   <div class="sl-venue-item"><span>수집기 정상</span><strong id="slEnvCollectorHealthy">2 / 3</strong></div>
@@ -684,9 +684,9 @@
                     <table class="cs-table" id="slIamAzureGroupsTable">
                       <thead><tr><th>권한 그룹</th><th>할 수 있는 작업</th><th>할당 에이전트</th><th>기본 범위</th></tr></thead>
                       <tbody id="slIamAzureGroupsTbody">
-                        <tr><td class="cell-strong">FDAI Reader</td><td class="cell-muted">리소스·태그·상태 및 선택된 로그·메트릭·비용·Activity Log·AKS 읽기 전용</td><td><span class="cs-badge tone-neutral">Huginn · Heimdall</span></td><td class="cell-muted">구독 / RG (기본)</td></tr>
-                        <tr><td class="cell-strong">FDAI Operator</td><td class="cell-muted">태그·경고·진단·재시작·확장·NSG/TLS/백업·SKU 조정 (주요 삭제·IAM 차단)</td><td><span class="cs-badge tone-live">Thor 단독</span></td><td class="cell-muted">대상 RG 한정</td></tr>
-                        <tr><td class="cell-strong">FDAI Contributor</td><td class="cell-muted">단일 전용 개발/테스트 RG 한정 * (IAM·RG 삭제·시크릿 유출 차단)</td><td><span class="cs-badge tone-human">Thor (개발 전용)</span></td><td class="cell-muted">전용 개발 RG 한정</td></tr>
+                        <tr class="sl-selectable" data-sl-item-id="azure-group:reader" tabindex="0"><td class="cell-strong">FDAI Reader</td><td class="cell-muted">리소스·태그·상태 및 선택된 로그·메트릭·비용·Activity Log·AKS 읽기 전용</td><td><span class="cs-badge tone-neutral">Huginn · Heimdall</span></td><td class="cell-muted">구독 / RG (기본)</td></tr>
+                        <tr class="sl-selectable" data-sl-item-id="azure-group:operator" tabindex="0"><td class="cell-strong">FDAI Operator</td><td class="cell-muted">태그·경고·진단·재시작·확장·NSG/TLS/백업·SKU 조정 (주요 삭제·IAM 차단)</td><td><span class="cs-badge tone-live">Thor 단독</span></td><td class="cell-muted">대상 RG 한정</td></tr>
+                        <tr class="sl-selectable" data-sl-item-id="azure-group:contributor" tabindex="0"><td class="cell-strong">FDAI Contributor</td><td class="cell-muted">단일 전용 개발/테스트 RG 한정 * (IAM·RG 삭제·시크릿 유출 차단)</td><td><span class="cs-badge tone-human">Thor (개발 전용)</span></td><td class="cell-muted">전용 개발 RG 한정</td></tr>
                       </tbody>
                     </table>
                   </div>
@@ -695,11 +695,11 @@
                     <table class="cs-table" id="slIamHumanAdminTable">
                       <thead><tr><th>사람 역할</th><th>FDAI Entra 그룹</th><th>권장 Azure IAM (PIM 불필요)</th><th>승인 권한</th></tr></thead>
                       <tbody id="slIamHumanAdminTbody">
-                        <tr><td class="cell-strong">조회자 / 감사</td><td class="cell-mono">fdai-readers</td><td class="cell-muted">없음 (Console 사용) 또는 FDAI Reader</td><td><span class="cs-badge tone-neutral">읽기 전용</span></td></tr>
-                        <tr><td class="cell-strong">엔지니어</td><td class="cell-mono">fdai-contributors</td><td class="cell-muted">운영 없음 (개발 RG FDAI Operator 선택)</td><td><span class="cs-badge tone-neutral">제안 전용</span></td></tr>
-                        <tr><td class="cell-strong">승인자</td><td class="cell-mono">fdai-approvers</td><td class="cell-muted">없음 (또는 FDAI Reader)</td><td><span class="cs-badge tone-live">승인 가능</span></td></tr>
-                        <tr><td class="cell-strong">플랫폼 관리자 (Owner)</td><td class="cell-mono">fdai-owners</td><td class="cell-muted">FDAI 앱 RG 한정 배포 역할 (상시 구독 Owner 없음)</td><td><span class="cs-badge tone-live">승인·설정</span></td></tr>
-                        <tr><td class="cell-strong">비상 계정 (Break-Glass)</td><td class="cell-mono">fdai-break-glass</td><td class="cell-muted">별도 비상용 구독 Owner (하드웨어 키 보관)</td><td><span class="cs-badge tone-sec">승인 불가</span></td></tr>
+                        <tr class="sl-selectable" data-sl-item-id="human-role:readers" tabindex="0"><td class="cell-strong">조회자 / 감사</td><td class="cell-mono">fdai-readers</td><td class="cell-muted">없음 (Console 사용) 또는 FDAI Reader</td><td><span class="cs-badge tone-neutral">읽기 전용</span></td></tr>
+                        <tr class="sl-selectable" data-sl-item-id="human-role:contributors" tabindex="0"><td class="cell-strong">엔지니어</td><td class="cell-mono">fdai-contributors</td><td class="cell-muted">운영 없음 (개발 RG FDAI Operator 선택)</td><td><span class="cs-badge tone-neutral">제안 전용</span></td></tr>
+                        <tr class="sl-selectable" data-sl-item-id="human-role:approvers" tabindex="0"><td class="cell-strong">승인자</td><td class="cell-mono">fdai-approvers</td><td class="cell-muted">없음 (또는 FDAI Reader)</td><td><span class="cs-badge tone-live">승인 가능</span></td></tr>
+                        <tr class="sl-selectable" data-sl-item-id="human-role:owners" tabindex="0"><td class="cell-strong">플랫폼 관리자 (Owner)</td><td class="cell-mono">fdai-owners</td><td class="cell-muted">FDAI 앱 RG 한정 배포 역할 (상시 구독 Owner 없음)</td><td><span class="cs-badge tone-live">승인·설정</span></td></tr>
+                        <tr class="sl-selectable" data-sl-item-id="human-role:break-glass" tabindex="0"><td class="cell-strong">비상 계정 (Break-Glass)</td><td class="cell-mono">fdai-break-glass</td><td class="cell-muted">별도 비상용 구독 Owner (하드웨어 키 보관)</td><td><span class="cs-badge tone-sec">승인 불가</span></td></tr>
                       </tbody>
                     </table>
                   </div>
@@ -777,10 +777,10 @@ dev_gateway_executor_iam_group = "operator"
                       <table class="cs-table" id="slIamUserTable">
                         <thead><tr><th>운영자</th><th>역할</th><th id="slIamUserTableHeadCol3">담당 에이전트</th><th>상태</th></tr></thead>
                         <tbody id="slIamUserTbody">
-                          <tr class="sl-selectable" data-iam-role="Owner" data-sl-item-id="actor:kim.lead@org" tabindex="0"><td class="cell-strong">kim.lead@org</td><td><span class="cs-badge tone-human">소유자 (Owner)</span></td><td class="cell-muted">Odin · Forseti</td><td><span class="cs-badge tone-live">활성</span></td></tr>
-                          <tr class="sl-selectable" data-iam-role="Operator" data-sl-item-id="actor:park.sre@org" tabindex="0"><td class="cell-strong">park.sre@org</td><td><span class="cs-badge tone-live">운영자 (Operator)</span></td><td class="cell-muted">Thor · Huginn · Vidar</td><td><span class="cs-badge tone-live">활성</span></td></tr>
-                          <tr class="sl-selectable" data-iam-role="Operator" data-sl-item-id="actor:choi.sec@org" tabindex="0"><td class="cell-strong">choi.sec@org</td><td><span class="cs-badge tone-live">운영자 (Operator)</span></td><td class="cell-muted">Heimdall · Mimir · Saga</td><td><span class="cs-badge tone-live">활성</span></td></tr>
-                          <tr class="sl-selectable" data-iam-role="Viewer" data-sl-item-id="actor:lee.audit@org" tabindex="0"><td class="cell-strong">lee.audit@org</td><td><span class="cs-badge tone-neutral">열람자 (Viewer)</span></td><td class="cell-muted">Bragi · Norns (열람)</td><td><span class="cs-badge tone-live">활성</span></td></tr>
+                          <tr class="sl-selectable" data-iam-role="Owner" data-sl-item-id="actor:kim.lead@org" tabindex="0"><td class="cell-strong">kim.lead@org</td><td><span class="cs-badge tone-human">소유자</span></td><td class="cell-muted">Odin · Forseti</td><td><span class="cs-badge tone-live">활성</span></td></tr>
+                          <tr class="sl-selectable" data-iam-role="Operator" data-sl-item-id="actor:park.sre@org" tabindex="0"><td class="cell-strong">park.sre@org</td><td><span class="cs-badge tone-live">운영자</span></td><td class="cell-muted">Thor · Huginn · Vidar</td><td><span class="cs-badge tone-live">활성</span></td></tr>
+                          <tr class="sl-selectable" data-iam-role="Operator" data-sl-item-id="actor:choi.sec@org" tabindex="0"><td class="cell-strong">choi.sec@org</td><td><span class="cs-badge tone-live">운영자</span></td><td class="cell-muted">Heimdall · Mimir · Saga</td><td><span class="cs-badge tone-live">활성</span></td></tr>
+                          <tr class="sl-selectable" data-iam-role="Viewer" data-sl-item-id="actor:lee.audit@org" tabindex="0"><td class="cell-strong">lee.audit@org</td><td><span class="cs-badge tone-neutral">열람자</span></td><td class="cell-muted">Bragi · Norns (열람)</td><td><span class="cs-badge tone-live">활성</span></td></tr>
                         </tbody>
                       </table>
                     </div>
@@ -971,7 +971,7 @@ Action boundary: Notification only (approval required in Console)</pre>
                     <button type="button" class="cs-btn cs-btn-sm" id="slDiagCopyBtn">마스킹된 지원 요약 복사</button>
                   </div>
                 </div>
-                <div class="sl-venue-strip" role="status" aria-live="polite">
+                <div class="sl-venue-strip" id="slDiagVenueStrip" role="status" aria-live="polite">
                   <div class="sl-venue-item"><span>핵심 서비스</span><strong id="slDiagHealthyCount">6 / 6 정상</strong></div>
                   <div class="sl-venue-item"><span>Python 프로세스</span><strong id="slDiagPythonCount">0개</strong></div>
                   <div class="sl-venue-item"><span>최근 진단</span><strong class="cell-mono" id="slDiagTimestamp">04:43:18</strong></div>
@@ -1095,7 +1095,7 @@ Action boundary: Notification only (approval required in Console)</pre>
                   </div>
                   <div class="table-wrap">
                     <table class="cs-table">
-                      <thead><tr><th>정책 ID</th><th>데이터 패밀리</th><th>목적</th><th>아카이브 등급</th><th>삭제 방식</th></tr></thead>
+                      <thead><tr><th>보존 정책</th><th>데이터 패밀리</th><th>목적</th><th>아카이브 등급</th><th>삭제 방식</th></tr></thead>
                       <tbody id="slRetentionPolicyBody">
                         <tr><td colspan="5" class="cell-muted">실측 모드에서 데이터 보존 정책을 불러옵니다.</td></tr>
                       </tbody>
@@ -1103,7 +1103,7 @@ Action boundary: Notification only (approval required in Console)</pre>
                   </div>
                 </div>
                 <details class="cs-disclosure">
-                  <summary><span id="slMemoryCompactionSummary">압축 이력 (Compactions · 3건)</span><span class="disc-meta">원본 근거 출처 보존됨</span></summary>
+                  <summary><span id="slMemoryCompactionSummary">압축 이력 · 3건</span><span class="disc-meta">원본 근거 출처 보존됨</span></summary>
                   <div class="disc-body" id="slMemoryCompactionBody" style="display:grid;gap:6px">
                     <div>• <span class="cell-mono">2026-11-25 18:00</span> · <strong>rg-prod-kr-core</strong> — 14건 → 4건 압축 (출처 14건 연결 유지)</div>
                     <div>• <span class="cell-mono">2026-11-22 09:30</span> · <strong>prod-core-kr</strong> — 9건 → 3건 압축 (만료 메모 2건 자동 정리)</div>
@@ -1249,7 +1249,23 @@ Action boundary: Notification only (approval required in Console)</pre>
       toastTimer = window.setTimeout(() => { el.hidden = true; }, 3200);
     }
 
-    function nowTime() { return new Date().toTimeString().slice(0, 8); }
+    function nowTime(isoOrMs) {
+      const src = isoOrMs == null ? Date.now() : isoOrMs;
+      if (window.fdaiV4Humanize?.localClock) return window.fdaiV4Humanize.localClock(src);
+      const d = typeof src === "number" ? new Date(src) : new Date(String(src));
+      if (Number.isNaN(d.getTime())) return "--:--:--";
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
+    function formatRelativeAgeKo(rxMs) {
+      if (!rxMs) return "";
+      const sec = Math.max(0, Math.floor((Date.now() - rxMs) / 1000));
+      if (sec <= 3) return "방금 전";
+      if (sec < 60) return `${sec}초 전`;
+      if (sec < 3600) return `${Math.floor(sec / 60)}분 전`;
+      return `${Math.floor(sec / 3600)}시간 전`;
+    }
 
     function isValidIanaTz(raw) {
       const tz = String(raw || "").trim();
@@ -1306,10 +1322,10 @@ Action boundary: Notification only (approval required in Console)</pre>
     }
 
     const SL_ENV_LABELS = {
-      dev: "개발 환경 (Dev)",
+      dev: "개발 환경",
       local: "로컬 실행 환경",
-      prod: "운영 환경 (Production)",
-      production: "운영 환경 (Production)",
+      prod: "운영 환경",
+      production: "운영 환경",
       staging: "스테이징 환경"
     };
     const SL_PROBE_LABELS = {
@@ -1413,10 +1429,37 @@ Action boundary: Notification only (approval required in Console)</pre>
       },
       role(raw) {
         const s = String(raw || "").trim();
-        if (s === "Owner") return "소유자 (Owner)";
-        if (s === "Operator") return "운영자 (Operator)";
-        if (s === "Viewer") return "열람자 (Viewer)";
+        if (s === "Owner") return "소유자";
+        if (s === "Operator") return "운영자";
+        if (s === "Viewer") return "열람자";
         return s || "운영자";
+      },
+      rule(raw) {
+        if (!raw) return "—";
+        if (window.fdaiV4Humanize?.ruleId) return window.fdaiV4Humanize.ruleId(raw);
+        return String(raw);
+      },
+      remediation(raw) {
+        if (!raw) return "—";
+        if (window.fdaiV4Humanize?.remediationAction) return window.fdaiV4Humanize.remediationAction(raw);
+        return String(raw);
+      },
+      severity(raw) {
+        if (!raw) return "미측정";
+        if (window.fdaiV4Humanize?.severity) return window.fdaiV4Humanize.severity(raw);
+        return String(raw);
+      },
+      scopeLabel(raw) {
+        const s = String(raw || "").trim();
+        if (!s) return "관측 범위";
+        if (/^scope-[0-9a-f]{8,}$/i.test(s)) return "연결된 Azure 구독";
+        return s;
+      },
+      retentionPolicyName(policyId, famKo) {
+        const pid = String(policyId || "").trim();
+        if (!pid) return famKo || "보존 정책";
+        if (famKo && famKo !== "—") return `${famKo} 정책`;
+        return pid.replace(/[_-]+/g, " ");
       },
       serviceName(raw) {
         const s = String(raw || "").trim();
@@ -1452,6 +1495,7 @@ Action boundary: Notification only (approval required in Console)</pre>
           "warm-archive": "웜 아카이브",
           "cold-archive": "콜드 아카이브",
           oi16_synthetic_full_observation: "개발 합성 관측 스냅샷",
+          "oi16-dev-synthetic-certification": "개발 합성 인증 점검",
           audit_log: "감사 원장 기록",
           operator_memory: "운영 참조 메모",
           incident_evidence: "장애 대응 근거"
@@ -1462,13 +1506,35 @@ Action boundary: Notification only (approval required in Console)</pre>
       ts(raw) {
         if (!raw) return "미측정";
         if (window.fdaiV4Humanize?.timestamp) return window.fdaiV4Humanize.timestamp(raw);
-        return String(raw).replace("T", " ").replace("Z", " UTC");
+        const d = typeof raw === "number" ? new Date(raw) : new Date(String(raw));
+        if (Number.isNaN(d.getTime())) return String(raw);
+        const pad = (n) => String(n).padStart(2, "0");
+        return `${d.getMonth() + 1}월 ${d.getDate()}일 ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
       }
     };
 
     const slItemRegistry = new Map();
     let lastLivePulsePayload = null;
     let pendingDeepLinkItemId = null;
+    let currentSelectedItemId = null;
+
+    function shimmerApi() {
+      return window.fdaiV4Shimmer || window.fdaiV4Live?.shimmer || null;
+    }
+
+    function syncStreamingMarks(active) {
+      const sh = shimmerApi();
+      if (!sh || typeof sh.markStreaming !== "function") return;
+      [
+        "slLiveBoundaryBar",
+        "slEnvVenueStrip",
+        "slDiagVenueStrip",
+        "slIntegrationsDbSummary"
+      ].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) sh.markStreaming(el, Boolean(active));
+      });
+    }
 
     function inferPanelFromItemId(itemId) {
       const id = String(itemId || "").trim();
@@ -1477,7 +1543,7 @@ Action boundary: Notification only (approval required in Console)</pre>
       if (id.startsWith("collector:") || id.startsWith("lifecycle:")) return "settings-environment";
       if (id.startsWith("model:")) return "settings-models";
       if (id.startsWith("policy:")) return "settings-runtime";
-      if (id.startsWith("actor:") || id.startsWith("iam-req:")) return "settings-iam";
+      if (id.startsWith("actor:") || id.startsWith("iam-req:") || id.startsWith("azure-group:") || id.startsWith("human-role:")) return "settings-iam";
       if (id.startsWith("integration:")) return "settings-integrations";
       if (id.startsWith("service:") || id.startsWith("infra:")) return "settings-diagnostics";
       if (id.startsWith("memory:") || id.startsWith("memory-scope:") || id.startsWith("retention:")) return "settings-memory";
@@ -1486,54 +1552,82 @@ Action boundary: Notification only (approval required in Console)</pre>
 
     function markSelectedElement(el) {
       document.querySelectorAll(".is-sl-selected").forEach((prev) => prev.classList.remove("is-sl-selected"));
-      if (el) el.classList.add("is-sl-selected");
+      if (el) {
+        el.classList.add("is-sl-selected");
+        currentSelectedItemId = (el.getAttribute("data-sl-item-id") || "").trim() || null;
+      } else {
+        currentSelectedItemId = null;
+      }
+    }
+
+    function reapplySelectedHighlight() {
+      if (!currentSelectedItemId) return;
+      const escId = typeof CSS !== "undefined" && typeof CSS.escape === "function"
+        ? CSS.escape(currentSelectedItemId)
+        : currentSelectedItemId.replace(/["\\]/g, "\\$&");
+      const activePanel = document.querySelector(".panel-view[data-panel-id]:not([hidden])");
+      const el = activePanel?.querySelector(`[data-sl-item-id="${escId}"]`);
+      if (el) {
+        document.querySelectorAll(".is-sl-selected").forEach((prev) => {
+          if (prev !== el) prev.classList.remove("is-sl-selected");
+        });
+        el.classList.add("is-sl-selected");
+      }
     }
 
     function buildFallbackDrawerOpts(el, itemId) {
       const modeTag = isLiveMode() ? "실측 모드" : "Sample 모드";
-      if (itemId === "general:display") {
-        const theme = document.documentElement.getAttribute("data-theme") === "dark" ? "다크" : "라이트";
-        const loc = document.getElementById("slLocaleSelect")?.value === "en" ? "English (en)" : "한국어 (ko)";
+      if (itemId.startsWith("general:")) {
+        const heading = el?.querySelector("strong")?.textContent?.trim() || "일반 설정 항목";
+        const desc = el?.querySelector(".wb-item-sub")?.textContent?.trim() || "브라우저 또는 계정별 일반 환경 설정 항목입니다.";
+        const inBrowser = Boolean(el?.closest('[data-sl-section="general:display"]'));
+        const scopeLabel = inBrowser ? "브라우저 범위" : "계정 범위";
+        const sel = el?.querySelector("select");
+        const inp = el?.querySelector("input");
+        const sw = el?.querySelector("[data-sl-switch]");
+        const activeTheme = el?.querySelector("[data-sl-theme].is-active");
+        const curVal = activeTheme
+          ? activeTheme.textContent.trim()
+          : (sel ? (sel.selectedOptions?.[0]?.textContent || sel.value)
+            : (inp ? inp.value
+              : (sw ? (sw.getAttribute("aria-checked") === "true" ? "활성" : "비활성") : "적용됨")));
         return {
           itemId,
-          title: "화면 · 표시 환경 설정",
-          subtitle: `일반 설정 · 브라우저 범위 · ${modeTag}`,
-          badgeText: "브라우저 범위",
-          badgeTone: "neutral",
-          body: "현재 브라우저의 화면 테마, 표시 언어, 모션 축소 및 채팅 실행 기록 표시 여부를 제어합니다. 이 설정은 로컬 브라우저 표시 경험에만 적용됩니다.",
+          title: heading,
+          subtitle: `일반 설정 · ${scopeLabel} · ${modeTag}`,
+          badgeText: scopeLabel,
+          badgeTone: inBrowser ? "neutral" : "live",
+          body: desc,
           facts: [
-            ["현재 테마", theme],
-            ["표시 언어", loc],
-            ["모션 축소", document.getElementById("slReducedMotionSwitch")?.getAttribute("aria-checked") === "true" ? "활성" : "비활성"],
-            ["토큰 사용량 표시", document.getElementById("slShowTokenSwitch")?.getAttribute("aria-checked") === "true" ? "활성" : "비활성"]
+            ["현재 설정 값", String(curVal || "—")],
+            ["적용 범위", scopeLabel],
+            ["동기화 상태", document.getElementById("slGeneralStatusBadge")?.textContent?.trim() || modeTag]
           ],
           techFacts: [
             ["항목 식별자", itemId],
-            ["적용 범위", "browser"],
-            ["동기화 API", "PATCH /api/v4/settings/general"]
+            ["저장 범위 코드", inBrowser ? "browser" : "account"],
+            ["설정 API", "PATCH /api/v4/settings/general"]
           ]
         };
       }
-      if (itemId === "general:preferences") {
-        const tz = document.getElementById("slTzInput")?.value || "미측정";
-        const hr = document.getElementById("slBriefingHour")?.value ?? "—";
+      if (itemId.startsWith("azure-group:") || itemId.startsWith("human-role:")) {
+        const cells = Array.from(el?.querySelectorAll("td") || []).map((td) => td.textContent.trim());
+        const isGroup = itemId.startsWith("azure-group:");
         return {
           itemId,
-          title: "운영자 답변 선호 · 일일 브리핑",
-          subtitle: `일반 설정 · 계정 범위 · ${modeTag}`,
-          badgeText: "계정 범위",
-          badgeTone: "live",
-          body: "AI 에이전트 응답의 상세도와 형식, 표준 타임존 및 일일 브리핑 발송 시각을 관리합니다.",
-          facts: [
-            ["답변 상세도", document.getElementById("slAnswerDetail")?.selectedOptions?.[0]?.textContent || "표준"],
-            ["기본 답변 형식", document.getElementById("slAnswerFormat")?.selectedOptions?.[0]?.textContent || "혼합"],
-            ["표준 타임존", tz],
-            ["일일 브리핑 시각", `매일 ${String(hr).padStart(2, "0")}:00`]
-          ],
+          title: cells[0] || itemId,
+          subtitle: `사용자 · 권한 (IAM) · ${isGroup ? "Azure IAM 권한 그룹" : "사람 역할 매핑"}`,
+          badgeText: cells[2] || cells[3] || "권한 정의",
+          badgeTone: isGroup ? "live" : "neutral",
+          body: isGroup
+            ? `${cells[0] || "권한 그룹"}은(는) '${cells[1] || "정의된 작업"}' 범위만 허용하며 IAM 변경·리소스 그룹 삭제·시크릿 유출을 차단합니다.`
+            : `${cells[0] || "역할"}은(는) Entra 그룹 '${cells[1] || "—"}'에 매핑되며 권장 Azure 권한은 '${cells[2] || "—"}'입니다.`,
+          facts: isGroup
+            ? [["할 수 있는 작업", cells[1] || "—"], ["할당 에이전트", cells[2] || "—"], ["기본 범위", cells[3] || "—"]]
+            : [["Entra 그룹", cells[1] || "—"], ["권장 Azure IAM", cells[2] || "—"], ["승인 권한", cells[3] || "—"]],
           techFacts: [
             ["항목 식별자", itemId],
-            ["적용 범위", "account"],
-            ["저장 테이블", "user_preference / state_kv"]
+            ["검증 API", "/api/v4/settings/iam/azure-groups"]
           ]
         };
       }
@@ -1637,8 +1731,10 @@ Action boundary: Notification only (approval required in Console)</pre>
     }
 
     function applyDeepLinkSelection(rawItemId) {
-      const targetId = String(rawItemId || "").trim();
+      let targetId = String(rawItemId || "").trim();
       if (!targetId) return false;
+      if (targetId === "general:display") targetId = "general:theme";
+      else if (targetId === "general:preferences") targetId = "general:answer-detail";
       const escId = typeof CSS !== "undefined" && typeof CSS.escape === "function"
         ? CSS.escape(targetId)
         : targetId.replace(/["\\]/g, "\\$&");
@@ -2186,6 +2282,7 @@ Action boundary: Notification only (approval required in Console)</pre>
       }
       const res = await hydrateEnvironmentPanel();
       const measured = res && (res.measurement_status === "measured" || res.measurement_state === "measured");
+      if (measured) shimmerActivePanel("settings-environment", true);
       const stateText = measured
         ? "실측 근거 동기화 완료"
         : "미측정 경계 확인 · 0 대체 없음";
@@ -2372,7 +2469,7 @@ Action boundary: Notification only (approval required in Console)</pre>
 
     function renderDiagnosticsUnmeasured(reasonText) {
       const healthyCnt = document.getElementById("slDiagHealthyCount");
-      if (healthyCnt) healthyCnt.textContent = "미측정 (프로브 미연결)";
+      if (healthyCnt) healthyCnt.textContent = "미측정 · 프로브 미연결";
       const pyCnt = document.getElementById("slDiagPythonCount");
       if (pyCnt) pyCnt.textContent = "미측정";
       const tsEl = document.getElementById("slDiagTimestamp");
@@ -2392,7 +2489,7 @@ Action boundary: Notification only (approval required in Console)</pre>
         renderStatusBadge(
           statusCell,
           "neutral",
-          "미측정 (미연결)",
+          "미연결",
           "미측정 상태",
           "진단 응답을 아직 수신하지 못했습니다. 미측정 값을 0ms 또는 정상으로 대체하지 않습니다."
         );
@@ -2505,7 +2602,7 @@ Action boundary: Notification only (approval required in Console)</pre>
             renderStatusBadge(
               statusCell,
               "neutral",
-              "미연결 (미측정)",
+              "미연결",
               "미측정 상태",
               "로컬 대상 포트가 비활성 상태입니다. 미도달 서비스를 0ms 또는 정상으로 위장하지 않습니다."
             );
@@ -2635,6 +2732,7 @@ Action boundary: Notification only (approval required in Console)</pre>
       }
       if (pendingDeepLinkItemId) applyDeepLinkSelection(pendingDeepLinkItemId);
       if (!silent) {
+        shimmerActivePanel("settings-diagnostics", true);
         toast(`핵심 6개 서비스 및 주요 인프라 4종 실시간 진단 완료 · ${ts}`);
       }
     }
@@ -2793,14 +2891,18 @@ Action boundary: Notification only (approval required in Console)</pre>
           el.appendChild(opt);
         }
       }
-      el.value = str;
       el.setAttribute("data-initial-value", str);
+      if (document.activeElement !== el) {
+        el.value = str;
+      }
     }
 
     function setSwitchInitial(el, checked) {
       if (!el || typeof checked !== "boolean") return;
-      el.setAttribute("aria-checked", String(checked));
       el.setAttribute("data-initial-checked", String(checked));
+      if (document.activeElement !== el) {
+        el.setAttribute("aria-checked", String(checked));
+      }
     }
 
     function isFormPanelDirty(panelKey) {
@@ -2943,6 +3045,7 @@ Action boundary: Notification only (approval required in Console)</pre>
     function restoreSampleSnapshots() {
       hideRevealedWebhookUrls();
       lastAppliedPulseTick = null;
+      syncStreamingMarks(false);
       slItemRegistry.clear();
       markSelectedElement(null);
       sampleSnapshots.forEach((snap, id) => {
@@ -3164,7 +3267,7 @@ Action boundary: Notification only (approval required in Console)</pre>
       const modalRet = document.getElementById("slMemModalRetCount");
       if (modalRet) modalRet.textContent = "미측정";
       const compSum = document.getElementById("slMemoryCompactionSummary");
-      if (compSum) compSum.textContent = "압축 이력 (Compactions · 미측정)";
+      if (compSum) compSum.textContent = "압축 이력 · 미측정";
       const compBody = document.getElementById("slMemoryCompactionBody");
       if (compBody) {
         const line = document.createElement("div");
@@ -3296,14 +3399,14 @@ Action boundary: Notification only (approval required in Console)</pre>
             sub.className = "wb-item-sub";
             sub.textContent = isLive
               ? `${statusKo} · 응답 ${lat} · 관측 ${obsKo}`
-              : `미수집 상태 (0으로 대체하지 않음) · 사유: ${failKo}`;
+              : `수집되지 않음 · 0으로 대체하지 않음 · 사유: ${failKo}`;
             info.appendChild(title);
             info.appendChild(sub);
             pair.appendChild(img);
             pair.appendChild(info);
 
             const badge = document.createElement("span");
-            setBadgeElement(badge, isLive ? "live" : "neutral", isLive ? "정상" : "데이터 없음 (미수집)");
+            setBadgeElement(badge, isLive ? "live" : "neutral", isLive ? "정상" : "미수집");
             head.appendChild(pair);
             head.appendChild(badge);
             box.appendChild(head);
@@ -4089,6 +4192,7 @@ Action boundary: Notification only (approval required in Console)</pre>
             const polId = String(p.policy_id || "policy");
             const itemId = `retention:${polId}`;
             const famKo = slHumanize.retentionText(p.fact_family);
+            const polNameKo = slHumanize.retentionPolicyName(polId, famKo);
             const purpKo = slHumanize.retentionText(p.purpose);
             const archKo = slHumanize.retentionText(p.archive_class);
             const delKo = slHumanize.retentionText(p.deletion_method);
@@ -4097,8 +4201,8 @@ Action boundary: Notification only (approval required in Console)</pre>
             tr.setAttribute("data-sl-item-id", itemId);
             tr.tabIndex = 0;
             [
-              [polId, "cell-mono"],
-              [famKo, "cell-strong"],
+              [polNameKo, "cell-strong"],
+              [famKo, ""],
               [purpKo, "cell-muted"],
               [archKo, ""],
               [delKo, ""]
@@ -4112,7 +4216,7 @@ Action boundary: Notification only (approval required in Console)</pre>
 
             slItemRegistry.set(itemId, {
               itemId,
-              title: `${famKo} 보존 정책`,
+              title: polNameKo,
               subtitle: "저장된 운영 메모 · 운영 보존 정책",
               badgeText: archKo,
               badgeTone: "neutral",
@@ -4154,24 +4258,26 @@ Action boundary: Notification only (approval required in Console)</pre>
             const memId = String(it.memory_id || "om-db");
             const itemId = `memory:${memId}`;
             const scopeKo = slHumanize.scope(it.scope);
+            const hasExpiry = typeof it.expires_days === "number";
+            const expiryLabel = hasExpiry ? `만료 ${it.expires_days}일 남음` : "만료 기한 미설정";
             const row = document.createElement("div");
             row.className = "settings-row sl-selectable";
             row.setAttribute("data-mem-row", "");
             row.setAttribute("data-mem-id", memId);
             row.setAttribute("data-sl-item-id", itemId);
             row.setAttribute("data-mem-scope", String(it.scope || "resource"));
-            row.setAttribute("data-mem-days", String(it.expires_days ?? 30));
+            if (hasExpiry) row.setAttribute("data-mem-days", String(it.expires_days));
             row.tabIndex = 0;
 
             const left = document.createElement("div");
             const strong = document.createElement("strong");
-            strong.textContent = `${it.scope_ref || it.category || "운영 메모"} · ${it.body || ""}`;
+            strong.textContent = `${slHumanize.scopeLabel(it.scope_ref || it.category || "운영 메모")} · ${it.body || ""}`;
             const sub = document.createElement("div");
             sub.className = "wb-item-sub";
             sub.appendChild(document.createTextNode(`범위: ${scopeKo} · `));
             const exp = document.createElement("span");
             exp.setAttribute("data-mem-expiry", "");
-            exp.textContent = `만료 ${it.expires_days ?? 30}일 남음`;
+            exp.textContent = expiryLabel;
             sub.appendChild(exp);
             left.appendChild(strong);
             left.appendChild(sub);
@@ -4214,14 +4320,14 @@ Action boundary: Notification only (approval required in Console)</pre>
 
             slItemRegistry.set(itemId, {
               itemId,
-              title: String(it.scope_ref || it.category || "저장된 운영 메모"),
+              title: slHumanize.scopeLabel(it.scope_ref || it.category || "저장된 운영 메모"),
               subtitle: `저장된 운영 메모 · ${scopeKo} 범위`,
-              badgeText: `만료 ${it.expires_days ?? 30}일 남음`,
+              badgeText: expiryLabel,
               badgeTone: "neutral",
               body: `${String(it.body || "")} (참조 컨텍스트 전용이며 실행·승인 권한을 부여하지 않습니다.)`,
               facts: [
                 ["적용 범위", scopeKo],
-                ["만료 기한", `${it.expires_days ?? 30}일 남음`],
+                ["만료 기한", expiryLabel],
                 ["생성 시각", slHumanize.ts(it.created_at)],
                 ["실행 권한", "없음 (참조 전용)"]
               ],
@@ -4237,13 +4343,16 @@ Action boundary: Notification only (approval required in Console)</pre>
             createEmptyNoticeBox(
               "수집된 활성 운영 메모 없음 (실측 0건)",
               ontoScopes.length > 0
-                ? "PostgreSQL 활성 메모가 0건입니다 (예제 메모를 표시하지 않습니다). 아래 온톨로지 실측 리소스 범위를 클릭해 상세를 확인할 수 있습니다."
-                : "PostgreSQL 활성 메모가 0건입니다 (예제 메모를 표시하지 않습니다)."
+                ? "활성 운영 메모가 0건입니다 (예제 메모를 표시하지 않습니다). 아래 온톨로지 실측 리소스 범위를 클릭해 상세를 확인할 수 있습니다."
+                : "활성 운영 메모가 0건입니다 (예제 메모를 표시하지 않습니다)."
             )
           );
           ontoScopes.forEach((sc, idx) => {
-            const resName = String(sc.resource_name || sc.resource_id || `scope-${idx + 1}`);
-            const itemId = `memory-scope:${resName}`;
+            const rawResName = String(sc.resource_name || sc.resource_id || `scope-${idx + 1}`);
+            const resNameKo = slHumanize.scopeLabel(rawResName);
+            const rgKo = slHumanize.scopeLabel(sc.resource_group || "관측 범위");
+            const displayHeading = rgKo === resNameKo ? resNameKo : `${rgKo} · ${resNameKo}`;
+            const itemId = `memory-scope:${rawResName}`;
             const updatedKo = slHumanize.ts(sc.updated_at);
             const row = document.createElement("div");
             row.className = "settings-row sl-selectable";
@@ -4255,7 +4364,7 @@ Action boundary: Notification only (approval required in Console)</pre>
 
             const left = document.createElement("div");
             const strong = document.createElement("strong");
-            strong.textContent = `${sc.resource_group || "관측 범위"} · ${resName}`;
+            strong.textContent = displayHeading;
             const sub = document.createElement("div");
             sub.className = "wb-item-sub";
             sub.textContent = `온톨로지 관측 리소스 · 최근 갱신 ${updatedKo}`;
@@ -4271,13 +4380,13 @@ Action boundary: Notification only (approval required in Console)</pre>
 
             slItemRegistry.set(itemId, {
               itemId,
-              title: resName,
-              subtitle: `저장된 운영 메모 · 온톨로지 참조 범위`,
+              title: resNameKo,
+              subtitle: "저장된 운영 메모 · 온톨로지 참조 범위",
               badgeText: "메모 0건 · 참조 범위",
               badgeTone: "neutral",
-              body: `'${resName}' 리소스 범위에는 현재 저장된 운영 메모가 없습니다. 온톨로지 화면에서 리소스 관계와 계통을 확인할 수 있습니다.`,
+              body: `'${resNameKo}' 범위에는 현재 저장된 운영 메모가 없습니다. 온톨로지 화면에서 리소스 관계와 계통을 확인할 수 있습니다.`,
               facts: [
-                ["리소스 그룹", String(sc.resource_group || "—")],
+                ["리소스 그룹", rgKo],
                 ["저장된 메모", "0건"],
                 ["최근 갱신 시각", updatedKo]
               ],
@@ -4287,7 +4396,7 @@ Action boundary: Notification only (approval required in Console)</pre>
                 ["리비전", String(sc.revision ?? 0)]
               ],
               footerLinks: [
-                { href: buildCrossPanelUrl("ontology", sc.resource_id || resName), label: "온톨로지 상세 보기 →" }
+                { href: buildCrossPanelUrl("ontology", sc.resource_id || rawResName), label: "온톨로지 상세 보기 →" }
               ]
             });
           });
@@ -4307,7 +4416,7 @@ Action boundary: Notification only (approval required in Console)</pre>
 
       const compSummary = document.getElementById("slMemoryCompactionSummary");
       if (compSummary) {
-        compSummary.textContent = `압축 이력 (Compactions · 실측 ${compactions.length}건)`;
+        compSummary.textContent = `압축 이력 · 실측 ${compactions.length}건`;
       }
       const compBody = document.getElementById("slMemoryCompactionBody");
       if (compBody) {
@@ -4350,6 +4459,7 @@ Action boundary: Notification only (approval required in Console)</pre>
       else if (pid === "settings-integrations") await hydrateIntegrationsPanel();
       else if (pid === "settings-diagnostics") await refreshDiagnosticsProbe(true);
       else if (pid === "settings-memory") await hydrateMemoryPanel();
+      reapplySelectedHighlight();
     }
 
     async function hydrateAllLivePanels(activeId) {
@@ -4358,42 +4468,136 @@ Action boundary: Notification only (approval required in Console)</pre>
       await hydratePanelById(activeId);
       const rest = Array.from(SETTINGS_IDS).filter((id) => id !== activeId);
       await Promise.allSettled(rest.map((id) => hydratePanelById(id)));
+      reapplySelectedHighlight();
+    }
+
+    function shimmerActivePanel(panelId, isDelta) {
+      const sh = shimmerApi();
+      if (!sh) return;
+      const topBar = document.getElementById("slLiveBoundaryBar");
+      const topPulse = document.getElementById("slLivePulseSummary");
+      if (topBar && !topBar.hidden) sh.border(topBar, 1150);
+      if (topPulse) sh.pulse(topPulse, 1150);
+
+      if (panelId === "settings-environment") {
+        sh.border(document.getElementById("slEnvVenueStrip"), 1150);
+        sh.pulse(document.getElementById("slEnvLivePulse"), 1150);
+        const liveCards = document.querySelectorAll('#slCollectorList [data-collector-status="live"]');
+        const cap = isDelta ? liveCards.length : Math.min(liveCards.length, 3);
+        for (let i = 0; i < cap; i++) sh.bg(liveCards[i], 1100);
+      } else if (panelId === "settings-diagnostics") {
+        sh.border(document.getElementById("slDiagVenueStrip"), 1150);
+        sh.pulse(document.getElementById("slDiagLivePulse"), 1150);
+        const pgCard = document.querySelector('#slDiagInfraGrid [data-infra-id="postgres"]');
+        if (pgCard) {
+          sh.border(pgCard, 1200);
+          sh.bg(pgCard, 1200);
+        }
+        if (isDelta) {
+          document.querySelectorAll("#slDiagServiceTbody tr").forEach((tr) => sh.bg(tr, 1050));
+          document.querySelectorAll("#slDiagInfraGrid .sl-infra-card:not(.is-unmeasured)").forEach((c) => sh.bg(c, 1050));
+        }
+      } else if (panelId === "settings-models") {
+        sh.pulse(document.getElementById("slModelsStatusBadge"), 1150);
+        const catGroup = document.getElementById("slModelsCatalogTitle")?.closest(".settings-group");
+        if (catGroup) sh.border(catGroup, 1150);
+        if (isDelta) {
+          document.querySelectorAll("#slModelsCatalogBody tr").forEach((tr) => sh.bg(tr, 1050));
+        }
+      } else if (panelId === "settings-iam") {
+        sh.pulse(document.getElementById("slIamBadge"), 1150);
+        if (isDelta) {
+          document.querySelectorAll("#slIamUserTbody tr").forEach((tr) => sh.bg(tr, 1050));
+        }
+      } else if (panelId === "settings-integrations") {
+        sh.pulse(document.getElementById("slIntegrationsBadge"), 1150);
+        sh.border(document.getElementById("slIntegrationsDbSummary"), 1150);
+      } else if (panelId === "settings-general") {
+        sh.pulse(document.getElementById("slGeneralStatusBadge"), 1150);
+      } else if (panelId === "settings-runtime") {
+        sh.pulse(document.getElementById("slRuntimeRevBadge"), 1150);
+      } else if (panelId === "settings-memory") {
+        sh.pulse(document.getElementById("slMemoryStatusBadge"), 1150);
+        if (isDelta) sh.border(document.getElementById("slRetentionPolicyGroup"), 1100);
+      }
     }
 
     let lastAppliedPulseTick = null;
+    let lastDeltaRefreshAt = 0;
+    let lastLivePulseRxMs = 0;
+    let lastLiveClockStr = "";
+    let relativeClockTimer = null;
+
+    function refreshRelativeClockLabels() {
+      if (!isLiveMode() || !lastLivePulseRxMs || !lastLivePulsePayload) return;
+      if (lastLivePulsePayload.measurement_status !== "measured") return;
+      const age = formatRelativeAgeKo(lastLivePulseRxMs);
+      const clockWithAge = age ? `${lastLiveClockStr} · ${age}` : lastLiveClockStr;
+      const lat = typeof lastLivePulsePayload.db_latency_ms === "number" ? `${lastLivePulsePayload.db_latency_ms}ms` : "미측정";
+      const topPulse = document.getElementById("slLivePulseSummary");
+      if (topPulse) topPulse.textContent = age ? `실시간 연결됨 · DB 응답 ${lat} · ${age}` : `실시간 연결됨 · DB 응답 ${lat}`;
+      const envChecked = document.getElementById("slEnvCheckedAt");
+      if (envChecked && lastLiveClockStr) envChecked.textContent = clockWithAge;
+      const diagTs = document.getElementById("slDiagTimestamp");
+      if (diagTs && lastLiveClockStr) diagTs.textContent = clockWithAge;
+    }
+
+    function ensureRelativeClockTicker() {
+      if (relativeClockTimer) return;
+      relativeClockTimer = window.setInterval(refreshRelativeClockLabels, 5000);
+    }
+
     function applyLivePulse(payload) {
       if (!payload || !isLiveMode()) return;
       if (payload.tick != null && payload.tick === lastAppliedPulseTick) return;
       lastAppliedPulseTick = payload.tick ?? null;
       lastLivePulsePayload = payload;
+      lastLivePulseRxMs = Date.now();
+      lastLiveClockStr = nowTime(lastLivePulseRxMs);
+      ensureRelativeClockTicker();
 
       const measured = payload.measurement_status === "measured";
+      syncStreamingMarks(measured);
       const lat = typeof payload.db_latency_ms === "number" ? `${payload.db_latency_ms}ms` : "미측정";
       const auditTotal = payload.audit_total != null ? Number(payload.audit_total).toLocaleString() : "—";
       const pulseLine = measured
         ? `실시간 연결됨 · DB 응답 ${lat}`
-        : "실시간 미연결 (미측정)";
+        : "실시간 미연결";
 
       const topPulse = document.getElementById("slLivePulseSummary");
-      if (topPulse) topPulse.textContent = pulseLine;
+      if (topPulse) topPulse.textContent = measured ? `${pulseLine} · 방금 전` : pulseLine;
 
       const envPulse = document.getElementById("slEnvLivePulse");
       if (envPulse) envPulse.textContent = pulseLine;
       const envChecked = document.getElementById("slEnvCheckedAt");
-      if (envChecked && measured) envChecked.textContent = nowTime();
+      if (envChecked && measured) envChecked.textContent = `${lastLiveClockStr} · 방금 전`;
 
       const diagPulse = document.getElementById("slDiagLivePulse");
       const pgInfo = lastDiagnosticsPayload?.infrastructure?.postgres;
       const dbSizePart = pgInfo?.database_size ? ` · ${pgInfo.database_size}` : "";
       if (diagPulse) diagPulse.textContent = measured
         ? `실시간 연결됨 · DB 응답 ${lat}${dbSizePart}`
-        : "실시간 미연결 (미측정)";
+        : "실시간 미연결";
       const diagTs = document.getElementById("slDiagTimestamp");
-      if (diagTs && measured) diagTs.textContent = nowTime();
+      if (diagTs && measured) diagTs.textContent = `${lastLiveClockStr} · 방금 전`;
 
       const pgSub = document.querySelector('#slDiagInfraGrid [data-infra-id="postgres"] .wb-item-sub');
       if (pgSub && measured) {
         pgSub.textContent = `실시간 연결됨 · DB 응답 ${lat}${dbSizePart} · 감사 기록 ${auditTotal}건`;
+      }
+
+      const activePid = getActivePanelId();
+      const hasDelta = Boolean((payload.delta_audit || 0) > 0 || (payload.delta_watermark || 0) > 0);
+      if (measured) {
+        shimmerActivePanel(activePid, hasDelta);
+      }
+      if (measured && hasDelta && (Date.now() - lastDeltaRefreshAt) > 4000) {
+        lastDeltaRefreshAt = Date.now();
+        hydratePanelById(activePid)
+          .then(() => {
+            if (isLiveMode()) shimmerActivePanel(activePid, true);
+          })
+          .catch(() => {});
       }
     }
 
@@ -4405,11 +4609,13 @@ Action boundary: Notification only (approval required in Console)</pre>
       const bar = document.getElementById("slLiveBoundaryBar");
       if (!bar) return;
       if (!isLiveMode()) {
+        syncStreamingMarks(false);
         bar.hidden = true;
         return;
       }
       const res = await callSettingsApi("/api/v4/settings/summary", "GET");
       if (!res.ok || !res.data) {
+        syncStreamingMarks(false);
         bar.hidden = false;
         return;
       }
@@ -4426,9 +4632,13 @@ Action boundary: Notification only (approval required in Console)</pre>
           text.textContent = `${prefix} · 보존 정책 ${res.data.retention_policy_count ?? 0}건 · AI 모델 호출 ${res.data.llm_invocation_count ?? 0}건 · 감사 기록 ${res.data.audit_log_count ?? 0}건`;
         }
         bar.hidden = false;
+        syncStreamingMarks(true);
+        shimmerApi()?.border(bar, 1150);
       } else if (measured) {
+        syncStreamingMarks(true);
         bar.hidden = true;
       } else {
+        syncStreamingMarks(false);
         setBadgeElement(badge, "neutral", "실시간 미연결 · 미측정");
         if (text) {
           text.textContent = "상위 서비스 및 PostgreSQL 미연결 상태입니다. 측정되지 않은 값을 0으로 대체하지 않습니다.";
@@ -4436,6 +4646,25 @@ Action boundary: Notification only (approval required in Console)</pre>
         bar.hidden = false;
       }
     }
+
+    function handleDataModeTransition() {
+      syncLiveBoundaryBar().catch(() => {});
+      if (isLiveMode()) {
+        applyLiveUnmeasuredBaseline();
+        hydrateAllLivePanels(getActivePanelId()).catch(() => {});
+        const lastP = window.fdaiV4Live?.getLastPulse?.();
+        if (lastP) {
+          lastAppliedPulseTick = null;
+          applyLivePulse(lastP);
+        }
+      } else {
+        restoreSampleSnapshots();
+      }
+    }
+
+    window.addEventListener("fdai:data-mode-change", () => {
+      handleDataModeTransition();
+    });
 
     window.addEventListener("fdai:panelchange", (ev) => {
       const pid = ev?.detail?.panelId;
@@ -4461,20 +4690,7 @@ Action boundary: Notification only (approval required in Console)</pre>
 
     document.addEventListener("click", (ev) => {
       if (ev.target?.closest?.("[data-data-mode]")) {
-        window.setTimeout(() => {
-          syncLiveBoundaryBar().catch(() => {});
-          if (isLiveMode()) {
-            applyLiveUnmeasuredBaseline();
-            hydrateAllLivePanels(getActivePanelId()).catch(() => {});
-            const lastP = window.fdaiV4Live?.getLastPulse?.();
-            if (lastP) {
-              lastAppliedPulseTick = null;
-              applyLivePulse(lastP);
-            }
-          } else {
-            restoreSampleSnapshots();
-          }
-        }, 30);
+        window.setTimeout(handleDataModeTransition, 30);
       }
     });
 

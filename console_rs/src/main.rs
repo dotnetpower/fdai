@@ -65,12 +65,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let repo_root = detect_repo_root();
-    let state = AppState::from_repo_root_with_local_db(repo_root, operator_url.clone());
+    let stencil_policy = fdai_console_v4::stencil::StencilPolicy::from_current_env_checked()
+        .map_err(|err| format!("invalid Stencil configuration (fail-closed): {err}"))?;
+    let state = AppState::from_repo_root_with_local_db(repo_root, operator_url.clone())
+        .with_stencil(stencil_policy);
 
     if check_only {
         println!(
-            "fdai-console-v4 --check ok: domains=8 panels={} db_configured={} operator_url={}",
+            "fdai-console-v4 --check ok: domains=8 panels={} enabled_panels={} stencil_source={} db_configured={} operator_url={}",
             domains::all_panel_ids().len(),
+            state.stencil.enabled_panels.len(),
+            state.stencil.source,
             state.db.is_configured(),
             operator_url
         );

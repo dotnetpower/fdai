@@ -616,6 +616,217 @@
       .ev-excluded-grid { grid-template-columns: minmax(0, 1fr); }
       .ev-lifecycle-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
+    /* Executive Report Briefing UI (zero colored left/top rails, neutral hairlines) */
+    .ev-exec-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 8px;
+    }
+    .ev-exec-list li {
+      display: grid;
+      grid-template-columns: 24px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      padding: 10px 12px;
+      border: 1px solid var(--cs-hairline-soft);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--cs-text);
+    }
+    .ev-exec-num {
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      border: 1px solid var(--cs-hairline);
+      background: var(--cs-card);
+      color: var(--cs-text-soft);
+      font-size: 11.5px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1px;
+    }
+    .ev-exec-scorecards {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .ev-scorecard {
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      padding: 12px 14px;
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+    .ev-scorecard-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--cs-text-soft);
+      font-weight: 600;
+    }
+    .ev-scorecard-val {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--cs-text);
+      font-variant-numeric: tabular-nums;
+    }
+    .ev-scorecard-desc {
+      font-size: 12.5px;
+      color: var(--cs-text-soft);
+      line-height: 1.45;
+    }
+    .ev-exec-charts {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .ev-chart-box {
+      border: 1px solid var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      padding: 12px 14px;
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+    .ev-chart-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--cs-text);
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .ev-chart-sub {
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--cs-text-soft);
+    }
+    .ev-blindspots {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+    .ev-blindspot-card {
+      border: 1px dashed var(--cs-hairline);
+      border-radius: var(--cs-radius-sm);
+      background: var(--cs-bg);
+      padding: 11px 13px;
+      display: grid;
+      gap: 5px;
+      font-size: 12.5px;
+      min-width: 0;
+    }
+    .ev-blindspot-card strong { color: var(--cs-text); font-size: 13px; }
+    .ev-blindspot-card p { margin: 0; color: var(--cs-text-soft); line-height: 1.45; }
+    .ev-scope-qualifier {
+      margin: 0;
+      font-size: 12px;
+      color: var(--cs-text-soft);
+    }
+    .ev-print-banner {
+      display: none;
+    }
+    @media (max-width: 960px) {
+      .ev-exec-scorecards,
+      .ev-exec-charts { grid-template-columns: minmax(0, 1fr); }
+    }
+    /* Dedicated Executive A4 Vector Print / Save-as-PDF Stylesheet */
+    @page {
+      size: A4 portrait;
+      margin: 13mm 14mm;
+    }
+    @media print {
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      html, body {
+        background: #ffffff !important;
+        color: #0f172a !important;
+        height: auto !important;
+        overflow: visible !important;
+      }
+      #fdaiTopbar, #fdaiRail, #fdaiExplorer, #fdaiChatSidebar, #fdaiDrawerBackdrop,
+      .page-head, .hub-tabs, .subtab-bar, .principle-bar, #evToast,
+      #evReportsWb .wb-col-list, #evReportsWb .wb-center-head .toolbar-inline,
+      [data-panel-id]:not([data-panel-id="reports"]),
+      section[data-panel-id="reports"] > :not(#evReportsWb) {
+        display: none !important;
+      }
+      .console-app, .workspace-frame, #fdaiMain, .content-wrap,
+      section[data-panel-id="reports"], #evReportsWb, #evReportsWb .wb-col-center, #evReportsWb .wb-center-body {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        background: #ffffff !important;
+        overflow: visible !important;
+      }
+      .ev-print-banner {
+        display: flex !important;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 18px;
+        border-radius: 6px;
+        background: #0f172a !important;
+        color: #ffffff !important;
+        margin-bottom: 14px;
+      }
+      .ev-print-banner strong { font-size: 13px; letter-spacing: 0.04em; color: #f8fafc !important; }
+      .ev-print-banner span { font-size: 11px; color: #cbd5e1 !important; }
+      #evReportsWb .wb-center-head {
+        padding: 0 0 12px 0 !important;
+        border-bottom: 2px solid #0f172a !important;
+        margin-bottom: 14px !important;
+      }
+      #evReportsWb .wb-center-title { font-size: 20px !important; color: #0f172a !important; }
+      #evReportsWb .wb-center-sub { font-size: 11.5px !important; color: #475569 !important; }
+      #evReportsWb .insp-card,
+      #evReportsWb .ev-scorecard,
+      #evReportsWb .ev-chart-box,
+      #evReportsWb .ev-report-kpi,
+      #evReportsWb .ev-blindspot-card,
+      #evReportsWb .drawer-tech-details {
+        background: #ffffff !important;
+        border-color: #cbd5e1 !important;
+        color: #0f172a !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+        margin-bottom: 10px !important;
+      }
+      #evReportsWb .ev-exec-list li {
+        background: #f8fafc !important;
+        border-color: #cbd5e1 !important;
+        color: #0f172a !important;
+        break-inside: avoid;
+      }
+      #evReportsWb .cs-table th, #evReportsWb .cs-table td {
+        color: #0f172a !important;
+        border-color: #cbd5e1 !important;
+        font-size: 10.5px !important;
+        padding: 6px 8px !important;
+      }
+      #evReportsWb .cs-table tr { break-inside: avoid; }
+      #evReportsWb details.drawer-tech-details { display: block !important; }
+      #evReportsWb details.drawer-tech-details > summary { color: #0f172a !important; }
+    }
   </style>
 </head>
 <body data-domain="evidence" data-domain-label="감사 · 이력" data-open-chat-default="false">
@@ -1231,6 +1442,10 @@
     </div>
 
     <div class="wb-col-center">
+      <div class="ev-print-banner" id="evRepPrintBanner" aria-hidden="true">
+        <strong>FDAI AUTONOMOUS CLOUD OPERATIONS · EXECUTIVE BRIEF</strong>
+        <span id="evRepPrintBannerMeta">조회 전용 실측 투영 보고서</span>
+      </div>
       <div class="wb-center-head">
         <div>
           <h3 class="wb-center-title" id="evRepTitle"></h3>
@@ -1246,18 +1461,50 @@
             <option value="all">범위: 전체 연결 범위 (불러오는 중...)</option>
           </select>
           <button type="button" class="cs-btn cs-btn-sm" id="evRepCopyLink">링크 복사</button>
-          <button type="button" class="cs-btn cs-btn-sm" id="evRepCopyHash">서명 해시 복사</button>
+          <button type="button" class="cs-btn cs-btn-sm" id="evRepCopyHash">해시 복사</button>
           <button type="button" class="cs-btn cs-btn-sm" id="evRepJson">JSON</button>
           <button type="button" class="cs-btn cs-btn-sm" id="evRepMd">MD</button>
-          <button type="button" class="cs-btn cs-btn-sm cs-btn-accent" id="evRepPdf">PDF 서명 다운로드</button>
+          <button type="button" class="cs-btn cs-btn-sm" id="evRepPrintPdf">인쇄 · 벡터 PDF</button>
+          <button type="button" class="cs-btn cs-btn-sm cs-btn-accent" id="evRepPdf">PDF 빠른 다운로드</button>
         </div>
       </div>
 
       <div class="wb-center-body">
+        <div class="insp-card" id="evRepExecBriefCard" hidden>
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+            <span class="insp-title">경영진 핵심 결론 (실측 사실 기반 요약)</span>
+            <span class="cs-badge tone-neutral" id="evRepAvailBadge"><span class="cs-dot"></span>실측 조회 중</span>
+          </div>
+          <p class="ev-scope-qualifier" id="evRepScopeNote"></p>
+          <ol class="ev-exec-list" id="evRepExecList"></ol>
+        </div>
+
+        <div class="insp-card" id="evRepScorecardsCard" hidden>
+          <div class="insp-title">4대 운영 영역 경영진 스코어카드</div>
+          <div class="ev-exec-scorecards" id="evRepScorecards"></div>
+        </div>
+
+        <div class="insp-card" id="evRepDecisionsCard" hidden>
+          <div class="insp-title">경영진 의사결정 · 검토 요청 사항</div>
+          <div class="table-wrap" style="border:0">
+            <table class="cs-table" aria-label="경영진 의사결정 및 검토 요청 표">
+              <thead>
+                <tr><th>구분</th><th>결정 · 검토 사항</th><th>근거 및 영향</th><th>담당 · 기한</th></tr>
+              </thead>
+              <tbody id="evRepDecisions"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="insp-card" id="evRepChartsCard" hidden>
+          <div class="insp-title">시각화 분석 (자산 분포 · 자율 통제 · 리스크 현황)</div>
+          <div class="ev-exec-charts" id="evRepCharts"></div>
+        </div>
+
         <div class="insp-card">
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-            <span class="insp-title">실시간 문서 미리보기 · 핵심 지표</span>
-            <span class="cs-badge tone-neutral" id="evRepAvailBadge"><span class="cs-dot"></span>실측 조회 중</span>
+            <span class="insp-title">핵심 실측 지표</span>
+            <span class="cs-badge tone-neutral" id="evRepAvailBadgeFallback" hidden><span class="cs-dot"></span>실측 조회 중</span>
           </div>
           <div class="ev-report-metrics" id="evRepMetrics"></div>
         </div>
@@ -1274,12 +1521,17 @@
           </div>
         </div>
 
-        <details class="drawer-tech-details">
-          <summary><span>기술 상세 · 서명 지문 및 출처별 연결 상태</span><span class="drawer-tech-hint" id="evRepSourceCount">0개 출처</span></summary>
+        <div class="insp-card" id="evRepBlindSpotsCard" hidden>
+          <div class="insp-title">관측 사각지대 및 미측정 항목 권고 (0 대체 금지)</div>
+          <div class="ev-blindspots" id="evRepBlindSpots"></div>
+        </div>
+
+        <details class="drawer-tech-details" id="evRepTechDetails">
+          <summary><span>기술 상세 · 콘텐츠 무결성 해시 및 출처별 연결 상태</span><span class="drawer-tech-hint" id="evRepSourceCount">0개 출처</span></summary>
           <div class="drawer-tech-list">
             <div class="ev-hash-row">
-              <span><strong>문서 서명 지문 (SHA-256)</strong></span>
-              <code id="evRepHashVal"></code>
+              <span><strong>콘텐츠 무결성 해시 (SHA-256)</strong></span>
+              <code id="evRepHashVal">계산 중...</code>
             </div>
             <div class="drawer-tech-row"><span>근거 성격</span><code id="evRepProvKind"></code></div>
             <div class="drawer-tech-row"><span>상태 변경 권한</span><code>없음 (조회 전용 투영만 렌더링)</code></div>
@@ -1591,6 +1843,65 @@
       }
       return String(raw);
     }
+    function hzRuleId(raw) {
+      var s = String(raw || "").trim();
+      if (!s) return "";
+      var api = hzApi();
+      if (api && typeof api.ruleId === "function") return api.ruleId(s);
+      if (s.toLowerCase() === "compute.vm.environment-tag.required") return "가상 머신 필수 environment 태그 기준";
+      return s.replace(/[._-]+/g, " ");
+    }
+    function hzRemediationAction(raw) {
+      var s = String(raw || "").trim();
+      if (!s) return "";
+      var api = hzApi();
+      if (api && typeof api.remediationAction === "function") return api.remediationAction(s);
+      return hzAction(s);
+    }
+    function hzSeverity(raw) {
+      var s = String(raw || "").trim();
+      if (!s) return "";
+      var api = hzApi();
+      if (api && typeof api.severity === "function") return api.severity(s);
+      var k = s.toLowerCase();
+      if (k === "critical" || k === "sev1" || k === "p0") return "긴급";
+      if (k === "high" || k === "sev2" || k === "p1") return "높음";
+      if (k === "medium" || k === "moderate" || k === "sev3" || k === "p2") return "보통";
+      if (k === "low" || k === "sev4" || k === "p3") return "낮음";
+      if (k === "info" || k === "informational") return "정보";
+      return s;
+    }
+    function parseIsoDateSafe(raw) {
+      if (raw == null || raw === "") return null;
+      var s = String(raw).trim();
+      var iso = s;
+      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})? UTC$/i.test(s)) {
+        iso = s.replace(/\s+UTC$/i, "Z").replace(" ", "T");
+      }
+      var d = new Date(iso);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    function hzLocalClock(raw) {
+      if (raw == null || raw === "") return "—";
+      var api = hzApi();
+      var d = parseIsoDateSafe(raw);
+      if (api && typeof api.localClock === "function" && d) {
+        return api.localClock(d.getTime());
+      }
+      if (!d) return String(raw);
+      var pad = function (n) { return String(n).padStart(2, "0"); };
+      return pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+    }
+    function hzLocalShortClock(raw) {
+      var c = hzLocalClock(raw);
+      return /^\d{2}:\d{2}:\d{2}$/.test(c) ? c.slice(0, 5) : c;
+    }
+    function hzLocalDate(raw) {
+      var d = parseIsoDateSafe(raw);
+      if (!d) return "실시간";
+      var pad = function (n) { return String(n).padStart(2, "0"); };
+      return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    }
     function hzEventSummary(ev) {
       var api = hzApi();
       if (api && typeof api.eventSummary === "function") return api.eventSummary(ev || {});
@@ -1667,6 +1978,39 @@
       ]);
     }
 
+    /* Shimmer visual feedback wrappers backed by window.fdaiV4Shimmer */
+    function shimmerApi() { return window.fdaiV4Shimmer || (window.fdaiV4Live && window.fdaiV4Live.shimmer) || null; }
+    function shimmerBorder(el, ms) {
+      var api = shimmerApi();
+      if (api && typeof api.border === "function" && el) api.border(el, ms);
+    }
+    function shimmerBg(el, ms) {
+      var api = shimmerApi();
+      if (api && typeof api.bg === "function" && el) api.bg(el, ms);
+    }
+    function shimmerPulse(el, ms) {
+      var api = shimmerApi();
+      if (api && typeof api.pulse === "function" && el) api.pulse(el, ms);
+    }
+    function markStreamingEl(el, active) {
+      var api = shimmerApi();
+      if (api && typeof api.markStreaming === "function" && el) api.markStreaming(el, !!active);
+    }
+    function syncStreamingIndicators(active) {
+      var on = !!active && isEvidenceLiveMode() && !liveBridgeState.integrityAlert;
+      markStreamingEl(document.getElementById("evLiveBridgeBadge"), on);
+      ["evTraceWb", "evRcaWb", "evBrowserWb", "evConvWb", "evReportsWb"].forEach(function (id) {
+        markStreamingEl(document.getElementById(id), on);
+      });
+      var auditCard = document.querySelector(".aud-stream-card");
+      if (auditCard) markStreamingEl(auditCard, on);
+    }
+    function preserveScroll(el, fn) {
+      var top = el ? el.scrollTop : 0;
+      fn();
+      if (el && top > 0) el.scrollTop = top;
+    }
+
     var toastTimer = null;
     function showToast(msg) {
       var el = document.getElementById("evToast");
@@ -1732,19 +2076,839 @@
       showToast("이 환경에서는 자동 복사가 지원되지 않습니다. 지문 영역을 직접 선택해 복사해 주세요.");
     }
 
-    function downloadText(filename, content, mime, msg) {
+    function downloadBlob(filename, blob, msg) {
       try {
-        var blob = new Blob([content], { type: mime });
         var url = URL.createObjectURL(blob);
         var a = document.createElement("a");
         a.href = url;
         a.download = filename;
+        a.rel = "noopener";
+        a.style.display = "none";
         document.body.appendChild(a);
         a.click();
         a.remove();
-        setTimeout(function () { URL.revokeObjectURL(url); }, 800);
-      } catch (_e) { /* preview fallback */ }
-      showToast(msg);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+        showToast(msg);
+        return true;
+      } catch (err) {
+        showToast("파일 다운로드에 실패했습니다: " + (err && err.message ? err.message : "브라우저 제한"));
+        return false;
+      }
+    }
+
+    function downloadText(filename, content, mime, msg) {
+      var blob = new Blob([content], { type: mime });
+      return downloadBlob(filename, blob, msg);
+    }
+
+    function asciiBytes(str) {
+      var out = new Uint8Array(str.length);
+      for (var i = 0; i < str.length; i++) {
+        var code = str.charCodeAt(i);
+        out[i] = code < 128 ? code : 63;
+      }
+      return out;
+    }
+
+    function base64ToUint8Array(b64) {
+      var bin = atob(b64);
+      var out = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) {
+        out[i] = bin.charCodeAt(i) & 0xff;
+      }
+      return out;
+    }
+
+    function encodeJpegPagesToPdf(pages, titleAscii) {
+      var chunks = [];
+      var offset = 0;
+      function pushBytes(u8) {
+        chunks.push(u8);
+        offset += u8.length;
+      }
+      function pushStr(s) {
+        pushBytes(asciiBytes(s));
+      }
+
+      var n = pages.length;
+      /* Object IDs:
+         1: Catalog
+         2: Pages
+         3 + i*3: Page i
+         4 + i*3: Content stream i
+         5 + i*3: Image XObject i
+         3 + n*3: Info dict
+      */
+      var infoId = 3 + n * 3;
+      var totalObjs = infoId;
+      var offsets = new Array(totalObjs + 1);
+
+      pushStr("%PDF-1.4\n");
+      pushBytes(new Uint8Array([0x25, 0xe2, 0xe3, 0xcf, 0xd3, 0x0a]));
+
+      offsets[1] = offset;
+      pushStr("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+
+      var kids = [];
+      for (var k = 0; k < n; k++) kids.push((3 + k * 3) + " 0 R");
+      offsets[2] = offset;
+      pushStr("2 0 obj\n<< /Type /Pages /Count " + n + " /Kids [ " + kids.join(" ") + " ] >>\nendobj\n");
+
+      for (var i = 0; i < n; i++) {
+        var pg = pages[i];
+        var pageId = 3 + i * 3;
+        var contentId = 4 + i * 3;
+        var imgId = 5 + i * 3;
+        var drawCmd = "q\n595.28 0 0 841.89 0 0 cm\n/Im0 Do\nQ\n";
+
+        offsets[pageId] = offset;
+        pushStr(
+          pageId + " 0 obj\n" +
+          "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] " +
+          "/Resources << /XObject << /Im0 " + imgId + " 0 R >> >> " +
+          "/Contents " + contentId + " 0 R >>\nendobj\n"
+        );
+
+        offsets[contentId] = offset;
+        pushStr(
+          contentId + " 0 obj\n<< /Length " + drawCmd.length + " >>\nstream\n" +
+          drawCmd +
+          "endstream\nendobj\n"
+        );
+
+        offsets[imgId] = offset;
+        pushStr(
+          imgId + " 0 obj\n" +
+          "<< /Type /XObject /Subtype /Image /Width " + pg.width + " /Height " + pg.height +
+          " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length " + pg.bytes.length +
+          " >>\nstream\n"
+        );
+        pushBytes(pg.bytes);
+        pushStr("\nendstream\nendobj\n");
+      }
+
+      var safeTitle = String(titleAscii || "FDAI Report").replace(/[()\\]/g, " ");
+      offsets[infoId] = offset;
+      pushStr(
+        infoId + " 0 obj\n" +
+        "<< /Title (" + safeTitle + ") /Creator (FDAI Console) /Producer (FDAI Signed Report Exporter) >>\nendobj\n"
+      );
+
+      var xrefStart = offset;
+      pushStr("xref\n0 " + (totalObjs + 1) + "\n");
+      pushStr("0000000000 65535 f \n");
+      for (var o = 1; o <= totalObjs; o++) {
+        var offStr = String(offsets[o]).padStart(10, "0");
+        pushStr(offStr + " 00000 n \n");
+      }
+      pushStr(
+        "trailer\n<< /Size " + (totalObjs + 1) + " /Root 1 0 R /Info " + infoId + " 0 R >>\n" +
+        "startxref\n" + xrefStart + "\n%%EOF\n"
+      );
+
+      var merged = new Uint8Array(offset);
+      var pos = 0;
+      for (var c = 0; c < chunks.length; c++) {
+        merged.set(chunks[c], pos);
+        pos += chunks[c].length;
+      }
+      return merged;
+    }
+
+    function wrapCanvasLines(ctx, text, maxWidth) {
+      var raw = String(text == null ? "" : text);
+      if (!raw) return [""];
+      var lines = [];
+      raw.split(/\r?\n/).forEach(function (para) {
+        if (!para) { lines.push(""); return; }
+        var tokens = para.split(/(\s+)/);
+        var cur = "";
+        tokens.forEach(function (tok) {
+          if (!tok) return;
+          var candidate = cur + tok;
+          if (cur && ctx.measureText(candidate).width > maxWidth) {
+            lines.push(cur.trimEnd());
+            var cleanTok = tok.trimStart();
+            if (!cleanTok) {
+              cur = "";
+              return;
+            }
+            if (ctx.measureText(cleanTok).width <= maxWidth) {
+              cur = cleanTok;
+            } else {
+              cur = "";
+              for (var i = 0; i < cleanTok.length; i++) {
+                var ch = cleanTok.charAt(i);
+                if (cur && ctx.measureText(cur + ch).width > maxWidth) {
+                  lines.push(cur);
+                  cur = ch;
+                } else {
+                  cur += ch;
+                }
+              }
+            }
+          } else {
+            cur = candidate;
+          }
+        });
+        if (cur.trim()) lines.push(cur.trimEnd());
+      });
+      return lines.length ? lines : [""];
+    }
+
+    function buildReportPdfBlob(rep, contentHash) {
+      var W = 1240;
+      var H = 1754;
+      var M = 68;
+      var CW = W - M * 2;
+      var FOOTER_H = 72;
+      var FONT_SANS = '"Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
+      var FONT_MONO = '"JetBrains Mono", "Consolas", "D2Coding", monospace';
+
+      var meta = currentExportBoundaryMeta();
+      var hash = contentHash || "미계산";
+      var metrics = (rep.metricsByWin && (rep.metricsByWin[repState.win] || rep.metricsByWin["7d"])) || [];
+      var highlights = Array.isArray(rep.executiveHighlights) ? rep.executiveHighlights : [];
+      var scorecards = Array.isArray(rep.scorecards) ? rep.scorecards : [];
+      var decisions = Array.isArray(rep.decisions) ? rep.decisions : [];
+      var charts = rep.charts || {};
+      var blindSpots = Array.isArray(rep.blindSpots) ? rep.blindSpots : [];
+      var rows = Array.isArray(rep.rows) ? rep.rows : [];
+      var sources = Array.isArray(rep.sources) ? rep.sources : [];
+      var genTime = rep.generatedAt ? hzTimestamp(rep.generatedAt) : "미측정";
+      var exportedAt = hzTimestamp(meta.exported_at);
+      var modeBadgeText = meta.export_mode === "live" ? "LIVE 실측 투영" : "SAMPLE 시뮬레이션 표본";
+      var secNo = 0;
+
+      var TONE_COLOR = {
+        live: { fg: "#047857", bg: "#ecfdf5", bd: "#a7f3d0", bar: "#059669" },
+        human: { fg: "#b45309", bg: "#fffbeb", bd: "#fde68a", bar: "#d97706" },
+        sec: { fg: "#b91c1c", bg: "#fef2f2", bd: "#fecaca", bar: "#dc2626" },
+        sre: { fg: "#4338ca", bg: "#eef2ff", bd: "#c7d2fe", bar: "#4f46e5" },
+        auto: { fg: "#1d4ed8", bg: "#eff6ff", bd: "#bfdbfe", bar: "#2563eb" },
+        neutral: { fg: "#475569", bg: "#f8fafc", bd: "#cbd5e1", bar: "#64748b" }
+      };
+      function tonePal(t) { return TONE_COLOR[safeTone(t)] || TONE_COLOR.neutral; }
+
+      var canvases = [];
+      var ctx = null;
+      var y = M;
+
+      function drawRoundRect(c, rx, ry, rw, rh, rad) {
+        c.beginPath();
+        if (typeof c.roundRect === "function") {
+          c.roundRect(rx, ry, rw, rh, rad);
+        } else {
+          c.rect(rx, ry, rw, rh);
+        }
+      }
+
+      function createPage(isFirst) {
+        var cv = document.createElement("canvas");
+        cv.width = W;
+        cv.height = H;
+        var c = cv.getContext("2d");
+        c.fillStyle = "#ffffff";
+        c.fillRect(0, 0, W, H);
+        c.textBaseline = "top";
+        canvases.push(cv);
+        ctx = c;
+        y = M;
+        if (!isFirst) {
+          ctx.fillStyle = "#475569";
+          ctx.font = "700 15px " + FONT_SANS;
+          ctx.fillText("FDAI EXECUTIVE OPERATIONS BRIEF  ·  " + rep.title, M, y);
+          var subR = "기준 시각 " + genTime;
+          ctx.font = "500 14px " + FONT_SANS;
+          ctx.fillStyle = "#64748b";
+          ctx.fillText(subR, W - M - ctx.measureText(subR).width, y + 1);
+          y += 28;
+          ctx.strokeStyle = "#e2e8f0";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(M, y);
+          ctx.lineTo(W - M, y);
+          ctx.stroke();
+          y += 26;
+        }
+      }
+
+      function ensureSpace(needH) {
+        if (y + needH > H - M - FOOTER_H) {
+          createPage(false);
+        }
+      }
+
+      function drawSectionHeading(title, subRight, minBodyH) {
+        secNo += 1;
+        ensureSpace(58 + (minBodyH || 90));
+        ctx.fillStyle = "#0f172a";
+        ctx.font = "700 22px " + FONT_SANS;
+        ctx.fillText(secNo + ". " + title, M, y);
+        if (subRight) {
+          ctx.fillStyle = "#64748b";
+          ctx.font = "500 14px " + FONT_SANS;
+          var sw = ctx.measureText(subRight).width;
+          ctx.fillText(subRight, W - M - sw, y + 6);
+        }
+        y += 30;
+        ctx.strokeStyle = "#cbd5e1";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(M, y);
+        ctx.lineTo(W - M, y);
+        ctx.stroke();
+        y += 16;
+      }
+
+      function drawBadge(x, by, text, tone) {
+        var pal = tonePal(tone);
+        ctx.font = "700 13.5px " + FONT_SANS;
+        var bw = Math.ceil(ctx.measureText(text).width) + 22;
+        ctx.fillStyle = pal.bg;
+        ctx.strokeStyle = pal.bd;
+        ctx.lineWidth = 1;
+        drawRoundRect(ctx, x, by, bw, 24, 12);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = pal.fg;
+        ctx.fillText(text, x + 11, by + 5);
+        return bw;
+      }
+
+      /* ===== PAGE 1: EDITORIAL EXECUTIVE HEADER BANNER ===== */
+      createPage(true);
+      var bannerH = 216;
+      ctx.fillStyle = "#0f172a";
+      drawRoundRect(ctx, M, y, CW, bannerH, 12);
+      ctx.fill();
+
+      var bx = M + 34;
+      var by = y + 28;
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "700 14px " + FONT_SANS;
+      ctx.fillText("FDAI AUTONOMOUS CLOUD OPERATIONS  ·  EXECUTIVE REPORT", bx, by);
+
+      /* Top-right mode badge inside dark banner */
+      ctx.font = "700 14px " + FONT_SANS;
+      var mbw = Math.ceil(ctx.measureText(modeBadgeText).width) + 26;
+      var mbx = M + CW - 34 - mbw;
+      ctx.fillStyle = meta.export_mode === "live" ? "rgba(16, 185, 129, 0.18)" : "rgba(245, 158, 11, 0.22)";
+      ctx.strokeStyle = meta.export_mode === "live" ? "#34d399" : "#fbbf24";
+      ctx.lineWidth = 1.2;
+      drawRoundRect(ctx, mbx, by - 4, mbw, 28, 14);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = meta.export_mode === "live" ? "#a7f3d0" : "#fde68a";
+      ctx.fillText(modeBadgeText, mbx + 13, by + 3);
+
+      by += 34;
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "700 32px " + FONT_SANS;
+      var titleLines = wrapCanvasLines(ctx, rep.title, CW - 68).slice(0, 2);
+      titleLines.forEach(function (ln) {
+        ctx.fillText(ln, bx, by);
+        by += 40;
+      });
+
+      by += 6;
+      ctx.fillStyle = "#cbd5e1";
+      ctx.font = "500 15.5px " + FONT_SANS;
+      ctx.fillText("기간: " + repState.win + "   ·   범위: " + repState.scope + "   ·   기준 시각: " + genTime + "   ·   내보내기: " + exportedAt, bx, by);
+      by += 26;
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "500 14px " + FONT_SANS;
+      var qualLine = rep.scopeQualifier || (rep.availLabel || rep.status || "");
+      ctx.fillText(wrapCanvasLines(ctx, qualLine, CW - 68)[0], bx, by);
+
+      y += bannerH + 22;
+
+      if (meta.sample_boundary) {
+        ctx.fillStyle = "#fffbeb";
+        ctx.strokeStyle = "#f59e0b";
+        ctx.lineWidth = 1.5;
+        drawRoundRect(ctx, M, y, CW, 46, 8);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#92400e";
+        ctx.font = "600 15.5px " + FONT_SANS;
+        ctx.fillText("Sample 표본 안내: 본 보고서는 시연용 표본 데이터이며 Live 운영 원장을 입증하지 않습니다.", M + 18, y + 14);
+        y += 62;
+      }
+
+      /* ===== SECTION: EXECUTIVE HIGHLIGHTS ===== */
+      if (highlights.length > 0) {
+        drawSectionHeading("경영진 핵심 결론 (Executive Summary)", "결정론적 실측 사실 기반");
+        highlights.forEach(function (line, idx) {
+          ctx.font = "500 16.5px " + FONT_SANS;
+          var wrapped = wrapCanvasLines(ctx, line, CW - 76);
+          var boxH = Math.max(48, wrapped.length * 24 + 22);
+          ensureSpace(boxH + 10);
+          ctx.fillStyle = "#f8fafc";
+          ctx.strokeStyle = "#e2e8f0";
+          ctx.lineWidth = 1.2;
+          drawRoundRect(ctx, M, y, CW, boxH, 8);
+          ctx.fill();
+          ctx.stroke();
+
+          /* Number circle */
+          ctx.fillStyle = "#0f172a";
+          ctx.beginPath();
+          ctx.arc(M + 26, y + 24, 13, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "700 14px " + FONT_SANS;
+          var numStr = String(idx + 1);
+          ctx.fillText(numStr, M + 26 - ctx.measureText(numStr).width / 2, y + 17);
+
+          ctx.fillStyle = "#0f172a";
+          ctx.font = "500 16.5px " + FONT_SANS;
+          wrapped.forEach(function (wln, wi) {
+            ctx.fillText(wln, M + 52, y + 12 + wi * 24);
+          });
+          y += boxH + 10;
+        });
+        y += 12;
+      }
+
+      /* ===== SECTION: 4-PILLAR EXECUTIVE SCORECARDS ===== */
+      if (scorecards.length > 0) {
+        drawSectionHeading("4대 운영 영역 경영진 스코어카드", "종합 점수 합성 없음 · 영역별 실측 원천 기준");
+        var scGap = 16;
+        var scW = Math.floor((CW - scGap) / 2);
+        for (var si = 0; si < scorecards.length; si += 2) {
+          var pair = scorecards.slice(si, si + 2);
+          var scH = 132;
+          ensureSpace(scH + 16);
+          pair.forEach(function (sc, pi) {
+            var sx = M + pi * (scW + scGap);
+            var pal = tonePal(sc.tone);
+            ctx.fillStyle = "#ffffff";
+            ctx.strokeStyle = "#cbd5e1";
+            ctx.lineWidth = 1.4;
+            drawRoundRect(ctx, sx, y, scW, scH, 9);
+            ctx.fill();
+            ctx.stroke();
+
+            /* Status dot + area label */
+            ctx.fillStyle = pal.bar;
+            ctx.beginPath();
+            ctx.arc(sx + 20, y + 24, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#475569";
+            ctx.font = "700 15px " + FONT_SANS;
+            ctx.fillText(sc.area || "", sx + 32, y + 16);
+
+            /* Scope chip top-right */
+            if (sc.scope_label || sc.scopeLabel) {
+              var sl = sc.scope_label || sc.scopeLabel;
+              ctx.font = "500 12.5px " + FONT_SANS;
+              var slw = ctx.measureText(sl).width;
+              ctx.fillStyle = "#64748b";
+              ctx.fillText(sl, sx + scW - 16 - slw, y + 18);
+            }
+
+            /* Headline value */
+            ctx.fillStyle = "#0f172a";
+            ctx.font = "700 26px " + FONT_SANS;
+            ctx.fillText(wrapCanvasLines(ctx, sc.headline || "—", scW - 32)[0], sx + 18, y + 46);
+
+            /* Detail text */
+            ctx.fillStyle = "#475569";
+            ctx.font = "400 14.5px " + FONT_SANS;
+            wrapCanvasLines(ctx, sc.detail || "", scW - 32).slice(0, 2).forEach(function (dl, dli) {
+              ctx.fillText(dl, sx + 18, y + 84 + dli * 20);
+            });
+          });
+          y += scH + 16;
+        }
+        y += 8;
+      } else if (metrics.length > 0) {
+        drawSectionHeading("핵심 실측 지표", "미수집 항목 0 대체 금지");
+        var cols = Math.min(3, metrics.length);
+        var gap = 16;
+        var cardW = Math.floor((CW - gap * (cols - 1)) / cols);
+        for (var mi = 0; mi < metrics.length; mi += cols) {
+          var slice = metrics.slice(mi, mi + cols);
+          var cardH = 128;
+          ensureSpace(cardH + 16);
+          slice.forEach(function (m, idx) {
+            var cx = M + idx * (cardW + gap);
+            ctx.fillStyle = "#f8fafc";
+            ctx.strokeStyle = m.unavail ? "#94a3b8" : "#cbd5e1";
+            ctx.lineWidth = 1.4;
+            if (m.unavail && ctx.setLineDash) ctx.setLineDash([6, 4]);
+            drawRoundRect(ctx, cx, y, cardW, cardH, 8);
+            ctx.fill();
+            ctx.stroke();
+            if (ctx.setLineDash) ctx.setLineDash([]);
+            ctx.fillStyle = "#475569";
+            ctx.font = "600 15px " + FONT_SANS;
+            ctx.fillText(wrapCanvasLines(ctx, m.k, cardW - 28)[0], cx + 16, y + 16);
+            ctx.fillStyle = m.unavail ? "#64748b" : "#0f172a";
+            ctx.font = "700 24px " + FONT_SANS;
+            ctx.fillText(wrapCanvasLines(ctx, m.v, cardW - 28)[0], cx + 16, y + 46);
+            ctx.fillStyle = "#64748b";
+            ctx.font = "400 14px " + FONT_SANS;
+            wrapCanvasLines(ctx, m.note, cardW - 28).slice(0, 2).forEach(function (nl, nli) {
+              ctx.fillText(nl, cx + 16, y + 82 + nli * 19);
+            });
+          });
+          y += cardH + 18;
+        }
+        y += 8;
+      }
+
+      /* ===== SECTION: EXECUTIVE DECISIONS & ACTIONS ===== */
+      if (decisions.length > 0) {
+        drawSectionHeading("경영진 의사결정 · 검토 요청", "승인 대기(권한 필요)와 검토 권고 분리");
+        var dCols = [110, Math.floor(CW * 0.34), Math.floor(CW * 0.33), CW - 110 - Math.floor(CW * 0.34) - Math.floor(CW * 0.33)];
+        var dHeads = ["구분", "결정 · 검토 사항", "근거 및 영향", "담당 · 기한"];
+        function drawDecHeader() {
+          ensureSpace(44);
+          ctx.fillStyle = "#f1f5f9";
+          ctx.fillRect(M, y, CW, 36);
+          ctx.strokeStyle = "#cbd5e1";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(M, y, CW, 36);
+          ctx.fillStyle = "#334155";
+          ctx.font = "700 14.5px " + FONT_SANS;
+          var hx = M;
+          dHeads.forEach(function (h, hi) {
+            ctx.fillText(h, hx + 10, y + 10);
+            hx += dCols[hi];
+          });
+          y += 36;
+        }
+        drawDecHeader();
+        decisions.forEach(function (dec, di) {
+          var dueDisp = parseIsoDateSafe(dec.due_at || dec.dueAt) ? hzTimestamp(dec.due_at || dec.dueAt) : (dec.due_at || dec.dueAt || "지정 필요");
+          var reasonFull = (dec.reason || "") + (dec.impact ? (" · " + dec.impact) : "");
+          var ownerFull = (dec.owner || "지정 필요") + "\n" + dueDisp;
+          ctx.font = "500 14.5px " + FONT_SANS;
+          var c1 = wrapCanvasLines(ctx, dec.title || "—", dCols[1] - 20);
+          var c2 = wrapCanvasLines(ctx, reasonFull, dCols[2] - 20);
+          var c3 = wrapCanvasLines(ctx, ownerFull, dCols[3] - 20);
+          var maxL = Math.max(c1.length, c2.length, c3.length, 1);
+          var rH = Math.max(46, maxL * 21 + 18);
+          if (y + rH > H - M - FOOTER_H) {
+            createPage(false);
+            drawDecHeader();
+          }
+          ctx.fillStyle = di % 2 === 1 ? "#f8fafc" : "#ffffff";
+          ctx.fillRect(M, y, CW, rH);
+          ctx.strokeStyle = "#e2e8f0";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(M, y, CW, rH);
+          drawBadge(M + 10, y + 11, dec.kind || "검토 권고", dec.tone || "human");
+          var x1 = M + dCols[0];
+          ctx.fillStyle = "#0f172a";
+          ctx.font = "600 14.5px " + FONT_SANS;
+          c1.forEach(function (ln, li) { ctx.fillText(ln, x1 + 10, y + 10 + li * 21); });
+          var x2 = x1 + dCols[1];
+          ctx.fillStyle = "#334155";
+          ctx.font = "400 14px " + FONT_SANS;
+          c2.forEach(function (ln, li) { ctx.fillText(ln, x2 + 10, y + 10 + li * 21); });
+          var x3 = x2 + dCols[2];
+          ctx.fillStyle = "#475569";
+          ctx.font = "500 13.5px " + FONT_SANS;
+          c3.forEach(function (ln, li) { ctx.fillText(ln, x3 + 10, y + 10 + li * 21); });
+          y += rH;
+        });
+        y += 22;
+      }
+
+      /* ===== SECTION: VISUAL ANALYTICS CHARTS ===== */
+      var scopeDist = Array.isArray(charts.scope_distribution) ? charts.scope_distribution : [];
+      var autoDist = Array.isArray(charts.autonomy_breakdown) ? charts.autonomy_breakdown : [];
+      var riskDist = Array.isArray(charts.risk_breakdown) ? charts.risk_breakdown : [];
+      if (scopeDist.length > 0 || autoDist.length > 0 || riskDist.length > 0) {
+        var firstChartNeed = scopeDist.length > 0 && riskDist.length > 0
+          ? (Math.max(scopeDist.length, riskDist.length) * 44 + 80)
+          : (scopeDist.length > 0 ? (scopeDist.length * 44 + 80) : 130);
+        drawSectionHeading("시각화 분석 (자산 분포 · 자율 통제 · 리스크 현황)", "기준 시각 " + genTime, firstChartNeed);
+
+        function drawBarChartBox(cx, cy, bw, bh, title, subtitle, items, defaultTone) {
+          ctx.fillStyle = "#ffffff";
+          ctx.strokeStyle = "#cbd5e1";
+          ctx.lineWidth = 1.2;
+          drawRoundRect(ctx, cx, cy, bw, bh, 9);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = "#0f172a";
+          ctx.font = "700 16px " + FONT_SANS;
+          ctx.fillText(title, cx + 18, cy + 16);
+          ctx.fillStyle = "#64748b";
+          ctx.font = "400 13px " + FONT_SANS;
+          ctx.fillText(subtitle, cx + 18, cy + 38);
+
+          var maxV = 1;
+          items.forEach(function (it) {
+            if (typeof it.value === "number" && it.value > maxV) maxV = it.value;
+          });
+          var iy = cy + 68;
+          items.slice(0, 6).forEach(function (it) {
+            var isNull = it.value === null || it.value === undefined;
+            var valNum = isNull ? 0 : Number(it.value || 0);
+            var pal = tonePal(it.tone || defaultTone || "auto");
+            ctx.fillStyle = "#334155";
+            ctx.font = "600 13.5px " + FONT_SANS;
+            var lbl = wrapCanvasLines(ctx, it.label || "-", bw - 140)[0];
+            ctx.fillText(lbl, cx + 18, iy);
+            var valTxt = isNull ? "미측정" : (fmtNum(valNum) + (it.unit || ""));
+            ctx.fillStyle = isNull ? "#94a3b8" : "#0f172a";
+            ctx.font = "700 13.5px " + FONT_SANS;
+            ctx.fillText(valTxt, cx + bw - 18 - ctx.measureText(valTxt).width, iy);
+            iy += 20;
+            var trackW = bw - 36;
+            ctx.fillStyle = "#f1f5f9";
+            drawRoundRect(ctx, cx + 18, iy, trackW, 12, 6);
+            ctx.fill();
+            if (!isNull && valNum > 0) {
+              var fillW = Math.max(8, Math.round((valNum / maxV) * trackW));
+              ctx.fillStyle = pal.bar;
+              drawRoundRect(ctx, cx + 18, iy, fillW, 12, 6);
+              ctx.fill();
+            }
+            iy += 26;
+          });
+        }
+
+        if (scopeDist.length > 0 && riskDist.length > 0) {
+          var chartH = Math.max(scopeDist.length, riskDist.length) * 46 + 82;
+          ensureSpace(chartH + 18);
+          var halfW = Math.floor((CW - 16) / 2);
+          drawBarChartBox(M, y, halfW, chartH, "리소스 그룹별 자산 분포 (Top 6)", "단위: 개 · 온톨로지 실측 인벤토리", scopeDist, "auto");
+          drawBarChartBox(M + halfW + 16, y, halfW, chartH, "주요 운영 · 보안 리스크 현황", "단위: 건 · 미측정 항목은 0으로 대체하지 않음", riskDist, "sec");
+          y += chartH + 18;
+        } else if (scopeDist.length > 0) {
+          var sH = scopeDist.length * 46 + 82;
+          ensureSpace(sH + 18);
+          drawBarChartBox(M, y, CW, sH, "리소스 그룹별 자산 분포", "단위: 개 · 온톨로지 실측 인벤토리", scopeDist, "auto");
+          y += sH + 18;
+        }
+
+        /* Autonomy stacked bar */
+        if (autoDist.length > 0) {
+          var stackH = 122;
+          ensureSpace(stackH + 18);
+          ctx.fillStyle = "#ffffff";
+          ctx.strokeStyle = "#cbd5e1";
+          ctx.lineWidth = 1.2;
+          drawRoundRect(ctx, M, y, CW, stackH, 9);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = "#0f172a";
+          ctx.font = "700 16px " + FONT_SANS;
+          ctx.fillText("자율 운영 통제 모드 구성 (" + repState.win + ")", M + 18, y + 16);
+          var totalAuto = autoDist.reduce(function (acc, x) { return acc + Number(x.value || 0); }, 0);
+          var totTxt = "총 " + fmtNum(totalAuto) + "건";
+          ctx.fillStyle = "#64748b";
+          ctx.font = "600 14px " + FONT_SANS;
+          ctx.fillText(totTxt, M + CW - 18 - ctx.measureText(totTxt).width, y + 18);
+
+          var barX = M + 18;
+          var barY = y + 48;
+          var barW = CW - 36;
+          ctx.fillStyle = "#f1f5f9";
+          drawRoundRect(ctx, barX, barY, barW, 22, 6);
+          ctx.fill();
+          if (totalAuto > 0) {
+            var curX = barX;
+            autoDist.forEach(function (seg) {
+              var v = Number(seg.value || 0);
+              if (v <= 0) return;
+              var sw = Math.max(6, Math.round((v / totalAuto) * barW));
+              if (curX + sw > barX + barW) sw = barX + barW - curX;
+              ctx.fillStyle = tonePal(seg.tone).bar;
+              ctx.fillRect(curX, barY, sw, 22);
+              curX += sw;
+            });
+          }
+
+          var legX = M + 18;
+          var legY = y + 84;
+          autoDist.forEach(function (seg) {
+            var pal = tonePal(seg.tone);
+            var pct = totalAuto > 0 ? Math.round((Number(seg.value || 0) / totalAuto) * 100) + "%" : "0%";
+            ctx.fillStyle = pal.bar;
+            ctx.fillRect(legX, legY + 3, 12, 12);
+            ctx.fillStyle = "#334155";
+            ctx.font = "600 14px " + FONT_SANS;
+            var txt = seg.label + ": " + fmtNum(seg.value || 0) + "건 (" + pct + ")";
+            ctx.fillText(txt, legX + 18, legY);
+            legX += Math.ceil(ctx.measureText(txt).width) + 42;
+          });
+          y += stackH + 22;
+        }
+      }
+
+      /* ===== SECTION: VERIFICATION BREAKDOWN TABLE ===== */
+      drawSectionHeading("단계별 검증 · 항목 분해 표", "조회 전용 실측 투영");
+      var colWidths = [Math.floor(CW * 0.28), Math.floor(CW * 0.16), Math.floor(CW * 0.36), CW - Math.floor(CW * 0.28) - Math.floor(CW * 0.16) - Math.floor(CW * 0.36)];
+      var headers = ["항목", "담당", "결과", "근거 기준 시각"];
+
+      function drawTableHeader() {
+        ensureSpace(44);
+        ctx.fillStyle = "#f1f5f9";
+        ctx.fillRect(M, y, CW, 36);
+        ctx.strokeStyle = "#cbd5e1";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(M, y, CW, 36);
+        ctx.fillStyle = "#334155";
+        ctx.font = "700 14.5px " + FONT_SANS;
+        var hx = M;
+        headers.forEach(function (h, hi) {
+          ctx.fillText(h, hx + 12, y + 10);
+          hx += colWidths[hi];
+        });
+        y += 36;
+      }
+
+      if (rows.length === 0) {
+        ctx.fillStyle = "#64748b";
+        ctx.font = "500 16px " + FONT_SANS;
+        ctx.fillText("표시할 검증 항목이 없습니다.", M, y);
+        y += 34;
+      } else {
+        drawTableHeader();
+        rows.forEach(function (row, rIdx) {
+          var asOfDisp = parseIsoDateSafe(row.asOf) ? hzTimestamp(row.asOf) : (row.asOf || "—");
+          var vals = [row.item || "—", row.owner || "—", row.result || "—", asOfDisp];
+          ctx.font = "500 14.5px " + FONT_SANS;
+          var wrappedCols = vals.map(function (v, ci) {
+            return wrapCanvasLines(ctx, v, colWidths[ci] - 24);
+          });
+          var maxLines = Math.max.apply(null, wrappedCols.map(function (a) { return a.length; }));
+          var rowH = Math.max(38, maxLines * 21 + 16);
+          if (y + rowH > H - M - FOOTER_H) {
+            createPage(false);
+            drawTableHeader();
+          }
+          ctx.fillStyle = rIdx % 2 === 1 ? "#f8fafc" : "#ffffff";
+          ctx.fillRect(M, y, CW, rowH);
+          ctx.strokeStyle = "#e2e8f0";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(M, y, CW, rowH);
+          var rx = M;
+          wrappedCols.forEach(function (lines, ci) {
+            ctx.fillStyle = ci === 0 ? "#0f172a" : "#334155";
+            ctx.font = (ci === 0 ? "600 " : "400 ") + "14.5px " + FONT_SANS;
+            lines.forEach(function (ln, li) {
+              ctx.fillText(ln, rx + 12, y + 9 + li * 21);
+            });
+            rx += colWidths[ci];
+          });
+          y += rowH;
+        });
+      }
+      y += 24;
+
+      /* ===== SECTION: HONEST OBSERVATION BLIND SPOTS ===== */
+      if (blindSpots.length > 0) {
+        drawSectionHeading("관측 사각지대 및 미측정 항목 권고", "수집되지 않은 값은 0으로 대체하지 않음");
+        blindSpots.forEach(function (bs) {
+          ctx.font = "400 14.5px " + FONT_SANS;
+          var rLines = wrapCanvasLines(ctx, "현황: " + (bs.reason || ""), CW - 36);
+          var aLines = wrapCanvasLines(ctx, "권고: " + (bs.recommendation || ""), CW - 36);
+          var bH = 44 + (rLines.length + aLines.length) * 20 + 14;
+          ensureSpace(bH + 12);
+          ctx.fillStyle = "#f8fafc";
+          ctx.strokeStyle = "#94a3b8";
+          ctx.lineWidth = 1.2;
+          if (ctx.setLineDash) ctx.setLineDash([6, 4]);
+          drawRoundRect(ctx, M, y, CW, bH, 8);
+          ctx.fill();
+          ctx.stroke();
+          if (ctx.setLineDash) ctx.setLineDash([]);
+
+          ctx.fillStyle = "#0f172a";
+          ctx.font = "700 15.5px " + FONT_SANS;
+          ctx.fillText(bs.area || "—", M + 18, y + 14);
+          var stStr = bs.status || "미측정";
+          ctx.font = "600 13.5px " + FONT_SANS;
+          ctx.fillStyle = "#475569";
+          ctx.fillText(stStr, M + CW - 18 - ctx.measureText(stStr).width, y + 16);
+
+          var by2 = y + 40;
+          ctx.fillStyle = "#475569";
+          ctx.font = "400 14.5px " + FONT_SANS;
+          rLines.forEach(function (ln) { ctx.fillText(ln, M + 18, by2); by2 += 20; });
+          ctx.fillStyle = "#0f172a";
+          ctx.font = "500 14.5px " + FONT_SANS;
+          aLines.forEach(function (ln) { ctx.fillText(ln, M + 18, by2); by2 += 20; });
+          y += bH + 12;
+        });
+        y += 10;
+      }
+
+      /* ===== SECTION: SOURCES & INTEGRITY PROVENANCE ===== */
+      drawSectionHeading("데이터 출처 신선도 및 콘텐츠 무결성 해시", "조회 전용 투영", sources.length * 26 + 145);
+      if (sources.length > 0) {
+        sources.forEach(function (s) {
+          ensureSpace(30);
+          var asOfSrc = parseIsoDateSafe(s.asOf) ? hzTimestamp(s.asOf) : (s.asOf || "—");
+          ctx.fillStyle = "#0f172a";
+          ctx.font = "600 15px " + FONT_SANS;
+          ctx.fillText("• " + (s.name || "—") + "  (" + asOfSrc + ")", M + 6, y);
+          var pal = tonePal(s.tone);
+          ctx.fillStyle = pal.fg;
+          ctx.font = "600 14.5px " + FONT_SANS;
+          var stTxt = String(s.state || "—");
+          ctx.fillText(stTxt, W - M - ctx.measureText(stTxt).width, y);
+          y += 28;
+        });
+        y += 14;
+      }
+
+      ensureSpace(136);
+      ctx.fillStyle = "#f8fafc";
+      ctx.strokeStyle = "#cbd5e1";
+      ctx.lineWidth = 1.4;
+      drawRoundRect(ctx, M, y, CW, 126, 8);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "#334155";
+      ctx.font = "700 14.5px " + FONT_SANS;
+      ctx.fillText("콘텐츠 무결성 해시 (SHA-256 · 내보내기 스냅샷 기준)", M + 18, y + 14);
+      ctx.fillStyle = "#0f172a";
+      ctx.font = "500 13.5px " + FONT_MONO;
+      wrapCanvasLines(ctx, hash, CW - 36).slice(0, 2).forEach(function (ln, idx) {
+        ctx.fillText(ln, M + 18, y + 38 + idx * 18);
+      });
+      ctx.fillStyle = "#475569";
+      ctx.font = "500 14.5px " + FONT_SANS;
+      ctx.fillText("근거 성격: " + (rep.provKind || "조회 전용 투영"), M + 18, y + 76);
+      ctx.fillText("권한 경계: 상태 변경 권한 없음 (execution_authority=false · 디지털 서명이 아닌 콘텐츠 해시)", M + 18, y + 98);
+      y += 140;
+
+      /* Page footers & JPEG->PDF encoding */
+      var totalPages = canvases.length;
+      var jpegPages = canvases.map(function (cv, idx) {
+        var fc = cv.getContext("2d");
+        var fy = H - M - 24;
+        fc.strokeStyle = "#e2e8f0";
+        fc.lineWidth = 1;
+        fc.beginPath();
+        fc.moveTo(M, fy - 12);
+        fc.lineTo(W - M, fy - 12);
+        fc.stroke();
+        fc.fillStyle = "#64748b";
+        fc.font = "500 13.5px " + FONT_SANS;
+        fc.fillText("FDAI 운영 콘솔 · 추가 전용 무결성 원장 기반 조회 전용 경영진 보고서", M, fy);
+        var pgLbl = "페이지 " + (idx + 1) + " / " + totalPages;
+        fc.fillText(pgLbl, W - M - fc.measureText(pgLbl).width, fy);
+
+        var dataUrl = cv.toDataURL("image/jpeg", 0.93);
+        var b64 = dataUrl.split(",")[1] || "";
+        return { width: W, height: H, bytes: base64ToUint8Array(b64) };
+      });
+
+      var pdfBytes = encodeJpegPagesToPdf(jpegPages, rep.id + " " + repState.win);
+      return new Blob([pdfBytes], { type: "application/pdf" });
     }
 
     function jumpToTab(tabId) {
@@ -2088,7 +3252,9 @@
         clearAuditDetail();
         return;
       }
-      var targetKo = rec.targetLabel || hzResourceType(rec.target);
+      var targetKo = rec.targetLabel || (rec.target ? hzResourceType(rec.target) : "대상 미지정");
+      var ruleKo = rec.ruleLabel || (rec.ruleId ? hzRuleId(rec.ruleId) : "");
+      var remKo = rec.remediationLabel || (rec.actionType ? hzRemediationAction(rec.actionType) : rec.actionLabel || "");
       var timeKo = hzTimestamp(rec.time);
       document.getElementById("evAuditTitle").textContent = rec.title;
       document.getElementById("evAuditSub").textContent = timeKo + " · " + rec.actorRole;
@@ -2097,14 +3263,15 @@
       if (authPill) authPill.textContent = rec.mode;
 
       document.getElementById("evAuditSummaryNote").textContent = rec.summaryNote;
-      document.getElementById("evAudit5w1h").replaceChildren(
+      var kvCells = [
         makeKvCell("대상 리소스", targetKo),
         makeKvCell("담당 주체", rec.actorRole),
-        makeKvCell("승인 · 권한 주체", rec.approver),
-        makeKvCell("위험 등급 · 실행 방식", rec.risk + " · " + rec.mode),
-        makeKvCell("발생 시각", timeKo),
-        makeKvCell("처리 결과", rec.status)
-      );
+        makeKvCell("발동 규칙", ruleKo || "규칙 미매칭"),
+        makeKvCell("제안 · 수행 조치", remKo || rec.status),
+        makeKvCell("심각도 · 실행 방식", rec.risk + " · " + rec.mode),
+        makeKvCell("발생 시각 (로컬)", timeKo)
+      ];
+      document.getElementById("evAudit5w1h").replaceChildren.apply(document.getElementById("evAudit5w1h"), kvCells);
 
       var lineageLink = document.getElementById("evAuditOpenLineage");
       if (lineageLink) {
@@ -2209,14 +3376,18 @@
       if (cryptoDisc) cryptoDisc.open = false;
       var techRowsEl = document.getElementById("evAuditTechRows");
       if (techRowsEl) {
-        techRowsEl.replaceChildren(
+        var techList = [
           makeTechRow("원장 시퀀스 번호", "#" + rec.seq),
           makeTechRow("사건 상관 ID", rec.corr || "—"),
           makeTechRow("원본 액션 키", rec.action || "—"),
           makeTechRow("원본 행위자", (rec.raw && rec.raw.actor) || rec.actor || "—"),
-          makeTechRow("원본 대상 키", rec.target || "—"),
-          makeTechRow("기록 시각 (UTC)", rec.time || "—")
-        );
+          makeTechRow("원본 대상 참조", rec.targetRef || rec.target || "—")
+        ];
+        if (rec.ruleId) techList.push(makeTechRow("발동 규칙 ID", rec.ruleId));
+        if (rec.actionType) techList.push(makeTechRow("원본 조치 키", rec.actionType));
+        if (rec.approvalId) techList.push(makeTechRow("승인 요청 ID", rec.approvalId));
+        techList.push(makeTechRow("기록 시각 (UTC 원본)", rec.time || "—"));
+        techRowsEl.replaceChildren.apply(techRowsEl, techList);
       }
       document.getElementById("evAuditHashVal").textContent = rec.entryHash || "—";
       document.getElementById("evAuditPrevHashVal").textContent = rec.prevHash || "—";
@@ -2303,6 +3474,8 @@
       if (!list.some(function (r) { return r.seq === auditState.selectedSeq; })) {
         auditState.selectedSeq = list[0].seq;
       }
+      var tableWrap = tbody.closest(".aud-table-wrap");
+      var savedScrollTop = tableWrap ? tableWrap.scrollTop : 0;
       var frag = document.createDocumentFragment();
       var lastGroup = "";
       list.forEach(function (r) {
@@ -2315,7 +3488,8 @@
           ? mk("span", { className: "aud-actor-avatar" }, [mk("img", { src: safeAssetSrc(r.agentIcon), alt: "", "aria-hidden": "true" })])
           : mk("span", { className: "aud-actor-avatar", "aria-hidden": "true", text: r.actorInitial || "운" });
         var roleParts = String(r.actorRole || "").split("·");
-        var roleSub = roleParts[1] ? roleParts[1].trim() : r.actorRole;
+        var roleSub = roleParts[1] ? roleParts[1].trim() : String(r.actorRole || "").replace(/\s*\([^)]*\)\s*$/, "").trim();
+        if (!roleSub || roleSub === r.actor) roleSub = "운영 에이전트";
         var targetDisplay = r.targetLabel || hzResourceType(r.target);
         function openRow() {
           auditState.selectedSeq = r.seq;
@@ -2373,6 +3547,7 @@
         frag.appendChild(tr);
       });
       tbody.replaceChildren(frag);
+      if (tableWrap && savedScrollTop > 0) tableWrap.scrollTop = savedScrollTop;
 
       var selected = list.find(function (r) { return r.seq === auditState.selectedSeq; }) || list[0];
       renderAuditDetail(selected);
@@ -2745,6 +3920,7 @@
           type: "button",
           className: "wf-row ev-wf-row" + (isOn ? " is-active" : ""),
           "data-trace-span": idx,
+          "data-item-id": "trace:" + traceState.id + ":" + idx,
           "aria-pressed": String(isOn),
           "data-ut-title": sp.name + " · " + sp.actor,
           "data-ut-val": sp.offset + " (" + sp.dur + ")",
@@ -2753,6 +3929,7 @@
           "data-ut-tone": spTone,
           onClick: function () {
             traceState.spanIdx = idx;
+            if (traceState.id) setUrlSelectedItem("trace:" + traceState.id, { extraParams: { span: idx } });
             renderTrace();
           },
           onKeydown: function (e) {
@@ -2764,6 +3941,7 @@
             if (nextIdx !== null && nextIdx !== idx) {
               e.preventDefault();
               traceState.spanIdx = nextIdx;
+              if (traceState.id) setUrlSelectedItem("trace:" + traceState.id, { extraParams: { span: nextIdx } });
               renderTrace();
               var focusTarget = document.querySelector('[data-trace-span="' + nextIdx + '"]');
               if (focusTarget) focusTarget.focus();
@@ -2826,6 +4004,7 @@
             var matchIdx = tr.spans.findIndex(function (s) { return s.lineageKey === ln.key; });
             if (matchIdx >= 0) {
               traceState.spanIdx = matchIdx;
+              if (traceState.id) setUrlSelectedItem("trace:" + traceState.id, { extraParams: { span: matchIdx } });
               renderTrace();
             }
           }
@@ -2852,7 +4031,8 @@
             makeTechRow("원본 이벤트 키", activeSpan.rawKind || activeSpan.name || "—"),
             makeTechRow("원본 기록 출처", activeSpan.rawSource || "—"),
             makeTechRow("연결 감사 원장 번호", activeSpan.auditSeq ? ("#" + activeSpan.auditSeq) : "—"),
-            makeTechRow("기록 시각", activeSpan.recordedAt || "—")
+            makeTechRow("기록 시각 (로컬)", activeSpan.recordedAt ? hzTimestamp(activeSpan.recordedAt) : "—"),
+            makeTechRow("기록 시각 (UTC 원본)", activeSpan.recordedAt || "—")
           );
         }
       }
@@ -3147,6 +4327,7 @@
         var nodeTone = toneFromCssVar(n.stroke);
         function selectNode() {
           rcaState.selectedId = n.id;
+          if (rcaState.caseId) setUrlSelectedItem("rca:" + rcaState.caseId, { extraParams: { node: n.id } });
           renderRca();
         }
         svg.appendChild(mkSvg("g", {
@@ -3154,6 +4335,7 @@
           tabindex: "0",
           role: "button",
           "data-rca-node": n.id,
+          "data-item-id": "rca:" + rcaState.caseId + ":" + n.id,
           "aria-pressed": String(sel),
           "data-ut-title": n.title,
           "data-ut-val": n.role,
@@ -3176,6 +4358,7 @@
               e.preventDefault();
               var targetId = c.nodes[nextIdx].id;
               rcaState.selectedId = targetId;
+              if (rcaState.caseId) setUrlSelectedItem("rca:" + rcaState.caseId, { extraParams: { node: targetId } });
               renderRca();
               var focusEl = document.querySelector('[data-rca-node="' + targetId + '"]');
               if (focusEl) focusEl.focus();
@@ -3217,13 +4400,18 @@
               type: "button",
               className: "ev-excluded-card" + (on ? " is-active" : ""),
               "data-rca-ex": ex.id,
+              "data-item-id": "rca:" + rcaState.caseId + ":" + ex.id,
               "aria-pressed": String(on),
               "data-ut-title": ex.title,
               "data-ut-val": "원인 제외",
               "data-ut-body": ex.reason,
               "data-ut-meta": "동시 발생했으나 인과 경로 없음 · 클릭하여 상세 확인",
               "data-ut-tone": "neutral",
-              onClick: function () { rcaState.selectedId = ex.id; renderRca(); }
+              onClick: function () {
+                rcaState.selectedId = ex.id;
+                if (rcaState.caseId) setUrlSelectedItem("rca:" + rcaState.caseId, { extraParams: { node: ex.id } });
+                renderRca();
+              }
             }, [
               mk("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px" } }, [
                 mk("strong", { text: ex.title }),
@@ -3492,9 +4680,10 @@
         beState.selectedId = list[0].id;
       }
       var gal = document.getElementById("evBeGallery");
-      gal.replaceChildren.apply(
-        gal,
-        list.map(function (a) {
+      preserveScroll(gal, function () {
+        gal.replaceChildren.apply(
+          gal,
+          list.map(function (a) {
           var on = a.id === beState.selectedId;
           return mk("button", {
             type: "button",
@@ -3531,7 +4720,8 @@
             ])
           ]);
         })
-      );
+        );
+      });
 
       var item = list.find(function (a) { return a.id === beState.selectedId; }) || list[0];
       document.getElementById("evBeTitle").textContent = item.id + " · " + item.host;
@@ -3753,37 +4943,39 @@
         convState.selectedId = list[0].id;
       }
 
-      listEl.replaceChildren.apply(
-        listEl,
-        list.map(function (c) {
-          var on = c.id === convState.selectedId;
-          var titleSpan = mk("span");
-          appendHighlightedText(titleSpan, c.title, convState.q, convState.mode);
-          return mk("button", {
-            type: "button",
-            className: "wb-item" + (on ? " is-active" : ""),
-            "data-conv-id": c.id,
-            "data-item-id": "conv:" + c.id,
-            "aria-pressed": String(on),
-            onClick: function () {
-              convState.selectedId = c.id;
-              setUrlSelectedItem("conv:" + c.id);
-              renderConversations();
-            }
-          }, [
-            mk("div", { className: "wb-item-top" }, [titleSpan]),
-            mk("div", { className: "wb-item-sub", text: c.channel + " · 근거 " + c.refs.length + "건" }),
-            mk("div", { className: "wb-item-meta" }, [
-              makeBadgeEl(c.tone, c.status),
-              mk("span", { className: "cell-mono", text: c.shortTime })
-            ])
-          ]);
-        })
-      );
+      preserveScroll(listEl, function () {
+        listEl.replaceChildren.apply(
+          listEl,
+          list.map(function (c) {
+            var on = c.id === convState.selectedId;
+            var titleSpan = mk("span");
+            appendHighlightedText(titleSpan, c.title, convState.q, convState.mode);
+            return mk("button", {
+              type: "button",
+              className: "wb-item" + (on ? " is-active" : ""),
+              "data-conv-id": c.id,
+              "data-item-id": "conv:" + c.id,
+              "aria-pressed": String(on),
+              onClick: function () {
+                convState.selectedId = c.id;
+                setUrlSelectedItem("conv:" + c.id);
+                renderConversations();
+              }
+            }, [
+              mk("div", { className: "wb-item-top" }, [titleSpan]),
+              mk("div", { className: "wb-item-sub", text: c.channel + " · 근거 " + c.refs.length + "건" }),
+              mk("div", { className: "wb-item-meta" }, [
+                makeBadgeEl(c.tone, c.status),
+                mk("span", { className: "cell-mono", text: c.shortTime })
+              ])
+            ]);
+          })
+        );
+      });
 
       var item = list.find(function (c) { return c.id === convState.selectedId; }) || list[0];
       document.getElementById("evConvTitle").textContent = item.title;
-      document.getElementById("evConvSub").textContent = item.channel + " · " + item.time + " · 사용자 뉴트럴 배경 / 에이전트 투명 평문";
+      document.getElementById("evConvSub").textContent = item.channel + " · " + hzTimestamp(item.time);
       setBadge(document.getElementById("evConvBadge"), item.tone, item.status);
 
       var ctxBtn = document.getElementById("evConvToggleCtx");
@@ -3877,9 +5069,45 @@
     /* 6. REPORTS */
     var SAMPLE_REPORTS = [
       {
-        id: "weekly-operations-2026-w48", category: "정기 운영", title: "주간 운영 요약 보고서", version: "v2.1",
+        id: "weekly-operations-2026-w48", category: "경영진 요약", title: "경영진 주간 운영 브리프 (Sample)", version: "v2.1",
         tone: "sre", status: "부분 근거", availLabel: "부분 근거 · FOCUS 비용 출처 미수집",
-        provKind: "실측 근거 (Measured) + 미수집 1건 분리 표기", hashBase: "sha256:9f4a7c2e10b844d19c0a881e7f2b5c40e1a2",
+        provKind: "시뮬레이션 표본 근거 + 미수집 1건 분리 표기", hashBase: "sha256:sample",
+        scopeQualifier: "Sample 시연 표본 · 3개 가상 구독 범위 기준",
+        executiveHighlights: [
+          "결정론적 자동 처리율 99.1%를 유지하며 42건의 조치에 대해 독립 효과 검증(Vidar)을 100% 통과했습니다.",
+          "사람 승인 요청 1건(HIL-8841 · 노드풀 증설 A3)이 승인 대기 중이며, 파괴적 변경 정책 위반·우회는 0건입니다.",
+          "FOCUS 외부 비용 원천은 미수집 상태이므로 비용 절감 수치를 0원으로 대체하지 않고 별도 사각지대로 분리했습니다."
+        ],
+        scorecards: [
+          { area: "회복탄력성 (Resilience)", headline: "독립 검증 42 / 42 통과", detail: "RCA 근거 확정 13건 · 근거 부족 보류 1건", scopeLabel: "최근 7일 · Sample", tone: "live" },
+          { area: "변경 안전 · 자율 통제", headline: "정책 위반 0건", detail: "결정론적 처리 99.1% · 감사 원장 결손 0건", scopeLabel: "최근 7일 · Sample", tone: "live" },
+          { area: "보안 · 기준선 리스크", headline: "승인 대기 1건 (A3)", detail: "prod-aks-02 노드풀 증설 승인 요청(HIL-8841)", scopeLabel: "최근 7일 · Sample", tone: "human" },
+          { area: "자산 · 비용 거버넌스", headline: "비용 원천 미수집", detail: "FOCUS 과금 원천 연동 대기 (0 대체 금지)", scopeLabel: "3개 구독 · Sample", tone: "neutral" }
+        ],
+        decisions: [
+          { kind: "승인 대기", tone: "human", title: "prod-aks-02 노드풀 증설(3→5) 최종 승인 (HIL-8841)", reason: "고위험(A3) 변경 · 승인자·실행자 분리 필수", impact: "prod-core-kr 주문 워크로드", owner: "운영 승인자 (김운영)", dueAt: "2026-11-26 20:00 UTC" },
+          { kind: "검토 권고", tone: "sre", title: "FOCUS 외부 과금 원천 연동 일정 확정", reason: "비용 거버넌스 지표 미수집 상태 해소", impact: "전체 3개 구독 비용 가시성", owner: "지정 필요 (FinOps 담당)", dueAt: "차주 정기 점검 전" }
+        ],
+        charts: {
+          scope_distribution: [
+            { label: "prod-core-kr", value: 142, unit: "개" },
+            { label: "prod-data-platform", value: 98, unit: "개" },
+            { label: "sec-shared-hub", value: 64, unit: "개" }
+          ],
+          autonomy_breakdown: [
+            { label: "감시 전용 (Shadow)", value: 840, tone: "auto", unit: "건" },
+            { label: "승인 후 조치 (Enforce)", value: 182, tone: "human", unit: "건" },
+            { label: "자동 조치 (Auto)", value: 62, tone: "live", unit: "건" }
+          ],
+          risk_breakdown: [
+            { label: "사람 승인 대기 (HIL)", value: 1, tone: "human", unit: "건" },
+            { label: "RCA 근거 부족 보류", value: 1, tone: "sre", unit: "건" },
+            { label: "정책 위반 · 우회", value: 0, tone: "live", unit: "건" }
+          ]
+        },
+        blindSpots: [
+          { area: "FOCUS 비용 원천 집계", status: "미수집 (연동 대기)", reason: "외부 청구서 원천 미연동으로 0원으로 대체하지 않았습니다.", recommendation: "Azure Cost Export 스토리지 연동을 완료하세요." }
+        ],
         metricsByWin: {
           "7d": [
             { k: "결정론적 자동 처리율", v: "99.1%", note: "T0/T1 규칙 기반 실측", unavail: false },
@@ -4009,15 +5237,145 @@
 
     var REPORTS = [];
     var repState = { selectedId: "", q: "", win: "7d", scope: "all" };
+    var reportHashCache = {};
 
-    function currentReportHash(rep) {
-      return rep.hashBase + "-" + repState.win + "-" + repState.scope.slice(0, 4);
+    function buildReportExportSnapshot(rep) {
+      return {
+        schema_version: "v4",
+        export_mode: isEvidenceLiveMode() ? "live" : "sample",
+        sample_boundary: !isEvidenceLiveMode(),
+        id: rep.id,
+        title: rep.title,
+        version: rep.version,
+        window: repState.win,
+        scope: repState.scope,
+        generated_at: rep.generatedAt || null,
+        scope_qualifier: rep.scopeQualifier || null,
+        executive_highlights: rep.executiveHighlights || [],
+        scorecards: rep.scorecards || [],
+        decisions: rep.decisions || [],
+        metrics: (rep.metricsByWin && (rep.metricsByWin[repState.win] || rep.metricsByWin["7d"])) || [],
+        rows: rep.rows || [],
+        blind_spots: rep.blindSpots || [],
+        sources: rep.sources || [],
+        execution_authority: false
+      };
+    }
+
+    function computeReportContentHash(rep) {
+      var snap = buildReportExportSnapshot(rep);
+      var canonical = JSON.stringify(snap);
+      if (reportHashCache[canonical]) return Promise.resolve(reportHashCache[canonical]);
+      if (window.crypto && window.crypto.subtle && typeof TextEncoder === "function") {
+        var bytes = new TextEncoder().encode(canonical);
+        return window.crypto.subtle.digest("SHA-256", bytes).then(function (buf) {
+          var arr = new Uint8Array(buf);
+          var hex = "";
+          for (var i = 0; i < arr.length; i++) {
+            hex += arr[i].toString(16).padStart(2, "0");
+          }
+          var out = "sha256:" + hex;
+          reportHashCache[canonical] = out;
+          return out;
+        }).catch(function () {
+          return "미계산 (WebCrypto 제한)";
+        });
+      }
+      return Promise.resolve("미계산 (보안 컨텍스트 필요)");
+    }
+
+    function toneCssBarColor(tone) {
+      var t = safeTone(tone);
+      if (t === "live") return "var(--sig-live, #059669)";
+      if (t === "human") return "var(--sig-human, #d97706)";
+      if (t === "sec") return "var(--sig-sec, #dc2626)";
+      if (t === "sre") return "var(--sig-sre, #4f46e5)";
+      if (t === "auto") return "var(--sig-auto, #2563eb)";
+      return "var(--cs-text-soft, #64748b)";
+    }
+
+    function buildHorizontalBarChartCard(title, subtitle, items, defaultTone) {
+      var box = mk("div", { className: "ev-chart-box" }, [
+        mk("div", { className: "ev-chart-title" }, [
+          mk("span", { text: title }),
+          mk("span", { className: "ev-chart-sub", text: subtitle })
+        ])
+      ]);
+      var list = Array.isArray(items) ? items.slice(0, 6) : [];
+      var maxVal = 1;
+      list.forEach(function (it) {
+        if (typeof it.value === "number" && it.value > maxVal) maxVal = it.value;
+      });
+      var rowH = 34;
+      var svgH = Math.max(44, list.length * rowH + 6);
+      var svg = mkSvg("svg", { viewBox: "0 0 420 " + svgH, style: "width:100%;height:auto;display:block", role: "img", "aria-label": title });
+      list.forEach(function (it, idx) {
+        var y = idx * rowH + 4;
+        var isNull = it.value === null || it.value === undefined;
+        var v = isNull ? 0 : Number(it.value || 0);
+        var pct = isNull || v <= 0 ? 0 : Math.max(4, Math.round((v / maxVal) * 230));
+        var labelTxt = String(it.label || "—");
+        if (labelTxt.length > 22) labelTxt = labelTxt.slice(0, 21) + "…";
+        var valTxt = isNull ? "미측정" : (fmtNum(v) + (it.unit || ""));
+        svg.appendChild(mkSvg("text", { x: "0", y: String(y + 13), "font-size": "11.5", "font-weight": "600", fill: "var(--cs-text)", text: labelTxt }));
+        svg.appendChild(mkSvg("text", { x: "418", y: String(y + 13), "text-anchor": "end", "font-size": "11.5", "font-weight": "700", fill: isNull ? "var(--cs-text-soft)" : "var(--cs-text)", text: valTxt }));
+        svg.appendChild(mkSvg("rect", { x: "0", y: String(y + 19), width: "418", height: "8", rx: "4", fill: "var(--cs-hairline-soft)" }));
+        if (pct > 0) {
+          var barW = Math.round((v / maxVal) * 418);
+          svg.appendChild(mkSvg("rect", { x: "0", y: String(y + 19), width: String(Math.max(8, barW)), height: "8", rx: "4", fill: toneCssBarColor(it.tone || defaultTone || "auto") }));
+        }
+      });
+      box.appendChild(svg);
+      return box;
+    }
+
+    function buildStackedBarChartCard(title, subtitle, items) {
+      var list = Array.isArray(items) ? items : [];
+      var total = list.reduce(function (acc, it) { return acc + Number(it.value || 0); }, 0);
+      var box = mk("div", { className: "ev-chart-box", style: { gridColumn: "1 / -1" } }, [
+        mk("div", { className: "ev-chart-title" }, [
+          mk("span", { text: title }),
+          mk("span", { className: "ev-chart-sub", text: subtitle + " · 총 " + fmtNum(total) + "건" })
+        ])
+      ]);
+      var svg = mkSvg("svg", { viewBox: "0 0 800 26", style: "width:100%;height:26px;display:block", role: "img", "aria-label": title });
+      svg.appendChild(mkSvg("rect", { x: "0", y: "4", width: "800", height: "16", rx: "5", fill: "var(--cs-hairline-soft)" }));
+      if (total > 0) {
+        var curX = 0;
+        list.forEach(function (seg) {
+          var v = Number(seg.value || 0);
+          if (v <= 0) return;
+          var w = Math.max(8, Math.round((v / total) * 800));
+          if (curX + w > 800) w = 800 - curX;
+          svg.appendChild(mkSvg("rect", { x: String(curX), y: "4", width: String(w), height: "16", fill: toneCssBarColor(seg.tone) }));
+          curX += w;
+        });
+      }
+      box.appendChild(svg);
+      var legend = mk("div", { style: { display: "flex", flexWrap: "wrap", gap: "12px", fontSize: "12px", color: "var(--cs-text-soft)" } });
+      list.forEach(function (seg) {
+        var pct = total > 0 ? Math.round((Number(seg.value || 0) / total) * 100) + "%" : "0%";
+        legend.appendChild(mk("span", { style: { display: "inline-flex", alignItems: "center", gap: "6px" } }, [
+          mk("span", { style: { width: "10px", height: "10px", borderRadius: "2px", background: toneCssBarColor(seg.tone), display: "inline-block" } }),
+          mk("strong", { style: { color: "var(--cs-text)" }, text: seg.label }),
+          " " + fmtNum(seg.value || 0) + (seg.unit || "건") + " (" + pct + ")"
+        ]));
+      });
+      box.appendChild(legend);
+      return box;
     }
 
     function clearReportPreview(titleText, subText, badgeText) {
       document.getElementById("evRepTitle").textContent = titleText || "선택된 보고서 없음";
       document.getElementById("evRepSub").textContent = subText || "표시할 운영 보고서가 없습니다.";
       setBadge(document.getElementById("evRepAvailBadge"), "neutral", badgeText || "수집된 데이터 없음");
+      setBadge(document.getElementById("evRepAvailBadgeFallback"), "neutral", badgeText || "수집된 데이터 없음");
+      ["evRepExecBriefCard", "evRepScorecardsCard", "evRepDecisionsCard", "evRepChartsCard", "evRepBlindSpotsCard"].forEach(function (id) {
+        var card = document.getElementById(id);
+        if (card) card.hidden = true;
+      });
+      var fb = document.getElementById("evRepAvailBadgeFallback");
+      if (fb) fb.hidden = false;
       document.getElementById("evRepMetrics").replaceChildren(
         mk("div", { className: "ev-report-kpi is-unavailable" }, [
           mk("span", { text: "실측 상태" }),
@@ -4040,7 +5398,7 @@
       if (isEvidenceLiveMode() && livePanelStatus.reports === "loading") {
         if (libTitle) libTitle.textContent = "보고서 라이브러리 (불러오는 중...)";
         listEl.replaceChildren(mk("div", { className: "ev-empty-box" }, [mk("span", { text: "실시간 운영 보고서를 불러오는 중입니다..." })]));
-        clearReportPreview("운영 보고서 불러오는 중...", "PostgreSQL 실측 원장 및 온톨로지 투영을 집계하고 있습니다.", "실측 조회 중");
+        clearReportPreview("운영 보고서 불러오는 중...", "실측 원장 및 온톨로지 투영을 집계하고 있습니다.", "실측 조회 중");
         return;
       }
       if (isEvidenceLiveMode() && livePanelStatus.reports === "not-measured") {
@@ -4073,38 +5431,143 @@
         repState.selectedId = list[0].id;
       }
 
-      listEl.replaceChildren.apply(
-        listEl,
-        list.map(function (r) {
-          var on = r.id === repState.selectedId;
-          return mk("button", {
-            type: "button",
-            className: "wb-item" + (on ? " is-active" : ""),
-            "data-rep-id": r.id,
-            "data-item-id": "report:" + r.id,
-            "aria-pressed": String(on),
-            onClick: function () {
-              repState.selectedId = r.id;
-              setUrlSelectedItem("report:" + r.id);
-              renderReports();
-            }
-          }, [
-            mk("div", { className: "wb-item-top" }, [mk("span", { text: r.title })]),
-            mk("div", { className: "wb-item-sub", text: r.category + " · " + r.id + " " + r.version }),
-            mk("div", { className: "wb-item-meta" }, [
-              makeBadgeEl(r.tone, r.status),
-              mk("span", { className: "cell-mono", text: r.version })
-            ])
-          ]);
-        })
-      );
+      preserveScroll(listEl, function () {
+        listEl.replaceChildren.apply(
+          listEl,
+          list.map(function (r) {
+            var on = r.id === repState.selectedId;
+            return mk("button", {
+              type: "button",
+              className: "wb-item" + (on ? " is-active" : ""),
+              "data-rep-id": r.id,
+              "data-item-id": "report:" + r.id,
+              "aria-pressed": String(on),
+              onClick: function () {
+                repState.selectedId = r.id;
+                setUrlSelectedItem("report:" + r.id);
+                renderReports();
+              }
+            }, [
+              mk("div", { className: "wb-item-top" }, [mk("span", { text: r.title })]),
+              mk("div", { className: "wb-item-sub", text: r.category + " · " + r.version }),
+              mk("div", { className: "wb-item-meta" }, [
+                makeBadgeEl(r.tone, r.status),
+                mk("span", { className: "cell-mono", text: r.version })
+              ])
+            ]);
+          })
+        );
+      });
 
       var rep = list.find(function (r) { return r.id === repState.selectedId; }) || list[0];
-      var hash = currentReportHash(rep);
-      document.getElementById("evRepTitle").textContent = rep.title + " (" + rep.id + " " + rep.version + ")";
-      document.getElementById("evRepSub").textContent = "변수 적용: 기간=" + repState.win + " · 범위=" + repState.scope + " · 생성 시각 " + (rep.generatedAt || "미측정");
+      var genTimeStr = rep.generatedAt ? hzTimestamp(rep.generatedAt) : "미측정";
+      document.getElementById("evRepTitle").textContent = rep.title;
+      document.getElementById("evRepSub").textContent = "기간 " + repState.win + " · 범위 " + repState.scope + " · 생성 시각 " + genTimeStr;
+      var printMeta = document.getElementById("evRepPrintBannerMeta");
+      if (printMeta) {
+        printMeta.textContent = (isEvidenceLiveMode() ? "LIVE 실측 투영" : "SAMPLE 시연 표본") + " · 기간 " + repState.win + " · 기준 " + genTimeStr;
+      }
       setBadge(document.getElementById("evRepAvailBadge"), rep.tone, rep.availLabel);
+      setBadge(document.getElementById("evRepAvailBadgeFallback"), rep.tone, rep.availLabel);
 
+      /* 1) Executive Highlights */
+      var hl = Array.isArray(rep.executiveHighlights) ? rep.executiveHighlights : [];
+      var execCard = document.getElementById("evRepExecBriefCard");
+      var fbBadge = document.getElementById("evRepAvailBadgeFallback");
+      if (execCard) execCard.hidden = hl.length === 0;
+      if (fbBadge) fbBadge.hidden = hl.length > 0;
+      if (hl.length > 0) {
+        var scopeNoteEl = document.getElementById("evRepScopeNote");
+        if (scopeNoteEl) scopeNoteEl.textContent = rep.scopeQualifier || "";
+        var execList = document.getElementById("evRepExecList");
+        if (execList) {
+          execList.replaceChildren.apply(
+            execList,
+            hl.map(function (txt, idx) {
+              return mk("li", null, [
+                mk("span", { className: "ev-exec-num", text: String(idx + 1) }),
+                mk("span", { text: txt })
+              ]);
+            })
+          );
+        }
+      }
+
+      /* 2) 4-Pillar Executive Scorecards */
+      var scs = Array.isArray(rep.scorecards) ? rep.scorecards : [];
+      var scCard = document.getElementById("evRepScorecardsCard");
+      if (scCard) scCard.hidden = scs.length === 0;
+      if (scs.length > 0) {
+        var scHost = document.getElementById("evRepScorecards");
+        if (scHost) {
+          scHost.replaceChildren.apply(
+            scHost,
+            scs.map(function (sc) {
+              return mk("div", { className: "ev-scorecard" }, [
+                mk("div", { className: "ev-scorecard-head" }, [
+                  mk("span", { style: { display: "inline-flex", alignItems: "center", gap: "6px" } }, [
+                    mk("span", { className: "cs-dot", style: { background: toneCssBarColor(sc.tone) } }),
+                    sc.area || ""
+                  ]),
+                  mk("span", { text: sc.scopeLabel || sc.scope_label || "" })
+                ]),
+                mk("div", { className: "ev-scorecard-val", text: sc.headline || "—" }),
+                mk("div", { className: "ev-scorecard-desc", text: sc.detail || "" })
+              ]);
+            })
+          );
+        }
+      }
+
+      /* 3) Executive Decisions & Reviews */
+      var decs = Array.isArray(rep.decisions) ? rep.decisions : [];
+      var decCard = document.getElementById("evRepDecisionsCard");
+      if (decCard) decCard.hidden = decs.length === 0;
+      if (decs.length > 0) {
+        var decHost = document.getElementById("evRepDecisions");
+        if (decHost) {
+          decHost.replaceChildren.apply(
+            decHost,
+            decs.map(function (dec) {
+              var dueDisp = parseIsoDateSafe(dec.dueAt || dec.due_at) ? hzTimestamp(dec.dueAt || dec.due_at) : (dec.dueAt || dec.due_at || "지정 필요");
+              return mk("tr", null, [
+                mk("td", null, [makeBadgeEl(dec.tone || "human", dec.kind || "검토 권고")]),
+                mk("td", null, [mk("strong", { text: dec.title || "—" })]),
+                mk("td", { text: (dec.reason || "") + (dec.impact ? (" · " + dec.impact) : "") }),
+                mk("td", null, [
+                  mk("div", { text: dec.owner || "지정 필요" }),
+                  mk("div", { className: "cell-muted", style: { fontSize: "11.5px" }, text: dueDisp })
+                ])
+              ]);
+            })
+          );
+        }
+      }
+
+      /* 4) Vector SVG Charts */
+      var charts = rep.charts || {};
+      var scopeDist = Array.isArray(charts.scope_distribution) ? charts.scope_distribution : [];
+      var autoDist = Array.isArray(charts.autonomy_breakdown) ? charts.autonomy_breakdown : [];
+      var riskDist = Array.isArray(charts.risk_breakdown) ? charts.risk_breakdown : [];
+      var chartsCard = document.getElementById("evRepChartsCard");
+      var hasCharts = scopeDist.length > 0 || autoDist.length > 0 || riskDist.length > 0;
+      if (chartsCard) chartsCard.hidden = !hasCharts;
+      if (hasCharts) {
+        var chartHost = document.getElementById("evRepCharts");
+        var chartNodes = [];
+        if (scopeDist.length > 0) {
+          chartNodes.push(buildHorizontalBarChartCard("리소스 그룹별 자산 분포 (Top 6)", "단위: 개 · 기준 " + genTimeStr, scopeDist, "auto"));
+        }
+        if (riskDist.length > 0) {
+          chartNodes.push(buildHorizontalBarChartCard("보안 · 승인 · 장애 리스크 현황", "단위: 건 · 미측정 0 대체 금지", riskDist, "sec"));
+        }
+        if (autoDist.length > 0) {
+          chartNodes.push(buildStackedBarChartCard("자율 운영 통제 모드 구성 (" + repState.win + ")", "실측 감사 원장", autoDist));
+        }
+        if (chartHost) chartHost.replaceChildren.apply(chartHost, chartNodes);
+      }
+
+      /* 5) Core Metrics */
       var metrics = (rep.metricsByWin && (rep.metricsByWin[repState.win] || rep.metricsByWin["7d"])) || [];
       var metricsHost = document.getElementById("evRepMetrics");
       metricsHost.replaceChildren.apply(
@@ -4124,28 +5587,60 @@
         })
       );
 
+      /* 6) Verification Breakdown Table */
       var tableHost = document.getElementById("evRepTable");
       tableHost.replaceChildren.apply(
         tableHost,
         (rep.rows || []).map(function (row) {
+          var asOfDisplay = parseIsoDateSafe(row.asOf) ? hzTimestamp(row.asOf) : row.asOf;
           return mk("tr", null, [
             mk("td", null, [mk("strong", { text: row.item })]),
             mk("td", { text: row.owner }),
             mk("td", { text: row.result }),
-            mk("td", { className: "cell-mono", text: row.asOf })
+            mk("td", { className: "cell-mono", text: asOfDisplay })
           ]);
         })
       );
 
-      document.getElementById("evRepHashVal").textContent = hash;
+      /* 7) Honest Observation Blind Spots */
+      var bsList = Array.isArray(rep.blindSpots) ? rep.blindSpots : [];
+      var bsCard = document.getElementById("evRepBlindSpotsCard");
+      if (bsCard) bsCard.hidden = bsList.length === 0;
+      if (bsList.length > 0) {
+        var bsHost = document.getElementById("evRepBlindSpots");
+        if (bsHost) {
+          bsHost.replaceChildren.apply(
+            bsHost,
+            bsList.map(function (bs) {
+              return mk("div", { className: "ev-blindspot-card" }, [
+                mk("strong", { text: bs.area || "—" }),
+                mk("span", { className: "cs-badge tone-neutral", style: { justifySelf: "start" }, text: bs.status || "미측정" }),
+                mk("p", { text: bs.reason || "" }),
+                mk("p", { style: { color: "var(--cs-text)", fontWeight: "500" }, text: "권고: " + (bs.recommendation || "") })
+              ]);
+            })
+          );
+        }
+      }
+
+      /* 8) Real SHA-256 Content Hash & Sources */
+      var hashEl = document.getElementById("evRepHashVal");
+      if (hashEl) hashEl.textContent = "SHA-256 계산 중...";
+      var targetIdForHash = rep.id + "|" + repState.win + "|" + repState.scope;
+      computeReportContentHash(rep).then(function (digest) {
+        if ((rep.id + "|" + repState.win + "|" + repState.scope) === targetIdForHash && hashEl) {
+          hashEl.textContent = digest;
+        }
+      });
       document.getElementById("evRepProvKind").textContent = rep.provKind;
       document.getElementById("evRepSourceCount").textContent = (rep.sources || []).length + "개 출처";
       var srcHost = document.getElementById("evRepSources");
       srcHost.replaceChildren.apply(
         srcHost,
         (rep.sources || []).map(function (s) {
+          var asOfSrc = parseIsoDateSafe(s.asOf) ? hzTimestamp(s.asOf) : s.asOf;
           return mk("div", { className: "insp-kv" }, [
-            mk("span", null, [mk("strong", { text: s.name }), " (" + s.asOf + ")"]),
+            mk("span", null, [mk("strong", { text: s.name }), " (" + asOfSrc + ")"]),
             makeBadgeEl(s.tone, s.state)
           ]);
         })
@@ -4170,56 +5665,91 @@
     document.getElementById("evRepCopyHash").addEventListener("click", function () {
       var rep = REPORTS.find(function (r) { return r.id === repState.selectedId; }) || REPORTS[0];
       if (!rep) { showToast("복사할 보고서가 없습니다."); return; }
-      copyText(currentReportHash(rep), "보고서 서명 지문(" + rep.id + ")을 복사했습니다.");
+      computeReportContentHash(rep).then(function (digest) {
+        copyText(digest, "콘텐츠 무결성 해시(SHA-256)를 복사했습니다.");
+      });
     });
     document.getElementById("evRepJson").addEventListener("click", function () {
       var rep = REPORTS.find(function (r) { return r.id === repState.selectedId; }) || REPORTS[0];
       if (!rep) { showToast("내보낼 보고서가 없습니다."); return; }
-      var payload = Object.assign({}, currentExportBoundaryMeta(), {
-        id: rep.id,
-        version: rep.version,
-        window: repState.win,
-        scope: repState.scope,
-        signature_algorithm: "SHA-256",
-        signature: currentReportHash(rep),
-        metrics: rep.metricsByWin[repState.win] || rep.metricsByWin["7d"],
-        rows: rep.rows,
-        sources: rep.sources
+      computeReportContentHash(rep).then(function (digest) {
+        var payload = Object.assign({}, buildReportExportSnapshot(rep), {
+          hash_algorithm: "SHA-256",
+          content_hash: digest,
+          exported_at: new Date().toISOString()
+        });
+        downloadText(rep.id + "-" + repState.win + ".json", JSON.stringify(payload, null, 2), "application/json", rep.title + " JSON 파일을 내보냈습니다.");
       });
-      downloadText(rep.id + "-" + repState.win + ".json", JSON.stringify(payload, null, 2), "application/json", rep.title + " JSON 파일을 내보냈습니다.");
     });
     document.getElementById("evRepMd").addEventListener("click", function () {
       var rep = REPORTS.find(function (r) { return r.id === repState.selectedId; }) || REPORTS[0];
       if (!rep) { showToast("내보낼 보고서가 없습니다."); return; }
-      var metrics = rep.metricsByWin[repState.win] || rep.metricsByWin["7d"];
-      var lines = [
-        "# " + rep.title,
-        "- ID: " + rep.id + " " + rep.version,
-        "- Window: " + repState.win,
-        "- Scope: " + repState.scope,
-        "- SHA-256: " + currentReportHash(rep),
-        "- Read-Only Projection: true (execution_authority=false)",
-        "",
-        "## 핵심 지표",
-        ""
-      ];
-      metrics.forEach(function (m) {
-        lines.push("- **" + m.k + "**: " + m.v + " (" + m.note + ")");
+      computeReportContentHash(rep).then(function (digest) {
+        var metrics = (rep.metricsByWin && (rep.metricsByWin[repState.win] || rep.metricsByWin["7d"])) || [];
+        var lines = [
+          "# " + rep.title,
+          "- ID: " + rep.id + " (" + rep.version + ")",
+          "- Window: " + repState.win + " · Scope: " + repState.scope,
+          "- Content Hash (SHA-256): " + digest,
+          "- Read-Only Projection: true (execution_authority=false)",
+          ""
+        ];
+        if (rep.executiveHighlights && rep.executiveHighlights.length) {
+          lines.push("## 경영진 핵심 결론", "");
+          rep.executiveHighlights.forEach(function (h, i) { lines.push((i + 1) + ". " + h); });
+          lines.push("");
+        }
+        if (rep.decisions && rep.decisions.length) {
+          lines.push("## 의사결정 · 검토 요청", "", "| 구분 | 사항 | 근거 및 영향 | 담당 · 기한 |", "|---|---|---|---|");
+          rep.decisions.forEach(function (d) {
+            lines.push("| " + (d.kind || "-") + " | " + (d.title || "-") + " | " + (d.reason || "-") + " | " + (d.owner || "지정 필요") + " |");
+          });
+          lines.push("");
+        }
+        lines.push("## 핵심 지표", "");
+        metrics.forEach(function (m) {
+          lines.push("- **" + m.k + "**: " + m.v + " (" + m.note + ")");
+        });
+        lines.push("", "## 검증 항목 분해", "", "| 항목 | 담당 | 결과 | 기준 시각 |", "|---|---|---|---|");
+        (rep.rows || []).forEach(function (row) {
+          lines.push("| " + row.item + " | " + row.owner + " | " + row.result + " | " + row.asOf + " |");
+        });
+        lines.push("", "## 데이터 출처 연결 상태", "");
+        (rep.sources || []).forEach(function (s) {
+          lines.push("- " + s.name + ": " + s.state + " (" + s.asOf + ")");
+        });
+        downloadText(rep.id + "-" + repState.win + ".md", lines.join("\n") + "\n", "text/markdown;charset=utf-8", rep.title + " Markdown 파일을 내보냈습니다.");
       });
-      lines.push("", "## 검증 항목 분해", "", "| 항목 | 담당 | 결과 | 기준 시각 |", "|---|---|---|---|");
-      rep.rows.forEach(function (row) {
-        lines.push("| " + row.item + " | " + row.owner + " | " + row.result + " | " + row.asOf + " |");
+    });
+    document.getElementById("evRepPrintPdf").addEventListener("click", function () {
+      var rep = REPORTS.find(function (r) { return r.id === repState.selectedId; }) || REPORTS[0];
+      if (!rep) { showToast("인쇄할 보고서가 없습니다."); return; }
+      var techDetails = document.getElementById("evRepTechDetails");
+      var wasOpen = techDetails ? techDetails.open : false;
+      if (techDetails) techDetails.open = true;
+      computeReportContentHash(rep).then(function (digest) {
+        var hashEl = document.getElementById("evRepHashVal");
+        if (hashEl) hashEl.textContent = digest;
+        showToast("인쇄 대화상자에서 'PDF로 저장'을 선택하면 텍스트 검색 가능한 벡터 PDF가 저장됩니다.");
+        setTimeout(function () {
+          try { window.print(); } catch (_e) {}
+          if (techDetails) techDetails.open = wasOpen;
+        }, 120);
       });
-      lines.push("", "## 데이터 출처 연결 상태", "");
-      rep.sources.forEach(function (s) {
-        lines.push("- " + s.name + ": " + s.state + " (" + s.asOf + ")");
-      });
-      downloadText(rep.id + "-" + repState.win + ".md", lines.join("\n") + "\n", "text/markdown;charset=utf-8", rep.title + " Markdown 파일을 내보냈습니다.");
     });
     document.getElementById("evRepPdf").addEventListener("click", function () {
       var rep = REPORTS.find(function (r) { return r.id === repState.selectedId; }) || REPORTS[0];
       if (!rep) { showToast("다운로드할 보고서가 없습니다."); return; }
-      showToast("SHA-256 서명 PDF(" + rep.id + ", " + repState.win + ") 생성을 완료했습니다.");
+      computeReportContentHash(rep).then(function (digest) {
+        try {
+          var pdfBlob = buildReportPdfBlob(rep, digest);
+          var safeId = String(rep.id || "report").replace(/[^A-Za-z0-9._-]/g, "-");
+          var filename = safeId + "-" + repState.win + ".pdf";
+          downloadBlob(filename, pdfBlob, rep.title + " PDF 파일(" + filename + ")을 다운로드했습니다.");
+        } catch (err) {
+          showToast("PDF 생성 중 오류가 발생했습니다: " + (err && err.message ? err.message : "다시 시도해 주세요."));
+        }
+      });
     });
 
     /* Isolated Sample options/metadata (used ONLY in Sample mode) */
@@ -4290,12 +5820,15 @@
       if (lastPulseMeta.seq !== null) {
         setBadge(badge, "live", "실시간 동기화 중" + intPart);
         badge.setAttribute("data-ut-val", "실시간 동기화 중");
+        syncStreamingIndicators(true);
       } else if (liveBridgeState.measurement_state === "measured") {
         setBadge(badge, "live", "실측 연결됨" + (intPart || " · 무결성 검증됨"));
         badge.setAttribute("data-ut-val", "실측 연결됨");
+        syncStreamingIndicators(true);
       } else {
         setBadge(badge, "neutral", "실측 대기 · 미측정");
         badge.setAttribute("data-ut-val", "미측정");
+        syncStreamingIndicators(false);
       }
     }
 
@@ -4638,8 +6171,8 @@
     function mapLiveAuditItem(item) {
       var seq = Number(item.seq || 0);
       var created = String(item.created_at || "");
-      var datePart = created.length >= 10 ? created.slice(0, 10) : "실시간";
-      var timePart = created.length >= 19 ? created.slice(11, 19) : "-";
+      var datePart = hzLocalDate(created);
+      var timePart = hzLocalClock(created);
       var fc = item.forensic_crypto || {};
       var modeKo = item.mode_label_ko || hzMode(item.mode || "shadow");
       var rawActor = item.actor || "";
@@ -4649,42 +6182,54 @@
       var actorLabel = (item.actor_label && !looksLikeMachineKey(item.actor_label))
         ? item.actor_label
         : actorDisplay;
-      var target = item.target || item.resource_type || "system";
+      var rawTarget = (item.target && item.target !== "system") ? item.target : (item.resource_type || "");
       var rawTargetLabel = item.target_label_ko || "";
-      var targetLabel = (rawTargetLabel && !looksLikeMachineKey(rawTargetLabel))
+      var targetLabel = (rawTargetLabel && rawTargetLabel !== "플랫폼 시스템" && !looksLikeMachineKey(rawTargetLabel))
         ? rawTargetLabel
-        : hzResourceType(target);
+        : (rawTarget ? hzResourceType(rawTarget) : "대상 미지정");
+      var ruleId = item.rule_id || "";
+      var ruleLabel = (item.rule_label_ko && !looksLikeMachineKey(item.rule_label_ko))
+        ? item.rule_label_ko
+        : (ruleId ? hzRuleId(ruleId) : "");
+      var actionType = item.action_type || "";
+      var remediationLabel = (item.remediation_action_ko && !looksLikeMachineKey(item.remediation_action_ko))
+        ? item.remediation_action_ko
+        : (actionType ? hzRemediationAction(actionType) : "");
       var rawActionLabel = item.action_label_ko || "";
       var actionLabel = (rawActionLabel && !looksLikeMachineKey(rawActionLabel))
         ? rawActionLabel
         : hzAction(item.action_kind || "audit.record");
+      var sevKo = item.severity_label_ko || (item.severity ? hzSeverity(item.severity) : "");
+      var rawRisk = item.risk_label || "";
+      var riskLabel = rawRisk
+        ? rawRisk.replace(/위험도\s+(critical|high|medium|low|info)\b/i, function (_m, sv) { return "심각도 " + hzSeverity(sv); })
+        : (sevKo ? ("심각도 " + sevKo) : "표준 거버넌스");
       var corr = item.correlation_id || ("seq-" + seq);
-      var evSum = hzEventSummary({
-        id: seq,
-        actor: rawActor,
-        action_kind: item.action_kind,
-        target: target,
-        resource_type: item.resource_type,
-        mode: item.mode_label_ko || item.mode
-      });
       var rawTitle = item.title_ko || item.human_summary || "";
+      var subj = ruleLabel || (targetLabel !== "대상 미지정" ? targetLabel : "운영 정책 이벤트");
       var title = (!rawTitle || looksLikeMachineKey(rawTitle))
-        ? (targetLabel && targetLabel !== "관측 대상" ? (targetLabel + " — " + actionLabel) : actionLabel)
+        ? (subj + " — " + (remediationLabel || actionLabel))
         : rawTitle;
       var rawSummary = item.summary_ko || "";
       var summaryNote = (!rawSummary || looksLikeMachineKey(rawSummary))
-        ? (actorDisplay + "에서 " + targetLabel + " 대상으로 '" + actionLabel + "' 작업을 처리했습니다. 현재 실행 모드는 " + modeKo + "입니다.")
+        ? (actorDisplay + "에서 " + targetLabel + " 대상 '" + (remediationLabel || actionLabel) + "' 작업을 기록했습니다.")
         : rawSummary;
       var sub = summaryNote.length > 96 ? (summaryNote.slice(0, 95) + "…") : summaryNote;
       var targetIcon = item.target_icon || "/azure-icons/monitor.svg";
-      if (targetIcon === "/azure-icons/monitor.svg" && /load-?balancer/i.test(target + " " + (item.resource_type || ""))) {
+      if (targetIcon === "/azure-icons/monitor.svg" && /load-?balancer/i.test(rawTarget + " " + (item.resource_type || ""))) {
         targetIcon = "/azure-icons/load-balancer.svg";
       }
       return {
         seq: seq,
-        dateGroup: datePart + " (실측 원장)",
+        dateGroup: datePart + " (실측 원장 · 로컬 시각)",
         action: item.action_kind || "audit.record",
         actionLabel: actionLabel,
+        actionType: actionType,
+        remediationLabel: remediationLabel,
+        ruleId: ruleId,
+        ruleLabel: ruleLabel,
+        approvalId: item.approval_id || "",
+        incidentNumber: item.incident_number || "",
         title: title,
         sub: sub,
         actor: actorLabel,
@@ -4692,8 +6237,9 @@
         actorInitial: "",
         agentIcon: safeAssetSrc(item.agent_icon || "/agent-icons/saga.svg"),
         approver: modeKo === "승인 후 조치" ? "승인자 분리 검증" : modeKo,
-        risk: item.risk_label || "표준 거버넌스",
-        target: target,
+        risk: riskLabel,
+        target: rawTarget,
+        targetRef: item.target_resource_ref || rawTarget,
         targetLabel: targetLabel,
         targetIcon: safeAssetSrc(targetIcon),
         corr: corr,
@@ -4702,7 +6248,7 @@
         window: "24h",
         tone: safeTone(item.tone || "live"),
         status: item.status_ko || "원장 기록 완료",
-        time: created ? created.replace("T", " ").replace("Z", " UTC") : "-",
+        time: created || "",
         shortTime: timePart,
         entryHash: fc.entry_hash || "",
         prevHash: fc.previous_hash || "",
@@ -4711,8 +6257,8 @@
         rollback: modeKo === "감시 전용" ? "해당 없음 (감시 전용)" : "안전 롤백 경로 연결",
         recordedPhase: item.recorded_phase || "close",
         summaryNote: summaryNote,
-        preLines: [{ type: "del", text: "대상 리소스: " + targetLabel + " · 관측/평가 전 기준 상태" }],
-        postLines: [{ type: "add", text: (item.status_ko || "기록됨") + " · " + actionLabel + " (" + modeKo + ")" }],
+        preLines: [{ type: "del", text: "대상 리소스: " + targetLabel + (ruleLabel ? (" · 규칙: " + ruleLabel) : "") }],
+        postLines: [{ type: "add", text: (item.status_ko || "기록됨") + " · " + (remediationLabel || actionLabel) }],
         raw: item
       };
     }
@@ -4810,25 +6356,37 @@
         if (mySeq !== auditFetchSeq || !isEvidenceLiveMode()) return;
         auditLiveMeta.loading = false;
         if (!res || !res.ok || !res.data || res.data.measurement_state !== "measured" || !res.data.data) {
-          if (!opts.append) {
+          if (!opts.append && !opts.fromPulse) {
             renderPanelNotMeasured("audit", (res && res.data && res.data.reason) || "감사 원장 API 응답 없음");
           }
           return;
         }
         auditLiveMeta.serverQuery = qTrim.toLowerCase();
-        hydrateAuditFromLive(res.data, !!opts.append);
+        hydrateAuditFromLive(res.data, !!opts.append, !!opts.fromPulse);
       });
     }
 
-    function hydrateAuditFromLive(d, append) {
+    function hydrateAuditFromLive(d, append, fromPulse) {
       if (!isEvidenceLiveMode()) return;
       var items = (d.data && Array.isArray(d.data.items)) ? d.data.items : [];
       var mapped = items.map(mapLiveAuditItem);
+      var prevSeqMap = {};
+      AUDIT_RECORDS.forEach(function (r) { prevSeqMap[r.seq] = true; });
+      var newSeqs = [];
+      if (fromPulse && !append) {
+        mapped.forEach(function (r) {
+          if (!prevSeqMap[r.seq]) newSeqs.push(r.seq);
+        });
+        var incomingTotal = typeof d.data.total_count === "number" ? d.data.total_count : mapped.length;
+        if (newSeqs.length === 0 && incomingTotal === auditLiveMeta.totalCount && AUDIT_RECORDS.length > 0) {
+          syncLiveAuditKpis(d);
+          return;
+        }
+      }
       if (append) {
-        var existing = {};
-        AUDIT_RECORDS.forEach(function (r) { existing[r.seq] = true; });
-        mapped.forEach(function (r) { if (!existing[r.seq]) AUDIT_RECORDS.push(r); });
+        mapped.forEach(function (r) { if (!prevSeqMap[r.seq]) AUDIT_RECORDS.push(r); });
       } else {
+        var prevSelected = auditState.selectedSeq;
         AUDIT_RECORDS = mapped;
         var deepLinkRaw = parseDeepLinkItem("audit", getUrlSelectedItem());
         var deepLinkSeq = deepLinkRaw ? Number(deepLinkRaw.replace(/^#/, "")) : NaN;
@@ -4840,6 +6398,8 @@
         if (Number.isFinite(deepLinkSeq) && deepLinkSeq > 0 && AUDIT_RECORDS.some(function (r) { return r.seq === deepLinkSeq; })) {
           auditState.selectedSeq = deepLinkSeq;
           setAuditDrawerOpen(true);
+        } else if (fromPulse && prevSelected && AUDIT_RECORDS.some(function (r) { return r.seq === prevSelected; })) {
+          auditState.selectedSeq = prevSelected;
         } else if (mapped.length > 0) {
           if (!auditState.drawerOpen || !AUDIT_RECORDS.some(function (r) { return r.seq === auditState.selectedSeq; })) {
             auditState.selectedSeq = mapped[0].seq;
@@ -4848,6 +6408,9 @@
         } else {
           auditState.selectedSeq = null;
         }
+      }
+      if (mapped.length > 0 && mapped[0].seq > lastPulseAuditSeq) {
+        lastPulseAuditSeq = mapped[0].seq;
       }
       liveHydrationFlags.audit = true;
       livePanelStatus.audit = "measured";
@@ -4867,10 +6430,18 @@
         moreBtn.disabled = !auditLiveMeta.hasMore || !auditLiveMeta.nextBeforeSeq;
       }
       renderAuditList();
-      if (!append) applyDeepLinkForPanel("audit");
+      if (fromPulse && newSeqs.length > 0) {
+        shimmerPulse(document.getElementById("evAuditKpiAll"), 1300);
+        shimmerBg(moreInfo, 1200);
+        newSeqs.slice(0, 8).forEach(function (sq) {
+          var rowEl = document.querySelector('#evAuditTbody tr[data-audit-seq="' + sq + '"]');
+          if (rowEl) shimmerPulse(rowEl, 1600);
+        });
+      }
+      if (!append && !fromPulse) applyDeepLinkForPanel("audit");
     }
 
-    function hydrateTraceFromLive(d) {
+    function hydrateTraceFromLive(d, fromPulse) {
       if (!isEvidenceLiveMode()) return;
       var data = d.data || {};
       var avail = Array.isArray(data.available_correlations) ? data.available_correlations : [];
@@ -4993,13 +6564,20 @@
       setPillDrawerAttrs("evTraceStatDuration", "실시간 실행 추적 집계", "총 소요 시간|" + durLabel + ";단계 수|" + fmtNum(spans.length) + "개", "사건 추적 번호|" + cid);
       setPillDrawerAttrs("evTraceStatComplete", "실시간 실행 추적 집계", "무결성 상태|" + TRACES[cid].complete + ";권한 상태|조회 전용", "조회 원천|실시간 운영 DB");
 
+      var prevSpanIdx = fromPulse && traceState.id === cid ? traceState.spanIdx : 0;
       traceState.id = cid;
-      traceState.spanIdx = 0;
+      traceState.spanIdx = Math.min(prevSpanIdx, Math.max(0, mappedSpans.length - 1));
       renderTrace();
-      applyDeepLinkForPanel("trace");
+      if (fromPulse) {
+        shimmerBorder(document.getElementById("evTraceModeBadge"), 1100);
+        var lastSpanBtn = document.querySelector('#evTraceRows [data-trace-span="' + Math.max(0, mappedSpans.length - 1) + '"]');
+        if (lastSpanBtn) shimmerPulse(lastSpanBtn, 1400);
+      } else {
+        applyDeepLinkForPanel("trace");
+      }
     }
 
-    function hydrateRcaFromLive(d) {
+    function hydrateRcaFromLive(d, fromPulse) {
       if (!isEvidenceLiveMode()) return;
       var data = d.data || {};
       var cases = Array.isArray(data.cases) ? data.cases : [];
@@ -5119,10 +6697,15 @@
       }
       setSelectOptions(document.getElementById("evRcaCaseSelect"), selOpts, rcaState.caseId);
       renderRca();
-      applyDeepLinkForPanel("rca");
+      if (fromPulse) {
+        shimmerPulse(document.getElementById("evRcaStatDone") && document.getElementById("evRcaStatDone").closest(".stat-pill"), 1200);
+        shimmerBorder(document.getElementById("evRcaStatusBadge"), 1100);
+      } else {
+        applyDeepLinkForPanel("rca");
+      }
     }
 
-    function hydrateBrowserFromLive(d) {
+    function hydrateBrowserFromLive(d, fromPulse) {
       if (!isEvidenceLiveMode()) return;
       var data = d.data || {};
       var items = Array.isArray(data.items) ? data.items : [];
@@ -5155,6 +6738,8 @@
         setBrowserWithheldStrip("보류된 스냅샷 (미측정)", "보류 스냅샷 집계 원천이 수집되지 않았습니다 (예제값 또는 0으로 대체하지 않음).");
       }
 
+      var prevBeIds = {};
+      ARTIFACTS.forEach(function (a) { prevBeIds[a.id] = true; });
       ARTIFACTS = items.map(function (a) {
         var inj = Number(a.injection_count || 0);
         var held = !!a.legal_hold;
@@ -5183,17 +6768,30 @@
       liveHydrationFlags.browser = true;
       livePanelStatus["browser-evidence"] = "measured";
       renderBrowserEvidence();
-      applyDeepLinkForPanel("browser-evidence");
+      if (fromPulse) {
+        ARTIFACTS.forEach(function (a) {
+          if (!prevBeIds[a.id]) {
+            var card = Array.prototype.find.call(document.querySelectorAll("#evBeGallery [data-be-id]"), function (el) {
+              return el.getAttribute("data-be-id") === a.id;
+            });
+            if (card) shimmerPulse(card, 1500);
+          }
+        });
+      } else {
+        applyDeepLinkForPanel("browser-evidence");
+      }
     }
 
-    function hydrateConversationsFromLive(d) {
+    function hydrateConversationsFromLive(d, fromPulse) {
       if (!isEvidenceLiveMode()) return;
       var data = d.data || {};
       var items = Array.isArray(data.items) ? data.items : (Array.isArray(data.conversations) ? data.conversations : []);
+      var prevConvIds = {};
+      CONVERSATIONS.forEach(function (c) { prevConvIds[c.id] = true; });
       CONVERSATIONS = items.map(function (c, idx) {
         var cid = c.conversation_id || c.id || ("conv-" + idx);
         var created = String(c.created_at || "");
-        var shortTime = created.length >= 16 ? created.slice(11, 16) : "-";
+        var shortTime = hzLocalShortClock(created);
         var summaryTxt = (!c.summary || /^Operational posture notification delivered$/i.test(String(c.summary).trim()))
           ? "운영 상태 알림이 정상 전달되었습니다."
           : c.summary;
@@ -5201,7 +6799,7 @@
           id: cid,
           title: summaryTxt,
           channel: c.channel_label || c.channel_kind || "웹 콘솔",
-          time: created ? created.replace("T", " ").replace("Z", " UTC") : "-",
+          time: created || "",
           shortTime: shortTime,
           tone: c.state === "failed" ? "sec" : "live",
           status: c.status_ko || hzMode(c.state) || "전달 완료",
@@ -5233,10 +6831,27 @@
       liveHydrationFlags.conv = true;
       livePanelStatus["conversation-search"] = "measured";
       renderConversations();
-      applyDeepLinkForPanel("conversation-search");
+      if (fromPulse) {
+        var matchedNewConv = false;
+        CONVERSATIONS.forEach(function (c) {
+          if (!prevConvIds[c.id]) {
+            matchedNewConv = true;
+            var cvBtn = Array.prototype.find.call(document.querySelectorAll("#evConvList [data-conv-id]"), function (el) {
+              return el.getAttribute("data-conv-id") === c.id;
+            });
+            if (cvBtn) shimmerPulse(cvBtn, 1500);
+          }
+        });
+        if (!matchedNewConv) {
+          var firstCv = document.querySelector("#evConvList .wb-item");
+          if (firstCv) shimmerBg(firstCv, 1000);
+        }
+      } else {
+        applyDeepLinkForPanel("conversation-search");
+      }
     }
 
-    function hydrateReportsFromLive(d) {
+    function hydrateReportsFromLive(d, fromPulse) {
       if (!isEvidenceLiveMode()) return;
       var data = d.data || {};
       var items = Array.isArray(data.items) ? data.items : [];
@@ -5269,7 +6884,31 @@
           availLabel: r.avail_label || "실측 투영 완료",
           provKind: r.prov_kind || "실시간 운영 데이터베이스 읽기 전용 투영",
           generatedAt: r.generated_at || data.generated_at || "미측정",
-          hashBase: r.signature || "sha256:projection",
+          scopeQualifier: r.scope_qualifier || "",
+          integritySummary: r.integrity_summary || "",
+          executiveHighlights: Array.isArray(r.executive_highlights) ? r.executive_highlights : [],
+          scorecards: Array.isArray(r.scorecards) ? r.scorecards.map(function (sc) {
+            return {
+              area: sc.area || "",
+              headline: sc.headline || "—",
+              detail: sc.detail || "",
+              scopeLabel: sc.scope_label || sc.scopeLabel || "",
+              tone: safeTone(sc.tone || "neutral")
+            };
+          }) : [],
+          decisions: Array.isArray(r.decisions) ? r.decisions.map(function (dec) {
+            return {
+              kind: dec.kind || "검토 권고",
+              tone: safeTone(dec.tone || "human"),
+              title: dec.title || "—",
+              reason: dec.reason || "",
+              impact: dec.impact || "",
+              owner: dec.owner || "지정 필요",
+              dueAt: dec.due_at || dec.dueAt || "지정 필요"
+            };
+          }) : [],
+          charts: r.charts && typeof r.charts === "object" ? r.charts : {},
+          blindSpots: Array.isArray(r.blind_spots) ? r.blind_spots : [],
           metricsByWin: { "24h": metrics, "7d": metrics, "30d": metrics, "90d": metrics },
           rows: rows,
           sources: sources
@@ -5279,7 +6918,13 @@
       liveHydrationFlags.reports = true;
       livePanelStatus.reports = "measured";
       renderReports();
-      applyDeepLinkForPanel("reports");
+      if (fromPulse) {
+        shimmerBorder(document.getElementById("evRepAvailBadge"), 1100);
+        var firstKpi = document.querySelector("#evRepMetrics .ev-report-kpi");
+        if (firstKpi) shimmerPulse(firstKpi, 1300);
+      } else {
+        applyDeepLinkForPanel("reports");
+      }
     }
 
     /* Deep-link resolver for all 6 Evidence panels (?item=audit:<seq>, trace:<cid>, rca:<id>, artifact:<id>, conv:<id>, report:<id>) */
@@ -5358,12 +7003,21 @@
       } else if (panelId === "trace") {
         if (TRACES[value]) {
           traceState.id = value;
+          var urlSpan = null;
+          try {
+            var spVal = new URLSearchParams(location.search || "").get("span");
+            if (spVal !== null && spVal !== "") urlSpan = Number(spVal);
+          } catch (_e) {}
+          if (urlSpan !== null && Number.isFinite(urlSpan) && urlSpan >= 0 && urlSpan < TRACES[value].spans.length) {
+            traceState.spanIdx = urlSpan;
+          }
           var trSel = document.getElementById("evTraceSelector");
           if (trSel && Array.prototype.some.call(trSel.options, function (o) { return o.value === value; })) trSel.value = value;
           renderTrace();
           if (dlKey !== lastAppliedDeepLinkKey) {
             lastAppliedDeepLinkKey = dlKey;
-            focusDeepLinkElement(document.getElementById("evTraceWb"));
+            var spanTarget = document.querySelector('#evTraceRows [data-trace-span="' + traceState.spanIdx + '"]');
+            focusDeepLinkElement(spanTarget || document.getElementById("evTraceWb"));
           }
         } else if (isEvidenceLiveMode() && dlKey !== lastAppliedDeepLinkKey) {
           lastAppliedDeepLinkKey = dlKey;
@@ -5376,13 +7030,18 @@
         });
         if (matchKey) {
           rcaState.caseId = matchKey;
-          rcaState.selectedId = "root";
+          var urlNode = "";
+          try { urlNode = (new URLSearchParams(location.search || "").get("node") || "").trim(); } catch (_e) {}
+          rcaState.selectedId = urlNode || "root";
           var rcaSel = document.getElementById("evRcaCaseSelect");
           if (rcaSel) rcaSel.value = matchKey;
           renderRca();
           if (dlKey !== lastAppliedDeepLinkKey) {
             lastAppliedDeepLinkKey = dlKey;
-            focusDeepLinkElement(document.getElementById("evRcaWb"));
+            var nodeEl = urlNode
+              ? (document.querySelector('[data-rca-node="' + urlNode + '"]') || document.querySelector('[data-rca-ex="' + urlNode + '"]'))
+              : null;
+            focusDeepLinkElement(nodeEl || document.getElementById("evRcaWb"));
           }
         }
       } else if (panelId === "browser-evidence") {
@@ -5449,7 +7108,8 @@
     var lastHydrateKey = "";
     var lastHydrateAt = 0;
 
-    function hydrateEvidencePanel(panelId, corrId) {
+    function hydrateEvidencePanel(panelId, corrId, opts) {
+      opts = opts || {};
       var badge = document.getElementById("evLiveBridgeBadge");
       if (!badge) return;
       var targetPanel = panelId || "audit";
@@ -5459,6 +7119,7 @@
         setBadge(badge, "human", "Sample 표본 모드");
         badge.setAttribute("data-ut-val", "Sample");
         badge.setAttribute("data-ut-body", "시뮬레이션 표본 데이터를 표시 중입니다. Live 원장 무결성을 대체하지 않습니다.");
+        syncStreamingIndicators(false);
         if (lastAppliedMode !== "sample") {
           lastAppliedMode = "sample";
           restoreSampleDatasets();
@@ -5474,7 +7135,7 @@
       var endpoint = evidenceApiForPanel(targetPanel, corrId);
       var now = Date.now();
       var dedupeKey = targetPanel + "|" + endpoint;
-      if (dedupeKey === lastHydrateKey && (now - lastHydrateAt) < 180) {
+      if (!opts.fromPulse && dedupeKey === lastHydrateKey && (now - lastHydrateAt) < 180) {
         return;
       }
       lastHydrateKey = dedupeKey;
@@ -5482,10 +7143,12 @@
       liveFetchJson(endpoint).then(function (res) {
         if (!isEvidenceLiveMode()) return;
         if (!res || !res.ok || !res.data) {
+          if (opts.fromPulse) return;
           liveBridgeState.measurement_state = "not-measured";
           setBadge(badge, "neutral", "실측 대기 · 미측정");
           badge.setAttribute("data-ut-val", "미측정");
           badge.setAttribute("data-ut-body", "백엔드 응답을 확인할 수 없어 미측정 상태로 유지합니다. (0 대체 금지)");
+          syncStreamingIndicators(false);
           renderPanelNotMeasured(targetPanel, "백엔드 API 응답 없음");
           return;
         }
@@ -5503,16 +7166,17 @@
           if (d.data && Array.isArray(d.data.available_scopes)) {
             applyLiveScopesToSelects(d.data.available_scopes, d.data.ontology_resource_count);
           }
-          if (targetPanel === "audit") hydrateAuditFromLive(d, false);
-          else if (targetPanel === "trace") hydrateTraceFromLive(d);
-          else if (targetPanel === "rca") hydrateRcaFromLive(d);
-          else if (targetPanel === "browser-evidence") hydrateBrowserFromLive(d);
-          else if (targetPanel === "conversation-search") hydrateConversationsFromLive(d);
-          else if (targetPanel === "reports") hydrateReportsFromLive(d);
-        } else {
+          if (targetPanel === "audit") hydrateAuditFromLive(d, false, !!opts.fromPulse);
+          else if (targetPanel === "trace") hydrateTraceFromLive(d, !!opts.fromPulse);
+          else if (targetPanel === "rca") hydrateRcaFromLive(d, !!opts.fromPulse);
+          else if (targetPanel === "browser-evidence") hydrateBrowserFromLive(d, !!opts.fromPulse);
+          else if (targetPanel === "conversation-search") hydrateConversationsFromLive(d, !!opts.fromPulse);
+          else if (targetPanel === "reports") hydrateReportsFromLive(d, !!opts.fromPulse);
+        } else if (!opts.fromPulse) {
           setBadge(badge, "neutral", "실측 대기 · 미측정");
           badge.setAttribute("data-ut-val", "미측정");
           badge.setAttribute("data-ut-body", (d.reason || "운영자 서비스 오프라인 또는 미인증") + " — 미측정 항목을 0으로 대체하지 않습니다.");
+          syncStreamingIndicators(false);
           renderPanelNotMeasured(targetPanel, d.reason || "실측 원천 미연결 (not-measured)");
         }
       });
@@ -5526,6 +7190,36 @@
         if (!res || !res.ok || !res.data || res.data.measurement_state !== "measured" || !res.data.data) return;
         applyLiveScopesToSelects(res.data.data.available_scopes, res.data.data.ontology_resource_count);
       });
+    }
+
+    function shimmerActivePanelOnPulse(activePanel) {
+      var badge = document.getElementById("evLiveBridgeBadge");
+      if (badge) shimmerBorder(badge, 950);
+      if (activePanel === "audit") {
+        shimmerBg(document.getElementById("evAuditKpiAll"), 950);
+        var topAuditRow = document.querySelector("#evAuditTbody tr.aud-row");
+        if (topAuditRow) shimmerBorder(topAuditRow, 1000);
+      } else if (activePanel === "trace") {
+        shimmerBorder(document.getElementById("evTraceModeBadge"), 950);
+        var activeSpanBtn = document.querySelector("#evTraceRows .ev-wf-row.is-active") || document.querySelector("#evTraceRows .ev-wf-row");
+        if (activeSpanBtn) shimmerBg(activeSpanBtn, 950);
+      } else if (activePanel === "rca") {
+        shimmerBorder(document.getElementById("evRcaStatusBadge"), 950);
+        var rcaDonePill = document.getElementById("evRcaStatDone") && document.getElementById("evRcaStatDone").closest(".stat-pill");
+        if (rcaDonePill) shimmerBg(rcaDonePill, 950);
+      } else if (activePanel === "browser-evidence") {
+        shimmerBorder(document.getElementById("evBeBadge"), 950);
+        var bePill = document.getElementById("evBeStatTotal") && document.getElementById("evBeStatTotal").closest(".stat-pill");
+        if (bePill) shimmerBg(bePill, 950);
+      } else if (activePanel === "conversation-search") {
+        shimmerBorder(document.getElementById("evConvBadge"), 950);
+        var topConv = document.querySelector("#evConvList .wb-item.is-active") || document.querySelector("#evConvList .wb-item");
+        if (topConv) shimmerBg(topConv, 950);
+      } else if (activePanel === "reports") {
+        shimmerBorder(document.getElementById("evRepAvailBadge"), 950);
+        var topRepKpi = document.querySelector("#evRepMetrics .ev-report-kpi");
+        if (topRepKpi) shimmerBg(topRepKpi, 950);
+      }
     }
 
     function handleLivePulse(payload) {
@@ -5552,12 +7246,18 @@
         badge.setAttribute("data-ut-body", "실시간 동기화 중 · 누적 감사 " + (total !== null ? fmtNum(total) + "건" : "—") + latNote + " · " + evNote);
       }
 
+      var activePanel = activeEvidencePanelId();
+      var totalChanged = false;
       if (total !== null && liveHydrationFlags.audit) {
         var elAll = document.getElementById("evAuditKpiAll");
         if (elAll) {
           var v = elAll.querySelector(".aud-kpi-val");
-          if (v) v.textContent = fmtNum(total) + "건";
-          elAll.setAttribute("data-ut-val", fmtNum(total) + "건");
+          var nextTxt = fmtNum(total) + "건";
+          if (v && v.textContent !== nextTxt) {
+            v.textContent = nextTxt;
+            totalChanged = true;
+          }
+          elAll.setAttribute("data-ut-val", nextTxt);
         }
       }
 
@@ -5565,11 +7265,31 @@
       if (seq !== null && seq > lastPulseAuditSeq) {
         lastPulseAuditSeq = seq;
       }
-      if (hasNewAudit && liveHydrationFlags.audit && !auditLiveMeta.loading) {
-        fetchLiveAudit({ append: false });
-        var moreInfo = document.getElementById("evAuditMoreInfo");
-        if (moreInfo) {
-          moreInfo.textContent = "실시간 동기화 · 신규 감사 기록 +" + Math.max(1, delta) + "건 자동 반영됨";
+
+      if (hasNewAudit) {
+        if (badge) shimmerPulse(badge, 1400);
+        if (liveHydrationFlags.audit && !auditLiveMeta.loading) {
+          fetchLiveAudit({ append: false, fromPulse: true });
+          var moreInfo = document.getElementById("evAuditMoreInfo");
+          if (moreInfo) {
+            moreInfo.textContent = "실시간 동기화 · 신규 감사 기록 +" + Math.max(1, delta) + "건 자동 반영됨";
+          }
+        }
+        if (activePanel === "trace" && liveHydrationFlags.trace) {
+          hydrateEvidencePanel("trace", traceState.id || undefined, { fromPulse: true });
+        } else if (activePanel === "rca" && liveHydrationFlags.rca) {
+          hydrateEvidencePanel("rca", undefined, { fromPulse: true });
+        } else if (activePanel === "browser-evidence" && liveHydrationFlags.browser) {
+          hydrateEvidencePanel("browser-evidence", undefined, { fromPulse: true });
+        } else if (activePanel === "conversation-search" && liveHydrationFlags.conv) {
+          hydrateEvidencePanel("conversation-search", undefined, { fromPulse: true });
+        } else if (activePanel === "reports" && liveHydrationFlags.reports) {
+          hydrateEvidencePanel("reports", undefined, { fromPulse: true });
+        }
+      } else {
+        shimmerActivePanelOnPulse(activePanel);
+        if (totalChanged) {
+          shimmerPulse(document.getElementById("evAuditKpiAll"), 1200);
         }
       }
     }
@@ -5645,6 +7365,13 @@
           lastAppliedDeepLinkKey = "";
           applyDeepLinkForPanel(active);
         }, 25);
+      });
+      window.addEventListener("fdai:data-mode-change", function () {
+        lastObservedPanel = null;
+        lastPulseTick = -1;
+        lastHydrateKey = "";
+        lastAppliedMode = null;
+        setTimeout(hydrateEvidenceLive, 60);
       });
       var topSubFilter = document.querySelector("[data-sub-filter]");
       if (topSubFilter) {

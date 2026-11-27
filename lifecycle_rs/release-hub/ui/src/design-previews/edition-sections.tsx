@@ -15,16 +15,16 @@ export const EDITION_AREAS = [
 export type EditionArea = typeof EDITION_AREAS[number]["id"];
 
 const PRESETS = [
-  { id: "lite-observe-alert", label: "Lite Observe", profile: "관측 중심", workloadCount: 2, menuCount: 14 },
-  { id: "standard-sre", label: "Standard SRE", profile: "운영·판단", workloadCount: 3, menuCount: 32 },
-  { id: "full-enterprise", label: "Full Enterprise", profile: "확장된 거버넌스", workloadCount: 5, menuCount: 60 },
+  { id: "lite-observe-alert", label: "Lite Observe", profile: "관측 중심", workloadCount: 2, menuCount: 17 },
+  { id: "standard-sre", label: "Standard SRE", profile: "운영·판단", workloadCount: 3, menuCount: 47 },
+  { id: "full-enterprise", label: "Full Enterprise", profile: "확장된 거버넌스", workloadCount: 5, menuCount: 65 },
 ] as const;
 
 const MENU_EXAMPLES = [
   { id: "dashboard", label: "Dashboard" }, { id: "live", label: "Live" },
-  { id: "alerts", label: "Alerts" }, { id: "agents", label: "Agents" },
+  { id: "alert-quality", label: "Alert quality" }, { id: "agents", label: "Agents" },
   { id: "audit", label: "Audit" }, { id: "reports", label: "Reports" },
-  { id: "settings-general", label: "Settings" }, { id: "topology", label: "Topology" },
+  { id: "settings-general", label: "Settings" }, { id: "ontology", label: "Ontology" },
 ] as const;
 
 const RINGS = [

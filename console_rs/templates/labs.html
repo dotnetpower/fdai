@@ -235,6 +235,21 @@
       stroke: var(--cs-text);
       stroke-width: 2.2;
     }
+    .sl-topo-live-svg {
+      width: 14px;
+      height: 14px;
+      flex: 0 0 auto;
+      pointer-events: none;
+    }
+    .sl-ratio-row.is-interactive {
+      cursor: pointer;
+      transition: border-color 140ms ease, background-color 140ms ease;
+    }
+    .sl-ratio-row.is-interactive:hover { border-color: var(--sig-live); }
+    .sl-ratio-row.is-selected {
+      border-color: var(--cs-text);
+      box-shadow: 0 0 0 2px var(--cs-focus-ring);
+    }
     .sl-launcher-card, .sl-topo-node, .sl-slo-box, .sl-ratio-row {
       min-width: 0;
       overflow-wrap: anywhere;
@@ -328,7 +343,7 @@
                 </div>
                 <span class="cs-badge tone-neutral" id="slLauncherCountBadge">5개 모듈 · 실측 조회 중</span>
               </div>
-              <div class="sl-launcher-grid">
+              <div class="sl-launcher-grid" id="slLauncherGrid">
                 <button type="button" class="sl-launcher-card" data-sl-nav="aks-commerce" data-ut-title="AKS 데모 환경 · 격리 관측" data-ut-val="미측정" data-ut-body="실측 관측 요약을 불러오는 중입니다." data-ut-meta="격리 범위: lab-sandbox · 운영 변이 0건" data-ut-tone="neutral">
                   <div class="sl-launcher-head">
                     <span class="sl-icon-pair"><img class="sl-az-ico" src="/azure-icons/kubernetes-services.svg" alt=""><img class="agent-ico" src="/agent-icons/loki.svg" alt=""><strong>AKS 데모 환경</strong></span>
@@ -503,6 +518,23 @@
                 <div class="insp-kv"><span>격리 보증</span><strong>lab-sandbox · 운영 변이 0건</strong></div>
               </div>
             </section>
+            <section class="surface-card">
+              <div class="card-head">
+                <div>
+                  <h3 class="card-title">최근 상태 전환 기록</h3>
+                  <p class="card-desc">행 클릭 시 해당 전환 기록의 상세 서랍과 고유 URL이 열립니다.</p>
+                </div>
+                <span class="cs-badge tone-neutral" id="slAksTransBadge">미측정</span>
+              </div>
+              <div class="table-wrap">
+                <table class="cs-table" id="slAksTransTable">
+                  <thead><tr><th>대상 리소스</th><th>상태 항목</th><th>전환 내용</th><th>완전성</th><th>기록 시각</th></tr></thead>
+                  <tbody>
+                    <tr><td colspan="5" class="cell-muted">상태 전환 기록 조회 중...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
           </section>
 
           <!-- 3. assurance-twin -->
@@ -664,19 +696,19 @@
             <section class="surface-card">
               <div class="card-head">
                 <div>
-                  <h3 class="card-title">요일 × 시간대별 예측 오차 히트맵 (UTC+9)</h3>
-                  <p class="card-desc">셀에 마우스를 올리거나 클릭하면 해당 시간대의 오차율과 주요 오탐·미탐 원인을 확인할 수 있습니다.</p>
+                  <h3 class="card-title" id="slForecastHmTitle">요일 × 시간대별 관측 커버리지 히트맵 (KST)</h3>
+                  <p class="card-desc" id="slForecastHmDesc">셀에 마우스를 올리거나 클릭하면 해당 시간대(KST)의 실측 관측 밀도와 미수집 구간을 확인할 수 있습니다.</p>
                 </div>
                 <div class="toolbar-inline" style="font-size:12px">
-                  <span class="cs-badge tone-live">&lt;2% 양호</span>
-                  <span class="cs-badge tone-sre">2~5% 주의</span>
-                  <span class="cs-badge tone-human">&gt;5% 보정 필요</span>
-                  <span class="cs-badge tone-neutral">빗금 +Horizon</span>
+                  <span class="cs-badge tone-live" id="slHmLegend1">&lt;250건 관측</span>
+                  <span class="cs-badge tone-sre" id="slHmLegend2">250~499건 집중</span>
+                  <span class="cs-badge tone-human" id="slHmLegend3">500건+ 고밀도</span>
+                  <span class="cs-badge tone-neutral">빗금 +예측구간</span>
                   <span class="cs-badge tone-neutral">점선 미수집</span>
                 </div>
               </div>
-              <div class="heatmap-grid" id="slForecastHeatmap" role="grid" aria-label="요일 및 시간대별 예측 오차 히트맵">
-                <span></span><span>00h</span><span>02h</span><span>04h</span><span>06h</span><span>08h</span><span>10h</span><span>12h</span><span>14h</span><span>16h</span><span>18h</span><span>+1h</span><span>+2h</span>
+              <div class="heatmap-grid" id="slForecastHeatmap" role="grid" aria-label="요일 및 시간대별 관측 히트맵 (KST)">
+                <span></span><span>00h</span><span>02h</span><span>04h</span><span>06h</span><span>08h</span><span>10h</span><span>12h</span><span>14h</span><span>16h</span><span>18h+</span><span>+1h</span><span>+2h</span>
               </div>
               <div class="hm-readout" id="slHmReadout" role="status" aria-live="polite">히트맵 데이터를 불러오는 중입니다...</div>
             </section>
@@ -1096,6 +1128,40 @@
         }
         return String(raw);
       },
+      localClock(raw) {
+        if (window.fdaiV4Humanize && typeof window.fdaiV4Humanize.localClock === "function") {
+          return window.fdaiV4Humanize.localClock(raw);
+        }
+        const d = raw ? new Date(raw) : new Date();
+        if (Number.isNaN(d.getTime())) return "--:--:--";
+        const pad = (n) => String(n).padStart(2, "0");
+        return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      },
+      ruleId(raw) {
+        if (window.fdaiV4Humanize && typeof window.fdaiV4Humanize.ruleId === "function") {
+          return window.fdaiV4Humanize.ruleId(raw);
+        }
+        return String(raw || "");
+      },
+      remediationAction(raw) {
+        const s = String(raw || "").trim();
+        if (!s || s.toLowerCase() === "none") return "수동 검토 (자동 조치 없음)";
+        if (window.fdaiV4Humanize && typeof window.fdaiV4Humanize.remediationAction === "function") {
+          return window.fdaiV4Humanize.remediationAction(s);
+        }
+        return s;
+      },
+      severity(raw) {
+        if (window.fdaiV4Humanize && typeof window.fdaiV4Humanize.severity === "function") {
+          return window.fdaiV4Humanize.severity(raw);
+        }
+        return String(raw || "정보");
+      },
+      localizeIsoTimestamps(raw) {
+        const txt = String(raw || "");
+        if (!txt) return txt;
+        return txt.replace(/\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\b/g, (iso) => `${H.timestamp(iso)} (KST)`);
+      },
       signalName(raw) {
         const map = {
           transition_batches: "상태 전환 관측 배치",
@@ -1199,6 +1265,122 @@
         try { el.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (_e) {}
       }
     };
+
+    const Shim = {
+      border(el, ms) {
+        if (window.fdaiV4Shimmer && typeof window.fdaiV4Shimmer.border === "function") {
+          window.fdaiV4Shimmer.border(el, ms);
+        }
+      },
+      bg(el, ms) {
+        if (window.fdaiV4Shimmer && typeof window.fdaiV4Shimmer.bg === "function") {
+          window.fdaiV4Shimmer.bg(el, ms);
+        }
+      },
+      pulse(el, ms) {
+        if (window.fdaiV4Shimmer && typeof window.fdaiV4Shimmer.pulse === "function") {
+          window.fdaiV4Shimmer.pulse(el, ms);
+        }
+      },
+      markStreaming(el, on) {
+        if (window.fdaiV4Shimmer && typeof window.fdaiV4Shimmer.markStreaming === "function") {
+          window.fdaiV4Shimmer.markStreaming(el, on);
+        }
+      }
+    };
+
+    function createTopoLiveRingSvg() {
+      const svg = document.createElementNS(SVG_NS, "svg");
+      svg.setAttribute("class", "sl-topo-live-svg");
+      svg.setAttribute("viewBox", "0 0 16 16");
+      svg.setAttribute("aria-hidden", "true");
+      const core = document.createElementNS(SVG_NS, "circle");
+      core.setAttribute("cx", "8");
+      core.setAttribute("cy", "8");
+      core.setAttribute("r", "3");
+      core.setAttribute("fill", "var(--sig-live)");
+      const ring = document.createElementNS(SVG_NS, "circle");
+      ring.setAttribute("class", "fdai-svg-live-ring");
+      ring.setAttribute("cx", "8");
+      ring.setAttribute("cy", "8");
+      ring.setAttribute("r", "4.5");
+      svg.append(core, ring);
+      return svg;
+    }
+
+    function setTopoLiveRings(active) {
+      document.querySelectorAll("[data-topo-node]").forEach((node) => {
+        node.querySelectorAll(".sl-topo-live-svg").forEach((s) => s.remove());
+        if (!active) return;
+        const badge = node.querySelector("[data-node-badge]");
+        const isObserved = badge && badge.classList.contains("tone-live");
+        const pair = node.querySelector(".sl-icon-pair");
+        if (isObserved && pair) {
+          pair.appendChild(createTopoLiveRingSvg());
+        }
+      });
+    }
+
+    function syncStreamingIndicators(isLiveMeasured) {
+      const bar = document.getElementById("slLiveBoundaryBar");
+      Shim.markStreaming(bar, isLiveMeasured);
+      const pid = getActivePanelId();
+      const panelTargets = {
+        "labs": document.getElementById("slLauncherGrid"),
+        "aks-commerce": document.getElementById("slAksTopo"),
+        "assurance-twin": document.getElementById("slTwinInspector"),
+        "forecast-learning": document.getElementById("slForecastInspector"),
+        "conversation-assurance": document.getElementById("slConvDetail"),
+        "context-selection-comparisons": document.getElementById("slAbSummaryStrip")
+      };
+      Object.entries(panelTargets).forEach(([id, el]) => {
+        if (el) Shim.markStreaming(el, isLiveMeasured && id === pid);
+      });
+      setTopoLiveRings(isLiveMeasured && isLabLiveMode());
+    }
+
+    function shimmerActivePanelOnPulse(hasDelta) {
+      const pid = getActivePanelId();
+      const statusBadge = document.getElementById("slLiveStatusBadge");
+      if (statusBadge) {
+        if (hasDelta) Shim.pulse(statusBadge);
+        else Shim.border(statusBadge);
+      }
+      if (pid === "labs") {
+        const firstRow = document.querySelector("#slRecentRunsTable tbody tr[data-run-id]");
+        if (firstRow) Shim.bg(firstRow);
+        if (hasDelta) {
+          document.querySelectorAll("#slLauncherGrid .sl-launcher-card").forEach((c) => Shim.border(c));
+        }
+      } else if (pid === "aks-commerce") {
+        document.querySelectorAll("[data-topo-node]").forEach((n) => {
+          if (n.querySelector("[data-node-badge].tone-live")) Shim.border(n);
+        });
+        const firstSig = document.querySelector("#slAksSignalTable tbody tr[data-sig-name]");
+        if (firstSig && hasDelta) Shim.bg(firstSig);
+        const firstTr = document.querySelector("#slAksTransTable tbody tr[data-trans-id]");
+        if (firstTr) Shim.bg(firstTr);
+      } else if (pid === "assurance-twin") {
+        Shim.border(document.getElementById("slTwinRevisionPill"));
+        if (hasDelta) Shim.pulse(document.getElementById("slTwinVerdict"));
+        const selRow = document.querySelector("#slTwinPrTable tbody tr.sl-row-selected");
+        if (selRow) Shim.bg(selRow);
+      } else if (pid === "forecast-learning") {
+        Shim.border(document.getElementById("slForecastCalBadge"));
+        if (hasDelta) Shim.pulse(document.getElementById("slForecastInspector"));
+        const selCell = document.querySelector("#slForecastHeatmap .sl-hm-btn.is-selected");
+        if (selCell) Shim.bg(selCell);
+      } else if (pid === "conversation-assurance") {
+        Shim.border(document.getElementById("slConvTopBadge1"));
+        const firstCase = document.querySelector("#slConvTable tbody tr[data-conv-id]");
+        if (firstCase && hasDelta) Shim.bg(firstCase);
+      } else if (pid === "context-selection-comparisons") {
+        Shim.border(document.getElementById("slAbHeaderBadge"));
+        if (hasDelta) Shim.pulse(document.getElementById("slAbSummaryStrip"));
+        const selAb = document.querySelector("#slAbTable tbody tr.sl-row-selected");
+        if (selAb) Shim.bg(selAb);
+      }
+    }
 
     function copyItemDeepLink(panelId, itemId) {
       const rel = Sel.buildUrl(panelId, itemId || "");
@@ -1488,18 +1670,29 @@
           try { nextDigest = JSON.stringify(res.data.data); } catch (_e) { nextDigest = String(Date.now()); }
           const unchanged = !(opts && opts.force) && !(opts && opts.skipRebuild) && lastHydratedDigest[digestKey] === nextDigest;
           if (!unchanged && typeof LAB_HYDRATORS[pid] === "function") {
+            const preservedItem = Sel.get()
+              || (pid === "assurance-twin" ? activeTwinPrKey : null)
+              || (pid === "forecast-learning" ? activeForecastItemId : null)
+              || (pid === "conversation-assurance" ? activeConvId : null)
+              || (pid === "context-selection-comparisons" ? activeAbRunId : null);
             lastHydratedDigest[digestKey] = nextDigest;
             LAB_HYDRATORS[pid](res.data.data, res.data, opts || {});
-            const deepItem = Sel.get();
-            if (deepItem && pid === getActivePanelId() && !(opts && opts.skipDeepLink)) {
-              applyDeepLinkForPanel(pid, deepItem);
+            if (preservedItem && pid === getActivePanelId() && !(opts && opts.skipDeepLink)) {
+              applyDeepLinkForPanel(pid, preservedItem, { skipFocus: Boolean(opts && opts.fromPulse) });
+            } else if (preservedItem && pid === getActivePanelId() && opts && opts.fromPulse) {
+              applyDeepLinkForPanel(pid, preservedItem, { skipFocus: true });
+            }
+            if (opts && opts.fromPulse) {
+              shimmerActivePanelOnPulse(true);
             }
           }
+          syncStreamingIndicators(true);
           if (activeSection) activeSection.setAttribute("data-live-hydrated", src);
           badge.setAttribute("data-hydrated-panel", pid);
           badge.setAttribute("data-hydrated-source", src);
           enhancePanelTips(pid);
         } else {
+          syncStreamingIndicators(false);
           const reasonMsg = res.data.reason || "상위 수집기 미연결";
           setBadge(badge, "tone-neutral", `Live: 데이터 없음 (${scope})`);
           badge.setAttribute("data-ut-val", "미측정");
@@ -1675,23 +1868,33 @@
       window.setTimeout(() => { bar.classList.remove("is-pulse-beat"); }, 320);
 
       if (status === "measured") {
+        const syncClock = H.localClock(payload.emitted_at || payload.timestamp || Date.now());
         setBadge(badge, "tone-live", hasDelta ? "실시간 변경 감지" : "실시간 관측 중");
         setTxt(
           "slLivePulseText",
           hasDelta
-            ? `새 관측 변경 감지 · 최신 데이터 자동 반영 · DB 응답 ${dbLat}`
-            : `실시간 관측 연결됨 · DB 응답 ${dbLat} · 샌드박스 격리 유지`
+            ? `새 관측 변경 감지 · 동기화 ${syncClock} (KST) · DB 응답 ${dbLat}`
+            : `실시간 관측 연결됨 · 동기화 ${syncClock} (KST) · DB 응답 ${dbLat}`
         );
         const rightMeta = hasDelta
           ? `변경 +${deltaAudit + deltaWm}건 반영 · 관측 리소스 ${resTxt} · lab-sandbox`
           : `관측 리소스 ${resTxt} · lab-sandbox · 운영 승격 분리`;
         setTxt("slLivePulseMeta", rightMeta);
+        syncStreamingIndicators(true);
+        if (hasDelta) {
+          Shim.pulse(bar);
+          Shim.pulse(badge);
+        } else {
+          Shim.border(bar);
+          Shim.border(badge);
+        }
+        shimmerActivePanelOnPulse(hasDelta);
         if (hasDelta) {
           const now = Date.now();
           if (now - lastLabPulseRefreshMs >= 3000) {
             lastLabPulseRefreshMs = now;
             const pid = getActivePanelId();
-            probePanelApi(pid, buildActiveLabQuery(pid), { skipDeepLink: true });
+            probePanelApi(pid, buildActiveLabQuery(pid), { skipDeepLink: true, fromPulse: true });
           }
         }
       } else {
@@ -1701,6 +1904,7 @@
           "실시간 관측 미측정 · 로컬 원장 연결 대기 중 · 샌드박스 격리 유지 (0 대체 금지)"
         );
         setTxt("slLivePulseMeta", "lab-sandbox · 운영 승격 분리");
+        syncStreamingIndicators(false);
       }
     }
 
@@ -2002,16 +2206,98 @@
       }
     }
 
+    let activeAksSignalsMap = {};
+    let activeAksTransitionsMap = {};
+
+    const SAMPLE_AKS_TRANSITIONS = [
+      { transition_id: "sample-tr-01", raw_transition_id: "sample:transition:orders-01", subject: "orders-api", display_state_type: "가용성 상태", state_type: "resource.availability_state", display_from: "성능 저하", from_state: "degraded", display_to: "정상 가용", to_state: "available", completeness_pct: 100.0, recorded_at: "2026-11-26T09:14:22Z" },
+      { transition_id: "sample-tr-02", raw_transition_id: "sample:transition:pg-02", subject: "orders-postgresql", display_state_type: "헬스 상태", state_type: "resource.health_state", display_from: "정상 가용", from_state: "available", display_to: "정상 가용", to_state: "available", completeness_pct: 100.0, recorded_at: "2026-11-26T09:10:05Z" }
+    ];
+
+    function openAksSignalDrawer(sig, triggerEl, opts) {
+      if (!sig) return;
+      const isGap = sig.source === "collector_gap";
+      const label = sig.display_name || H.signalName(sig.name);
+      const srcLabel = sig.display_source || H.sourceLabel(sig.source);
+      const itemId = `sig:${sig.name}`;
+      openUpgradedDrawer({
+        title: `${label} · 관측 신호`,
+        badge: isGap ? "미수집" : "관측됨",
+        tone: isGap ? "tone-neutral" : "tone-live",
+        meta: `출처: ${srcLabel} · 격리 범위: lab-sandbox`,
+        summary: isGap
+          ? `'${label}' 수집기가 응답하지 않아 0으로 대체하지 않고 미수집으로 표시합니다.`
+          : `'${label}' 지표의 현재 값은 ${sig.current}이며 기준선은 ${sig.baseline}입니다.`,
+        primaryFacts: [
+          ["관측 지표", label],
+          ["현재 값", sig.current || "미측정"],
+          ["직전 기준선", sig.baseline || "미측정"],
+          ["수집 출처", srcLabel]
+        ],
+        techFacts: [
+          ["원본 지표 키", sig.name || "—"],
+          ["원본 출처 키", sig.source || "—"],
+          ["서비스 시나리오", activeAksService]
+        ],
+        itemId,
+        skipUrl: !!(opts && opts.skipUrl),
+        href: Sel.buildUrl("live", ""),
+        hrefLabel: "실시간 모니터링에서 보기 →",
+        triggerEl
+      });
+    }
+
+    function openAksTransitionDrawer(trItem, triggerEl, opts) {
+      if (!trItem) return;
+      const tid = trItem.transition_id || "transition";
+      const stKo = trItem.display_state_type || H.action(trItem.state_type);
+      const fromKo = trItem.display_from || H.mode(trItem.from_state);
+      const toKo = trItem.display_to || H.mode(trItem.to_state);
+      const tone = trItem.to_state === "available" || trItem.to_state === "ready" || trItem.to_state === "running"
+        ? "tone-live"
+        : (trItem.to_state === "degraded" || trItem.to_state === "stopped" ? "tone-sre" : "tone-neutral");
+      openUpgradedDrawer({
+        title: `${trItem.subject || "관측 대상"} · ${stKo}`,
+        badge: `${fromKo} → ${toKo}`,
+        tone,
+        meta: `기록 시각: ${H.timestamp(trItem.recorded_at)} · 격리 범위: lab-sandbox`,
+        summary: `'${trItem.subject || "관측 대상"}'의 ${stKo}가 '${fromKo}'에서 '${toKo}'로 전환되었으며 근거 완전성은 ${typeof trItem.completeness_pct === "number" ? `${trItem.completeness_pct.toFixed(1)}%` : "미측정"}입니다.`,
+        primaryFacts: [
+          ["대상 리소스", trItem.subject || "—"],
+          ["상태 항목", stKo],
+          ["상태 변화", `${fromKo} → ${toKo}`],
+          ["근거 완전성", typeof trItem.completeness_pct === "number" ? `${trItem.completeness_pct.toFixed(1)}%` : "미측정"]
+        ],
+        techFacts: [
+          ["전환 ID", trItem.raw_transition_id || tid],
+          ["원본 상태 유형 키", trItem.state_type || "—"],
+          ["원본 상태 전이", `${trItem.from_state || "—"} → ${trItem.to_state || "—"}`],
+          ["원본 기록 시각", trItem.recorded_at || "—"]
+        ],
+        itemId: `tr:${tid}`,
+        skipUrl: !!(opts && opts.skipUrl),
+        href: Sel.buildUrl("audit", ""),
+        hrefLabel: "감사 원장에서 보기 →",
+        triggerEl
+      });
+    }
+
     function renderAksSignalsTable(rows) {
       const sigTbody = document.querySelector("#slAksSignalTable tbody");
       if (!sigTbody) return;
+      activeAksSignalsMap = {};
       if (!Array.isArray(rows) || rows.length === 0) {
         renderEmptyTableRow(sigTbody, 4, "수집된 관측 신호 데이터가 없습니다 (미측정).");
         return;
       }
       const frag = document.createDocumentFragment();
       rows.forEach((s) => {
+        const sigKey = String(s.name || "");
+        if (sigKey) activeAksSignalsMap[sigKey] = s;
         const tr = document.createElement("tr");
+        tr.tabIndex = 0;
+        tr.style.cursor = "pointer";
+        tr.setAttribute("data-sig-name", sigKey);
         const isGap = s.source === "collector_gap";
         const label = s.display_name || H.signalName(s.name);
         const srcLabel = s.display_source || H.sourceLabel(s.source);
@@ -2031,9 +2317,64 @@
           makeCell(s.baseline, isGap ? "cell-muted" : "cell-mono"),
           makeCell(srcLabel, "")
         );
+        const pick = () => {
+          document.querySelectorAll("#slAksSignalTable tbody tr").forEach((r) => {
+            const on = r === tr;
+            r.classList.toggle("sl-row-selected", on);
+            r.setAttribute("aria-selected", String(on));
+          });
+          openAksSignalDrawer(s, tr);
+        };
+        tr.addEventListener("click", pick);
+        bindRowKeyActivation(tr, pick);
         frag.appendChild(tr);
       });
       sigTbody.replaceChildren(frag);
+    }
+
+    function renderAksTransitionsTable(transitions, emptyMsg) {
+      const tbody = document.querySelector("#slAksTransTable tbody");
+      const badgeEl = document.getElementById("slAksTransBadge");
+      if (!tbody) return;
+      activeAksTransitionsMap = {};
+      if (!Array.isArray(transitions) || transitions.length === 0) {
+        setPlainBadge(badgeEl, "tone-neutral", "미측정 (0건)");
+        renderEmptyTableRow(tbody, 5, emptyMsg || "수집된 상태 전환 기록이 없습니다 (미측정).");
+        return;
+      }
+      setPlainBadge(badgeEl, "tone-live", `실측 ${transitions.length}건`);
+      const frag = document.createDocumentFragment();
+      transitions.forEach((item, idx) => {
+        const tid = item.transition_id || `tr-${idx}`;
+        activeAksTransitionsMap[tid] = item;
+        const stKo = item.display_state_type || H.action(item.state_type);
+        const fromKo = item.display_from || H.mode(item.from_state);
+        const toKo = item.display_to || H.mode(item.to_state);
+        const compTxt = typeof item.completeness_pct === "number" ? `${item.completeness_pct.toFixed(1)}%` : "미측정";
+        const tr = document.createElement("tr");
+        tr.tabIndex = 0;
+        tr.style.cursor = "pointer";
+        tr.setAttribute("data-trans-id", tid);
+        tr.append(
+          makeCell(item.subject || "—", "cell-strong"),
+          makeCell(stKo, ""),
+          makeCell(`${fromKo} → ${toKo}`, ""),
+          makeCell(compTxt, "cell-mono"),
+          makeCell(H.timestamp(item.recorded_at), "cell-mono")
+        );
+        const pick = () => {
+          document.querySelectorAll("#slAksTransTable tbody tr").forEach((r) => {
+            const on = r === tr;
+            r.classList.toggle("sl-row-selected", on);
+            r.setAttribute("aria-selected", String(on));
+          });
+          openAksTransitionDrawer(item, tr);
+        };
+        tr.addEventListener("click", pick);
+        bindRowKeyActivation(tr, pick);
+        frag.appendChild(tr);
+      });
+      tbody.replaceChildren(frag);
     }
 
     function resetSampleAksTopo() {
@@ -2453,6 +2794,16 @@
         frag.appendChild(c);
       });
 
+      if (isLabLiveMode() && solidPts.length > 0) {
+        const latest = solidPts[solidPts.length - 1];
+        const liveRing = document.createElementNS(SVG_NS, "circle");
+        liveRing.setAttribute("class", "fdai-svg-live-ring");
+        liveRing.setAttribute("cx", String(latest.cx));
+        liveRing.setAttribute("cy", String(latest.cy));
+        liveRing.setAttribute("r", "8");
+        frag.appendChild(liveRing);
+      }
+
       grp.replaceChildren(frag);
     }
 
@@ -2479,7 +2830,7 @@
     }
 
     const HM_DAYS = ["월", "화", "수", "목", "금", "토", "일"];
-    const HM_HOURS = ["00h", "02h", "04h", "06h", "08h", "10h", "12h", "14h", "16h", "18h", "+1h", "+2h"];
+    const HM_HOURS = ["00h", "02h", "04h", "06h", "08h", "10h", "12h", "14h", "16h", "18h+", "+1h", "+2h"];
     const SAMPLE_HM_DATA = [
       [1,1,2,2,3,2,1,2,2,4,5,5],
       [1,2,2,3,3,2,2,1,2,2,5,5],
@@ -2635,12 +2986,16 @@
         return;
       }
       const frag = document.createDocumentFragment();
-      items.forEach((it) => {
+      items.forEach((it, idx) => {
+        const outKey = String(it.key || `out-${idx}`);
         const row = document.createElement("div");
-        row.className = "sl-ratio-row";
+        row.className = "sl-ratio-row is-interactive";
+        row.tabIndex = 0;
+        row.setAttribute("role", "button");
+        row.setAttribute("data-outcome-key", outKey);
         row.setAttribute("data-ut-title", it.utTitle || it.label || it.key || "결과 항목");
         row.setAttribute("data-ut-val", `${it.count ?? 0}건 (${it.pct ?? 0}%)`);
-        row.setAttribute("data-ut-body", it.utBody || it.note || "PostgreSQL 실측");
+        row.setAttribute("data-ut-body", it.utBody || it.note || "로컬 원장 실측");
         row.setAttribute("data-ut-tone", it.tone || "neutral");
         const strong = document.createElement("strong");
         strong.textContent = it.label || it.key || "—";
@@ -2649,12 +3004,24 @@
         const fill = document.createElement("div");
         const fillCls = it.tone === "sre" ? "is-sre" : (it.tone === "sec" ? "is-sec" : (it.tone === "neutral" ? "is-neutral" : ""));
         fill.className = `sl-ratio-fill ${fillCls}`.trim();
-        fill.style.width = `${Math.max(2, Math.min(100, Number(it.pct || 0)))}%`;
+        const pctVal = Math.max(0, Math.min(100, Number(it.pct || 0)));
+        fill.style.width = pctVal > 0 ? `${Math.max(2, pctVal)}%` : "0%";
         track.appendChild(fill);
         const meta = document.createElement("span");
         meta.className = "cell-mono";
         meta.textContent = `${it.count ?? 0}건 (${it.pct ?? 0}%) · ${it.note || "-"}`;
         row.append(strong, track, meta);
+        const pick = () => {
+          list.querySelectorAll(".sl-ratio-row.is-selected").forEach((r) => r.classList.remove("is-selected"));
+          row.classList.add("is-selected");
+          const itemId = `out:${outKey}`;
+          activeForecastItemId = itemId;
+          setTxt("slForecastSummary", `${it.label || outKey}: ${it.count ?? 0}건 (${it.pct ?? 0}%) — ${it.utBody || it.note || "실측 분류"}`);
+          setTxt("slForecastTechKey", outKey);
+          if (getActivePanelId() === "forecast-learning") Sel.set(itemId, { push: false });
+        };
+        row.addEventListener("click", pick);
+        bindRowKeyActivation(row, pick);
         frag.appendChild(row);
       });
       list.replaceChildren(frag);
@@ -3079,6 +3446,8 @@
       setTxt("slAksRollbackStat", "미측정");
       setPlainBadge(document.getElementById("slAksSignalBadge"), "tone-neutral", "미측정");
       renderAksSignalsTable([]);
+      renderAksTransitionsTable([], `${note} — 수집된 상태 전환 기록이 없습니다.`);
+      setTopoLiveRings(false);
       const gapEl = document.getElementById("slAksGapNote");
       if (gapEl) {
         const strong = document.createElement("strong");
@@ -3148,6 +3517,11 @@
       setTxt("slDebtRetention", "미측정");
       setTxt("slDebtLead", "미측정");
       setTxt("slDebtUnmeasured", "데이터 없음 (미수집)");
+      setTxt("slForecastHmTitle", "요일 × 시간대별 관측 커버리지 히트맵 (KST)");
+      setTxt("slForecastHmDesc", "셀에 마우스를 올리거나 클릭하면 해당 시간대(KST)의 실측 관측 밀도와 미수집 구간을 확인할 수 있습니다.");
+      setTxt("slHmLegend1", "<250건 관측");
+      setTxt("slHmLegend2", "250~499건 집중");
+      setTxt("slHmLegend3", "500건+ 고밀도");
       renderForecastHeatmapGrid(buildEmptyLiveHeatmapMatrix(), true);
       setTxt("slForecastOutcomeTitle", "기준선 · 커버리지 결과 분포 (미측정)");
       renderForecastOutcomes([], note);
@@ -3240,15 +3614,19 @@
       casesList.forEach((c, idx) => {
         const cid = c.case_id || `case-${idx}`;
         const displayLbl = c.display_label || `${c.agent || "에이전트"} 평가 케이스 #${idx + 1}`;
-        const humanMeta = c.recorded_at ? `${c.meta || ""} · ${H.timestamp(c.recorded_at)}` : (c.meta || "—");
+        const rawMeta = String(c.meta || "");
+        const hasIsoInMeta = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(rawMeta);
+        const localizedMeta = hasIsoInMeta
+          ? H.localizeIsoTimestamps(rawMeta)
+          : (c.recorded_at ? `${rawMeta ? `${rawMeta} · ` : ""}${H.timestamp(c.recorded_at)} (KST)` : (rawMeta || "—"));
         nextCases[cid] = {
-          id: `${displayLbl} (${c.agent || "Bragi"})`,
+          id: `${displayLbl} · ${c.agent || "Bragi"}`,
           agentName: c.agent || "Bragi",
-          meta: humanMeta,
+          meta: localizedMeta,
           badge: c.verdict_badge || "실측",
           cls: c.verdict_tone || "tone-live",
           q: c.question || "—",
-          agent: `${c.agent || "Bragi"} 응답 (투명 프로즈)`,
+          agent: `${c.agent || "Bragi"} 응답 내용`,
           a: c.answer || "—",
           r: Array.isArray(c.rubric) && c.rubric.length >= 4 ? c.rubric : ["—", "—", "—", "—"],
           techDetails: Array.isArray(c.tech_details) && c.tech_details.length > 0
@@ -3427,6 +3805,9 @@
       if (step3) step3.disabled = true;
       setTxt("slChaosLog", "1단계 [사전 검증]을 실행해 격리 네임스페이스(lab-sandbox) 안전 조건을 먼저 확인하세요.");
       resetSampleAksTopo();
+      renderAksTransitionsTable(SAMPLE_AKS_TRANSITIONS);
+      setPlainBadge(document.getElementById("slAksTransBadge"), "tone-human", "Sample 2건");
+      setTopoLiveRings(false);
     };
 
     SAMPLE_RENDERERS["assurance-twin"] = () => {
@@ -3489,6 +3870,11 @@
       setTxt("slDebtRetention", "0건");
       setTxt("slDebtLead", "+5.8분");
       setTxt("slDebtUnmeasured", "데이터 없음 (미수집)");
+      setTxt("slForecastHmTitle", "요일 × 시간대별 예측 오차 히트맵 (KST · Sample)");
+      setTxt("slForecastHmDesc", "셀에 마우스를 올리거나 클릭하면 해당 시간대(KST)의 오차율과 주요 오탐·미탐 원인을 확인할 수 있습니다.");
+      setTxt("slHmLegend1", "<2% 양호");
+      setTxt("slHmLegend2", "2~5% 주의");
+      setTxt("slHmLegend3", ">5% 보정 필요");
       renderForecastHeatmapGrid(SAMPLE_HM_DATA, false);
       setTxt("slForecastOutcomeTitle", "예측 결과 분포 및 미탐 · 오탐 원인 분해 (172건 · Sample)");
       renderForecastOutcomes(SAMPLE_FORECAST_OUTCOMES);
@@ -3707,24 +4093,30 @@
       setTxt("slAksActionName", data.action_name || "없음 (lab-sandbox 읽기 전용 관측)");
       setTxt("slAksEffectText", data.effect_text || "미측정");
       renderAksSignalsTable(Array.isArray(data.signals) ? data.signals : []);
+      renderAksTransitionsTable(
+        Array.isArray(data.recent_transitions) ? data.recent_transitions : [],
+        "수집된 상태 전환 기록이 없습니다 (미측정)."
+      );
+      setTopoLiveRings(true);
     };
 
     function mapLiveTwinReview(rev, idx) {
       const fCount = typeof rev.finding_count === "number" ? rev.finding_count : null;
       const rawKey = rev.review_key || rev.id || `rev-${idx}`;
-      const displayRef = rev.display_ref || H.humanizeResourceTokens(rawKey);
+      const displayRef = rev.display_ref || H.humanizeResourceTokens(H.ruleId(rawKey) || rawKey);
       const rawResList = Array.isArray(rev.resources) ? rev.resources : [];
       const humanResList = rawResList.map((r) => ({
         ico: r.ico,
-        name: H.humanizeResourceTokens(r.name || "—"),
-        sub: H.humanizeResourceTokens(r.sub || ""),
-        sev: r.sev || "미측정",
+        name: H.localizeIsoTimestamps(H.humanizeResourceTokens(r.name || "—")),
+        sub: H.localizeIsoTimestamps(H.humanizeResourceTokens(r.sub || "")),
+        sev: H.severity(r.sev) || r.sev || "미측정",
         cls: r.cls || "tone-neutral"
       }));
       return {
         reviewKey: rawKey,
         displayRef,
         rawResourceType: rev.raw_resource_type || "—",
+        rawRemediation: rev.raw_remediation ? H.remediationAction(rev.raw_remediation) : "",
         mode: rev.mode || "shadow",
         verdictCls: rev.verdict_tone || "tone-neutral",
         verdict: rev.verdict_label || rev.verdict || "미측정",
@@ -3733,8 +4125,8 @@
           : (fCount === null ? "미측정" : `위반 ${fCount}건`),
         afterCls: rev.verdict_tone || "tone-neutral",
         resTitle: `영향받는 리소스 (${humanResList.length}건)`,
-        before: (Array.isArray(rev.before) ? rev.before : []).map((l) => H.humanizeResourceTokens(l)),
-        after: (Array.isArray(rev.after) ? rev.after : []).map((l) => H.humanizeResourceTokens(l)),
+        before: (Array.isArray(rev.before) ? rev.before : []).map((l) => H.localizeIsoTimestamps(H.humanizeResourceTokens(l))),
+        after: (Array.isArray(rev.after) ? rev.after : []).map((l) => H.localizeIsoTimestamps(H.humanizeResourceTokens(l))),
         res: humanResList,
         act: rev.activity_id || "—",
         corr: rev.correlation_id || "—",
@@ -3923,6 +4315,11 @@
         setTxt("slDebtUnmeasured", "데이터 없음 (미수집)");
       }
 
+      setTxt("slForecastHmTitle", "요일 × 시간대별 관측 커버리지 히트맵 (KST)");
+      setTxt("slForecastHmDesc", "셀에 마우스를 올리거나 클릭하면 해당 시간대(KST)의 실측 관측 밀도와 미수집 구간을 확인할 수 있습니다.");
+      setTxt("slHmLegend1", "<250건 관측");
+      setTxt("slHmLegend2", "250~499건 집중");
+      setTxt("slHmLegend3", "500건+ 고밀도");
       if (Array.isArray(data.heatmap_rows) && data.heatmap_rows.length === 7) {
         renderForecastHeatmapGrid(data.heatmap_rows, true);
       } else {
@@ -3959,15 +4356,15 @@
       setTxt(
         "slConvPantheonSummary",
         semCnt > 0
-          ? `PostgreSQL LLM 호출 · 시맨틱 턴 실측 요약 (총 ${llmCnt}회 · 시맨틱 ${semCnt}건 · 평가 원장 ${assessCnt}건)`
-          : `PostgreSQL 최근 7일 LLM 호출 실측 요약 (총 ${llmCnt}회 · 평가 원장 ${assessCnt}건 · 미측정 정직 표기)`
+          ? `최근 7일 모델 호출 · 시맨틱 턴 실측 요약 (총 ${llmCnt}회 · 시맨틱 ${semCnt}건 · 평가 원장 ${assessCnt}건)`
+          : `최근 7일 모델 호출 실측 요약 (총 ${llmCnt}회 · 평가 원장 ${assessCnt}건 · 미측정 정직 표기)`
       );
       setTxt("slConvPantheonMeta", `${agentSummary.length}개 모델/기능 집계`);
 
       const agentHead = document.getElementById("slConvAgentHead");
       if (agentHead) {
         const tr = document.createElement("tr");
-        ["기능 / 모델", "티어", "모드", "호출 수", "평균 입력 tok", "평균 출력 tok", "총 토큰", "상태"].forEach((h) => {
+        ["기능 / 모델", "단계", "모드", "호출 수", "평균 입력 tok", "평균 출력 tok", "총 토큰", "상태"].forEach((h) => {
           const th = document.createElement("th");
           th.textContent = h;
           tr.appendChild(th);
@@ -3982,8 +4379,8 @@
           const frag = document.createDocumentFragment();
           agentSummary.forEach((row) => {
             const tr = document.createElement("tr");
-            const capLabel = row.display_capability || row.capability_id || "—";
-            const capCell = makeCell(`${capLabel} (${row.model_key || "—"})`, "cell-strong");
+            const capLabel = String(row.display_capability || row.capability_id || "—").replace(/\s*\(T[012]\)\s*$/i, "");
+            const capCell = makeCell(`${capLabel} · ${row.model_key || "—"}`, "cell-strong");
             if (row.capability_id) {
               capCell.setAttribute("data-ut-title", capLabel);
               capCell.setAttribute("data-ut-val", `${row.calls ?? 0}회 호출`);
@@ -4036,8 +4433,9 @@
     /* =====================================================================
        DEEP-LINK AUTO-SELECTION (?item=<id>) ACROSS ALL 6 LABS PANELS
        ===================================================================== */
-    function applyDeepLinkForPanel(pid, itemId) {
+    function applyDeepLinkForPanel(pid, itemId, opts) {
       const clean = String(itemId || "").trim();
+      const doFocus = !(opts && opts.skipFocus);
       if (!clean) return false;
 
       if (pid === "labs") {
@@ -4050,20 +4448,57 @@
           r.classList.toggle("sl-row-selected", on);
           r.setAttribute("aria-selected", String(on));
         });
-        Sel.focus(tr);
+        if (doFocus) Sel.focus(tr);
         const run = activeSummaryRunsMap[tr.getAttribute("data-run-id")];
-        if (run) openSummaryRunDrawer(run, tr, { skipUrl: true });
+        if (run && doFocus) openSummaryRunDrawer(run, tr, { skipUrl: true });
         return true;
       }
 
       if (pid === "aks-commerce") {
+        if (clean.startsWith("tr:")) {
+          const tid = clean.slice(3);
+          const rows = Array.from(document.querySelectorAll("#slAksTransTable tbody tr[data-trans-id]"));
+          const tr = rows.find((r) => r.getAttribute("data-trans-id") === tid)
+            || rows.find((r) => (r.getAttribute("data-trans-id") || "").toLowerCase() === tid.toLowerCase());
+          if (!tr) return false;
+          rows.forEach((r) => {
+            const on = r === tr;
+            r.classList.toggle("sl-row-selected", on);
+            r.setAttribute("aria-selected", String(on));
+          });
+          if (doFocus) {
+            Sel.focus(tr);
+            const trItem = activeAksTransitionsMap[tr.getAttribute("data-trans-id")];
+            if (trItem) openAksTransitionDrawer(trItem, tr, { skipUrl: true });
+          }
+          return true;
+        }
+        if (clean.startsWith("sig:")) {
+          const sname = clean.slice(4);
+          const rows = Array.from(document.querySelectorAll("#slAksSignalTable tbody tr[data-sig-name]"));
+          const tr = rows.find((r) => r.getAttribute("data-sig-name") === sname);
+          if (!tr) return false;
+          rows.forEach((r) => {
+            const on = r === tr;
+            r.classList.toggle("sl-row-selected", on);
+            r.setAttribute("aria-selected", String(on));
+          });
+          if (doFocus) {
+            Sel.focus(tr);
+            const sig = activeAksSignalsMap[sname];
+            if (sig) openAksSignalDrawer(sig, tr, { skipUrl: true });
+          }
+          return true;
+        }
         const nodes = Array.from(document.querySelectorAll("[data-topo-node]"));
         const nodeEl = nodes.find((n) => n.getAttribute("data-topo-node") === clean)
           || nodes.find((n) => (n.getAttribute("data-topo-node") || "").toLowerCase() === clean.toLowerCase());
         if (!nodeEl) return false;
         const resolvedNode = nodeEl.getAttribute("data-topo-node") || clean;
-        Sel.focus(nodeEl);
-        openNodeDrawer(resolvedNode, nodeEl, { skipUrl: true });
+        if (doFocus) {
+          Sel.focus(nodeEl);
+          openNodeDrawer(resolvedNode, nodeEl, { skipUrl: true });
+        }
         return true;
       }
 
@@ -4072,7 +4507,7 @@
         const matchKey = keys.find((k) => k === clean)
           || keys.find((k) => k.toLowerCase() === clean.toLowerCase() || String(activeTwinPrMap[k]?.reviewKey || "").toLowerCase() === clean.toLowerCase());
         if (!matchKey) return false;
-        selectTwinPr(matchKey, true, { skipUrl: true, focus: true });
+        selectTwinPr(matchKey, true, { skipUrl: true, focus: doFocus });
         return true;
       }
 
@@ -4084,7 +4519,7 @@
           selectForecastCalPoint(circle, {
             rawKey: circle.getAttribute("data-cal-raw") || clean,
             tip: circle.getAttribute("data-cal-tip") || ""
-          }, { skipUrl: true, focus: true });
+          }, { skipUrl: true, focus: doFocus });
           return true;
         }
         if (clean.startsWith("cell:")) {
@@ -4099,9 +4534,21 @@
             setTxt("slForecastSummary", msg ? `시간대 ${msg}` : "선택한 히트맵 시간대입니다.");
             setTxt("slForecastTechKey", clean);
             activeForecastItemId = clean;
-            Sel.focus(btn);
+            if (doFocus) Sel.focus(btn);
             return true;
           }
+        }
+        if (clean.startsWith("out:")) {
+          const key = clean.slice(4);
+          const rows = Array.from(document.querySelectorAll("#slForecastOutcomeList .sl-ratio-row[data-outcome-key]"));
+          const row = rows.find((r) => r.getAttribute("data-outcome-key") === key);
+          if (!row) return false;
+          rows.forEach((r) => r.classList.toggle("is-selected", r === row));
+          activeForecastItemId = clean;
+          setTxt("slForecastSummary", `${row.getAttribute("data-ut-title") || key}: ${row.getAttribute("data-ut-val") || ""} — ${row.getAttribute("data-ut-body") || ""}`);
+          setTxt("slForecastTechKey", key);
+          if (doFocus) Sel.focus(row);
+          return true;
         }
         return false;
       }
@@ -4111,7 +4558,7 @@
         const tr = rows.find((r) => r.getAttribute("data-conv-id") === clean)
           || rows.find((r) => (r.getAttribute("data-conv-id") || "").toLowerCase() === clean.toLowerCase());
         if (!tr) return false;
-        selectConvRow(tr, { skipUrl: true, focus: true });
+        selectConvRow(tr, { skipUrl: true, focus: doFocus });
         return true;
       }
 
@@ -4120,7 +4567,7 @@
         const tr = rows.find((r) => r.getAttribute("data-ab-id") === clean)
           || rows.find((r) => (r.getAttribute("data-ab-id") || "").toLowerCase() === clean.toLowerCase());
         if (!tr) return false;
-        selectAbRow(tr, { skipUrl: true, focus: true });
+        selectAbRow(tr, { skipUrl: true, focus: doFocus });
         return true;
       }
 
@@ -4142,6 +4589,7 @@
 
       if (mode === "sample") {
         stopChaosTimer("대기 (300초 상한)");
+        syncStreamingIndicators(false);
         LAB_IDS.forEach((pid) => {
           if (typeof SAMPLE_RENDERERS[pid] === "function") {
             SAMPLE_RENDERERS[pid]();

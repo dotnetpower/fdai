@@ -589,8 +589,7 @@ pub async fn fetch_settings_runtime(db: &DbHandle) -> Option<Value> {
         .iter()
         .find(|s| s.get("key").and_then(Value::as_str) == Some("hil.approval_expiry_minutes"))
         .and_then(|s| s.get("effective_value"))
-        .and_then(Value::as_u64)
-        .or_else(|| has_persisted_runtime_settings.then_some(15));
+        .and_then(Value::as_u64);
     let mut turn_budget_sec: Option<u64> = settings_list
         .iter()
         .find(|s| s.get("key").and_then(Value::as_str) == Some("irp.budget_seconds"))
@@ -601,8 +600,7 @@ pub async fn fetch_settings_runtime(db: &DbHandle) -> Option<Value> {
         .iter()
         .find(|s| s.get("key").and_then(Value::as_str) == Some("irp.batch_concurrency"))
         .and_then(|s| s.get("effective_value"))
-        .and_then(Value::as_u64)
-        .or_else(|| has_persisted_runtime_settings.then_some(2));
+        .and_then(Value::as_u64);
     let mut availability_policy: Value = settings_list
         .iter()
         .find(|s| s.get("key").and_then(Value::as_str) == Some("detection.resource_availability"))
@@ -641,6 +639,8 @@ pub async fn fetch_settings_runtime(db: &DbHandle) -> Option<Value> {
 
     Some(json!({
         "has_persisted_runtime_settings": has_persisted_runtime_settings,
+        "approval_expiry_measured": approval_expiry_min.is_some(),
+        "batch_concurrency_measured": batch_concurrency.is_some(),
         "revision": revision,
         "environment": runtime_obj.get("environment").and_then(Value::as_str),
         "autonomy_profile": autonomy_profile,
@@ -742,10 +742,23 @@ pub async fn fetch_settings_iam(db: &DbHandle) -> Option<Value> {
     }))
 }
 
+fn is_opaque_scope_hash(s: &str) -> bool {
+    s.strip_prefix("scope-")
+        .is_some_and(|rest| rest.len() >= 8 && rest.chars().all(|c| c.is_ascii_hexdigit()))
+}
+
+fn humanize_scope_segment(s: &str) -> String {
+    if is_opaque_scope_hash(s) {
+        "연결된 Azure 구독".to_string()
+    } else {
+        s.to_string()
+    }
+}
+
 fn short_ontology_label(raw_id: &str) -> (String, String) {
     let trimmed = raw_id.trim();
     if trimmed.is_empty() {
-        return ("default".to_string(), "resource".to_string());
+        return ("관측 범위".to_string(), "관측 리소스".to_string());
     }
     let parts: Vec<&str> = trimmed.split('/').filter(|s| !s.is_empty()).collect();
     let name = parts.last().copied().unwrap_or(trimmed).to_string();
@@ -754,7 +767,7 @@ fn short_ontology_label(raw_id: &str) -> (String, String) {
         .find(|w| w[0].eq_ignore_ascii_case("resource-group") || w[0].eq_ignore_ascii_case("resourcegroups"))
         .map(|w| w[1].to_string())
         .or_else(|| parts.first().map(|s| (*s).to_string()))
-        .unwrap_or_else(|| "scope".to_string());
+        .unwrap_or_else(|| "관측 범위".to_string());
     (rg, name)
 }
 
@@ -829,6 +842,13 @@ pub async fn fetch_settings_integrations(db: &DbHandle) -> Option<Value> {
         Some(r) => {
             let raw_id = cell_str(r, 0);
             let (sample_rg, sample_name) = short_ontology_label(&raw_id);
+            let display_rg = humanize_scope_segment(&sample_rg);
+            let display_name = humanize_scope_segment(&sample_name);
+            let display_scope = if display_rg == display_name {
+                display_name.clone()
+            } else {
+                format!("{display_rg} / {display_name}")
+            };
             let sample_updated = cell_str(r, 2);
             let env_ko = match env_name {
                 Some("dev") => "개발 환경",
@@ -839,11 +859,12 @@ pub async fn fetch_settings_integrations(db: &DbHandle) -> Option<Value> {
                 None => "환경 미측정",
             };
             json!({
-                "subject": format!("[FDAI] {sample_name} 관측 알림 미리보기 ({env_ko})"),
-                "scope": format!("{sample_rg} / {sample_name}"),
+                "subject": format!("[FDAI] {display_name} 관측 알림 미리보기 ({env_ko})"),
+                "scope": display_scope,
+                "raw_scope_id": raw_id,
                 "evidence": format!("관측 리소스 {onto_count}건 · 감사 기록 {audit_count}건 · MCP 카탈로그 리비전 {mcp_rev_num}"),
                 "text": format!(
-                    "Subject: [FDAI] {sample_name} operational advisory ({env_tag})\nScope: {sample_rg} / {sample_name}\nEvidence: ontology_resource={onto_count}, rev=#{onto_max_rev}, mcp_rev=#{mcp_rev_num}, audit_log={audit_count}\nAction boundary: Notification only (approval required in Console)"
+                    "Subject: [FDAI] {display_name} operational advisory ({env_tag})\nScope: {display_scope}\nEvidence: resources={onto_count}, rev=#{onto_max_rev}, mcp_rev=#{mcp_rev_num}, audit_log={audit_count}\nAction boundary: Notification only (approval required in Console)"
                 ),
                 "observed_at": sample_updated,
                 "login_actor": login_actor,
@@ -1104,7 +1125,8 @@ pub async fn fetch_settings_memory(
                       ORDER BY created_at DESC LIMIT 60";
     let user_fact_sql = "SELECT memory_id, category, body, \
                          to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), \
-                         coalesce(to_char(expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), '') \
+                         coalesce(to_char(expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), ''), \
+                         CASE WHEN expires_at IS NOT NULL THEN GREATEST(0, CEIL(EXTRACT(EPOCH FROM (expires_at - now())) / 86400.0))::bigint ELSE NULL END \
                          FROM user_memory_fact WHERE superseded_by IS NULL \
                          ORDER BY created_at DESC LIMIT 60";
     let comp_sql = "SELECT candidate_id, scope_kind, scope_ref, category, state, \
@@ -1144,10 +1166,10 @@ pub async fn fetch_settings_memory(
     for r in &op_res.rows {
         let scope_kind = cell_str(r, 1);
         let ttl_sec = cell_i64(r, 5).unwrap_or(0);
-        let expires_days = if ttl_sec > 0 {
-            (ttl_sec / 86400).max(1)
+        let expires_days: Option<i64> = if ttl_sec > 0 {
+            Some((ttl_sec / 86400).max(1))
         } else {
-            30
+            None
         };
         let item = json!({
             "memory_id": cell_str(r, 0),
@@ -1168,13 +1190,14 @@ pub async fn fetch_settings_memory(
     }
 
     for r in &user_res.rows {
+        let expires_days = cell_i64(r, 5);
         let item = json!({
             "memory_id": cell_str(r, 0),
             "scope": "resource",
             "scope_ref": cell_str(r, 1),
             "category": cell_str(r, 1),
             "body": cell_str(r, 2),
-            "expires_days": 30,
+            "expires_days": expires_days,
             "created_at": cell_str(r, 3),
             "expires_at": cell_str(r, 4),
             "source_table": "user_memory_fact"

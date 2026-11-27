@@ -251,13 +251,13 @@ function Confirm({ pending, catalog, locale, registration, setRegistration, clos
           <strong>{t("1-Click Stencil Manifest Generator:", "원클릭 에디션 매니페스트 자동 생성 (JSON 수동 작성 불필요):")}</strong>
           <div class="quick-chips">
             <button type="button" class="chip-btn" disabled={templateBusy} onClick={() => void fillPresetTemplate("lite-observe-alert")}>
-              {t("Fill Lite (2 containers · 14 menus)", "경량 에디션 채우기 (컨테이너 2 · 메뉴 14)")}
+              {t("Fill Lite (2 containers · 17 menus)", "경량 에디션 채우기 (컨테이너 2 · 메뉴 17)")}
             </button>
             <button type="button" class="chip-btn" disabled={templateBusy} onClick={() => void fillPresetTemplate("standard-sre")}>
-              {t("Fill Standard SRE (3 containers · 32 menus)", "표준 SRE 채우기 (컨테이너 3 · 메뉴 32)")}
+              {t("Fill Standard SRE (3 containers · 47 menus)", "표준 SRE 채우기 (컨테이너 3 · 메뉴 47)")}
             </button>
             <button type="button" class="chip-btn" disabled={templateBusy} onClick={() => void fillPresetTemplate("full-enterprise")}>
-              {t("Fill Full Enterprise (5 containers · 60 menus)", "전체 엔터프라이즈 채우기 (컨테이너 5 · 메뉴 60)")}
+              {t("Fill Full Enterprise (5 containers · 65 menus)", "전체 엔터프라이즈 채우기 (컨테이너 5 · 메뉴 65)")}
             </button>
           </div>
         </div>

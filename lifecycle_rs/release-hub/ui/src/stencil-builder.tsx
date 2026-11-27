@@ -402,7 +402,7 @@ export function computeLiveApolloBlueprint(
     jobFeatureFlags,
     addonFeatureFlags,
     runtimeEnvFlags,
-    consoleBuildCommand: `FDAI_STENCIL_ENABLED_PANELS='${effectivePanels.join(",")}' npm --prefix console run build`,
+    consoleBuildCommand: `FDAI_STENCIL_ENABLED_PANELS='${effectivePanels.join(",")}' cargo build -p fdai-console-v4`,
   };
 }
 
@@ -1239,14 +1239,14 @@ export function StencilBuilder({
                 </summary>
                 <p>
                   {t(
-                    "Unchecked menus are physically excluded from the built Console bundle chunks when built with FDAI_STENCIL_ENABLED_PANELS.",
-                    "선택 해제한 메뉴는 FDAI_STENCIL_ENABLED_PANELS로 빌드할 때 최종 Console JS/CSS 번들 청크에서 물리적으로 제외됩니다.",
+                    "Unchecked menus are excluded from the compiled Console v4 build when built with FDAI_STENCIL_ENABLED_PANELS.",
+                    "선택 해제한 메뉴는 FDAI_STENCIL_ENABLED_PANELS로 Console v4를 빌드할 때 최종 실행 메뉴에서 제외됩니다.",
                   )}
                 </p>
                 <div class="stencil-menu-toolbar">
                   <input
                     type="search"
-                    placeholder={t("Filter menus by name or ID...", "메뉴 이름 또는 ID 검색...")}
+                    placeholder={t("Filter menus by name, ID, or path...", "메뉴 이름, ID 또는 경로 검색...")}
                     value={menuQuery}
                     onInput={(e) => setMenuQuery(e.currentTarget.value)}
                   />
@@ -1270,6 +1270,7 @@ export function StencilBuilder({
                       if (!needle) return true;
                       return (
                         p.id.toLowerCase().includes(needle) ||
+                        p.path.toLowerCase().includes(needle) ||
                         p.label.toLowerCase().includes(needle) ||
                         p.label_ko.toLowerCase().includes(needle)
                       );

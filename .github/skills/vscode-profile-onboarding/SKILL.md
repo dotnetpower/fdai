@@ -49,6 +49,28 @@ maintainer's local VS Code state.
 
 ## Local server start requests
 
+### Pure-Rust Console v4 and Release Hub quick start
+
+After the Pure-Rust cutover, standalone and full-stack local launches use the Cargo workspace
+(`Cargo.toml`) and `Makefile` (defaulting to `--locked` so fresh clones fetch pinned crates once):
+
+- **Console Web (Pure-Rust Console v4)**: `make console-v4-up` or VS Code task
+  `console-v4: serve (5290)` -> `http://127.0.0.1:5290` (check: `cargo run --locked -p fdai-console-v4 -- --check`
+  and `GET http://127.0.0.1:5290/api/v4/meta`). Starts cleanly without Python, Node.js, or Azure
+  login; binds loopback PostgreSQL automatically when `FDAI_DATABASE_URL` or `.fdai/local-runtime.env`
+  is present.
+- **Release Hub (Pure-Rust + pre-built UI)**: `make release-hub-up` or VS Code task
+  `release-hub: serve (8022)` -> `http://127.0.0.1:8022` serving `lifecycle_rs/release-hub/ui/dist`
+  (check: `cargo run --locked -p fdai-release-hub -- --check`, `GET /healthz`, `GET /auth/config`).
+- **Lifecycle Hub (Pure-Rust + pre-built UI)**: `make lifecycle-hub-up` or VS Code task
+  `lifecycle-hub: serve (8021)` -> `http://127.0.0.1:8021` serving `lifecycle_rs/hub/ui/dist`.
+- **Complete 9-service Pure-Rust stack**: `make rust-fullstack-up` (`deploy_rs/start-fullstack-rust.sh`)
+  or VS Code task `fullstack: start Pure-Rust stack`; stop with `make rust-fullstack-down`.
+- **Optional Docker data stack**: `make dev-up` starts loopback PostgreSQL (`5432`/`5433`),
+  Redpanda (`19092`/`9644`), and ClamAV (`3310`).
+
+### Identity, reuse, and safety rules
+
 - Treat the Azure CLI login, default subscription, tenant, `AZURE_CONFIG_DIR`, and
   `console/.env.local` as operator-owned inputs. A start, restart, or recovery request does not
   authorize `az login`, `az logout`, `az account set`, profile replacement, or rewriting MSAL

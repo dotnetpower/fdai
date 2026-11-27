@@ -3,17 +3,21 @@
 pub mod assets;
 pub mod db;
 pub mod domains;
+pub mod governance_security_policy;
+pub mod lineage_graph_layout;
 pub mod repos;
 pub mod shell;
+pub mod stencil;
 pub mod upstream;
 
 use axum::{
+    body::{to_bytes, Body},
     extract::State,
-    http::{header, HeaderValue, Method, StatusCode},
+    http::{header, HeaderName, HeaderValue, Method, Request, StatusCode},
     middleware::{self, Next},
     response::{
         sse::{Event, KeepAlive, Sse},
-        IntoResponse, Redirect, Response,
+        Html, IntoResponse, Redirect, Response,
     },
     routing::get,
     Json, Router,
@@ -72,6 +76,7 @@ pub struct AppState {
     pub brand_dir: PathBuf,
     pub azure_icons_dir: PathBuf,
     pub agent_icons_dir: PathBuf,
+    pub stencil: Arc<stencil::StencilPolicy>,
 }
 
 impl AppState {
@@ -94,6 +99,7 @@ impl AppState {
             brand_dir,
             azure_icons_dir: repo_root.join("tools/architecture-diagrams/assets/azure"),
             agent_icons_dir,
+            stencil: Arc::new(stencil::StencilPolicy::from_current_env_fail_closed()),
         }
     }
 
@@ -116,7 +122,14 @@ impl AppState {
             brand_dir,
             azure_icons_dir: repo_root.join("tools/architecture-diagrams/assets/azure"),
             agent_icons_dir,
+            stencil: Arc::new(stencil::StencilPolicy::from_current_env_fail_closed()),
         }
+    }
+
+    #[must_use]
+    pub fn with_stencil(mut self, policy: stencil::StencilPolicy) -> Self {
+        self.stencil = Arc::new(policy);
+        self
     }
 }
 
@@ -176,8 +189,153 @@ fn build_cors_layer() -> CorsLayer {
         ])
 }
 
+async fn enforce_stencil_menu_gate(
+    State(state): State<AppState>,
+    req: Request<Body>,
+    next: Next,
+) -> Response {
+    if !state.stencil.active {
+        return next.run(req).await;
+    }
+
+    let path = req.uri().path().to_string();
+    let accepts_json = path.starts_with("/api/")
+        || req
+            .headers()
+            .get(header::ACCEPT)
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| v.contains("application/json"));
+
+    if let Some(target) = stencil::resolve_route_target(&path) {
+        match target {
+            stencil::RouteStencilTarget::DomainRoot {
+                domain,
+                default_panel,
+            } => {
+                if !state.stencil.is_domain_enabled(domain) {
+                    return stencil_blocked_response(
+                        StatusCode::NOT_FOUND,
+                        domain,
+                        state.stencil.stencil_id.as_deref(),
+                        accepts_json,
+                    );
+                }
+                if !state.stencil.is_panel_enabled(default_panel) {
+                    if let Some(first) = state.stencil.first_enabled_panel_for_domain(domain) {
+                        let dest = shell::canonical_panel_path(first);
+                        return Redirect::temporary(&dest).into_response();
+                    }
+                    return stencil_blocked_response(
+                        StatusCode::NOT_FOUND,
+                        domain,
+                        state.stencil.stencil_id.as_deref(),
+                        accepts_json,
+                    );
+                }
+            }
+            stencil::RouteStencilTarget::PanelPage { panel_id } => {
+                if !state.stencil.is_panel_enabled(&panel_id) {
+                    return stencil_blocked_response(
+                        StatusCode::NOT_FOUND,
+                        &panel_id,
+                        state.stencil.stencil_id.as_deref(),
+                        accepts_json,
+                    );
+                }
+            }
+            stencil::RouteStencilTarget::ApiEndpoint { domain, panel_id } => {
+                let blocked_id = if !state.stencil.is_domain_enabled(domain) {
+                    Some(domain)
+                } else {
+                    panel_id.filter(|pid| !state.stencil.is_panel_enabled(pid))
+                };
+                if let Some(blocked) = blocked_id {
+                    return stencil_blocked_response(
+                        StatusCode::FORBIDDEN,
+                        blocked,
+                        state.stencil.stencil_id.as_deref(),
+                        true,
+                    );
+                }
+            }
+        }
+    }
+
+    let resp = next.run(req).await;
+    let is_html = resp
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.to_ascii_lowercase().contains("text/html"));
+    if !is_html {
+        return resp;
+    }
+
+    let (mut parts, body) = resp.into_parts();
+    let Ok(bytes) = to_bytes(body, 8 * 1024 * 1024).await else {
+        return Response::from_parts(parts, Body::empty());
+    };
+    let html = String::from_utf8_lossy(&bytes);
+    let safe_json = state
+        .stencil
+        .to_bootstrap_json()
+        .to_string()
+        .replace("</", "<\\/")
+        .replace("<!--", "<\\!--");
+    let script = format!("<script>window.__FDAI_V4_STENCIL__={safe_json};</script>\n");
+    let injected = if let Some(pos) = html.find("</head>") {
+        let mut out = String::with_capacity(html.len() + script.len());
+        out.push_str(&html[..pos]);
+        out.push_str(&script);
+        out.push_str(&html[pos..]);
+        out
+    } else {
+        format!("{script}{html}")
+    };
+    parts.headers.remove(header::CONTENT_LENGTH);
+    Response::from_parts(parts, Body::from(injected))
+}
+
+fn stencil_blocked_response(
+    status: StatusCode,
+    blocked_id: &str,
+    stencil_id: Option<&str>,
+    as_json: bool,
+) -> Response {
+    let hdr_val = HeaderValue::from_str(blocked_id)
+        .unwrap_or_else(|_| HeaderValue::from_static("disabled"));
+    if as_json {
+        let mut resp = (
+            status,
+            Json(json!({
+                "error": "stencil_panel_disabled",
+                "blocked_id": blocked_id,
+                "stencil_id": stencil_id,
+                "enforcement_mode": "fail-closed",
+            })),
+        )
+            .into_response();
+        resp.headers_mut()
+            .insert(HeaderName::from_static("x-fdai-stencil-blocked"), hdr_val);
+        resp
+    } else {
+        let safe_id = blocked_id
+            .replace('&', "&amp;")
+            .replace('<', "&lt;")
+            .replace('>', "&gt;");
+        let body = format!(
+            "<!doctype html><html lang=\"ko\"><head><meta charset=\"utf-8\"><title>비활성화된 메뉴 — FDAI Console v4</title></head><body><main style=\"font-family:system-ui,sans-serif;max-width:560px;margin:48px auto;padding:24px\"><h1>이 메뉴는 현재 Stencil 구성에서 제외되었습니다</h1><p>요청한 메뉴(<code>{safe_id}</code>)는 현재 배포된 Stencil 정책에 포함되지 않아 접근할 수 없습니다.</p><p><a href=\"/overview/dashboard\">대시보드로 돌아가기</a></p></main></body></html>"
+        );
+        let mut resp = (status, Html(body)).into_response();
+        resp.headers_mut()
+            .insert(HeaderName::from_static("x-fdai-stencil-blocked"), hdr_val);
+        resp
+    }
+}
+
 pub fn build_router(state: AppState) -> Router {
     let cors = build_cors_layer();
+    let gate_state = state.clone();
 
     Router::new()
         .route("/healthz", get(healthz))
@@ -195,6 +353,10 @@ pub fn build_router(state: AppState) -> Router {
         .route("/overview-components.html", get(|| async { Redirect::temporary("/components") }))
         .merge(assets::router())
         .merge(domains::router())
+        .layer(middleware::from_fn_with_state(
+            gate_state,
+            enforce_stencil_menu_gate,
+        ))
         .layer(middleware::from_fn(apply_security_headers))
         .layer(cors)
         .with_state(state)
@@ -228,7 +390,9 @@ async fn readyz(State(state): State<AppState>) -> Response {
             "db_reachable": db_snap.reachable,
             "active_sse_leases": state.active_sse.load(Ordering::SeqCst),
             "domains_registered": 8,
-            "total_panels": domains::all_panel_ids().len()
+            "total_panels": domains::all_panel_ids().len(),
+            "enabled_panels": state.stencil.enabled_panels.len(),
+            "stencil": state.stencil.to_bootstrap_json()
         })),
     )
         .into_response()
@@ -241,8 +405,10 @@ async fn api_meta(State(state): State<AppState>) -> Response {
         "python_free": true,
         "db_configured": state.db.is_configured(),
         "operator_url": state.operator_url,
-        "domains": domains::domain_manifest(),
-        "total_panels": domains::all_panel_ids().len()
+        "domains": state.stencil.filtered_domain_manifest(),
+        "total_panels": domains::all_panel_ids().len(),
+        "enabled_panels": state.stencil.enabled_panels.len(),
+        "stencil": state.stencil.to_bootstrap_json()
     }))
     .into_response()
 }
@@ -371,6 +537,14 @@ async fn sample_live_pulse_cached(db: &DbHandle, tick: u64, prev_audit_seq: &mut
             let mut v = cached.clone();
             if let Some(obj) = v.as_object_mut() {
                 obj.insert("tick".to_string(), json!(tick));
+                let cur_seq = obj.get("audit_latest_seq").and_then(serde_json::Value::as_i64).unwrap_or(0);
+                let cur_wm = obj.get("journal_watermark").and_then(serde_json::Value::as_i64).unwrap_or(0);
+                let da = if *prev_audit_seq > 0 { (cur_seq - *prev_audit_seq).max(0) } else { 0 };
+                let dw = if *prev_watermark > 0 { (cur_wm - *prev_watermark).max(0) } else { 0 };
+                *prev_audit_seq = cur_seq;
+                *prev_watermark = cur_wm;
+                obj.insert("delta_audit".to_string(), json!(da));
+                obj.insert("delta_watermark".to_string(), json!(dw));
             }
             return v;
         }
@@ -510,5 +684,66 @@ mod tests {
                 assert_eq!(loc, expected, "unexpected redirect target for {legacy}");
             }
         }
+    }
+
+    #[tokio::test]
+    async fn stencil_policy_enforces_fail_closed_routes_apis_redirects_and_html_injection()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let policy = stencil::StencilPolicy::from_layers(
+            stencil::StencilLayerInput {
+                enabled: Some("audit,dashboard,incidents,settings-general"),
+                stencil_id: Some("lite-custom"),
+                enforce: Some("1"),
+                ..stencil::StencilLayerInput::default()
+            },
+            stencil::StencilLayerInput::default(),
+        )?;
+        let app = build_router(test_state().with_stencil(policy));
+
+        // Enabled panel returns 200 and injects window.__FDAI_V4_STENCIL__
+        let req = Request::builder().uri("/overview/dashboard").body(Body::empty())?;
+        let resp = app.clone().oneshot(req).await?;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let html = String::from_utf8(resp.into_body().collect().await?.to_bytes().to_vec())?;
+        assert!(html.contains("window.__FDAI_V4_STENCIL__="));
+        assert!(html.contains("\"stencilId\":\"lite-custom\""));
+
+        // Disabled panel page fails closed with 404 + x-fdai-stencil-blocked header
+        for blocked in ["/operations/hil-queue", "/labs/aks-commerce", "/chat", "/gpu"] {
+            let req = Request::builder().uri(blocked).body(Body::empty())?;
+            let resp = app.clone().oneshot(req).await?;
+            assert_eq!(resp.status(), StatusCode::NOT_FOUND, "expected 404 on {blocked}");
+            assert!(resp.headers().contains_key("x-fdai-stencil-blocked"));
+        }
+
+        // Disabled domain root (/labs) returns 404; partially enabled domain root (/operations) redirects to first enabled panel (/operations/incidents)
+        let labs_req = Request::builder().uri("/labs").body(Body::empty())?;
+        let labs_resp = app.clone().oneshot(labs_req).await?;
+        assert_eq!(labs_resp.status(), StatusCode::NOT_FOUND);
+
+        let ops_req = Request::builder().uri("/operations").body(Body::empty())?;
+        let ops_resp = app.clone().oneshot(ops_req).await?;
+        assert_eq!(ops_resp.status(), StatusCode::TEMPORARY_REDIRECT);
+        assert_eq!(
+            ops_resp.headers().get(header::LOCATION).and_then(|v| v.to_str().ok()),
+            Some("/operations/incidents")
+        );
+
+        // Disabled panel API fails closed with 403 JSON
+        let api_req = Request::builder().uri("/api/v4/operations/hil-queue").body(Body::empty())?;
+        let api_resp = app.clone().oneshot(api_req).await?;
+        assert_eq!(api_resp.status(), StatusCode::FORBIDDEN);
+        let api_body = String::from_utf8(api_resp.into_body().collect().await?.to_bytes().to_vec())?;
+        assert!(api_body.contains("stencil_panel_disabled"));
+
+        // /api/v4/meta reflects filtered enabled_panels count
+        let meta_req = Request::builder().uri("/api/v4/meta").body(Body::empty())?;
+        let meta_resp = app.clone().oneshot(meta_req).await?;
+        assert_eq!(meta_resp.status(), StatusCode::OK);
+        let meta: serde_json::Value =
+            serde_json::from_slice(&meta_resp.into_body().collect().await?.to_bytes())?;
+        assert_eq!(meta["enabled_panels"], 4);
+        assert_eq!(meta["stencil"]["active"], true);
+        Ok(())
     }
 }
