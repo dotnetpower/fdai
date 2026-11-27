@@ -91,11 +91,43 @@ fn humanize_mechanism_ko(raw: &str) -> String {
 
 fn humanize_capability_ko(raw: &str) -> String {
     match raw.trim() {
-        "t1.embedding" => String::from("임베딩 사전 분류 (T1)"),
-        "t2.reasoner.primary" => String::from("고급 추론 분석 (T2)"),
-        "t2.reasoner.fallback" => String::from("보조 추론 분석 (T2)"),
-        "t1.classifier" => String::from("규칙·분류기 (T1)"),
+        "t1.embedding" => String::from("임베딩 사전 분류"),
+        "t2.reasoner.primary" => String::from("고급 추론 분석"),
+        "t2.reasoner.fallback" => String::from("보조 추론 분석"),
+        "t1.classifier" => String::from("규칙·분류기"),
         other => other.replace(['.', '_'], " "),
+    }
+}
+
+fn humanize_remediation_ko(raw: &str) -> String {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("none") {
+        return String::from("수동 검토 (자동 조치 없음)");
+    }
+    match trimmed.to_ascii_lowercase().as_str() {
+        "remediate.tag-add" => String::from("필수 태그 자동 추가"),
+        "remediate.tag-update" => String::from("리소스 태그 보정"),
+        "remediate.scale-out" => String::from("노드 풀 확장"),
+        "remediate.restart" => String::from("워크로드 재시작"),
+        "remediate.revoke-access" => String::from("임시 접근 권한 회수"),
+        "remediate.restrict-network" => String::from("네트워크 접근 제한"),
+        other => {
+            if let Some(rest) = other.strip_prefix("remediate.") {
+                format!("{} 조치", rest.replace(['.', '_', '-'], " "))
+            } else {
+                other.replace(['.', '_', '-'], " ")
+            }
+        }
+    }
+}
+
+fn humanize_finding_status_ko(raw: &str) -> &'static str {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "active" | "open" => "활성 탐지",
+        "resolved" | "closed" => "해소됨",
+        "investigating" => "조사 중",
+        "suppressed" => "예외 보류",
+        _ => "관측 중",
     }
 }
 
@@ -499,7 +531,7 @@ pub async fn fetch_labs_summary(db: &DbHandle) -> Value {
                     "badge_tone": "tone-live",
                     "metric_label": "관측 리소스 · 배치",
                     "metric_value": format!("리소스 {ont_resources} · 배치 {batch_count}"),
-                    "description": format!("PostgreSQL 온톨로지 리소스 {ont_resources}건과 상태 전환 배치 {batch_count}건을 lab-sandbox 경계에서 관측합니다.")
+                    "description": format!("관측 리소스 {ont_resources}개와 상태 전환 배치 {batch_count}건을 격리 경계(lab-sandbox)에서 확인합니다.")
                 })
             } else {
                 json!({
@@ -516,7 +548,7 @@ pub async fn fetch_labs_summary(db: &DbHandle) -> Value {
                     "badge_tone": if baseline_violated > 0 || active_findings > 0 { "tone-sre" } else { "tone-live" },
                     "metric_label": if baseline_outcomes > 0 { "기준선 평가" } else { "포스처 · 탐지" },
                     "metric_value": twin_metric_val,
-                    "description": format!("온톨로지 리비전 rev-{ont_revision}({ont_total} 리소스)과 규칙 {rule_count}종 기준 포스처·보안 리뷰 Diff를 무부작용 점검합니다.")
+                    "description": format!("온톨로지 리비전 {ont_revision}(리소스 {ont_total}개)과 정책 규칙 {rule_count}종 기준으로 변경 영향을 무부작용 사전 점검합니다.")
                 })
             } else {
                 json!({
@@ -533,7 +565,7 @@ pub async fn fetch_labs_summary(db: &DbHandle) -> Value {
                     "badge_tone": "tone-live",
                     "metric_label": "벤치마크 검증",
                     "metric_value": if bench_total > 0 { format!("{bench_passed} / {bench_total} 통과") } else { String::from("벤치마크 미수집") },
-                    "description": format!("전환 커버리지 {coverage_total}건과 SREGym 벤치마크 검증 {bench_total}건의 보정·시간대 분포를 분석합니다.")
+                    "description": format!("전환 커버리지 {coverage_total}건과 벤치마크 검증 {bench_total}건의 보정·시간대 분포를 분석합니다.")
                 })
             } else {
                 json!({
@@ -550,7 +582,7 @@ pub async fn fetch_labs_summary(db: &DbHandle) -> Value {
                     "badge_tone": "tone-live",
                     "metric_label": "LLM 호출 (7일)",
                     "metric_value": format!("{llm_total}회 (평가표 {conv_eval_count})"),
-                    "description": format!("PostgreSQL LLM 호출 {llm_total}회, 시맨틱 턴 {semantic_results}건, 평가 원장 {conv_eval_count}건을 정직 표기로 점검합니다.")
+                    "description": format!("최근 7일 모델 호출 {llm_total}회, 시맨틱 턴 {semantic_results}건, 평가 원장 {conv_eval_count}건을 정직 표기로 점검합니다.")
                 })
             } else {
                 json!({
@@ -724,13 +756,21 @@ pub async fn fetch_aks_commerce(db: &DbHandle, service_id: &str) -> Value {
         .iter()
         .take(8)
         .map(|r| {
+            let raw_tid = cell_str(r, 0);
             let subj = cell_str(r, 1);
+            let st_type = cell_str(r, 2);
+            let from_s = cell_str(r, 3);
+            let to_s = cell_str(r, 4);
             json!({
-                "transition_id": short_digest(&cell_str(r, 0)),
+                "transition_id": short_digest(&raw_tid),
+                "raw_transition_id": raw_tid,
                 "subject": short_subject_name(&subj),
-                "state_type": cell_str(r, 2),
-                "from_state": cell_str(r, 3),
-                "to_state": cell_str(r, 4),
+                "state_type": st_type.clone(),
+                "display_state_type": humanize_state_type_ko(&st_type),
+                "from_state": from_s.clone(),
+                "display_from": humanize_state_ko(&from_s),
+                "to_state": to_s.clone(),
+                "display_to": humanize_state_ko(&to_s),
                 "completeness_pct": (cell_i64(r, 5).unwrap_or(0) as f64) / 100.0,
                 "recorded_at": cell_str(r, 6)
             })
@@ -920,7 +960,7 @@ pub async fn fetch_aks_commerce(db: &DbHandle, service_id: &str) -> Value {
             },
             "unmeasured_gap": if coverage_total > 0 {
                 format!(
-                    "inventory_replica_lag 미수집 · 커버리지 제약 snapshot_interval_only {snapshot_only}건 / initial_state_only {initial_only}건 (0 대체 금지)"
+                    "재고 복제 지연 미수집 · 커버리지 제약: 스냅샷 구간 한정 {snapshot_only}건, 초기 상태 한정 {initial_only}건 (0 대체 금지)"
                 )
             } else {
                 String::from("수집된 재고 복제 지연 및 커버리지 근거가 없습니다 (미수집 · 0 대체 금지)")
@@ -1115,23 +1155,23 @@ pub async fn fetch_assurance_twin(db: &DbHandle, review_key: Option<&str>) -> Va
             "verdict_tone": "tone-sre",
             "mode": "shadow",
             "finding_count": violated_total,
-            "freshness": "최신 (fresh)",
+            "freshness": "최신",
             "before": [
-                format!("- baseline_ontology_revision: rev-{max_rev} ({ont_total} resources)"),
-                format!("- evaluated_rules: {rule_count} rules · {policy_count} policy artifacts"),
-                format!("- compliant_outcomes: {compliant_total}건")
+                format!("- 온톨로지 기준선: 리비전 {max_rev} (리소스 {ont_total}건)"),
+                format!("- 평가 정책 규칙: {rule_count}종 · 정책 아티팩트 {policy_count}건"),
+                format!("- 기준선 준수 결과: {compliant_total}건")
             ],
             "after": [
-                format!("+ code_security_review: {repo_slug} ({short_sha})"),
-                format!("+ baseline_violated_outcomes: {violated_total}건 · abstained: {abstained_total}건"),
-                "+ blocks_action: false (lab-sandbox 격리 검증 · 운영 변이 0건)"
+                format!("+ 코드 보안 리뷰 대상: {repo_slug} ({short_sha})"),
+                format!("+ 기준선 위반: {violated_total}건 · 정직 보류: {abstained_total}건"),
+                "+ 운영 차단 여부: 없음 (격리 검증 · 운영 변이 0건)"
             ],
             "resources": [
                 {
                     "ico": "/azure-icons/kubernetes-services.svg",
-                    "name": format!("{repo_slug} / rev:{short_sha}"),
-                    "sub": format!("provider:{provider} · recorded_at:{updated}"),
-                    "sev": "Review",
+                    "name": format!("{repo_slug} · 커밋 {short_sha}"),
+                    "sub": format!("제공자: {provider} · 기록 시각: {updated}"),
+                    "sev": "검토 필요",
                     "cls": "tone-sre"
                 }
             ],
@@ -1139,7 +1179,7 @@ pub async fn fetch_assurance_twin(db: &DbHandle, review_key: Option<&str>) -> Va
             "correlation_id": audit_ref.clone(),
             "evidence_digest": short_digest(&audit_digest),
             "source_revision": format!("ontology-rev-{max_rev}"),
-            "withheld": format!("abstained 기준선 {abstained_total}건 (근거 부족 시 0 대체 차단)")
+            "withheld": format!("정직 보류 기준선 {abstained_total}건 (근거 부족 시 0 대체 차단)")
         }));
     }
 
@@ -1160,29 +1200,31 @@ pub async fn fetch_assurance_twin(db: &DbHandle, review_key: Option<&str>) -> Va
             reviews.push(json!({
                 "id": format!("csi-{idx}"),
                 "review_key": rk,
-                "title": format!("{repo_slug}@{short_sha} · 코드 보안 이슈 번들 ({issue_cnt}건)"),
+                "display_ref": format!("{repo_slug} 보안 점검 ({issue_cnt}건)"),
+                "raw_resource_type": "code-security-bundle",
+                "title": format!("{repo_slug} · 코드 보안 이슈 번들 ({issue_cnt}건)"),
                 "verdict": if issue_cnt > 0 { "needs_review" } else { "clear" },
-                "verdict_label": if issue_cnt > 0 { "검토 필요 (needs_review)" } else { "이상 없음 (clear)" },
+                "verdict_label": if issue_cnt > 0 { "검토 필요" } else { "이상 없음" },
                 "verdict_tone": if issue_cnt > 0 { "tone-sre" } else { "tone-live" },
                 "mode": "shadow",
                 "finding_count": issue_cnt,
-                "freshness": "최신 (fresh)",
+                "freshness": "최신",
                 "before": [
-                    format!("- baseline_ontology_revision: rev-{max_rev} ({ont_total} resources)"),
-                    format!("- registered_rules: {rule_count} rules · {policy_count} policy artifacts"),
-                    format!("- control_loop_compliant_7d: {compliant_total}건")
+                    format!("- 온톨로지 기준선: 리비전 {max_rev} (리소스 {ont_total}건)"),
+                    format!("- 등록 정책 규칙: {rule_count}종 · 정책 아티팩트 {policy_count}건"),
+                    format!("- 최근 7일 기준선 준수: {compliant_total}건")
                 ],
                 "after": [
-                    format!("+ code_security_issues: {issue_cnt}건 ({repo_slug}@{short_sha})"),
-                    format!("+ active_analyzer_findings: {active_finding_cnt}건 · abstained: {abstained_total}건"),
-                    "+ blocks_action: false (lab-sandbox 격리 검증 · 운영 변이 0건)"
+                    format!("+ 코드 보안 이슈: {issue_cnt}건 ({repo_slug})"),
+                    format!("+ 활성 분석 탐지: {active_finding_cnt}건 · 정직 보류: {abstained_total}건"),
+                    "+ 운영 차단 여부: 없음 (격리 검증 · 운영 변이 0건)"
                 ],
                 "resources": [
                     {
                         "ico": "/azure-icons/kubernetes-services.svg",
-                        "name": format!("{repo_slug} / commit:{short_sha}"),
-                        "sub": format!("실측 보안 이슈 {issue_cnt}건 · recorded_at:{updated}"),
-                        "sev": if issue_cnt > 0 { "High" } else { "Clear" },
+                        "name": format!("{repo_slug} · 커밋 {short_sha}"),
+                        "sub": format!("실측 보안 이슈 {issue_cnt}건 · 기록 시각: {updated}"),
+                        "sev": if issue_cnt > 0 { "높음" } else { "정상" },
                         "cls": if issue_cnt > 0 { "tone-sec" } else { "tone-live" }
                     }
                 ],
@@ -1190,7 +1232,7 @@ pub async fn fetch_assurance_twin(db: &DbHandle, review_key: Option<&str>) -> Va
                 "correlation_id": audit_ref.clone(),
                 "evidence_digest": short_digest(&audit_digest),
                 "source_revision": format!("ontology-rev-{max_rev}"),
-                "withheld": format!("7일 정리 이후 보류(abstained) {abstained_total}건 정직 표기")
+                "withheld": format!("7일 정리 이후 정직 보류 {abstained_total}건")
             }));
         }
     }
@@ -1214,33 +1256,34 @@ pub async fn fetch_assurance_twin(db: &DbHandle, review_key: Option<&str>) -> Va
         let is_high = sev.eq_ignore_ascii_case("high") || sev.eq_ignore_ascii_case("critical");
         let sig_ko = humanize_signal_ko(&signal);
         let sev_ko = humanize_severity_ko(&sev);
+        let status_ko = humanize_finding_status_ko(&status);
         reviews.push(json!({
             "id": format!("af-{idx}"),
             "review_key": rk,
-            "display_ref": format!("{sig_ko} (#{})", idx + 1),
+            "display_ref": format!("{sig_ko} #{}", idx + 1),
             "raw_resource_type": signal,
-            "title": format!("{sig_ko} · 활성 탐지 ({sev_ko} · {assessed_by})"),
+            "title": format!("{sig_ko} · 심각도 {sev_ko} · {assessed_by}"),
             "verdict": "needs_review",
-            "verdict_label": "검토 필요 (needs_review)",
+            "verdict_label": "검토 필요",
             "verdict_tone": if is_high { "tone-sec" } else { "tone-sre" },
             "mode": "shadow",
             "finding_count": 1,
-            "freshness": "최신 (fresh)",
+            "freshness": "최신",
             "before": [
                 format!("- 기준선 신호: {sig_ko} (정상 기준선)"),
                 format!("- 온톨로지 기준선: 리비전 {max_rev} (규칙 {rule_count}종)"),
                 format!("- 평가 주체: {assessed_by}")
             ],
             "after": [
-                format!("+ 활성 탐지: {sig_ko} [{sev_ko}] · 상태: {status}"),
+                format!("+ 활성 탐지: {sig_ko} [{sev_ko}] · 상태: {status_ko}"),
                 format!("+ 기록 시각: {updated}"),
                 "+ 운영 차단 여부: 없음 (격리 사전 검증 전용)"
             ],
             "resources": [
                 {
                     "ico": "/azure-icons/container-apps.svg",
-                    "name": format!("{sig_ko} · 활성 탐지"),
-                    "sub": format!("탐지 주체: {assessed_by} · 상태: {status}"),
+                    "name": format!("{sig_ko} · {status_ko}"),
+                    "sub": format!("탐지 주체: {assessed_by} · 기록 시각: {updated}"),
                     "sev": sev_ko,
                     "cls": if is_high { "tone-sec" } else { "tone-sre" }
                 }
@@ -1260,13 +1303,14 @@ pub async fn fetch_assurance_twin(db: &DbHandle, review_key: Option<&str>) -> Va
         let abst_cnt = cell_i64(r, 3).unwrap_or(0);
         let latest_at = cell_str(r, 4);
         let short_rule = rule_ref.strip_prefix("rule:").unwrap_or(&rule_ref);
+        let rule_ko = humanize_rule_ko(short_rule, "");
 
         let (verdict, verdict_label, verdict_tone, sev, sev_cls) = if viol_cnt > 0 {
-            ("needs_review", "검토 필요 (needs_review)", "tone-sre", "Violated", "tone-sec")
+            ("needs_review", "검토 필요", "tone-sre", "위반 탐지", "tone-sec")
         } else if abst_cnt > 0 && comp_cnt == 0 {
-            ("unmeasured", "보류 (abstained)", "tone-neutral", "Abstained", "tone-neutral")
+            ("unmeasured", "정직 보류", "tone-neutral", "보류", "tone-neutral")
         } else {
-            ("clear", "이상 없음 (clear)", "tone-live", "Compliant", "tone-live")
+            ("clear", "이상 없음", "tone-live", "준수", "tone-live")
         };
 
         let icon = if short_rule.contains("network") || short_rule.contains("nsg") {
@@ -1282,27 +1326,29 @@ pub async fn fetch_assurance_twin(db: &DbHandle, review_key: Option<&str>) -> Va
         reviews.push(json!({
             "id": format!("rule-{idx}"),
             "review_key": short_rule,
-            "title": format!("{short_rule} · 위반 {viol_cnt} / 준수 {comp_cnt} / 보류 {abst_cnt}"),
+            "display_ref": rule_ko.clone(),
+            "raw_resource_type": short_rule,
+            "title": format!("{rule_ko} · 위반 {viol_cnt} / 준수 {comp_cnt} / 보류 {abst_cnt}"),
             "verdict": verdict,
             "verdict_label": verdict_label,
             "verdict_tone": verdict_tone,
             "mode": "shadow",
             "finding_count": viol_cnt,
-            "freshness": if abst_cnt > 0 && comp_cnt == 0 && viol_cnt == 0 { "보류 (abstained)" } else { "최신 (fresh)" },
+            "freshness": if abst_cnt > 0 && comp_cnt == 0 && viol_cnt == 0 { "정직 보류" } else { "최신" },
             "before": [
-                format!("- target_rule: {rule_ref}"),
-                format!("- ontology_revision: rev-{max_rev} (총 규칙 {rule_count}종)"),
-                format!("- compliant_resources: {comp_cnt}건")
+                format!("- 대상 규칙: {rule_ko}"),
+                format!("- 온톨로지 기준선: 리비전 {max_rev} (총 규칙 {rule_count}종)"),
+                format!("- 기준선 준수 리소스: {comp_cnt}건")
             ],
             "after": [
-                format!("+ violated_outcomes: {viol_cnt}건"),
-                format!("+ abstained_outcomes: {abst_cnt}건 (근거 부족 시 정직 보류)"),
-                format!("+ evaluated_at: {latest_at}")
+                format!("+ 정책 위반 탐지: {viol_cnt}건"),
+                format!("+ 정직 보류: {abst_cnt}건 (근거 부족 시 0 대체 차단)"),
+                format!("+ 평가 시각: {latest_at}")
             ],
             "resources": [
                 {
                     "ico": icon,
-                    "name": short_rule,
+                    "name": rule_ko,
                     "sub": format!("실측 평가 합계 {}건 (위반 {viol_cnt} · 준수 {comp_cnt} · 보류 {abst_cnt})", comp_cnt + viol_cnt + abst_cnt),
                     "sev": sev,
                     "cls": sev_cls
@@ -1313,7 +1359,7 @@ pub async fn fetch_assurance_twin(db: &DbHandle, review_key: Option<&str>) -> Va
             "evidence_digest": short_digest(&audit_digest),
             "source_revision": format!("ontology-rev-{max_rev}"),
             "withheld": if abst_cnt > 0 {
-                format!("abstained {abst_cnt}건 (불완전 근거 보류)")
+                format!("정직 보류 {abst_cnt}건 (불완전 근거 보류)")
             } else {
                 String::from("없음")
             }
@@ -1341,33 +1387,35 @@ pub async fn fetch_assurance_twin(db: &DbHandle, review_key: Option<&str>) -> Va
             let rtype_ko = humanize_resource_type_ko(&rtype);
             let sev_ko = humanize_severity_ko(&sev);
             let rule_ko = humanize_rule_ko(&rule_id, &rtype);
+            let rem_ko = humanize_remediation_ko(&remediates);
             reviews.push(json!({
                 "id": format!("ont-rule-{idx}"),
                 "review_key": rule_id.clone(),
                 "display_ref": rule_ko.clone(),
                 "raw_resource_type": rtype,
-                "title": format!("{rule_ko} · 심각도 {sev_ko} ({rtype_ko})"),
+                "raw_remediation": remediates,
+                "title": format!("{rule_ko} · 심각도 {sev_ko}"),
                 "verdict": if is_high { "needs_review" } else { "clear" },
-                "verdict_label": if is_high { "고위험 규칙 (그림자 검증)" } else { "기준선 규칙 (정상)" },
+                "verdict_label": if is_high { "고위험 규칙 · 그림자 검증" } else { "기준선 규칙 · 정상" },
                 "verdict_tone": if is_high { "tone-sre" } else { "tone-live" },
                 "mode": "shadow",
                 "finding_count": 0,
-                "freshness": "최신 (fresh)",
+                "freshness": "최신",
                 "before": [
                     format!("- 대상 규칙: {rule_ko}"),
                     format!("- 대상 리소스 유형: {rtype_ko}"),
                     format!("- 온톨로지 기준선: 리비전 {max_rev} (총 규칙 {rule_count}종)")
                 ],
                 "after": [
-                    format!("+ 심각도: {sev_ko} · 권장 조치: {remediates}"),
+                    format!("+ 심각도: {sev_ko} · 권장 조치: {rem_ko}"),
                     format!("+ 최근 갱신: {updated}"),
                     "+ 운영 차단 여부: 없음 (격리 정책 시뮬레이션)"
                 ],
                 "resources": [
                     {
                         "ico": icon,
-                        "name": format!("{rule_ko} ({rtype_ko})"),
-                        "sub": format!("권장 조치: {remediates} · 온톨로지 규칙 카탈로그"),
+                        "name": rule_ko,
+                        "sub": format!("대상 유형: {rtype_ko} · 권장 조치: {rem_ko}"),
                         "sev": sev_ko,
                         "cls": if is_high { "tone-sre" } else { "tone-live" }
                     }
@@ -1671,7 +1719,7 @@ pub async fn fetch_forecast_learning(db: &DbHandle) -> Value {
         String::from("미측정 (커버리지 없음)")
     };
     let initial_only_text = if cov_total > 0 {
-        format!("{cov_initial_only}건 (initial_state_only)")
+        format!("{cov_initial_only}건 (초기 상태 한정)")
     } else {
         String::from("미측정")
     };
@@ -1825,25 +1873,34 @@ pub async fn fetch_conversation_assurance(db: &DbHandle) -> Value {
         let state = cell_str(r, 4);
         let verdict_raw = cell_str(r, 5);
         let ts = cell_str(r, 6);
-        let (verdict, badge, tone) = match state.as_str() {
-            "completed" => ("pass", "통과", "tone-live"),
-            "disputed" => ("fail", "이의 제기", "tone-sec"),
-            _ => ("review", "보류/검토", "tone-sre"),
+        let (verdict, badge, tone, state_ko) = match state.as_str() {
+            "completed" => ("pass", "통과", "tone-live", "평가 완료"),
+            "disputed" => ("fail", "이의 제기", "tone-sec", "이의 제기됨"),
+            _ => ("review", "보류/검토", "tone-sre", "검토 대기"),
         };
         cases.push(json!({
             "case_id": short_digest(&tid),
+            "display_label": format!("대화 품질 평가 · {state_ko}"),
             "agent": "Bragi",
             "agent_icon": "/agent-icons/bragi.svg",
-            "score_text": format!("rubric {rubric}"),
+            "score_text": format!("기준표 {rubric}"),
             "hallucination_text": "평가표 기록",
             "boundary_text": "통과",
             "verdict": verdict,
             "verdict_badge": badge,
             "verdict_tone": tone,
-            "meta": format!("assessment:{aid} · {ts}"),
-            "question": format!("평가 기록 {tid} (대화 보증 원장)"),
-            "answer": format!("상태: {state} · 판정: {verdict_raw}"),
-            "rubric": ["원장 기록 확인", "미측정 보류 준수", "하드 제로 통과", format!("루브릭 {rubric}")]
+            "meta": format!("평가 기준표 {rubric} · {state_ko}"),
+            "recorded_at": ts.clone(),
+            "question": format!("대화 품질 평가 원장에 기록된 턴 ({state_ko})입니다."),
+            "answer": format!("평가 상태는 '{state_ko}'이며 판정 결과는 '{verdict_raw}'입니다."),
+            "rubric": ["원장 기록 확인", "미측정 보류 준수", "하드 제로 통과", format!("기준표 {rubric}")],
+            "tech_details": [
+                ["평가 ID", aid],
+                ["턴 ID", tid],
+                ["원본 상태", state],
+                ["원본 판정", verdict_raw],
+                ["기록 시각", ts]
+            ]
         }));
     }
 
@@ -1863,13 +1920,14 @@ pub async fn fetch_conversation_assurance(db: &DbHandle) -> Value {
             .unwrap_or(&raw_key);
         let short_id: String = suffix.chars().take(10).collect();
 
-        let (verdict, badge, tone, agent_name, agent_ico) = match status.as_str() {
+        let (verdict, badge, tone, agent_name, agent_ico, status_ko) = match status.as_str() {
             "answered" | "direct_response" => (
                 "pass",
                 "통과",
                 "tone-live",
                 "Bragi",
                 "/agent-icons/bragi.svg",
+                "정상 응답",
             ),
             "advisory_response" => (
                 "review",
@@ -1877,6 +1935,7 @@ pub async fn fetch_conversation_assurance(db: &DbHandle) -> Value {
                 "tone-sre",
                 "Forseti",
                 "/agent-icons/forseti.svg",
+                "권고 응답",
             ),
             "held" => (
                 "review",
@@ -1884,6 +1943,7 @@ pub async fn fetch_conversation_assurance(db: &DbHandle) -> Value {
                 "tone-sre",
                 "Mimir",
                 "/agent-icons/mimir.svg",
+                "정직 보류",
             ),
             _ => (
                 "fail",
@@ -1891,6 +1951,7 @@ pub async fn fetch_conversation_assurance(db: &DbHandle) -> Value {
                 "tone-sec",
                 "Huginn",
                 "/agent-icons/huginn.svg",
+                "응답 실패",
             ),
         };
 
@@ -1905,8 +1966,14 @@ pub async fn fetch_conversation_assurance(db: &DbHandle) -> Value {
         } else {
             "안전 경계: 평가 원장 미기록 (0 대체 금지)"
         };
+        let req_kind_ko = if req_kind == "semantic_turn" {
+            "시맨틱 질의 분석"
+        } else {
+            req_kind.as_str()
+        };
         cases.push(json!({
             "case_id": format!("sem_{short_id}"),
+            "display_label": format!("{req_kind_ko} #{num} · {status_ko}", num = idx + 1),
             "agent": agent_name,
             "agent_icon": agent_ico,
             "score_text": format!("{latency_ms} ms"),
@@ -1915,16 +1982,25 @@ pub async fn fetch_conversation_assurance(db: &DbHandle) -> Value {
             "verdict": verdict,
             "verdict_badge": badge,
             "verdict_tone": tone,
-            "meta": format!("모델 {model} · 호출 {calls}회 · 토큰 {total_tok} (캐시 {cache_pct:.1}%) · {ts}"),
-            "question": format!("[실측 시맨틱 턴 #{num}] 요청 유형: {req_kind} · 상관 ID: {corr}", num = idx + 1, corr = if corr_id.is_empty() { short_id.as_str() } else { corr_id.as_str() }),
+            "meta": format!("모델 {model} · 호출 {calls}회 · 토큰 {total_tok} (캐시 {cache_pct:.1}%)"),
+            "recorded_at": ts.clone(),
+            "question": format!("{req_kind_ko} #{num} 처리 결과 ({status_ko})입니다.", num = idx + 1),
             "answer": format!(
-                "PostgreSQL `operator-semantic-result` 실측 결과: 상태 `{status}`, 모델 `{model}`, 응답 지연 {latency_ms} ms, 총 {total_tok} 토큰(캐시 {cached_tok} 토큰). conversation_assurance_assessment 테이블 평가 레코드는 현재 {assessment_count}건입니다."
+                "실측 시맨틱 응답 기록: 상태 '{status_ko}', 모델 {model}, 응답 지연 {latency_ms}ms, 총 {total_tok}토큰(캐시 {cached_tok}토큰). 현재 대화 품질 평가 원장에는 {assessment_count}건이 기록되어 있습니다."
             ),
             "rubric": [
                 format!("실측 모델 호출: {calls}회"),
-                format!("상태 판정: {status}"),
+                format!("상태 판정: {status_ko}"),
                 boundary_rubric,
                 format!("캐시 적중률: {cache_pct:.1}%")
+            ],
+            "tech_details": [
+                ["케이스 ID", format!("sem_{short_id}")],
+                ["요청 유형 키", req_kind],
+                ["원본 상태 키", status],
+                ["모델 키", model],
+                ["상관 ID", if corr_id.is_empty() { short_id.clone() } else { corr_id }],
+                ["기록 시각", ts]
             ]
         }));
     }
@@ -1966,25 +2042,26 @@ pub async fn fetch_conversation_assurance(db: &DbHandle) -> Value {
                 "advisory" => "권고 모드",
                 _ => mode.as_str(),
             };
+            let total_call_tok = p_tok + c_tok;
             cases.push(json!({
                 "case_id": format!("llm_{inv_id}"),
-                "display_label": format!("{cap_ko} · {scope_ko}"),
+                "display_label": format!("{cap_ko} · {scope_ko} ({total_call_tok} tok)"),
                 "agent": agent_name,
                 "agent_icon": agent_ico,
-                "score_text": format!("{} tok", p_tok + c_tok),
+                "score_text": format!("{total_call_tok} tok"),
                 "hallucination_text": hallucination_label,
                 "boundary_text": format!("{tier} · {mode_ko}"),
                 "verdict": verdict,
                 "verdict_badge": badge,
                 "verdict_tone": tone,
-                "meta": format!("모델 {model} · 입력 {p_tok} / 출력 {c_tok} tok · {ts}"),
+                "meta": format!("모델 {model} · 입력 {p_tok} / 출력 {c_tok} tok"),
                 "recorded_at": ts.clone(),
                 "question": format!("{scope_ko}에서 실행된 '{cap_ko}' 모델 호출 기록입니다."),
                 "answer": format!(
                     "최근 7일 실측 기록 기준 {tier} 단계({model})가 '{mode_ko}' 모드로 호출되어 입력 {p_tok}토큰, 출력 {c_tok}토큰을 사용했습니다. 현재 대화 품질 평가 원장에는 {assessment_count}건이 기록되어 있습니다."
                 ),
                 "rubric": [
-                    format!("호출 단계: {tier} ({cap_ko})"),
+                    format!("호출 단계: {tier} · {cap_ko}"),
                     format!("실행 모드: {mode_ko} · {scope_ko}"),
                     boundary_rubric,
                     format!("평가 원장: {assessment_count}건 (정직 표기)")
@@ -2138,7 +2215,7 @@ pub async fn fetch_context_comparisons(db: &DbHandle) -> Value {
                 format!("미측정 → {t1_avg_tok:.1} tok"),
                 String::from("데이터 없음 (T2 미수집)"),
                 format!("{t1_avg_tok:.1} tok/call"),
-                50_i64,
+                0_i64,
             )
         };
         comparisons.push(json!({
@@ -2265,7 +2342,7 @@ pub async fn fetch_context_comparisons(db: &DbHandle) -> Value {
             "cand_name": method,
             "cand_acc": format!("채택 {cnt}건 ({conflict})"),
             "cand_tok": "결정론적 0 tok",
-            "cand_pct": "10%",
+            "cand_pct": "0%",
             "cand_lat": "T0 규칙 평가",
             "cand_miss": "충돌 0건",
             "overlap": format!("{cnt} / {admission_total} 영수증 일치"),
@@ -2313,7 +2390,7 @@ pub async fn fetch_context_comparisons(db: &DbHandle) -> Value {
             "cand_display_name": "제어루프 결정론 규칙 (T0)",
             "cand_acc": format!("{t0_cnt}건 ({t0_pct:.1}% · 결정론 우선)"),
             "cand_tok": "0 tok (-100.0%)",
-            "cand_pct": "12%",
+            "cand_pct": "0%",
             "cand_lat": "T0 규칙 판정",
             "cand_miss": format!("관계 {ont_links}건 · 누락 0건"),
             "overlap": format!("제어루프 측정 총 {ctrl_total}건"),
@@ -2344,7 +2421,7 @@ pub async fn fetch_context_comparisons(db: &DbHandle) -> Value {
                 "cand_display_name": "온톨로지 그래프 컨텍스트",
                 "cand_acc": format!("관계 {ont_links}건 · 보정 {corr_receipts}건"),
                 "cand_tok": "0 tok (그래프 직결)",
-                "cand_pct": "18%",
+                "cand_pct": "0%",
                 "cand_lat": "로컬 인덱스 조회",
                 "cand_miss": "누락 0건 (고정 근거 보존)",
                 "overlap": format!("보정 영수증 {corr_receipts}건 확인"),
@@ -2358,7 +2435,7 @@ pub async fn fetch_context_comparisons(db: &DbHandle) -> Value {
                 "display_label": "근거 부족 구간 정직 보류 감사",
                 "display_pair": "추정 강제 → 정직 보류 게이트",
                 "status": "unmeasured",
-                "badge": "정직 보류 (abstained)",
+                "badge": "정직 보류",
                 "cls": "tone-neutral",
                 "title": "근거 부족 구간 정직 보류 감사 · 0 대체 차단",
                 "policy_pair": "force-guess → honest-abstain",
@@ -2376,7 +2453,7 @@ pub async fn fetch_context_comparisons(db: &DbHandle) -> Value {
                 "cand_display_name": "FDAI 정직 보류 게이트",
                 "cand_acc": format!("보류 {abstain_7d}건 정직 분리"),
                 "cand_tok": "0 tok (근거 부재 시 T2 차단)",
-                "cand_pct": "8%",
+                "cand_pct": "0%",
                 "cand_lat": "결정론적 게이트",
                 "cand_miss": "미측정 보류 준수",
                 "overlap": format!("감사 원장 제어루프 보류 {abstain_7d}건"),

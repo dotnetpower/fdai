@@ -1,5 +1,7 @@
 //! Domain registry uniting all 8 top-level menus (65 panels) + Component Catalog.
+//! Advisor REST APIs (`/api/v4/advisor/*`) are mounted inline across existing domains.
 
+pub mod advisor;
 pub mod agents;
 pub mod chat;
 pub mod components;
@@ -99,6 +101,7 @@ fn register_clean_panel_routes(mut router: Router<AppState>) -> Router<AppState>
 pub fn router() -> Router<AppState> {
     let base = Router::new()
         .merge(overview::router())
+        .merge(advisor::router())
         .merge(operations::router())
         .merge(agents::router())
         .merge(governance::router())

@@ -430,10 +430,34 @@ fn is_safe_webhook_url(raw: &str) -> bool {
         return false;
     }
     let unbracketed = host_raw.trim_start_matches('[').trim_end_matches(']');
-    if unbracketed.is_empty() || unbracketed.chars().all(|c| c.is_ascii_digit()) {
+    let normalized = unbracketed.trim_end_matches('.');
+    if normalized.is_empty()
+        || normalized.contains("..")
+        || normalized.chars().all(|c| c.is_ascii_digit())
+    {
         return false;
     }
-    if let Ok(ip) = unbracketed.parse::<IpAddr>() {
+    // Block hex/octal IPv4 encodings (e.g. `0x7f000001`, `0177.0.0.1`) that bypass standard IpAddr parsing.
+    let lower_pre = normalized.to_ascii_lowercase();
+    if lower_pre.starts_with("0x")
+        && lower_pre[2..].chars().all(|c| c.is_ascii_hexdigit())
+    {
+        return false;
+    }
+    if lower_pre.split('.').all(|seg| {
+        !seg.is_empty()
+            && (seg.chars().all(|c| c.is_ascii_digit())
+                || (seg.starts_with("0x")
+                    && seg.len() > 2
+                    && seg[2..].chars().all(|c| c.is_ascii_hexdigit())))
+    }) {
+        // Dotted numeric host that wasn't valid decimal IPv4 (e.g. octal `0177.0.0.1` or mixed hex).
+        if let Ok(ip) = normalized.parse::<Ipv4Addr>() {
+            return !is_blocked_ipv4(ip);
+        }
+        return false;
+    }
+    if let Ok(ip) = normalized.parse::<IpAddr>() {
         return match ip {
             IpAddr::V4(v4) => !is_blocked_ipv4(v4),
             IpAddr::V6(v6) => {
@@ -442,7 +466,19 @@ fn is_safe_webhook_url(raw: &str) -> bool {
                         return false;
                     }
                 }
-                let seg0 = v6.segments()[0];
+                let segs = v6.segments();
+                if segs[0..6] == [0, 0, 0, 0, 0, 0] && (segs[6] != 0 || segs[7] > 1) {
+                    let compat = Ipv4Addr::new(
+                        (segs[6] >> 8) as u8,
+                        (segs[6] & 0xff) as u8,
+                        (segs[7] >> 8) as u8,
+                        (segs[7] & 0xff) as u8,
+                    );
+                    if is_blocked_ipv4(compat) {
+                        return false;
+                    }
+                }
+                let seg0 = segs[0];
                 let is_ula = (seg0 & 0xfe00) == 0xfc00;
                 let is_link_local = (seg0 & 0xffc0) == 0xfe80;
                 !(v6.is_loopback()
@@ -454,7 +490,7 @@ fn is_safe_webhook_url(raw: &str) -> bool {
         };
     }
 
-    let lower = unbracketed.to_ascii_lowercase();
+    let lower = lower_pre;
     !(lower == "localhost"
         || lower.ends_with(".localhost")
         || lower.ends_with(".local")
@@ -509,19 +545,25 @@ fn validate_policy_object(val: &Value) -> Result<(), &'static str> {
     walk(val, 0, &mut keys_seen)
 }
 
-/// Validates that primary and secondary T2 model specs use distinct publishers (`provider:model`).
+/// Validates that primary and secondary T2 model specs use distinct publishers (`provider:model` or `provider/model`).
 pub fn has_distinct_t2_publishers(primary: &str, secondary: &str) -> bool {
-    let p_pub = primary
-        .split([':', '/'])
-        .next()
-        .map(str::trim)
-        .unwrap_or("");
-    let s_pub = secondary
-        .split([':', '/'])
-        .next()
-        .map(str::trim)
-        .unwrap_or("");
-    !p_pub.is_empty() && !s_pub.is_empty() && !p_pub.eq_ignore_ascii_case(s_pub)
+    fn split_spec(raw: &str) -> Option<(&str, &str)> {
+        let trimmed = raw.trim();
+        let (pub_part, model_part) = trimmed
+            .split_once(':')
+            .or_else(|| trimmed.split_once('/'))?;
+        let p = pub_part.trim();
+        let m = model_part.trim();
+        if p.is_empty() || m.is_empty() {
+            None
+        } else {
+            Some((p, m))
+        }
+    }
+    let (Some((p_pub, _)), Some((s_pub, _))) = (split_spec(primary), split_spec(secondary)) else {
+        return false;
+    };
+    !p_pub.eq_ignore_ascii_case(s_pub)
 }
 
 async fn page_settings(State(state): State<AppState>) -> Response {
@@ -1858,7 +1900,16 @@ async fn api_settings_iam_decision(
         );
     }
 
-    // Fail-closed: requester_subject_id must be supplied so self-approval check cannot be bypassed.
+    // Fail-closed: both actor and requester identities must be known so self-approval cannot be bypassed.
+    if effective_actor.is_empty() {
+        return settings_json_response(
+            StatusCode::BAD_REQUEST,
+            json!({
+                "error": "actor_subject_id_required",
+                "message": "actor_subject_id (or authenticated /iam/self principal) is required to enforce approver != requester separation"
+            }),
+        );
+    }
     if requester.is_empty() {
         return settings_json_response(
             StatusCode::BAD_REQUEST,
@@ -3576,6 +3627,107 @@ mod tests {
                 body.as_ref().and_then(|v| v.get("persisted")).and_then(Value::as_bool),
                 Some(false)
             );
+        }
+    }
+
+    #[tokio::test]
+    async fn settings_critique_hardening_ssrf_t2_iam_and_honest_not_measured() {
+        // 1. SSRF bypass attempts: trailing dots, hex/octal IPv4, IPv4-compatible IPv6, empty label
+        for bypass_url in [
+            "https://localhost./hook",
+            "https://service.local./hook",
+            "https://metadata.internal./hook",
+            "https://0x7f000001/hook",
+            "https://0177.0.0.1/hook",
+            "https://[::127.0.0.1]/hook",
+            "https://a..b.example.com/hook",
+        ] {
+            assert!(
+                !is_safe_webhook_url(bypass_url),
+                "SSRF bypass URL must be blocked: {bypass_url}"
+            );
+        }
+        assert!(is_safe_webhook_url("https://hooks.slack.com/services/T00/B00/xyz"));
+
+        // 2. T2 publisher separation rejects malformed specs lacking a non-empty model segment
+        assert!(!has_distinct_t2_publishers("openai", "anthropic"));
+        assert!(!has_distinct_t2_publishers("openai:", "anthropic:claude-sonnet-4.5"));
+        assert!(!has_distinct_t2_publishers("openai:gpt-5.4", "anthropic:"));
+        assert!(has_distinct_t2_publishers("openai:gpt-5.4", "anthropic:claude-sonnet-4.5"));
+
+        let app = build_router(offline_state());
+
+        // 3. IAM decision must fail-closed (400) if actor_subject_id is omitted when offline
+        let missing_actor = HttpRequest::builder()
+            .method("POST")
+            .uri("/api/v4/settings/iam/decisions")
+            .header("content-type", "application/json")
+            .body(Body::from(
+                json!({
+                    "request_id": "req-iam-301",
+                    "decision": "approve",
+                    "reason": "Reviewed thoroughly with proper operational justification.",
+                    "requester_subject_id": "park.sre@org"
+                })
+                .to_string(),
+            ));
+        assert!(missing_actor.is_ok());
+        if let Ok(req) = missing_actor {
+            let Ok(resp) = app.clone().oneshot(req).await;
+            assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+            let body = read_json(resp).await;
+            assert_eq!(
+                body.as_ref().and_then(|v| v.get("error")).and_then(Value::as_str),
+                Some("actor_subject_id_required")
+            );
+        }
+
+        // 4. Offline integrations must NEVER fabricate demo webhook URLs or preview subjects
+        let int_req = HttpRequest::builder()
+            .uri("/api/v4/settings/integrations")
+            .body(Body::empty());
+        assert!(int_req.is_ok());
+        if let Ok(req) = int_req {
+            let Ok(resp) = app.clone().oneshot(req).await;
+            assert_eq!(resp.status(), StatusCode::OK);
+            let body = read_json(resp).await;
+            let webhooks = body
+                .as_ref()
+                .and_then(|v| v.pointer("/channels_boundary/a2_a4_notifications"))
+                .and_then(Value::as_array)
+                .map(Vec::len);
+            assert_eq!(webhooks, Some(0), "offline integrations must not fabricate webhook URLs");
+            assert!(
+                body.as_ref()
+                    .and_then(|v| v.pointer("/email_preview/subject"))
+                    .is_some_and(Value::is_null),
+                "offline email_preview.subject must be null"
+            );
+        }
+
+        // 5. Offline diagnostics must keep read-only invariants and never fabricate 0ms latency
+        let diag_req = HttpRequest::builder()
+            .uri("/api/v4/settings/diagnostics")
+            .body(Body::empty());
+        assert!(diag_req.is_ok());
+        if let Ok(req) = diag_req {
+            let Ok(resp) = app.clone().oneshot(req).await;
+            assert_eq!(resp.status(), StatusCode::OK);
+            let body = read_json(resp).await;
+            assert_eq!(
+                body.as_ref().and_then(|v| v.get("dirty_bar")).and_then(Value::as_bool),
+                Some(false)
+            );
+            if let Some(svcs) = body.as_ref().and_then(|v| v.get("services")).and_then(Value::as_array) {
+                for svc in svcs {
+                    if svc.get("measurement_state").and_then(Value::as_str) == Some("not-measured") {
+                        assert!(
+                            svc.get("latency_ms").is_some_and(Value::is_null),
+                            "not-measured diagnostic service must not fabricate 0ms latency"
+                        );
+                    }
+                }
+            }
         }
     }
 }

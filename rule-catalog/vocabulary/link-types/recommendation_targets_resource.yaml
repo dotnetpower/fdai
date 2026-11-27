@@ -1,0 +1,16 @@
+schema_version: "1.0.0"
+name: recommendation_targets_resource
+version: "1.0.0"
+from_type: RecommendationInstance
+to_type: Resource
+cardinality: many_to_one
+forward_role: evaluates_resource
+reverse_role: has_recommendation
+semantic_traits: [evidence]
+description: Links a RecommendationInstance to the exact canonical Resource it evaluates.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:recommendation_targets_resource@1.0.0
+  content_hash: sha256:bce019df72477431c8cf009fba1c73cbb695353b830d40be988d5ee4068ace1a
+  license: MIT
+  retrieved_at: "2026-11-27T00:00:00Z"

@@ -1,0 +1,16 @@
+schema_version: "1.0.0"
+name: recommendation_instantiates_rule
+version: "1.0.0"
+from_type: RecommendationInstance
+to_type: RecommendationRule
+cardinality: many_to_one
+forward_role: instantiates_rule
+reverse_role: has_instance
+semantic_traits: [governance]
+description: Links a resource-scoped RecommendationInstance to its owning RecommendationRule.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:recommendation_instantiates_rule@1.0.0
+  content_hash: sha256:181731b43672b5804a60542177126be59c9199e08128c8c93b68a118cf6039c1
+  license: MIT
+  retrieved_at: "2026-11-27T00:00:00Z"

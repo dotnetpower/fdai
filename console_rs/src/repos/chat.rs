@@ -25,16 +25,17 @@ pub struct ChatLinkRow {
     pub to_id: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ChatIncidentRow {
     pub correlation_id: String,
     pub state: String,
     pub vertical: String,
     pub severity: String,
     pub incident_number: String,
+    pub target_resource: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ChatAuditRow {
     pub seq: i64,
     pub actor: String,
@@ -43,9 +44,23 @@ pub struct ChatAuditRow {
     pub correlation_id: String,
     pub entry_hash: String,
     pub created_at: String,
+    pub target_resource: String,
+    pub rule_id: String,
+    pub remediation_action: String,
+    pub severity: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
+pub struct ChatExecutedQuery {
+    pub stage: String,
+    pub title: String,
+    pub sql: String,
+    pub row_count: usize,
+    pub duration_ms: u64,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, Default)]
 pub struct ChatDbEvidence {
     pub keywords: Vec<String>,
     pub keyword_matched: bool,
@@ -73,6 +88,7 @@ pub struct ChatDbEvidence {
     pub latest_audit_seq: Option<i64>,
     pub latest_audit_hash_prefix: String,
     pub latest_audit_at: String,
+    pub executed_queries: Vec<ChatExecutedQuery>,
 }
 
 const ENTITY_DISPLAY_NAME_SQL: &str = "COALESCE(\
@@ -320,7 +336,8 @@ pub async fn fetch_chat_health(db: &DbHandle) -> Value {
     }
 }
 
-fn human_state_ko(raw: &str) -> &'static str {
+#[must_use]
+pub fn human_state_ko(raw: &str) -> &'static str {
     match raw.trim().to_ascii_lowercase().as_str() {
         "in_progress" | "active" | "open" | "running" => "진행 중",
         "resolved" | "closed" | "completed" => "해결됨",
@@ -332,7 +349,8 @@ fn human_state_ko(raw: &str) -> &'static str {
     }
 }
 
-fn human_vertical_ko(raw: &str) -> &'static str {
+#[must_use]
+pub fn human_vertical_ko(raw: &str) -> &'static str {
     match raw.trim().to_ascii_lowercase().as_str() {
         "resilience" => "복원력",
         "change_safety" => "변경 안전",
@@ -342,17 +360,20 @@ fn human_vertical_ko(raw: &str) -> &'static str {
     }
 }
 
-fn human_severity_ko(raw: &str) -> &'static str {
+#[must_use]
+pub fn human_severity_ko(raw: &str) -> &'static str {
     match raw.trim().to_ascii_lowercase().as_str() {
-        "critical" => "긴급",
-        "high" => "높음",
-        "medium" => "보통",
-        "low" => "낮음",
-        _ => "일반",
+        "critical" | "sev1" | "p0" => "긴급",
+        "high" | "sev2" | "p1" => "높음",
+        "medium" | "moderate" | "sev3" | "p2" => "보통",
+        "low" | "sev4" | "p3" => "낮음",
+        "info" | "informational" => "정보",
+        _ => "미측정",
     }
 }
 
-fn human_channel_ko(raw: &str) -> &'static str {
+#[must_use]
+pub fn human_channel_ko(raw: &str) -> &'static str {
     match raw.trim().to_ascii_lowercase().as_str() {
         "web" => "웹 콘솔",
         "teams" => "Teams",
@@ -360,6 +381,256 @@ fn human_channel_ko(raw: &str) -> &'static str {
         "email" => "이메일",
         "webhook" => "웹훅",
         _ => "운영 채널",
+    }
+}
+
+#[must_use]
+pub fn human_mode_ko(raw: &str) -> &'static str {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "shadow" => "섀도 모드",
+        "enforce" => "적용 모드",
+        "dry_run" | "dry-run" => "모의 실행",
+        "read_only" | "readonly" => "조회 전용",
+        _ => "관측 모드",
+    }
+}
+
+#[must_use]
+pub fn human_actor_ko(raw: &str) -> &'static str {
+    let k = raw.trim().to_ascii_lowercase();
+    if k.contains("hil") {
+        "승인 워크플로"
+    } else if k.contains("control_loop") {
+        "자율 제어 루프"
+    } else if k.contains("measurement") || k.contains("heimdall") {
+        "관측 수집기"
+    } else if k.contains("huginn") || k.contains("inventory") {
+        "인벤토리 수집기"
+    } else if k.contains("muninn") || k.contains("ontology") {
+        "온톨로지 저장소"
+    } else if k.contains("forseti") || k.contains("policy") {
+        "정책 심의 엔진"
+    } else if k.contains("saga") || k.contains("audit") {
+        "감사 원장"
+    } else if k.contains("mimir") {
+        "규칙 평가기"
+    } else if k.contains("thor") || k.contains("executor") {
+        "격리 실행기"
+    } else {
+        "FDAI 운영 시스템"
+    }
+}
+
+#[must_use]
+pub fn human_action_ko(raw: &str) -> &'static str {
+    let k = raw.trim().to_ascii_lowercase();
+    match k.as_str() {
+        "hil.requested" => "사람 승인 요청 생성",
+        "hil.approved" => "사람 승인 완료",
+        "hil.denied" => "사람 승인 거절",
+        "hil.timeout" => "승인 대기 만료",
+        "hil.resumed" => "승인 후 작업 재개",
+        "measurement.control_loop.v1" => "운영 상태 주기 측정",
+        "control_loop.t1_evaluate" => "실시간 정책·규칙 평가",
+        "control_loop.abstain" => "근거 보류(자동 조치 중단)",
+        "control_loop.compliant" => "정책 준수 확인",
+        "risk_gate.unified" => "위험 등급 심사",
+        "rca.hypothesis" => "근본 원인 가설 도출",
+        _ if k.starts_with("hil.") => "사람 승인 절차 처리",
+        _ if k.starts_with("measurement.") => "운영 상태 측정 기록",
+        _ if k.starts_with("incident.") => "인시던트 대응 처리",
+        _ if k.starts_with("security.") || k.starts_with("code_security.") => "보안 점검 수행",
+        _ if k.starts_with("policy.") || k.starts_with("rule.") => "운영 규칙 평가",
+        _ if k.starts_with("inventory.") || k.starts_with("ontology.") => "리소스 상태 갱신",
+        _ => "운영 활동 기록",
+    }
+}
+
+#[must_use]
+pub fn human_rule_ko(raw: &str) -> String {
+    let s = raw.trim();
+    if s.is_empty() {
+        return String::new();
+    }
+    let normalized = s.replace(" · ", ".").to_ascii_lowercase();
+    match normalized.as_str() {
+        "compute.vm.environment-tag.required" => "가상 머신 필수 environment 태그 기준".to_string(),
+        "compute.vm.managed-identity.assigned" => "가상 머신 관리 ID 할당 기준".to_string(),
+        "compute.vm-scale-set.zone-redundancy" => "가상 머신 확장 집합 가용성 영역 이중화 기준".to_string(),
+        "disk.snapshot-policy.required" => "디스크 스냅샷 정책 필수 기준".to_string(),
+        "cache.zone-redundant" => "캐시 가용성 영역 이중화 기준".to_string(),
+        "network.nsg.open-ssh" => "NSG 공용 SSH 포트 차단 기준".to_string(),
+        "security.key-vault.public-access" => "Key Vault 공용 접근 차단 기준".to_string(),
+        _ if normalized.contains("environment-tag") => "필수 environment 태그 기준".to_string(),
+        _ if normalized.contains("managed-identity") => "관리 ID 할당 기준".to_string(),
+        _ if normalized.contains("snapshot-policy") || normalized.contains("snapshot") => {
+            "디스크 스냅샷 정책 기준".to_string()
+        }
+        _ if normalized.contains("zone-redundan") => "가용성 영역 이중화 기준".to_string(),
+        _ if normalized.contains("ssl-enforcement") => "PostgreSQL SSL 암호화 필수 기준".to_string(),
+        _ if normalized.contains("public-access") => "공용 접근 차단 기준".to_string(),
+        _ if normalized.contains("ddos") => "DDoS 보호 정책 기준".to_string(),
+        _ if normalized.contains("tag") => "리소스 태그 정책 기준".to_string(),
+        _ => s.replace(" · ", " ").replace(['.', '_', '-'], " "),
+    }
+}
+
+#[must_use]
+pub fn human_remediation_ko(raw: &str) -> String {
+    let s = raw.trim();
+    if s.is_empty() {
+        return String::new();
+    }
+    let k = s.to_ascii_lowercase();
+    match k.as_str() {
+        "remediate.tag-add" => "필수 태그 자동 추가".to_string(),
+        "remediate.tag-update" => "리소스 태그 보정".to_string(),
+        "remediate.scale-out" => "노드 풀 수평 확장".to_string(),
+        "remediate.restart" => "워크로드 재시작".to_string(),
+        "remediate.revoke-access" => "임시 접근 권한 회수".to_string(),
+        "remediate.restrict-network" => "네트워크 접근 제한".to_string(),
+        _ if k.starts_with("remediate.") => {
+            let tail = k.trim_start_matches("remediate.").replace(['.', '_', '-'], " ");
+            format!("{tail} 조치")
+        }
+        _ => human_action_ko(s).to_string(),
+    }
+}
+
+/// Extract the affected resource short name from `operator_incident_projection.search_document`
+/// (e.g. `"... resource:compute/vm/gpu-validation"` -> `"gpu-validation"`).
+#[must_use]
+pub fn extract_incident_target_resource(search_doc: &str) -> String {
+    for token in search_doc.split_whitespace() {
+        if let Some(rest) = token.strip_prefix("resource:") {
+            let last = rest.rsplit('/').next().unwrap_or(rest).trim();
+            if !last.is_empty() {
+                return last.to_string();
+            }
+        }
+    }
+    String::new()
+}
+
+fn is_leap_year(year: u32) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+}
+
+fn days_in_month(year: u32, month: u32) -> u32 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 => {
+            if is_leap_year(year) {
+                29
+            } else {
+                28
+            }
+        }
+        _ => 30,
+    }
+}
+
+/// Convert UTC ISO-8601 (`YYYY-MM-DDTHH:MM:SSZ`) to Korean local display (`M월 D일 HH:MM:SS KST`).
+#[must_use]
+pub fn format_iso_utc_to_kst(iso: &str) -> String {
+    let trimmed = iso.trim();
+    if trimmed.len() < 19 {
+        return "미측정".to_string();
+    }
+    let bytes = trimmed.as_bytes();
+    if bytes[4] != b'-' || bytes[7] != b'-' || (bytes[10] != b'T' && bytes[10] != b' ') || bytes[13] != b':' || bytes[16] != b':' {
+        return "미측정".to_string();
+    }
+    let Ok(mut year) = trimmed[0..4].parse::<u32>() else {
+        return "미측정".to_string();
+    };
+    let Ok(mut month) = trimmed[5..7].parse::<u32>() else {
+        return "미측정".to_string();
+    };
+    let Ok(mut day) = trimmed[8..10].parse::<u32>() else {
+        return "미측정".to_string();
+    };
+    let Ok(mut hour) = trimmed[11..13].parse::<u32>() else {
+        return "미측정".to_string();
+    };
+    let Ok(minute) = trimmed[14..16].parse::<u32>() else {
+        return "미측정".to_string();
+    };
+    let Ok(second) = trimmed[17..19].parse::<u32>() else {
+        return "미측정".to_string();
+    };
+    if month == 0 || month > 12 || day == 0 || day > 31 || hour > 23 || minute > 59 || second > 59 {
+        return "미측정".to_string();
+    }
+    hour += 9;
+    if hour >= 24 {
+        hour -= 24;
+        day += 1;
+        let dim = days_in_month(year, month);
+        if day > dim {
+            day = 1;
+            month += 1;
+            if month > 12 {
+                month = 1;
+                year += 1;
+            }
+        }
+    }
+    let _ = year;
+    format!("{month}월 {day}일 {hour:02}:{minute:02}:{second:02} KST")
+}
+
+/// Build an event-centric Korean sentence using actual target resource, triggered rule,
+/// proposed remediation action, and severity (never falling back to vague "구독 전체").
+#[must_use]
+pub fn build_audit_event_sentence(
+    actor: &str,
+    action_kind: &str,
+    target_resource: &str,
+    rule_id: &str,
+    remediation_action: &str,
+    severity: &str,
+    mode: &str,
+) -> String {
+    let actor_ko = human_actor_ko(actor);
+    let action_ko = human_action_ko(action_kind);
+    let target_clean = short_resource_label(target_resource);
+    let has_target = !target_resource.trim().is_empty();
+    let rule_ko = human_rule_ko(rule_id);
+    let rem_ko = human_remediation_ko(remediation_action);
+    let sev_ko = if severity.trim().is_empty() {
+        ""
+    } else {
+        human_severity_ko(severity)
+    };
+    let mode_ko = human_mode_ko(mode);
+
+    let mut parts: Vec<String> = Vec::new();
+    if has_target {
+        parts.push(format!("{target_clean} 대상에서"));
+    }
+    if !rule_ko.is_empty() {
+        parts.push(format!("'{rule_ko}' 규칙과 관련해"));
+    }
+    if !rem_ko.is_empty() && rem_ko != action_ko {
+        parts.push(format!("'{rem_ko}' 제안을 포함한 {action_ko} 작업이"));
+    } else {
+        parts.push(format!("{action_ko} 작업이"));
+    }
+    parts.push(format!("{actor_ko}에 의해 기록되었습니다."));
+
+    let mut tail: Vec<String> = Vec::new();
+    if !sev_ko.is_empty() && sev_ko != "미측정" {
+        tail.push(format!("심각도 {sev_ko}"));
+    }
+    if !mode.trim().is_empty() {
+        tail.push(mode_ko.to_string());
+    }
+    if tail.is_empty() {
+        parts.join(" ")
+    } else {
+        format!("{} ({})", parts.join(" "), tail.join(" · "))
     }
 }
 
@@ -407,12 +678,24 @@ pub async fn fetch_chat_sessions_filtered(
         let state_ko = human_state_ko(&p_state);
         let vertical_ko = human_vertical_ko(&vertical);
         let severity_ko = human_severity_ko(&severity);
-        let title = format!("{inc_no} · {vertical_ko} ({severity_ko})");
-        let subtitle = format!("인시던트 · {state_ko}");
+        let target_res = extract_incident_target_resource(&doc);
+        let title = if target_res.is_empty() {
+            format!("{inc_no} · {vertical_ko}")
+        } else {
+            format!("{inc_no} · {target_res}")
+        };
+        let subtitle = format!("{vertical_ko} · 심각도 {severity_ko} · {state_ko}");
         let context = format!("인시던트 · {inc_no}");
-        let prompt = format!(
-            "{inc_no} 인시던트({vertical_ko} · 중요도 {severity_ko} · {state_ko})의 영향 범위와 관련 온톨로지·감사 이력 근거를 요약해 줘."
-        );
+        let human_summary = if target_res.is_empty() {
+            format!("{inc_no} 인시던트는 {vertical_ko} 영역, 심각도 {severity_ko}로 분류되었으며 현재 {state_ko} 상태입니다.")
+        } else {
+            format!("{target_res} 대상의 {inc_no} 인시던트는 {vertical_ko} 영역, 심각도 {severity_ko}로 분류되었으며 현재 {state_ko} 상태입니다.")
+        };
+        let prompt = if target_res.is_empty() {
+            format!("{inc_no} 인시던트({vertical_ko} · 심각도 {severity_ko} · {state_ko})의 영향 범위와 감사 이력 근거를 요약해 줘.")
+        } else {
+            format!("{target_res} 대상 {inc_no} 인시던트({vertical_ko} · 심각도 {severity_ko} · {state_ko})의 영향 범위와 감사 이력 근거를 요약해 줘.")
+        };
         all_sessions.push(json!({
             "id": corr,
             "record_kind": "incident_projection",
@@ -423,7 +706,8 @@ pub async fn fetch_chat_sessions_filtered(
             "display_subtitle": subtitle,
             "context": context,
             "summary": doc,
-            "human_summary": format!("{inc_no} 인시던트는 {vertical_ko} 영역(중요도 {severity_ko})으로 분류되었으며 현재 {state_ko} 상태입니다."),
+            "human_summary": human_summary,
+            "target_resource": target_res,
             "prompt": prompt,
             "state": p_state,
             "human_state": state_ko,
@@ -575,10 +859,15 @@ pub async fn fetch_chat_context_for_node(db: &DbHandle, selected_node: Option<&s
                      FROM audit_log";
     let latest_audit_sql = "SELECT seq, actor, action_kind, mode, COALESCE(correlation_id, ''), \
                             entry_hash, \
-                            to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
+                            to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), \
+                            COALESCE(entry->'payload'->>'resource_id', entry->>'resource_id', entry->>'target', entry->>'resource_type', ''), \
+                            COALESCE(entry->>'rule_id', ''), \
+                            COALESCE(entry->>'remediation_action', entry->>'action_type', ''), \
+                            COALESCE(entry->>'severity', '') \
                             FROM audit_log ORDER BY seq DESC LIMIT 5";
     let inc_sql = "SELECT correlation_id, projected_state, projected_vertical, projected_severity, \
-                   COALESCE(canonical_incident_number, correlation_id) \
+                   COALESCE(canonical_incident_number, correlation_id), \
+                   COALESCE(search_document, '') \
                    FROM operator_incident_projection ORDER BY last_seq DESC LIMIT 10";
     let meta_sql = "SELECT (SELECT count(*) FROM conversation_outbound_delivery), \
                     (SELECT count(*) FROM llm_invocation)";
@@ -712,12 +1001,32 @@ pub async fn fetch_chat_context_for_node(db: &DbHandle, selected_node: Option<&s
             res.rows
                 .iter()
                 .map(|r| {
+                    let corr = cell_str(r, 0);
+                    let p_state = cell_str(r, 1);
+                    let vertical = cell_str(r, 2);
+                    let severity = cell_str(r, 3);
+                    let inc_no = cell_str(r, 4);
+                    let doc = cell_str(r, 5);
+                    let target_res = extract_incident_target_resource(&doc);
+                    let state_ko = human_state_ko(&p_state);
+                    let vertical_ko = human_vertical_ko(&vertical);
+                    let severity_ko = human_severity_ko(&severity);
+                    let event_sentence = if target_res.is_empty() {
+                        format!("{inc_no} 인시던트({vertical_ko} · 심각도 {severity_ko})가 현재 {state_ko} 상태입니다.")
+                    } else {
+                        format!("{target_res} 대상의 {inc_no} 인시던트({vertical_ko} · 심각도 {severity_ko})가 현재 {state_ko} 상태입니다.")
+                    };
                     json!({
-                        "correlation_id": cell_str(r, 0),
-                        "projected_state": cell_str(r, 1),
-                        "projected_vertical": cell_str(r, 2),
-                        "projected_severity": cell_str(r, 3),
-                        "incident_number": cell_str(r, 4)
+                        "correlation_id": corr,
+                        "projected_state": p_state,
+                        "projected_vertical": vertical,
+                        "projected_severity": severity,
+                        "incident_number": inc_no,
+                        "target_resource": target_res,
+                        "human_state": state_ko,
+                        "human_vertical": vertical_ko,
+                        "human_severity": severity_ko,
+                        "event_sentence": event_sentence
                     })
                 })
                 .collect()
@@ -739,15 +1048,38 @@ pub async fn fetch_chat_context_for_node(db: &DbHandle, selected_node: Option<&s
             res.rows
                 .iter()
                 .map(|r| {
+                    let actor = cell_str(r, 1);
+                    let action_kind = cell_str(r, 2);
+                    let mode = cell_str(r, 3);
                     let full_hash = cell_str(r, 5);
+                    let created_at = cell_str(r, 6);
+                    let target_res = cell_str(r, 7);
+                    let rule_id = cell_str(r, 8);
+                    let rem_act = cell_str(r, 9);
+                    let severity = cell_str(r, 10);
+                    let event_sentence = build_audit_event_sentence(
+                        &actor,
+                        &action_kind,
+                        &target_res,
+                        &rule_id,
+                        &rem_act,
+                        &severity,
+                        &mode,
+                    );
                     json!({
                         "seq": cell_i64(r, 0),
-                        "actor": cell_str(r, 1),
-                        "action_kind": cell_str(r, 2),
-                        "mode": cell_str(r, 3),
+                        "actor": actor,
+                        "action_kind": action_kind,
+                        "mode": mode,
                         "correlation_id": cell_str(r, 4),
                         "hash_prefix": hash_prefix(&full_hash),
-                        "created_at": cell_str(r, 6)
+                        "created_at": created_at,
+                        "created_at_kst": format_iso_utc_to_kst(&created_at),
+                        "target_resource": target_res,
+                        "rule_id": rule_id,
+                        "remediation_action": rem_act,
+                        "severity": severity,
+                        "event_sentence": event_sentence
                     })
                 })
                 .collect()
@@ -865,7 +1197,12 @@ pub async fn fetch_chat_context_for_node(db: &DbHandle, selected_node: Option<&s
                     if display.is_empty() {
                         return None;
                     }
-                    Some(json!({ "id": rid, "name": display }))
+                    let human_name = human_rule_ko(&rid);
+                    Some(json!({
+                        "id": rid,
+                        "name": display,
+                        "human_name": if human_name.is_empty() { display } else { human_name }
+                    }))
                 })
                 .collect()
         })
@@ -904,6 +1241,7 @@ pub async fn fetch_chat_context_for_node(db: &DbHandle, selected_node: Option<&s
         "latest_audit_seq": latest_audit_seq,
         "latest_audit_hash_prefix": latest_hash,
         "latest_audit_at": latest_audit_at,
+        "latest_audit_at_kst": format_iso_utc_to_kst(&latest_audit_at),
         "subscriptions": subscriptions,
         "top_rules": top_rules,
         "top_rule_entries": top_rule_entries,
@@ -969,7 +1307,8 @@ pub async fn query_chat_evidence(
                       count(*) FILTER (WHERE EXISTS (SELECT 1 FROM ontology_link l WHERE l.from_id = ontology_resource.id OR l.to_id = ontology_resource.id)) \
                       FROM ontology_resource";
     let inc_sql = "SELECT correlation_id, projected_state, projected_vertical, projected_severity, \
-                   COALESCE(canonical_incident_number, correlation_id) \
+                   COALESCE(canonical_incident_number, correlation_id), \
+                   COALESCE(search_document, '') \
                    FROM operator_incident_projection ORDER BY last_seq DESC LIMIT 5";
 
     let (match_q, counts_q, inc_q) = tokio::join!(
@@ -1048,12 +1387,16 @@ pub async fn query_chat_evidence(
         .map(|r| {
             r.rows
                 .iter()
-                .map(|row| ChatIncidentRow {
-                    correlation_id: cell_str(row, 0),
-                    state: cell_str(row, 1),
-                    vertical: cell_str(row, 2),
-                    severity: cell_str(row, 3),
-                    incident_number: cell_str(row, 4),
+                .map(|row| {
+                    let doc = cell_str(row, 5);
+                    ChatIncidentRow {
+                        correlation_id: cell_str(row, 0),
+                        state: cell_str(row, 1),
+                        vertical: cell_str(row, 2),
+                        severity: cell_str(row, 3),
+                        incident_number: cell_str(row, 4),
+                        target_resource: extract_incident_target_resource(&doc),
+                    }
                 })
                 .collect()
         })
@@ -1167,7 +1510,11 @@ pub async fn query_chat_evidence(
                           FROM audit_log";
     let recent_audit_sql = "SELECT seq, actor, action_kind, mode, COALESCE(correlation_id, ''), \
                             entry_hash, \
-                            to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
+                            to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), \
+                            COALESCE(entry->'payload'->>'resource_id', entry->>'resource_id', entry->>'target', entry->>'resource_type', ''), \
+                            COALESCE(entry->>'rule_id', ''), \
+                            COALESCE(entry->>'remediation_action', entry->>'action_type', ''), \
+                            COALESCE(entry->>'severity', '') \
                             FROM audit_log ORDER BY seq DESC LIMIT 5";
     let counts_tail_sql = "SELECT (SELECT count(*) FROM conversation_outbound_delivery), \
                            (SELECT count(*) FROM llm_invocation)";
@@ -1199,6 +1546,10 @@ pub async fn query_chat_evidence(
                     correlation_id: cell_str(row, 4),
                     entry_hash: cell_str(row, 5),
                     created_at: cell_str(row, 6),
+                    target_resource: cell_str(row, 7),
+                    rule_id: cell_str(row, 8),
+                    remediation_action: cell_str(row, 9),
+                    severity: cell_str(row, 10),
                 })
                 .collect()
         })
@@ -1242,6 +1593,50 @@ pub async fn query_chat_evidence(
         ),
     ];
 
+    let executed_queries = vec![
+        ChatExecutedQuery {
+            stage: "ontology_resources".to_string(),
+            title: "온톨로지 리소스 · 스냅샷 검색".to_string(),
+            sql: match_res_sql.clone(),
+            row_count: matched_resources.len(),
+            duration_ms: step1_ms,
+            summary: format!(
+                "전체 {resources_total}건(Azure {azure_resources_total}건 · 연결률 {conn_label}) 중 {}건 매칭",
+                matched_resources.len()
+            ),
+        },
+        ChatExecutedQuery {
+            stage: "ontology_links".to_string(),
+            title: "온톨로지 관계 · 계통 탐색".to_string(),
+            sql: links_sql.clone(),
+            row_count: matched_links.len(),
+            duration_ms: step2_ms,
+            summary: format!(
+                "전체 관계 {links_total}건 중 연관 {}건 · 활성 규칙 {rules_total}개 · 정책 {policies_total}개 대조",
+                matched_links.len()
+            ),
+        },
+        ChatExecutedQuery {
+            stage: "incidents".to_string(),
+            title: "인시던트 운영 원장 조회".to_string(),
+            sql: inc_sql.to_string(),
+            row_count: incidents.len(),
+            duration_ms: step1_ms,
+            summary: format!("인시던트 {}건 조회", incidents.len()),
+        },
+        ChatExecutedQuery {
+            stage: "audit_log".to_string(),
+            title: "감사 원장 · 무결성 해시 검증".to_string(),
+            sql: recent_audit_sql.to_string(),
+            row_count: recent_audits.len(),
+            duration_ms: step3_ms,
+            summary: format!(
+                "감사 원장 총 {audits_total}건 · 최근 {}건 무결성 검증 완료",
+                recent_audits.len()
+            ),
+        },
+    ];
+
     Some(ChatDbEvidence {
         keywords,
         keyword_matched,
@@ -1269,6 +1664,7 @@ pub async fn query_chat_evidence(
         latest_audit_seq,
         latest_audit_hash_prefix,
         latest_audit_at,
+        executed_queries,
     })
 }
 

@@ -1437,6 +1437,73 @@ mod tests {
         assert!(!is_safe_correlation_id(&"a".repeat(129)));
     }
 
+    #[test]
+    fn audit_classification_uses_event_centric_korean_without_generic_fallback_or_double_parens() {
+        use crate::repos::evidence::{
+            classify_audit_entry, humanize_remediation_action_ko, humanize_rule_id_ko,
+            humanize_severity_ko,
+        };
+
+        assert_eq!(
+            humanize_rule_id_ko("compute.vm.environment-tag.required"),
+            "가상 머신 필수 environment 태그 기준"
+        );
+        assert_eq!(
+            humanize_remediation_action_ko("remediate.tag-add"),
+            "필수 태그 자동 추가"
+        );
+        assert_eq!(humanize_severity_ko("low"), "낮음");
+        assert_eq!(humanize_severity_ko("high"), "높음");
+
+        let (cat, _tone, _status, title, summary, _phase) = classify_audit_entry(
+            "hil.requested",
+            "shadow",
+            "fdai-ci-worker-docker-02eab480",
+            "compute.vm.environment-tag.required",
+            "",
+            "",
+            "remediate.tag-add",
+        );
+        assert_eq!(cat, "approval");
+        assert_eq!(
+            title,
+            "가상 머신 필수 environment 태그 기준 — 필수 태그 자동 추가 승인 요청"
+        );
+        assert!(summary.contains("fdai-ci-worker-docker-02eab480"));
+        assert!(!summary.contains("구독 전체"));
+        assert!(!summary.contains("(감시 전용)"));
+
+        let (_c2, _t2, _s2, blocked_title, blocked_summary, _p2) = classify_audit_entry(
+            "hil.request.dispatch_unavailable",
+            "shadow",
+            "",
+            "",
+            "",
+            "",
+            "",
+        );
+        assert!(!blocked_title.contains("구독 전체"));
+        assert!(!blocked_title.contains("플랫폼 시스템"));
+        assert!(blocked_summary.contains("대상 리소스 미지정"));
+        assert!(!blocked_summary.contains("(감시 전용)"));
+
+        let (_c3, _t3, _s3, gate_title, gate_summary, _p3) = classify_audit_entry(
+            "risk_gate.unified",
+            "shadow",
+            "fdai-ci-worker-docker-02eab480",
+            "compute.vm.environment-tag.required",
+            "",
+            "hil",
+            "remediate.tag-add",
+        );
+        assert_eq!(
+            gate_title,
+            "가상 머신 필수 environment 태그 기준 — 위험 평가 결과 사람 승인 필요"
+        );
+        assert!(gate_summary.contains("fdai-ci-worker-docker-02eab480"));
+        assert!(gate_summary.contains("필수 태그 자동 추가"));
+    }
+
     #[tokio::test]
     async fn evidence_page_has_all_six_panels_normalized_links_and_tooltips() -> TestResult {
         let app = build_router(test_state("http://127.0.0.1:1".to_string()));
@@ -1460,6 +1527,23 @@ mod tests {
         assert!(!TEMPLATE.contains("innerHTML"), "evidence.html must not use innerHTML");
         assert!(TEMPLATE.contains("fdaiV4Humanize"), "evidence.html must use fdaiV4Humanize");
         assert!(TEMPLATE.contains("fdaiV4Selection"), "evidence.html must use fdaiV4Selection");
+        assert!(TEMPLATE.contains("fdaiV4Shimmer"), "evidence.html must use fdaiV4Shimmer");
+        assert!(TEMPLATE.contains("localClock"), "evidence.html must format local timezone clocks");
+        assert!(TEMPLATE.contains("remediationAction"), "evidence.html must humanize remediation actions");
+        assert!(TEMPLATE.contains("ruleId"), "evidence.html must humanize rule IDs");
+        assert!(TEMPLATE.contains("application/pdf"), "evidence.html must generate real PDF downloads");
+        assert!(TEMPLATE.contains("buildReportPdfBlob"), "evidence.html must implement buildReportPdfBlob");
+        assert!(TEMPLATE.contains("computeReportContentHash"), "evidence.html must hash real report content via WebCrypto");
+        assert!(TEMPLATE.contains("evRepPrintPdf"), "evidence.html must provide vector print/PDF button");
+        assert!(TEMPLATE.contains("evRepExecBriefCard"), "evidence.html must include executive brief section");
+        assert!(TEMPLATE.contains("evRepScorecards"), "evidence.html must include 4-pillar scorecards");
+        assert!(TEMPLATE.contains("evRepDecisions"), "evidence.html must include executive decisions table");
+        assert!(TEMPLATE.contains("evRepCharts"), "evidence.html must include visual analytics charts");
+        assert!(TEMPLATE.contains("evRepBlindSpots"), "evidence.html must include honest blind spots section");
+        assert!(TEMPLATE.contains("콘텐츠 무결성 해시 (SHA-256)"));
+        assert!(!TEMPLATE.contains("PDF 서명 다운로드"), "avoid overstating unsigned PDF as signed");
+        assert!(!TEMPLATE.contains("created.slice(11, 19)"), "must not slice raw UTC clock strings");
+        assert!(!TEMPLATE.contains("created.slice(11, 16)"), "must not slice raw UTC short clock strings");
         assert!(TEMPLATE.contains("drawer-summary-card"));
         assert!(TEMPLATE.contains("drawer-kv-grid"));
         assert!(TEMPLATE.contains("drawer-tech-details"));

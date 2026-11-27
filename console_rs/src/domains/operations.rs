@@ -150,6 +150,8 @@ pub fn router() -> Router<AppState> {
 }
 
 const MAX_LIVE_SSE_CONNECTIONS: usize = 32;
+const MAX_LIVE_SSE_TICKS: u64 = 180;
+const LIVE_SSE_INTERVAL_SECS: u64 = 3;
 const MAX_QUERY_LEN: usize = 512;
 const MAX_AUTH_HEADER_LEN: usize = 4096;
 
@@ -631,6 +633,10 @@ async fn build_live_stream_payload(
                 "execution_authority": false,
                 "zero_substitution_forbidden": true,
                 "observed_unix_ms": now_unix_ms(),
+                "observed_at": db_snap.get("observed_at").cloned().unwrap_or_else(|| json!("")),
+                "db_latency_ms": db_snap.get("db_latency_ms").cloned().unwrap_or(Value::Null),
+                "latest_audit_seq": db_snap.get("latest_audit_seq").cloned().unwrap_or(Value::Null),
+                "latest_audit_events": db_snap.get("latest_audit_events").cloned().unwrap_or_else(|| json!([])),
                 "dropped_frames": 0,
                 "upstream_url": state.upstream.base_url(),
                 "upstream_reachable": false,
@@ -692,21 +698,28 @@ async fn api_operations_live_stream(
 
     let lease_guard = SseLeaseDropGuard::acquire(Arc::clone(&state.active_sse));
     let auth_owned = auth_header_str(&headers).map(ToString::to_string);
-    let mut ticker = tokio::time::interval(Duration::from_secs(5));
+    let mut ticker = tokio::time::interval_at(
+        tokio::time::Instant::now() + Duration::from_secs(LIVE_SSE_INTERVAL_SECS),
+        Duration::from_secs(LIVE_SSE_INTERVAL_SECS),
+    );
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
     let event_stream = stream::unfold(
         (state, auth_owned, ticker, 0_u64, permit, lease_guard),
         |(state, auth_owned, mut ticker, seq, permit, lease_guard)| async move {
+            if seq >= MAX_LIVE_SSE_TICKS {
+                return None;
+            }
             if seq > 0 {
                 ticker.tick().await;
             }
-            let event_kind = if seq == 0 { "snapshot" } else { "heartbeat" };
+            let event_kind = if seq == 0 { "snapshot" } else { "tick" };
             let payload =
                 build_live_stream_payload(&state, auth_owned.as_deref(), seq, event_kind).await;
             let event = Event::default()
                 .id(format!("ops-live-{seq}"))
                 .event(event_kind)
+                .retry(Duration::from_secs(LIVE_SSE_INTERVAL_SECS))
                 .data(payload.to_string());
             Some((
                 Ok::<Event, Infallible>(event),
@@ -2203,8 +2216,14 @@ mod tests {
         Ok(())
     }
 
+    fn sse_test_lock() -> &'static tokio::sync::Mutex<()> {
+        static LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
+    }
+
     #[tokio::test]
     async fn operations_live_stream_emits_sse_snapshot() -> Result<(), String> {
+        let _sse_guard = sse_test_lock().lock().await;
         let app = build_router(offline_state());
         let req = Request::builder()
             .uri("/api/v4/operations/live/stream")
@@ -2232,6 +2251,9 @@ mod tests {
             .ok_or_else(|| "expected SSE data frame".to_string())?;
         let text = String::from_utf8(data_bytes.to_vec()).map_err(|e| e.to_string())?;
         assert!(text.contains("event: snapshot"), "frame was: {text}");
+        assert!(text.contains("retry: 3000"), "missing retry directive: {text}");
+        assert!(LIVE_SSE_INTERVAL_SECS >= 1 && LIVE_SSE_INTERVAL_SECS <= 4);
+        assert!(MAX_LIVE_SSE_TICKS >= 60);
         assert!(
             text.contains("\"measurement_state\":\"not-measured\""),
             "frame was: {text}"
@@ -2586,6 +2608,7 @@ mod tests {
         );
 
         // 3. SSE endpoint emits anti-buffering & no-store headers
+        let _sse_guard = sse_test_lock().lock().await;
         let app_sse = build_router(offline_state());
         let req_sse = Request::builder()
             .uri("/api/v4/operations/live/stream")
@@ -2726,6 +2749,7 @@ mod tests {
     #[tokio::test]
     async fn operations_sse_tracks_active_lease_drop_guard() -> Result<(), String> {
         use std::sync::atomic::Ordering;
+        let _sse_guard = sse_test_lock().lock().await;
 
         let state = offline_state();
         let counter = Arc::clone(&state.active_sse);
@@ -2809,5 +2833,91 @@ mod tests {
             Some("runtime_5432_write_guard")
         );
         Ok(())
+    }
+
+    #[test]
+    fn operations_template_hardening_invariants() {
+        assert!(
+            TEMPLATE.contains("<title>FDAI 운영 콘솔 — 운영</title>"),
+            "expected unified Korean page title"
+        );
+        assert!(
+            !TEMPLATE.contains("/azure-icons/cost-management.svg"),
+            "broken 404 icon cost-management.svg must not be referenced"
+        );
+        for raw_db_term in [
+            "audit_log",
+            "state_kv",
+            "hil_park:",
+            "operational_state_transition_coverage",
+            "ProcessStepsWidget",
+        ] {
+            assert!(
+                !TEMPLATE.contains(raw_db_term),
+                "raw internal identifier leaked into template: {raw_db_term}"
+            );
+        }
+        assert!(
+            !TEMPLATE.contains("s.match(/T(\\d{2}:\\d{2}:\\d{2})/)"),
+            "shortClock must convert to local timezone instead of slicing raw UTC string"
+        );
+        for required_hook in [
+            "fdaiV4Humanize.localClock",
+            "fdaiV4Humanize.ruleId",
+            "fdaiV4Humanize.remediationAction",
+            "fdaiV4Humanize.severity",
+            "localTzLabel",
+            "fdaiV4Shimmer",
+            "markStreaming",
+            "upsertLiveTickerEntries",
+            "applyLiveStreamFrameToTiles",
+            "applyDeepLinkSelection",
+            "showDeepLinkNotFound",
+            "clearAllPanelsForLive",
+            "restoreSampleDatasets",
+            "data-hm-range=\"week\"",
+            "data-hm-range=\"day\"",
+            "ops-hm-gh",
+            "replaceInspectorBody",
+            "openInlineInspectorPane",
+            "normalizeCsPriority",
+            "data-cs-sev=\"undetermined\"",
+            "cs-source-viewer",
+        ] {
+            assert!(
+                TEMPLATE.contains(required_hook),
+                "missing required hardening hook: {required_hook}"
+            );
+        }
+    }
+
+    #[test]
+    fn code_security_priority_and_sarif_helpers_are_consistent() {
+        use crate::repos::operations as ops_repo;
+        assert_eq!(ops_repo::normalize_security_priority("critical"), "P0");
+        assert_eq!(ops_repo::normalize_security_priority("high"), "P1");
+        assert_eq!(ops_repo::normalize_security_priority("medium"), "P2");
+        assert_eq!(ops_repo::normalize_security_priority("low"), "P3");
+        assert_eq!(ops_repo::normalize_security_priority("undetermined"), "TBD");
+        assert_eq!(ops_repo::normalize_security_priority(""), "TBD");
+
+        assert_eq!(ops_repo::infer_code_ecosystem("src/ai-service/requirements.txt"), "Python");
+        assert_eq!(ops_repo::infer_code_ecosystem("src/store-front/package-lock.json"), "Node.js");
+        assert_eq!(ops_repo::infer_code_ecosystem("src/product-service/Dockerfile"), "Dockerfile");
+        assert_eq!(ops_repo::infer_code_ecosystem("aks-store-all-in-one.yaml"), "Kubernetes YAML");
+        assert_eq!(ops_repo::infer_code_ecosystem("src/makeline-service/go.mod"), "Go");
+
+        assert_eq!(
+            ops_repo::extract_cvss_score("advisory CVSS base score reported by producers: Trivy=9.5"),
+            Some(9.5)
+        );
+        assert_eq!(
+            ops_repo::extract_cvss_score("advisory CVSS base score reported by producers: Trivy=7.2, osv-scanner=8.4"),
+            Some(8.4)
+        );
+        assert_eq!(
+            ops_repo::extract_cvss_score("severity rubric 1.1.0: impact=unknown; floor -4.0 (low), ceiling 10.0 (critical)"),
+            None
+        );
     }
 }

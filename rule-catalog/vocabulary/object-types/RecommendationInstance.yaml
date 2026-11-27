@@ -1,0 +1,82 @@
+schema_version: 1.0.0
+name: RecommendationInstance
+version: 1.0.0
+key: id
+description: Persistent resource-scoped recommendation instance separating objective platform_state from governed customer_state.
+properties:
+  id:
+    type: string
+    required: true
+    description: Deterministic instance key derived from (rule_id, resource_id).
+  rule_id:
+    type: string
+    required: true
+    description: Reference to RecommendationRule.id.
+  resource_id:
+    type: string
+    required: true
+    description: Canonical ontology Resource identifier.
+  pillar:
+    type: string
+    required: true
+    description: Advisor pillar classification.
+  platform_state:
+    type: string
+    required: true
+    description: Objective observation state owned by Heimdall (active, compliant, unknown, not_measured).
+  customer_state:
+    type: string
+    required: true
+    description: Governed operator disposition (open, manually_completed, effect_verified, postponed, dismissed, in_remediation).
+  postponed_until:
+    type: datetime
+    required: false
+    description: Automatic reactivation UTC timestamp when customer_state is postponed.
+  disposition_reason:
+    type: string
+    required: false
+    description: Recorded operator justification for postpone, dismiss, or manual completion.
+  yearly_savings_amount:
+    type: number
+    required: false
+    description: Estimated annualized savings in savings_currency for Cost recommendations.
+  savings_currency:
+    type: string
+    required: false
+    description: ISO 4217 currency code (for example USD).
+  pricing_basis:
+    type: string
+    required: false
+    description: Pricing basis (contractual, retail, estimated).
+  potential_yearly_carbon_kg_co2e:
+    type: number
+    required: false
+    description: Estimated annualized GreenOps carbon reduction in kgCO2e.
+  potential_score_increase_pct:
+    type: number
+    required: false
+    description: Predicted pillar score gain in percentage points upon remediation.
+  observed_at:
+    type: datetime
+    required: true
+    description: RFC 3339 UTC timestamp of underlying resource observation.
+  recorded_at:
+    type: datetime
+    required: true
+    description: RFC 3339 UTC timestamp when this evaluation was recorded.
+  evidence_summary:
+    type: object
+    required: false
+    description: Observed resource attributes and thresholds that triggered or satisfied the rule.
+lifecycle:
+  owner: Heimdall
+  authority_refs:
+    - docs/roadmap/architecture/fdai-constitution.md
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:RecommendationInstance@1.0.0
+  content_hash: sha256:9c4a6a998f09ada7afedb8380479358bd2c848000ed44b3b34118e80d5c7e59c
+  license: MIT
+  retrieved_at: '2026-11-27T00:00:00Z'
+authority_class: projection_owned
+freshness_max_age_seconds: 600

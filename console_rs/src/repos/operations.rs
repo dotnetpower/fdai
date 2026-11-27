@@ -79,7 +79,7 @@ pub async fn fetch_summary(db: &DbHandle) -> Value {
         for row in &cs.rows {
             let parsed = parse_json_cell(row, 0);
             if let Some(arr) = parsed.get("issues").and_then(Value::as_array) {
-                for item in arr.iter().take(60) {
+                for item in arr {
                     cs_total += 1;
                     let sev = str_field(item, &["severity"]).to_ascii_lowercase();
                     if sev == "critical" || sev == "high" {
@@ -154,14 +154,45 @@ pub async fn fetch_live_inventory(db: &DbHandle) -> Value {
                      COALESCE(from_state, ''), to_state, lane, source_identity, \
                      to_char(recorded_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
                      FROM operational_state_transition ORDER BY recorded_at DESC LIMIT 16";
-    let hm_sql = "SELECT EXTRACT(ISODOW FROM created_at AT TIME ZONE 'UTC')::int AS dow, \
-                  FLOOR(EXTRACT(HOUR FROM created_at AT TIME ZONE 'UTC') / 2)::int AS bucket, \
-                  count(*)::bigint AS total, \
-                  SUM(CASE WHEN mode = 'shadow' THEN 1 ELSE 0 END)::bigint AS shadow_cnt, \
-                  SUM(CASE WHEN action_kind LIKE '%hil%' OR action_kind LIKE '%approval%' THEN 1 ELSE 0 END)::bigint AS hil_cnt, \
-                  SUM(CASE WHEN action_kind LIKE '%deny%' OR action_kind LIKE '%block%' THEN 1 ELSE 0 END)::bigint AS deny_cnt \
-                  FROM (SELECT created_at, mode, action_kind FROM audit_log ORDER BY seq DESC LIMIT 2000) sub \
-                  GROUP BY 1, 2 ORDER BY 1, 2";
+    let hm_sql = "WITH unified_ops AS ( \
+                    SELECT created_at AS ts, mode, action_kind FROM (SELECT created_at, mode, action_kind FROM audit_log ORDER BY seq DESC LIMIT 4000) a \
+                    UNION ALL \
+                    SELECT observed_at AS ts, 'observed' AS mode, 'inventory.' || change_kind AS action_kind FROM (SELECT observed_at, change_kind FROM inventory_realtime_resource ORDER BY observed_at DESC LIMIT 1000) r \
+                    UNION ALL \
+                    SELECT recorded_at AS ts, lane AS mode, 'transition.' || state_type AS action_kind FROM (SELECT recorded_at, lane, state_type FROM operational_state_transition ORDER BY recorded_at DESC LIMIT 2000) t \
+                    UNION ALL \
+                    SELECT created_at AS ts, state AS mode, 'delivery.' || channel_kind AS action_kind FROM (SELECT created_at, state, channel_kind FROM conversation_outbound_delivery ORDER BY created_at DESC LIMIT 500) d \
+                  ) \
+                  SELECT EXTRACT(ISODOW FROM ts AT TIME ZONE 'UTC')::int AS dow, \
+                         EXTRACT(HOUR FROM ts AT TIME ZONE 'UTC')::int AS utc_hour, \
+                         to_char(date_trunc('hour', ts AT TIME ZONE 'UTC'), 'YYYY-MM-DD\"T\"HH24:') || \
+                         CASE WHEN EXTRACT(MINUTE FROM ts AT TIME ZONE 'UTC') >= 30 THEN '30:00Z' ELSE '00:00Z' END AS slot_utc, \
+                         count(*)::bigint AS total, \
+                         SUM(CASE WHEN mode = 'shadow' THEN 1 ELSE 0 END)::bigint AS shadow_cnt, \
+                         SUM(CASE WHEN action_kind LIKE '%hil%' OR action_kind LIKE '%approval%' THEN 1 ELSE 0 END)::bigint AS hil_cnt, \
+                         SUM(CASE WHEN action_kind LIKE '%deny%' OR action_kind LIKE '%block%' THEN 1 ELSE 0 END)::bigint AS deny_cnt \
+                  FROM unified_ops \
+                  WHERE ts IS NOT NULL \
+                  GROUP BY 1, 2, 3 ORDER BY 3 DESC, 1, 2";
+    let hm_day_sql = "WITH unified_ops AS ( \
+                        SELECT created_at AS ts, mode, action_kind FROM (SELECT created_at, mode, action_kind FROM audit_log ORDER BY seq DESC LIMIT 4000) a \
+                        UNION ALL \
+                        SELECT observed_at AS ts, 'observed' AS mode, 'inventory.' || change_kind AS action_kind FROM (SELECT observed_at, change_kind FROM inventory_realtime_resource ORDER BY observed_at DESC LIMIT 1000) r \
+                        UNION ALL \
+                        SELECT recorded_at AS ts, lane AS mode, 'transition.' || state_type AS action_kind FROM (SELECT recorded_at, lane, state_type FROM operational_state_transition ORDER BY recorded_at DESC LIMIT 2000) t \
+                        UNION ALL \
+                        SELECT created_at AS ts, state AS mode, 'delivery.' || channel_kind AS action_kind FROM (SELECT created_at, state, channel_kind FROM conversation_outbound_delivery ORDER BY created_at DESC LIMIT 500) d \
+                      ), anchor AS (SELECT MAX(ts) AS max_ts FROM unified_ops) \
+                      SELECT to_char(date_trunc('hour', u.ts AT TIME ZONE 'UTC'), 'YYYY-MM-DD\"T\"HH24:') || \
+                             LPAD((FLOOR(EXTRACT(MINUTE FROM u.ts AT TIME ZONE 'UTC') / 5)::int * 5)::text, 2, '0') || ':00Z' AS slot_utc, \
+                             count(*)::bigint AS total, \
+                             SUM(CASE WHEN u.mode = 'shadow' THEN 1 ELSE 0 END)::bigint AS shadow_cnt, \
+                             SUM(CASE WHEN u.action_kind LIKE '%hil%' OR u.action_kind LIKE '%approval%' THEN 1 ELSE 0 END)::bigint AS hil_cnt, \
+                             SUM(CASE WHEN u.action_kind LIKE '%deny%' OR u.action_kind LIKE '%block%' THEN 1 ELSE 0 END)::bigint AS deny_cnt \
+                      FROM unified_ops u, anchor \
+                      WHERE anchor.max_ts IS NOT NULL \
+                        AND u.ts >= anchor.max_ts - INTERVAL '24 hours' \
+                      GROUP BY 1 ORDER BY 1";
     let scope_sql = "SELECT value::text FROM state_kv WHERE key = 'operator-projection:operations:scope.effective' LIMIT 1";
     let onto_sql = "SELECT count(*) FROM ontology_resource";
 
@@ -175,6 +206,7 @@ pub async fn fetch_live_inventory(db: &DbHandle) -> Value {
         Ok(snap),
         Ok(trans),
         Ok(hm),
+        hm_day_res,
         scope_res,
         onto_res,
     ) = tokio::join!(
@@ -187,6 +219,7 @@ pub async fn fetch_live_inventory(db: &DbHandle) -> Value {
         db.query_single_readonly(snap_sql),
         db.query_single_readonly(trans_sql),
         db.query_single_readonly(hm_sql),
+        db.query_single_readonly(hm_day_sql),
         db.query_single_readonly(scope_sql),
         db.query_single_readonly(onto_sql),
     ) else {
@@ -259,22 +292,52 @@ pub async fn fetch_live_inventory(db: &DbHandle) -> Value {
     let heatmap_total_events: i64 = hm
         .rows
         .iter()
-        .map(|r| cell_i64(r, 2).unwrap_or(0))
+        .map(|r| cell_i64(r, 3).unwrap_or(0))
         .sum();
     let heatmap_buckets: Vec<Value> = hm
         .rows
         .iter()
         .map(|r| {
+            let utc_hour = cell_i64(r, 1).unwrap_or(0).clamp(0, 23);
             json!({
                 "dow": cell_i64(r, 0).unwrap_or(1),
-                "bucket": cell_i64(r, 1).unwrap_or(0),
-                "total": cell_i64(r, 2).unwrap_or(0),
-                "shadow": cell_i64(r, 3).unwrap_or(0),
-                "hil": cell_i64(r, 4).unwrap_or(0),
-                "deny": cell_i64(r, 5).unwrap_or(0)
+                "hour": utc_hour,
+                "bucket": utc_hour / 2,
+                "slot_utc": cell_str(r, 2),
+                "total": cell_i64(r, 3).unwrap_or(0),
+                "shadow": cell_i64(r, 4).unwrap_or(0),
+                "hil": cell_i64(r, 5).unwrap_or(0),
+                "deny": cell_i64(r, 6).unwrap_or(0)
             })
         })
         .collect();
+    let mut heatmap_day_total_events: i64 = 0;
+    let mut heatmap_day_buckets: Vec<Value> = Vec::new();
+    let mut heatmap_anchor_at = String::new();
+    if let Ok(hm_day) = hm_day_res {
+        for r in &hm_day.rows {
+            let slot_utc = cell_str(r, 0);
+            let tot = cell_i64(r, 1).unwrap_or(0);
+            heatmap_day_total_events += tot;
+            if !slot_utc.is_empty() {
+                heatmap_anchor_at = slot_utc.clone();
+            }
+            heatmap_day_buckets.push(json!({
+                "slot_utc": slot_utc,
+                "total": tot,
+                "shadow": cell_i64(r, 2).unwrap_or(0),
+                "hil": cell_i64(r, 3).unwrap_or(0),
+                "deny": cell_i64(r, 4).unwrap_or(0)
+            }));
+        }
+    }
+    if heatmap_anchor_at.is_empty() {
+        heatmap_anchor_at = hm
+            .rows
+            .first()
+            .map(|r| cell_str(r, 2))
+            .unwrap_or_default();
+    }
 
     json!({
         "measurement_status": "measured",
@@ -312,8 +375,11 @@ pub async fn fetch_live_inventory(db: &DbHandle) -> Value {
             "recorded_at": cell_str(r, 8)
         })).collect::<Vec<_>>(),
         "heatmap_buckets": heatmap_buckets,
+        "heatmap_day_buckets": heatmap_day_buckets,
+        "heatmap_anchor_at": heatmap_anchor_at,
         "heatmap_timezone": "UTC",
         "heatmap_total_events": heatmap_total_events,
+        "heatmap_day_total_events": heatmap_day_total_events,
         "outbound_deliveries": dlv.rows.iter().map(|r| json!({
             "delivery_id": cell_str(r, 0),
             "channel_kind": cell_str(r, 1),
@@ -325,6 +391,7 @@ pub async fn fetch_live_inventory(db: &DbHandle) -> Value {
 }
 
 pub async fn fetch_live_stream_snapshot(db: &DbHandle) -> Value {
+    let started = std::time::Instant::now();
     let rt_sql = "SELECT resource_id, change_kind, resource_type, \
                   to_char(observed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
                   FROM inventory_realtime_resource ORDER BY observed_at DESC LIMIT 10";
@@ -334,16 +401,27 @@ pub async fn fetch_live_stream_snapshot(db: &DbHandle) -> Value {
     let hil_cnt_sql = "SELECT count(*) FROM state_kv WHERE key LIKE 'hil_park:%'";
     let hil_sql = "SELECT key, value::text, \
                    to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
-                   FROM state_kv WHERE key LIKE 'hil_park:%' ORDER BY updated_at DESC LIMIT 5";
+                   FROM state_kv WHERE key LIKE 'hil_park:%' ORDER BY updated_at DESC LIMIT 40";
     let snap_sql = "SELECT COALESCE(resource_count, 0), COALESCE(link_count, 0), status \
                     FROM inventory_snapshot WHERE status = 'active' ORDER BY started_at DESC LIMIT 1";
+    let audit_sql = "SELECT seq, COALESCE(correlation_id, ''), action_kind, COALESCE(actor, ''), \
+                     COALESCE(mode, ''), \
+                     to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), \
+                     COALESCE(entry->'payload'->>'resource_id', entry->>'resource_id', entry->>'target_resource_ref', entry->>'resource_type', ''), \
+                     COALESCE(entry->>'rule_id', ''), \
+                     COALESCE(entry->>'action_type', ''), \
+                     COALESCE(entry->>'severity', ''), \
+                     COALESCE(entry->>'approval_id', ''), \
+                     COALESCE(entry->>'reason', entry->>'rca_cause', '') \
+                     FROM audit_log ORDER BY seq DESC LIMIT 8";
 
-    let (Ok(rt), Ok(inc), Ok(hil_cnt), Ok(hil), Ok(snap)) = tokio::join!(
+    let (Ok(rt), Ok(inc), Ok(hil_cnt), Ok(hil), Ok(snap), audit_res) = tokio::join!(
         db.query_single_readonly(rt_sql),
         db.query_single_readonly(inc_sql),
         db.query_single_readonly(hil_cnt_sql),
         db.query_single_readonly(hil_sql),
         db.query_single_readonly(snap_sql),
+        db.query_single_readonly(audit_sql),
     ) else {
         return db.not_measured(
             "operations",
@@ -352,6 +430,7 @@ pub async fn fetch_live_stream_snapshot(db: &DbHandle) -> Value {
         );
     };
 
+    let db_latency_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
     let hil_total = hil_cnt
         .rows
         .first()
@@ -360,9 +439,113 @@ pub async fn fetch_live_stream_snapshot(db: &DbHandle) -> Value {
     let resource_count = snap.rows.first().and_then(|r| cell_i64(r, 0)).unwrap_or(0);
     let link_count = snap.rows.first().and_then(|r| cell_i64(r, 1)).unwrap_or(0);
 
+    let mut hil_by_corr: BTreeMap<String, Value> = BTreeMap::new();
+    let mut hil_by_approval: BTreeMap<String, Value> = BTreeMap::new();
+    let mut hil_queue_items: Vec<Value> = Vec::new();
+    for (idx, r) in hil.rows.iter().enumerate() {
+        let v = parse_json_cell(r, 1);
+        let approval_id = str_field(&v, &["approval_id"]);
+        let corr_id = str_field(&v, &["correlation_id"]);
+        let item = json!({
+            "key": cell_str(r, 0),
+            "approval_id": approval_id,
+            "correlation_id": corr_id,
+            "rule_id": str_field(&v, &["rule_id"]),
+            "action_type": str_field(&v, &["action_type"]),
+            "severity": str_field(&v, &["severity"]),
+            "status": str_field(&v, &["status"]),
+            "target": str_field(&v, &["action", "target_resource_ref"]),
+            "updated_at": cell_str(r, 2)
+        });
+        if !corr_id.is_empty() {
+            hil_by_corr.entry(corr_id).or_insert_with(|| item.clone());
+        }
+        if !approval_id.is_empty() {
+            hil_by_approval
+                .entry(approval_id)
+                .or_insert_with(|| item.clone());
+        }
+        if idx < 5 {
+            hil_queue_items.push(item);
+        }
+    }
+
+    let mut latest_audit_seq: Option<i64> = None;
+    let mut latest_audit_events: Vec<Value> = Vec::new();
+    if let Ok(aud) = audit_res {
+        latest_audit_seq = aud.rows.first().and_then(|r| cell_i64(r, 0));
+        for r in &aud.rows {
+            let corr_id = cell_str(r, 1);
+            let mut target = cell_str(r, 6);
+            let mut rule_id = cell_str(r, 7);
+            let mut action_type = cell_str(r, 8);
+            let mut severity = cell_str(r, 9);
+            let mut approval_id = cell_str(r, 10);
+            let reason = cell_str(r, 11);
+
+            let linked_hil = hil_by_approval
+                .get(&approval_id)
+                .or_else(|| hil_by_corr.get(&corr_id));
+            if let Some(h) = linked_hil {
+                if target.is_empty() {
+                    target = str_field(h, &["target"]);
+                }
+                if rule_id.is_empty() {
+                    rule_id = str_field(h, &["rule_id"]);
+                }
+                if action_type.is_empty() {
+                    action_type = str_field(h, &["action_type"]);
+                }
+                if severity.is_empty() {
+                    severity = str_field(h, &["severity"]);
+                }
+                if approval_id.is_empty() {
+                    approval_id = str_field(h, &["approval_id"]);
+                }
+            }
+            let resource_name = target
+                .rsplit('/')
+                .next()
+                .filter(|s| !s.is_empty())
+                .unwrap_or("")
+                .to_string();
+            latest_audit_events.push(json!({
+                "seq": cell_i64(r, 0),
+                "correlation_id": corr_id,
+                "action_kind": cell_str(r, 2),
+                "actor": cell_str(r, 3),
+                "mode": cell_str(r, 4),
+                "created_at": cell_str(r, 5),
+                "target": target,
+                "resource_name": resource_name,
+                "rule_id": rule_id,
+                "action_type": action_type,
+                "severity": severity,
+                "approval_id": approval_id,
+                "reason": reason
+            }));
+        }
+    }
+    let observed_at = latest_audit_events
+        .first()
+        .and_then(|e| e.get("created_at").and_then(Value::as_str))
+        .filter(|s| !s.is_empty())
+        .map(ToString::to_string)
+        .or_else(|| {
+            rt.rows
+                .first()
+                .map(|r| cell_str(r, 3))
+                .filter(|s| !s.is_empty())
+        })
+        .unwrap_or_default();
+
     json!({
         "measurement_status": "measured",
         "source": "postgres-direct",
+        "db_latency_ms": db_latency_ms,
+        "observed_at": observed_at,
+        "latest_audit_seq": latest_audit_seq,
+        "latest_audit_events": latest_audit_events,
         "counts": {
             "realtime_resources": rt.rows.len(),
             "incidents": inc.rows.len(),
@@ -383,18 +566,7 @@ pub async fn fetch_live_stream_snapshot(db: &DbHandle) -> Value {
             "severity": cell_str(r, 3),
             "incident_number": cell_str(r, 4)
         })).collect::<Vec<_>>(),
-        "hil_queue": hil.rows.iter().map(|r| {
-            let v = parse_json_cell(r, 1);
-            json!({
-                "key": cell_str(r, 0),
-                "approval_id": str_field(&v, &["approval_id"]),
-                "rule_id": str_field(&v, &["rule_id"]),
-                "action_type": str_field(&v, &["action_type"]),
-                "severity": str_field(&v, &["severity"]),
-                "status": str_field(&v, &["status"]),
-                "updated_at": cell_str(r, 2)
-            })
-        }).collect::<Vec<_>>()
+        "hil_queue": hil_queue_items
     })
 }
 
@@ -634,7 +806,9 @@ pub async fn fetch_hil_queue(db: &DbHandle) -> Value {
                    to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
                    FROM state_kv WHERE key LIKE 'console_v4:operations:hil_decision:%' \
                    ORDER BY updated_at DESC LIMIT 60";
-    let audit_sql = "SELECT seq, COALESCE(correlation_id, ''), COALESCE(target, '') \
+    let audit_sql = "SELECT seq, COALESCE(correlation_id, ''), \
+                     COALESCE(entry->>'approval_id', ''), \
+                     COALESCE(entry->'payload'->>'resource_id', entry->>'resource_id', entry->>'target_resource_ref', '') \
                      FROM audit_log WHERE action_kind LIKE 'hil.%' OR action_kind LIKE 'approval%' \
                      ORDER BY seq DESC LIMIT 120";
     let (Ok(cnt_res), Ok(res), dec_res, audit_res) = tokio::join!(
@@ -647,6 +821,7 @@ pub async fn fetch_hil_queue(db: &DbHandle) -> Value {
     };
 
     let mut audit_seq_by_corr: BTreeMap<String, i64> = BTreeMap::new();
+    let mut audit_seq_by_approval: BTreeMap<String, i64> = BTreeMap::new();
     let mut audit_seq_by_target: BTreeMap<String, i64> = BTreeMap::new();
     if let Ok(arows) = audit_res {
         for r in &arows.rows {
@@ -655,7 +830,11 @@ pub async fn fetch_hil_queue(db: &DbHandle) -> Value {
                 if !corr.is_empty() {
                     audit_seq_by_corr.entry(corr).or_insert(seq);
                 }
-                let tgt = cell_str(r, 2);
+                let appr = cell_str(r, 2);
+                if !appr.is_empty() {
+                    audit_seq_by_approval.entry(appr).or_insert(seq);
+                }
+                let tgt = cell_str(r, 3);
                 if !tgt.is_empty() {
                     audit_seq_by_target.entry(tgt).or_insert(seq);
                 }
@@ -711,9 +890,10 @@ pub async fn fetch_hil_queue(db: &DbHandle) -> Value {
             };
             let correlation_id = str_field(&parsed, &["correlation_id"]);
             let target_ref = str_field(&parsed, &["action", "target_resource_ref"]);
-            let audit_seq = audit_seq_by_corr
-                .get(&correlation_id)
+            let audit_seq = audit_seq_by_approval
+                .get(&approval_id)
                 .copied()
+                .or_else(|| audit_seq_by_corr.get(&correlation_id).copied())
                 .or_else(|| audit_seq_by_target.get(&target_ref).copied());
             json!({
                 "key": key,
@@ -750,11 +930,181 @@ pub async fn fetch_hil_queue(db: &DbHandle) -> Value {
     })
 }
 
+pub(crate) fn normalize_security_priority(severity: &str) -> &'static str {
+    match severity.trim().to_ascii_lowercase().as_str() {
+        "critical" => "P0",
+        "high" => "P1",
+        "medium" => "P2",
+        "low" | "info" | "clear" => "P3",
+        _ => "TBD",
+    }
+}
+
+pub(crate) fn security_severity_rank(severity: &str) -> u8 {
+    match severity.trim().to_ascii_lowercase().as_str() {
+        "critical" => 0,
+        "high" => 1,
+        "medium" => 2,
+        "undetermined" => 3,
+        "low" | "info" => 4,
+        _ => 5,
+    }
+}
+
+pub(crate) fn infer_code_ecosystem(file_path: &str) -> &'static str {
+    let lower = file_path.trim().to_ascii_lowercase();
+    if lower.is_empty() {
+        return "Container/Deps";
+    }
+    let file_name = lower.rsplit('/').next().unwrap_or(&lower);
+    if file_name.starts_with("dockerfile") || file_name.ends_with(".dockerfile") {
+        "Dockerfile"
+    } else if file_name == "requirements.txt"
+        || (file_name.starts_with("requirements") && file_name.ends_with(".txt"))
+        || file_name == "pyproject.toml"
+        || file_name == "poetry.lock"
+        || file_name == "uv.lock"
+        || file_name.ends_with(".py")
+    {
+        "Python"
+    } else if file_name == "package-lock.json"
+        || file_name == "package.json"
+        || file_name == "yarn.lock"
+        || file_name == "pnpm-lock.yaml"
+        || file_name.ends_with(".ts")
+        || file_name.ends_with(".tsx")
+        || file_name.ends_with(".js")
+        || file_name.ends_with(".jsx")
+    {
+        "Node.js"
+    } else if file_name == "go.mod" || file_name == "go.sum" || file_name.ends_with(".go") {
+        "Go"
+    } else if file_name == "cargo.toml" || file_name == "cargo.lock" || file_name.ends_with(".rs") {
+        "Rust"
+    } else if file_name.ends_with(".tf") || file_name.ends_with(".tfvars") || file_name.ends_with(".hcl") {
+        "Terraform"
+    } else if file_name.ends_with(".yaml") || file_name.ends_with(".yml") {
+        "Kubernetes YAML"
+    } else if file_name == "pom.xml" || file_name.starts_with("build.gradle") || file_name.ends_with(".java") {
+        "Java"
+    } else if file_name.ends_with(".csproj") || file_name == "packages.lock.json" || file_name.ends_with(".cs") {
+        ".NET"
+    } else {
+        "Container/Deps"
+    }
+}
+
+pub(crate) fn extract_cvss_score(rationale: &str) -> Option<f64> {
+    if !rationale.to_ascii_lowercase().contains("cvss") {
+        return None;
+    }
+    let mut best: Option<f64> = None;
+    for token in rationale.split(|c: char| c.is_whitespace() || c == ',' || c == ';') {
+        if let Some((_, rhs)) = token.split_once('=') {
+            let cleaned = rhs.trim_matches(|c: char| !c.is_ascii_digit() && c != '.');
+            if let Ok(v) = cleaned.parse::<f64>() {
+                if (0.0..=10.0).contains(&v) {
+                    best = Some(best.map_or(v, |prev| prev.max(v)));
+                }
+            }
+        }
+    }
+    best
+}
+
+fn derive_package_from_code_context(code_context: &Value, file_path: &str) -> Option<String> {
+    if code_context.get("redacted").and_then(Value::as_bool).unwrap_or(false) {
+        return None;
+    }
+    let lines = code_context.get("lines").and_then(Value::as_array)?;
+    let hi_start = code_context.get("highlight_start").and_then(Value::as_i64)?;
+    let hi_end = code_context
+        .get("highlight_end")
+        .and_then(Value::as_i64)
+        .unwrap_or(hi_start);
+    let hi_texts: Vec<&str> = lines
+        .iter()
+        .filter_map(|ln| {
+            let num = ln.get("number").and_then(Value::as_i64)?;
+            if num >= hi_start && num <= hi_end {
+                ln.get("text").and_then(Value::as_str).map(str::trim)
+            } else {
+                None
+            }
+        })
+        .collect();
+    if hi_texts.is_empty() {
+        return None;
+    }
+    let lower_path = file_path.to_ascii_lowercase();
+    if lower_path.contains("requirements") && lower_path.ends_with(".txt") {
+        let first = hi_texts[0];
+        if !first.is_empty() && !first.starts_with('#') && (first.contains("==") || first.contains(">=") || first.contains("~=")) {
+            return Some(first.to_string());
+        }
+    }
+    if lower_path.ends_with("package-lock.json") {
+        let mut pkg_name: Option<String> = None;
+        let mut version: Option<String> = None;
+        for txt in &hi_texts {
+            if pkg_name.is_none() {
+                if let Some(idx) = txt.find("node_modules/") {
+                    let rest = &txt[idx + "node_modules/".len()..];
+                    if let Some(end_q) = rest.find('"') {
+                        let name = rest[..end_q].trim();
+                        if !name.is_empty() {
+                            pkg_name = Some(name.to_string());
+                        }
+                    }
+                }
+            }
+            if version.is_none() && txt.starts_with("\"version\"") {
+                if let Some((_, rhs)) = txt.split_once(':') {
+                    let v = rhs.trim().trim_end_matches(',').trim_matches('"');
+                    if !v.is_empty() {
+                        version = Some(v.to_string());
+                    }
+                }
+            }
+        }
+        if let Some(name) = pkg_name {
+            return Some(match version {
+                Some(v) => format!("{name}@{v}"),
+                None => name,
+            });
+        }
+    }
+    None
+}
+
+fn sanitize_code_context(raw: Option<&Value>, rule_id: &str) -> Value {
+    let Some(ctx) = raw.filter(|v| v.is_object()) else {
+        return Value::Null;
+    };
+    let is_secret_rule = rule_id.to_ascii_lowercase().contains("gitleaks")
+        || rule_id.to_ascii_lowercase().contains("secret");
+    let redacted = ctx.get("redacted").and_then(Value::as_bool).unwrap_or(false);
+    if is_secret_rule && !redacted {
+        return json!({
+            "start_line": ctx.get("start_line").cloned().unwrap_or(Value::Null),
+            "highlight_start": ctx.get("highlight_start").cloned().unwrap_or(Value::Null),
+            "highlight_end": ctx.get("highlight_end").cloned().unwrap_or(Value::Null),
+            "redacted": true,
+            "lines": []
+        });
+    }
+    ctx.clone()
+}
+
 pub async fn fetch_security(db: &DbHandle) -> Value {
     let cs_sql = "SELECT key, value::text, \
                   to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
                   FROM state_kv WHERE key LIKE 'runtime:code-security-issues:%' \
                   AND key NOT LIKE '%:artifacts%' ORDER BY updated_at DESC LIMIT 10";
+    let art_sql = "SELECT key, value::jsonb->>'sarif', \
+                   to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
+                   FROM state_kv WHERE key LIKE 'runtime:code-security-issues:%:artifacts%' \
+                   ORDER BY updated_at DESC LIMIT 10";
     let find_sql = "SELECT key, value::text, \
                     to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
                     FROM state_kv WHERE key LIKE 'runtime:analyzer-finding-current:%' \
@@ -762,31 +1112,272 @@ pub async fn fetch_security(db: &DbHandle) -> Value {
     let bl_sql = "SELECT value::text, \
                   to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
                   FROM state_kv WHERE key = 'baseline-evaluation:latest:coverage' LIMIT 1";
-    let (Ok(cs), Ok(find), Ok(bl)) = tokio::join!(
+    let (Ok(cs), art_res, Ok(find), Ok(bl)) = tokio::join!(
         db.query_single_readonly(cs_sql),
+        db.query_single_readonly(art_sql),
         db.query_single_readonly(find_sql),
         db.query_single_readonly(bl_sql),
     ) else {
         return db.not_measured("operations", "/api/v4/operations/security", "postgres_unreachable");
     };
 
-    let mut code_issues: Vec<Value> = Vec::new();
+    let mut summary_by_id: BTreeMap<String, (String, String, String, Map<String, Value>)> =
+        BTreeMap::new();
     for row in &cs.rows {
         let key = cell_str(row, 0);
         let parsed = parse_json_cell(row, 1);
         let updated_at = cell_str(row, 2);
-        let repo_name = key
-            .split(':')
-            .nth(2)
-            .unwrap_or("repository")
-            .to_string();
+        let mut parts = key.split(':');
+        let repo_name = parts.nth(2).unwrap_or("repository").to_string();
+        let commit_sha = parts.next().unwrap_or("").to_string();
         if let Some(arr) = parsed.get("issues").and_then(Value::as_array) {
-            for item in arr.iter().take(60) {
-                let mut obj = item.as_object().cloned().unwrap_or_default();
+            for item in arr {
+                if let Some(obj) = item.as_object() {
+                    let iid = obj
+                        .get("issue_id")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string();
+                    if !iid.is_empty() {
+                        summary_by_id
+                            .entry(iid)
+                            .or_insert_with(|| (repo_name.clone(), commit_sha.clone(), updated_at.clone(), obj.clone()));
+                    }
+                }
+            }
+        }
+    }
+
+    let mut seen_ids: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    let mut code_issues: Vec<Value> = Vec::new();
+
+    if let Ok(art) = art_res {
+        for row in &art.rows {
+            let key = cell_str(row, 0);
+            let sarif_raw = cell_str(row, 1);
+            let updated_at = cell_str(row, 2);
+            if sarif_raw.is_empty() {
+                continue;
+            }
+            let Ok(sarif) = serde_json::from_str::<Value>(&sarif_raw) else {
+                continue;
+            };
+            let mut parts = key.split(':');
+            let repo_name = parts.nth(2).unwrap_or("repository").to_string();
+            let commit_sha = parts.next().unwrap_or("").to_string();
+            let Some(results) = sarif
+                .pointer("/runs/0/results")
+                .and_then(Value::as_array)
+            else {
+                continue;
+            };
+            for res in results.iter().take(300) {
+                let props = res.get("properties").and_then(Value::as_object);
+                let iid = props
+                    .and_then(|p| p.get("issue_id"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+                if iid.is_empty() || !seen_ids.insert(iid.clone()) {
+                    continue;
+                }
+                let summary_entry = summary_by_id.get(&iid);
+                let rule_id = res
+                    .get("ruleId")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+                let file_path = res
+                    .pointer("/locations/0/physicalLocation/artifactLocation/uri")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+                let start_line = res
+                    .pointer("/locations/0/physicalLocation/region/startLine")
+                    .and_then(Value::as_i64);
+                let sev = props
+                    .and_then(|p| p.get("severity"))
+                    .and_then(Value::as_str)
+                    .or_else(|| {
+                        summary_entry
+                            .and_then(|(_, _, _, m)| m.get("severity"))
+                            .and_then(Value::as_str)
+                    })
+                    .unwrap_or("undetermined")
+                    .to_ascii_lowercase();
+                let raw_priority = props
+                    .and_then(|p| p.get("priority"))
+                    .and_then(Value::as_str)
+                    .or_else(|| {
+                        summary_entry
+                            .and_then(|(_, _, _, m)| m.get("priority"))
+                            .and_then(Value::as_str)
+                    })
+                    .unwrap_or("")
+                    .to_string();
+                let norm_priority = normalize_security_priority(&sev);
+                let rationale = props
+                    .and_then(|p| p.get("severity_rationale"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+                let cvss_score = extract_cvss_score(&rationale);
+                let code_ctx = sanitize_code_context(props.and_then(|p| p.get("code_context")), &rule_id);
+                let explicit_pkg = props
+                    .and_then(|p| p.get("package"))
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+                    .or_else(|| {
+                        summary_entry
+                            .and_then(|(_, _, _, m)| m.get("package"))
+                            .and_then(Value::as_str)
+                            .map(str::to_string)
+                    });
+                let (pkg_val, pkg_inferred) = if let Some(p) = explicit_pkg {
+                    (Some(p), false)
+                } else if let Some(p) = derive_package_from_code_context(&code_ctx, &file_path) {
+                    (Some(p), true)
+                } else {
+                    (None, false)
+                };
+                let weakness_class = summary_entry
+                    .and_then(|(_, _, _, m)| m.get("weakness_class"))
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+                    .unwrap_or_else(|| {
+                        if rule_id.is_empty() {
+                            "vulnerable_dependency".to_string()
+                        } else {
+                            rule_id.clone()
+                        }
+                    });
+                let due_days = summary_entry
+                    .and_then(|(_, _, _, m)| m.get("due_days"))
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                let obs_at = summary_entry
+                    .map(|(_, _, ts, _)| ts.clone())
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or_else(|| updated_at.clone());
+                let sarif_title = props
+                    .and_then(|p| p.get("title"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+
+                let mut obj = Map::new();
+                obj.insert("issue_id".to_string(), json!(iid));
                 obj.insert("repo".to_string(), json!(repo_name));
-                obj.insert("observed_at".to_string(), json!(updated_at));
+                obj.insert("commit_sha".to_string(), json!(commit_sha));
+                obj.insert("observed_at".to_string(), json!(obs_at));
+                obj.insert("severity".to_string(), json!(sev));
+                obj.insert("priority".to_string(), json!(norm_priority));
+                obj.insert("raw_priority".to_string(), json!(raw_priority));
+                obj.insert("rule_id".to_string(), json!(rule_id));
+                obj.insert("weakness_class".to_string(), json!(weakness_class));
+                obj.insert("sarif_title".to_string(), json!(sarif_title));
+                obj.insert("file_path".to_string(), json!(file_path));
+                obj.insert("start_line".to_string(), json!(start_line));
+                obj.insert("language".to_string(), json!(infer_code_ecosystem(&file_path)));
+                obj.insert("package".to_string(), json!(pkg_val));
+                obj.insert("package_inferred_from_context".to_string(), json!(pkg_inferred));
+                obj.insert("due_days".to_string(), due_days);
+                obj.insert("cvss_score".to_string(), json!(cvss_score));
+                obj.insert("severity_rationale".to_string(), json!(rationale));
+                obj.insert(
+                    "severity_floor".to_string(),
+                    props.and_then(|p| p.get("severity_floor")).cloned().unwrap_or(Value::Null),
+                );
+                obj.insert(
+                    "severity_ceiling".to_string(),
+                    props.and_then(|p| p.get("severity_ceiling")).cloned().unwrap_or(Value::Null),
+                );
+                obj.insert(
+                    "deciding_facts".to_string(),
+                    props.and_then(|p| p.get("deciding_facts")).cloned().unwrap_or_else(|| json!([])),
+                );
+                obj.insert(
+                    "confidence".to_string(),
+                    props.and_then(|p| p.get("confidence")).cloned().unwrap_or_else(|| json!("reported")),
+                );
+                obj.insert(
+                    "cwe_ids".to_string(),
+                    props.and_then(|p| p.get("cwe_ids")).cloned().unwrap_or_else(|| json!([])),
+                );
+                obj.insert(
+                    "advisory_ids".to_string(),
+                    props.and_then(|p| p.get("advisory_ids")).cloned().unwrap_or_else(|| json!([])),
+                );
+                obj.insert(
+                    "producers".to_string(),
+                    props.and_then(|p| p.get("producers")).cloned().unwrap_or_else(|| json!([])),
+                );
+                obj.insert(
+                    "known_exploited".to_string(),
+                    props.and_then(|p| p.get("known_exploited")).cloned().unwrap_or_else(|| json!(false)),
+                );
+                obj.insert("code_context".to_string(), code_ctx);
+                obj.insert(
+                    "flow_steps".to_string(),
+                    props.and_then(|p| p.get("flow_steps")).cloned().unwrap_or_else(|| json!([])),
+                );
                 code_issues.push(Value::Object(obj));
             }
+        }
+    }
+
+    // Fallback: include any summary issues whose SARIF artifact was not present.
+    for (iid, (repo_name, commit_sha, updated_at, raw_obj)) in &summary_by_id {
+        if !seen_ids.insert(iid.clone()) {
+            continue;
+        }
+        let mut obj = raw_obj.clone();
+        let sev = obj
+            .get("severity")
+            .and_then(Value::as_str)
+            .unwrap_or("undetermined")
+            .to_ascii_lowercase();
+        let raw_priority = obj
+            .get("priority")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        obj.insert("repo".to_string(), json!(repo_name));
+        obj.insert("commit_sha".to_string(), json!(commit_sha));
+        obj.insert("observed_at".to_string(), json!(updated_at));
+        obj.insert("severity".to_string(), json!(sev));
+        obj.insert("priority".to_string(), json!(normalize_security_priority(&sev)));
+        obj.insert("raw_priority".to_string(), json!(raw_priority));
+        obj.insert("language".to_string(), json!("Container/Deps"));
+        code_issues.push(Value::Object(obj));
+    }
+
+    code_issues.sort_by(|a, b| {
+        let sa = a.get("severity").and_then(Value::as_str).unwrap_or("");
+        let sb = b.get("severity").and_then(Value::as_str).unwrap_or("");
+        let ra = security_severity_rank(sa);
+        let rb = security_severity_rank(sb);
+        let ca = a.get("cvss_score").and_then(Value::as_f64).unwrap_or(-1.0);
+        let cb = b.get("cvss_score").and_then(Value::as_f64).unwrap_or(-1.0);
+        let ia = a.get("issue_id").and_then(Value::as_str).unwrap_or("");
+        let ib = b.get("issue_id").and_then(Value::as_str).unwrap_or("");
+        ra.cmp(&rb)
+            .then_with(|| cb.partial_cmp(&ca).unwrap_or(std::cmp::Ordering::Equal))
+            .then_with(|| ia.cmp(ib))
+    });
+
+    let mut sev_critical: usize = 0;
+    let mut sev_high: usize = 0;
+    let mut sev_medium: usize = 0;
+    let mut sev_low: usize = 0;
+    let mut sev_undetermined: usize = 0;
+    for item in &code_issues {
+        match item.get("severity").and_then(Value::as_str).unwrap_or("") {
+            "critical" => sev_critical += 1,
+            "high" => sev_high += 1,
+            "medium" => sev_medium += 1,
+            "low" | "info" => sev_low += 1,
+            _ => sev_undetermined += 1,
         }
     }
 
@@ -827,6 +1418,14 @@ pub async fn fetch_security(db: &DbHandle) -> Value {
         "source": "postgres-direct",
         "latest_observed_at": latest_observed_at,
         "code_security_count": code_issues.len(),
+        "severity_counts": {
+            "critical": sev_critical,
+            "high": sev_high,
+            "medium": sev_medium,
+            "low": sev_low,
+            "undetermined": sev_undetermined,
+            "total": code_issues.len()
+        },
         "code_security_issues": code_issues,
         "analyzer_findings_count": analyzer_findings.len(),
         "analyzer_findings": analyzer_findings,

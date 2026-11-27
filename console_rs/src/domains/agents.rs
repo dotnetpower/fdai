@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     convert::Infallible,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use crate::{
@@ -57,8 +57,8 @@ const CAPABILITY_FIVE_STATES: [&str; 5] = [
 
 const MAX_AUTH_HEADER_LEN: usize = 4096;
 const MAX_SSE_HEARTBEATS: u64 = 240;
-const SSE_POLL_BASE_SECS: u64 = 15;
-const SSE_POLL_BACKOFF_SECS: u64 = 30;
+const SSE_POLL_BASE_SECS: u64 = 4;
+const SSE_POLL_BACKOFF_SECS: u64 = 12;
 const X_ACCEL_BUFFERING: HeaderName = HeaderName::from_static("x-accel-buffering");
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -394,6 +394,37 @@ fn unix_epoch_secs() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0)
+}
+
+fn unix_epoch_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|d| u64::try_from(d.as_millis()).ok())
+        .unwrap_or(0)
+}
+
+fn utc_iso_from_unix_secs(secs: u64) -> String {
+    let days_since_epoch = i64::try_from(secs / 86_400).unwrap_or(0);
+    let secs_of_day = secs % 86_400;
+    let hour = secs_of_day / 3_600;
+    let minute = (secs_of_day % 3_600) / 60;
+    let second = secs_of_day % 60;
+
+    // Howard Hinnant civil-from-days algorithm (UTC, zero external dependencies)
+    let z = days_since_epoch + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let mut y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    if m <= 2 {
+        y += 1;
+    }
+    format!("{y:04}-{m:02}-{d:02}T{hour:02}:{minute:02}:{second:02}Z")
 }
 
 fn pantheon_invariants() -> Value {
@@ -945,20 +976,40 @@ async fn api_agents_activity(
     json_no_store(StatusCode::OK, env)
 }
 
-async fn resolve_stream_probe(state: &AppState, auth: Option<&str>) -> (&'static str, bool, u16, Value) {
+async fn resolve_stream_probe(
+    state: &AppState,
+    auth: Option<&str>,
+) -> (&'static str, bool, u16, u64, Value) {
+    let started = Instant::now();
     let up = state.upstream.get_json("/agents/activity", auth).await;
     if up.reachable && up.status == 200 {
         if let Some(payload) = up.payload {
-            return ("operator-service", true, up.status, payload);
+            let latency_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+            return ("operator-service", true, up.status, latency_ms, payload);
         }
     }
     if state.db.is_configured() {
+        let db_started = Instant::now();
         let db_snap = repos::agents::fetch_stream_snapshot(&state.db).await;
         if is_db_measured(&db_snap) {
-            return ("postgres-direct", true, up.status, db_snap);
+            let latency_ms = db_snap
+                .get("db_latency_ms")
+                .and_then(Value::as_u64)
+                .unwrap_or_else(|| {
+                    u64::try_from(db_started.elapsed().as_millis()).unwrap_or(u64::MAX)
+                });
+            return ("postgres-direct", true, up.status, latency_ms, db_snap);
         }
     }
-    ("console-v4-rust", false, up.status, Value::Null)
+    let latency_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+    ("console-v4-rust", false, up.status, latency_ms, Value::Null)
+}
+
+fn stream_audit_total(payload: &Value) -> i64 {
+    payload
+        .get("audit_total")
+        .and_then(Value::as_i64)
+        .unwrap_or(0)
 }
 
 async fn api_agents_stream(
@@ -970,17 +1021,25 @@ async fn api_agents_stream(
 ) {
     let lease = SseLeaseDropGuard::acquire(state.active_sse.clone());
     let auth = extract_auth(&headers).map(str::to_string);
-    let (source, measured, upstream_status, active_payload) =
+    let (source, measured, upstream_status, db_latency_ms, active_payload) =
         resolve_stream_probe(&state, auth.as_deref()).await;
+    let initial_total = stream_audit_total(&active_payload);
+    let now_secs = unix_epoch_secs();
     let initial_payload = json!({
         "event": "agents-snapshot",
+        "tick": 0,
         "domain": "agents",
         "source": source,
         "measurement_state": if measured { "measured" } else { "not-measured" },
         "measurement_status": if measured { "measured" } else { "not-measured" },
         "read_only_surface": true,
         "grants_execution_authority": false,
-        "observed_at_unix": unix_epoch_secs(),
+        "observed_at": utc_iso_from_unix_secs(now_secs),
+        "observed_at_unix": now_secs,
+        "observed_epoch_ms": unix_epoch_ms(),
+        "db_latency_ms": db_latency_ms,
+        "delta_audit": 0,
+        "poll_interval_secs": SSE_POLL_BASE_SECS,
         "pantheon_count": PANTHEON_CATALOG.len(),
         "max_heartbeats": MAX_SSE_HEARTBEATS,
         "upstream_reachable": source == "operator-service",
@@ -993,8 +1052,8 @@ async fn api_agents_stream(
 
     let initial_misses: u32 = if measured { 0 } else { 1 };
     let heartbeat = stream::unfold(
-        (state, auth, 1_u64, initial_misses, lease),
-        |(st, auth_hdr, seq, misses, guard)| async move {
+        (state, auth, 1_u64, initial_misses, initial_total, lease),
+        |(st, auth_hdr, seq, misses, prev_total, guard)| async move {
             if seq > MAX_SSE_HEARTBEATS {
                 drop(guard);
                 return None;
@@ -1005,35 +1064,54 @@ async fn api_agents_stream(
                 SSE_POLL_BASE_SECS
             };
             tokio::time::sleep(Duration::from_secs(wait_secs)).await;
+            let tick_secs = unix_epoch_secs();
             if seq == MAX_SSE_HEARTBEATS {
                 let end_body = json!({
                     "event": "agents-stream-end",
                     "seq": seq,
+                    "tick": seq,
                     "domain": "agents",
                     "reason": "max_heartbeats_reached",
-                    "observed_at_unix": unix_epoch_secs()
+                    "observed_at": utc_iso_from_unix_secs(tick_secs),
+                    "observed_at_unix": tick_secs
                 });
                 let ev = Event::default()
                     .event("agents-stream-end")
                     .data(end_body.to_string());
                 return Some((
                     Ok::<Event, Infallible>(ev),
-                    (st, auth_hdr, seq.saturating_add(1), misses, guard),
+                    (st, auth_hdr, seq.saturating_add(1), misses, prev_total, guard),
                 ));
             }
-            let (probe_src, ok, probe_status, probe_payload) =
+            let (probe_src, ok, probe_status, probe_latency_ms, probe_payload) =
                 resolve_stream_probe(&st, auth_hdr.as_deref()).await;
             let next_misses = if ok { 0 } else { misses.saturating_add(1) };
+            let next_total = if ok {
+                stream_audit_total(&probe_payload)
+            } else {
+                prev_total
+            };
+            let delta_audit = if ok && next_total > prev_total {
+                next_total.saturating_sub(prev_total)
+            } else {
+                0
+            };
             let body = json!({
                 "event": "agents-heartbeat",
                 "seq": seq,
+                "tick": seq,
                 "domain": "agents",
                 "source": probe_src,
                 "measurement_state": if ok { "measured" } else { "not-measured" },
                 "measurement_status": if ok { "measured" } else { "not-measured" },
                 "read_only_surface": true,
                 "grants_execution_authority": false,
-                "observed_at_unix": unix_epoch_secs(),
+                "observed_at": utc_iso_from_unix_secs(tick_secs),
+                "observed_at_unix": tick_secs,
+                "observed_epoch_ms": unix_epoch_ms(),
+                "db_latency_ms": probe_latency_ms,
+                "delta_audit": delta_audit,
+                "poll_interval_secs": SSE_POLL_BASE_SECS,
                 "pantheon_count": PANTHEON_CATALOG.len(),
                 "upstream_reachable": probe_src == "operator-service",
                 "upstream_status": probe_status,
@@ -1044,7 +1122,14 @@ async fn api_agents_stream(
                 .data(body.to_string());
             Some((
                 Ok::<Event, Infallible>(ev),
-                (st, auth_hdr, seq.saturating_add(1), next_misses, guard),
+                (
+                    st,
+                    auth_hdr,
+                    seq.saturating_add(1),
+                    next_misses,
+                    next_total,
+                    guard,
+                ),
             ))
         },
     );
@@ -1575,6 +1660,85 @@ mod tests {
                 assert_eq!(parsed["agent"]["accept_autonomous_upstream"], json!(true));
                 assert_eq!(parsed["live_activity"]["window_days"], json!(7));
             }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn agents_event_context_extracts_real_resource_and_never_fabricates_scope() {
+        assert_eq!(
+            repos::agents::extract_resource_name(
+                "scope-ddcc51d93c16973d/resource-group/rg-fdai-ci-workers-wus3/providers/microsoft.app/jobs/caj-fdai-ci-general"
+            ),
+            "caj-fdai-ci-general"
+        );
+        assert_eq!(
+            repos::agents::extract_resource_name(
+                "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm-orders-01/"
+            ),
+            "vm-orders-01"
+        );
+        // Empty input must stay empty — never fabricated as a synthetic scope label
+        assert_eq!(repos::agents::extract_resource_name(""), "");
+        assert_eq!(repos::agents::extract_resource_name("   "), "");
+
+        let entry = json!({
+            "rule_id": "compute.vm.environment-tag.required",
+            "action": {
+                "target_resource_ref": "/subscriptions/sub-1/resourceGroups/rg-app/providers/Microsoft.Compute/virtualMachines/vm-api-01",
+                "action_type": "remediate.tag-add"
+            }
+        });
+        let mut ctx = repos::agents::extract_entry_event_context(&entry);
+        assert_eq!(ctx.target_resource_name, "vm-api-01");
+        assert_eq!(ctx.rule_id, "compute.vm.environment-tag.required");
+        assert_eq!(ctx.remediation_action, "remediate.tag-add");
+        assert_eq!(ctx.severity, "");
+
+        let overlay = repos::agents::EventContext {
+            target_resource_name: "should-not-overwrite".to_string(),
+            severity: "high".to_string(),
+            incident_number: "INC-1001".to_string(),
+            incident_state: "open".to_string(),
+            ..repos::agents::EventContext::default()
+        };
+        repos::agents::merge_event_context(&mut ctx, &overlay);
+        assert_eq!(ctx.target_resource_name, "vm-api-01");
+        assert_eq!(ctx.severity, "high");
+        assert_eq!(ctx.incident_number, "INC-1001");
+        assert_eq!(ctx.incident_state, "open");
+    }
+
+    #[tokio::test]
+    async fn agents_page_uses_humanize_local_clock_shimmer_and_zero_synthetic_scope(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let app = build_router(offline_state());
+        let req = Request::builder().uri("/agents").body(Body::empty())?;
+        let resp = app.oneshot(req).await?;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let bytes = resp.into_body().collect().await?.to_bytes();
+        let html = String::from_utf8_lossy(&bytes);
+
+        let (static_markup, script_part) = html
+            .split_once("<script>")
+            .ok_or("missing inline script in /agents HTML")?;
+        assert!(!static_markup.contains("구독 전체"));
+        assert!(!script_part.contains("innerHTML"));
+        assert!(!script_part.contains("formatUtcShort"));
+        for needle in [
+            "fdaiV4Humanize",
+            "localClock",
+            "ruleId",
+            "remediationAction",
+            "severity",
+            "fdaiV4Shimmer",
+            "fdai-svg-live-ring",
+            "actLivePulseBanner",
+        ] {
+            assert!(
+                html.contains(needle),
+                "missing expected Phase-5 integration `{needle}` in /agents HTML"
+            );
         }
         Ok(())
     }

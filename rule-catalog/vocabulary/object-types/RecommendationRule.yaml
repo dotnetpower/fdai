@@ -1,0 +1,58 @@
+schema_version: 1.0.0
+name: RecommendationRule
+version: 1.0.0
+key: id
+description: Deterministic or hybrid Well-Architected recommendation rule owned by Mimir across all five Advisor pillars.
+properties:
+  id:
+    type: string
+    required: true
+    description: Stable canonical recommendation rule identifier (for example adv.rel.vm-availability-zones).
+  pillar:
+    type: string
+    required: true
+    description: One of cost, security, reliability, operational_excellence, performance.
+  subcategory:
+    type: string
+    required: true
+    description: Standardized pillar subcategory (for example availability_zones, service_retirement, right_sizing).
+  title:
+    type: string
+    required: true
+    description: Operator-facing English rule title.
+  impact:
+    type: string
+    required: true
+    description: Default impact tier (high, medium, low).
+  owner_agent:
+    type: string
+    required: true
+    description: Primary pantheon domain specialist (Njord, Freyr, Heimdall, Mimir, Loki).
+  action_type_ref:
+    type: string
+    required: false
+    description: Optional bound ActionType for governed remediation or Fix PR generation.
+  cost_implication_tier:
+    type: string
+    required: false
+    description: Expected cost side-effect tier (no_cost_impact, low, medium, high, unknown).
+  framework_refs:
+    type: array
+    required: false
+    description: Mapped WAF, WARA, CAF, or MCSB control references.
+  automation_mode:
+    type: string
+    required: true
+    description: Governed remediation readiness (manual_guidance, fix_pr, shadow_simulation, hil_guided_fix, autonomous_guarded).
+lifecycle:
+  owner: Mimir
+  authority_refs:
+    - docs/roadmap/architecture/fdai-constitution.md
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:RecommendationRule@1.0.0
+  content_hash: sha256:fb3a9ab66ecdb181d8f989ad65eff231e36be24459edb0521d70c0fb457be24a
+  license: MIT
+  retrieved_at: '2026-11-27T00:00:00Z'
+authority_class: pantheon_owned
+freshness_max_age_seconds: 900

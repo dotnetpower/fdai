@@ -74,60 +74,60 @@ struct PanelSpec {
 
 const PANELS: &[PanelSpec] = &[
     // 1. Overview (전체 현황 — 7 panels)
-    PanelSpec { id: "dashboard", path: "/dashboard", group: "overview", label: "Dashboard", label_ko: "대시보드", locked: true, workloads: &[], loops: &[], addons: &[], features: &["F01.1", "F02.1", "F03.1"] },
-    PanelSpec { id: "dashboard-v2", path: "/dashboard-v2", group: "overview", label: "Resource overview", label_ko: "리소스 현황", locked: false, workloads: &[], loops: &["inventory-reconciliation"], addons: &[], features: &["F02.1", "F03.1"] },
-    PanelSpec { id: "operating-outcomes", path: "/operating-outcomes", group: "overview", label: "Operating outcomes", label_ko: "운영 성과", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F03.2"] },
-    PanelSpec { id: "control-assurance", path: "/control-assurance", group: "overview", label: "Control assurance", label_ko: "안전 통제 현황", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F03.2", "F12.1"] },
-    PanelSpec { id: "verticals", path: "/verticals", group: "overview", label: "Vertical outcomes", label_ko: "영역별 성과", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F03.2"] },
-    PanelSpec { id: "cost-governance", path: "/cost-governance", group: "overview", label: "Cost governance", label_ko: "비용 거버넌스", locked: false, workloads: &[], loops: &["cost-governance"], addons: &[], features: &["F09.1", "F09.2"] },
-    PanelSpec { id: "llm-cost", path: "/llm-cost", group: "overview", label: "AI model cost", label_ko: "AI 모델 비용", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F09.1"] },
+    PanelSpec { id: "dashboard", path: "/overview/dashboard", group: "overview", label: "Dashboard", label_ko: "대시보드", locked: true, workloads: &[], loops: &[], addons: &[], features: &["F01.1", "F02.1", "F03.1"] },
+    PanelSpec { id: "dashboard-v2", path: "/overview/dashboard-v2", group: "overview", label: "Resource overview", label_ko: "리소스 현황", locked: false, workloads: &[], loops: &["inventory-reconciliation"], addons: &[], features: &["F02.1", "F03.1"] },
+    PanelSpec { id: "operating-outcomes", path: "/overview/operating-outcomes", group: "overview", label: "Operating outcomes", label_ko: "운영 성과", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F03.2"] },
+    PanelSpec { id: "control-assurance", path: "/overview/control-assurance", group: "overview", label: "Control assurance", label_ko: "안전 통제 현황", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F03.2", "F12.1"] },
+    PanelSpec { id: "verticals", path: "/overview/verticals", group: "overview", label: "Vertical outcomes", label_ko: "영역별 성과", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F03.2"] },
+    PanelSpec { id: "cost-governance", path: "/overview/cost-governance", group: "overview", label: "Cost governance", label_ko: "비용 거버넌스", locked: false, workloads: &[], loops: &["cost-governance"], addons: &[], features: &["F09.1", "F09.2"] },
+    PanelSpec { id: "llm-cost", path: "/overview/llm-cost", group: "overview", label: "AI model cost", label_ko: "AI 모델 비용", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F09.1"] },
     // 2. Operations (운영 — 18 panels)
-    PanelSpec { id: "live", path: "/live", group: "operations", label: "Live monitoring", label_ko: "실시간 모니터링", locked: false, workloads: &[], loops: &["inventory-reconciliation"], addons: &[], features: &["F02.1", "F03.1"] },
-    PanelSpec { id: "gpu", path: "/gpu", group: "operations", label: "GPU status", label_ko: "GPU 현황", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F03.3"] },
-    PanelSpec { id: "incidents", path: "/incidents", group: "operations", label: "Incident response", label_ko: "장애 대응", locked: false, workloads: &[], loops: &["anomaly-analyzer", "notification-dispatch"], addons: &[], features: &["F04.1", "F08.1"] },
-    PanelSpec { id: "code-security", path: "/code-security", group: "operations", label: "Code security", label_ko: "코드 보안", locked: false, workloads: &[], loops: &["code-security"], addons: &[], features: &["F14.1"] },
-    PanelSpec { id: "vulnerability-risk", path: "/vulnerability-risk", group: "operations", label: "Vulnerability & risk forecast", label_ko: "취약점 · 위험 예측", locked: false, workloads: &[], loops: &["code-security"], addons: &[], features: &["F14.1"] },
-    PanelSpec { id: "configuration-baselines", path: "/configuration-baselines", group: "operations", label: "Configuration baselines", label_ko: "설정 기준 관리", locked: false, workloads: &[], loops: &["inventory-reconciliation"], addons: &[], features: &["F02.1", "F02.3"] },
-    PanelSpec { id: "hil-queue", path: "/hil-queue", group: "operations", label: "Approval requests (HIL)", label_ko: "승인 요청", locked: false, workloads: &["isolated-executor"], loops: &["remediation-execution"], addons: &["enterprise-identity-governance", "governed-execution"], features: &["F06.1", "F07.1"] },
-    PanelSpec { id: "alert-quality", path: "/alert-quality", group: "operations", label: "Alert quality", label_ko: "알림 품질", locked: false, workloads: &[], loops: &["anomaly-analyzer", "notification-dispatch"], addons: &[], features: &["F04.2", "F08.1"] },
-    PanelSpec { id: "detection-readiness", path: "/detection-readiness", group: "operations", label: "Detection coverage", label_ko: "탐지 커버리지", locked: false, workloads: &[], loops: &["anomaly-analyzer", "inventory-reconciliation"], addons: &[], features: &["F03.1", "F04.1"] },
-    PanelSpec { id: "conversation-delivery", path: "/conversation-delivery", group: "operations", label: "Notification delivery", label_ko: "알림 전송 이력", locked: false, workloads: &[], loops: &["notification-dispatch"], addons: &[], features: &["F08.2"] },
-    PanelSpec { id: "workflow-apps", path: "/workflow-apps", group: "operations", label: "Automation execution", label_ko: "자동화 실행", locked: false, workloads: &["isolated-executor"], loops: &["remediation-execution"], addons: &[], features: &["F07.2"] },
-    PanelSpec { id: "automation-blueprints", path: "/automation-blueprints", group: "operations", label: "Automation blueprints", label_ko: "자동화 템플릿", locked: false, workloads: &["isolated-executor"], loops: &["remediation-execution"], addons: &[], features: &["F07.2"] },
-    PanelSpec { id: "processes", path: "/processes", group: "operations", label: "Running processes", label_ko: "실행 중인 작업", locked: false, workloads: &["isolated-executor"], loops: &["remediation-execution"], addons: &[], features: &["F07.1"] },
-    PanelSpec { id: "scheduler-runs", path: "/scheduler-runs", group: "operations", label: "Scheduled run history", label_ko: "정기 작업 이력", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F03.1"] },
-    PanelSpec { id: "background-tasks", path: "/background-tasks", group: "operations", label: "Background tasks", label_ko: "백그라운드 작업", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F03.1"] },
-    PanelSpec { id: "scheduled-continuations", path: "/scheduled-continuations", group: "operations", label: "Scheduled follow-ups", label_ko: "예약된 후속 점검", locked: false, workloads: &["isolated-executor"], loops: &["remediation-execution"], addons: &[], features: &["F07.1"] },
-    PanelSpec { id: "provision", path: "/provision", group: "operations", label: "Deployment management", label_ko: "배포 관리", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F15.1"] },
-    PanelSpec { id: "onboarding", path: "/onboarding", group: "operations", label: "Initial setup", label_ko: "초기 설정", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F01.1", "F15.1"] },
+    PanelSpec { id: "live", path: "/operations/live", group: "operations", label: "Live monitoring", label_ko: "실시간 모니터링", locked: false, workloads: &[], loops: &["inventory-reconciliation"], addons: &[], features: &["F02.1", "F03.1"] },
+    PanelSpec { id: "gpu", path: "/operations/gpu", group: "operations", label: "GPU status", label_ko: "GPU 현황", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F03.3"] },
+    PanelSpec { id: "incidents", path: "/operations/incidents", group: "operations", label: "Incident response", label_ko: "장애 대응", locked: false, workloads: &[], loops: &["anomaly-analyzer", "notification-dispatch"], addons: &[], features: &["F04.1", "F08.1"] },
+    PanelSpec { id: "code-security", path: "/operations/code-security", group: "operations", label: "Code security", label_ko: "코드 보안", locked: false, workloads: &[], loops: &["code-security"], addons: &[], features: &["F14.1"] },
+    PanelSpec { id: "vulnerability-risk", path: "/operations/vulnerability-risk", group: "operations", label: "Vulnerability & risk forecast", label_ko: "취약점 · 위험 예측", locked: false, workloads: &[], loops: &["code-security"], addons: &[], features: &["F14.1"] },
+    PanelSpec { id: "configuration-baselines", path: "/operations/configuration-baselines", group: "operations", label: "Configuration baselines", label_ko: "설정 기준 관리", locked: false, workloads: &[], loops: &["inventory-reconciliation"], addons: &[], features: &["F02.1", "F02.3"] },
+    PanelSpec { id: "hil-queue", path: "/operations/hil-queue", group: "operations", label: "Approval requests (HIL)", label_ko: "승인 요청", locked: false, workloads: &["isolated-executor"], loops: &["remediation-execution"], addons: &["enterprise-identity-governance", "governed-execution"], features: &["F06.1", "F07.1"] },
+    PanelSpec { id: "alert-quality", path: "/operations/alert-quality", group: "operations", label: "Alert quality", label_ko: "알림 품질", locked: false, workloads: &[], loops: &["anomaly-analyzer", "notification-dispatch"], addons: &[], features: &["F04.2", "F08.1"] },
+    PanelSpec { id: "detection-readiness", path: "/operations/detection-readiness", group: "operations", label: "Detection coverage", label_ko: "탐지 커버리지", locked: false, workloads: &[], loops: &["anomaly-analyzer", "inventory-reconciliation"], addons: &[], features: &["F03.1", "F04.1"] },
+    PanelSpec { id: "conversation-delivery", path: "/operations/conversation-delivery", group: "operations", label: "Notification delivery", label_ko: "알림 전송 이력", locked: false, workloads: &[], loops: &["notification-dispatch"], addons: &[], features: &["F08.2"] },
+    PanelSpec { id: "workflow-apps", path: "/operations/workflow-apps", group: "operations", label: "Automation execution", label_ko: "자동화 실행", locked: false, workloads: &["isolated-executor"], loops: &["remediation-execution"], addons: &[], features: &["F07.2"] },
+    PanelSpec { id: "automation-blueprints", path: "/operations/automation-blueprints", group: "operations", label: "Automation blueprints", label_ko: "자동화 템플릿", locked: false, workloads: &["isolated-executor"], loops: &["remediation-execution"], addons: &[], features: &["F07.2"] },
+    PanelSpec { id: "processes", path: "/operations/processes", group: "operations", label: "Running processes", label_ko: "실행 중인 작업", locked: false, workloads: &["isolated-executor"], loops: &["remediation-execution"], addons: &[], features: &["F07.1"] },
+    PanelSpec { id: "scheduler-runs", path: "/operations/scheduler-runs", group: "operations", label: "Scheduled run history", label_ko: "정기 작업 이력", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F03.1"] },
+    PanelSpec { id: "background-tasks", path: "/operations/background-tasks", group: "operations", label: "Background tasks", label_ko: "백그라운드 작업", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F03.1"] },
+    PanelSpec { id: "scheduled-continuations", path: "/operations/scheduled-continuations", group: "operations", label: "Scheduled follow-ups", label_ko: "예약된 후속 점검", locked: false, workloads: &["isolated-executor"], loops: &["remediation-execution"], addons: &[], features: &["F07.1"] },
+    PanelSpec { id: "provision", path: "/operations/provision", group: "operations", label: "Deployment management", label_ko: "배포 관리", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F15.1"] },
+    PanelSpec { id: "onboarding", path: "/operations/onboarding", group: "operations", label: "Initial setup", label_ko: "초기 설정", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F01.1", "F15.1"] },
     // 3. Agents (에이전트 — 6 panels)
     PanelSpec { id: "agents", path: "/agents", group: "agents", label: "Agent fleet", label_ko: "에이전트 현황", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F01.1"] },
-    PanelSpec { id: "pantheon", path: "/pantheon", group: "agents", label: "Roles & ownership", label_ko: "역할 · 담당 영역", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F01.1"] },
-    PanelSpec { id: "handover", path: "/handover", group: "agents", label: "Stewards & handover", label_ko: "담당자 · 인수인계", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F01.3"] },
-    PanelSpec { id: "agent-activity", path: "/agent-activity", group: "agents", label: "Agent activity log", label_ko: "에이전트 작업 이력", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F03.1"] },
-    PanelSpec { id: "skills", path: "/skills", group: "agents", label: "Agent tools (Skills)", label_ko: "에이전트 도구(스킬)", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F07.1"] },
-    PanelSpec { id: "capabilities", path: "/capabilities", group: "agents", label: "Supported capabilities", label_ko: "지원 기능 목록", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F07.1"] },
+    PanelSpec { id: "pantheon", path: "/agents/pantheon", group: "agents", label: "Roles & ownership", label_ko: "역할 · 담당 영역", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F01.1"] },
+    PanelSpec { id: "handover", path: "/agents/handover", group: "agents", label: "Stewards & handover", label_ko: "담당자 · 인수인계", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F01.3"] },
+    PanelSpec { id: "agent-activity", path: "/agents/agent-activity", group: "agents", label: "Agent activity log", label_ko: "에이전트 작업 이력", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F03.1"] },
+    PanelSpec { id: "skills", path: "/agents/skills", group: "agents", label: "Agent tools (Skills)", label_ko: "에이전트 도구(스킬)", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F07.1"] },
+    PanelSpec { id: "capabilities", path: "/agents/capabilities", group: "agents", label: "Supported capabilities", label_ko: "지원 기능 목록", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F07.1"] },
     // 4. Governance & Knowledge (거버넌스 · 지식 — 13 panels)
-    PanelSpec { id: "rules", path: "/rules", group: "governance", label: "Operating rules", label_ko: "운영 규칙", locked: false, workloads: &[], loops: &["anomaly-analyzer"], addons: &[], features: &["F04.1"] },
-    PanelSpec { id: "trust-routing", path: "/trust-routing", group: "governance", label: "Auto & AI routing ratio", label_ko: "자동 · AI 처리 비율", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F05.1"] },
-    PanelSpec { id: "ontology", path: "/ontology", group: "governance", label: "Ontology", label_ko: "온톨로지", locked: false, workloads: &[], loops: &["inventory-reconciliation"], addons: &[], features: &["F02.2"] },
-    PanelSpec { id: "scope", path: "/scope", group: "governance", label: "Managed scope", label_ko: "관리 대상 범위", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F01.1"] },
-    PanelSpec { id: "architecture", path: "/architecture", group: "governance", label: "System architecture", label_ko: "시스템 구성도", locked: false, workloads: &[], loops: &["inventory-reconciliation"], addons: &[], features: &["F02.2"] },
-    PanelSpec { id: "blast-radius", path: "/blast-radius", group: "governance", label: "Change impact analysis", label_ko: "변경 영향 분석", locked: false, workloads: &[], loops: &["inventory-reconciliation"], addons: &[], features: &["F06.1"] },
-    PanelSpec { id: "promotion-gates", path: "/promotion-gates", group: "governance", label: "Automation promotion gates", label_ko: "자동화 적용 심사", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F06.2"] },
-    PanelSpec { id: "workflow-builder", path: "/workflow-builder", group: "governance", label: "Automation builder", label_ko: "자동화 편집기", locked: false, workloads: &["isolated-executor"], loops: &["remediation-execution"], addons: &[], features: &["F07.2"] },
-    PanelSpec { id: "knowledge", path: "/knowledge", group: "governance", label: "Knowledge management", label_ko: "지식 관리", locked: false, workloads: &["document-ingestion-api", "document-processing-worker"], loops: &["document-ingestion"], addons: &[], features: &["F11.1"] },
-    PanelSpec { id: "github", path: "/github", group: "governance", label: "GitHub integration", label_ko: "GitHub 연동", locked: false, workloads: &["document-ingestion-api", "document-processing-worker"], loops: &["document-ingestion"], addons: &[], features: &["F11.1"] },
-    PanelSpec { id: "gitlab", path: "/gitlab", group: "governance", label: "GitLab integration", label_ko: "GitLab 연동", locked: false, workloads: &["document-ingestion-api", "document-processing-worker"], loops: &["document-ingestion"], addons: &[], features: &["F11.1"] },
-    PanelSpec { id: "azure-devops", path: "/azure-devops", group: "governance", label: "Azure DevOps integration", label_ko: "Azure DevOps 연동", locked: false, workloads: &["document-ingestion-api", "document-processing-worker"], loops: &["document-ingestion"], addons: &[], features: &["F11.1"] },
-    PanelSpec { id: "documents", path: "/documents", group: "governance", label: "Operating documents", label_ko: "운영 문서", locked: false, workloads: &["document-ingestion-api", "document-processing-worker"], loops: &["document-ingestion"], addons: &[], features: &["F11.1"] },
+    PanelSpec { id: "rules", path: "/governance/rules", group: "governance", label: "Operating rules", label_ko: "운영 규칙", locked: false, workloads: &[], loops: &["anomaly-analyzer"], addons: &[], features: &["F04.1"] },
+    PanelSpec { id: "trust-routing", path: "/governance/trust-routing", group: "governance", label: "Auto & AI routing ratio", label_ko: "자동 · AI 처리 비율", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F05.1"] },
+    PanelSpec { id: "ontology", path: "/governance/ontology", group: "governance", label: "Ontology", label_ko: "온톨로지", locked: false, workloads: &[], loops: &["inventory-reconciliation"], addons: &[], features: &["F02.2"] },
+    PanelSpec { id: "scope", path: "/governance/scope", group: "governance", label: "Managed scope", label_ko: "관리 대상 범위", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F01.1"] },
+    PanelSpec { id: "architecture", path: "/governance/architecture", group: "governance", label: "System architecture", label_ko: "시스템 구성도", locked: false, workloads: &[], loops: &["inventory-reconciliation"], addons: &[], features: &["F02.2"] },
+    PanelSpec { id: "blast-radius", path: "/governance/blast-radius", group: "governance", label: "Change impact analysis", label_ko: "변경 영향 분석", locked: false, workloads: &[], loops: &["inventory-reconciliation"], addons: &[], features: &["F06.1"] },
+    PanelSpec { id: "promotion-gates", path: "/governance/promotion-gates", group: "governance", label: "Automation promotion gates", label_ko: "자동화 적용 심사", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F06.2"] },
+    PanelSpec { id: "workflow-builder", path: "/governance/workflow-builder", group: "governance", label: "Automation builder", label_ko: "자동화 편집기", locked: false, workloads: &["isolated-executor"], loops: &["remediation-execution"], addons: &[], features: &["F07.2"] },
+    PanelSpec { id: "knowledge", path: "/governance/knowledge", group: "governance", label: "Knowledge management", label_ko: "지식 관리", locked: false, workloads: &["document-ingestion-api", "document-processing-worker"], loops: &["document-ingestion"], addons: &[], features: &["F11.1"] },
+    PanelSpec { id: "github", path: "/governance/github", group: "governance", label: "GitHub integration", label_ko: "GitHub 연동", locked: false, workloads: &["document-ingestion-api", "document-processing-worker"], loops: &["document-ingestion"], addons: &[], features: &["F11.1"] },
+    PanelSpec { id: "gitlab", path: "/governance/gitlab", group: "governance", label: "GitLab integration", label_ko: "GitLab 연동", locked: false, workloads: &["document-ingestion-api", "document-processing-worker"], loops: &["document-ingestion"], addons: &[], features: &["F11.1"] },
+    PanelSpec { id: "azure-devops", path: "/governance/azure-devops", group: "governance", label: "Azure DevOps integration", label_ko: "Azure DevOps 연동", locked: false, workloads: &["document-ingestion-api", "document-processing-worker"], loops: &["document-ingestion"], addons: &[], features: &["F11.1"] },
+    PanelSpec { id: "documents", path: "/governance/documents", group: "governance", label: "Operating documents", label_ko: "운영 문서", locked: false, workloads: &["document-ingestion-api", "document-processing-worker"], loops: &["document-ingestion"], addons: &[], features: &["F11.1"] },
     // 5. Evidence (감사 · 이력 — 6 panels)
-    PanelSpec { id: "audit", path: "/audit", group: "evidence", label: "Audit log", label_ko: "감사 로그", locked: true, workloads: &[], loops: &["saga-audit"], addons: &[], features: &["F10.1"] },
-    PanelSpec { id: "trace", path: "/trace", group: "evidence", label: "Execution trace", label_ko: "실행 추적", locked: false, workloads: &[], loops: &["anomaly-analyzer"], addons: &[], features: &["F04.1", "F10.1"] },
-    PanelSpec { id: "rca", path: "/rca", group: "evidence", label: "Root cause analysis (RCA)", label_ko: "원인 분석(RCA)", locked: false, workloads: &[], loops: &["anomaly-analyzer"], addons: &[], features: &["F04.3"] },
-    PanelSpec { id: "browser-evidence", path: "/browser-evidence", group: "evidence", label: "Browser evidence", label_ko: "웹 수집 기록", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F10.2"] },
-    PanelSpec { id: "conversation-search", path: "/conversation-search", group: "evidence", label: "Conversation search", label_ko: "대화 이력 검색", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F08.2"] },
-    PanelSpec { id: "reports", path: "/reports", group: "evidence", label: "Operational reports", label_ko: "운영 보고서", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F10.3"] },
+    PanelSpec { id: "audit", path: "/evidence/audit", group: "evidence", label: "Audit log", label_ko: "감사 로그", locked: true, workloads: &[], loops: &["saga-audit"], addons: &[], features: &["F10.1"] },
+    PanelSpec { id: "trace", path: "/evidence/trace", group: "evidence", label: "Execution trace", label_ko: "실행 추적", locked: false, workloads: &[], loops: &["anomaly-analyzer"], addons: &[], features: &["F04.1", "F10.1"] },
+    PanelSpec { id: "rca", path: "/evidence/rca", group: "evidence", label: "Root cause analysis (RCA)", label_ko: "원인 분석(RCA)", locked: false, workloads: &[], loops: &["anomaly-analyzer"], addons: &[], features: &["F04.3"] },
+    PanelSpec { id: "browser-evidence", path: "/evidence/browser-evidence", group: "evidence", label: "Browser evidence", label_ko: "웹 수집 기록", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F10.2"] },
+    PanelSpec { id: "conversation-search", path: "/evidence/conversation-search", group: "evidence", label: "Conversation search", label_ko: "대화 이력 검색", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F08.2"] },
+    PanelSpec { id: "reports", path: "/evidence/reports", group: "evidence", label: "Operational reports", label_ko: "운영 보고서", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F10.3"] },
     // 6. AI Chat (AI 채팅 — 1 panel)
     PanelSpec { id: "command-deck-chat", path: "/chat", group: "chat", label: "AI Chat (Command Deck)", label_ko: "AI 채팅", locked: false, workloads: &[], loops: &[], addons: &[], features: &["F08.2"] },
     // 7. Labs (실험실 — 6 panels)
@@ -784,4 +784,169 @@ fn detect_git_head_sha() -> Option<String> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn repo_root() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("workspace root")
+    }
+
+    fn extract_rust_panels_const(source: &str) -> Vec<String> {
+        let marker = "const PANELS:";
+        let start = source.find(marker).expect("const PANELS declaration");
+        let after = &source[start..];
+        let lb = after.find('[').expect("panels array start");
+        let rest = &after[lb + 1..];
+        let body_start = rest.find('=').expect("panels assignment");
+        let after_eq = &rest[body_start..];
+        let arr_l = after_eq.find('[').expect("panels literal start");
+        let arr_r = after_eq.find("];").expect("panels literal end");
+        let mut ids = Vec::new();
+        let mut cursor = &after_eq[arr_l + 1..arr_r];
+        while let Some(q1) = cursor.find('"') {
+            let after_q1 = &cursor[q1 + 1..];
+            let Some(q2) = after_q1.find('"') else { break };
+            ids.push(after_q1[..q2].to_string());
+            cursor = &after_q1[q2 + 1..];
+        }
+        ids
+    }
+
+    fn expected_console_v4_canonical_path(group: &str, panel_id: &str) -> String {
+        if panel_id == "command-deck-chat" {
+            return String::from("/chat");
+        }
+        if panel_id == "agents" {
+            return String::from("/agents");
+        }
+        if panel_id == "labs" {
+            return String::from("/labs");
+        }
+        if let Some(suffix) = panel_id.strip_prefix("settings-") {
+            return format!("/settings/{suffix}");
+        }
+        format!("/{group}/{panel_id}")
+    }
+
+    fn extract_shell_js_labels(source: &str) -> BTreeMap<String, String> {
+        let start = source
+            .find("const NAV_DOMAINS = [")
+            .expect("NAV_DOMAINS in fdai-console-shell.js");
+        let end = source[start..]
+            .find("\n  ];")
+            .expect("end of NAV_DOMAINS");
+        let block = &source[start..start + end];
+        let mut labels = BTreeMap::new();
+        for line in block.lines() {
+            let Some(id_pos) = line.find("id: \"") else { continue };
+            let Some(lbl_pos) = line.find("label: \"") else { continue };
+            if !line.trim_start().starts_with("{ id:") {
+                continue;
+            }
+            let id_tail = &line[id_pos + 5..];
+            let Some(id_end) = id_tail.find('"') else { continue };
+            let id = &id_tail[..id_end];
+            let lbl_tail = &line[lbl_pos + 8..];
+            let Some(lbl_end) = lbl_tail.find('"') else { continue };
+            let lbl = &lbl_tail[..lbl_end];
+            labels.insert(id.to_string(), lbl.to_string());
+        }
+        labels.insert(String::from("command-deck-chat"), String::from("AI 채팅"));
+        labels
+    }
+
+    #[test]
+    fn stencil_panels_match_console_v4_domains_paths_and_labels() {
+        let root = repo_root();
+        let domain_files = [
+            ("overview", "console_rs/src/domains/overview.rs"),
+            ("operations", "console_rs/src/domains/operations.rs"),
+            ("agents", "console_rs/src/domains/agents.rs"),
+            ("governance", "console_rs/src/domains/governance.rs"),
+            ("evidence", "console_rs/src/domains/evidence.rs"),
+            ("chat", "console_rs/src/domains/chat.rs"),
+            ("labs", "console_rs/src/domains/labs.rs"),
+            ("settings", "console_rs/src/domains/settings.rs"),
+        ];
+        let mut expected_pairs: Vec<(&str, String)> = Vec::new();
+        for (group, rel_path) in domain_files {
+            let src = fs::read_to_string(root.join(rel_path)).expect(rel_path);
+            for pid in extract_rust_panels_const(&src) {
+                expected_pairs.push((group, pid));
+            }
+        }
+        let actual_pairs: Vec<(&str, String)> = PANELS
+            .iter()
+            .map(|p| (p.group, p.id.to_string()))
+            .collect();
+        assert_eq!(actual_pairs, expected_pairs, "Release Hub PANELS must match Console v4 8 domains / 65 panels");
+
+        let shell_js = fs::read_to_string(root.join("console_rs/assets/js/fdai-console-shell.js"))
+            .expect("fdai-console-shell.js");
+        let shell_labels = extract_shell_js_labels(&shell_js);
+
+        let mut seen_paths = BTreeSet::new();
+        for panel in PANELS {
+            let expected_path = expected_console_v4_canonical_path(panel.group, panel.id);
+            assert_eq!(
+                panel.path, expected_path,
+                "panel '{}' path must match Console v4 canonical_panel_path",
+                panel.id
+            );
+            assert!(
+                seen_paths.insert(panel.path),
+                "duplicate canonical path '{}'",
+                panel.path
+            );
+            let expected_ko = shell_labels
+                .get(panel.id)
+                .unwrap_or_else(|| panic!("missing panel '{}' in fdai-console-shell.js", panel.id));
+            assert_eq!(
+                panel.label_ko, expected_ko,
+                "panel '{}' Korean label must match Console v4 shell navigation",
+                panel.id
+            );
+        }
+    }
+
+    #[test]
+    fn stencil_presets_and_console_build_command_align_with_console_v4() {
+        let st = ReleaseHubState::open_ephemeral();
+        let catalog = stencil_catalog_payload(&st);
+        let panels = catalog["panels"].as_array().expect("panels array");
+        assert_eq!(panels.len(), 65);
+        let presets = catalog["presets"].as_array().expect("presets array");
+        let counts: Vec<(&str, usize)> = presets
+            .iter()
+            .map(|entry| {
+                let id = entry["stencil"]["stencil_id"].as_str().unwrap_or("");
+                let n = entry["stencil"]["enabled_panel_ids"]
+                    .as_array()
+                    .map_or(0, Vec::len);
+                let cmd = entry["footprint"]["console_build_command"]
+                    .as_str()
+                    .unwrap_or("");
+                assert!(
+                    cmd.contains("cargo build -p fdai-console-v4"),
+                    "preset '{id}' build command must target fdai-console-v4"
+                );
+                (id, n)
+            })
+            .collect();
+        assert_eq!(
+            counts,
+            vec![
+                ("lite-observe-alert", 17),
+                ("standard-sre", 47),
+                ("full-enterprise", 65),
+            ]
+        );
+    }
 }

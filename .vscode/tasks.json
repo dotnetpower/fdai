@@ -128,15 +128,116 @@
       }
     },
     {
+      "label": "console-v4: serve (5290)",
+      "type": "shell",
+      "command": "cargo run --locked -p fdai-console-v4 -- --host 127.0.0.1 --port 5290",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "console-v4",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "(Compiling|Finished|Running)",
+          "endsPattern": "fdai-console-v4 listening on http://127\\.0\\.0\\.1:5290"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "console-v4",
+        "showReuseMessage": false
+      },
+      "runOptions": { "instanceLimit": 1 }
+    },
+    {
+      "label": "release-hub: serve (8022)",
+      "type": "shell",
+      "command": "cargo run --locked -p fdai-release-hub -- --host 127.0.0.1 --port 8022 --static-dir lifecycle_rs/release-hub/ui/dist",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "release-hub-rust",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "(Compiling|Finished|Running)",
+          "endsPattern": "AXUM_LISTENING http://127\\.0\\.0\\.1:8022 service=release-hub"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "release-hub-rust",
+        "showReuseMessage": false
+      },
+      "runOptions": { "instanceLimit": 1 }
+    },
+    {
+      "label": "lifecycle-hub: serve (8021)",
+      "type": "shell",
+      "command": "cargo run --locked -p fdai-hub -- --host 127.0.0.1 --port 8021 --static-dir lifecycle_rs/hub/ui/dist",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "lifecycle-hub-rust",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "(Compiling|Finished|Running)",
+          "endsPattern": "AXUM_LISTENING http://127\\.0\\.0\\.1:8021 service=hub"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "lifecycle-hub-rust",
+        "showReuseMessage": false
+      },
+      "runOptions": { "instanceLimit": 1 }
+    },
+    {
+      "label": "fullstack: start Pure-Rust stack",
+      "type": "shell",
+      "command": "bash deploy_rs/start-fullstack-rust.sh",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "rust-fullstack",
+        "showReuseMessage": false
+      },
+      "runOptions": { "instanceLimit": 1 }
+    },
+    {
+      "label": "fullstack: stop Pure-Rust stack",
+      "type": "shell",
+      "command": "bash deploy_rs/stop-fullstack-rust.sh",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "group": "rust-fullstack"
+      }
+    },
+    {
       "label": "lifecycle: serve example hub (8090)",
       "type": "shell",
-      "command": "${workspaceFolder}/.venv/bin/python -m fdai_lifecycle_hub.cli serve --port 8090",
+      "command": "cargo run --locked -p fdai-hub -- --host 127.0.0.1 --port 8090 --static-dir lifecycle_rs/hub/ui/dist",
       "options": {
-        "cwd": "${workspaceFolder}",
-        "env": {
-          "PYTHONPATH": "${workspaceFolder}/lifecycle/hub/src:${workspaceFolder}/packages/deployment-cli/src",
-          "FDAI_LIFECYCLE_HUB_DATABASE_URL": "sqlite+pysqlite:///${env:HOME}/.local/state/fdai/lifecycle-preview/hub/hub.db"
-        }
+        "cwd": "${workspaceFolder}"
       },
       "isBackground": true,
       "problemMatcher": {
@@ -144,8 +245,8 @@
         "pattern": { "regexp": "^(?!)$" },
         "background": {
           "activeOnStart": true,
-          "beginsPattern": "Started server process",
-          "endsPattern": "Uvicorn running on http://127\\.0\\.0\\.1:8090"
+          "beginsPattern": "(Compiling|Finished|Running)",
+          "endsPattern": "AXUM_LISTENING http://127\\.0\\.0\\.1:8090 service=hub"
         }
       },
       "presentation": {
@@ -158,12 +259,9 @@
     {
       "label": "lifecycle: serve example release hub (8091)",
       "type": "shell",
-      "command": "${workspaceFolder}/.venv/bin/python -m fdai_release_hub serve ${env:HOME}/.local/state/fdai/lifecycle-preview/release-hub --port 8091",
+      "command": "cargo run --locked -p fdai-release-hub -- --host 127.0.0.1 --port 8091 --static-dir lifecycle_rs/release-hub/ui/dist",
       "options": {
-        "cwd": "${workspaceFolder}",
-        "env": {
-          "PYTHONPATH": "${workspaceFolder}/lifecycle/release-hub/src:${workspaceFolder}/lifecycle/hub/src:${workspaceFolder}/packages/deployment-cli/src"
-        }
+        "cwd": "${workspaceFolder}"
       },
       "isBackground": true,
       "problemMatcher": {
@@ -171,8 +269,8 @@
         "pattern": { "regexp": "^(?!)$" },
         "background": {
           "activeOnStart": true,
-          "beginsPattern": "Started server process",
-          "endsPattern": "Uvicorn running on http://127\\.0\\.0\\.1:8091"
+          "beginsPattern": "(Compiling|Finished|Running)",
+          "endsPattern": "AXUM_LISTENING http://127\\.0\\.0\\.1:8091 service=release-hub"
         }
       },
       "presentation": {

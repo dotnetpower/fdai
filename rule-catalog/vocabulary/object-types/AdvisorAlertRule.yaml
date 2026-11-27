@@ -1,0 +1,51 @@
+schema_version: 1.0.0
+name: AdvisorAlertRule
+version: 1.0.0
+key: id
+description: Governed alert rule triggering notifications or workflows on new recommendations, score drops, retirements, or expired postponements.
+properties:
+  id:
+    type: string
+    required: true
+  name:
+    type: string
+    required: true
+  signal:
+    type: string
+    required: true
+    description: One of new_recommendation, score_regression, retirement_approaching, postpone_expired, waste_threshold.
+  scope:
+    type: object
+    required: true
+  category:
+    type: string
+    required: false
+  subcategory:
+    type: string
+    required: false
+  impact:
+    type: string
+    required: false
+  rule_id:
+    type: string
+    required: false
+  action_group:
+    type: string
+    required: true
+  channels:
+    type: array
+    required: true
+  enabled:
+    type: boolean
+    required: true
+  updated_at:
+    type: datetime
+    required: true
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:AdvisorAlertRule@1.0.0
+  content_hash: sha256:524128be5678f2d2bd94bab567ca509c45025296fc872543e14d90d66395d27f
+  license: MIT
+  retrieved_at: '2026-11-27T00:00:00Z'
+authority_class: projection_owned
+freshness_max_age_seconds: 900

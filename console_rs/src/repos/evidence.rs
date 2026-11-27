@@ -4,6 +4,7 @@
 use crate::db::{cell_i64, cell_str, clamp_limit, quote_like_contains, DbHandle};
 use fdai_adapter_postgres::pg_quote_literal;
 use serde_json::{json, Value};
+use std::collections::HashMap;
 
 #[derive(Debug, Default, Clone)]
 pub struct AuditChainFilter<'a> {
@@ -32,21 +33,17 @@ pub fn mode_label_ko(mode: &str) -> &'static str {
 fn short_resource_name(raw: &str) -> String {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
-        return String::from("system");
+        return String::new();
     }
     let last = trimmed
         .rsplit('/')
         .find(|seg| !seg.trim().is_empty())
         .unwrap_or(trimmed);
     let mut out = String::new();
-    for ch in last.chars().take(48) {
+    for ch in last.chars().take(64) {
         out.push(ch);
     }
-    if out.is_empty() {
-        String::from("system")
-    } else {
-        out
-    }
+    out
 }
 
 fn human_actor_meta(actor: &str) -> (&'static str, &'static str, &'static str) {
@@ -221,6 +218,70 @@ fn humanize_action_ko(raw: &str) -> &'static str {
     }
 }
 
+#[must_use]
+pub fn humanize_rule_id_ko(raw: &str) -> String {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    let low = trimmed.to_ascii_lowercase();
+    if low == "compute.vm.environment-tag.required" {
+        String::from("가상 머신 필수 environment 태그 기준")
+    } else if low.contains("managed-identity") {
+        String::from("가상 머신 관리 ID 할당 기준")
+    } else if low.contains("environment-tag") {
+        String::from("필수 environment 태그 기준")
+    } else if low.contains("snapshot") {
+        String::from("디스크 스냅샷 정책 기준")
+    } else if low.contains("zone-redundancy") {
+        String::from("가용성 영역 이중화 기준")
+    } else if low.contains("ddos") {
+        String::from("DDoS 보호 정책 기준")
+    } else if low.contains("public-access") {
+        String::from("공용 접근 차단 기준")
+    } else if low.contains("tag") {
+        String::from("리소스 태그 정책 기준")
+    } else {
+        trimmed.replace(['.', '_', '-'], " ")
+    }
+}
+
+#[must_use]
+pub fn humanize_remediation_action_ko(raw: &str) -> String {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    let low = trimmed.to_ascii_lowercase();
+    match low.as_str() {
+        "remediate.tag-add" => String::from("필수 태그 자동 추가"),
+        "remediate.assign-identity" => String::from("관리 ID 자동 할당"),
+        "remediate.restart" => String::from("워크로드 재시작"),
+        "remediate.revoke-access" => String::from("임시 접근 권한 회수"),
+        "remediate.restrict-network" => String::from("네트워크 접근 제한"),
+        "remediate.scale-out" => String::from("인스턴스 확장"),
+        _ => {
+            if let Some(rest) = low.strip_prefix("remediate.") {
+                format!("{} 조치", rest.replace(['.', '_', '-'], " "))
+            } else {
+                humanize_action_ko(trimmed).to_string()
+            }
+        }
+    }
+}
+
+#[must_use]
+pub fn humanize_severity_ko(raw: &str) -> &'static str {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "critical" | "sev1" | "p0" => "긴급",
+        "high" | "sev2" | "p1" => "높음",
+        "medium" | "moderate" | "sev3" | "p2" => "보통",
+        "low" | "sev4" | "p3" => "낮음",
+        "info" | "informational" => "정보",
+        _ => "",
+    }
+}
+
 fn humanize_reason_ko(raw: &str) -> String {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
@@ -232,7 +293,7 @@ fn humanize_reason_ko(raw: &str) -> String {
     } else if low == "no_rule_matches_resource_and_signal_type" {
         String::from("일치하는 자동화 규칙 없음")
     } else if low.starts_with("config_drift control violated") || low.contains(".rego") {
-        String::from("구성 기준선 이탈(Config Drift) 정책 위반이 감지되었습니다.")
+        String::from("구성 기준선 이탈 정책 위반이 감지되었습니다.")
     } else if low == "hil" {
         String::from("사람 승인 필요")
     } else if low == "deny" || low == "block" {
@@ -246,7 +307,15 @@ fn humanize_reason_ko(raw: &str) -> String {
     }
 }
 
-fn classify_audit_entry(
+fn target_display_or_empty(target: &str) -> String {
+    let trimmed = target.trim();
+    if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("system") {
+        return String::new();
+    }
+    humanize_target_ko(trimmed)
+}
+
+pub(crate) fn classify_audit_entry(
     action_kind: &str,
     mode: &str,
     target: &str,
@@ -256,38 +325,61 @@ fn classify_audit_entry(
     action_type: &str,
 ) -> (&'static str, &'static str, &'static str, String, String, &'static str) {
     let ak = action_kind.trim().to_ascii_lowercase();
-    let mode_ko = mode_label_ko(mode);
-    let target_ko = humanize_target_ko(target);
-    let rule_ko = if !rule_id.is_empty() {
-        humanize_target_ko(rule_id)
-    } else {
-        target_ko.clone()
-    };
+    let target_ko = target_display_or_empty(target);
+    let rule_ko = humanize_rule_id_ko(rule_id);
+    let rem_ko = humanize_remediation_action_ko(action_type);
     let action_ko = humanize_action_ko(action_kind);
     let reason_ko = humanize_reason_ko(reason);
+    let subj = if !rule_ko.is_empty() {
+        rule_ko.clone()
+    } else if !target_ko.is_empty() {
+        target_ko.clone()
+    } else {
+        String::from("운영 정책 이벤트")
+    };
+    let target_phrase = if !target_ko.is_empty() {
+        format!("{target_ko} 대상")
+    } else {
+        String::from("대상 리소스 미지정 상태의")
+    };
 
     if ak.starts_with("hil.requested") {
-        let act_ko = if !action_type.is_empty() {
-            humanize_action_ko(action_type)
+        let act_label = if !rem_ko.is_empty() {
+            rem_ko.as_str()
         } else {
-            "조치 승인"
+            "조치 실행"
         };
         return (
             "approval",
             "human",
             "사람 승인 요청",
-            format!("{rule_ko} — {act_ko} 승인 요청"),
-            format!("사람 승인 게이트가 {target_ko} 대상 조치({act_ko})에 대해 확인을 요청했습니다. ({mode_ko})"),
+            format!("{subj} — {act_label} 승인 요청"),
+            format!("{target_phrase} {act_label} 실행 전 운영자 확인을 요청했습니다."),
             "intent",
         );
     }
     if ak.starts_with("hil.timeout") || ak.starts_with("hil.request.dispatch_unavailable") {
+        let act_part = if !rem_ko.is_empty() {
+            format!("{rem_ko} ")
+        } else {
+            String::new()
+        };
+        let title = if ak.starts_with("hil.timeout") {
+            format!("{subj} — {act_part}승인 기한 만료로 자동 차단")
+        } else {
+            format!("{subj} — {act_part}승인 전달 불가로 자동 차단")
+        };
+        let summary = if ak.starts_with("hil.timeout") {
+            format!("{target_phrase} {act_part}승인 응답이 기한 내에 수신되지 않아 실행을 안전 차단했습니다. 침묵은 권한을 부여하지 않습니다.")
+        } else {
+            format!("{target_phrase} {act_part}승인 요청을 전달할 수 없어 실행을 안전 차단했습니다. 침묵은 권한을 부여하지 않습니다.")
+        };
         return (
             "approval",
             "sec",
-            "승인 대기 만료·차단",
-            format!("{rule_ko} — 사람 승인 미완료 자동 차단"),
-            format!("승인 응답 부재 또는 전달 불가로 실행을 안전 차단했습니다. 침묵은 권한을 부여하지 않습니다. ({mode_ko})"),
+            "승인 미완료 차단",
+            title,
+            summary,
             "intent",
         );
     }
@@ -297,6 +389,11 @@ fn classify_audit_entry(
         } else {
             humanize_reason_ko(decision)
         };
+        let act_part = if !rem_ko.is_empty() {
+            format!("{rem_ko} 요청을 ")
+        } else {
+            String::from("요청을 ")
+        };
         return (
             "approval",
             if decision.eq_ignore_ascii_case("deny") || decision.eq_ignore_ascii_case("block") {
@@ -305,32 +402,37 @@ fn classify_audit_entry(
                 "human"
             },
             "위험 게이트 판정",
-            format!("{target_ko} — 통합 위험 게이트 판정 ({dec_ko})"),
-            format!("통합 위험·권한 게이트가 {target_ko} 요청을 검토하고 판정({dec_ko})을 원장에 기록했습니다. ({mode_ko})"),
+            format!("{subj} — 위험 평가 결과 {dec_ko}"),
+            format!("{target_phrase} {act_part}통합 위험 게이트가 검토해 '{dec_ko}'로 판정했습니다."),
             "intent",
         );
     }
     if ak.contains("rollback") || ak.contains("remediate") || ak.starts_with("action.") || ak.starts_with("executor.") {
+        let act_label = if !rem_ko.is_empty() { rem_ko.as_str() } else { action_ko };
         return (
             "action",
             "sre",
             if ak.contains("rollback") { "안전 롤백" } else { "조치 기록" },
-            format!("{target_ko} — {action_ko}"),
-            format!("안전 경계 내에서 {target_ko} 대상 '{action_ko}' 단계가 수행·기록되었습니다. ({mode_ko})"),
+            format!("{subj} — {act_label}"),
+            format!("안전 경계 내에서 {target_phrase} '{act_label}' 조치를 수행·기록했습니다."),
             "dispatch",
         );
     }
     if ak == "rca.hypothesis" {
         let summary = if !reason_ko.is_empty() {
-            format!("{rule_ko}: {reason_ko}")
+            if !target_ko.is_empty() {
+                format!("{target_ko}에서 {subj} 위반 근거를 식별했습니다. {reason_ko}")
+            } else {
+                format!("{subj} 관련 원인 가설을 도출했습니다. {reason_ko}")
+            }
         } else {
-            format!("{rule_ko} 기반 근본 원인 가설을 도출해 감사 원장에 기록했습니다.")
+            format!("{target_phrase} {subj} 기반 근본 원인 가설을 도출해 감사 원장에 기록했습니다.")
         };
         return (
             "observe",
             "sre",
             "원인 가설 도출",
-            format!("{rule_ko} — 원인 분석 가설 기록"),
+            format!("{subj} — 원인 분석 가설 기록"),
             summary,
             "observe",
         );
@@ -341,8 +443,8 @@ fn classify_audit_entry(
             "shadow",
             "neutral",
             "근거 부족 보류",
-            format!("{target_ko} — 판단 보류 ({why})"),
-            format!("결정론적 규칙 근거가 충분하지 않아 자동 조치를 수행하지 않고 명시적으로 보류했습니다. ({mode_ko})"),
+            format!("{subj} — {why}으로 조치 보류"),
+            format!("{target_phrase} 결정론적 규칙 근거가 충분하지 않아 자동 조치 없이 보류했습니다."),
             "observe",
         );
     }
@@ -351,8 +453,8 @@ fn classify_audit_entry(
             "observe",
             "live",
             "정책 준수 확인",
-            format!("{target_ko} — 정책 준수 검증 완료"),
-            format!("결정론적 정책 평가 결과 위반 항목이 없어 정상 상태로 기록했습니다. ({mode_ko})"),
+            format!("{subj} — 정책 준수 검증 완료"),
+            format!("{target_phrase} 결정론적 정책 평가 결과 위반 항목이 없어 정상 상태로 기록했습니다."),
             "close",
         );
     }
@@ -362,8 +464,8 @@ fn classify_audit_entry(
             "shadow",
             "neutral",
             "유사 사례 평가",
-            format!("{target_ko} — 유사 사례 검토 ({why})"),
-            format!("과거 검증 사례와의 유사도를 비교 평가했습니다. 근거 기준 미달 시 자동 보류합니다. ({mode_ko})"),
+            format!("{subj} — 과거 사례 대조 결과 {why}"),
+            format!("{target_phrase} 과거 검증 사례와의 유사도를 비교 평가했으며 근거 기준 미달 시 보류합니다."),
             "observe",
         );
     }
@@ -372,8 +474,8 @@ fn classify_audit_entry(
             "observe",
             "live",
             "관측·상태 기록",
-            format!("{target_ko} — {action_ko}"),
-            format!("{target_ko}의 운영 상태 및 관측 스냅샷({action_ko})을 추가 전용 원장에 기록했습니다. ({mode_ko})"),
+            format!("{subj} — {action_ko}"),
+            format!("{target_phrase} 최신 운영 상태 스냅샷을 수집해 추가 전용 감사 원장에 기록했습니다."),
             "close",
         );
     }
@@ -381,8 +483,8 @@ fn classify_audit_entry(
         if mode.eq_ignore_ascii_case("shadow") { "shadow" } else { "observe" },
         "live",
         "원장 기록 완료",
-        format!("{target_ko} — {action_ko}"),
-        format!("{target_ko} 대상 '{action_ko}' 이벤트가 무결성 체인에 봉인되었습니다. ({mode_ko})"),
+        format!("{subj} — {action_ko}"),
+        format!("{target_phrase} '{action_ko}' 이벤트가 무결성 체인에 봉인되었습니다."),
         "close",
     )
 }
@@ -586,7 +688,7 @@ pub async fn fetch_audit_chain_filtered(db: &DbHandle, f: &AuditChainFilter<'_>)
         "SELECT seq, event_id::text, COALESCE(correlation_id, ''), actor, action_kind, mode, \
          previous_hash, entry_hash, \
          to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), \
-         COALESCE(entry->'payload'->>'resource_id', entry->>'resource_id', entry->>'resource_type', ''), \
+         COALESCE(entry->'payload'->>'resource_id', entry->>'resource_id', entry->>'target_resource_ref', entry->>'subject_ref', entry->>'resource_type', ''), \
          COALESCE(entry->>'resource_type', ''), \
          COALESCE(entry->>'rule_id', ''), \
          COALESCE(entry->>'rca_cause', entry->>'reason', entry->>'t1_reason', ''), \
@@ -594,7 +696,8 @@ pub async fn fetch_audit_chain_filtered(db: &DbHandle, f: &AuditChainFilter<'_>)
          COALESCE(entry->>'action_type', ''), \
          COALESCE(entry->>'idempotency_key', ''), \
          COALESCE(entry->>'tier', entry->>'rca_tier', ''), \
-         COALESCE(entry->>'severity', '') \
+         COALESCE(entry->>'severity', ''), \
+         COALESCE(entry->>'approval_id', entry->>'request_id', '') \
          FROM audit_log {where_sql} ORDER BY seq DESC LIMIT {fetch_lim}"
     );
     let kpi_sql = "SELECT \
@@ -603,17 +706,112 @@ pub async fn fetch_audit_chain_filtered(db: &DbHandle, f: &AuditChainFilter<'_>)
         count(*) FILTER (WHERE action_kind LIKE 'action.%' OR action_kind LIKE 'executor.%' OR action_kind LIKE '%rollback%' OR action_kind LIKE '%remediate%'), \
         count(*) FILTER (WHERE mode = 'shadow') \
         FROM audit_log";
+    let hil_park_sql = "SELECT \
+        COALESCE(value->>'correlation_id', ''), \
+        COALESCE(value->'action'->>'target_resource_ref', value->>'target_resource_ref', ''), \
+        COALESCE(value->>'rule_id', ''), \
+        COALESCE(value->>'action_type', ''), \
+        COALESCE(value->>'severity', ''), \
+        COALESCE(value->>'approval_id', ''), \
+        COALESCE(value->>'category', '') \
+        FROM state_kv WHERE key LIKE 'hil_park:%' ORDER BY updated_at DESC LIMIT 200";
+    let incident_sql = "SELECT \
+        correlation_id, \
+        COALESCE(canonical_incident_number, canonical_incident_id, ''), \
+        COALESCE(projected_severity, ''), \
+        COALESCE(history->0->'entry'->>'target', history->0->'entry'->>'resource_id', '') \
+        FROM operator_incident_projection ORDER BY last_seq DESC LIMIT 100";
 
-    let (rows_res, kpi_res) = tokio::join!(
+    let (rows_res, kpi_res, hil_res, inc_res) = tokio::join!(
         db.query_single_readonly(&sql),
         db.query_single_readonly(kpi_sql),
+        db.query_single_readonly(hil_park_sql),
+        db.query_single_readonly(incident_sql),
     );
     let Ok(res) = rows_res else {
         return db.not_measured("evidence", "/api/v4/evidence/audit", "postgres_unreachable");
     };
 
+    #[derive(Clone, Default)]
+    struct HilJoinMeta {
+        target_ref: String,
+        rule_id: String,
+        action_type: String,
+        severity: String,
+        approval_id: String,
+    }
+    let mut hil_by_corr: HashMap<String, HilJoinMeta> = HashMap::new();
+    let mut hil_by_approval: HashMap<String, HilJoinMeta> = HashMap::new();
+    if let Ok(hr) = hil_res {
+        for r in &hr.rows {
+            let cid = cell_str(r, 0);
+            let meta = HilJoinMeta {
+                target_ref: cell_str(r, 1),
+                rule_id: cell_str(r, 2),
+                action_type: cell_str(r, 3),
+                severity: cell_str(r, 4),
+                approval_id: cell_str(r, 5),
+            };
+            if !cid.is_empty() {
+                hil_by_corr.entry(cid).or_insert_with(|| meta.clone());
+            }
+            if !meta.approval_id.is_empty() {
+                hil_by_approval.entry(meta.approval_id.clone()).or_insert(meta);
+            }
+        }
+    }
+
+    #[derive(Clone, Default)]
+    struct IncidentJoinMeta {
+        incident_number: String,
+        severity: String,
+        target_ref: String,
+    }
+    let mut inc_by_corr: HashMap<String, IncidentJoinMeta> = HashMap::new();
+    if let Ok(ir) = inc_res {
+        for r in &ir.rows {
+            let cid = cell_str(r, 0);
+            if !cid.is_empty() {
+                inc_by_corr.entry(cid).or_insert(IncidentJoinMeta {
+                    incident_number: cell_str(r, 1),
+                    severity: cell_str(r, 2),
+                    target_ref: cell_str(r, 3),
+                });
+            }
+        }
+    }
+
     let has_more = res.rows.len() > lim;
     let slice_len = res.rows.len().min(lim);
+    let mut sibling_by_corr: HashMap<String, HilJoinMeta> = HashMap::new();
+    for r in res.rows.iter().take(slice_len) {
+        let cid = cell_str(r, 2);
+        if cid.is_empty() {
+            continue;
+        }
+        let ent = sibling_by_corr.entry(cid).or_default();
+        let rt = cell_str(r, 9);
+        if ent.target_ref.is_empty() && !rt.is_empty() {
+            ent.target_ref = rt;
+        }
+        let rid = cell_str(r, 11);
+        if ent.rule_id.is_empty() && !rid.is_empty() {
+            ent.rule_id = rid;
+        }
+        let at = cell_str(r, 14);
+        if ent.action_type.is_empty() && !at.is_empty() {
+            ent.action_type = at;
+        }
+        let sv = cell_str(r, 17);
+        if ent.severity.is_empty() && !sv.is_empty() {
+            ent.severity = sv;
+        }
+        let aid = cell_str(r, 18);
+        if ent.approval_id.is_empty() && !aid.is_empty() {
+            ent.approval_id = aid;
+        }
+    }
+
     let mut link_gaps = 0_usize;
     let mut prev_seq: Option<i64> = None;
     let mut prev_expected_hash: Option<String> = None;
@@ -631,13 +829,14 @@ pub async fn fetch_audit_chain_filtered(db: &DbHandle, f: &AuditChainFilter<'_>)
         let created_at = cell_str(r, 8);
         let raw_target = cell_str(r, 9);
         let resource_type = cell_str(r, 10);
-        let rule_id = cell_str(r, 11);
+        let entry_rule_id = cell_str(r, 11);
         let reason = cell_str(r, 12);
         let decision = cell_str(r, 13);
-        let action_type = cell_str(r, 14);
+        let entry_action_type = cell_str(r, 14);
         let idem_key = cell_str(r, 15);
         let tier = cell_str(r, 16);
-        let severity = cell_str(r, 17);
+        let entry_severity = cell_str(r, 17);
+        let entry_approval_id = cell_str(r, 18);
 
         if let (Some(ps), Some(cur), Some(exp)) = (prev_seq, seq, prev_expected_hash.as_ref()) {
             if ps == cur + 1 && !exp.is_empty() && exp != &entry_hash {
@@ -647,19 +846,101 @@ pub async fn fetch_audit_chain_filtered(db: &DbHandle, f: &AuditChainFilter<'_>)
         prev_seq = seq;
         prev_expected_hash = Some(prev_hash.clone());
 
-        let label = mode_label_ko(&mode);
-        let target = short_resource_name(if raw_target.is_empty() {
-            if !rule_id.is_empty() {
-                &rule_id
-            } else {
-                &resource_type
-            }
+        let hil_meta = if !corr.is_empty() {
+            hil_by_corr.get(&corr)
         } else {
-            &raw_target
+            None
+        }
+        .or_else(|| {
+            if !entry_approval_id.is_empty() {
+                hil_by_approval.get(&entry_approval_id)
+            } else {
+                None
+            }
         });
-        let target_label_ko = humanize_target_ko(&target);
+        let inc_meta = if !corr.is_empty() {
+            inc_by_corr.get(&corr)
+        } else {
+            None
+        };
+        let sib_meta = if !corr.is_empty() {
+            sibling_by_corr.get(&corr)
+        } else {
+            None
+        };
+
+        let rule_id = if !entry_rule_id.is_empty() {
+            entry_rule_id
+        } else if let Some(hm) = hil_meta.filter(|m| !m.rule_id.is_empty()) {
+            hm.rule_id.clone()
+        } else if let Some(sm) = sib_meta.filter(|m| !m.rule_id.is_empty()) {
+            sm.rule_id.clone()
+        } else {
+            String::new()
+        };
+        let action_type = if !entry_action_type.is_empty() {
+            entry_action_type
+        } else if let Some(hm) = hil_meta.filter(|m| !m.action_type.is_empty()) {
+            hm.action_type.clone()
+        } else if let Some(sm) = sib_meta.filter(|m| !m.action_type.is_empty()) {
+            sm.action_type.clone()
+        } else {
+            String::new()
+        };
+        let severity = if !entry_severity.is_empty() {
+            entry_severity
+        } else if let Some(hm) = hil_meta.filter(|m| !m.severity.is_empty()) {
+            hm.severity.clone()
+        } else if let Some(im) = inc_meta.filter(|m| !m.severity.is_empty()) {
+            im.severity.clone()
+        } else if let Some(sm) = sib_meta.filter(|m| !m.severity.is_empty()) {
+            sm.severity.clone()
+        } else {
+            String::new()
+        };
+        let approval_id = if !entry_approval_id.is_empty() {
+            entry_approval_id
+        } else if let Some(hm) = hil_meta.filter(|m| !m.approval_id.is_empty()) {
+            hm.approval_id.clone()
+        } else if let Some(sm) = sib_meta.filter(|m| !m.approval_id.is_empty()) {
+            sm.approval_id.clone()
+        } else {
+            String::new()
+        };
+        let incident_number = inc_meta
+            .map(|m| m.incident_number.clone())
+            .unwrap_or_default();
+
+        // Prefer concrete joined resource reference over generic resource_type or rule_id;
+        // never fabricate "system" or "구독 전체" when no target exists.
+        let target_resource_ref = if !raw_target.is_empty() && raw_target != resource_type {
+            raw_target.clone()
+        } else if let Some(hm) = hil_meta.filter(|m| !m.target_ref.is_empty()) {
+            hm.target_ref.clone()
+        } else if let Some(im) = inc_meta.filter(|m| !m.target_ref.is_empty()) {
+            im.target_ref.clone()
+        } else if !raw_target.is_empty() {
+            raw_target.clone()
+        } else if !resource_type.is_empty() {
+            resource_type.clone()
+        } else if let Some(sm) = sib_meta.filter(|m| !m.target_ref.is_empty()) {
+            sm.target_ref.clone()
+        } else {
+            String::new()
+        };
+
+        let label = mode_label_ko(&mode);
+        let target = short_resource_name(&target_resource_ref);
+        let target_label_ko = if target.is_empty() {
+            String::from("대상 미지정")
+        } else {
+            humanize_target_ko(&target)
+        };
         let action_label_ko = humanize_action_ko(&action_kind);
-        let target_icon = target_icon_for(&target, &resource_type);
+        let rule_label_ko = humanize_rule_id_ko(&rule_id);
+        let remediation_action_ko = humanize_remediation_action_ko(&action_type);
+        let severity_label_ko = humanize_severity_ko(&severity);
+        let target_icon = target_icon_for(&target_resource_ref, &resource_type);
         let (actor_label, actor_role, agent_icon) = human_actor_meta(&actor);
         let (cat, tone, status_ko, title_ko, summary_ko, phase) = classify_audit_entry(
             &action_kind,
@@ -670,11 +951,12 @@ pub async fn fetch_audit_chain_filtered(db: &DbHandle, f: &AuditChainFilter<'_>)
             &decision,
             &action_type,
         );
-        let human_summary = format!("{actor_label} · {title_ko} ({label})");
+        let human_summary = format!("{actor_label} · {title_ko}");
         let risk_label = if !tier.is_empty() {
-            format!("{} · {}", tier.to_ascii_uppercase(), if severity.is_empty() { "운영" } else { &severity })
-        } else if !severity.is_empty() {
-            format!("위험도 {severity}")
+            let sev_part = if severity_label_ko.is_empty() { "운영" } else { severity_label_ko };
+            format!("{} · {sev_part}", tier.to_ascii_uppercase())
+        } else if !severity_label_ko.is_empty() {
+            format!("심각도 {severity_label_ko}")
         } else {
             String::from("표준 거버넌스")
         };
@@ -688,6 +970,8 @@ pub async fn fetch_audit_chain_filtered(db: &DbHandle, f: &AuditChainFilter<'_>)
             "agent_icon": agent_icon,
             "action_kind": action_kind,
             "action_label_ko": action_label_ko,
+            "action_type": action_type,
+            "remediation_action_ko": remediation_action_ko,
             "mode_label_ko": label,
             "category": cat,
             "tone": tone,
@@ -696,10 +980,16 @@ pub async fn fetch_audit_chain_filtered(db: &DbHandle, f: &AuditChainFilter<'_>)
             "summary_ko": summary_ko,
             "human_summary": human_summary,
             "target": target,
+            "target_resource_ref": target_resource_ref,
             "target_label_ko": target_label_ko,
             "resource_type": resource_type,
             "target_icon": target_icon,
             "rule_id": rule_id,
+            "rule_label_ko": rule_label_ko,
+            "severity": severity,
+            "severity_label_ko": severity_label_ko,
+            "approval_id": approval_id,
+            "incident_number": incident_number,
             "risk_label": risk_label,
             "recorded_phase": phase,
             "idempotency_key": if idem_key.is_empty() { format!("audit-seq-{}", seq.unwrap_or(0)) } else { idem_key },
@@ -921,14 +1211,33 @@ pub async fn fetch_trace(
         GROUP BY correlation_id \
         ORDER BY count(*) DESC, max(seq) DESC LIMIT 12";
 
-    let (proc_list_res, audit_list_res, head_integrity) = tokio::join!(
+    let hil_map_sql = "SELECT COALESCE(value->>'correlation_id', ''), \
+        COALESCE(value->'action'->>'target_resource_ref', value->>'target_resource_ref', ''), \
+        COALESCE(value->>'rule_id', '') \
+        FROM state_kv WHERE key LIKE 'hil_park:%' ORDER BY updated_at DESC LIMIT 200";
+
+    let (proc_list_res, audit_list_res, head_integrity, hil_map_res) = tokio::join!(
         db.query_single_readonly(proc_list_sql),
         db.query_single_readonly(audit_list_sql),
         check_head_integrity(db, 25),
+        db.query_single_readonly(hil_map_sql),
     );
     let (Ok(pl), Ok(al)) = (proc_list_res, audit_list_res) else {
         return db.not_measured("evidence", "/api/v4/evidence/trace", "postgres_unreachable");
     };
+
+    let mut hil_target_by_corr: HashMap<String, (String, String)> = HashMap::new();
+    if let Ok(hr) = hil_map_res {
+        for r in &hr.rows {
+            let cid = cell_str(r, 0);
+            if cid.is_empty() {
+                continue;
+            }
+            hil_target_by_corr
+                .entry(cid)
+                .or_insert_with(|| (short_resource_name(&cell_str(r, 1)), humanize_rule_id_ko(&cell_str(r, 2))));
+        }
+    }
 
     let mut available: Vec<Value> = Vec::new();
     let mut seen_ids: Vec<String> = Vec::new();
@@ -944,7 +1253,7 @@ pub async fn fetch_trace(
             "span_count": cell_i64(r, 1).unwrap_or(0),
             "started_at": cell_str(r, 2),
             "ended_at": cell_str(r, 3),
-            "label": format!("{} · 워크플로 ({})", cid, cell_str(r, 4)),
+            "label": format!("{} · 워크플로 ({}단계)", cid, cell_i64(r, 1).unwrap_or(0)),
             "origin": "process_event"
         }));
     }
@@ -956,12 +1265,24 @@ pub async fn fetch_trace(
         seen_ids.push(cid.clone());
         let short_cid = short_resource_name(&cid);
         let act_label = humanize_action_ko(&cell_str(r, 4));
+        let cnt = cell_i64(r, 1).unwrap_or(0);
+        let label = if let Some((res_name, rule_ko)) = hil_target_by_corr.get(&cid) {
+            if !res_name.is_empty() && !rule_ko.is_empty() {
+                format!("{rule_ko} · {res_name} ({cnt}단계)")
+            } else if !res_name.is_empty() {
+                format!("{act_label} · {res_name} ({cnt}단계)")
+            } else {
+                format!("{act_label} · {short_cid} ({cnt}단계)")
+            }
+        } else {
+            format!("{act_label} · {short_cid} ({cnt}단계)")
+        };
         available.push(json!({
             "correlation_id": cid,
-            "span_count": cell_i64(r, 1).unwrap_or(0),
+            "span_count": cnt,
             "started_at": cell_str(r, 2),
             "ended_at": cell_str(r, 3),
-            "label": format!("{} · {} ({}건)", act_label, short_cid, cell_i64(r, 1).unwrap_or(0)),
+            "label": label,
             "origin": "audit_log"
         }));
     }
@@ -1061,14 +1382,14 @@ pub async fn fetch_trace(
                 let stage_ko = if stage.is_empty() {
                     String::new()
                 } else {
-                    humanize_target_ko(&stage)
+                    humanize_rule_id_ko(&stage)
                 };
                 let summary = if !reason_ko.is_empty() {
-                    format!("{actor_role} · {kind_ko}: {reason_ko}")
+                    format!("{kind_ko} — {reason_ko}")
                 } else if !stage_ko.is_empty() {
-                    format!("{actor_role}에서 '{kind_ko}'({stage_ko}) 단계를 기록했습니다. ({mode_ko})")
+                    format!("{actor_label}에서 {stage_ko} 기준 '{kind_ko}' 단계를 기록했습니다.")
                 } else {
-                    format!("{actor_role}에서 '{kind_ko}' 작업을 기록했습니다. ({mode_ko})")
+                    format!("{actor_label}에서 '{kind_ko}' 작업을 기록했습니다.")
                 };
                 merged.push((
                     epoch,
@@ -1549,7 +1870,14 @@ pub async fn fetch_reports(
         "90d" => "90 days",
         _ => "7 days",
     };
-    let scope_res_clause = if sc.eq_ignore_ascii_case("all") {
+    let win_ko = match win.to_ascii_lowercase().as_str() {
+        "24h" => "최근 24시간",
+        "30d" => "최근 30일",
+        "90d" => "최근 90일",
+        _ => "최근 7일",
+    };
+    let is_all_scope = sc.eq_ignore_ascii_case("all");
+    let scope_res_clause = if is_all_scope {
         String::from("object_type = 'Resource'")
     } else {
         let pat = quote_like_contains(sc);
@@ -1559,22 +1887,52 @@ pub async fn fetch_reports(
     let counts_sql = format!(
         "SELECT \
          (SELECT count(*) FROM audit_log), \
-         (SELECT count(*) FROM audit_log WHERE action_kind LIKE 'hil.%' OR action_kind LIKE 'risk_gate%'), \
+         (SELECT count(*) FROM audit_log WHERE (action_kind LIKE 'hil.%' OR action_kind LIKE 'risk_gate%') AND created_at >= NOW() - CAST({q_win_iv} AS interval)), \
          (SELECT count(*) FROM process_event), \
          (SELECT count(*) FROM operator_incident_projection), \
+         (SELECT count(*) FROM operator_incident_projection WHERE projected_state NOT IN ('resolved', 'closed')), \
          (SELECT count(*) FROM operational_state_transition), \
          (SELECT count(*) FROM browser_evidence_artifact), \
          (SELECT count(*) FROM conversation_outbound_delivery), \
          (SELECT count(*) FROM audit_log WHERE created_at >= NOW() - CAST({q_win_iv} AS interval)), \
+         (SELECT count(*) FROM audit_log WHERE mode = 'shadow' AND created_at >= NOW() - CAST({q_win_iv} AS interval)), \
+         (SELECT count(*) FROM audit_log WHERE mode IN ('enforce', 'enforced', 'approval') AND created_at >= NOW() - CAST({q_win_iv} AS interval)), \
+         (SELECT count(*) FROM audit_log WHERE mode IN ('auto', 'autonomous', 'auto_remediate') AND created_at >= NOW() - CAST({q_win_iv} AS interval)), \
+         (SELECT count(*) FROM audit_log WHERE (action_kind LIKE 'action.%' OR action_kind LIKE 'executor.%' OR action_kind LIKE '%rollback%' OR action_kind LIKE '%remediate%') AND created_at >= NOW() - CAST({q_win_iv} AS interval)), \
          (SELECT count(*) FROM ontology_resource WHERE {scope_res_clause}), \
-         to_char(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI \"UTC\"')"
+         (SELECT count(*) FROM state_kv WHERE key LIKE 'hil_park:%'), \
+         (SELECT count(*) FROM state_kv WHERE key LIKE 'runtime:analyzer-finding-current:%'), \
+         (SELECT count(*) FROM operational_state_transition_coverage), \
+         (SELECT COALESCE(SUM(CASE WHEN complete THEN 1 ELSE 0 END), 0) FROM operational_state_transition_coverage), \
+         (SELECT COALESCE(link_count, 0) FROM inventory_snapshot WHERE status = 'active' ORDER BY started_at DESC LIMIT 1), \
+         to_char(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')"
     );
+    let hil_top_sql = "SELECT \
+        COALESCE(value->>'rule_id', ''), \
+        COALESCE(value->>'action_type', ''), \
+        COALESCE(value->>'severity', ''), \
+        COALESCE(value->'action'->>'target_resource_ref', value->>'target_resource_ref', ''), \
+        COALESCE(value->'approval_context'->>'expires_at', '') \
+        FROM state_kv WHERE key LIKE 'hil_park:%' ORDER BY updated_at DESC LIMIT 30";
+    let open_inc_sql = "SELECT \
+        COALESCE(canonical_incident_number, canonical_incident_id, correlation_id), \
+        COALESCE(projected_state, 'unknown'), \
+        COALESCE(projected_severity, 'medium'), \
+        COALESCE(history->0->'entry'->>'title', ''), \
+        COALESCE(canonical_opened_at, '') \
+        FROM operator_incident_projection ORDER BY last_seq DESC LIMIT 5";
+    let cs_sql = "SELECT value::text FROM state_kv \
+        WHERE key LIKE 'runtime:code-security-issues:%' AND key NOT LIKE '%:artifacts%' \
+        ORDER BY updated_at DESC LIMIT 10";
 
-    let (ret_res, cnt_res, head_integrity, (ontology_total, available_scopes)) = tokio::join!(
+    let (ret_res, cnt_res, head_integrity, (ontology_total, available_scopes), hil_top_res, inc_list_res, cs_res) = tokio::join!(
         db.query_single_readonly(ret_sql),
         db.query_single_readonly(&counts_sql),
         check_head_integrity(db, 25),
         fetch_connected_scopes(db),
+        db.query_single_readonly(hil_top_sql),
+        db.query_single_readonly(open_inc_sql),
+        db.query_single_readonly(cs_sql),
     );
     let (Ok(rr), Ok(cr)) = (ret_res, cnt_res) else {
         return db.not_measured("evidence", "/api/v4/evidence/reports", "postgres_unreachable");
@@ -1582,14 +1940,24 @@ pub async fn fetch_reports(
 
     let (
         audit_total,
-        hil_total,
+        hil_in_window,
         proc_total,
         inc_total,
+        inc_open,
         trans_total,
         browser_total,
         conv_total,
         audit_in_window,
+        shadow_in_window,
+        enforce_in_window,
+        auto_in_window,
+        action_in_window,
         scoped_resources,
+        hil_pending_total,
+        active_findings,
+        cov_total,
+        cov_complete,
+        link_count,
         generated_at,
     ) = if let Some(row) = cr.rows.first() {
         (
@@ -1602,15 +1970,157 @@ pub async fn fetch_reports(
             cell_i64(row, 6).unwrap_or(0),
             cell_i64(row, 7).unwrap_or(0),
             cell_i64(row, 8).unwrap_or(0),
-            cell_str(row, 9),
+            cell_i64(row, 9).unwrap_or(0),
+            cell_i64(row, 10).unwrap_or(0),
+            cell_i64(row, 11).unwrap_or(0),
+            cell_i64(row, 12).unwrap_or(0),
+            cell_i64(row, 13).unwrap_or(0),
+            cell_i64(row, 14).unwrap_or(0),
+            cell_i64(row, 15).unwrap_or(0),
+            cell_i64(row, 16).unwrap_or(0),
+            cell_i64(row, 17).unwrap_or(0),
+            cell_i64(row, 18).unwrap_or(0),
+            cell_str(row, 19),
         )
     } else {
-        (0, 0, 0, 0, 0, 0, 0, 0, 0, String::from("실시간 UTC"))
+        (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, String::new())
     };
 
-    let (gaps, checked_window, latest_seq) = head_integrity.unwrap_or((0, 0, None));
-    let integrity_verified = gaps == 0;
-    let integrity_status = if integrity_verified { "verified" } else { "tampered" };
+    // Distinguish integrity check failure (None -> not-measured) from verified (0 gaps) or tampered (>0 gaps).
+    let (integrity_status, integrity_verified, integrity_gaps_val, checked_window, _latest_seq, integrity_summary_ko) =
+        match head_integrity {
+            Some((gaps, cw, lseq)) => {
+                let verified = gaps == 0;
+                let st = if verified { "verified" } else { "tampered" };
+                let scope_txt = if (cw as i64) < audit_total {
+                    format!("최근 {cw}건 부분 검사 · 결손 {gaps}건")
+                } else {
+                    format!("전체 {cw}건 검사 · 결손 {gaps}건")
+                };
+                (st, verified, json!(gaps), cw, lseq, scope_txt)
+            }
+            None => (
+                "not-measured",
+                false,
+                Value::Null,
+                0,
+                None,
+                String::from("미측정 (무결성 검사 미수행)"),
+            ),
+        };
+    let integrity_alert = integrity_status == "tampered";
+
+    // Parse code security findings (critical/high vs other) honestly.
+    let mut cs_total: i64 = 0;
+    let mut cs_crit_high: i64 = 0;
+    let mut cs_measured = false;
+    if let Ok(cs) = cs_res {
+        if !cs.rows.is_empty() {
+            cs_measured = true;
+        }
+        for row in &cs.rows {
+            let raw_txt = cell_str(row, 0);
+            if let Ok(parsed) = serde_json::from_str::<Value>(&raw_txt) {
+                if let Some(arr) = parsed.get("issues").and_then(Value::as_array) {
+                    for item in arr {
+                        cs_total += 1;
+                        let sev = item
+                            .get("severity")
+                            .and_then(Value::as_str)
+                            .unwrap_or("")
+                            .to_ascii_lowercase();
+                        if matches!(sev.as_str(), "critical" | "high" | "error") {
+                            cs_crit_high += 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Group pending HIL approvals by rule + action so executives see actionable decision items.
+    let mut hil_groups: HashMap<(String, String, String), (usize, String)> = HashMap::new();
+    if let Ok(hr) = hil_top_res {
+        for r in &hr.rows {
+            let rid = cell_str(r, 0);
+            let act = cell_str(r, 1);
+            let sev = cell_str(r, 2);
+            let exp = cell_str(r, 4);
+            let entry = hil_groups.entry((rid, act, sev)).or_insert((0, String::new()));
+            entry.0 += 1;
+            if entry.1.is_empty() && !exp.is_empty() {
+                entry.1 = exp;
+            }
+        }
+    }
+
+    let mut decisions: Vec<Value> = Vec::new();
+    let mut hil_group_vec: Vec<_> = hil_groups.into_iter().collect();
+    hil_group_vec.sort_by(|a, b| b.1 .0.cmp(&a.1 .0));
+    for ((rid, act, sev), (cnt, exp)) in hil_group_vec.into_iter().take(3) {
+        let rule_ko = if rid.is_empty() {
+            String::from("운영 거버넌스 정책")
+        } else {
+            humanize_rule_id_ko(&rid)
+        };
+        let act_ko = if act.is_empty() {
+            String::from("권장 조치 실행")
+        } else {
+            humanize_remediation_action_ko(&act)
+        };
+        let sev_ko = humanize_severity_ko(&sev);
+        decisions.push(json!({
+            "kind": "승인 대기",
+            "tone": "human",
+            "title": format!("{rule_ko} — {act_ko} ({cnt}건)"),
+            "reason": format!(
+                "심각도 {} · 사람 승인 대기열에 {}건 적체 (침묵은 승인이 아니므로 명시적 승인/반려 필요)",
+                if sev_ko.is_empty() { "미지정" } else { sev_ko },
+                cnt
+            ),
+            "impact": format!("대상 리소스 {cnt}개 (전체 범위 기준)"),
+            "owner": "지정 필요 (운영 승인자)",
+            "due_at": if exp.is_empty() { String::from("만료 시각 미기록") } else { exp }
+        }));
+    }
+
+    if let Ok(ir) = inc_list_res {
+        for r in &ir.rows {
+            let num = cell_str(r, 0);
+            let st = cell_str(r, 1);
+            let sev = cell_str(r, 2);
+            let title = cell_str(r, 3);
+            let opened = cell_str(r, 4);
+            if st != "resolved" && st != "closed" {
+                let sev_ko = humanize_severity_ko(&sev);
+                decisions.push(json!({
+                    "kind": "검토 권고",
+                    "tone": "sec",
+                    "title": format!("진행 중 장애 {num} 원인 확정 및 대응 점검"),
+                    "reason": format!(
+                        "심각도 {} · {}",
+                        if sev_ko.is_empty() { "미지정" } else { sev_ko },
+                        if title.is_empty() { "운영 이상 대응 진행 중" } else { &title }
+                    ),
+                    "impact": "서비스 회복탄력성 (전체 범위 기준)",
+                    "owner": "지정 필요 (장애 대응 책임자)",
+                    "due_at": if opened.is_empty() { String::from("즉시 검토") } else { opened }
+                }));
+            }
+        }
+    }
+
+    if cs_crit_high > 0 {
+        decisions.push(json!({
+            "kind": "검토 권고",
+            "tone": "sec",
+            "title": format!("코드 보안 중요·높음 취약점 {cs_crit_high}건 우선 개선 계획 승인"),
+            "reason": format!("최근 스캔 총 {cs_total}건 중 중요·높음 {cs_crit_high}건 식별 (전체 저장소 기준)"),
+            "impact": "애플리케이션 보안 및 배포 안전성",
+            "owner": "지정 필요 (보안·개발 리드)",
+            "due_at": "차기 스프린트 전 검토"
+        }));
+    }
 
     let retention_policies: Vec<Value> = rr
         .rows
@@ -1627,47 +2137,206 @@ pub async fn fetch_reports(
             })
         })
         .collect();
+    let retain_count = retention_policies
+        .iter()
+        .filter(|p| p.get("deletion_method").and_then(Value::as_str) == Some("retain"))
+        .count();
 
-    let first_digest = retention_policies
-        .first()
-        .and_then(|v| v.get("policy_digest"))
-        .and_then(Value::as_str)
-        .unwrap_or("sha256:postgres-direct-projection");
-
-    let scope_display = if sc.eq_ignore_ascii_case("all") {
+    let scope_display = if is_all_scope {
         format!("전체 연결 범위 ({ontology_total} 리소스)")
     } else {
-        format!("{sc} ({scoped_resources} 리소스)")
+        format!("{sc} ({scoped_resources} / 전체 {ontology_total} 리소스)")
+    };
+    let scope_qualifier = if is_all_scope {
+        String::from("전체 연결 범위")
+    } else {
+        format!("선택 범위({sc})는 리소스 분포에만 적용 · 운영 이벤트는 전체 범위 집계")
     };
 
+    // Deterministic, fact-only executive highlights (zero fabricated scores or trends).
+    let shadow_pct = if audit_in_window > 0 {
+        format!("{:.0}%", (shadow_in_window as f64 / audit_in_window as f64) * 100.0)
+    } else {
+        String::from("미측정")
+    };
+    let exec_highlights = vec![
+        format!(
+            "자산 · 통제: 현재 {}개 연결 자산(의존성 {}건)이 관측 중이며, {} 감사 기록 {}건 중 감시 전용(Shadow) 비중은 {}입니다. ({})",
+            scoped_resources, link_count, win_ko, audit_in_window, shadow_pct, integrity_summary_ko
+        ),
+        format!(
+            "즉시 주목 리스크: 진행 중 장애 {}건(전체 {}건), 사람 승인 대기 {}건, 코드 보안 중요·높음 {}건(전체 {}건)이 식별되어 경영진·운영자 검토가 필요합니다.",
+            inc_open,
+            inc_total,
+            hil_pending_total,
+            if cs_measured { cs_crit_high.to_string() } else { String::from("미측정") },
+            if cs_measured { cs_total.to_string() } else { String::from("미측정") }
+        ),
+        format!(
+            "관측 사각지대: 외부 과금·청구서 원천은 미연동(미측정) 상태이며, 탐지 커버리지 완료 레코드는 {} / {}건, 웹 수집 아티팩트는 {}건입니다.",
+            cov_complete, cov_total, browser_total
+        ),
+    ];
+
+    let scope_bars: Vec<Value> = available_scopes
+        .iter()
+        .filter(|s| s.get("kind").and_then(Value::as_str) == Some("resource_group"))
+        .take(6)
+        .map(|s| {
+            json!({
+                "label": s.get("id").and_then(Value::as_str).unwrap_or("-"),
+                "value": s.get("resource_count").and_then(Value::as_i64).unwrap_or(0),
+                "unit": "개"
+            })
+        })
+        .collect();
+
+    let autonomy_bars = vec![
+        json!({ "label": "감시 전용 (Shadow)", "value": shadow_in_window, "tone": "auto", "unit": "건" }),
+        json!({ "label": "승인 후 조치 (Enforce)", "value": enforce_in_window, "tone": "human", "unit": "건" }),
+        json!({ "label": "자동 조치 (Auto)", "value": auto_in_window, "tone": "live", "unit": "건" }),
+    ];
+
+    let risk_bars = vec![
+        json!({ "label": "코드 보안 중요·높음", "value": if cs_measured { json!(cs_crit_high) } else { Value::Null }, "tone": "sec", "unit": "건", "note": if cs_measured { format!("전체 {cs_total}건 중") } else { String::from("미측정") } }),
+        json!({ "label": "사람 승인 대기 (HIL)", "value": hil_pending_total, "tone": "human", "unit": "건", "note": "명시적 승인 필요" }),
+        json!({ "label": "진행 중 장애", "value": inc_open, "tone": "sec", "unit": "건", "note": format!("전체 {inc_total}건 중") }),
+        json!({ "label": "활성 분석 발견", "value": active_findings, "tone": "sre", "unit": "건", "note": "운영 분석기 감지" }),
+    ];
+
+    let blind_spots = vec![
+        json!({
+            "area": "클라우드 비용 · 청구서 대조",
+            "status": "미측정 (원천 미연동)",
+            "reason": "외부 Azure Cost Export / 과금 원천이 연결되지 않았습니다. (0으로 대체하지 않음)",
+            "recommendation": "구독별 Cost Export 스토리지 연동 후 비용 거버넌스 지표를 활성화하세요."
+        }),
+        json!({
+            "area": "탐지 커버리지 완료도",
+            "status": format!("완료 {cov_complete} / 전체 {cov_total}건"),
+            "reason": "커버리지 레코드 수는 관측 대상 등록 수이며, 완료 판정(complete=true)과 구분됩니다.",
+            "recommendation": "핵심 운영 리소스 그룹부터 상태 전이 수집 파이프라인의 완전성 검증을 우선 완료하세요."
+        }),
+        json!({
+            "area": "격리 브라우저 웹 수집 증거",
+            "status": format!("보관 아티팩트 {browser_total}건 · 보류 집계 미측정"),
+            "reason": "현재 저장된 웹 수집 아티팩트가 없으며 보류 스냅샷 집계 원천이 연결되지 않았습니다.",
+            "recommendation": "외부 웹 근거 수집 정책 활성화 시 3종 지문(DOM·텍스트·스크린샷)을 함께 기록하세요."
+        }),
+    ];
+
+    let exec_scorecards = vec![
+        json!({
+            "area": "회복탄력성 (Resilience)",
+            "headline": format!("진행 중 장애 {inc_open}건"),
+            "detail": format!("전체 장애 {inc_total}건 · 상태 전이 {trans_total}건 · 워크플로 {proc_total}건"),
+            "scope_label": "전체 범위 누적",
+            "tone": if inc_open > 0 { "human" } else { "live" }
+        }),
+        json!({
+            "area": "변경 안전 · 자율 통제",
+            "headline": format!("승인 대기 {hil_pending_total}건"),
+            "detail": format!("{win_ko} 감시 전용 {shadow_pct} · 자동 변경 실행 {action_in_window}건 · {integrity_summary_ko}"),
+            "scope_label": format!("{win_ko} · 전체 범위"),
+            "tone": if integrity_alert { "sec" } else if hil_pending_total > 0 { "human" } else { "live" }
+        }),
+        json!({
+            "area": "보안 · 기준선 리스크",
+            "headline": if cs_measured { format!("중요·높음 {cs_crit_high}건") } else { String::from("미측정") },
+            "detail": if cs_measured { format!("코드 보안 총 {cs_total}건 중 중요·높음 {cs_crit_high}건 · 활성 발견 {active_findings}건") } else { String::from("코드 보안 스캔 데이터 미수집") },
+            "scope_label": "전체 저장소 기준",
+            "tone": if cs_crit_high > 0 { "sec" } else { "live" }
+        }),
+        json!({
+            "area": "자산 · 비용 거버넌스",
+            "headline": format!("{scoped_resources}개 자산 관측"),
+            "detail": format!("의존성 링크 {link_count}건 · 보존 정책 {}건(안전 보존 {retain_count}건) · 비용: 미측정", retention_policies.len()),
+            "scope_label": if is_all_scope { String::from("전체 연결 범위") } else { format!("선택 범위: {sc}") },
+            "tone": "auto"
+        }),
+    ];
+
     let all_reports = vec![
+        json!({
+            "id": "executive-brief-live",
+            "title": "경영진 운영 현황 브리프 (Executive Brief)",
+            "version": "v4-live",
+            "category": "경영진 요약",
+            "status": if integrity_alert { "무결성 경고" } else if inc_open > 0 || cs_crit_high > 0 || hil_pending_total > 0 { "검토 필요" } else { "안정 운영" },
+            "tone": if integrity_alert || cs_crit_high > 0 { "sec" } else if inc_open > 0 || hil_pending_total > 0 { "human" } else { "live" },
+            "avail_label": format!("실측 완료 · {} · {}", win_ko, scope_display),
+            "prov_kind": format!("실시간 운영 DB 읽기 전용 투영 ({scope_qualifier})"),
+            "generated_at": generated_at,
+            "scope_qualifier": scope_qualifier,
+            "integrity_summary": integrity_summary_ko,
+            "executive_highlights": exec_highlights,
+            "scorecards": exec_scorecards,
+            "decisions": decisions,
+            "charts": {
+                "scope_distribution": scope_bars,
+                "autonomy_breakdown": autonomy_bars,
+                "risk_breakdown": risk_bars
+            },
+            "blind_spots": blind_spots,
+            "metrics": [
+                { "k": "관측 대상 자산", "v": format!("{scoped_resources}개"), "note": format!("의존성 {link_count}건 · {scope_display}"), "unavail": false },
+                { "k": "사람 승인 대기 (HIL)", "v": format!("{hil_pending_total}건"), "note": format!("{win_ko} 위험·승인 기록 {hil_in_window}건 (전체 범위)"), "unavail": false },
+                { "k": "코드 보안 중요·높음", "v": if cs_measured { format!("{cs_crit_high}건") } else { String::from("미측정") }, "note": if cs_measured { format!("전체 {cs_total}건 중 (전체 저장소 기준)") } else { String::from("스캔 미수집 · 0 대체 금지") }, "unavail": !cs_measured },
+                { "k": "진행 중 장애", "v": format!("{inc_open}건"), "note": format!("전체 {inc_total}건 중 대응 진행 중 (전체 범위)"), "unavail": false }
+            ],
+            "rows": [
+                { "item": "감사 원장 무결성 점검", "owner": "Saga", "result": format!("전체 {audit_total}건 · {integrity_summary_ko}"), "as_of": generated_at },
+                { "item": "자율 통제 실행 모드 분포", "owner": "Odin · Var", "result": format!("{win_ko} 감시 전용 {shadow_in_window}건 · 승인 후 조치 {enforce_in_window}건 · 자동 조치 {auto_in_window}건"), "as_of": generated_at },
+                { "item": "장애 대응 및 원인 분석", "owner": "Heimdall · Mimir", "result": format!("진행 중 {inc_open}건 / 전체 {inc_total}건 · 상태 전이 {trans_total}건"), "as_of": generated_at },
+                { "item": "보안 · 기준선 · 승인 대기", "owner": "Forseti · Var", "result": format!("코드 보안 중요·높음 {}건 · 승인 대기 {hil_pending_total}건 · 활성 발견 {active_findings}건", if cs_measured { cs_crit_high.to_string() } else { String::from("미측정") }), "as_of": generated_at },
+                { "item": "데이터 보존 정책 · 알림 전달", "owner": "Saga · Bragi", "result": format!("보존 정책 {}건(안전 보존 {retain_count}건) · 알림 전달 {conv_total}건", retention_policies.len()), "as_of": generated_at }
+            ],
+            "sources": [
+                { "name": "감사 원장", "state": format!("실측 · {win_ko} {audit_in_window}건 / 누적 {audit_total}건"), "tone": "live", "as_of": generated_at },
+                { "name": "온톨로지 자산 인벤토리", "state": format!("실측 · {scoped_resources} / 전체 {ontology_total}개"), "tone": "live", "as_of": generated_at },
+                { "name": "사람 승인 대기열 (HIL)", "state": format!("실측 · 대기 {hil_pending_total}건 (전체 범위)"), "tone": if hil_pending_total > 0 { "human" } else { "live" }, "as_of": generated_at },
+                { "name": "코드 보안 스캔 저장소", "state": if cs_measured { format!("실측 · 중요·높음 {cs_crit_high} / {cs_total}건") } else { String::from("미측정") }, "tone": if cs_crit_high > 0 { "sec" } else if cs_measured { "live" } else { "neutral" }, "as_of": generated_at },
+                { "name": "외부 클라우드 과금 원천", "state": "미수집 (not-measured)", "tone": "neutral", "as_of": "미연동" }
+            ]
+        }),
         json!({
             "id": "audit-governance-live",
             "title": "감사 원장 · 무결성 및 운영 현황 보고서 (Live)",
             "version": "v4-live",
             "category": "감사 · 무결성",
-            "status": if integrity_verified { "실측 완료" } else { "무결성 경고" },
-            "tone": if integrity_verified { "live" } else { "sec" },
-            "avail_label": format!("실측 완료 · 원장 {}건 · 범위 {}", audit_total, scope_display),
-            "prov_kind": "실시간 운영 데이터베이스 읽기 전용 투영",
+            "status": if integrity_status == "verified" { "실측 완료" } else if integrity_status == "tampered" { "무결성 경고" } else { "무결성 미측정" },
+            "tone": if integrity_status == "verified" { "live" } else if integrity_status == "tampered" { "sec" } else { "neutral" },
+            "avail_label": format!("실측 완료 · {} {}건 · {}", win_ko, audit_in_window, integrity_summary_ko),
+            "prov_kind": format!("실시간 운영 데이터베이스 읽기 전용 투영 ({scope_qualifier})"),
             "generated_at": generated_at,
-            "signature": format!("sha256:audit-seq-{}-{}-{}", latest_seq.unwrap_or(0), win, sc),
+            "scope_qualifier": scope_qualifier,
+            "integrity_summary": integrity_summary_ko,
+            "executive_highlights": [
+                format!("{win_ko} 동안 {audit_in_window}건(누적 {audit_total}건)의 감사 기록이 추가 전용 원장에 기록되었으며, 무결성 점검 결과는 '{integrity_summary_ko}'입니다."),
+                format!("동일 기간 사람 승인·위험 게이트 기록은 {hil_in_window}건, 자동 변경 실행은 {action_in_window}건(감시 전용 비중 {shadow_pct})입니다.")
+            ],
+            "charts": {
+                "scope_distribution": scope_bars,
+                "autonomy_breakdown": autonomy_bars,
+                "risk_breakdown": []
+            },
+            "blind_spots": [blind_spots[1].clone(), blind_spots[2].clone()],
             "metrics": [
-                { "k": "감사 원장 누적 기록", "v": format!("{audit_total}건"), "note": format!("선택 기간({win}) {audit_in_window}건 · 최근 {checked_window}건 결손 {gaps}건"), "unavail": false },
-                { "k": "승인·위험 게이트 기록", "v": format!("{hil_total}건"), "note": "사람 승인 요청 및 위험 평가 누적", "unavail": false },
+                { "k": format!("감사 원장 ({win_ko})"), "v": format!("{audit_in_window}건"), "note": format!("누적 {audit_total}건 · {integrity_summary_ko}"), "unavail": false },
+                { "k": format!("승인·위험 게이트 ({win_ko})"), "v": format!("{hil_in_window}건"), "note": format!("현재 승인 대기 {hil_pending_total}건 (전체 범위)"), "unavail": false },
                 { "k": "연결 온톨로지 리소스", "v": format!("{scoped_resources}개"), "note": format!("대상 범위: {scope_display} · 전이 {trans_total}건"), "unavail": false }
             ],
             "rows": [
-                { "item": "추가 전용 감사 원장 무결성", "owner": "Saga", "result": format!("{}건 검증 · 결손 {}건", audit_total, gaps), "as_of": generated_at },
+                { "item": "추가 전용 감사 원장 무결성", "owner": "Saga", "result": format!("전체 {audit_total}건 · {integrity_summary_ko}"), "as_of": generated_at },
                 { "item": "온톨로지 연결 리소스 범위", "owner": "Muninn", "result": format!("{} ({} / 전체 {} 리소스)", scope_display, scoped_resources, ontology_total), "as_of": generated_at },
-                { "item": "인시던트 투영 및 원인 분석", "owner": "Mimir · Heimdall", "result": format!("사건 {}건 · 워크플로 {}건 · 전이 {}건", inc_total, proc_total, trans_total), "as_of": generated_at },
+                { "item": "인시던트 투영 및 원인 분석", "owner": "Mimir · Heimdall", "result": format!("사건 {}건(진행 중 {}건) · 워크플로 {}건 · 전이 {}건", inc_total, inc_open, proc_total, trans_total), "as_of": generated_at },
                 { "item": "웹 수집 · 대화 전달 기록", "owner": "Forseti · Bragi", "result": format!("웹 아티팩트 {}건 · 대화 전달 {}건", browser_total, conv_total), "as_of": generated_at }
             ],
             "sources": [
-                { "name": "감사 원장", "state": format!("실측 · {audit_total}건"), "tone": "live", "as_of": "실시간 DB" },
-                { "name": "온톨로지 리소스 인벤토리", "state": format!("실측 · {ontology_total} 리소스"), "tone": "live", "as_of": "실시간 DB" },
-                { "name": "운영 상태 전이 기록", "state": format!("실측 · {trans_total}건"), "tone": "live", "as_of": "실시간 DB" },
-                { "name": "데이터 보존 정책 저장소", "state": format!("실측 · {}건", retention_policies.len()), "tone": "live", "as_of": "실시간 DB" }
+                { "name": "감사 원장", "state": format!("실측 · {win_ko} {audit_in_window}건 / 누적 {audit_total}건"), "tone": "live", "as_of": generated_at },
+                { "name": "온톨로지 리소스 인벤토리", "state": format!("실측 · {scoped_resources} / {ontology_total} 리소스"), "tone": "live", "as_of": generated_at },
+                { "name": "운영 상태 전이 기록", "state": format!("실측 · {trans_total}건 (전체 범위)"), "tone": "live", "as_of": generated_at },
+                { "name": "데이터 보존 정책 저장소", "state": format!("실측 · {}건", retention_policies.len()), "tone": "live", "as_of": generated_at }
             ]
         }),
         json!({
@@ -1678,12 +2347,17 @@ pub async fn fetch_reports(
             "status": "실측 완료",
             "tone": "live",
             "avail_label": format!("보존 정책 {}건 실측 로드", retention_policies.len()),
-            "prov_kind": "데이터 보존 정책 읽기 전용 투영",
+            "prov_kind": "데이터 보존 정책 읽기 전용 투영 (전체 설치 범위)",
             "generated_at": generated_at,
-            "signature": first_digest,
+            "scope_qualifier": "보존 정책은 플랫폼 전체 범위에 일괄 적용됩니다.",
+            "executive_highlights": [
+                format!("총 {}건의 데이터 보존 정책 중 {}건이 안전 보존(retain · Fail-Safe)으로 구성되어 감사 증적 임의 삭제를 방지하고 있습니다.", retention_policies.len(), retain_count),
+                "외부 과금·청구서 대조 원천은 아직 미연동 상태이므로 비용 정합성 지표는 0으로 대체하지 않고 미측정으로 유지합니다."
+            ],
+            "blind_spots": [blind_spots[0].clone()],
             "metrics": [
-                { "k": "등록된 보존 정책", "v": format!("{}건", retention_policies.len()), "note": "보존 정책 카탈로그 실측 기준", "unavail": false },
-                { "k": "안전 보존(retain) 정책", "v": format!("{}건", retention_policies.iter().filter(|p| p.get("deletion_method").and_then(Value::as_str) == Some("retain")).count()), "note": "미구성 시 기본 보존(Fail-Safe)", "unavail": false },
+                { "k": "등록된 보존 정책", "v": format!("{}건", retention_policies.len()), "note": "보존 정책 카탈로그 실측 기준 (전체 범위)", "unavail": false },
+                { "k": "안전 보존(retain) 정책", "v": format!("{}건", retain_count), "note": "미구성 시 기본 보존(Fail-Safe)", "unavail": false },
                 { "k": "외부 청구서 대조", "v": "데이터 없음 (미수집)", "note": "외부 과금 원천 미연동 · 0 대체 금지", "unavail": true }
             ],
             "rows": retention_policies.iter().map(|p| json!({
@@ -1693,8 +2367,8 @@ pub async fn fetch_reports(
                 "as_of": p.get("recorded_at").and_then(Value::as_str).unwrap_or("-")
             })).collect::<Vec<_>>(),
             "sources": [
-                { "name": "데이터 보존 정책 저장소", "state": format!("실측 · {}건", retention_policies.len()), "tone": "live", "as_of": "실시간 DB" },
-                { "name": "온톨로지 리소스 인벤토리", "state": format!("실측 · {ontology_total} 리소스"), "tone": "live", "as_of": "실시간 DB" },
+                { "name": "데이터 보존 정책 저장소", "state": format!("실측 · {}건", retention_policies.len()), "tone": "live", "as_of": generated_at },
+                { "name": "온톨로지 리소스 인벤토리", "state": format!("실측 · {ontology_total} 리소스"), "tone": "live", "as_of": generated_at },
                 { "name": "외부 청구서 내보내기", "state": "미수집 (not-measured)", "tone": "neutral", "as_of": "미연동" }
             ]
         }),
@@ -1708,11 +2382,19 @@ pub async fn fetch_reports(
             "avail_label": format!("연결 범위 {}개 · {} 리소스 실측", available_scopes.len(), ontology_total),
             "prov_kind": "온톨로지 리소스 인벤토리 읽기 전용 투영",
             "generated_at": generated_at,
-            "signature": format!("sha256:ontology-scopes-{}-{}", ontology_total, sc),
+            "scope_qualifier": scope_qualifier,
+            "executive_highlights": [
+                format!("총 {ontology_total}개 연결 자산(의존성 {link_count}건)이 {}개 구독·리소스 그룹 범위에 분포해 있으며, 선택 범위({sc})에는 {scoped_resources}개 리소스가 포함됩니다.", available_scopes.len())
+            ],
+            "charts": {
+                "scope_distribution": scope_bars,
+                "autonomy_breakdown": [],
+                "risk_breakdown": []
+            },
             "metrics": [
-                { "k": "연결 온톨로지 리소스", "v": format!("{ontology_total}개"), "note": "실시간 연결 리소스 전체 집계", "unavail": false },
+                { "k": "선택 범위 리소스", "v": format!("{scoped_resources}개"), "note": format!("전체 {ontology_total}개 중 · 의존성 {link_count}건"), "unavail": false },
                 { "k": "식별된 구독 · RG 범위", "v": format!("{}개", available_scopes.len()), "note": format!("선택 범위: {scope_display}"), "unavail": false },
-                { "k": "연동 감사 원장 기록", "v": format!("{audit_total}건"), "note": format!("보존 정책 {}건 적용", retention_policies.len()), "unavail": false }
+                { "k": "연동 감사 원장 기록", "v": format!("{audit_total}건"), "note": format!("보존 정책 {}건 적용 (전체 범위)", retention_policies.len()), "unavail": false }
             ],
             "rows": available_scopes.iter().map(|s| json!({
                 "item": s.get("id").and_then(Value::as_str).unwrap_or("-"),
@@ -1721,8 +2403,8 @@ pub async fn fetch_reports(
                 "as_of": generated_at
             })).collect::<Vec<_>>(),
             "sources": [
-                { "name": "온톨로지 리소스 인벤토리", "state": format!("실측 · {ontology_total}개"), "tone": "live", "as_of": "실시간 DB" },
-                { "name": "감사 원장", "state": format!("실측 · {audit_total}건"), "tone": "live", "as_of": "실시간 DB" }
+                { "name": "온톨로지 리소스 인벤토리", "state": format!("실측 · {ontology_total}개"), "tone": "live", "as_of": generated_at },
+                { "name": "감사 원장", "state": format!("실측 · {audit_total}건"), "tone": "live", "as_of": generated_at }
             ]
         }),
     ];
@@ -1743,17 +2425,18 @@ pub async fn fetch_reports(
         "scope": sc,
         "generated_at": generated_at,
         "execution_authority": false,
-        "signature_algorithm": "SHA-256",
+        "hash_algorithm": "SHA-256",
         "ontology_resource_count": ontology_total,
         "available_scopes": available_scopes,
         "audit_integrity": {
             "status": integrity_status,
             "current_record_count": audit_total,
-            "current_link_gap_count": gaps,
-            "checked_window": checked_window
+            "current_link_gap_count": integrity_gaps_val,
+            "checked_window": checked_window,
+            "summary": integrity_summary_ko
         },
         "integrity_verified": integrity_verified,
-        "integrity_alert": !integrity_verified,
+        "integrity_alert": integrity_alert,
         "retention_policies": retention_policies,
         "count": filtered.len(),
         "items": filtered

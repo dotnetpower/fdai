@@ -691,6 +691,18 @@ mod tests {
                 "/labs template must integrate shared fdaiV4Selection deep-link API"
             );
             assert!(
+                html.contains("fdaiV4Shimmer"),
+                "/labs template must integrate shared fdaiV4Shimmer for live pulse emphasis"
+            );
+            assert!(
+                html.contains("fdai-svg-live-ring"),
+                "/labs template must render fdai-svg-live-ring on active live topology/chart indicators"
+            );
+            assert!(
+                html.contains("id=\"slAksTransTable\""),
+                "/labs template must render individual AKS state transition records table"
+            );
+            assert!(
                 html.contains("drawer-tech-details"),
                 "/labs template must isolate technical identifiers inside collapsible drawer-tech-details"
             );
@@ -1030,6 +1042,46 @@ mod tests {
                     .get("x-fdai-mutation-authority")
                     .and_then(|v| v.to_str().ok()),
                 Some("none")
+            );
+        }
+    }
+
+    #[test]
+    fn labs_template_enforces_local_clock_humanizers_and_honest_visuals() {
+        let ssr_markup = TEMPLATE.split("<script").next().unwrap_or("");
+        let body_markup = ssr_markup.split("<body").nth(1).unwrap_or("");
+        assert!(
+            body_markup.contains("(KST)"),
+            "labs heatmap and time labels must use local KST timezone"
+        );
+        assert!(
+            !body_markup.contains("(UTC+9)"),
+            "labs template must standardize on (KST) instead of (UTC+9)"
+        );
+        assert!(
+            !body_markup.contains("((") && !body_markup.contains("))"),
+            "labs SSR body markup must not contain double parentheses"
+        );
+        assert!(
+            !TEMPLATE.contains("투명 프로즈"),
+            "labs template must not contain awkward translationese"
+        );
+        for required_id in ["slHmLegend1", "slHmLegend2", "slHmLegend3", "slTwinRawType"] {
+            assert!(
+                body_markup.contains(&format!("id=\"{required_id}\"")),
+                "labs template must include #{required_id}"
+            );
+        }
+        for fn_name in [
+            "localClock",
+            "ruleId",
+            "remediationAction",
+            "severity",
+            "localizeIsoTimestamps",
+        ] {
+            assert!(
+                TEMPLATE.contains(fn_name),
+                "labs template must wire fdaiV4Humanize.{fn_name}"
             );
         }
     }

@@ -40,11 +40,97 @@ fn json_no_store_status(status: StatusCode, payload: Value) -> Response {
         [
             (header::CACHE_CONTROL, "no-store"),
             (header::X_CONTENT_TYPE_OPTIONS, "nosniff"),
+            (header::REFERRER_POLICY, "no-referrer"),
             (header::VARY, "Authorization"),
         ],
         Json(payload),
     )
         .into_response()
+}
+
+fn validate_auth_header_strict(headers: &HeaderMap) -> Result<(), &'static str> {
+    if let Some(val) = headers.get(header::AUTHORIZATION) {
+        let bytes = val.as_bytes();
+        if bytes.len() > MAX_AUTH_HEADER_BYTES {
+            return Err("authorization header exceeds maximum length");
+        }
+        if bytes.iter().any(|&b| b < 0x20 || b == 0x7f) {
+            return Err("authorization header contains forbidden control characters");
+        }
+    }
+    Ok(())
+}
+
+fn validate_security_cves_query(raw_query: Option<&str>) -> Result<(), &'static str> {
+    if let Some(raw) = raw_query {
+        if raw.len() > MAX_RAW_QUERY_BYTES {
+            return Err("query string exceeds maximum allowed length");
+        }
+        if has_forbidden_query_sequence(raw) {
+            return Err("query string contains forbidden control or path traversal sequence");
+        }
+    }
+    Ok(())
+}
+
+fn validate_security_filter_enums(params: &HashMap<String, String>) -> Result<(), &'static str> {
+    if let Some(sev) = params.get("severity") {
+        let s = sev.trim().to_ascii_lowercase();
+        if !matches!(s.as_str(), "" | "all" | "critical" | "high" | "medium" | "low") {
+            return Err("invalid severity filter value");
+        }
+    }
+    if let Some(exp) = params.get("exploit") {
+        let e = exp.trim().to_ascii_lowercase();
+        if !matches!(
+            e.as_str(),
+            "" | "all"
+                | "exploited"
+                | "publicly_disclosed"
+                | "exploitation_more_likely"
+                | "exploitation_less_likely"
+                | "exploitation_unlikely"
+                | "unproven"
+        ) {
+            return Err("invalid exploit filter value");
+        }
+    }
+    if let Some(pri) = params.get("priority") {
+        let p = pri.trim().to_ascii_uppercase();
+        if !matches!(p.as_str(), "" | "ALL" | "P0" | "P1" | "P2" | "P3") {
+            return Err("invalid priority filter value");
+        }
+    }
+    if let Some(rt) = params.get("runtime_only") {
+        let r = rt.trim().to_ascii_lowercase();
+        if !matches!(r.as_str(), "" | "0" | "1" | "true" | "false" | "yes" | "no") {
+            return Err("invalid runtime_only filter value");
+        }
+    }
+    if let Some(lim) = params.get("limit") {
+        let parsed = lim
+            .trim()
+            .parse::<usize>()
+            .map_err(|_| "limit must be a positive integer")?;
+        if parsed == 0 || parsed > 300 {
+            return Err("limit must be between 1 and 300");
+        }
+    }
+    if let Some(off) = params.get("offset") {
+        let parsed = off
+            .trim()
+            .parse::<usize>()
+            .map_err(|_| "offset must be a non-negative integer")?;
+        if parsed > 100_000 {
+            return Err("offset exceeds maximum bound");
+        }
+    }
+    if let Some(q) = params.get("search").or_else(|| params.get("q")) {
+        if q.len() > 200 || q.chars().any(char::is_control) {
+            return Err("search query exceeds length bound or contains control characters");
+        }
+    }
+    Ok(())
 }
 
 use crate::{
@@ -164,7 +250,7 @@ const PANELS: [&str; 13] = [
     "documents",
 ];
 
-const API_ENDPOINTS: [&str; 13] = [
+const API_ENDPOINTS: [&str; 16] = [
     "/api/v4/governance/summary",
     "/api/v4/governance/rules",
     "/api/v4/governance/rules/findings-summary",
@@ -178,6 +264,9 @@ const API_ENDPOINTS: [&str; 13] = [
     "/api/v4/governance/documents",
     "/api/v4/governance/trust-routing",
     "/api/v4/governance/scope",
+    "/api/v4/governance/security/posture",
+    "/api/v4/governance/security/cves",
+    "/api/v4/governance/security/unknown-vulns",
 ];
 
 pub fn panel_ids() -> &'static [&'static str] {
@@ -193,6 +282,10 @@ pub fn router() -> Router<AppState> {
         .route("/governance", get(page_governance))
         .route("/api/v4/governance/summary", get(api_governance_summary))
         .route("/api/v4/governance/rules", get(api_governance_rules))
+        .route(
+            "/api/v4/governance/rules/{rule_id}",
+            get(api_governance_rule_detail),
+        )
         .route(
             "/api/v4/governance/rules/{rule_id}/activation",
             patch(api_governance_rule_activation_toggle),
@@ -224,6 +317,10 @@ pub fn router() -> Router<AppState> {
         .route(
             "/api/v4/governance/ontology/lineage",
             get(api_governance_ontology_lineage),
+        )
+        .route(
+            "/api/v4/governance/ontology/lineage/graph",
+            get(api_governance_ontology_lineage_graph),
         )
         .route(
             "/api/v4/governance/architecture",
@@ -261,6 +358,18 @@ pub fn router() -> Router<AppState> {
         .route(
             "/api/v4/governance/frameworks",
             get(api_governance_frameworks),
+        )
+        .route(
+            "/api/v4/governance/security/posture",
+            get(api_governance_security_posture),
+        )
+        .route(
+            "/api/v4/governance/security/cves",
+            get(api_governance_security_cves),
+        )
+        .route(
+            "/api/v4/governance/security/unknown-vulns",
+            get(api_governance_security_unknown_vulns),
         )
 }
 
@@ -648,6 +757,7 @@ async fn api_governance_rules(
             "offset",
             "limit",
             "framework",
+            "view",
         ],
     );
     let params = parse_query_params(query.as_deref());
@@ -679,11 +789,57 @@ async fn api_governance_rules(
                 .map(String::as_str);
             let lim = query_usize(&params, "limit");
             let off = query_usize(&params, "offset");
-            gov_repo::fetch_rules_filtered(&db, act_state, search, sev, cat, orig, fw, lim, off)
-                .await
+            let summary_only = params
+                .get("view")
+                .map(|v| v.eq_ignore_ascii_case("summary"))
+                .unwrap_or(false);
+            gov_repo::fetch_rules_filtered_view(
+                &db,
+                act_state,
+                search,
+                sev,
+                cat,
+                orig,
+                fw,
+                lim,
+                off,
+                summary_only,
+            )
+            .await
         },
     )
     .await
+}
+
+async fn api_governance_rule_detail(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    AxumPath(rule_id): AxumPath<String>,
+) -> Response {
+    if let Err(msg) = validate_auth_header_strict(&headers) {
+        return json_no_store_status(StatusCode::BAD_REQUEST, json!({"error": msg}));
+    }
+    let trimmed = rule_id.trim();
+    if !is_safe_rule_id(trimmed) {
+        return json_no_store_status(
+            StatusCode::BAD_REQUEST,
+            json!({"error": "유효하지 않은 규칙 ID 형식입니다."}),
+        );
+    }
+    let data = gov_repo::fetch_rule_detail(&state.db, trimmed).await;
+    let mstate = data
+        .get("measurement_status")
+        .and_then(Value::as_str)
+        .unwrap_or("not-measured");
+    json_no_store_status(
+        StatusCode::OK,
+        json!({
+            "domain": "governance",
+            "endpoint": format!("/api/v4/governance/rules/{trimmed}"),
+            "measurement_state": mstate,
+            "data": data
+        }),
+    )
 }
 
 async fn api_governance_rule_activation_toggle(
@@ -1568,6 +1724,145 @@ async fn api_governance_frameworks(
     .await
 }
 
+async fn api_governance_security_posture(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Response {
+    if let Err(msg) = validate_auth_header_strict(&headers) {
+        return json_no_store_status(StatusCode::BAD_REQUEST, json!({"error": msg}));
+    }
+    let data = gov_repo::fetch_security_governance_posture(&state.db).await;
+    let mstate = data
+        .get("measurement_status")
+        .and_then(Value::as_str)
+        .unwrap_or("measured");
+    json_no_store_status(
+        StatusCode::OK,
+        json!({
+            "domain": "governance",
+            "endpoint": "/api/v4/governance/security/posture",
+            "measurement_state": mstate,
+            "data": data
+        }),
+    )
+}
+
+async fn api_governance_security_cves(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    RawQuery(raw_query): RawQuery,
+) -> Response {
+    if let Err(msg) = validate_auth_header_strict(&headers) {
+        return json_no_store_status(StatusCode::BAD_REQUEST, json!({"error": msg}));
+    }
+    if let Err(msg) = validate_security_cves_query(raw_query.as_deref()) {
+        return json_no_store_status(StatusCode::BAD_REQUEST, json!({"error": msg}));
+    }
+    let params = parse_query_params(raw_query.as_deref());
+    if let Err(msg) = validate_security_filter_enums(&params) {
+        return json_no_store_status(StatusCode::BAD_REQUEST, json!({"error": msg}));
+    }
+    let search = params
+        .get("search")
+        .or_else(|| params.get("q"))
+        .map(String::as_str);
+    let severity = params.get("severity").map(String::as_str);
+    let exploit = params.get("exploit").map(String::as_str);
+    let priority = params.get("priority").map(String::as_str);
+    let runtime_only = params
+        .get("runtime_only")
+        .map(|s| matches!(s.as_str(), "1" | "true" | "yes"))
+        .unwrap_or(false);
+    let lim = query_usize(&params, "limit");
+    let off = query_usize(&params, "offset");
+
+    let data = gov_repo::fetch_security_cves(
+        &state.db,
+        search,
+        severity,
+        exploit,
+        priority,
+        runtime_only,
+        lim,
+        off,
+    )
+    .await;
+    let mstate = data
+        .get("measurement_status")
+        .and_then(Value::as_str)
+        .unwrap_or("measured");
+    json_no_store_status(
+        StatusCode::OK,
+        json!({
+            "domain": "governance",
+            "endpoint": "/api/v4/governance/security/cves",
+            "measurement_state": mstate,
+            "data": data
+        }),
+    )
+}
+
+async fn api_governance_security_unknown_vulns(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Response {
+    if let Err(msg) = validate_auth_header_strict(&headers) {
+        return json_no_store_status(StatusCode::BAD_REQUEST, json!({"error": msg}));
+    }
+    let data = gov_repo::fetch_security_unknown_vulns(&state.db).await;
+    let mstate = data
+        .get("measurement_status")
+        .and_then(Value::as_str)
+        .unwrap_or("measured");
+    json_no_store_status(
+        StatusCode::OK,
+        json!({
+            "domain": "governance",
+            "endpoint": "/api/v4/governance/security/unknown-vulns",
+            "measurement_state": mstate,
+            "data": data
+        }),
+    )
+}
+
+async fn api_governance_ontology_lineage_graph(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    RawQuery(raw_query): RawQuery,
+) -> Response {
+    if let Err(msg) = validate_auth_header_strict(&headers) {
+        return json_no_store_status(StatusCode::BAD_REQUEST, json!({"error": msg}));
+    }
+    if let Err(msg) = validate_security_cves_query(raw_query.as_deref()) {
+        return json_no_store_status(StatusCode::BAD_REQUEST, json!({"error": msg}));
+    }
+    let params = parse_query_params(raw_query.as_deref());
+    let mode = params
+        .get("mode")
+        .map(String::as_str)
+        .unwrap_or("clustered");
+    if !matches!(mode, "clustered" | "full") {
+        return json_no_store_status(
+            StatusCode::BAD_REQUEST,
+            json!({"error": "mode must be 'clustered' or 'full'"}),
+        );
+    }
+    let data = gov_repo::fetch_lineage_graph(&state.db, mode).await;
+    let mstate = data
+        .get("measurement_status")
+        .and_then(Value::as_str)
+        .unwrap_or("not-measured");
+    json_no_store_status(
+        StatusCode::OK,
+        json!({
+            "domain": "governance",
+            "endpoint": "/api/v4/governance/ontology/lineage/graph",
+            "measurement_state": mstate,
+            "data": data
+        }),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1628,7 +1923,7 @@ mod tests {
                 "missing required governance panel id: {required}"
             );
         }
-        assert_eq!(api_endpoints().len(), 13);
+        assert_eq!(api_endpoints().len(), 16);
     }
 
     #[test]
@@ -1693,6 +1988,14 @@ mod tests {
                 Some("governance"),
                 "wrong domain for {endpoint}"
             );
+            if endpoint.starts_with("/api/v4/governance/security/") {
+                assert_eq!(
+                    parsed.pointer("/data/db_measurement_status").and_then(Value::as_str),
+                    Some("not-measured"),
+                    "security endpoint must mark DB as not-measured when offline: {endpoint}"
+                );
+                continue;
+            }
             assert_eq!(
                 parsed.get("measurement_state").and_then(Value::as_str),
                 Some("not-measured"),
@@ -1805,11 +2108,13 @@ mod tests {
                 Some("measured"),
                 "expected measured state for {endpoint}, got {parsed}"
             );
-            assert_eq!(
-                parsed.get("source").and_then(Value::as_str),
-                Some("operator-service"),
-                "expected operator-service source for {endpoint}"
-            );
+            if !endpoint.starts_with("/api/v4/governance/security/") {
+                assert_eq!(
+                    parsed.get("source").and_then(Value::as_str),
+                    Some("operator-service"),
+                    "expected operator-service source for {endpoint}"
+                );
+            }
             assert!(
                 !parsed.get("data").map(Value::is_null).unwrap_or(true),
                 "expected non-null data for {endpoint}"
@@ -2290,14 +2595,14 @@ mod tests {
             "ResourceType",
             &json!({ "provider_type": "Microsoft.Insights/actionGroups" }),
         );
-        assert_eq!(rt, "action-group (Microsoft.Insights/actionGroups)");
+        assert_eq!(rt, "action group");
 
         let rc = gov_repo::resolve_ontology_display_name(
             "review-cf98713f993541d8a5e4db1b948761a9",
             "ReviewCase",
             &json!({ "status": "open" }),
         );
-        assert_eq!(rc, "검토 케이스 #cf98713f (open)");
+        assert_eq!(rc, "검토 케이스 · cf98713f (open)");
         assert_eq!(gov_repo::ontology_type_label_ko("BenchmarkValidation"), "벤치마크 검증");
         assert_eq!(gov_repo::ontology_type_label_ko("Resource"), "클라우드 리소스");
         Ok(())
@@ -2378,6 +2683,299 @@ mod tests {
             Some(1)
         );
         server_handle.abort();
+        Ok(())
+    }
+
+    #[test]
+    fn governance_producer_humanizes_uuids_and_resource_types() {
+        assert!(gov_repo::is_uuid_like(
+            "4c5696bc-c315-164d-f627-ce5ed0aad5a0"
+        ));
+        assert!(!gov_repo::is_uuid_like("rg-fdai-dev-wus3"));
+
+        let rbac_props = json!({
+            "name": "4c5696bc-c315-164d-f627-ce5ed0aad5a0",
+            "resource_type": "authorization.role-assignment"
+        });
+        let rbac_name = gov_repo::resolve_ontology_display_name(
+            "scope-demo/resource-group/rg-demo/providers/microsoft.authorization/roleassignments/4c5696bc-c315-164d-f627-ce5ed0aad5a0",
+            "Resource",
+            &rbac_props,
+        );
+        assert!(
+            rbac_name.contains("RBAC 역할 할당") && !rbac_name.contains("ce5ed0aad5a0"),
+            "bare UUID must be humanized: got {rbac_name}"
+        );
+
+        let rg_type_props = json!({ "provider_type": "Microsoft.Resources/resourceGroups" });
+        let rg_type_name =
+            gov_repo::resolve_ontology_display_name("resource-group", "ResourceType", &rg_type_props);
+        assert_eq!(rg_type_name, "리소스 그룹");
+
+        assert_eq!(
+            gov_repo::resource_type_label_ko("authorization.role-assignment"),
+            "RBAC 역할 할당"
+        );
+        assert_eq!(
+            gov_repo::resource_type_label_ko("anomaly-alert-rule"),
+            "이상 탐지 알림 규칙"
+        );
+        assert_eq!(
+            gov_repo::resource_type_label_ko("api-gateway"),
+            "API 게이트웨이"
+        );
+        assert_eq!(
+            gov_repo::resource_type_label_ko("compute.vm-scale-set"),
+            "가상 머신 확장 집합 (VMSS)"
+        );
+    }
+
+    #[tokio::test]
+    async fn governance_knowledge_provider_routes_validate_and_fail_closed_offline(
+    ) -> Result<(), String> {
+        let app = build_router(offline_state());
+        for provider in ["github", "gitlab", "azure-devops"] {
+            let req = Request::builder()
+                .uri(format!("/api/v4/governance/knowledge/{provider}"))
+                .body(Body::empty())
+                .map_err(|e| format!("req build error: {e}"))?;
+            let Ok(resp) = app.clone().oneshot(req).await;
+            assert_eq!(resp.status(), StatusCode::OK);
+            let parsed: Value = serde_json::from_str(&read_body_string(resp).await?)
+                .map_err(|e| format!("json error: {e}"))?;
+            assert_eq!(
+                parsed.get("measurement_state").and_then(Value::as_str),
+                Some("not-measured")
+            );
+        }
+
+        let bad_req = Request::builder()
+            .uri("/api/v4/governance/knowledge/unsupported-provider")
+            .body(Body::empty())
+            .map_err(|e| format!("bad req build error: {e}"))?;
+        let Ok(bad_resp) = app.oneshot(bad_req).await;
+        assert_eq!(bad_resp.status(), StatusCode::BAD_REQUEST);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn governance_template_enforces_humanized_title_zero_dead_links_and_deeplink_hooks(
+    ) -> Result<(), String> {
+        let app = build_router(offline_state());
+        let req = Request::builder()
+            .uri("/governance")
+            .body(Body::empty())
+            .map_err(|e| format!("req build error: {e}"))?;
+        let Ok(resp) = app.oneshot(req).await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let html = read_body_string(resp).await?;
+
+        assert!(html.contains("<title>FDAI 운영 콘솔 — 거버넌스</title>"));
+        assert!(!html.contains("href=\"#\""));
+        assert!(!html.contains("Shared Design System"));
+        assert!(!html.contains("소속 리소스 그룹"));
+        assert!(html.contains("window.fdaiV4Humanize"));
+        assert!(html.contains("window.fdaiV4Selection"));
+        assert!(html.contains("window.fdaiV4Shimmer"));
+        assert!(html.contains("data-resource-id"));
+        assert!(html.contains("node-hit-area"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn governance_security_cves_and_unknown_vulns_expose_msrc_catalog_and_10_lenses(
+    ) -> Result<(), String> {
+        let msrc = gov_repo::load_msrc_csaf_catalog_cached();
+        assert!(
+            msrc.cves.len() >= 9000,
+            "expected >=9000 MSRC CSAF CVEs, got {}",
+            msrc.cves.len()
+        );
+        assert!(msrc.exploited_count >= 100);
+        assert!(msrc.publicly_disclosed_count >= 150);
+        assert!(msrc.product_mapping_count >= 1800);
+
+        let cs = gov_repo::load_code_security_governance_cached();
+        assert_eq!(cs.lenses.len(), 10, "expected 10 off-path LLM lenses");
+        assert!(cs.lenses.iter().any(|l| l.id == "memory-safety"));
+        assert!(cs.lenses.iter().any(|l| l.id == "missing-authorization"));
+        assert!(cs.lens_quorum >= 2);
+        assert!(cs.analysis_components.len() >= 6);
+        assert!(cs.policy_docs.len() >= 4);
+
+        let app = build_router(offline_state());
+
+        let req_cves = Request::builder()
+            .uri("/api/v4/governance/security/cves?exploit=exploited&limit=15")
+            .body(Body::empty())
+            .map_err(|e| format!("req build error: {e}"))?;
+        let Ok(resp_cves) = app.clone().oneshot(req_cves).await;
+        assert_eq!(resp_cves.status(), StatusCode::OK);
+        let parsed_cves: Value = serde_json::from_str(&read_body_string(resp_cves).await?)
+            .map_err(|e| format!("json error: {e}"))?;
+        assert_eq!(
+            parsed_cves.get("measurement_state").and_then(Value::as_str),
+            Some("measured")
+        );
+        let cve_arr = parsed_cves
+            .pointer("/data/cves")
+            .and_then(Value::as_array)
+            .ok_or_else(|| "missing cves array".to_string())?;
+        assert!(!cve_arr.is_empty() && cve_arr.len() <= 15);
+        assert!(cve_arr
+            .iter()
+            .all(|c| c.get("exploit_status").and_then(Value::as_str) == Some("exploited")));
+        assert!(cve_arr.iter().all(|c| {
+            let t = c.get("title_ko").and_then(Value::as_str).unwrap_or("").trim();
+            !t.is_empty() && !t.to_ascii_uppercase().starts_with("CVE-")
+        }));
+
+        let req_unk = Request::builder()
+            .uri("/api/v4/governance/security/unknown-vulns")
+            .body(Body::empty())
+            .map_err(|e| format!("req build error: {e}"))?;
+        let Ok(resp_unk) = app.clone().oneshot(req_unk).await;
+        assert_eq!(resp_unk.status(), StatusCode::OK);
+        let parsed_unk: Value = serde_json::from_str(&read_body_string(resp_unk).await?)
+            .map_err(|e| format!("json error: {e}"))?;
+        assert_eq!(
+            parsed_unk
+                .pointer("/data/constitutional_invariant/non_mixing_enforced")
+                .and_then(Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            parsed_unk
+                .pointer("/data/summary/lens_count")
+                .and_then(Value::as_u64),
+            Some(10)
+        );
+
+        let req_pos = Request::builder()
+            .uri("/api/v4/governance/security/posture")
+            .body(Body::empty())
+            .map_err(|e| format!("req build error: {e}"))?;
+        let Ok(resp_pos) = app.oneshot(req_pos).await;
+        assert_eq!(resp_pos.status(), StatusCode::OK);
+        let parsed_pos: Value = serde_json::from_str(&read_body_string(resp_pos).await?)
+            .map_err(|e| format!("json error: {e}"))?;
+        assert!(
+            parsed_pos
+                .pointer("/data/security_assurance/total_cves")
+                .and_then(Value::as_u64)
+                .unwrap_or(0)
+                >= 9000
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn governance_security_redteam_blocks_malicious_queries_and_reports_offline_db_honestly(
+    ) -> Result<(), String> {
+        let app = build_router(offline_state());
+
+        // 1. Block CRLF / path traversal / oversized query strings
+        for bad_uri in [
+            "/api/v4/governance/security/cves?search=abc%0d%0aX-Injected:1",
+            "/api/v4/governance/security/cves?search=../../etc/passwd",
+            "/api/v4/governance/security/cves?severity=../../etc",
+            "/api/v4/governance/security/cves?exploit=drop_table",
+            "/api/v4/governance/security/cves?priority=P99",
+            "/api/v4/governance/security/cves?limit=999999",
+            "/api/v4/governance/security/cves?runtime_only=maybe",
+        ] {
+            let req = Request::builder()
+                .uri(bad_uri)
+                .body(Body::empty())
+                .map_err(|e| format!("bad uri req error: {e}"))?;
+            let Ok(resp) = app.clone().oneshot(req).await;
+            assert_eq!(
+                resp.status(),
+                StatusCode::BAD_REQUEST,
+                "expected 400 BAD_REQUEST for malicious URI: {bad_uri}"
+            );
+            assert!(
+                matches!(
+                    resp.headers()
+                        .get(header::REFERRER_POLICY)
+                        .and_then(|v| v.to_str().ok()),
+                    Some("no-referrer" | "strict-origin-when-cross-origin")
+                ),
+                "expected strict Referrer-Policy header for {bad_uri}"
+            );
+        }
+
+        // 2. Block oversized Authorization header
+        let huge_auth = format!("Bearer {}", "A".repeat(MAX_AUTH_HEADER_BYTES + 16));
+        let req_auth = Request::builder()
+            .uri("/api/v4/governance/security/posture")
+            .header(header::AUTHORIZATION, huge_auth)
+            .body(Body::empty())
+            .map_err(|e| format!("auth req error: {e}"))?;
+        let Ok(resp_auth) = app.clone().oneshot(req_auth).await;
+        assert_eq!(resp_auth.status(), StatusCode::BAD_REQUEST);
+
+        // 3. Offline DB must NEVER fabricate 0 for runtime metrics (not-measured != 0)
+        let req_unk = Request::builder()
+            .uri("/api/v4/governance/security/unknown-vulns")
+            .body(Body::empty())
+            .map_err(|e| format!("unk req error: {e}"))?;
+        let Ok(resp_unk) = app.clone().oneshot(req_unk).await;
+        assert_eq!(resp_unk.status(), StatusCode::OK);
+        let unk_json: Value = serde_json::from_str(&read_body_string(resp_unk).await?)
+            .map_err(|e| format!("json error: {e}"))?;
+        assert_eq!(
+            unk_json
+                .pointer("/data/db_measurement_status")
+                .and_then(Value::as_str),
+            Some("not-measured")
+        );
+        assert!(
+            unk_json
+                .pointer("/data/confidence_ladder/confirmed_or_scanner_total")
+                .map(Value::is_null)
+                .unwrap_or(false),
+            "offline DB must report null instead of fabricating 0"
+        );
+
+        let req_pos = Request::builder()
+            .uri("/api/v4/governance/security/posture")
+            .body(Body::empty())
+            .map_err(|e| format!("pos req error: {e}"))?;
+        let Ok(resp_pos) = app.clone().oneshot(req_pos).await;
+        let pos_json: Value = serde_json::from_str(&read_body_string(resp_pos).await?)
+            .map_err(|e| format!("json error: {e}"))?;
+        assert_eq!(
+            pos_json
+                .pointer("/data/db_measurement_status")
+                .and_then(Value::as_str),
+            Some("not-measured")
+        );
+        assert!(pos_json
+            .pointer("/data/security_rules/security_rules_total")
+            .map(Value::is_null)
+            .unwrap_or(false));
+
+        // 4. Lineage Graph API validates mode enum (400) and fails closed offline (not-measured)
+        let bad_lin = Request::builder()
+            .uri("/api/v4/governance/ontology/lineage/graph?mode=invalid")
+            .body(Body::empty())
+            .map_err(|e| format!("bad lin req: {e}"))?;
+        let Ok(resp_bad_lin) = app.clone().oneshot(bad_lin).await;
+        assert_eq!(resp_bad_lin.status(), StatusCode::BAD_REQUEST);
+
+        let off_lin = Request::builder()
+            .uri("/api/v4/governance/ontology/lineage/graph?mode=full")
+            .body(Body::empty())
+            .map_err(|e| format!("off lin req: {e}"))?;
+        let Ok(resp_off_lin) = app.oneshot(off_lin).await;
+        assert_eq!(resp_off_lin.status(), StatusCode::OK);
+        let lin_json: Value = serde_json::from_str(&read_body_string(resp_off_lin).await?)
+            .map_err(|e| format!("json error: {e}"))?;
+        assert_eq!(
+            lin_json.get("measurement_state").and_then(Value::as_str),
+            Some("not-measured")
+        );
         Ok(())
     }
 }

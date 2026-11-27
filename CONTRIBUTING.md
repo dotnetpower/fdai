@@ -12,33 +12,28 @@ private-network VPN, environment variables, and starting the local stack - see
 
 ## Prerequisites
 
-- Python 3.13
-  ([`pyproject.toml`](pyproject.toml) pins the target).
-- [`uv`](https://docs.astral.sh/uv/) - the project's package manager.
-- A POSIX shell (`bash`), `git`, and `make` are enough for the
-  Python + docs workflow. `docker compose` is only needed for the
-  optional local dev stack (`make dev-up`); it requires a reachable daemon and Compose v2 as
+- **Rust stable toolchain** (`rustup` / `cargo`) for the Pure-Rust workspace (`Cargo.toml`).
+- A POSIX shell (`bash`), `git`, `curl`, and `make`.
+- `docker compose` v2 is optional and only needed for the local Docker data stack (`make dev-up`)
   described in the [Local Development Quickstart](docs/user-guide/local-development-quickstart.md).
+- Node.js 22+ is optional and only needed when modifying SPA UI sources under `console/`,
+  `lifecycle_rs/release-hub/ui/`, or `lifecycle_rs/hub/ui/`.
 
 ## One-time setup
 
 ```bash
-uv sync --extra dev              # installs the runtime + dev deps
-make hooks-install               # enable the shared tracked git hooks
+make hooks-install               # enable the shared tracked git hooks (core.hooksPath=.githooks)
 ```
 
 `make hooks-install` points `core.hooksPath` at the tracked
-[`.githooks/`](.githooks/) directory. The tracked `pre-commit` hook delegates
-to [`.pre-commit-config.yaml`](.pre-commit-config.yaml), so every commit checks
-Ruff lint and formatting plus the repository hygiene gates before it is
-created. This avoids the unsupported combination of generating a hook under
-`.git/hooks` while `core.hooksPath` points somewhere else.
+[`.githooks/`](.githooks/) directory. The tracked `pre-commit` hook runs
+`cargo run --offline -p fdai-xtask -- pre-commit` to enforce Zero-Python, Hexagonal Core, SQL
+migration, and hygiene gates before each commit.
 
 Use a task branch or isolated worktree for each active outcome. The tracked
 `pre-push` hook checks the negotiated remote base, merge-conflict markers,
-changed Python files, and owning workflow and structural contracts against
-the committed content. It does not run the full product test suite or build
-release images. Do not bypass hooks; correct the owning failure instead.
+framework-surface integrity, and Pure-Rust workspace gates against
+the committed content. Do not bypass hooks; correct the owning failure instead.
 
 Opening the repo in VS Code also runs two folderOpen tasks (see
 [`.vscode/tasks.json`](.vscode/tasks.json)): `hooks: install` wires both
@@ -50,17 +45,22 @@ manually. Allow automatic tasks when VS Code prompts.
 
 ## Everyday workflow
 
-The [`Makefile`](Makefile) provides local validation entry points:
+The [`Makefile`](Makefile) provides local run and validation entry points (defaulting to
+`CARGO_FLAGS ?= --locked` so fresh clones fetch exact `Cargo.lock` dependencies automatically):
 
 | Command | What it runs |
 |--------|--------------|
-| `make check` | `lint` + `gates` + `test` + `operator` for an explicit broad local validation request; not complete GitHub Actions parity. |
-| `make lint`  | `ruff format --check` + `ruff check` + `mypy --strict`. |
-| `make format`| `ruff format` + `ruff check --fix`. Mutates files - review the diff. |
-| `make gates` | Repository hygiene, localization, and architecture boundary checks. |
-| `make test`  | Parallel unit tests, serial live-DB integration tests, and the safety-core coverage floor. |
-| `make operator` | Console and CLI tests, type checks, builds, and the console entry-bundle budget. |
-| `make ci-preflight` | The CI jobs your committed diff triggers, scoped by the same resolver as CI: static contracts, structural gates, lint, changed-path pytest, and console/CLI checks. Refuses a branch that is behind its base. Run it once on the final commit before a push. |
+| `make console-v4-up` | Runs Pure-Rust FDAI Console v4 on `http://127.0.0.1:5290`. |
+| `make release-hub-up` | Runs Pure-Rust FDAI Release Hub + UI on `http://127.0.0.1:8022`. |
+| `make lifecycle-hub-up` | Runs Pure-Rust FDAI Lifecycle Hub + UI on `http://127.0.0.1:8021`. |
+| `make rust-fullstack-up` | Builds and starts all 9 Pure-Rust Axum services (Core + Operator + Hubs + Console v4). |
+| `make rust-fullstack-down` | Stops the local Pure-Rust full-stack services. |
+| `make dev-up` / `make dev-down` | Starts or stops optional Docker PostgreSQL (`5432`/`5433`), Redpanda (`19092`), and ClamAV (`3310`). |
+| `make lint` | `cargo check --workspace --locked`. |
+| `make format` | `cargo fmt --all`. |
+| `make gates` | `fdai-xtask` Zero-Python, Hexagonal Core, SQL migration, and hygiene gates. |
+| `make test` | `cargo test --workspace --locked`. |
+| `make check` | `lint` + `gates` + `test` (broad local Pure-Rust verification). |
 
 The full CI pipeline lives in
 [.github/workflows/ci.yml](.github/workflows/ci.yml). During ordinary development, run the

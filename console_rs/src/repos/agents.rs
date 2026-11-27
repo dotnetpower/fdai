@@ -7,6 +7,7 @@ use crate::db::{cell_i64, cell_str, clamp_limit, DbHandle};
 use fdai_adapter_postgres::pg_quote_literal;
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
+use std::time::Instant;
 
 const PANTHEON_NAMES: [&str; 15] = [
     "Odin",
@@ -120,8 +121,218 @@ struct AgentAgg {
     last_seen_at: String,
     last_seen_epoch_ms: i64,
     latest_action_kind: String,
+    latest_target_name: String,
+    latest_rule_id: String,
+    latest_remediation_action: String,
+    latest_severity: String,
     modes: BTreeSet<String>,
     top_actions: Vec<(String, i64)>,
+}
+
+/// Structured incident/event context extracted honestly from `audit_log.entry`,
+/// `state_kv` (`hil_park:%`), and `operator_incident_projection`.
+/// Empty fields stay empty/null — never fabricated as "구독 전체" or synthetic scores.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct EventContext {
+    pub target_resource_ref: String,
+    pub target_resource_name: String,
+    pub rule_id: String,
+    pub remediation_action: String,
+    pub severity: String,
+    pub incident_number: String,
+    pub incident_state: String,
+}
+
+fn first_json_str(val: &Value, paths: &[&[&str]]) -> String {
+    for path in paths {
+        let mut cur = val;
+        let mut found = true;
+        for key in *path {
+            if let Some(next) = cur.get(*key) {
+                cur = next;
+            } else {
+                found = false;
+                break;
+            }
+        }
+        if found {
+            if let Some(s) = cur.as_str() {
+                let trimmed = s.trim();
+                if !trimmed.is_empty() {
+                    return trimmed.to_string();
+                }
+            }
+        }
+    }
+    String::new()
+}
+
+/// Extract the human-readable leaf resource name from an Azure ARM ID or ontology ref.
+/// Returns an empty string when input is empty (never fabricates a synthetic scope).
+#[must_use]
+pub fn extract_resource_name(raw_ref: &str) -> String {
+    let trimmed = raw_ref.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    let tail = trimmed
+        .rsplit('/')
+        .find(|seg| !seg.trim().is_empty())
+        .unwrap_or(trimmed)
+        .trim();
+    if tail.is_empty() {
+        String::new()
+    } else {
+        tail.to_string()
+    }
+}
+
+/// Extract event-centric metadata (target resource, rule, remediation action,
+/// real severity, incident number) from an `audit_log.entry` JSON object.
+#[must_use]
+pub fn extract_entry_event_context(entry: &Value) -> EventContext {
+    let target_ref = first_json_str(
+        entry,
+        &[
+            &["target_resource_ref"],
+            &["action", "target_resource_ref"],
+            &["resource_ref"],
+            &["resource_id"],
+            &["subject_ref"],
+            &["target"],
+        ],
+    );
+    let explicit_name = first_json_str(entry, &[&["resource_name"], &["target_name"]]);
+    let target_name = if !explicit_name.is_empty() {
+        explicit_name
+    } else {
+        extract_resource_name(&target_ref)
+    };
+    let rule_id = first_json_str(
+        entry,
+        &[
+            &["rule_id"],
+            &["rule_ref"],
+            &["policy_id"],
+            &["verdict", "rule_id"],
+        ],
+    );
+    let remediation_action = first_json_str(
+        entry,
+        &[
+            &["remediation_action"],
+            &["action_type"],
+            &["action", "action_type"],
+            &["action", "kind"],
+            &["proposed_action"],
+        ],
+    );
+    let severity = first_json_str(
+        entry,
+        &[
+            &["severity"],
+            &["projected_severity"],
+            &["risk_class"],
+            &["verdict", "severity"],
+        ],
+    );
+    let incident_number = first_json_str(
+        entry,
+        &[
+            &["canonical_incident_number"],
+            &["incident_number"],
+            &["incident_id"],
+        ],
+    );
+    let incident_state = first_json_str(entry, &[&["projected_state"], &["incident_state"]]);
+    EventContext {
+        target_resource_ref: target_ref,
+        target_resource_name: target_name,
+        rule_id,
+        remediation_action,
+        severity,
+        incident_number,
+        incident_state,
+    }
+}
+
+/// Fill empty fields in `base` from an enrichment overlay without overwriting
+/// values explicitly recorded in the primary `audit_log.entry`.
+pub fn merge_event_context(base: &mut EventContext, overlay: &EventContext) {
+    if base.target_resource_ref.is_empty() && !overlay.target_resource_ref.is_empty() {
+        base.target_resource_ref = overlay.target_resource_ref.clone();
+    }
+    if base.target_resource_name.is_empty() && !overlay.target_resource_name.is_empty() {
+        base.target_resource_name = overlay.target_resource_name.clone();
+    }
+    if base.rule_id.is_empty() && !overlay.rule_id.is_empty() {
+        base.rule_id = overlay.rule_id.clone();
+    }
+    if base.remediation_action.is_empty() && !overlay.remediation_action.is_empty() {
+        base.remediation_action = overlay.remediation_action.clone();
+    }
+    if base.severity.is_empty() && !overlay.severity.is_empty() {
+        base.severity = overlay.severity.clone();
+    }
+    if base.incident_number.is_empty() && !overlay.incident_number.is_empty() {
+        base.incident_number = overlay.incident_number.clone();
+    }
+    if base.incident_state.is_empty() && !overlay.incident_state.is_empty() {
+        base.incident_state = overlay.incident_state.clone();
+    }
+}
+
+fn opt_nonempty(s: &str) -> Value {
+    if s.trim().is_empty() {
+        Value::Null
+    } else {
+        json!(s.trim())
+    }
+}
+
+async fn fetch_correlation_enrichment(db: &DbHandle) -> BTreeMap<String, EventContext> {
+    let mut by_corr: BTreeMap<String, EventContext> = BTreeMap::new();
+    let hil_sql = "SELECT value::text FROM state_kv WHERE key LIKE 'hil_park:%' \
+                   ORDER BY updated_at DESC LIMIT 60";
+    if let Ok(hil_res) = db.query_single_readonly(hil_sql).await {
+        for row in &hil_res.rows {
+            let raw = cell_str(row, 0);
+            if let Ok(parsed) = serde_json::from_str::<Value>(&raw) {
+                let cid = first_json_str(&parsed, &[&["correlation_id"]]);
+                if cid.is_empty() {
+                    continue;
+                }
+                let ctx = extract_entry_event_context(&parsed);
+                let slot = by_corr.entry(cid).or_default();
+                merge_event_context(slot, &ctx);
+            }
+        }
+    }
+
+    let inc_sql = "SELECT COALESCE(correlation_id, ''), \
+                   COALESCE(canonical_incident_number, canonical_incident_id, ''), \
+                   COALESCE(projected_severity, ''), \
+                   COALESCE(projected_state, '') \
+                   FROM operator_incident_projection \
+                   ORDER BY last_seq DESC LIMIT 40";
+    if let Ok(inc_res) = db.query_single_readonly(inc_sql).await {
+        for row in &inc_res.rows {
+            let cid = cell_str(row, 0);
+            if cid.is_empty() {
+                continue;
+            }
+            let overlay = EventContext {
+                incident_number: cell_str(row, 1),
+                severity: cell_str(row, 2),
+                incident_state: cell_str(row, 3),
+                ..EventContext::default()
+            };
+            let slot = by_corr.entry(cid).or_default();
+            merge_event_context(slot, &overlay);
+        }
+    }
+
+    by_corr
 }
 
 fn classify_agent_status(direct_count: i64, total_count: i64) -> &'static str {
@@ -244,6 +455,51 @@ pub async fn fetch_actor_summary(db: &DbHandle) -> Value {
         cb.cmp(&ca)
     });
 
+    let latest_events_sql = "SELECT COALESCE(correlation_id, ''), actor, action_kind, \
+                             COALESCE(entry::text, '{}') \
+                             FROM audit_log \
+                             ORDER BY seq DESC LIMIT 40";
+    let corr_enrichment = fetch_correlation_enrichment(db).await;
+    if let Ok(latest_res) = db.query_single_readonly(latest_events_sql).await {
+        for row in &latest_res.rows {
+            let cid = cell_str(row, 0);
+            let actor = cell_str(row, 1);
+            let action_kind = cell_str(row, 2);
+            let entry_raw = cell_str(row, 3);
+            if let Some(canon) = attribute_pantheon_agent(&actor, &action_kind) {
+                if let Some(agg) = pantheon_map.get_mut(canon) {
+                    if !agg.latest_target_name.is_empty()
+                        && !agg.latest_rule_id.is_empty()
+                        && !agg.latest_remediation_action.is_empty()
+                    {
+                        continue;
+                    }
+                    let parsed = serde_json::from_str::<Value>(&entry_raw).unwrap_or(Value::Null);
+                    let mut ctx = extract_entry_event_context(&parsed);
+                    if !cid.is_empty() {
+                        if let Some(overlay) = corr_enrichment.get(&cid) {
+                            merge_event_context(&mut ctx, overlay);
+                        }
+                    }
+                    if agg.latest_target_name.is_empty() && !ctx.target_resource_name.is_empty() {
+                        agg.latest_target_name = ctx.target_resource_name;
+                    }
+                    if agg.latest_rule_id.is_empty() && !ctx.rule_id.is_empty() {
+                        agg.latest_rule_id = ctx.rule_id;
+                    }
+                    if agg.latest_remediation_action.is_empty()
+                        && !ctx.remediation_action.is_empty()
+                    {
+                        agg.latest_remediation_action = ctx.remediation_action;
+                    }
+                    if agg.latest_severity.is_empty() && !ctx.severity.is_empty() {
+                        agg.latest_severity = ctx.severity;
+                    }
+                }
+            }
+        }
+    }
+
     let mut pantheon_activity = Map::new();
     let mut working_count = 0_usize;
     let mut watching_count = 0_usize;
@@ -280,6 +536,10 @@ pub async fn fetch_actor_summary(db: &DbHandle) -> Value {
                     "last_seen_at": if agg.last_seen_at.is_empty() { Value::Null } else { json!(agg.last_seen_at) },
                     "last_seen_epoch_ms": if agg.last_seen_epoch_ms > 0 { json!(agg.last_seen_epoch_ms) } else { Value::Null },
                     "latest_action_kind": if agg.latest_action_kind.is_empty() { Value::Null } else { json!(agg.latest_action_kind) },
+                    "latest_target_name": opt_nonempty(&agg.latest_target_name),
+                    "latest_rule_id": opt_nonempty(&agg.latest_rule_id),
+                    "latest_remediation_action": opt_nonempty(&agg.latest_remediation_action),
+                    "latest_severity": opt_nonempty(&agg.latest_severity),
                     "modes": modes_vec,
                     "top_actions": top_actions
                 }),
@@ -332,7 +592,8 @@ pub async fn fetch_agent_detail(
          COALESCE(entry->>'source', ''), \
          COALESCE(entry->>'tier', ''), \
          to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), \
-         (EXTRACT(EPOCH FROM created_at) * 1000)::bigint \
+         (EXTRACT(EPOCH FROM created_at) * 1000)::bigint, \
+         COALESCE(entry::text, '{{}}') \
          FROM audit_log WHERE {where_clause} \
          ORDER BY seq DESC LIMIT {lim}"
     );
@@ -343,6 +604,7 @@ pub async fn fetch_agent_detail(
     ) else {
         return db.not_measured("agents", "/api/v4/agents/pantheon", "postgres_unreachable");
     };
+    let corr_enrichment = fetch_correlation_enrichment(db).await;
 
     let cr = cnt_res.rows.first().map(Vec::as_slice).unwrap_or(&[]);
     let event_count = cell_i64(cr, 0).unwrap_or(0);
@@ -360,9 +622,18 @@ pub async fn fetch_agent_detail(
         .rows
         .iter()
         .map(|row| {
+            let cid = cell_str(row, 1);
+            let entry_raw = cell_str(row, 12);
+            let parsed = serde_json::from_str::<Value>(&entry_raw).unwrap_or(Value::Null);
+            let mut ctx = extract_entry_event_context(&parsed);
+            if !cid.is_empty() {
+                if let Some(overlay) = corr_enrichment.get(&cid) {
+                    merge_event_context(&mut ctx, overlay);
+                }
+            }
             json!({
                 "seq": cell_i64(row, 0),
-                "correlation_id": cell_str(row, 1),
+                "correlation_id": cid,
                 "actor": cell_str(row, 2),
                 "canonical_agent": agent_name,
                 "action_kind": cell_str(row, 3),
@@ -373,7 +644,14 @@ pub async fn fetch_agent_detail(
                 "source": cell_str(row, 8),
                 "tier": cell_str(row, 9),
                 "created_at": cell_str(row, 10),
-                "created_at_ms": cell_i64(row, 11)
+                "created_at_ms": cell_i64(row, 11),
+                "target_resource_name": opt_nonempty(&ctx.target_resource_name),
+                "target_resource_ref": opt_nonempty(&ctx.target_resource_ref),
+                "rule_id": opt_nonempty(&ctx.rule_id),
+                "remediation_action": opt_nonempty(&ctx.remediation_action),
+                "severity": opt_nonempty(&ctx.severity),
+                "incident_number": opt_nonempty(&ctx.incident_number),
+                "incident_state": opt_nonempty(&ctx.incident_state)
             })
         })
         .collect();
@@ -507,7 +785,8 @@ pub async fn fetch_activity(
          COALESCE(entry->>'t1_outcome', ''), \
          COALESCE(entry->>'resource_id', COALESCE(entry->>'target', '')), \
          to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), \
-         (EXTRACT(EPOCH FROM created_at) * 1000)::bigint \
+         (EXTRACT(EPOCH FROM created_at) * 1000)::bigint, \
+         COALESCE(entry::text, '{{}}') \
          FROM audit_log {where_sql} \
          ORDER BY seq DESC LIMIT {lim}"
     );
@@ -552,17 +831,35 @@ pub async fn fetch_activity(
         .and_then(|r| cell_i64(r, 0))
         .unwrap_or(0);
 
+    let corr_enrichment = fetch_correlation_enrichment(db).await;
+
     let items: Vec<Value> = list_res
         .rows
         .iter()
         .map(|row| {
+            let cid = cell_str(row, 1);
             let actor = cell_str(row, 2);
             let action_kind = cell_str(row, 3);
             let attributed_agent = attribute_pantheon_agent(&actor, &action_kind);
             let canonical_agent = attributed_agent.unwrap_or("Odin");
+            let entry_raw = cell_str(row, 14);
+            let parsed = serde_json::from_str::<Value>(&entry_raw).unwrap_or(Value::Null);
+            let mut ctx = extract_entry_event_context(&parsed);
+            if !cid.is_empty() {
+                if let Some(overlay) = corr_enrichment.get(&cid) {
+                    merge_event_context(&mut ctx, overlay);
+                }
+            }
+            let target_col = cell_str(row, 11);
+            if ctx.target_resource_name.is_empty() && !target_col.is_empty() {
+                ctx.target_resource_name = extract_resource_name(&target_col);
+            }
+            if ctx.target_resource_ref.is_empty() && !target_col.is_empty() {
+                ctx.target_resource_ref = target_col.clone();
+            }
             json!({
                 "seq": cell_i64(row, 0),
-                "correlation_id": cell_str(row, 1),
+                "correlation_id": cid,
                 "actor": actor,
                 "canonical_agent": canonical_agent,
                 "attributed": attributed_agent.is_some(),
@@ -574,7 +871,14 @@ pub async fn fetch_activity(
                 "source": cell_str(row, 8),
                 "tier": cell_str(row, 9),
                 "outcome": cell_str(row, 10),
-                "target": cell_str(row, 11),
+                "target": target_col,
+                "target_resource_name": opt_nonempty(&ctx.target_resource_name),
+                "target_resource_ref": opt_nonempty(&ctx.target_resource_ref),
+                "rule_id": opt_nonempty(&ctx.rule_id),
+                "remediation_action": opt_nonempty(&ctx.remediation_action),
+                "severity": opt_nonempty(&ctx.severity),
+                "incident_number": opt_nonempty(&ctx.incident_number),
+                "incident_state": opt_nonempty(&ctx.incident_state),
                 "created_at": cell_str(row, 12),
                 "created_at_ms": cell_i64(row, 13)
             })
@@ -807,13 +1111,22 @@ pub async fn fetch_capabilities(db: &DbHandle) -> Value {
 }
 
 pub async fn fetch_stream_snapshot(db: &DbHandle) -> Value {
+    let started = Instant::now();
     let summary_sql = "SELECT count(*), COALESCE(max(seq), 0), \
                        COALESCE(max(to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')), '') \
                        FROM audit_log";
     let recent_sql = "SELECT seq, COALESCE(correlation_id, ''), actor, action_kind, mode, \
                       to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), \
-                      (EXTRACT(EPOCH FROM created_at) * 1000)::bigint \
-                      FROM audit_log ORDER BY seq DESC LIMIT 8";
+                      (EXTRACT(EPOCH FROM created_at) * 1000)::bigint, \
+                      COALESCE(entry_hash, ''), \
+                      COALESCE(entry->>'stage', ''), \
+                      COALESCE(entry->>'reason', ''), \
+                      COALESCE(entry->>'source', ''), \
+                      COALESCE(entry->>'tier', ''), \
+                      COALESCE(entry->>'t1_outcome', ''), \
+                      COALESCE(entry->>'resource_id', COALESCE(entry->>'target', '')), \
+                      COALESCE(entry::text, '{}') \
+                      FROM audit_log ORDER BY seq DESC LIMIT 16";
 
     let (Ok(sum_res), Ok(rec_res)) = (
         db.query_single_readonly(summary_sql).await,
@@ -821,6 +1134,8 @@ pub async fn fetch_stream_snapshot(db: &DbHandle) -> Value {
     ) else {
         return db.not_measured("agents", "/api/v4/agents/stream", "postgres_unreachable");
     };
+    let db_latency_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+    let corr_enrichment = fetch_correlation_enrichment(db).await;
 
     let sr = sum_res.rows.first().map(Vec::as_slice).unwrap_or(&[]);
     let total_events = cell_i64(sr, 0).unwrap_or(0);
@@ -832,19 +1147,51 @@ pub async fn fetch_stream_snapshot(db: &DbHandle) -> Value {
         .rows
         .iter()
         .map(|row| {
+            let cid = cell_str(row, 1);
             let actor = cell_str(row, 2);
             let action_kind = cell_str(row, 3);
-            let canonical_agent = attribute_pantheon_agent(&actor, &action_kind).unwrap_or("Odin");
+            let attributed_agent = attribute_pantheon_agent(&actor, &action_kind);
+            let canonical_agent = attributed_agent.unwrap_or("Odin");
             active_agents.insert(canonical_agent);
+            let entry_raw = cell_str(row, 14);
+            let parsed = serde_json::from_str::<Value>(&entry_raw).unwrap_or(Value::Null);
+            let mut ctx = extract_entry_event_context(&parsed);
+            if !cid.is_empty() {
+                if let Some(overlay) = corr_enrichment.get(&cid) {
+                    merge_event_context(&mut ctx, overlay);
+                }
+            }
+            let target_col = cell_str(row, 13);
+            if ctx.target_resource_name.is_empty() && !target_col.is_empty() {
+                ctx.target_resource_name = extract_resource_name(&target_col);
+            }
+            if ctx.target_resource_ref.is_empty() && !target_col.is_empty() {
+                ctx.target_resource_ref = target_col.clone();
+            }
             json!({
                 "seq": cell_i64(row, 0),
-                "correlation_id": cell_str(row, 1),
+                "correlation_id": cid,
                 "actor": actor,
                 "canonical_agent": canonical_agent,
+                "attributed": attributed_agent.is_some(),
                 "action_kind": action_kind,
                 "mode": cell_str(row, 4),
                 "created_at": cell_str(row, 5),
-                "created_at_ms": cell_i64(row, 6)
+                "created_at_ms": cell_i64(row, 6),
+                "entry_hash": cell_str(row, 7),
+                "stage": cell_str(row, 8),
+                "reason": cell_str(row, 9),
+                "source": cell_str(row, 10),
+                "tier": cell_str(row, 11),
+                "outcome": cell_str(row, 12),
+                "target": target_col,
+                "target_resource_name": opt_nonempty(&ctx.target_resource_name),
+                "target_resource_ref": opt_nonempty(&ctx.target_resource_ref),
+                "rule_id": opt_nonempty(&ctx.rule_id),
+                "remediation_action": opt_nonempty(&ctx.remediation_action),
+                "severity": opt_nonempty(&ctx.severity),
+                "incident_number": opt_nonempty(&ctx.incident_number),
+                "incident_state": opt_nonempty(&ctx.incident_state)
             })
         })
         .collect();
@@ -854,6 +1201,7 @@ pub async fn fetch_stream_snapshot(db: &DbHandle) -> Value {
     json!({
         "measurement_status": "measured",
         "source": "postgres-direct",
+        "db_latency_ms": db_latency_ms,
         "audit_total": total_events,
         "latest_seq": latest_seq,
         "latest_audit_at": latest_audit_at,

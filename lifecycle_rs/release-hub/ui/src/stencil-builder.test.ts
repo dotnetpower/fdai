@@ -23,10 +23,10 @@ import {
 const samplePanels: StencilPanelDescriptor[] = [
   {
     id: "dashboard",
-    path: "/overview",
+    path: "/overview/dashboard",
     group: "overview",
-    label: "Overview dashboard",
-    label_ko: "종합 대시보드",
+    label: "Dashboard",
+    label_ko: "대시보드",
     locked: true,
     required_workloads: [],
     required_loops: [],
@@ -35,10 +35,10 @@ const samplePanels: StencilPanelDescriptor[] = [
   },
   {
     id: "live",
-    path: "/live",
+    path: "/operations/live",
     group: "operations",
-    label: "Live operations",
-    label_ko: "실시간 리소스",
+    label: "Live monitoring",
+    label_ko: "실시간 모니터링",
     locked: false,
     required_workloads: [],
     required_loops: ["inventory-reconciliation"],
@@ -141,6 +141,9 @@ describe("stencil-builder helpers", () => {
     expect(required.effectiveAddons).toEqual([
       "enterprise-identity-governance", "notifications", "policy-administration",
     ]);
+    expect(required.consoleBuildCommand).toBe(
+      "FDAI_STENCIL_ENABLED_PANELS='dashboard,policy' cargo build -p fdai-console-v4",
+    );
     expect(required.addonReasons["policy-administration"]).toContain("menu:policy");
     expect(required.addonReasons["enterprise-identity-governance"]).toContain("addon:policy-administration");
     expect(isAddonSelectionLocked("notifications", catalog, required, true)).toBe(true);

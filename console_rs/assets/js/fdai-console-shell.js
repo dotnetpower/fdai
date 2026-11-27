@@ -114,6 +114,24 @@
     }
   ];
 
+  const STENCIL_CFG = (typeof window !== "undefined" && window.__FDAI_V4_STENCIL__) || null;
+  const STENCIL_ACTIVE = Boolean(STENCIL_CFG && STENCIL_CFG.active);
+  const STENCIL_ENABLED_SET = STENCIL_ACTIVE && Array.isArray(STENCIL_CFG.enabledPanels)
+    ? new Set(STENCIL_CFG.enabledPanels)
+    : null;
+  function isStencilPanelEnabled(panelId) {
+    if (!STENCIL_ACTIVE || !STENCIL_ENABLED_SET || !panelId) return true;
+    return STENCIL_ENABLED_SET.has(panelId);
+  }
+  if (STENCIL_ACTIVE && STENCIL_ENABLED_SET) {
+    for (let i = NAV_DOMAINS.length - 1; i >= 0; i -= 1) {
+      NAV_DOMAINS[i].items = (NAV_DOMAINS[i].items || []).filter((it) => isStencilPanelEnabled(it.id));
+      if (NAV_DOMAINS[i].items.length === 0) {
+        NAV_DOMAINS.splice(i, 1);
+      }
+    }
+  }
+
   const LAB_SUBPANELS = new Set([
     "aks-commerce",
     "assurance-twin",
@@ -255,6 +273,7 @@
 
   function navigatePanel(panelId, replace) {
     if (!panelId) return;
+    if (!isStencilPanelEnabled(panelId)) return;
     const targetUrl = panelUrl(panelId);
     const localEl = document.querySelector(`.panel-view[data-panel-id="${panelId}"]`);
     if (localEl) {
@@ -305,6 +324,7 @@
     try {
       const url = new URL(location.href);
       const clean = itemId == null ? "" : String(itemId).trim();
+      const prev = url.searchParams.get("item") || "";
       if (clean) {
         url.searchParams.set("item", clean);
         if (opts.extraParams && typeof opts.extraParams === "object") {
@@ -320,13 +340,15 @@
         }
       }
       const next = `${url.pathname}${url.search}${url.hash}`;
-      if (next !== `${location.pathname}${location.search}${location.hash}`) {
+      const changed = next !== `${location.pathname}${location.search}${location.hash}`;
+      if (changed) {
         if (opts.push) history.pushState({ panelId: currentPanelId, itemId: clean || null }, "", next);
         else history.replaceState({ panelId: currentPanelId, itemId: clean || null }, "", next);
       }
-      if (!opts.silent) {
+      // Emit selectionchange only when explicitly requested (e.g. popstate/external) to avoid re-entrant drawer loops
+      if (opts.emit === true && (changed || prev !== clean)) {
         window.dispatchEvent(new CustomEvent("fdai:selectionchange", {
-          detail: { itemId: clean || null, panelId: currentPanelId, url: location.href }
+          detail: { itemId: clean || null, panelId: currentPanelId, url: location.href, source: opts.source || "programmatic" }
         }));
       }
     } catch (_e) {}
@@ -405,7 +427,7 @@
     { id: "hil-queue", label: "승인 요청" },
     { id: "ontology", label: "온톨로지" },
     { id: "command-deck-chat", label: "AI 채팅" }
-  ];
+  ].filter((it) => isStencilPanelEnabled(it.id));
 
   const SAMPLE_MENU_BADGES = {
     incidents: "3",
@@ -454,7 +476,6 @@
           <span>FDAI</span>
           <span class="brand-sub">운영 콘솔</span>
         </a>
-        <button type="button" class="topbar-nav-toggle" id="fdaiNavToggleBtn" aria-label="메뉴 플라이아웃 열기/닫기" aria-expanded="false">▶</button>
       </div>
       <div class="topbar-right">
         <button type="button" class="top-pill" id="fdaiQuickJumpBtn" aria-label="전체 메뉴 빠른 검색 (Ctrl+K)"><span>메뉴 검색</span><span class="count-num">⌘K</span></button>
@@ -468,10 +489,6 @@
         <button type="button" class="icon-btn" id="fdaiThemeToggle" aria-label="라이트 다크 테마 전환">${ICONS.theme}</button>
       </div>
     `;
-    document.getElementById("fdaiNavToggleBtn")?.addEventListener("click", (e) => {
-      e.stopPropagation();
-      toggleExplorer();
-    });
     document.getElementById("fdaiQuickJumpBtn")?.addEventListener("click", () => openCommandPalette());
     document.getElementById("fdaiChatTrigger")?.addEventListener("click", () => toggleChatSidebar());
     document.getElementById("fdaiThemeToggle")?.addEventListener("click", () => {
@@ -522,8 +539,6 @@
     explorerPinned = false;
     explorer.classList.remove("is-pinned");
     explorer.hidden = true;
-    const tbtn = document.getElementById("fdaiNavToggleBtn");
-    if (tbtn) { tbtn.textContent = "▶"; tbtn.setAttribute("aria-expanded", "false"); }
   }
 
   function renderExplorerLink(it, domId) {
@@ -538,13 +553,7 @@
   function renderExplorerContents() {
     const explorer = document.getElementById("fdaiExplorer");
     if (!explorer) return;
-    const tbtn = document.getElementById("fdaiNavToggleBtn");
-    if (tbtn) {
-      const open = !explorer.hidden;
-      tbtn.textContent = open ? "◀" : "▶";
-      tbtn.setAttribute("aria-expanded", String(open));
-    }
-    const sl = NAV_DOMAINS[5];
+    const sl = NAV_DOMAINS.find((d) => d.id === "settings_labs") || { id: "settings_labs", label: "설정 · 실험실", file: "/settings", items: [] };
     const labsDomainObj = { id: "labs_only", label: "개발 전용 실험실", file: "/labs", items: sl.items.filter((it) => !it.id.startsWith("settings-")) };
     const settingsDomainObj = { id: "settings_only", label: "시스템 설정", file: "/settings", items: sl.items.filter((it) => it.id.startsWith("settings-")) };
     const isLabsOnly = !explorerShowAll && explorerDomainId === "labs_only";
@@ -552,8 +561,9 @@
     const domainsToShow = explorerShowAll
       ? NAV_DOMAINS
       : (isLabsOnly ? [labsDomainObj] : isSettingsOnly ? [settingsDomainObj] : NAV_DOMAINS.filter((d) => d.id === explorerDomainId));
-    const curDom = isLabsOnly ? labsDomainObj : isSettingsOnly ? settingsDomainObj : (NAV_DOMAINS.find((d) => d.id === explorerDomainId) || NAV_DOMAINS[0]);
-    const headTitle = explorerShowAll ? "전체 메뉴 (65)" : `${curDom.label} (${curDom.items.length})`;
+    const curDom = isLabsOnly ? labsDomainObj : isSettingsOnly ? settingsDomainObj : (NAV_DOMAINS.find((d) => d.id === explorerDomainId) || NAV_DOMAINS[0] || settingsDomainObj);
+    const totalVisibleMenus = NAV_DOMAINS.reduce((acc, d) => acc + (d.items ? d.items.length : 0), 0) + (isStencilPanelEnabled("command-deck-chat") ? 1 : 0);
+    const headTitle = explorerShowAll ? `전체 메뉴 (${totalVisibleMenus})` : `${curDom.label} (${curDom.items.length})`;
     explorer.classList.toggle("is-pinned", explorerPinned);
 
     const renderDomainSection = (d) => {
@@ -590,7 +600,7 @@
       </div>
       <div class="explorer-divider"></div>
       <div class="explorer-section">
-        <a class="explorer-link" href="/labs"><span class="explorer-link-label">개발 전용 실험실</span></a>
+        ${labsDomainObj.items.length > 0 ? `<a class="explorer-link" href="/labs"><span class="explorer-link-label">개발 전용 실험실</span></a>` : ""}
         <a class="explorer-link" href="/settings/general"><span class="explorer-link-label">시스템 설정</span></a>
         <a class="explorer-link" href="/components"><span class="explorer-link-label">공용 컴포넌트 카탈로그</span></a>
       </div>
@@ -646,7 +656,7 @@
     const rail = document.getElementById("fdaiRail");
     const explorer = document.getElementById("fdaiExplorer");
     if (rail) {
-      const topHtml = NAV_DOMAINS.slice(0, 5).map((d) => `
+      const topHtml = NAV_DOMAINS.filter((d) => d.id !== "settings_labs").map((d) => `
         <button type="button" class="rail-btn${d.id === activeDomain ? " is-active" : ""}"${d.id === activeDomain ? ` aria-current="page"` : ""} data-rail-domain="${d.id}" data-tip="${d.label}" aria-label="${d.label} 하위 메뉴 열기">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d.icon}"/></svg>
         </button>
@@ -654,11 +664,14 @@
       const isChatActive = activeDomain === "chat";
       const isLabsActive = activeDomain === "labs" || (activeDomain === "settings_labs" && !currentPanelId.startsWith("settings-"));
       const isSettingsActive = activeDomain === "settings" || (activeDomain === "settings_labs" && currentPanelId.startsWith("settings-"));
+      const slDom = NAV_DOMAINS.find((d) => d.id === "settings_labs");
+      const hasLabsEnabled = Boolean(slDom && slDom.items.some((it) => !it.id.startsWith("settings-")));
+      const hasChatEnabled = isStencilPanelEnabled("command-deck-chat");
       rail.innerHTML = `
         <div class="rail-group">${topHtml}</div>
         <div class="rail-group">
-          <a class="rail-btn${isChatActive ? " is-active" : ""}"${isChatActive ? ` aria-current="page"` : ""} href="${IS_STATIC_MOCK ? "mockup-chat.html" : "/chat"}" data-tip="AI 채팅" aria-label="AI 채팅">${ICONS.chat}</a>
-          <button type="button" class="rail-btn${isLabsActive ? " is-active" : ""}"${isLabsActive ? ` aria-current="page"` : ""} id="railLabsBtn" data-tip="개발 전용 실험실" aria-label="개발 전용 실험실 메뉴 열기">${ICONS.labs}</button>
+          ${hasChatEnabled ? `<a class="rail-btn${isChatActive ? " is-active" : ""}"${isChatActive ? ` aria-current="page"` : ""} href="${IS_STATIC_MOCK ? "mockup-chat.html" : "/chat"}" data-tip="AI 채팅" aria-label="AI 채팅">${ICONS.chat}</a>` : ""}
+          ${hasLabsEnabled ? `<button type="button" class="rail-btn${isLabsActive ? " is-active" : ""}"${isLabsActive ? ` aria-current="page"` : ""} id="railLabsBtn" data-tip="개발 전용 실험실" aria-label="개발 전용 실험실 메뉴 열기">${ICONS.labs}</button>` : ""}
           <button type="button" class="rail-btn${isSettingsActive ? " is-active" : ""}"${isSettingsActive ? ` aria-current="page"` : ""} id="railSettingsBtn" aria-controls="settings-overlay" aria-expanded="false" data-tip="설정 (Ctrl+,)" aria-label="설정 열기">${ICONS.settings}</button>
         </div>
       `;
@@ -697,7 +710,7 @@
         const target = e.target;
         if (!(target instanceof Element)) return;
         if (exp.contains(target)) return;
-        if (target.closest("#fdaiRail, #fdaiNavToggleBtn, [data-toggle-explorer]")) return;
+        if (target.closest("#fdaiRail, [data-toggle-explorer]")) return;
         closeExplorer();
       }, true);
       document.addEventListener("keydown", (e) => {
@@ -721,7 +734,7 @@
   }
 
   async function refreshLiveSidebarState() {
-    if (!isShellLiveMode() || IS_STATIC_MOCK) return;
+    if (!isShellLiveMode() || IS_STATIC_MOCK || activeDomain === "chat") return;
     try {
       const [readyRes, sessRes] = await Promise.all([
         fetch("/readyz", { headers: { Accept: "application/json" } }).then((r) => r.ok ? r.json() : null).catch(() => null),
@@ -732,16 +745,24 @@
         : Array.isArray(sessRes?.sessions) ? sessRes.sessions
         : Array.isArray(sessRes?.data?.sessions) ? sessRes.data.sessions
         : [];
+      const fmtTs = (iso) => {
+        if (!iso) return "로컬 DB 실측";
+        if (window.fdaiV4Humanize && typeof window.fdaiV4Humanize.timestamp === "function") {
+          return window.fdaiV4Humanize.timestamp(iso);
+        }
+        return String(iso);
+      };
       liveChatThreads = items.map((s, idx) => ({
         id: String(s.id || s.session_id || s.conversation_id || `live-${idx}`),
-        title: String(s.title || s.summary || s.session_id || "실측 대화"),
-        sub: String(s.updated_at || s.created_at || "PostgreSQL 실측"),
-        unread: false,
-        starred: false,
+        title: String(s.display_title || s.title || s.summary || s.session_id || "실측 대화"),
+        sub: String(s.display_subtitle || (s.updated_at || s.created_at ? fmtTs(s.updated_at || s.created_at) : "로컬 DB 실측")),
+        unread: Boolean(s.unread),
+        starred: Boolean(s.starred),
         user: "",
         agent: "",
         messages: Array.isArray(s.messages) ? s.messages : [],
         isLiveRecord: true,
+        recordKind: String(s.record_kind || ""),
       }));
       liveChatLoaded = true;
       if (liveChatThreads.length && !liveChatThreads.some((t) => t.id === liveChatActiveId)) {
@@ -750,7 +771,37 @@
     } catch (_e) {
       liveChatLoaded = true;
     }
-    syncChatSidebarForDataMode();
+    syncChatSidebarForDataMode({ preserveTranscript: true });
+  }
+
+  async function loadShellLiveSessionTurns(sessionId) {
+    if (!sessionId || !isShellLiveMode() || activeDomain === "chat") return;
+    const inner = document.getElementById("chatTranscriptInner");
+    const scroller = document.getElementById("chatTranscript");
+    if (!inner) return;
+    try {
+      const resp = await fetch(`/api/v4/chat/sessions/${encodeURIComponent(sessionId)}/turns`, {
+        headers: { Accept: "application/json" },
+      });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const turns = Array.isArray(data?.turns) ? data.turns : [];
+      if (!turns.length) {
+        renderActiveThread(null);
+        return;
+      }
+      inner.textContent = "";
+      if (window.fdaiChatEngine && typeof window.fdaiChatEngine.renderStoredTurn === "function") {
+        turns.forEach((turn) => {
+          window.fdaiChatEngine.renderStoredTurn(inner, turn, {
+            onQuickAsk: (q) => appendUserAndAgentTurn(q),
+          });
+        });
+      }
+      if (scroller) scroller.scrollTop = scroller.scrollHeight;
+    } catch (_e) {
+      // ignore fetch error
+    }
   }
 
   function renderHistoryItems() {
@@ -781,12 +832,19 @@
         const found = pool.find((x) => x.id === id);
         if (!found) return;
         found.unread = false;
-        if (liveMode) liveChatActiveId = found.id;
-        else activeThreadId = found.id;
-        if (!chatFullscreen) dockHistoryOpen = false;
-        renderActiveThread(found);
-        renderHistoryItems();
-        syncChatVisibility();
+        if (liveMode) {
+          liveChatActiveId = found.id;
+          if (!chatFullscreen) dockHistoryOpen = false;
+          renderHistoryItems();
+          syncChatVisibility();
+          loadShellLiveSessionTurns(found.id);
+        } else {
+          activeThreadId = found.id;
+          if (!chatFullscreen) dockHistoryOpen = false;
+          renderActiveThread(found);
+          renderHistoryItems();
+          syncChatVisibility();
+        }
       });
     });
   }
@@ -911,31 +969,48 @@
   }
 
   function renderActiveThread(thread) {
+    if (activeDomain === "chat") return;
     const inner = document.getElementById("chatTranscriptInner");
     if (!inner) return;
     if (isShellLiveMode()) {
       if (!thread || (!thread.user && !(thread.messages && thread.messages.length))) {
+        const pulse = window.fdaiV4Live && typeof window.fdaiV4Live.getLastPulse === "function" ? window.fdaiV4Live.getLastPulse() : null;
         const opUp = Boolean(liveChatReadySummary && liveChatReadySummary.operator_service_reachable);
-        const dbUp = Boolean(liveChatReadySummary && liveChatReadySummary.db_configured);
-        const statusDesc = opUp
-          ? "Operator API와 실측 PostgreSQL 원장이 연결되었습니다. 질문을 입력하면 실측 근거 기반 응답을 조회합니다."
-          : (dbUp
-            ? "로컬 PostgreSQL 실측 원장은 연결되어 있으나 Operator API(:8010)가 미연결 상태입니다. Live 모드에서는 예제 대화를 표시하지 않습니다."
-            : "Live 연결 상태를 확인 중입니다. Live 모드에서는 예제 대화를 표시하지 않습니다.");
+        const dbUp = Boolean((liveChatReadySummary && liveChatReadySummary.db_configured) || (pulse && pulse.measurement_status === "measured"));
+        const statusDesc = (opUp || dbUp)
+          ? "실측 온톨로지 · 인시던트 · 감사 원장과 연결되었습니다. 질문하시면 추론 과정(SQL · 프롬프트)과 함께 고속 스트리밍으로 답변합니다."
+          : "실측 운영 원장 연결을 확인하고 있습니다. 바로 질문하거나 추천 질의를 눌러 점검할 수 있습니다.";
         inner.innerHTML = `
-          <div class="chat-turn-agent">
-            <div class="chat-turn-meta">
-              <strong>FDAI Live 채팅</strong>
-              <span class="cs-badge ${opUp ? "tone-live" : "tone-neutral"}"><span class="cs-dot"></span>${opUp ? "실측 연결됨" : "Operator API 미연결"}</span>
+          <div class="chat-welcome-mini" data-chat-welcome="1">
+            <div class="chat-welcome-mini-brand">
+              <img src="/agent-icons/bragi.svg" alt="Bragi" width="28" height="28">
+              <div>
+                <h4 class="chat-welcome-mini-title">무엇을 점검할까요?</h4>
+                <p class="chat-welcome-mini-sub" id="chatWelcomeDesc">${escapeShellHtml(statusDesc)}</p>
+              </div>
             </div>
-            <div class="agent-prose"><p>${escapeShellHtml(statusDesc)}</p></div>
+            <div class="chat-welcome-mini-chips">
+              <button type="button" class="chat-starter-pill" data-quick-ask="/risks 현재 화면 리스크와 진행 인시던트 요약해 줘">
+                <strong>현재 리스크 · 인시던트 요약</strong>
+                <span>활성 인시던트와 우선 대응 항목 점검</span>
+              </button>
+              <button type="button" class="chat-starter-pill" data-quick-ask="/approvals 7대 안전장치 승인 대기 현황 점검해 줘">
+                <strong>승인 대기 · 7대 안전장치</strong>
+                <span>고위험 변경 승인 대기열 및 안전 경계</span>
+              </button>
+              <button type="button" class="chat-starter-pill" data-quick-ask="/ontology 현재 관측 중인 리소스 계통과 연결 상태 분석해 줘">
+                <strong>온톨로지 리소스 · 계통 분석</strong>
+                <span>실측 의존성 그래프와 SQL 근거 조회</span>
+              </button>
+            </div>
           </div>
         `;
+        wireRichReplyEvents(inner);
         return;
       }
       const turns = (thread.messages || []).map((m) => `
         <div class="chat-turn-user"><div class="chat-turn-meta"><span>운영자</span><span>${escapeShellHtml(m.ts || "")}</span></div><div class="chat-bubble-user">${escapeShellHtml(m.user || m.content || "")}</div></div>
-        ${m.agent ? `<div class="chat-turn-agent"><div class="chat-turn-meta"><strong>FDAI Live</strong><span class="cs-badge tone-live"><span class="cs-dot"></span>실측 응답</span></div><div class="agent-prose"><p>${escapeShellHtml(m.agent)}</p></div></div>` : ""}
+        ${m.agent ? `<div class="chat-turn-agent"><div class="chat-turn-meta"><strong>Bragi</strong><span class="cs-badge tone-live"><span class="cs-dot"></span>실측 응답</span></div><div class="agent-prose"><p>${escapeShellHtml(m.agent)}</p></div></div>` : ""}
       `).join("");
       inner.innerHTML = turns;
       return;
@@ -957,24 +1032,27 @@
     wireRichReplyEvents(inner);
   }
 
-  function syncChatSidebarForDataMode() {
+  function syncChatSidebarForDataMode(opts) {
+    if (activeDomain === "chat") return;
+    const o = opts || {};
     const aside = document.getElementById("fdaiChatSidebar");
     if (!aside) return;
     const liveMode = isShellLiveMode();
-    const readiness = aside.querySelector(".chat-readiness");
-    if (readiness) {
+    const liveDotPill = document.getElementById("chatLiveStatusPill");
+    if (liveDotPill) {
       if (liveMode) {
+        const pulse = window.fdaiV4Live && typeof window.fdaiV4Live.getLastPulse === "function" ? window.fdaiV4Live.getLastPulse() : null;
         const opUp = Boolean(liveChatReadySummary && liveChatReadySummary.operator_service_reachable);
-        const dbUp = Boolean(liveChatReadySummary && liveChatReadySummary.db_configured);
-        const title = opUp ? "Operator API · PostgreSQL 실측 연결됨" : (dbUp ? "PostgreSQL 실측 연결됨 · Operator API 미연결" : "Live 연결 상태 미측정");
-        const badgeCls = opUp ? "tone-live" : "tone-neutral";
-        const badgeTxt = opUp ? "정상" : "미연결";
-        const detail = opUp
-          ? "실측 PostgreSQL 원장 및 Operator 대화 API가 응답 중입니다."
-          : "Operator API(:8010)가 실행되지 않아 실시간 대화 추론은 대기 중입니다. 예제 응답으로 대체하지 않습니다.";
-        readiness.innerHTML = `<summary><span>${escapeShellHtml(title)}</span><span class="cs-badge ${badgeCls}"><span class="cs-dot"></span>${badgeTxt}</span></summary><div style="padding-top:6px">${escapeShellHtml(detail)}</div>`;
+        const dbUp = Boolean((liveChatReadySummary && liveChatReadySummary.db_configured) || (pulse && pulse.measurement_status === "measured"));
+        liveDotPill.className = `cs-badge ${(opUp || dbUp) ? "tone-live" : "tone-neutral"}`;
+        liveDotPill.innerHTML = `<span class="cs-dot"></span><span>${opUp ? "운영 실측" : (dbUp ? "로컬 실측" : "확인 중")}</span>`;
+        const wDesc = document.getElementById("chatWelcomeDesc");
+        if (wDesc && (opUp || dbUp)) {
+          wDesc.textContent = "실측 온톨로지 · 인시던트 · 감사 원장과 연결되었습니다. 질문하시면 추론 과정(SQL · 프롬프트)과 함께 고속 스트리밍으로 답변합니다.";
+        }
       } else {
-        readiness.innerHTML = `<summary><span>근거 서비스 5 / 5 연결됨 (Sample)</span><span class="cs-badge tone-human"><span class="cs-dot"></span>Sample</span></summary><div style="padding-top:6px">온톨로지 · 감사 로그 · 승인 요청 · 운영 규칙 · 지식 관리 시뮬레이션 표본</div>`;
+        liveDotPill.className = "cs-badge tone-human";
+        liveDotPill.innerHTML = `<span class="cs-dot"></span><span>Sample</span>`;
       }
     }
     const inspPane = aside.querySelector(".chat-inspector-pane");
@@ -1028,13 +1106,14 @@
         `;
       }
     }
+    if (o.fromPulse) return;
     const slashPop = document.getElementById("chatSlashPopover");
     if (slashPop) {
       if (liveMode) {
         slashPop.innerHTML = `
           <button type="button" class="cmd-row" data-slash-pick="/risks 현재 화면 실측 리스크 요약"><span><strong>/risks</strong> · 현재 화면 실측 리스크 요약</span><span class="cs-badge tone-sre">SRE·보안</span></button>
           <button type="button" class="cmd-row" data-slash-pick="/approvals 승인 대기 우선순위"><span><strong>/approvals</strong> · 실측 승인 대기 우선순위 정리</span><span class="cs-badge tone-human">승인</span></button>
-          <button type="button" class="cmd-row" data-slash-pick="/ontology 리소스 관계 및 데이터 계통"><span><strong>/ontology</strong> · 실측 리소스 관계 및 데이터 계통 조회</span><span class="cs-badge tone-live">온톨로지</span></button>
+          <button type="button" class="cmd-row" data-slash-pick="/ontology 리소스 관계 및 데이터 계통"><span><strong>/ontology</strong> · 실측 리소스 관계 및 계통 조회</span><span class="cs-badge tone-live">온톨로지</span></button>
           <button type="button" class="cmd-row" data-slash-pick="/trace 최신 실행 추적 요약"><span><strong>/trace</strong> · 최신 실행 추적 및 감사 근거 요약</span><span class="cs-badge tone-neutral">감사</span></button>
         `;
       } else {
@@ -1055,6 +1134,11 @@
       });
     }
     renderHistoryItems();
+    const innerEl = document.getElementById("chatTranscriptInner");
+    const hasActiveConversation = Boolean(innerEl && innerEl.querySelector("[data-sse-turn], .chat-turn-user"));
+    if (liveMode && (o.preserveTranscript || hasActiveConversation)) {
+      return;
+    }
     const cur = liveMode
       ? (liveChatThreads.find((t) => t.id === liveChatActiveId) || liveChatThreads[0] || null)
       : (CHAT_THREADS.find((t) => t.id === activeThreadId) || CHAT_THREADS[0]);
@@ -1066,14 +1150,16 @@
     if (!aside) return;
     aside.innerHTML = `
       <div class="chat-resize-handle" id="chatResizeHandle" role="separator" aria-orientation="vertical" aria-label="채팅 사이드바 너비 조절" aria-valuemin="380" aria-valuemax="640" aria-valuenow="450" tabindex="0"></div>
-      <div class="chat-head">
+      <div class="chat-head chat-head-slim">
         <div class="chat-head-left">
           <button type="button" class="icon-btn" id="chatHistoryToggle" data-tip="대화 이력" aria-label="대화 이력 열기/닫기" aria-expanded="false">${ICONS.history}</button>
-          <h3 class="chat-head-title">에이전트 채팅</h3>
-          <span class="cs-badge tone-live"><span class="cs-dot"></span><span id="chatCtxBadge">${activeDomainLabel}</span></span>
+          <h3 class="chat-head-title">AI 어시스턴트</h3>
+          <span class="chat-ctx-pill" id="chatCtxBadge">${activeDomainLabel}</span>
+          <span class="cs-badge tone-neutral" id="chatLiveStatusPill"><span class="cs-dot"></span><span>확인 중</span></span>
         </div>
         <div class="chat-head-actions">
-          <button type="button" class="icon-btn" id="chatInspectorToggle" data-tip="대화 정보 · AI 요약 패널" aria-label="우측 대화 정보 패널 접기/펼치기" aria-pressed="true" hidden>${ICONS.panelRight}<span>대화 정보</span></button>
+          <button type="button" class="icon-btn" id="chatQuickNewBtn" data-tip="새 대화" aria-label="새 대화 시작">+</button>
+          <button type="button" class="icon-btn" id="chatInspectorToggle" data-tip="대화 정보 · AI 요약 패널" aria-label="우측 대화 정보 패널 접기/펼치기" aria-pressed="true" hidden>${ICONS.panelRight}</button>
           <button type="button" class="icon-btn" id="chatFullscreenToggle" data-tip="전체화면으로 확장" aria-label="전체화면 모드 전환">${ICONS.expand}</button>
           <button type="button" class="icon-btn" id="chatCloseBtn" data-tip="채팅 닫기 (Esc)" aria-label="채팅 닫기">${ICONS.close}</button>
         </div>
@@ -1088,53 +1174,48 @@
             <button type="button" class="seg-btn" data-hist-filter="unread">안 읽음</button>
             <button type="button" class="seg-btn" data-hist-filter="starred">즐겨찾기</button>
           </div>
-          <div id="chatHistoryList" style="display:grid;gap:6px"></div>
+          <div id="chatHistoryList" style="display:grid;gap:4px"></div>
         </div>
         <div class="chat-main-col">
-          <div class="chat-toolbar">
-            <select class="cs-select" id="chatModeSelect" aria-label="대화 모드" style="height:32px;min-height:32px;font-size:12.5px">
-              <option value="operator">운영자 모드</option>
-              <option value="discussion">에이전트 토론</option>
-            </select>
-            <select class="cs-select" id="chatTierSelect" aria-label="모델 티어" style="height:32px;min-height:32px;font-size:12.5px">
-              <option value="auto">티어: 자동 (T0 우선)</option>
-              <option value="t1">T1 고속 분류</option>
-              <option value="t2">T2 심층 추론</option>
-            </select>
-          </div>
-          <details class="chat-readiness">
-            <summary><span>근거 서비스 5 / 5 연결됨</span><span class="cs-badge tone-live"><span class="cs-dot"></span>정상</span></summary>
-            <div style="padding-top:6px">온톨로지 · 감사 로그 · 승인 요청 · 운영 규칙 · 지식 관리 모두 최신 응답 중</div>
-          </details>
           <div class="chat-transcript" id="chatTranscript">
             <div class="chat-transcript-inner" id="chatTranscriptInner"></div>
           </div>
-          <form class="chat-composer" id="chatForm">
+          <form class="chat-composer chat-composer-floating" id="chatForm">
             <div class="chat-composer-inner">
               <div class="slash-popover" id="chatSlashPopover" role="listbox" aria-label="슬래시 명령 자동완성" hidden>
                 <button type="button" class="cmd-row" data-slash-pick="/risks 현재 화면 리스크 요약"><span><strong>/risks</strong> · 현재 화면 핵심 리스크 요약</span><span class="cs-badge tone-sre">SRE·보안</span></button>
-                <button type="button" class="cmd-row" data-slash-pick="/approvals 승인 대기 우선순위"><span><strong>/approvals</strong> · 승인 대기 12건 우선순위 정리</span><span class="cs-badge tone-human">승인</span></button>
-                <button type="button" class="cmd-row" data-slash-pick="/ontology prod-aks-02 관계 및 데이터 계통"><span><strong>/ontology</strong> · 리소스 관계 및 데이터 계통 조회</span><span class="cs-badge tone-live">온톨로지</span></button>
-                <button type="button" class="cmd-row" data-slash-pick="/trace corr-8a91f 실행 추적 요약"><span><strong>/trace</strong> · 실행 추적 워터폴 및 감사 근거 요약</span><span class="cs-badge tone-neutral">감사</span></button>
+                <button type="button" class="cmd-row" data-slash-pick="/approvals 승인 대기 우선순위"><span><strong>/approvals</strong> · 승인 대기 우선순위 정리</span><span class="cs-badge tone-human">승인</span></button>
+                <button type="button" class="cmd-row" data-slash-pick="/ontology 리소스 관계 및 데이터 계통"><span><strong>/ontology</strong> · 리소스 관계 및 데이터 계통 조회</span><span class="cs-badge tone-live">온톨로지</span></button>
+                <button type="button" class="cmd-row" data-slash-pick="/trace 최신 실행 추적 요약"><span><strong>/trace</strong> · 실행 추적 워터폴 및 감사 근거 요약</span><span class="cs-badge tone-neutral">감사</span></button>
               </div>
-              <div class="chat-composer-bar">
-                <div class="toolbar-inline">
-                  <button type="button" class="cs-btn cs-btn-sm" id="chatAttachBtn">${ICONS.clip}<span>근거 첨부</span></button>
-                  <button type="button" class="signal-chip" data-slash-cmd="/risks">/risks</button>
-                  <button type="button" class="signal-chip" data-slash-cmd="/approvals">/approvals</button>
-                  <span class="cs-badge tone-live" id="chatAttachmentChip" hidden><span id="chatAttachmentName"></span><button type="button" id="chatAttachmentRemove" aria-label="첨부 제거" style="border:0;background:transparent;color:inherit;cursor:pointer;padding:0 2px;font-weight:700">×</button></span>
+              <div class="chat-pill-box">
+                <span class="cs-badge tone-live chat-pill-attach-chip" id="chatAttachmentChip" hidden><span id="chatAttachmentName"></span><button type="button" id="chatAttachmentRemove" aria-label="첨부 제거" style="border:0;background:transparent;color:inherit;cursor:pointer;padding:0 2px;font-weight:700">×</button></span>
+                <textarea class="chat-pill-textarea" id="chatInput" rows="1" aria-label="AI 에이전트에게 질문 입력" placeholder="운영 상태, 인시던트, 온톨로지 리소스를 질문하세요... (/ 명령어)"></textarea>
+                <div class="chat-pill-bar">
+                  <div class="chat-pill-left">
+                    <button type="button" class="chat-pill-icon-btn" id="chatAttachBtn" title="근거 첨부" aria-label="근거 첨부">${ICONS.clip}</button>
+                    <button type="button" class="chat-pill-icon-btn" id="chatSlashTriggerBtn" title="슬래시 명령어" aria-label="슬래시 명령어">/</button>
+                    <select class="chat-ghost-select" id="chatModeSelect" aria-label="대화 모드">
+                      <option value="operator">운영자</option>
+                      <option value="discussion">토론</option>
+                    </select>
+                    <select class="chat-ghost-select" id="chatTierSelect" aria-label="모델 티어">
+                      <option value="auto">자동 (T0)</option>
+                      <option value="t1">T1 고속</option>
+                      <option value="t2">T2 심층</option>
+                    </select>
+                  </div>
+                  <div class="chat-pill-right">
+                    <span class="toolbar-inline" id="chatBusyControls" hidden>
+                      <select class="chat-ghost-select" id="chatBusyMode" aria-label="응답 중 입력 모드">
+                        <option value="queue">대기열</option>
+                        <option value="steer">조향</option>
+                      </select>
+                      <button type="button" class="chat-circle-stop" id="chatStopBtn" aria-label="생성 중지" title="생성 중지">■</button>
+                    </span>
+                    <button type="submit" class="chat-circle-send" id="chatSendBtn" aria-label="전송" title="전송 (Enter)">↑</button>
+                  </div>
                 </div>
-                <div class="toolbar-inline" id="chatBusyControls" hidden>
-                  <select class="cs-select" id="chatBusyMode" aria-label="응답 중 입력 모드" style="height:30px;min-height:30px;font-size:12px">
-                    <option value="queue">대기열(Queue)</option>
-                    <option value="steer">조향(Steer)</option>
-                  </select>
-                  <button type="button" class="cs-btn cs-btn-sm" id="chatStopBtn">중지</button>
-                </div>
-              </div>
-              <div class="chat-input-row">
-                <textarea class="chat-textarea" id="chatInput" rows="2" aria-label="AI 에이전트에게 질문 입력" placeholder="현재 화면에 대해 질문하거나 / 명령을 입력하세요 (Enter 전송 · Shift+Enter 줄바꿈)"></textarea>
-                <button type="submit" class="cs-btn cs-btn-accent">전송</button>
               </div>
             </div>
           </form>
@@ -1143,19 +1224,7 @@
           <div class="insp-card">
             <div class="insp-title">대화 정보</div>
             <div class="insp-kv"><span>대상 화면</span><strong id="chatInspContext">${activeDomainLabel}</strong></div>
-            <div class="insp-kv"><span>구독 범위</span><strong>전체 Azure 구독 (3)</strong></div>
-            <div class="insp-kv"><span>추적 ID</span><strong class="cell-mono">corr-8a91f</strong></div>
-            <div class="insp-kv"><span>권한 경계</span><strong>조회 전용 · 위반 0건</strong></div>
-          </div>
-          <div class="insp-card">
-            <div class="insp-title">AI 요약</div>
-            <p class="insp-summary" id="chatInspSummary">prod-aks-02 CPU 포화 예측(+5m, 91%)과 kv-prod-kr 예외 만료 2건을 감사 원장과 대조했습니다. 변경 작업은 승인 요청(HIL-8841)으로 연결되었습니다.</p>
-          </div>
-          <div class="insp-card">
-            <div class="insp-title">추출된 후속 조치 초안</div>
-            <a class="insp-action-item" href="${panelUrl("hil-queue")}"><span>HIL-8841 · 노드 풀 확장 승인 검토</span><span>→</span></a>
-            <a class="insp-action-item" href="${panelUrl("ontology")}"><span>prod-aks-02 데이터 계통 확인</span><span>→</span></a>
-            <a class="insp-action-item" href="${panelUrl("trace")}"><span>corr-8a91f 실행 추적 열기</span><span>→</span></a>
+            <div class="insp-kv"><span>권한 경계</span><strong>조회 전용 · 실측 기준</strong></div>
           </div>
         </aside>
       </div>
@@ -1168,7 +1237,9 @@
       if (isShellLiveMode()) refreshLiveSidebarState().catch(() => {});
     });
     window.addEventListener("fdai:live-pulse", () => {
-      if (isShellLiveMode()) syncChatSidebarForDataMode();
+      if (isShellLiveMode() && activeDomain !== "chat") {
+        syncChatSidebarForDataMode({ fromPulse: true });
+      }
     });
 
     document.getElementById("chatCloseBtn")?.addEventListener("click", () => toggleChatSidebar(false));
@@ -1227,7 +1298,15 @@
         appendUserAndAgentTurn(`${cmd} — ${currentPanelTitle} 기준 조회`);
       });
     });
-    document.getElementById("chatNewBtn")?.addEventListener("click", () => {
+    const triggerNewChat = () => {
+      if (isShellLiveMode()) {
+        liveChatActiveId = `conv-${Date.now()}`;
+        renderActiveThread(null);
+        renderHistoryItems();
+        if (!chatFullscreen) { dockHistoryOpen = false; syncChatVisibility(); }
+        document.getElementById("chatInput")?.focus();
+        return;
+      }
       const nt = { id: `t-${Date.now()}`, title: `${currentPanelTitle} 새 질의`, sub: "방금 전 · 새 대화", unread: false, starred: false, user: "", agent: "", messages: [] };
       CHAT_THREADS.unshift(nt);
       activeThreadId = nt.id;
@@ -1241,12 +1320,26 @@
       }
       if (!chatFullscreen) { dockHistoryOpen = false; syncChatVisibility(); }
       document.getElementById("chatInput")?.focus();
+    };
+    document.getElementById("chatNewBtn")?.addEventListener("click", triggerNewChat);
+    document.getElementById("chatQuickNewBtn")?.addEventListener("click", triggerNewChat);
+    document.getElementById("chatSlashTriggerBtn")?.addEventListener("click", () => {
+      if (slashPop) slashPop.hidden = !slashPop.hidden;
+      document.getElementById("chatInput")?.focus();
     });
     document.getElementById("chatStopBtn")?.addEventListener("click", () => {
       isBusy = false;
       const busy = document.getElementById("chatBusyControls");
+      const sendBtn = document.getElementById("chatSendBtn");
       if (busy) busy.hidden = true;
+      if (sendBtn) sendBtn.hidden = false;
     });
+    const autoGrowShellInput = () => {
+      const inp = document.getElementById("chatInput");
+      if (!inp) return;
+      inp.style.height = "auto";
+      inp.style.height = `${Math.min(inp.scrollHeight, 160)}px`;
+    };
     document.getElementById("chatForm")?.addEventListener("submit", (ev) => {
       ev.preventDefault();
       if (slashPop) slashPop.hidden = true;
@@ -1254,9 +1347,11 @@
       const text = (input?.value || "").trim();
       if (!text) return;
       input.value = "";
+      autoGrowShellInput();
       appendUserAndAgentTurn(text);
     });
     document.getElementById("chatInput")?.addEventListener("input", (ev) => {
+      autoGrowShellInput();
       const val = (ev.target.value || "").trim();
       if (slashPop) slashPop.hidden = !val.startsWith("/");
     });
@@ -1292,16 +1387,69 @@
     syncChatVisibility();
   }
 
+  let shellStreamAbortController = null;
+
   function appendUserAndAgentTurn(text) {
     const inner = document.getElementById("chatTranscriptInner");
     const scroller = document.getElementById("chatTranscript");
     const busy = document.getElementById("chatBusyControls");
     if (!inner) return;
-    const now = new Date().toTimeString().slice(0, 5);
-    const att = stagedFile ? `<div class="chat-turn-meta">첨부: ${stagedFile}</div>` : "";
+    const attachedFiles = stagedFile ? [stagedFile] : [];
     stagedFile = null;
     const chip = document.getElementById("chatAttachmentChip");
     if (chip) chip.hidden = true;
+
+    if (isShellLiveMode() && window.fdaiChatEngine && typeof window.fdaiChatEngine.streamTurn === "function") {
+      if (shellStreamAbortController) {
+        try { shellStreamAbortController.abort(); } catch (_e) {}
+      }
+      const ctrl = new AbortController();
+      shellStreamAbortController = ctrl;
+      isBusy = true;
+      const sendBtn = document.getElementById("chatSendBtn");
+      if (busy) busy.hidden = false;
+      if (sendBtn) sendBtn.hidden = true;
+      const busySel = document.getElementById("chatBusyMode");
+      const stopBtn = document.getElementById("chatStopBtn");
+      if (stopBtn) {
+        stopBtn.onclick = () => {
+          try { ctrl.abort(); } catch (_e) {}
+        };
+      }
+      window.fdaiChatEngine
+        .streamTurn({
+          message: text,
+          sessionId: liveChatActiveId || "active",
+          mode: chatMode,
+          tier: chatTier,
+          context: `${activeDomainLabel} / ${currentPanelTitle}`,
+          selectedNode: currentPanelId || "active-scope",
+          busyMode: busySel ? busySel.value : "queue",
+          attachments: attachedFiles,
+          transcriptEl: inner,
+          scrollerEl: scroller,
+          signal: ctrl.signal,
+          onQuickAsk: (q) => appendUserAndAgentTurn(q),
+        })
+        .then((res) => {
+          if (res && res.sessionId) {
+            liveChatActiveId = res.sessionId;
+          }
+          refreshLiveSidebarState().catch(() => {});
+        })
+        .finally(() => {
+          if (shellStreamAbortController === ctrl) {
+            shellStreamAbortController = null;
+            isBusy = false;
+            if (busy) busy.hidden = true;
+            if (sendBtn) sendBtn.hidden = false;
+          }
+        });
+      return;
+    }
+
+    const now = new Date().toTimeString().slice(0, 5);
+    const att = attachedFiles.length ? `<div class="chat-turn-meta">첨부: ${escapeShellHtml(attachedFiles[0])}</div>` : "";
 
     const u = document.createElement("div");
     u.className = "chat-turn-user";
@@ -1323,8 +1471,10 @@
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({
           message: text,
+          session_id: liveChatActiveId || "active",
           panel_id: currentPanelId,
           domain: activeDomain,
+          context: `${activeDomainLabel} / ${currentPanelTitle}`,
           mode: chatMode,
           tier: chatTier,
         }),
@@ -1339,14 +1489,14 @@
           const answer = res.ok && res.data && (res.data.reply || res.data.answer || res.data.content || res.data.message);
           if (answer) {
             grounding.innerHTML = `
-              <div class="chat-turn-meta"><strong>FDAI Live · 응답</strong><span class="cs-badge tone-live"><span class="cs-dot"></span>실측 응답</span></div>
+              <div class="chat-turn-meta"><strong>Bragi</strong><span class="cs-badge tone-live"><span class="cs-dot"></span>로컬 DB 실측</span></div>
               <div class="agent-prose"><p>${escapeShellHtml(answer)}</p></div>
             `;
           } else {
-            const reason = (res.data && (res.data.reason || res.data.error || res.data.detail)) || (res.status ? `HTTP ${res.status}` : "Operator API 미연결");
+            const reason = (res.data && (res.data.reason || res.data.error || res.data.detail)) || (res.status ? `HTTP ${res.status}` : "실측 백엔드 미연결");
             grounding.innerHTML = `
-              <div class="chat-turn-meta"><strong>FDAI Live</strong><span class="cs-badge tone-neutral"><span class="cs-dot"></span>미연결 · 미측정</span></div>
-              <div class="agent-prose"><p>실측 대화 백엔드 응답을 받지 못했습니다 (${escapeShellHtml(reason)}). Live 모드에서는 예제 답변을 생성하지 않습니다.</p></div>
+              <div class="chat-turn-meta"><strong>Bragi</strong><span class="cs-badge tone-neutral"><span class="cs-dot"></span>미연결 · 미측정</span></div>
+              <div class="agent-prose"><p>실측 대화 응답을 받지 못했습니다 (${escapeShellHtml(reason)}). Live 모드에서는 예제 답변을 생성하지 않습니다.</p></div>
             `;
           }
           if (scroller) scroller.scrollTop = scroller.scrollHeight;
@@ -1355,8 +1505,8 @@
           isBusy = false;
           if (busy) busy.hidden = true;
           grounding.innerHTML = `
-            <div class="chat-turn-meta"><strong>FDAI Live</strong><span class="cs-badge tone-neutral"><span class="cs-dot"></span>미연결</span></div>
-            <div class="agent-prose"><p>Operator API에 연결할 수 없습니다. Live 모드에서는 예제 답변을 생성하지 않습니다.</p></div>
+            <div class="chat-turn-meta"><strong>Bragi</strong><span class="cs-badge tone-neutral"><span class="cs-dot"></span>미연결</span></div>
+            <div class="agent-prose"><p>대화 서버에 연결할 수 없습니다. Live 모드에서는 예제 답변을 생성하지 않습니다.</p></div>
           `;
           if (scroller) scroller.scrollTop = scroller.scrollHeight;
         });
@@ -1463,7 +1613,9 @@
       const inp = document.getElementById("fdaiCmdInput");
       const allItems = [];
       NAV_DOMAINS.forEach((d) => d.items.forEach((it) => allItems.push({ dom: d.id, domLbl: d.label, file: d.file, id: it.id, label: it.label })));
-      allItems.push({ dom: "chat", domLbl: "AI 채팅", file: "/chat", id: "command-deck-chat", label: "AI 채팅 (우측 사이드바 · 3단 전체화면)" });
+      if (isStencilPanelEnabled("command-deck-chat")) {
+        allItems.push({ dom: "chat", domLbl: "AI 채팅", file: "/chat", id: "command-deck-chat", label: "AI 채팅 (우측 사이드바 · 3단 전체화면)" });
+      }
       const renderList = () => {
         const q = (inp?.value || "").trim().toLowerCase();
         const list = document.getElementById("fdaiCmdList");
@@ -3040,8 +3192,8 @@
         <div class="cs-float-drawer-foot" id="fdaiFloatDrawerFoot"></div>
       `;
       document.body.appendChild(drawer);
-      document.getElementById("fdaiFloatDrawerClose")?.addEventListener("click", closeFloatingDrawer);
-      drawer.querySelector("[data-float-pin]")?.addEventListener("click", toggleInspectorPin);
+      document.getElementById("fdaiFloatDrawerClose")?.addEventListener("click", () => closeFloatingDrawer(false));
+      drawer.querySelector("[data-float-pin]")?.addEventListener("click", () => toggleInspectorPin());
     }
     return { scrim, drawer };
   }
@@ -3075,6 +3227,30 @@
     syncInspectorPinState();
     showToast(drawerPinned ? "우측 상세 패널을 화면에 고정했습니다 (Esc로 닫기)." : "우측 상세 패널을 플로팅 모드로 전환했습니다.");
   }
+  const inlineInspectorAnchors = new WeakMap();
+
+  function portalInlineInspectorToBody(asideEl) {
+    if (!asideEl || asideEl.parentElement === document.body) return;
+    const parent = asideEl.parentElement;
+    if (!parent) return;
+    const anchor = document.createComment("fdai-float-inspector-anchor");
+    parent.insertBefore(anchor, asideEl);
+    inlineInspectorAnchors.set(asideEl, anchor);
+    document.body.appendChild(asideEl);
+    asideEl.setAttribute("data-float-portaled", "1");
+  }
+
+  function restoreInlineInspectorOrigin(asideEl) {
+    if (!asideEl) return;
+    const anchor = inlineInspectorAnchors.get(asideEl);
+    if (anchor && anchor.parentNode) {
+      anchor.parentNode.insertBefore(asideEl, anchor);
+      anchor.parentNode.removeChild(anchor);
+    }
+    inlineInspectorAnchors.delete(asideEl);
+    asideEl.removeAttribute("data-float-portaled");
+  }
+
   function closeFloatingDrawer(skipRelease) {
     const scrim = document.getElementById("fdaiFloatDrawerScrim");
     const drawer = document.getElementById("fdaiFloatDrawer");
@@ -3091,6 +3267,7 @@
     if (activeInlineInspector) {
       activeInlineInspector.classList.remove("is-float-open");
       activeInlineInspector.classList.remove("is-pin-docked");
+      restoreInlineInspectorOrigin(activeInlineInspector);
       activeInlineInspector = null;
     }
     document.body.classList.remove("has-docked-inspector");
@@ -3108,8 +3285,13 @@
     if (activeInlineInspector && activeInlineInspector !== asideEl) {
       activeInlineInspector.classList.remove("is-float-open");
       activeInlineInspector.classList.remove("is-pin-docked");
+      restoreInlineInspectorOrigin(activeInlineInspector);
     }
     ensureFloatDrawer();
+    if (asideEl.getAttribute("data-float-inspector") !== "panel") {
+      asideEl.setAttribute("data-float-inspector", "panel");
+    }
+    portalInlineInspectorToBody(asideEl);
     lastFloatDrawerTrigger = triggerEl || document.activeElement;
     activeInlineInspector = asideEl;
     asideEl.classList.add("is-float-open");
@@ -4235,10 +4417,19 @@
     const content = document.getElementById("soContent");
     const fullLink = document.getElementById("soOpenFullPageLink");
     if (!navList || !content) return;
-    const activeGroup = findSettingsGroupForPanel(soState.activePanel);
+    if (!isStencilPanelEnabled(soState.activePanel)) {
+      soState.activePanel = "settings-general";
+    }
+    const visibleSettingsGroups = SETTINGS_GROUPS.map((g) => ({
+      ...g,
+      tabs: g.tabs.filter((t) => isStencilPanelEnabled(t.id)),
+    })).filter((g) => g.tabs.length > 0);
+    const activeGroup = visibleSettingsGroups.find((g) => g.tabs.some((t) => t.id === soState.activePanel))
+      || visibleSettingsGroups[0]
+      || findSettingsGroupForPanel(soState.activePanel);
     if (fullLink) fullLink.setAttribute("href", panelUrl(soState.activePanel));
 
-    navList.innerHTML = SETTINGS_GROUPS.map((g) => {
+    navList.innerHTML = visibleSettingsGroups.map((g) => {
       const isCur = g.id === activeGroup.id;
       return `
         <li>
@@ -4583,7 +4774,7 @@
       window.dispatchEvent(new CustomEvent("fdai:panelchange", { detail: { panelId: pid, url: location.pathname } }));
     }
     window.dispatchEvent(new CustomEvent("fdai:selectionchange", {
-      detail: { itemId: getSelectedItemFromUrl() || null, panelId: pid || currentPanelId, url: location.href }
+      detail: { itemId: getSelectedItemFromUrl() || null, panelId: pid || currentPanelId, url: location.href, source: "popstate" }
     }));
   });
   window.addEventListener("hashchange", () => {
@@ -4986,9 +5177,10 @@
         if (attrRows) rows = parseUtRows(attrRows);
       }
 
-      // Auto-enrich scatter plot points (e.g. "19:38 · SRE 이상 · pg-orders-kr 연결 풀 78% 접근 (위험도 62)")
+      // Auto-enrich legacy scatter plot points ONLY when structured data-ut-title / data-ut-rows are absent
       const rawTip = (el instanceof Element ? (el.getAttribute("data-tip-text") || "") : "") || p.body || "";
-      if (el instanceof Element && el.classList.contains("scatter-pt") && rawTip) {
+      const hasStructuredUt = el instanceof Element && Boolean(el.getAttribute("data-ut-title")) && (rows.length > 0 || Boolean(el.getAttribute("data-ut-body")));
+      if (el instanceof Element && el.classList.contains("scatter-pt") && rawTip && !hasStructuredUt) {
         const parts = rawTip.split("·").map((s) => s.trim()).filter(Boolean);
         const ts = parts[0] || "";
         const cat = parts[1] || "관측 이벤트";
@@ -7931,11 +8123,22 @@ stream::iter(arm_inventory_pages) // 2,213+ Azure Resources
     }
   }, true);
   window.activatePanel = activatePanel;
+  if (STENCIL_ACTIVE) {
+    document.querySelectorAll(".panel-view[data-panel-id]").forEach((el) => {
+      const pid = el.getAttribute("data-panel-id");
+      if (pid && !isStencilPanelEnabled(pid)) el.hidden = true;
+    });
+    document.querySelectorAll("[data-tab], [data-panel], [data-target-panel]").forEach((el) => {
+      const pid = el.getAttribute("data-tab") || el.getAttribute("data-panel") || el.getAttribute("data-target-panel");
+      if (pid && !isStencilPanelEnabled(pid)) el.hidden = true;
+    });
+  }
   const initialPanel = panelFromLocation();
-  if (initialPanel && document.querySelector(`.panel-view[data-panel-id="${initialPanel}"]`)) {
+  if (initialPanel && isStencilPanelEnabled(initialPanel) && document.querySelector(`.panel-view[data-panel-id="${initialPanel}"]`)) {
     navigatePanel(initialPanel, true);
   } else {
-    const first = document.querySelector(".panel-view[data-panel-id]");
+    const first = Array.from(document.querySelectorAll(".panel-view[data-panel-id]"))
+      .find((el) => isStencilPanelEnabled(el.getAttribute("data-panel-id")));
     if (first) navigatePanel(first.getAttribute("data-panel-id"), true);
   }
 })();

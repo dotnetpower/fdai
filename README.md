@@ -126,8 +126,26 @@ rate. All targets require a measured baseline before they can be claimed
 
 ## Get started
 
+Run Console Web (`http://127.0.0.1:5290`) and Release Hub (`http://127.0.0.1:8022`) directly
+after cloning with the Rust stable toolchain (`rustup` / `cargo`) and `make` - no Python,
+Node.js build step, or Azure sign-in is required for a local loopback launch:
+
+```bash
+# Run Console Web (Pure-Rust Console v4) -> http://127.0.0.1:5290
+make console-v4-up
+
+# Run Release Hub (Pure-Rust server + prebuilt UI) -> http://127.0.0.1:8022
+make release-hub-up
+
+# Or start all 9 Pure-Rust services together (Core + Operator + Hubs + Console v4)
+make rust-fullstack-up
+# Stop all 9 services
+make rust-fullstack-down
+```
+
+- **Local quickstart (Console Web, Release Hub, Docker DB)**: [docs/user-guide/local-development-quickstart.md](docs/user-guide/local-development-quickstart.md)
+- **Developer checklist**: [DEVELOPING.md](DEVELOPING.md)
 - **User guide**: [docs/user-guide/get-started.md](docs/user-guide/get-started.md)
-- **Develop locally**: [docs/user-guide/local-development-quickstart.md](docs/user-guide/local-development-quickstart.md)
 - **Deploy to Azure**: [docs/user-guide/deploy-quickstart.md](docs/user-guide/deploy-quickstart.md).
   Clone deployment selects signed images through `hub.msfdai.com`; explicit source and offline
   installation remain available. Release Hub operators can view self-reported subscription requests.
@@ -142,7 +160,9 @@ lives in a separate fork, wired through the composition root
 
 | To learn about | Read |
 |----------------|------|
-| Docker and the complete local stack | [docs/user-guide/local-development-quickstart.md](docs/user-guide/local-development-quickstart.md) |
+| Running Console Web, Release Hub, and the local stack | [docs/user-guide/local-development-quickstart.md](docs/user-guide/local-development-quickstart.md) |
+| Local developer setup checklist | [DEVELOPING.md](DEVELOPING.md) |
+| Release Hub local startup and UI | [lifecycle_rs/release-hub/README.md](lifecycle_rs/release-hub/README.md) |
 | Azure subscription deployment | [docs/user-guide/deploy-quickstart.md](docs/user-guide/deploy-quickstart.md) |
 | The control loop and 3-tier routing | [architecture.instructions.md](.github/instructions/architecture.instructions.md) |
 | Deployment topology (headless core + PR delivery + thin console + ChatOps) | [app-shape.instructions.md](.github/instructions/app-shape.instructions.md) |

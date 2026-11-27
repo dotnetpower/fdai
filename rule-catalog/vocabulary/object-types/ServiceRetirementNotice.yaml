@@ -1,0 +1,39 @@
+schema_version: 1.0.0
+name: ServiceRetirementNotice
+version: 1.0.0
+key: id
+description: Tracked cloud service or API version retirement schedule correlated with live ontology resources.
+properties:
+  id:
+    type: string
+    required: true
+  service_name:
+    type: string
+    required: true
+  retiring_feature:
+    type: string
+    required: true
+  retirement_date:
+    type: string
+    required: true
+    description: ISO-8601 date (YYYY-MM-DD) of scheduled retirement.
+  replacement_target:
+    type: string
+    required: true
+  impact:
+    type: string
+    required: true
+  impacted_resource_count:
+    type: integer
+    required: true
+  migration_guidance_url:
+    type: string
+    required: false
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:ServiceRetirementNotice@1.0.0
+  content_hash: sha256:0ef07f834df5848791d6bb36c7c8eb5c79bf232d4a28ff7e25d70f48ea37f0bd
+  license: MIT
+  retrieved_at: '2026-11-27T00:00:00Z'
+authority_class: projection_owned
+freshness_max_age_seconds: 3600
